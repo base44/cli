@@ -9,8 +9,15 @@ const base44Color = chalk.bgHex("#E86B3C");
  *
  * @param commandFn - The async function to execute as the command
  */
-export async function runCommand(commandFn: () => Promise<void>): Promise<void> {
+export async function runCommand(
+  commandFn: () => Promise<void>
+): Promise<void> {
   intro(base44Color(" Base 44 "));
-  await commandFn();
-}
 
+  try {
+    await commandFn();
+  } catch (e) {
+    console.log("reporting error...");
+    console.error(e);
+  }
+}
