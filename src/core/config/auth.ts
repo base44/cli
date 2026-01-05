@@ -69,3 +69,4 @@ export async function deleteAuth(): Promise<void> {
     );
   }
 }
+

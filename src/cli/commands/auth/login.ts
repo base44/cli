@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import { tasks } from "@clack/prompts";
-import { writeAuth } from "@base44/cli-core";
+import { writeAuth } from "../../../core/config/auth.js";
 import { runCommand } from "../../utils/index.js";
 
 async function login(): Promise<void> {
@@ -25,3 +25,4 @@ export const loginCommand = new Command("login")
   .action(async () => {
     await runCommand(login);
   });
+

@@ -58,20 +58,17 @@ jobs:
 
       - name: Bump version
         if: steps.check-version.outputs.bump_version == 'true'
-        working-directory: packages/cli
         run: |
           npm version ${{ steps.check-version.outputs.version_type }} --no-git-tag-version
           echo "NEW_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
 
       - name: Set version manually
         if: steps.check-version.outputs.bump_version == 'false'
-        working-directory: packages/cli
         run: |
           npm version ${{ github.event.inputs.version }} --no-git-tag-version
           echo "NEW_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
 
       - name: Show package info
-        working-directory: packages/cli
         run: |
           echo "Package name: $(node -p "require('./package.json').name")"
           echo "Version: ${{ env.NEW_VERSION }}"
@@ -80,13 +77,11 @@ jobs:
 
       - name: Publish to NPM
         if: github.event.inputs.dry_run == 'false'
-        working-directory: packages/cli
         run: |
           npm publish --tag ${{ github.event.inputs.npm_tag }}
 
       - name: Dry run publish
         if: github.event.inputs.dry_run == 'true'
-        working-directory: packages/cli
         run: |
           npm publish --dry-run --tag ${{ github.event.inputs.npm_tag }}
 
@@ -95,7 +90,7 @@ jobs:
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git add packages/cli/package.json package-lock.json
+          git add package.json package-lock.json
           git commit -m "chore: bump version to ${{ env.NEW_VERSION }}"
           git tag v${{ env.NEW_VERSION }}
           git push origin HEAD:${{ github.ref }}

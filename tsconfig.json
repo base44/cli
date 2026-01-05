@@ -12,15 +12,10 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
     "types": ["node"]
   },
-  "files": [],
-  "references": [
-    {
-      "path": "./packages/core"
-    },
-    {
-      "path": "./packages/cli"
-    }
-  ]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "packages"]
 }

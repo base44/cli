@@ -30,7 +30,6 @@ jobs:
 
       - name: Generate preview package name and version
         id: preview_info
-        working-directory: packages/cli
         run: |
           PR_NUMBER="${{ github.event.number }}"
           COMMIT_HASH="${{ github.sha }}"
@@ -52,7 +51,6 @@ jobs:
           echo "full_package=@base44-preview/cli@$PREVIEW_VERSION" >> $GITHUB_OUTPUT
 
       - name: Update package.json for preview
-        working-directory: packages/cli
         run: |
           # Create a backup of original package.json
           cp package.json package.json.bak
@@ -86,7 +84,6 @@ jobs:
           echo "✅ Package.json updated successfully"
 
       - name: Final safety check before publish
-        working-directory: packages/cli
         run: |
           # Double-check package name one more time before publishing
           CURRENT_PACKAGE_NAME=$(node -p "require('./package.json').name")
@@ -103,7 +100,6 @@ jobs:
           echo "✅ Safety check passed. Package name is safe to publish."
 
       - name: Publish preview package
-        working-directory: packages/cli
         run: |
           if npm publish --tag preview; then
             echo "✅ Package published successfully"
@@ -114,7 +110,6 @@ jobs:
 
       - name: Restore original package.json
         if: always()
-        working-directory: packages/cli
         run: |
           if [ -f package.json.bak ]; then
             mv package.json.bak package.json

@@ -1,32 +1,44 @@
 {
-  "name": "@base44/cli",
-  "private": true,
-  "description": "Base44 CLI Monorepo - Unified interface for managing Base44 applications",
-  "packageManager": "npm@11.7.0",
-  "workspaces": [
-    "packages/*"
-  ],
+  "name": "base44",
+  "version": "0.0.1",
+  "description": "Base44 CLI - Unified interface for managing Base44 applications",
+  "type": "module",
+  "main": "./dist/cli/index.js",
+  "types": "./dist/cli/index.d.ts",
+  "bin": "./dist/cli/index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/cli/index.d.ts",
+      "default": "./dist/cli/index.js"
+    }
+  },
   "scripts": {
-    "build": "turbo run build",
-    "build:watch": "turbo watch build",
-    "dev": "turbo run dev",
-    "clean": "turbo run clean",
-    "lint": "turbo run lint"
+    "build": "tsc",
+    "dev": "tsx src/cli/index.ts",
+    "start": "node dist/cli/index.js",
+    "clean": "rm -rf dist",
+    "lint": "eslint src"
   },
   "keywords": [
     "base44",
     "cli",
-    "command-line",
-    "monorepo"
+    "command-line"
   ],
   "author": "",
   "license": "ISC",
+  "dependencies": {
+    "@clack/prompts": "^0.11.0",
+    "chalk": "^5.6.2",
+    "commander": "^12.1.0",
+    "zod": "^4.3.5"
+  },
   "devDependencies": {
+    "@types/node": "^22.10.5",
     "@typescript-eslint/eslint-plugin": "^8.51.0",
     "@typescript-eslint/parser": "^8.51.0",
     "eslint": "^9.39.2",
     "eslint-plugin-import": "^2.32.0",
-    "turbo": "^2.7.2",
+    "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   },
   "engines": {

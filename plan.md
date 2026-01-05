@@ -5,13 +5,12 @@ Generate a comprehensive CLI tool that provides a unified interface for managing
 
 ## Core Architecture
 
-### Monorepo Structure
-- **Root Package**: `base44-cli` - Monorepo root with Turborepo configuration
-- **Packages**:
-  - `@base44/cli-core` - Shared utilities, API clients, schemas, and configuration management (internal package)
-  - `base44` - Main CLI package (exported to npm, depends on `@base44/cli-core`)
-- **Build System**: Turborepo for fast, cached builds across packages
-- **Package Manager**: npm workspaces for monorepo dependency management
+### Project Structure
+- **Package**: `base44` - Single package published to npm
+- **Core Module**: `src/core/` - Shared utilities, API clients, schemas, and configuration management
+- **CLI Module**: `src/cli/` - CLI commands and entry point
+- **Build System**: TypeScript compiler (`tsc`) for production builds
+- **Package Manager**: npm for dependency management
 
 ### CLI Framework
 - **Technology**: TypeScript with Commander.js for CLI framework
@@ -165,87 +164,68 @@ Generate a comprehensive CLI tool that provides a unified interface for managing
 **Goal**: Set up the basic project structure and create placeholder commands for authentication.
 
 1. **Project Structure Setup**
-   - Create monorepo folder structure:
+   - Create project folder structure:
      ```
      cli/
-     ├── packages/
-     │   ├── core/                    # @base44/cli-core package
-     │   │   ├── src/
-     │   │   │   ├── api/            # API client code
-     │   │   │   ├── config/         # Configuration management
-     │   │   │   ├── schemas/        # Zod schemas
-     │   │   │   ├── utils/          # Utility functions
-     │   │   │   ├── types/          # TypeScript type definitions
-     │   │   │   └── index.ts        # Core package exports
-     │   │   ├── dist/               # Build output
-     │   │   ├── package.json
-     │   │   └── tsconfig.json
-     │   └── cli/                     # base44 package (main CLI)
-     │       ├── src/
-     │       │   ├── commands/
-     │       │   │   └── auth/
-     │       │   │       ├── login.ts
-     │       │   │       ├── whoami.ts
-     │       │   │       └── logout.ts
-     │       │   ├── utils/          # CLI-specific utilities
-     │       │   │   ├── index.ts
-     │       │   │   ├── packageVersion.ts
-     │       │   │   └── runCommand.ts
-     │       │   └── index.ts        # Main CLI entry point (with shebang)
-     │       ├── dist/               # Build output
-     │       ├── package.json
-     │       └── tsconfig.json
-     ├── package.json                 # Root package.json (base44-cli)
-     ├── turbo.json                   # Turborepo configuration
-     ├── tsconfig.json                # Base TypeScript configuration
+     ├── src/
+     │   ├── core/                    # Core module
+     │   │   ├── api/                # API client code
+     │   │   ├── config/             # Configuration management
+     │   │   ├── schemas/            # Zod schemas
+     │   │   ├── utils/              # Utility functions
+     │   │   ├── types/              # TypeScript type definitions
+     │   │   └── index.ts            # Core module exports
+     │   └── cli/                     # CLI module (main CLI)
+     │       ├── commands/
+     │       │   └── auth/
+     │       │       ├── login.ts
+     │       │       ├── whoami.ts
+     │       │       └── logout.ts
+     │       ├── utils/              # CLI-specific utilities
+     │       │   ├── index.ts
+     │       │   ├── packageVersion.ts
+     │       │   └── runCommand.ts
+     │       └── index.ts            # Main CLI entry point (with shebang)
+     ├── dist/                        # Build output
+     ├── package.json                 # Package configuration
+     ├── tsconfig.json                # TypeScript configuration
      ├── .gitignore
      └── README.md
      ```
 
 2. **Build Process & Configuration**
-   - Set up root TypeScript configuration (`tsconfig.json`) with project references
-   - Configure Turborepo (`turbo.json`) for monorepo builds
-   - Set up package-specific TypeScript configurations with composite mode
-   - Configure workspace dependencies (cli depends on core)
+   - Set up TypeScript configuration (`tsconfig.json`)
    - Set up source maps for debugging
-   - Configure output directory structure for each package
-   - **ES Modules**: All packages use `"type": "module"` for ES module support
+   - Configure output directory structure (`dist/`)
+   - **ES Modules**: Package uses `"type": "module"` for ES module support
    - **Development**: Use `tsx` for development/watch mode (not just `tsc`)
    - **Production**: Use `tsc` for production builds
 
 3. **Package.json Setup**
-  - **Root package.json** (`base44-cli`):
-    - Configure npm workspaces for monorepo
-    - Install Turborepo as dev dependency
-    - Set up root-level scripts for building all packages
-   - **Core package** (`@base44/cli-core`):
-     - Install shared dependencies:
+   - **Package** (`base44`):
+     - Install all dependencies:
        - `zod` - Schema validation
-     - Set up build scripts (`tsc` for build, `tsx watch` for dev)
-   - **CLI package** (`base44`):
-     - Install CLI-specific dependencies:
        - `commander` - CLI framework
        - `@clack/prompts` - User prompts and UI components
        - `chalk` - Terminal colors (Base44 brand color: #E86B3C)
-       - `@base44/cli-core` - npm workspace dependency on core package (using `*` protocol)
      - Set up bin entry point for CLI executable (`./dist/index.js`)
      - Set up build and dev scripts
-     - **Shebang**: Main entry point (`src/index.ts`) includes `#!/usr/bin/env node`
+     - **Shebang**: Main entry point (`src/cli/index.ts`) includes `#!/usr/bin/env node`
 
 4. **Authentication Commands (Implemented)**
    - Create `base44 login` command
      - Use Commander.js to register command
      - Use `@clack/prompts` tasks for async operations
-     - Store auth data using `writeAuth` from `@base44/cli-core`
+     - Store auth data using `writeAuth` from `src/core/config/auth.js`
      - Wrap with `runCommand` utility for consistent branding
    - Create `base44 whoami` command
      - Use Commander.js to register command
-     - Read auth data using `readAuth` from `@base44/cli-core`
+     - Read auth data using `readAuth` from `src/core/config/auth.js`
      - Display user information using `@clack/prompts` log
      - Wrap with `runCommand` utility for consistent branding
    - Create `base44 logout` command
      - Use Commander.js to register command
-     - Delete auth data using `deleteAuth` from `@base44/cli-core`
+     - Delete auth data using `deleteAuth` from `src/core/config/auth.js`
      - Wrap with `runCommand` utility for consistent branding
    - Ensure all commands are properly registered in main CLI entry point
    - Test that commands are accessible and show help text
@@ -303,13 +283,13 @@ Generate a comprehensive CLI tool that provides a unified interface for managing
 ## Technical Considerations
 
 ### Configuration
-- **Global Auth Config**: Stored in `~/.base44/auth/auth.json` (managed by `@base44/cli-core`)
+- **Global Auth Config**: Stored in `~/.base44/auth/auth.json` (managed by `src/core/config/auth.ts`)
 - Local config file (`.base44/config.json` or similar) - for project-specific settings
 - Global config for user preferences
 - Environment-specific settings
 - **Zod schema validation for all configuration files** - Validate config structure and values
 - Type-safe config access using Zod-inferred types
-- **File System Utilities**: Cross-platform file operations in `packages/core/src/utils/fs.ts`
+- **File System Utilities**: Cross-platform file operations in `src/core/utils/fs.ts`
 
 ### API Integration
 - REST API client for Base44 services (using `fetch` or `axios`)
@@ -320,16 +300,14 @@ Generate a comprehensive CLI tool that provides a unified interface for managing
 - TypeScript types generated from Zod schemas for type safety
 
 ### Build & Distribution
-- **Monorepo Structure** - Separated into `core` and `cli` packages
-- **Turborepo** - Fast build tool for TypeScript compilation across packages
-- **npm Workspaces** - Package manager for monorepo dependency management
-- **TypeScript Project References** - Proper dependency graph between packages
-- **ES Modules** - All packages use `"type": "module"` for native ES module support
+- **Project Structure** - Single package with `core` and `cli` modules
+- **TypeScript Compiler** - `tsc` for type-checked builds
+- **ES Modules** - Package uses `"type": "module"` for native ES module support
 - **Build Tools**:
   - Production: `tsc` (TypeScript compiler) for type-checked builds
   - Development: `tsx` for fast watch mode and direct TypeScript execution
-- **CLI Entry Point**: `packages/cli/src/index.ts` includes shebang (`#!/usr/bin/env node`)
-- GitHub Actions for automated builds and npm releases (only `base44` package is published)
+- **CLI Entry Point**: `src/cli/index.ts` includes shebang (`#!/usr/bin/env node`)
+- GitHub Actions for automated builds and npm releases
 
 ### Security
 - Secure credential storage
@@ -414,5 +392,4 @@ Generate a comprehensive CLI tool that provides a unified interface for managing
 
 ### Development
 - **@types/node** - TypeScript definitions for Node.js
-- **turbo** - Turborepo build tool for fast compilation
 
