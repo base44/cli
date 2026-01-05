@@ -76,7 +76,7 @@ export async function getTokenFromDeviceCode(
 
     const mockResponse: TokenResponse = {
       token: "mock-token-" + Date.now(),
-      email: "sd.com",
+      email: "stam@lala.com",
       name: "Test User",
     };
 
@@ -97,7 +97,6 @@ export async function getTokenFromDeviceCode(
     if (error instanceof AuthValidationError || error instanceof AuthApiError) {
       throw error;
     }
-    
     throw new AuthApiError(
       "Failed to retrieve token from device code",
       error instanceof Error ? error : new Error(String(error))
