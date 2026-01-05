@@ -3,8 +3,8 @@ import {
   type DeviceCodeResponse,
   TokenResponseSchema,
   type TokenResponse,
-} from './schema.js';
-import { AuthApiError, AuthValidationError } from '@core/errors/index.js';
+} from "./schema.js";
+import { AuthApiError, AuthValidationError } from "@core/errors/index.js";
 
 async function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -76,7 +76,7 @@ export async function getTokenFromDeviceCode(
 
     const mockResponse: TokenResponse = {
       token: "mock-token-" + Date.now(),
-      email: "user@example.com",
+      email: "sd.com",
       name: "Test User",
     };
 
@@ -94,12 +94,10 @@ export async function getTokenFromDeviceCode(
     deviceCodeToTokenMap.delete(deviceCode);
     return result.data;
   } catch (error) {
-    if (error instanceof AuthValidationError) {
+    if (error instanceof AuthValidationError || error instanceof AuthApiError) {
       throw error;
     }
-    if (error instanceof AuthApiError) {
-      throw error;
-    }
+    
     throw new AuthApiError(
       "Failed to retrieve token from device code",
       error instanceof Error ? error : new Error(String(error))

@@ -1,4 +1,4 @@
-import { intro } from "@clack/prompts";
+import { intro, log } from "@clack/prompts";
 import chalk from "chalk";
 
 const base44Color = chalk.bgHex("#E86B3C");
@@ -17,7 +17,7 @@ export async function runCommand(
   try {
     await commandFn();
   } catch (e) {
-    console.log("reporting error...");
-    console.error(e);
+    log.error(e instanceof Error ? e.message : String(e));
+    process.exit(1);
   }
 }
