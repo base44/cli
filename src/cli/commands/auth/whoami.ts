@@ -4,16 +4,8 @@ import { readAuth } from "@config/auth.js";
 import { runCommand } from "../../utils/index.js";
 
 async function whoami(): Promise<void> {
-  try {
-    const auth = await readAuth();
-    log.info(`Logged in as: ${auth.name} (${auth.email})`);
-  } catch (error) {
-    if (error instanceof Error) {
-      log.error(error.message);
-    } else {
-      log.error("Failed to read authentication data");
-    }
-  }
+  const auth = await readAuth();
+  log.info(`Logged in as: ${auth.name} (${auth.email})`);
 }
 
 export const whoamiCommand = new Command("whoami")

@@ -4,16 +4,8 @@ import { deleteAuth } from "@config/auth.js";
 import { runCommand } from "../../utils/index.js";
 
 async function logout(): Promise<void> {
-  try {
-    await deleteAuth();
-    log.info("Logged out successfully");
-  } catch (error) {
-    if (error instanceof Error) {
-      log.error(error.message);
-    } else {
-      log.error("Failed to logout");
-    }
-  }
+  await deleteAuth();
+  log.info("Logged out successfully");
 }
 
 export const logoutCommand = new Command("logout")
