@@ -1,6 +1,7 @@
 import { existsSync } from "fs";
 import { readFile, writeFile, mkdir, unlink } from "fs/promises";
 import { dirname } from "path";
+import { parse, ParseError, printParseErrorCode } from "jsonc-parser";
 
 export function fileExists(filePath: string): boolean {
   return existsSync(filePath);
@@ -13,10 +14,20 @@ export async function readJsonFile(filePath: string): Promise<unknown> {
 
   try {
     const fileContent = await readFile(filePath, "utf-8");
-    return JSON.parse(fileContent);
+    const errors: ParseError[] = [];
+    const result = parse(fileContent, errors, { allowTrailingComma: true });
+
+    if (errors.length > 0) {
+      const errorMessages = errors
+        .map((e) => `${printParseErrorCode(e.error)} at offset ${e.offset}`)
+        .join(", ");
+      throw new Error(`File contains invalid JSONC: ${filePath} (${errorMessages})`);
+    }
+
+    return result;
   } catch (error) {
-    if (error instanceof SyntaxError) {
-      throw new Error(`File contains invalid JSON: ${filePath}`);
+    if (error instanceof Error && error.message.includes("invalid JSONC")) {
+      throw error;
     }
     throw new Error(
       `Failed to read file ${filePath}: ${

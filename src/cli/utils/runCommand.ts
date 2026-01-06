@@ -21,9 +21,7 @@ export async function runCommand(
     if (e instanceof AuthValidationError) {
       const issues = e.issues.map((i) => i.message).join(", ");
       log.error(`Invalid response from server: ${issues}`);
-    } else if (e instanceof AuthApiError) {
-      log.error(e.message);
-    } else if (e instanceof Error) {
+    } else if (e instanceof AuthApiError || e instanceof Error) {
       log.error(e.message);
     } else {
       log.error(String(e));

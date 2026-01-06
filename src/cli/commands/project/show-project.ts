@@ -2,13 +2,20 @@ import { Command } from "commander";
 import { spinner, log } from "@clack/prompts";
 import { readProjectConfig } from "../../../core/config/project.js";
 import { runCommand } from "../../utils/index.js";
+import { runTask } from "../../utils/index.js";
 
 async function showProject(): Promise<void> {
-  const s = spinner();
-  s.start("Reading project configuration");
+  const projectData = await runTask(
+    "Reading project configuration",
+    async () => {
+      return await readProjectConfig();
+    },
+    {
+      successMessage: "Project configuration loaded",
+      errorMessage: "Failed to load project configuration",
+    }
+  );
 
-  const projectData = await readProjectConfig();
-  s.stop("Project configuration loaded");
   const jsonOutput = JSON.stringify(projectData, null, 2);
   log.info(jsonOutput);
 }

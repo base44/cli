@@ -27,7 +27,7 @@ The Base44 CLI is a TypeScript-based command-line tool built with:
 - Use `@clack/prompts` for:
   - User input collection
   - Progress indicators
-  - Spinners for async operations
+  - Spinners for async operations (via `runTask` utility)
   - Confirmation dialogs
   - Selection menus
 
@@ -61,46 +61,85 @@ cli/
 ├── src/
 │   ├── core/                    # Core module (shared code)
 │   │   ├── api/                # API client code
-│   │   ├── config/            # Configuration management
-│   │   ├── schemas/           # Zod schemas
-│   │   ├── utils/             # Utility functions
-│   │   └── index.ts           # Core module exports
+│   │   ├── config/             # Configuration management
+│   │   ├── errors/             # Custom error classes
+│   │   ├── schemas/            # Zod schemas
+│   │   ├── utils/              # Utility functions
+│   │   └── index.ts            # Core module exports
 │   └── cli/                    # CLI module (main CLI)
 │       ├── commands/           # Command implementations (grouped by feature)
-│       ├── utils/             # CLI-specific utilities
-│       └── index.ts           # Main CLI entry point (with shebang)
+│       │   ├── auth/           # Authentication commands (login, logout, whoami)
+│       │   └── project/        # Project commands (show-project)
+│       ├── utils/              # CLI-specific utilities (runCommand, runTask)
+│       └── index.ts            # Main CLI entry point (with shebang)
 ├── dist/                       # Build output
 ├── package.json                # Package configuration
 └── tsconfig.json               # TypeScript configuration
 ```
 
+#### Path Aliases
+
+The project uses TypeScript path aliases for cleaner imports. These are defined in `tsconfig.json` and resolved at build time using `tsc-alias`:
+
+- `@api/*` → `./src/core/api/*`
+- `@schemas/*` → `./src/core/schemas/*`
+- `@config/*` → `./src/core/config/*`
+- `@core/*` → `./src/core/*`
+
+**Example usage:**
+```typescript
+import { writeAuth } from "@config/auth.js";
+import { generateDeviceCode } from "@api/auth/index.js";
+import { AuthApiError } from "@core/errors/index.js";
+```
+
 #### Command Implementation Pattern
 ```typescript
-import { Command } from 'commander';
-import { tasks, log } from '@clack/prompts';
-import { runCommand } from '../../utils/index.js';
-import { /* shared utilities */ } from '../../../core/index.js';
+import { Command } from "commander";
+import { log } from "@clack/prompts";
+import { runCommand, runTask } from "../../utils/index.js";
+import { someConfig } from "@config/some.js";
+import { someApiCall } from "@api/some/index.js";
 
 async function commandFunction(): Promise<void> {
-  await tasks([
-    {
-      title: "Operation description",
-      task: async () => {
-        // Command logic here
-        return "Success message";
-      },
+  const result = await runTask(
+    "Loading data...",
+    async () => {
+      return await someApiCall();
     },
-  ]);
+    {
+      successMessage: "Data loaded",
+      errorMessage: "Failed to load data",
+    }
+  );
+
+  log.info(`Result: ${result}`);
 }
 
-export const commandName = new Command('command-name')
-  .description('Command description')
+export const commandName = new Command("command-name")
+  .description("Command description")
   .action(async () => {
     await runCommand(commandFunction);
   });
 ```
 
-**Important**: All commands must use `runCommand()` wrapper for consistent Base44 branding.
+**Important**: 
+- All commands must use `runCommand()` wrapper for consistent Base44 branding
+- Use `runTask()` for async operations that need spinner feedback
+- Use path aliases for imports from core module
+- Use relative imports for CLI-specific utilities
+
+#### CLI Utilities
+
+**`runCommand(commandFn)`** - Wraps command execution with:
+- Base44 intro banner
+- Consistent error handling for `AuthApiError`, `AuthValidationError`, and generic errors
+- Process exit on error
+
+**`runTask(message, operation, options)`** - Wraps async operations with:
+- Automatic spinner management
+- Success/error message customization
+- Returns the operation result
 
 #### Schema Definition Pattern
 ```typescript
@@ -124,12 +163,13 @@ export type User = z.infer<typeof UserSchema>;
 - Add dev dependencies: `npm install -D <package>`
 
 ### Build Process
-- **Build**: Use `npm run build` to compile TypeScript to JavaScript
-- **Development**: Use `npm run dev` for development with watch mode
+- **Build**: Use `npm run build` to compile TypeScript to JavaScript (runs `tsc && tsc-alias`)
+- **Development**: Use `npm run dev` for development mode (uses `tsx` to run TypeScript directly)
 - Always build before testing
 - **ES Modules**: Package uses `"type": "module"` - use `.js` extensions in imports
 - **CLI Entry Point**: Main entry point (`src/cli/index.ts`) includes shebang for direct execution
 - **Output**: Compiled JavaScript output goes to `dist/` directory
+- **Path Alias Resolution**: `tsc-alias` resolves path aliases in compiled output
 
 ### Command Testing
 - Test commands by running the compiled CLI or using development mode
@@ -139,43 +179,47 @@ export type User = z.infer<typeof UserSchema>;
 
 1. **Use npm** for all package management - never yarn
 2. **Project structure** - Core module (`src/core/`) contains shared code, CLI module (`src/cli/`) contains commands
-3. **Module imports** - CLI code imports from core using relative imports (`../../../core/index.js`)
-4. **Zod validation is required** for all external data
-5. **@clack/prompts for all user interaction** - no raw `readline` or `inquirer`
-6. **TypeScript strict mode** - maintain type safety
-7. **Commander.js for commands** - follow the established pattern
-8. **TypeScript compiler for builds** - use `tsc` for production builds, `tsx` for development
-9. **Test commands** after implementation to ensure they're registered
-10. **Cross-platform support** - The CLI must work on both Windows and Unix-like systems. Always use `path.join()`, `path.dirname()`, and other `path` module utilities for path operations. Never use string concatenation or hardcoded path separators.
-11. **Command wrapper** - All commands must use `runCommand()` utility for consistent Base44 branding
-12. **ES Modules** - Package uses `"type": "module"` - always use `.js` extensions in import statements
-13. **Shared utilities** - Use cross-platform file utilities and config management from `src/core/`
+3. **Path aliases** - Use `@api/*`, `@config/*`, `@schemas/*`, `@core/*` for imports from core module
+4. **CLI utilities** - Use relative imports for CLI-specific utilities (`../../utils/index.js`)
+5. **Zod validation is required** for all external data
+6. **@clack/prompts for all user interaction** - no raw `readline` or `inquirer`
+7. **TypeScript strict mode** - maintain type safety
+8. **Commander.js for commands** - follow the established pattern
+9. **TypeScript compiler for builds** - use `tsc && tsc-alias` for production builds, `tsx` for development
+10. **Test commands** after implementation to ensure they're registered
+11. **Cross-platform support** - The CLI must work on both Windows and Unix-like systems. Always use `path.join()`, `path.dirname()`, and other `path` module utilities for path operations. Never use string concatenation or hardcoded path separators.
+12. **Command wrapper** - All commands must use `runCommand()` utility for consistent Base44 branding
+13. **Task wrapper** - Use `runTask()` for async operations that need spinner feedback
+14. **ES Modules** - Package uses `"type": "module"` - always use `.js` extensions in import statements
+15. **Shared utilities** - Use cross-platform file utilities and config management from `src/core/`
 
 ## Common Patterns
 
 ### Adding a New Command
-1. Create command file in `src/cli/commands/` directory (grouped by feature)
+1. Create command file in `src/cli/commands/<feature>/` directory
 2. Import and register in main CLI entry point (`src/cli/index.ts`)
 3. Use Commander.js Command class
 4. Add Zod validation for inputs (schemas in `src/core/schemas/`)
 5. Use @clack/prompts for user interaction
-6. Import shared utilities from `src/core/` using relative imports
-7. Wrap command function with `runCommand()` utility
+6. Use path aliases for imports from core module (`@api/*`, `@config/*`, etc.)
+7. Use relative imports for CLI utilities (`../../utils/index.js`)
+8. Wrap command function with `runCommand()` utility
+9. Use `runTask()` for async operations with spinners
 
 ### API Integration
 1. Define Zod schema in `src/core/schemas/` directory
 2. Create API client function in `src/core/api/` directory
-3. Export from `src/core/index.ts`
-4. Import and use in CLI commands from `src/core/` using relative imports
+3. Export from `src/core/api/index.ts`
+4. Import in CLI commands using path alias (`@api/*`)
 5. Validate response with Zod schema
 6. Handle errors gracefully
-7. Use @clack/prompts for loading states
+7. Use `runTask()` for loading states
 
 ### Configuration Management
 1. Define Zod schema in `src/core/schemas/` directory
 2. Create config management functions in `src/core/config/` directory
-3. Export from `src/core/index.ts`
-4. Import and use in CLI commands from `src/core/` using relative imports
+3. Export from `src/core/config/index.ts`
+4. Import in CLI commands using path alias (`@config/*`)
 5. Read config file
 6. Validate with Zod schema
 7. Provide type-safe access via inferred types
@@ -187,21 +231,12 @@ export type User = z.infer<typeof UserSchema>;
 - `@clack/prompts` - User prompts and UI components
 - `chalk` - Terminal colors
 - `zod` - Schema validation
+- `p-wait-for` - Polling utility for async operations
+
+### Development
 - `typescript` - Language
-- `tsx` - TypeScript execution for development/watch mode
-
-### API
-- `axios` or `node-fetch` - HTTP client
-
-### Config
-- `cosmiconfig` or `conf` - Config management
-- `js-yaml` or `toml` - Config parsing
-
-### Security
-- `keytar` or `@napi-rs/keyring` - Credential storage
-
-### Utilities
-- `fs-extra` - File operations
+- `tsx` - TypeScript execution for development mode
+- `tsc-alias` - Path alias resolution for compiled output
 
 ## File Locations
 
@@ -224,15 +259,16 @@ If uncertain about implementation:
 - **Project structure**: Single package with core and cli modules
 - CLI uses TypeScript with strict type checking
 - All commands must be registered in main CLI entry point (`src/cli/index.ts`)
-- Build process compiles TypeScript to JavaScript in `dist/` folder
+- Build process compiles TypeScript to JavaScript in `dist/` folder and resolves path aliases
 - Commands should be testable independently
-- Shared code (API, schemas, config, utils) goes in `src/core/`
-- CLI-specific code (commands) goes in `src/cli/`
-- Import from `src/core/` in CLI commands using relative imports
+- Shared code (API, schemas, config, utils, errors) goes in `src/core/`
+- CLI-specific code (commands, runCommand, runTask) goes in `src/cli/`
+- Use path aliases (`@api/*`, `@config/*`, `@schemas/*`, `@core/*`) for imports from core
+- Use relative imports for CLI-specific utilities
 - Error handling should be user-friendly with clear messages
 - Use @clack/prompts for all user-facing interactions (no console.log for prompts)
 - All commands use `runCommand()` utility for consistent branding
+- Use `runTask()` for async operations with spinner feedback
 - Package uses ES modules - imports must use `.js` extensions
 - Use cross-platform file utilities from `src/core/utils/` for file operations
 - All data validation uses Zod schemas with type inference
-

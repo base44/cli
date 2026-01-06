@@ -76,8 +76,8 @@ export async function getTokenFromDeviceCode(
 
     const mockResponse: TokenResponse = {
       token: "mock-token-" + Date.now(),
-      email: "stam@lala.com",
-      name: "Test User",
+      email: "shahart@base44.com",
+      name: "Shahar Talmi",
     };
 
     const result = TokenResponseSchema.safeParse(mockResponse);

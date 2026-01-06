@@ -1,5 +1,4 @@
-import { join } from 'path';
-import { readdir } from 'fs/promises';
+import { globby } from 'globby';
 import { EntitySchema, type Entity } from '../schemas/entity.js';
 import { readJsonFile, fileExists } from '../utils/fs.js';
 
@@ -42,21 +41,19 @@ export async function readAllEntities(entitiesDir: string): Promise<Entity[]> {
   }
 
   try {
-    const files = await readdir(entitiesDir);
-    const jsonFiles = files.filter((file) => file.endsWith('.json'));
+    const files = await globby('*.{json,jsonc}', { cwd: entitiesDir, absolute: true });
 
     const entities: Entity[] = [];
     const errors: string[] = [];
 
-    for (const file of jsonFiles) {
-      const filePath = join(entitiesDir, file);
+    for (const filePath of files) {
       try {
         const entity = await readEntityFile(filePath);
         entities.push(entity);
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : 'Unknown error';
-        errors.push(`${file}: ${errorMessage}`);
+        errors.push(`${filePath}: ${errorMessage}`);
       }
     }
 

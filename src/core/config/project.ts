@@ -1,21 +1,35 @@
-import { join, dirname } from 'path';
-import { ProjectConfigSchema, type ProjectConfig } from '../schemas/project.js';
-import { type Entity } from '../schemas/entity.js';
-import { type FunctionConfig } from '../schemas/function.js';
-import { PROJECT_CONFIG_FILE } from './constants.js';
-import { readJsonFile, fileExists } from '../utils/fs.js';
-import { readAllEntities } from './entities.js';
-import { readAllFunctions } from './functions.js';
+import { join, dirname } from "path";
+import { ProjectConfigSchema, ProjectWithPaths } from "../schemas/project.js";
+import { type Entity } from "../schemas/entity.js";
+import { type FunctionConfig } from "../schemas/function.js";
+import { PROJECT_CONFIG_FILE, PROJECT_SUBDIR } from "./constants.js";
+import { readJsonFile, fileExists } from "../utils/fs.js";
+import { readAllEntities } from "./entities.js";
+import { readAllFunctions } from "./functions.js";
 
-export function findProjectRoot(startPath?: string): string | null {
+export interface ProjectRoot {
+  root: string;
+  configPath: string;
+}
+
+// Finds the project root by locating the config file in the .base44 folder or project directory.
+export function findProjectRoot(startPath?: string): ProjectRoot | null {
   const start = startPath || process.cwd();
   let current = start;
 
   while (current !== dirname(current)) {
+    // Check for config.jsonc in .base44 subdirectory first
+    const subdirConfigPath = join(current, PROJECT_SUBDIR, PROJECT_CONFIG_FILE);
+    if (fileExists(subdirConfigPath)) {
+      return { root: current, configPath: subdirConfigPath };
+    }
+
+    // Then check for config.jsonc in the current directory
     const configPath = join(current, PROJECT_CONFIG_FILE);
     if (fileExists(configPath)) {
-      return current;
+      return { root: current, configPath };
     }
+
     current = dirname(current);
   }
 
@@ -23,7 +37,7 @@ export function findProjectRoot(startPath?: string): string | null {
 }
 
 export interface ProjectData {
-  project: ProjectConfig;
+  project: ProjectWithPaths;
   entities: Entity[];
   functions: FunctionConfig[];
 }
@@ -31,15 +45,17 @@ export interface ProjectData {
 export async function readProjectConfig(
   projectRoot?: string
 ): Promise<ProjectData> {
-  const root = projectRoot || findProjectRoot();
+  const found = projectRoot
+    ? { root: projectRoot, configPath: join(projectRoot, PROJECT_CONFIG_FILE) }
+    : findProjectRoot();
 
-  if (!root) {
+  if (!found) {
     throw new Error(
-      `Project root not found. Please ensure ${PROJECT_CONFIG_FILE} exists in the project directory.`
+      `Project root not found. Please ensure ${PROJECT_CONFIG_FILE} exists in the project directory or .base44/ subdirectory.`
     );
   }
 
-  const configPath = join(root, PROJECT_CONFIG_FILE);
+  const { root, configPath } = found;
 
   try {
     const parsed = await readJsonFile(configPath);
@@ -49,67 +65,30 @@ export async function readProjectConfig(
       throw new Error(
         `Invalid project configuration: ${result.error.issues
           .map((e) => e.message)
-          .join(', ')}`
+          .join(", ")}`
       );
     }
 
     const project = result.data;
-    const entitiesPath = join(root, project.entitySrc);
-    const functionsPath = join(root, project.functionSrc);
+    const configDir = dirname(configPath);
+    const entitiesPath = join(configDir, project.entitySrc);
+    const functionsPath = join(configDir, project.functionSrc);
 
-    const [entities, functions] = await Promise.allSettled([
-      fileExists(entitiesPath)
-        ? readAllEntities(entitiesPath)
-        : Promise.resolve([]),
-      fileExists(functionsPath)
-        ? readAllFunctions(functionsPath)
-        : Promise.resolve([]),
+    const [entities, functions] = await Promise.all([
+      fileExists(entitiesPath) ? readAllEntities(entitiesPath) : [],
+      fileExists(functionsPath) ? readAllFunctions(functionsPath) : [],
     ]);
 
-    const entitiesData =
-      entities.status === 'fulfilled' ? entities.value : [];
-    const functionsData =
-      functions.status === 'fulfilled' ? functions.value : [];
-
-    if (entities.status === 'rejected' && fileExists(entitiesPath)) {
-      throw new Error(
-        `Failed to read entities: ${
-          entities.reason instanceof Error
-            ? entities.reason.message
-            : 'Unknown error'
-        }`
-      );
-    }
-
-    if (functions.status === 'rejected' && fileExists(functionsPath)) {
-      throw new Error(
-        `Failed to read functions: ${
-          functions.reason instanceof Error
-            ? functions.reason.message
-            : 'Unknown error'
-        }`
-      );
-    }
-
     return {
-      project,
-      entities: entitiesData,
-      functions: functionsData,
+      project: { ...project, root, configPath },
+      entities,
+      functions,
     };
   } catch (error) {
-    if (error instanceof Error && error.message.includes('Invalid project')) {
-      throw error;
-    }
-    if (error instanceof Error && error.message.includes('File not found')) {
-      throw new Error(
-        `Project configuration file not found: ${configPath}. Please ensure ${PROJECT_CONFIG_FILE} exists.`
-      );
-    }
     throw new Error(
       `Failed to read project configuration: ${
-        error instanceof Error ? error.message : 'Unknown error'
+        error instanceof Error ? error.message : "Unknown error"
       }`
     );
   }
 }
-

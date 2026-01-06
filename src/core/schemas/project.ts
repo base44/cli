@@ -9,3 +9,10 @@ export const ProjectConfigSchema = z.looseObject({
 });
 
 export type ProjectConfig = z.infer<typeof ProjectConfigSchema>;
+
+export interface ProjectWithPaths extends ProjectConfig {
+  root: string;
+  configPath: string;
+}
+
+
