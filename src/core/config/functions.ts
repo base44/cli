@@ -1,15 +1,16 @@
 import { globby } from "globby";
 import {
-  FunctionConfigSchema,
-  type FunctionConfig,
+  FunctionConfigSchema
+  
 } from "../schemas/function.js";
+import type {FunctionConfig} from "../schemas/function.js";
 import { FUNCTION_CONFIG_FILE } from "./constants.js";
-import { readJsonFile, fileExists } from "../utils/fs.js";
+import { readJsonFile, pathExists } from "../utils/fs.js";
 
 export async function readFunctionConfig(
   configPath: string
 ): Promise<FunctionConfig> {
-  if (!fileExists(configPath)) {
+  if (!(await pathExists(configPath))) {
     throw new Error(`Function configuration file not found: ${configPath}`);
   }
 
@@ -38,7 +39,7 @@ export async function readFunctionConfig(
 export async function readAllFunctions(
   functionsDir: string
 ): Promise<FunctionConfig[]> {
-  if (!fileExists(functionsDir)) {
+  if (!(await pathExists(functionsDir))) {
     throw new Error(`Functions directory not found: ${functionsDir}`);
   }
 

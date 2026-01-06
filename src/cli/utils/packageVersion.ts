@@ -1,6 +1,6 @@
-import { readFileSync } from "fs";
-import { fileURLToPath } from "url";
-import { dirname, join } from "path";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 
 export function getPackageVersion(): string {
   const __filename = fileURLToPath(import.meta.url);

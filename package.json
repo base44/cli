@@ -48,9 +48,11 @@
     "@typescript-eslint/parser": "^8.51.0",
     "eslint": "^9.39.2",
     "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-unicorn": "^62.0.0",
     "tsc-alias": "^1.8.16",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.52.0"
   },
   "engines": {
     "node": ">=20.0.0"

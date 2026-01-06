@@ -1,14 +1,16 @@
-import { existsSync } from "fs";
-import { readFile, writeFile, mkdir, unlink } from "fs/promises";
-import { dirname } from "path";
-import { parse, ParseError, printParseErrorCode } from "jsonc-parser";
+import { readFile, writeFile, mkdir, unlink, access } from "node:fs/promises";
+import { dirname } from "node:path";
+import type { ParseError} from "jsonc-parser";
+import { parse, printParseErrorCode } from "jsonc-parser";
 
-export function fileExists(filePath: string): boolean {
-  return existsSync(filePath);
+export function pathExists(path: string) {
+  return access(path)
+    .then(() => true)
+    .catch(() => false);
 }
 
 export async function readJsonFile(filePath: string): Promise<unknown> {
-  if (!fileExists(filePath)) {
+  if (!(await pathExists(filePath))) {
     throw new Error(`File not found: ${filePath}`);
   }
 
@@ -43,7 +45,7 @@ export async function writeJsonFile(
 ): Promise<void> {
   try {
     const dir = dirname(filePath);
-    if (!fileExists(dir)) {
+    if (!(await pathExists(dir))) {
       await mkdir(dir, { recursive: true });
     }
 
@@ -59,7 +61,7 @@ export async function writeJsonFile(
 }
 
 export async function deleteFile(filePath: string): Promise<void> {
-  if (!fileExists(filePath)) {
+  if (!(await pathExists(filePath))) {
     return;
   }
 

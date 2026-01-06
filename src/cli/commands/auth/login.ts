@@ -2,12 +2,8 @@ import { Command } from "commander";
 import { log } from "@clack/prompts";
 import pWaitFor from "p-wait-for";
 import { writeAuth } from "@config/auth.js";
-import {
-  generateDeviceCode,
-  getTokenFromDeviceCode,
-  type DeviceCodeResponse,
-  type TokenResponse,
-} from "@api/auth/index.js";
+import { generateDeviceCode, getTokenFromDeviceCode } from "@api/auth/index.js";
+import type {DeviceCodeResponse, TokenResponse} from "@api/auth/index.js";
 import { runCommand, runTask } from "../../utils/index.js";
 
 async function generateAndDisplayDeviceCode(): Promise<DeviceCodeResponse> {
@@ -34,7 +30,7 @@ async function waitForAuthentication(
   deviceCode: string,
   expiresIn: number
 ): Promise<TokenResponse> {
-  let tokenResponse: TokenResponse | null = null;
+  let tokenResponse: TokenResponse | undefined;
 
   try {
     await runTask(
@@ -67,7 +63,7 @@ async function waitForAuthentication(
     throw error;
   }
 
-  if (!tokenResponse) {
+  if (tokenResponse === undefined) {
     throw new Error("Failed to retrieve authentication token.");
   }
 

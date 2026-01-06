@@ -1,5 +1,5 @@
-import { join } from 'path';
-import { homedir } from 'os';
+import { join } from 'node:path';
+import { homedir } from 'node:os';
 
 export const BASE44_DIR = join(homedir(), '.base44');
 export const AUTH_DIR = join(BASE44_DIR, 'auth');
