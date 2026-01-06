@@ -143,7 +143,7 @@ export const commandName = new Command("command-name")
 
 #### Schema Definition Pattern
 ```typescript
-import { z } from 'zod';
+import { z } from "zod";
 
 export const UserSchema = z.object({
   id: z.string(),

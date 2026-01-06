@@ -25,4 +25,3 @@ export type HttpTrigger = z.infer<typeof HttpTriggerSchema>;
 export type ScheduleTrigger = z.infer<typeof ScheduleTriggerSchema>;
 export type Trigger = z.infer<typeof TriggerSchema>;
 export type FunctionConfig = z.infer<typeof FunctionConfigSchema>;
-

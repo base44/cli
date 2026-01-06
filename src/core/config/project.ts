@@ -1,8 +1,8 @@
 import { join, dirname } from "node:path";
 import type { ProjectWithPaths } from "../schemas/project.js";
 import { ProjectConfigSchema } from "../schemas/project.js";
-import type {Entity} from "../schemas/entity.js";
-import type {FunctionConfig} from "../schemas/function.js";
+import type { Entity } from "../schemas/entity.js";
+import type { FunctionConfig } from "../schemas/function.js";
 import { PROJECT_CONFIG_FILE, PROJECT_SUBDIR } from "./constants.js";
 import { readJsonFile, pathExists } from "../utils/fs.js";
 import { readAllEntities } from "./entities.js";

@@ -1,6 +1,6 @@
 import { readFile, writeFile, mkdir, unlink, access } from "node:fs/promises";
 import { dirname } from "node:path";
-import type { ParseError} from "jsonc-parser";
+import type { ParseError } from "jsonc-parser";
 import { parse, printParseErrorCode } from "jsonc-parser";
 
 export function pathExists(path: string) {
@@ -23,7 +23,9 @@ export async function readJsonFile(filePath: string): Promise<unknown> {
       const errorMessages = errors
         .map((e) => `${printParseErrorCode(e.error)} at offset ${e.offset}`)
         .join(", ");
-      throw new Error(`File contains invalid JSONC: ${filePath} (${errorMessages})`);
+      throw new Error(
+        `File contains invalid JSONC: ${filePath} (${errorMessages})`
+      );
     }
 
     return result;
@@ -75,4 +77,3 @@ export async function deleteFile(filePath: string): Promise<void> {
     );
   }
 }
-

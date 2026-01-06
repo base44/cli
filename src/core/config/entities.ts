@@ -1,33 +1,21 @@
 import { globby } from "globby";
-import { EntitySchema  } from "../schemas/entity.js";
-import type {Entity} from "../schemas/entity.js";
+import { EntitySchema } from "../schemas/entity.js";
+import type { Entity } from "../schemas/entity.js";
 import { readJsonFile, pathExists } from "../utils/fs.js";
 
 async function readEntityFile(entityPath: string): Promise<Entity> {
-  if (!(await pathExists(entityPath))) {
-    throw new Error(`Entity file not found: ${entityPath}`);
-  }
+  const parsed = await readJsonFile(entityPath);
+  const result = EntitySchema.safeParse(parsed);
 
-  try {
-    const parsed = await readJsonFile(entityPath);
-    const result = EntitySchema.safeParse(parsed);
-
-    if (!result.success) {
-      throw new Error(
-        `Invalid entity configuration in ${entityPath}: ${result.error.issues
-          .map((e) => e.message)
-          .join(", ")}`
-      );
-    }
-
-    return result.data;
-  } catch (error) {
+  if (!result.success) {
     throw new Error(
-      `Failed to read entity file ${entityPath}: ${
-        error instanceof Error ? error.message : "Unknown error"
-      }`
+      `Invalid entity configuration in ${entityPath}: ${result.error.issues
+        .map((e) => e.message)
+        .join(", ")}`
     );
   }
+
+  return result.data;
 }
 
 export async function readAllEntities(entitiesDir: string): Promise<Entity[]> {
@@ -40,12 +28,9 @@ export async function readAllEntities(entitiesDir: string): Promise<Entity[]> {
     absolute: true,
   });
 
-  const entities: Entity[] = [];
-
-  for (const filePath of files) {
-    const entity = await readEntityFile(filePath);
-    entities.push(entity);
-  }
+  const entities = await Promise.all(
+    files.map((filePath) => readEntityFile(filePath))
+  );
 
   return entities;
 }

@@ -1,11 +1,6 @@
 import { AuthApiError, AuthValidationError } from "@core/errors/index.js";
-import {
-  DeviceCodeResponseSchema,
-  
-  TokenResponseSchema
-  
-} from "./schema.js";
-import type {DeviceCodeResponse, TokenResponse} from "./schema.js";
+import { DeviceCodeResponseSchema, TokenResponseSchema } from "./schema.js";
+import type { DeviceCodeResponse, TokenResponse } from "./schema.js";
 
 async function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -76,7 +71,7 @@ export async function getTokenFromDeviceCode(
     }
 
     const mockResponse: TokenResponse = {
-      token: `mock-token-${  Date.now()}`,
+      token: `mock-token-${Date.now()}`,
       email: "shahart@base44.com",
       name: "Shahar Talmi",
     };
