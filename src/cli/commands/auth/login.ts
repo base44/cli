@@ -7,7 +7,7 @@ import {
   getTokenFromDeviceCode,
   type DeviceCodeResponse,
   type TokenResponse,
-} from "@api/auth";
+} from "@api/auth/index.js";
 import { runCommand, runTask } from "../../utils/index.js";
 
 async function generateAndDisplayDeviceCode(): Promise<DeviceCodeResponse> {
