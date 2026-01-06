@@ -1,6 +1,6 @@
 import { AuthDataSchema } from "../schemas/auth.js";
 import type { AuthData } from "../schemas/auth.js";
-import { AUTH_FILE_PATH } from "./constants.js";
+import { AUTH_FILE_PATH } from "../consts.js";
 import { readJsonFile, writeJsonFile, deleteFile } from "../utils/fs.js";
 
 export async function readAuth(): Promise<AuthData> {
