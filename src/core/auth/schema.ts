@@ -1,5 +1,15 @@
 import { z } from "zod";
 
+// Auth data schema (stored locally)
+export const AuthDataSchema = z.object({
+  token: z.string().min(1, "Token cannot be empty"),
+  email: z.email(),
+  name: z.string().min(1, "Name cannot be empty"),
+});
+
+export type AuthData = z.infer<typeof AuthDataSchema>;
+
+// API response schemas
 export const DeviceCodeResponseSchema = z.object({
   deviceCode: z.string().min(1, "Device code cannot be empty"),
   userCode: z.string().min(1, "User code cannot be empty"),
@@ -16,3 +26,4 @@ export const TokenResponseSchema = z.object({
 });
 
 export type TokenResponse = z.infer<typeof TokenResponseSchema>;
+

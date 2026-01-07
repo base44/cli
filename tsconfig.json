@@ -17,9 +17,6 @@
     "types": ["node"],
     "baseUrl": ".",
     "paths": {
-      "@api/*": ["./src/core/api/*"],
-      "@schemas/*": ["./src/core/schemas/*"],
-      "@config/*": ["./src/core/config/*"],
       "@core/*": ["./src/core/*"]
     }
   },

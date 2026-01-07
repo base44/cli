@@ -33,3 +33,4 @@ export const EntitySchema = z.object({
 export type EntityProperty = z.infer<typeof EntityPropertySchema>;
 export type EntityPolicies = z.infer<typeof EntityPoliciesSchema>;
 export type Entity = z.infer<typeof EntitySchema>;
+

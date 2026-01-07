@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import { log } from "@clack/prompts";
-import { readAuth } from "@config/auth.js";
+import { readAuth } from "@core/auth/index.js";
 import { runCommand } from "../../utils/index.js";
 
 async function whoami(): Promise<void> {

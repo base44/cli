@@ -1,4 +1,4 @@
-import { AuthApiError, AuthValidationError } from "@core/errors/index.js";
+import { AuthApiError, AuthValidationError } from "@core/errors.js";
 import { DeviceCodeResponseSchema, TokenResponseSchema } from "./schema.js";
 import type { DeviceCodeResponse, TokenResponse } from "./schema.js";
 

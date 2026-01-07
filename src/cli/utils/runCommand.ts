@@ -1,6 +1,6 @@
 import { intro, log } from "@clack/prompts";
 import chalk from "chalk";
-import { AuthApiError, AuthValidationError } from "@core/errors/index.js";
+import { AuthApiError, AuthValidationError } from "@core/errors.js";
 
 const base44Color = chalk.bgHex("#E86B3C");
 

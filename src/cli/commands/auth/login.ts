@@ -1,9 +1,12 @@
 import { Command } from "commander";
 import { log } from "@clack/prompts";
 import pWaitFor from "p-wait-for";
-import { writeAuth } from "@config/auth.js";
-import { generateDeviceCode, getTokenFromDeviceCode } from "@api/auth/index.js";
-import type { DeviceCodeResponse, TokenResponse } from "@api/auth/index.js";
+import {
+  writeAuth,
+  generateDeviceCode,
+  getTokenFromDeviceCode,
+} from "@core/auth/index.js";
+import type { DeviceCodeResponse, TokenResponse } from "@core/auth/index.js";
 import { runCommand, runTask } from "../../utils/index.js";
 
 async function generateAndDisplayDeviceCode(): Promise<DeviceCodeResponse> {
