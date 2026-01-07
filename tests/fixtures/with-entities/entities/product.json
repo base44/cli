@@ -1,8 +1,15 @@
 {
   "name": "Product",
-  "fields": [
-    { "name": "title", "type": "string" },
-    { "name": "price", "type": "number" }
-  ]
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Product title"
+    },
+    "price": {
+      "type": "number",
+      "description": "Product price"
+    }
+  },
+  "required": ["title"]
 }
-

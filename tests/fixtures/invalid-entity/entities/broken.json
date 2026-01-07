@@ -1,4 +1,4 @@
 {
-  "fields": [{ "name": "field1", "type": "string" }]
+  "type": "object",
+  "properties": {}
 }
-

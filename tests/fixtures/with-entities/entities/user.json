@@ -1,8 +1,15 @@
 {
   "name": "User",
-  "fields": [
-    { "name": "email", "type": "string" },
-    { "name": "name", "type": "string" }
-  ]
+  "type": "object",
+  "properties": {
+    "email": {
+      "type": "string",
+      "description": "User email"
+    },
+    "name": {
+      "type": "string",
+      "description": "User name"
+    }
+  },
+  "required": ["email"]
 }
-
