@@ -3,12 +3,12 @@ import { z } from "zod";
 import { globby } from "globby";
 import { getProjectConfigPatterns, PROJECT_SUBDIR } from "../consts.js";
 import { readJsonFile } from "../utils/fs.js";
-import { readAllEntities } from "../entity/index.js";
-import type { Entity } from "../entity/index.js";
-import { readAllFunctions } from "../function/index.js";
-import type { FunctionConfig } from "../function/index.js";
+import { entityResource, type Entity } from "../resources/entity/index.js";
+import {
+  functionResource,
+  type FunctionConfig,
+} from "../resources/function/index.js";
 
-// Project config schema
 export const ProjectConfigSchema = z.looseObject({
   name: z.string().min(1, "Project name cannot be empty"),
   entitySrc: z.string().default("./entities"),
@@ -87,12 +87,10 @@ export async function readProjectConfig(
 
   const project = result.data;
   const configDir = dirname(configPath);
-  const entitiesPath = join(configDir, project.entitySrc);
-  const functionsPath = join(configDir, project.functionSrc);
 
   const [entities, functions] = await Promise.all([
-    readAllEntities(entitiesPath),
-    readAllFunctions(functionsPath),
+    entityResource.readAll(join(configDir, project.entitySrc)),
+    functionResource.readAll(join(configDir, project.functionSrc)),
   ]);
 
   return {

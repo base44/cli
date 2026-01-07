@@ -1,0 +1,9 @@
+import type { Resource } from "@core/config/resource.js";
+import type { FunctionConfig } from "./schema.js";
+import { readAllFunctions } from "./config.js";
+
+export const functionResource: Resource<FunctionConfig> = {
+  name: "function",
+  readAll: readAllFunctions,
+};
+
