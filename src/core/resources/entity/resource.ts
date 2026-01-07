@@ -3,7 +3,5 @@ import type { Entity } from "./schema.js";
 import { readAllEntities } from "./config.js";
 
 export const entityResource: Resource<Entity> = {
-  name: "entity",
   readAll: readAllEntities,
 };
-

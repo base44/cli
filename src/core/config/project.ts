@@ -3,11 +3,10 @@ import { z } from "zod";
 import { globby } from "globby";
 import { getProjectConfigPatterns, PROJECT_SUBDIR } from "../consts.js";
 import { readJsonFile } from "../utils/fs.js";
-import { entityResource, type Entity } from "../resources/entity/index.js";
-import {
-  functionResource,
-  type FunctionConfig,
-} from "../resources/function/index.js";
+import { entityResource } from "../resources/entity/index.js";
+import type { Entity } from "../resources/entity/index.js";
+import { functionResource } from "../resources/function/index.js";
+import type { FunctionConfig } from "../resources/function/index.js";
 
 export const ProjectConfigSchema = z.looseObject({
   name: z.string().min(1, "Project name cannot be empty"),
