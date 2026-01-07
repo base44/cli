@@ -5,7 +5,7 @@ import { ProjectConfigSchema } from "../schemas/project.js";
 import type { Entity } from "../schemas/entity.js";
 import type { FunctionConfig } from "../schemas/function.js";
 import { getProjectConfigPatterns, PROJECT_SUBDIR } from "../consts.js";
-import { readJsonFile, pathExists } from "../utils/fs.js";
+import { readJsonFile } from "../utils/fs.js";
 import { readAllEntities } from "./entities.js";
 import { readAllFunctions } from "./functions.js";
 

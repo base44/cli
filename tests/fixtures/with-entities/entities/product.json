@@ -1,0 +1,8 @@
+{
+  "name": "Product",
+  "fields": [
+    { "name": "title", "type": "string" },
+    { "name": "price", "type": "number" }
+  ]
+}
+

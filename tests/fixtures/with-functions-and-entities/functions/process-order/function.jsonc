@@ -1,0 +1,7 @@
+{
+  "name": "process-order",
+  "triggers": [
+    { "type": "http", "route": "/process-order", "method": "POST" }
+  ]
+}
+

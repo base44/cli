@@ -1,0 +1,9 @@
+{
+  "name": "Order",
+  "fields": [
+    { "name": "orderId", "type": "string" },
+    { "name": "status", "type": "string" },
+    { "name": "total", "type": "number" }
+  ]
+}
+
