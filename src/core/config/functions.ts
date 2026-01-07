@@ -25,7 +25,7 @@ export async function readAllFunctions(
   functionsDir: string
 ): Promise<FunctionConfig[]> {
   if (!(await pathExists(functionsDir))) {
-    throw new Error(`Functions directory not found: ${functionsDir}`);
+    return [];
   }
 
   const configFiles = await globby(`*/${FUNCTION_CONFIG_FILE}`, {

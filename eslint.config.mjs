@@ -90,7 +90,7 @@ export default tseslint.config(
       "import/extensions": ["error", "always", { ignorePackages: true }],
       "import/order": [
         "error",
-        { groups: [["builtin", "external", "internal"]] },
+        { groups: ["builtin", "external", "internal"] },
       ],
       "import/no-duplicates": "error",
       "import/first": "error",

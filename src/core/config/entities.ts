@@ -20,7 +20,7 @@ async function readEntityFile(entityPath: string): Promise<Entity> {
 
 export async function readAllEntities(entitiesDir: string): Promise<Entity[]> {
   if (!(await pathExists(entitiesDir))) {
-    throw new Error(`Entities directory not found: ${entitiesDir}`);
+    return [];
   }
 
   const files = await globby("*.{json,jsonc}", {

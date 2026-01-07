@@ -22,7 +22,10 @@ export interface ProjectData {
 
 // Finds config file in a directory using globby, respecting priority order.
 async function findConfigInDir(dir: string): Promise<string | null> {
-  const files = await globby(getProjectConfigPatterns(), { cwd: dir, absolute: true });
+  const files = await globby(getProjectConfigPatterns(), {
+    cwd: dir,
+    absolute: true,
+  });
   return files[0] ?? null;
 }
 
@@ -77,8 +80,8 @@ export async function readProjectConfig(
   const functionsPath = join(configDir, project.functionSrc);
 
   const [entities, functions] = await Promise.all([
-    (await pathExists(entitiesPath)) ? readAllEntities(entitiesPath) : [],
-    (await pathExists(functionsPath)) ? readAllFunctions(functionsPath) : [],
+    readAllEntities(entitiesPath),
+    readAllFunctions(functionsPath),
   ]);
 
   return {

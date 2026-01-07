@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import { log } from "@clack/prompts";
 import { readProjectConfig } from "../../../core/config/project.js";
-import { runCommand , runTask } from "../../utils/index.js";
+import { runCommand, runTask } from "../../utils/index.js";
 
 async function showProject(): Promise<void> {
   const projectData = await runTask(

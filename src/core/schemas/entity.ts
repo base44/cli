@@ -7,7 +7,7 @@ const FieldSchema = z.looseObject({
 
 export const EntitySchema = z.looseObject({
   name: z.string().min(1, "Entity name cannot be empty"),
-  fields: z.array(FieldSchema).min(0),
+  fields: z.array(FieldSchema),
 });
 
 export type Entity = z.infer<typeof EntitySchema>;
