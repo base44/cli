@@ -67,7 +67,6 @@ Resources are project-specific collections (entities, functions) that can be loa
 ### Resource Interface (`config/resource.ts`)
 ```typescript
 export interface Resource<T> {
-  name: string;
   readAll(dir: string): Promise<T[]>;
 }
 ```
@@ -75,7 +74,6 @@ export interface Resource<T> {
 ### Resource Implementation (`resources/<name>/resource.ts`)
 ```typescript
 export const entityResource: Resource<Entity> = {
-  name: "entity",
   readAll: readAllEntities,
 };
 ```
