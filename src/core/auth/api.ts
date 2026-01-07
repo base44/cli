@@ -1,101 +1,125 @@
 import { AuthApiError, AuthValidationError } from "../errors.js";
-import { DeviceCodeResponseSchema, TokenResponseSchema } from "./schema.js";
+import {
+  DeviceCodeResponseSchema,
+  TokenResponseSchema,
+  OAuthErrorSchema,
+} from "./schema.js";
 import type { DeviceCodeResponse, TokenResponse } from "./schema.js";
-
-async function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-const deviceCodeToTokenMap = new Map<
-  string,
-  { startTime: number; readyAfter: number }
->();
+import { AUTH_CLIENT_ID } from "../consts.js";
+import authClient from "./authClient.js";
 
 export async function generateDeviceCode(): Promise<DeviceCodeResponse> {
-  try {
-    await delay(1000);
+  const response = await authClient.post("oauth/device/code", {
+    json: {
+      client_id: AUTH_CLIENT_ID,
+      scope: "apps:read apps:write",
+    },
+    throwHttpErrors: false,
+  });
 
-    const deviceCode = `device-code-${Date.now()}`;
-
-    deviceCodeToTokenMap.set(deviceCode, {
-      startTime: Date.now(),
-      readyAfter: 5000,
-    });
-
-    const mockResponse: DeviceCodeResponse = {
-      deviceCode,
-      userCode: "ABCD-1234",
-      verificationUrl: "https://app.base44.com/verify",
-      expiresIn: 600,
-    };
-
-    const result = DeviceCodeResponseSchema.safeParse(mockResponse);
-    if (!result.success) {
-      throw new AuthValidationError(
-        "Invalid device code response from server",
-        result.error.issues.map((issue) => ({
-          message: issue.message,
-          path: issue.path.map(String),
-        }))
-      );
-    }
-
-    return result.data;
-  } catch (error) {
-    if (error instanceof AuthValidationError) {
-      throw error;
-    }
+  if (!response.ok) {
     throw new AuthApiError(
-      "Failed to generate device code",
-      error instanceof Error ? error : new Error(String(error))
+      `Failed to generate device code: ${response.status} ${response.statusText}`
     );
   }
+
+  const result = DeviceCodeResponseSchema.safeParse(await response.json());
+
+  if (!result.success) {
+    throw new AuthValidationError(
+      `Invalid device code response from server: ${result.error.message}`
+    );
+  }
+
+  return result.data;
 }
 
 export async function getTokenFromDeviceCode(
   deviceCode: string
 ): Promise<TokenResponse | null> {
-  try {
-    await delay(1000);
+  const searchParams = new URLSearchParams();
+  searchParams.set(
+    "grant_type",
+    "urn:ietf:params:oauth:grant-type:device_code"
+  );
+  searchParams.set("device_code", deviceCode);
+  searchParams.set("client_id", AUTH_CLIENT_ID);
 
-    const deviceInfo = deviceCodeToTokenMap.get(deviceCode);
+  const response = await authClient.post("oauth/token", {
+    body: searchParams.toString(),
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    throwHttpErrors: false,
+  });
 
-    if (!deviceInfo) {
+  const json = await response.json();
+
+  if (!response.ok) {
+    const errorResult = OAuthErrorSchema.safeParse(json);
+
+    if (!errorResult.success) {
+      throw new AuthApiError(`Token request failed: ${response.statusText}`);
+    }
+
+    const { error, error_description } = errorResult.data;
+
+    // Polling states - user hasn't completed auth yet
+    if (error === "authorization_pending" || error === "slow_down") {
       return null;
     }
 
-    const elapsed = Date.now() - deviceInfo.startTime;
+    // Actual errors
+    throw new AuthApiError(error_description ?? `OAuth error: ${error}`);
+  }
 
-    if (elapsed < deviceInfo.readyAfter) {
-      return null;
-    }
+  const result = TokenResponseSchema.safeParse(json);
 
-    const mockResponse: TokenResponse = {
-      token: `mock-token-${Date.now()}`,
-      email: "shahart@base44.com",
-      name: "Shahar Talmi",
-    };
-
-    const result = TokenResponseSchema.safeParse(mockResponse);
-    if (!result.success) {
-      throw new AuthValidationError(
-        "Invalid token response from server",
-        result.error.issues.map((issue) => ({
-          message: issue.message,
-          path: issue.path.map(String),
-        }))
-      );
-    }
-
-    deviceCodeToTokenMap.delete(deviceCode);
-    return result.data;
-  } catch (error) {
-    if (error instanceof AuthValidationError || error instanceof AuthApiError) {
-      throw error;
-    }
-    throw new AuthApiError(
-      "Failed to retrieve token from device code",
-      error instanceof Error ? error : new Error(String(error))
+  if (!result.success) {
+    throw new AuthValidationError(
+      `Invalid token response from server: ${result.error.message}`
     );
   }
+
+  return result.data;
+}
+
+export async function renewAccessToken(
+  refreshToken: string
+): Promise<TokenResponse> {
+  const searchParams = new URLSearchParams();
+  searchParams.set("grant_type", "refresh_token");
+  searchParams.set("refresh_token", refreshToken);
+  searchParams.set("client_id", AUTH_CLIENT_ID);
+
+  const response = await authClient.post("oauth/token", {
+    body: searchParams.toString(),
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    throwHttpErrors: false,
+  });
+
+  const json = await response.json();
+
+  if (!response.ok) {
+    const errorResult = OAuthErrorSchema.safeParse(json);
+
+    if (!errorResult.success) {
+      throw new AuthApiError(`Token refresh failed: ${response.statusText}`);
+    }
+
+    const { error, error_description } = errorResult.data;
+    throw new AuthApiError(error_description ?? `OAuth error: ${error}`);
+  }
+
+  const result = TokenResponseSchema.safeParse(json);
+
+  if (!result.success) {
+    throw new AuthValidationError(
+      `Invalid token response from server: ${result.error.message}`
+    );
+  }
+
+  return result.data;
 }

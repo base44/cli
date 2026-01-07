@@ -22,7 +22,7 @@ async function generateAndDisplayDeviceCode(): Promise<DeviceCodeResponse> {
   );
 
   log.info(
-    `Please visit: ${deviceCodeResponse.verificationUrl}\n` +
+    `Please visit: ${deviceCodeResponse.verificationUri}\n` +
       `Enter your device code: ${deviceCodeResponse.userCode}`
   );
 
@@ -73,11 +73,14 @@ async function waitForAuthentication(
   return tokenResponse;
 }
 
-async function saveAuthData(token: TokenResponse): Promise<void> {
+async function saveAuthData(response: TokenResponse): Promise<void> {
+  // TODO: Fetch user info (email, name) from the server after authentication
+  // For now, we store placeholder values until a /userinfo endpoint is available
   await writeAuth({
-    token: token.token,
-    email: token.email,
-    name: token.name,
+    accessToken: response.accessToken,
+    refreshToken: response.refreshToken,
+    email: "user@base44.com",
+    name: "Base44 User",
   });
 }
 
@@ -91,7 +94,7 @@ async function login(): Promise<void> {
 
   await saveAuthData(token);
 
-  log.success(`Logged in as ${token.name}`);
+  log.success("Successfully logged in!");
 }
 
 export const loginCommand = new Command("login")

@@ -20,3 +20,11 @@ export function getProjectConfigPatterns() {
     "config.json",
   ];
 }
+
+export const AUTH_CLIENT_ID = "base44_cli";
+
+const DEFAULT_API_URL = "https://app.base44.com";
+
+export function getBase44ApiUrl(): string {
+  return process.env.BASE44_API_URL || DEFAULT_API_URL;
+}

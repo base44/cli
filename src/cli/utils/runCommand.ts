@@ -18,11 +18,8 @@ export async function runCommand(
   try {
     await commandFn();
   } catch (e) {
-    if (e instanceof AuthValidationError) {
-      const issues = e.issues.map((i) => i.message).join(", ");
-      log.error(`Invalid response from server: ${issues}`);
-    } else if (e instanceof AuthApiError || e instanceof Error) {
-      log.error(e.message);
+    if (e instanceof Error) {
+      log.error(e.stack ?? e.message);
     } else {
       log.error(String(e));
     }

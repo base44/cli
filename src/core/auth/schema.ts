@@ -2,7 +2,8 @@ import { z } from "zod";
 
 // Auth data schema (stored locally)
 export const AuthDataSchema = z.object({
-  token: z.string().min(1, "Token cannot be empty"),
+  accessToken: z.string().min(1, "Token cannot be empty"),
+  refreshToken: z.string().min(1, "Refresh token cannot be empty"),
   email: z.email(),
   name: z.string().min(1, "Name cannot be empty"),
 });
@@ -10,19 +11,63 @@ export const AuthDataSchema = z.object({
 export type AuthData = z.infer<typeof AuthDataSchema>;
 
 // API response schemas
-export const DeviceCodeResponseSchema = z.object({
-  deviceCode: z.string().min(1, "Device code cannot be empty"),
-  userCode: z.string().min(1, "User code cannot be empty"),
-  verificationUrl: z.url("Invalid verification URL"),
-  expiresIn: z.number().int().positive("Expires in must be a positive integer"),
-});
+export const DeviceCodeResponseSchema = z
+  .object({
+    device_code: z.string().min(1, "Device code cannot be empty"),
+    user_code: z.string().min(1, "User code cannot be empty"),
+    verification_uri: z.url("Invalid verification URL"),
+    verification_uri_complete: z.url("Invalid complete verification URL"),
+    expires_in: z
+      .number()
+      .int()
+      .positive("Expires in must be a positive integer"),
+    interval: z
+      .number()
+      .int()
+      .positive("Interval in must be a positive integer"),
+  })
+  .transform((data) => ({
+    deviceCode: data.device_code,
+    userCode: data.user_code,
+    verificationUri: data.verification_uri,
+    verificationUriComplete: data.verification_uri_complete,
+    expiresIn: data.expires_in,
+    interval: data.interval,
+  }));
 
 export type DeviceCodeResponse = z.infer<typeof DeviceCodeResponseSchema>;
 
-export const TokenResponseSchema = z.object({
-  token: z.string().min(1, "Token cannot be empty"),
-  email: z.email("Invalid email address"),
-  name: z.string().min(1, "Name cannot be empty"),
-});
+export const TokenResponseSchema = z
+  .object({
+    access_token: z.string().min(1, "Token cannot be empty"),
+    token_type: z.string().min(1, "Token type cannot be empty"),
+    expires_in: z
+      .number()
+      .int()
+      .positive("Expires in must be a positive integer"),
+    refresh_token: z.string().min(1, "Refresh token cannot be empty"),
+    scope: z.string().optional(),
+  })
+  .transform((data) => ({
+    accessToken: data.access_token,
+    tokenType: data.token_type,
+    expiresIn: data.expires_in,
+    refreshToken: data.refresh_token,
+    scope: data.scope,
+  }));
 
 export type TokenResponse = z.infer<typeof TokenResponseSchema>;
+
+// OAuth error response schema
+export const OAuthErrorSchema = z.object({
+  error: z.enum([
+    "authorization_pending",
+    "slow_down",
+    "expired_token",
+    "access_denied",
+    "invalid_grant",
+  ]),
+  error_description: z.string().optional(),
+});
+
+export type OAuthError = z.infer<typeof OAuthErrorSchema>;

@@ -6,10 +6,7 @@ export class AuthApiError extends Error {
 }
 
 export class AuthValidationError extends Error {
-  constructor(
-    message: string,
-    public readonly issues: Array<{ message: string; path: string[] }>
-  ) {
+  constructor(message: string) {
     super(message);
     this.name = "AuthValidationError";
   }

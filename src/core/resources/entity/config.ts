@@ -34,4 +34,3 @@ export async function readAllEntities(entitiesDir: string): Promise<Entity[]> {
 
   return entities;
 }
-

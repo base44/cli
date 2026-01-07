@@ -1,5 +1,6 @@
 import { getAuthFilePath } from "../consts.js";
 import { readJsonFile, writeJsonFile, deleteFile } from "../utils/fs.js";
+import { renewAccessToken } from "./api.js";
 import { AuthDataSchema } from "./schema.js";
 import type { AuthData } from "./schema.js";
 
@@ -63,5 +64,29 @@ export async function deleteAuth(): Promise<void> {
         error instanceof Error ? error.message : "Unknown error"
       }`
     );
+  }
+}
+
+/**
+ * Refreshes the access token and saves the new tokens.
+ * Returns the new access token, or null if refresh failed.
+ * Used by httpClient to handle 401 responses.
+ */
+export async function refreshAndSaveTokens(): Promise<string | null> {
+  try {
+    const auth = await readAuth();
+    const tokenResponse = await renewAccessToken(auth.refreshToken);
+
+    await writeAuth({
+      ...auth,
+      accessToken: tokenResponse.accessToken,
+      refreshToken: tokenResponse.refreshToken,
+    });
+
+    return tokenResponse.accessToken;
+  } catch {
+    // Refresh failed - delete auth, user needs to login again
+    await deleteAuth();
+    return null;
   }
 }
