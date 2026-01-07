@@ -1,11 +1,11 @@
 import { AuthDataSchema } from "../schemas/auth.js";
 import type { AuthData } from "../schemas/auth.js";
-import { AUTH_FILE_PATH } from "../consts.js";
+import { getAuthFilePath } from "../consts.js";
 import { readJsonFile, writeJsonFile, deleteFile } from "../utils/fs.js";
 
 export async function readAuth(): Promise<AuthData> {
   try {
-    const parsed = await readJsonFile(AUTH_FILE_PATH);
+    const parsed = await readJsonFile(getAuthFilePath());
     const result = AuthDataSchema.safeParse(parsed);
 
     if (!result.success) {
@@ -44,7 +44,7 @@ export async function writeAuth(authData: AuthData): Promise<void> {
   }
 
   try {
-    await writeJsonFile(AUTH_FILE_PATH, result.data);
+    await writeJsonFile(getAuthFilePath(), result.data);
   } catch (error) {
     throw new Error(
       `Failed to write authentication file: ${
@@ -56,7 +56,7 @@ export async function writeAuth(authData: AuthData): Promise<void> {
 
 export async function deleteAuth(): Promise<void> {
   try {
-    await deleteFile(AUTH_FILE_PATH);
+    await deleteFile(getAuthFilePath());
   } catch (error) {
     throw new Error(
       `Failed to delete authentication file: ${

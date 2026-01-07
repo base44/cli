@@ -1,9 +1,10 @@
 import { join, dirname } from "node:path";
+import { globby } from "globby";
 import type { ProjectWithPaths } from "../schemas/project.js";
 import { ProjectConfigSchema } from "../schemas/project.js";
 import type { Entity } from "../schemas/entity.js";
 import type { FunctionConfig } from "../schemas/function.js";
-import { PROJECT_CONFIG_FILE, PROJECT_SUBDIR } from "../consts.js";
+import { getProjectConfigPatterns, PROJECT_SUBDIR } from "../consts.js";
 import { readJsonFile, pathExists } from "../utils/fs.js";
 import { readAllEntities } from "./entities.js";
 import { readAllFunctions } from "./functions.js";
@@ -19,19 +20,10 @@ export interface ProjectData {
   functions: FunctionConfig[];
 }
 
-// Checks for config file in a directory, prioritizing .base44/ subdirectory.
+// Finds config file in a directory using globby, respecting priority order.
 async function findConfigInDir(dir: string): Promise<string | null> {
-  const subdirPath = join(dir, PROJECT_SUBDIR, PROJECT_CONFIG_FILE);
-  if (await pathExists(subdirPath)) {
-    return subdirPath;
-  }
-
-  const rootPath = join(dir, PROJECT_CONFIG_FILE);
-  if (await pathExists(rootPath)) {
-    return rootPath;
-  }
-
-  return null;
+  const files = await globby(getProjectConfigPatterns(), { cwd: dir, absolute: true });
+  return files[0] ?? null;
 }
 
 // Walks up the directory tree to locate a Base44 project config file.
@@ -65,7 +57,7 @@ export async function readProjectConfig(
 
   if (!found) {
     throw new Error(
-      `Project root not found. Please ensure ${PROJECT_CONFIG_FILE} exists in the project directory or .base44/ subdirectory.`
+      `Project root not found. Please ensure config.jsonc or config.json exists in the project directory or ${PROJECT_SUBDIR}/ subdirectory.`
     );
   }
 
