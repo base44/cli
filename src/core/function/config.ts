@@ -1,6 +1,6 @@
 import { globby } from "globby";
-import { FUNCTION_CONFIG_FILE } from "@core/consts.js";
-import { readJsonFile, pathExists } from "@core/utils/fs.js";
+import { FUNCTION_CONFIG_FILE } from "../consts.js";
+import { readJsonFile, pathExists } from "../utils/fs.js";
 import { FunctionConfigSchema } from "./schema.js";
 import type { FunctionConfig } from "./schema.js";
 

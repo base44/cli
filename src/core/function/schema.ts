@@ -44,4 +44,3 @@ export type ScheduleTrigger = z.infer<typeof ScheduleTriggerSchema>;
 export type EventTrigger = z.infer<typeof EventTriggerSchema>;
 export type Trigger = z.infer<typeof TriggerSchema>;
 export type FunctionConfig = z.infer<typeof FunctionConfigSchema>;
-

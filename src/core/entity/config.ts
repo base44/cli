@@ -1,5 +1,5 @@
 import { globby } from "globby";
-import { readJsonFile, pathExists } from "@core/utils/fs.js";
+import { readJsonFile, pathExists } from "../utils/fs.js";
 import { EntitySchema } from "./schema.js";
 import type { Entity } from "./schema.js";
 
@@ -34,4 +34,3 @@ export async function readAllEntities(entitiesDir: string): Promise<Entity[]> {
 
   return entities;
 }
-

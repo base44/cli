@@ -1,10 +1,7 @@
 export class AuthApiError extends Error {
-  constructor(
-    message: string,
-    public readonly cause?: unknown
-  ) {
+  constructor(message: string, public readonly cause?: unknown) {
     super(message);
-    this.name = 'AuthApiError';
+    this.name = "AuthApiError";
   }
 }
 
@@ -14,7 +11,6 @@ export class AuthValidationError extends Error {
     public readonly issues: Array<{ message: string; path: string[] }>
   ) {
     super(message);
-    this.name = 'AuthValidationError';
+    this.name = "AuthValidationError";
   }
 }
-

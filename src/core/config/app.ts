@@ -16,4 +16,3 @@ export const AppConfigSchema = z.object({
 
 export type SiteConfig = z.infer<typeof SiteConfigSchema>;
 export type AppConfig = z.infer<typeof AppConfigSchema>;
-

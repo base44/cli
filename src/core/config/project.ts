@@ -1,12 +1,12 @@
 import { join, dirname } from "node:path";
 import { z } from "zod";
 import { globby } from "globby";
-import { getProjectConfigPatterns, PROJECT_SUBDIR } from "@core/consts.js";
-import { readJsonFile } from "@core/utils/fs.js";
-import { readAllEntities } from "@core/entity/index.js";
-import type { Entity } from "@core/entity/index.js";
-import { readAllFunctions } from "@core/function/index.js";
-import type { FunctionConfig } from "@core/function/index.js";
+import { getProjectConfigPatterns, PROJECT_SUBDIR } from "../consts.js";
+import { readJsonFile } from "../utils/fs.js";
+import { readAllEntities } from "../entity/index.js";
+import type { Entity } from "../entity/index.js";
+import { readAllFunctions } from "../function/index.js";
+import type { FunctionConfig } from "../function/index.js";
 
 // Project config schema
 export const ProjectConfigSchema = z.looseObject({
