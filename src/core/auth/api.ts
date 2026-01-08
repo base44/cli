@@ -134,6 +134,11 @@ export async function renewAccessToken(
 
 export async function getUserInfo(): Promise<UserInfoResponse> {
   const response = await httpClient.get("oauth/userinfo");
+
+  if (!response.ok) {
+    throw new AuthApiError(`Failed to fetch user info: ${response.status}`);
+  }
+
   const result = UserInfoSchema.safeParse(await response.json());
 
   if (!result.success) {

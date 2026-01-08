@@ -5,6 +5,7 @@ import {
   writeAuth,
   generateDeviceCode,
   getTokenFromDeviceCode,
+  getUserInfo,
 } from "@core/auth/index.js";
 import type { DeviceCodeResponse, TokenResponse } from "@core/auth/index.js";
 import { runCommand, runTask } from "../../utils/index.js";
@@ -72,15 +73,16 @@ async function waitForAuthentication(
 }
 
 async function saveAuthData(response: TokenResponse): Promise<void> {
-  // TODO: Fetch user info (email, name) from the server after authentication
+  const userInfo = await getUserInfo();
+
   // For now, we store placeholder values until a /userinfo endpoint is available
   const expiresAt = Date.now() + response.expiresIn * 1000;
   await writeAuth({
     accessToken: response.accessToken,
     refreshToken: response.refreshToken,
     expiresAt,
-    email: "user@base44.com",
-    name: "Base44 User",
+    email: userInfo.email,
+    name: userInfo.name,
   });
 }
 
