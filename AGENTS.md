@@ -11,6 +11,7 @@ The Base44 CLI is a TypeScript-based command-line tool built with:
 - **@clack/prompts** - Interactive user prompts and UI components
 - **Zod** - Schema validation for API responses, config files, and user inputs
 - **TypeScript** - Primary language
+- **tsdown** - Bundler (powered by Rolldown, the Rust-based Rollup successor)
 
 ### Project Structure
 - **Package**: `base44` - Single package published to npm
@@ -111,10 +112,15 @@ import { entityResource } from "@core/resources/entity/index.js";
 ## Development
 
 ```bash
-npm run build    # tsc && tsc-alias
-npm run dev      # tsx for development
-npm test         # vitest
+npm run build      # tsdown - bundles to single file in dist/cli/index.js
+npm run typecheck  # tsc --noEmit - type checking only
+npm run dev        # tsx for development
+npm test           # vitest
 ```
+
+### Node.js Version
+
+This project requires Node.js >= 20.19.0. A `.node-version` file is provided for fnm/nodenv.
 
 ## File Locations
 
@@ -122,3 +128,5 @@ npm test         # vitest
 - `cli/AGENTS.md` - This file
 - `cli/src/core/` - Core module
 - `cli/src/cli/` - CLI commands
+- `cli/tsdown.config.ts` - Build configuration
+- `cli/.node-version` - Node.js version pinning

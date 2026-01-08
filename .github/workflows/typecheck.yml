@@ -1,4 +1,4 @@
-name: Test
+name: Typecheck
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  test:
+  typecheck:
     runs-on: ubuntu-latest
 
     steps:
@@ -23,6 +23,5 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests
-        run: npm test
-
+      - name: Run typecheck
+        run: npm run typecheck

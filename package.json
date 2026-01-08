@@ -4,19 +4,16 @@
   "description": "Base44 CLI - Unified interface for managing Base44 applications",
   "type": "module",
   "main": "./dist/cli/index.js",
-  "types": "./dist/cli/index.d.ts",
   "bin": "./dist/cli/index.js",
   "exports": {
-    ".": {
-      "types": "./dist/cli/index.d.ts",
-      "default": "./dist/cli/index.js"
-    }
+    ".": "./dist/cli/index.js"
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "tsc && tsc-alias",
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit",
     "dev": "tsx src/cli/index.ts",
     "start": "node dist/cli/index.js",
     "clean": "rm -rf dist",
@@ -52,7 +49,7 @@
     "eslint": "^9.39.2",
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-unicorn": "^62.0.0",
-    "tsc-alias": "^1.8.16",
+    "tsdown": "^0.12.4",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.52.0",
