@@ -12,6 +12,7 @@ import type {
 } from "./schema.js";
 import { AUTH_CLIENT_ID } from "../consts.js";
 import authClient from "./authClient.js";
+import httpClient from "../utils/httpClient.js";
 
 export async function generateDeviceCode(): Promise<DeviceCodeResponse> {
   const response = await authClient.post("oauth/device/code", {
