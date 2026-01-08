@@ -132,12 +132,17 @@ export async function renewAccessToken(
   return result.data;
 }
 
+<<<<<<< HEAD
 export async function getUserInfo(
   accessToken: string
 ): Promise<UserInfoResponse> {
   const response = await authClient.get("oauth/userinfo", {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
+=======
+export async function getUserInfo(): Promise<UserInfoResponse> {
+  const response = await httpClient.get("oauth/userinfo");
+>>>>>>> 85f1e63 (actual call the getUserInfo service)
 
   if (!response.ok) {
     throw new AuthApiError(`Failed to fetch user info: ${response.status}`);
