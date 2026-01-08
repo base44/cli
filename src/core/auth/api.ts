@@ -3,10 +3,16 @@ import {
   DeviceCodeResponseSchema,
   TokenResponseSchema,
   OAuthErrorSchema,
+  UserInfoSchema,
 } from "./schema.js";
-import type { DeviceCodeResponse, TokenResponse } from "./schema.js";
+import type {
+  DeviceCodeResponse,
+  TokenResponse,
+  UserInfoResponse,
+} from "./schema.js";
 import { AUTH_CLIENT_ID } from "../consts.js";
 import authClient from "./authClient.js";
+import httpClient from "../utils/httpClient.js";
 
 export async function generateDeviceCode(): Promise<DeviceCodeResponse> {
   const response = await authClient.post("oauth/device/code", {
@@ -120,6 +126,19 @@ export async function renewAccessToken(
   if (!result.success) {
     throw new AuthValidationError(
       `Invalid token response from server: ${result.error.message}`
+    );
+  }
+
+  return result.data;
+}
+
+export async function getUserInfo(): Promise<UserInfoResponse> {
+  const response = await httpClient.get("oauth/userinfo");
+  const result = UserInfoSchema.safeParse(await response.json());
+
+  if (!result.success) {
+    throw new AuthValidationError(
+      `Invalid UserInfo response from server: ${result.error.message}`
     );
   }
 

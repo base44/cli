@@ -11,7 +11,6 @@ export const AuthDataSchema = z.object({
 
 export type AuthData = z.infer<typeof AuthDataSchema>;
 
-// API response schemas
 export const DeviceCodeResponseSchema = z
   .object({
     device_code: z.string().min(1, "Device code cannot be empty"),
@@ -59,10 +58,16 @@ export const TokenResponseSchema = z
 
 export type TokenResponse = z.infer<typeof TokenResponseSchema>;
 
-// OAuth error response schema
 export const OAuthErrorSchema = z.object({
   error: z.string(),
   error_description: z.string().optional(),
 });
 
 export type OAuthError = z.infer<typeof OAuthErrorSchema>;
+
+export const UserInfoSchema = z.object({
+  email: z.email(),
+  name: z.string(),
+});
+
+export type UserInfoResponse = z.infer<typeof UserInfoSchema>;

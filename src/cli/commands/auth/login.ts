@@ -21,10 +21,7 @@ async function generateAndDisplayDeviceCode(): Promise<DeviceCodeResponse> {
     }
   );
 
-  log.info(
-    `Please visit: ${deviceCodeResponse.verificationUri}\n` +
-      `Enter your device code: ${deviceCodeResponse.userCode}`
-  );
+  log.info(`Please visit: ${deviceCodeResponse.verificationUriComplete}`);
 
   return deviceCodeResponse;
 }
