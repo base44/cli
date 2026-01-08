@@ -4,6 +4,12 @@ import { renewAccessToken } from "./api.js";
 import { AuthDataSchema } from "./schema.js";
 import type { AuthData } from "./schema.js";
 
+// Buffer time before expiration to trigger proactive refresh (60 seconds)
+const TOKEN_REFRESH_BUFFER_MS = 60 * 1000;
+
+// Lock to prevent concurrent token refreshes
+let refreshPromise: Promise<string | null> | null = null;
+
 export async function readAuth(): Promise<AuthData> {
   try {
     const parsed = await readJsonFile(getAuthFilePath());
@@ -68,25 +74,44 @@ export async function deleteAuth(): Promise<void> {
 }
 
 /**
+ * Checks if the access token is expired or about to expire.
+ */
+export function isTokenExpired(auth: AuthData): boolean {
+  return Date.now() >= auth.expiresAt - TOKEN_REFRESH_BUFFER_MS;
+}
+
+/**
  * Refreshes the access token and saves the new tokens.
  * Returns the new access token, or null if refresh failed.
- * Used by httpClient to handle 401 responses.
+ * Uses a lock to prevent concurrent refresh requests.
  */
 export async function refreshAndSaveTokens(): Promise<string | null> {
-  try {
-    const auth = await readAuth();
-    const tokenResponse = await renewAccessToken(auth.refreshToken);
-
-    await writeAuth({
-      ...auth,
-      accessToken: tokenResponse.accessToken,
-      refreshToken: tokenResponse.refreshToken,
-    });
-
-    return tokenResponse.accessToken;
-  } catch {
-    // Refresh failed - delete auth, user needs to login again
-    await deleteAuth();
-    return null;
+  // If a refresh is already in progress, wait for it
+  if (refreshPromise) {
+    return refreshPromise;
   }
+
+  refreshPromise = (async () => {
+    try {
+      const auth = await readAuth();
+      const tokenResponse = await renewAccessToken(auth.refreshToken);
+
+      await writeAuth({
+        ...auth,
+        accessToken: tokenResponse.accessToken,
+        refreshToken: tokenResponse.refreshToken,
+        expiresAt: Date.now() + tokenResponse.expiresIn * 1000,
+      });
+
+      return tokenResponse.accessToken;
+    } catch {
+      // Refresh failed - delete auth, user needs to login again
+      await deleteAuth();
+      return null;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
 }

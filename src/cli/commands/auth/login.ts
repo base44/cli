@@ -31,7 +31,8 @@ async function generateAndDisplayDeviceCode(): Promise<DeviceCodeResponse> {
 
 async function waitForAuthentication(
   deviceCode: string,
-  expiresIn: number
+  expiresIn: number,
+  interval: number
 ): Promise<TokenResponse> {
   let tokenResponse: TokenResponse | undefined;
 
@@ -49,7 +50,7 @@ async function waitForAuthentication(
             return false;
           },
           {
-            interval: 2000,
+            interval: interval * 1000,
             timeout: expiresIn * 1000,
           }
         );
@@ -76,9 +77,11 @@ async function waitForAuthentication(
 async function saveAuthData(response: TokenResponse): Promise<void> {
   // TODO: Fetch user info (email, name) from the server after authentication
   // For now, we store placeholder values until a /userinfo endpoint is available
+  const expiresAt = Date.now() + response.expiresIn * 1000;
   await writeAuth({
     accessToken: response.accessToken,
     refreshToken: response.refreshToken,
+    expiresAt,
     email: "user@base44.com",
     name: "Base44 User",
   });
@@ -89,7 +92,8 @@ async function login(): Promise<void> {
 
   const token = await waitForAuthentication(
     deviceCodeResponse.deviceCode,
-    deviceCodeResponse.expiresIn
+    deviceCodeResponse.expiresIn,
+    deviceCodeResponse.interval
   );
 
   await saveAuthData(token);

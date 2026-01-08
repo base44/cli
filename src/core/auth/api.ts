@@ -59,7 +59,9 @@ export async function getTokenFromDeviceCode(
     const errorResult = OAuthErrorSchema.safeParse(json);
 
     if (!errorResult.success) {
-      throw new AuthApiError(`Token request failed: ${response.statusText}`);
+      throw new AuthValidationError(
+        `Token request failed: ${errorResult.error.message}`
+      );
     }
 
     const { error, error_description } = errorResult.data;
