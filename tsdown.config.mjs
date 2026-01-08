@@ -7,5 +7,4 @@ export default defineConfig({
   outDir: "dist/cli",
   clean: true,
   tsconfig: "tsconfig.json",
-  skipNodeModulesBundle: true,
 });
