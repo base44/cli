@@ -7,8 +7,13 @@ import {
   getTokenFromDeviceCode,
   getUserInfo,
 } from "@core/auth/index.js";
-import type { DeviceCodeResponse, TokenResponse } from "@core/auth/index.js";
+import type {
+  DeviceCodeResponse,
+  TokenResponse,
+  UserInfoResponse,
+} from "@core/auth/index.js";
 import { runCommand, runTask } from "../../utils/index.js";
+import { UserInfo } from "node:os";
 
 async function generateAndDisplayDeviceCode(): Promise<DeviceCodeResponse> {
   const deviceCodeResponse = await runTask(
@@ -72,9 +77,10 @@ async function waitForAuthentication(
   return tokenResponse;
 }
 
-async function saveAuthData(response: TokenResponse): Promise<void> {
-  const userInfo = await getUserInfo();
-
+async function saveAuthData(
+  response: TokenResponse,
+  userInfo: UserInfoResponse
+): Promise<void> {
   // For now, we store placeholder values until a /userinfo endpoint is available
   const expiresAt = Date.now() + response.expiresIn * 1000;
   await writeAuth({
@@ -95,9 +101,11 @@ async function login(): Promise<void> {
     deviceCodeResponse.interval
   );
 
-  await saveAuthData(token);
+  const userInfo = await getUserInfo();
 
-  log.success("Successfully logged in!");
+  await saveAuthData(token, userInfo);
+
+  log.success(`Successfully logged as ${userInfo.name} (${userInfo.email})`);
 }
 
 export const loginCommand = new Command("login")
