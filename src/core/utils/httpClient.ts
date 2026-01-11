@@ -1,6 +1,6 @@
 import ky from "ky";
 import type { KyRequest, KyResponse, NormalizedOptions } from "ky";
-import { getBase44ApiUrl } from "../config.js";
+import { getBase44ApiUrl, getBase44ClientId } from "../config.js";
 import {
   readAuth,
   refreshAndSaveTokens,
@@ -77,7 +77,8 @@ const base44Client = ky.create({
  */
 function getAppClient() {
   return base44Client.extend({
-    prefixUrl: new URL(`/api/apps/${getAppId()}/`, getBase44ApiUrl()).href,
+    prefixUrl: new URL(`/api/apps/${getBase44ClientId()}/`, getBase44ApiUrl())
+      .href,
   });
 }
 

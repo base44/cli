@@ -39,7 +39,7 @@ async function init(): Promise<void> {
   const resolvedPath = resolve(projectPath || defaultPath);
 
   // Create the project
-  const result = await runTask(
+  await runTask(
     "Creating project...",
     async () => {
       return await initProject({

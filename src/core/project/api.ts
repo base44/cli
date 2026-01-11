@@ -1,8 +1,8 @@
-import httpClient from "@core/utils/httpClient";
+import { base44Client } from "@core/utils/httpClient.js";
 import { CreateProjectResponseSchema } from "./schema.js";
 
 export async function createProject(projectName: string, description?: string) {
-  const response = await httpClient.post("api/apps", {
+  const response = await base44Client.post("api/apps", {
     json: {
       name: projectName,
       user_description: description ?? `Backend for '${projectName}'`,
