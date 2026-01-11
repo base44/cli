@@ -14,7 +14,6 @@ import type {
   UserInfoResponse,
 } from "@core/auth/index.js";
 import { runCommand, runTask } from "../../utils/index.js";
-import { UserInfo } from "node:os";
 
 async function generateAndDisplayDeviceCode(): Promise<DeviceCodeResponse> {
   const deviceCodeResponse = await runTask(
