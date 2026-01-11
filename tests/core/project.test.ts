@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readProjectConfig } from "../../src/core/config/project.js";
+import { readProjectConfig } from "../../src/core/project/config.js";
 import { resolve } from "path";
 
 const FIXTURES_DIR = resolve(__dirname, "../fixtures");
