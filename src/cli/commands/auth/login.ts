@@ -84,8 +84,8 @@ async function saveAuthData(
   response: TokenResponse,
   userInfo: UserInfoResponse
 ): Promise<void> {
-  // For now, we store placeholder values until a /userinfo endpoint is available
   const expiresAt = Date.now() + response.expiresIn * 1000;
+
   await writeAuth({
     accessToken: response.accessToken,
     refreshToken: response.refreshToken,
@@ -108,7 +108,7 @@ async function login(): Promise<void> {
 
   await saveAuthData(token, userInfo);
 
-  log.success(`Successfully logged as ${chalk.bold(userInfo.email)}`);
+  log.success(`Successfully logged in as ${chalk.bold(userInfo.email)}`);
 }
 
 export const loginCommand = new Command("login")
