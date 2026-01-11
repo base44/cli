@@ -104,7 +104,7 @@ async function login(): Promise<void> {
     deviceCodeResponse.interval
   );
 
-  const userInfo = await getUserInfo();
+  const userInfo = await getUserInfo(token.accessToken);
 
   await saveAuthData(token, userInfo);
 
