@@ -37,8 +37,9 @@ async function handleUnauthorized(
 
   // Mark this request as retried and retry with new token
   retriedRequests.add(request);
-  request.headers.set("Authorization", `Bearer ${newAccessToken}`);
-  return ky(request);
+  return ky(request, {
+    headers: { Authorization: `Bearer ${newAccessToken}` },
+  });
 }
 
 const httpClient = ky.create({
