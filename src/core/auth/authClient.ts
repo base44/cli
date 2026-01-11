@@ -1,5 +1,5 @@
 import ky from "ky";
-import { getBase44ApiUrl } from "../consts.js";
+import { getBase44ApiUrl } from "../config.js";
 
 /**
  * Separate ky instance for OAuth endpoints.

@@ -1,4 +1,4 @@
-import { getAuthFilePath } from "../consts.js";
+import { getAuthFilePath } from "../config.js";
 import { readJsonFile, writeJsonFile, deleteFile } from "../utils/fs.js";
 import { renewAccessToken } from "./api.js";
 import { AuthDataSchema } from "./schema.js";

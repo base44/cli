@@ -1,7 +1,7 @@
 import { join, dirname } from "node:path";
 import { z } from "zod";
 import { globby } from "globby";
-import { getProjectConfigPatterns, PROJECT_SUBDIR } from "../consts.js";
+import { getProjectConfigPatterns, PROJECT_SUBDIR } from "../config.js";
 import { readJsonFile } from "../utils/fs.js";
 import { entityResource } from "../resources/entity/index.js";
 import type { Entity } from "../resources/entity/index.js";

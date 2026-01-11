@@ -16,3 +16,9 @@ export const AppConfigSchema = z.object({
 
 export type SiteConfig = z.infer<typeof SiteConfigSchema>;
 export type AppConfig = z.infer<typeof AppConfigSchema>;
+
+export const CreateProjectResponseSchema = z.looseObject({
+  id: z.string(),
+});
+
+export type CreateProjectResponse = z.infer<typeof CreateProjectResponseSchema>;

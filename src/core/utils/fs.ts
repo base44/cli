@@ -1,12 +1,32 @@
-import { readFile, writeFile, mkdir, unlink, access } from "node:fs/promises";
+import {
+  readFile as fsReadFile,
+  writeFile as fsWriteFile,
+  mkdir,
+  unlink,
+  access,
+} from "node:fs/promises";
 import { dirname } from "node:path";
 import type { ParseError } from "jsonc-parser";
 import { parse, printParseErrorCode } from "jsonc-parser";
 
-export function pathExists(path: string) {
-  return access(path)
-    .then(() => true)
-    .catch(() => false);
+export async function pathExists(path: string): Promise<boolean> {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function writeFile(
+  filePath: string,
+  content: string
+): Promise<void> {
+  const dir = dirname(filePath);
+  if (!(await pathExists(dir))) {
+    await mkdir(dir, { recursive: true });
+  }
+  await fsWriteFile(filePath, content, "utf-8");
 }
 
 export async function readJsonFile(filePath: string): Promise<unknown> {
@@ -15,7 +35,7 @@ export async function readJsonFile(filePath: string): Promise<unknown> {
   }
 
   try {
-    const fileContent = await readFile(filePath, "utf-8");
+    const fileContent = await fsReadFile(filePath, "utf-8");
     const errors: ParseError[] = [];
     const result = parse(fileContent, errors, { allowTrailingComma: true });
 
@@ -45,35 +65,17 @@ export async function writeJsonFile(
   filePath: string,
   data: unknown
 ): Promise<void> {
-  try {
-    const dir = dirname(filePath);
-    if (!(await pathExists(dir))) {
-      await mkdir(dir, { recursive: true });
-    }
-
-    const jsonContent = JSON.stringify(data, null, 2);
-    await writeFile(filePath, jsonContent, "utf-8");
-  } catch (error) {
-    throw new Error(
-      `Failed to write file ${filePath}: ${
-        error instanceof Error ? error.message : "Unknown error"
-      }`
-    );
+  const dir = dirname(filePath);
+  if (!(await pathExists(dir))) {
+    await mkdir(dir, { recursive: true });
   }
+  const jsonContent = JSON.stringify(data, null, 2);
+  await fsWriteFile(filePath, jsonContent, "utf-8");
 }
 
 export async function deleteFile(filePath: string): Promise<void> {
   if (!(await pathExists(filePath))) {
     return;
   }
-
-  try {
-    await unlink(filePath);
-  } catch (error) {
-    throw new Error(
-      `Failed to delete file ${filePath}: ${
-        error instanceof Error ? error.message : "Unknown error"
-      }`
-    );
-  }
+  await unlink(filePath);
 }

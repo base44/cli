@@ -10,7 +10,7 @@ import type {
   TokenResponse,
   UserInfoResponse,
 } from "./schema.js";
-import { AUTH_CLIENT_ID } from "../consts.js";
+import { AUTH_CLIENT_ID } from "../config.js";
 import authClient from "./authClient.js";
 
 export async function generateDeviceCode(): Promise<DeviceCodeResponse> {

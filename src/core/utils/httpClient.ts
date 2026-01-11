@@ -1,6 +1,6 @@
 import ky from "ky";
 import type { KyRequest, KyResponse, NormalizedOptions } from "ky";
-import { getAppId, getBase44ApiUrl } from "../consts.js";
+import { getBase44ApiUrl } from "../config.js";
 import {
   readAuth,
   refreshAndSaveTokens,

@@ -7,4 +7,5 @@ export default defineConfig({
   outDir: "dist/cli",
   clean: true,
   tsconfig: "tsconfig.json",
+  copy: ["src/core/project/templates"],
 });
