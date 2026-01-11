@@ -1,4 +1,5 @@
 import { Command } from "commander";
+import chalk from "chalk";
 import { log } from "@clack/prompts";
 import pWaitFor from "p-wait-for";
 import {
@@ -13,7 +14,6 @@ import type {
   UserInfoResponse,
 } from "@core/auth/index.js";
 import { runCommand, runTask } from "../../utils/index.js";
-import { UserInfo } from "node:os";
 
 async function generateAndDisplayDeviceCode(): Promise<DeviceCodeResponse> {
   const deviceCodeResponse = await runTask(
@@ -27,7 +27,10 @@ async function generateAndDisplayDeviceCode(): Promise<DeviceCodeResponse> {
     }
   );
 
-  log.info(`Please visit: ${deviceCodeResponse.verificationUriComplete}`);
+  log.info(
+    `Your code is: ${chalk.bold(deviceCodeResponse.userCode)}` +
+      `\nPlease visit: ${deviceCodeResponse.verificationUriComplete}`
+  );
 
   return deviceCodeResponse;
 }
@@ -105,7 +108,7 @@ async function login(): Promise<void> {
 
   await saveAuthData(token, userInfo);
 
-  log.success(`Successfully logged as ${userInfo.name} (${userInfo.email})`);
+  log.success(`Successfully logged as ${chalk.bold(userInfo.email)}`);
 }
 
 export const loginCommand = new Command("login")
