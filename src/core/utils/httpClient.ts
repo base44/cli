@@ -72,19 +72,13 @@ const base44Client = ky.create({
   },
 });
 
-let _appClient: typeof base44Client | null = null;
-
 /**
  * Returns an HTTP client scoped to the current app.
- * Lazily initialized on first call (app ID must be set via BASE44_CLIENT_ID env var).
  */
 function getAppClient() {
-  if (!_appClient) {
-    _appClient = base44Client.extend({
-      prefixUrl: new URL(`/api/apps/${getAppId()}/`, getBase44ApiUrl()).href,
-    });
-  }
-  return _appClient;
+  return base44Client.extend({
+    prefixUrl: new URL(`/api/apps/${getAppId()}/`, getBase44ApiUrl()).href,
+  });
 }
 
 export { base44Client, getAppClient };

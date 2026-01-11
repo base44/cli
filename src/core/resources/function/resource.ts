@@ -4,5 +4,4 @@ import { readAllFunctions } from "./config.js";
 
 export const functionResource: Resource<FunctionConfig> = {
   readAll: readAllFunctions,
-  push: async () => {}, // noop
 };
