@@ -2,11 +2,10 @@ import { getAppClient } from "@core/utils";
 import { SyncEntitiesResponseSchema } from "./schema.js";
 import type { SyncEntitiesResponse, Entity } from "./schema.js";
 
-const appClient = getAppClient();
-
 export async function pushEntities(
   entities: Entity[]
 ): Promise<SyncEntitiesResponse> {
+  const appClient = getAppClient();
   const schemaSyncPayload = entities.reduce((acc, current) => {
     return {
       ...acc,
@@ -27,7 +26,9 @@ export async function pushEntities(
       throw new Error(`Failed to delete entity: ${errorJson.message}`);
     }
 
-    throw new Error(`Error occurred while syncing entities ${errorJson.message}`);
+    throw new Error(
+      `Error occurred while syncing entities ${errorJson.message}`
+    );
   }
 
   const result = SyncEntitiesResponseSchema.parse(await response.json());
