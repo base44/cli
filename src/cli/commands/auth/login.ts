@@ -14,6 +14,7 @@ import type {
   UserInfoResponse,
 } from "@core/auth/index.js";
 import { runCommand, runTask } from "../../utils/index.js";
+import { UserInfo } from "node:os";
 
 async function generateAndDisplayDeviceCode(): Promise<DeviceCodeResponse> {
   const deviceCodeResponse = await runTask(
@@ -84,6 +85,10 @@ async function saveAuthData(
   response: TokenResponse,
   userInfo: UserInfoResponse
 ): Promise<void> {
+<<<<<<< HEAD
+=======
+  // For now, we store placeholder values until a /userinfo endpoint is available
+>>>>>>> 248994d (added userInfo call and log)
   const expiresAt = Date.now() + response.expiresIn * 1000;
 
   await writeAuth({
