@@ -47,3 +47,7 @@ npm run lint
 ### Project
 
 - `base44 show-project` - Display project configuration, entities, and functions
+
+### AI Documentation
+
+- `base44 ai docs` - Interactively generate AI documentation files (CLAUDE.md, AGENTS.md, .cursorrules) for your Base44 project
