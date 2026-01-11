@@ -28,3 +28,11 @@ const DEFAULT_API_URL = "https://app.base44.com";
 export function getBase44ApiUrl(): string {
   return process.env.BASE44_API_URL || DEFAULT_API_URL;
 }
+
+export function getAppId(): string {
+  const appId = process.env.BASE44_CLIENT_ID;
+  if (!appId) {
+    throw new Error("BASE44_CLIENT_ID environment variable is not set");
+  }
+  return appId;
+}

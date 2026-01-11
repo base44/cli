@@ -5,6 +5,7 @@ import { loginCommand } from "./commands/auth/login.js";
 import { whoamiCommand } from "./commands/auth/whoami.js";
 import { logoutCommand } from "./commands/auth/logout.js";
 import { showProjectCommand } from "./commands/project/show-project.js";
+import { entitiesPushCommand } from "./commands/entities/push.js";
 import packageJson from "../../package.json";
 
 const program = new Command();
@@ -23,6 +24,9 @@ program.addCommand(logoutCommand);
 
 // Register project commands
 program.addCommand(showProjectCommand);
+
+// Register entities commands
+program.addCommand(entitiesPushCommand);
 
 // Parse command line arguments
 program.parse();

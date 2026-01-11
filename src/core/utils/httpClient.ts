@@ -1,6 +1,6 @@
 import ky from "ky";
 import type { KyRequest, KyResponse, NormalizedOptions } from "ky";
-import { getBase44ApiUrl } from "../consts.js";
+import { getAppId, getBase44ApiUrl } from "../consts.js";
 import {
   readAuth,
   refreshAndSaveTokens,
@@ -42,7 +42,7 @@ async function handleUnauthorized(
   });
 }
 
-const httpClient = ky.create({
+const base44Client = ky.create({
   prefixUrl: getBase44ApiUrl(),
   headers: {
     "User-Agent": "Base44 CLI",
@@ -72,4 +72,19 @@ const httpClient = ky.create({
   },
 });
 
-export default httpClient;
+let _appClient: typeof base44Client | null = null;
+
+/**
+ * Returns an HTTP client scoped to the current app.
+ * Lazily initialized on first call (app ID must be set via BASE44_CLIENT_ID env var).
+ */
+function getAppClient() {
+  if (!_appClient) {
+    _appClient = base44Client.extend({
+      prefixUrl: new URL(`/api/apps/${getAppId()}/`, getBase44ApiUrl()).href,
+    });
+  }
+  return _appClient;
+}
+
+export { base44Client, getAppClient };
