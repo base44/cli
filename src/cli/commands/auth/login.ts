@@ -84,10 +84,6 @@ async function saveAuthData(
   response: TokenResponse,
   userInfo: UserInfoResponse
 ): Promise<void> {
-<<<<<<< HEAD
-=======
-  // For now, we store placeholder values until a /userinfo endpoint is available
->>>>>>> 248994d (added userInfo call and log)
   const expiresAt = Date.now() + response.expiresIn * 1000;
 
   await writeAuth({
