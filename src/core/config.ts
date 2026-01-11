@@ -1,13 +1,12 @@
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { config } from "dotenv";
+import { findProjectRoot } from "./project/index.js";
 
 // Static constants
 export const PROJECT_SUBDIR = "base44";
 export const FUNCTION_CONFIG_FILE = "function.jsonc";
 export const AUTH_CLIENT_ID = "base44_cli";
-
-const DEFAULT_API_URL = "https://app.base44.com";
 
 // Path helpers
 export function getBase44Dir() {
@@ -33,16 +32,14 @@ export function getProjectConfigPatterns() {
  * Safe to call multiple times - only loads once.
  */
 export async function loadProjectEnv(projectRoot?: string): Promise<void> {
-  // Avoid circular dependency - inline the project root finding
-  const { findProjectRoot } = await import("./project/config.js");
   const found = projectRoot ? { root: projectRoot } : await findProjectRoot();
 
   if (!found) {
     return;
   }
 
-  const envPath = join(found.root, ".env.local");
-  config({ path: envPath, override: false });
+  const envPath = join(found.root, PROJECT_SUBDIR, ".env.local");
+  config({ path: envPath, override: false, quiet: true });
 }
 
 /**
@@ -50,7 +47,7 @@ export async function loadProjectEnv(projectRoot?: string): Promise<void> {
  * Priority: process.env.BASE44_API_URL > .env.local > default
  */
 export function getBase44ApiUrl(): string {
-  return process.env.BASE44_API_URL || DEFAULT_API_URL;
+  return process.env.BASE44_API_URL || "https://app.base44.com";
 }
 
 /**
