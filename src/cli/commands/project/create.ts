@@ -1,7 +1,9 @@
 import { resolve } from "node:path";
 import { Command } from "commander";
 import { log, group, text, select } from "@clack/prompts";
+import type { Option } from "@clack/prompts";
 import chalk from "chalk";
+import kebabCase from "lodash.kebabcase";
 import { loadProjectEnv } from "@core/config.js";
 import { createProjectFiles, listTemplates } from "@core/project/index.js";
 import type { Template } from "@core/project/index.js";
@@ -11,17 +13,16 @@ async function create(): Promise<void> {
   printBanner();
 
   // Load .env.local from project root (if in a project)
+  // TODO load this differenty?
   await loadProjectEnv();
 
-  // Load available templates for the select options
   const templates = await listTemplates();
-  const templateOptions = templates.map((t: Template) => ({
+  const templateOptions: Array<Option<Template>> = templates.map((t) => ({
     value: t,
     label: t.name,
     hint: t.description,
   }));
 
-  // Gather all project details in a single group
   const { template, name, description, projectPath } = await group(
     {
       template: () =>
@@ -44,19 +45,21 @@ async function create(): Promise<void> {
           message: "Project description (optional)",
           placeholder: "A brief description of your project",
         }),
-      projectPath: () =>
-        text({
+      projectPath: async ({ results }) => {
+        const suggestedPath = `./${kebabCase(results.name)}`;
+        return text({
           message: "Where should we create the base44 folder?",
-          placeholder: "./",
-          initialValue: "./",
-        }),
+          placeholder: suggestedPath,
+          initialValue: suggestedPath,
+        });
+      },
     },
     {
       onCancel: onPromptCancel,
     }
   );
 
-  const resolvedPath = resolve(projectPath || "./");
+  const resolvedPath = resolve(projectPath as string);
 
   // Create the project
   await runTask(
@@ -75,7 +78,6 @@ async function create(): Promise<void> {
     }
   );
 
-  // Display success message with details
   log.success(`Project ${chalk.bold(name)} has been initialized!`);
 }
 

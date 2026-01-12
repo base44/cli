@@ -41,12 +41,14 @@
     "globby": "^16.1.0",
     "jsonc-parser": "^3.3.1",
     "ky": "^1.14.2",
+    "lodash.kebabcase": "^4.1.1",
     "p-wait-for": "^6.0.0",
     "zod": "^4.3.5"
   },
   "devDependencies": {
     "@stylistic/eslint-plugin": "^5.6.1",
     "@types/ejs": "^3.1.5",
+    "@types/lodash.kebabcase": "^4.1.9",
     "@types/node": "^22.10.5",
     "@typescript-eslint/eslint-plugin": "^8.51.0",
     "@typescript-eslint/parser": "^8.51.0",
