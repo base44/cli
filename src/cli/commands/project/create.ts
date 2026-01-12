@@ -13,7 +13,6 @@ async function create(): Promise<void> {
   printBanner();
 
   // Load .env.local from project root (if in a project)
-  // TODO load this differenty?
   await loadProjectEnv();
 
   const templates = await listTemplates();

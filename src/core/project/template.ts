@@ -15,8 +15,8 @@ export interface TemplateData {
 export async function listTemplates(): Promise<Template[]> {
   const configPath = join(getTemplatesDir(), "templates.json");
   const parsed = await readJsonFile(configPath);
-  const validated = TemplatesConfigSchema.parse(parsed);
-  return validated.templates;
+  const result = TemplatesConfigSchema.parse(parsed);
+  return result.templates;
 }
 
 /**
@@ -43,7 +43,7 @@ export async function renderTemplate(
 
     if (file.endsWith(".ejs")) {
       // Render EJS template and write without .ejs extension
-      const destFile = file.slice(0, -4); // Remove .ejs
+      const destFile = file.replace(".ejs", "");
       const destFilePath = join(destPath, destFile);
       const rendered = await ejs.renderFile(srcPath, data);
       await writeFile(destFilePath, rendered);
