@@ -8,7 +8,7 @@
     },
     {
       "id": "backend-and-client",
-      "name": "To Do App - Backend + Client",
+      "name": "Backend & Client",
       "description": "Full-stack project with Base44 backend, Vite and a React client application",
       "path": "backend-and-client"
     }

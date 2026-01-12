@@ -1,15 +1,16 @@
-import { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
-import { Plus, Trash2, CheckCircle2 } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { base44 } from "@/api/base44Client";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Base44Logo } from "@/components/Base44Logo";
+import { Plus, Trash2, CheckCircle2 } from "lucide-react";
 
 const Task = base44.entities.Task;
 
 export default function App() {
   const [tasks, setTasks] = useState([]);
-  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [newTaskTitle, setNewTaskTitle] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchTasks = async () => {
@@ -26,7 +27,7 @@ export default function App() {
     e.preventDefault();
     if (!newTaskTitle.trim()) return;
     await Task.create({ title: newTaskTitle.trim(), completed: false });
-    setNewTaskTitle('');
+    setNewTaskTitle("");
     fetchTasks();
   };
 
@@ -41,7 +42,9 @@ export default function App() {
   };
 
   const clearCompleted = async () => {
-    await Promise.all(tasks.filter((t) => t.completed).map((t) => Task.delete(t.id)));
+    await Promise.all(
+      tasks.filter((t) => t.completed).map((t) => Task.delete(t.id))
+    );
     fetchTasks();
   };
 
@@ -53,10 +56,13 @@ export default function App() {
       <div className="max-w-lg mx-auto px-6 py-16">
         {/* Header */}
         <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 shadow-lg shadow-orange-500/25 mb-6">
-            <CheckCircle2 className="w-7 h-7 text-white" />
-          </div>
-          <h1 className="text-3xl font-semibold text-slate-900 tracking-tight">Tasks</h1>
+          <h1 className="text-3xl font-semibold text-slate-900 tracking-tight">
+            <span className="inline-flex items-center gap-2 align-middle">
+              <Base44Logo className="w-9 h-9" />
+              <span className="font-bold">Base44</span>
+              <span>Tasks</span>
+            </span>
+          </h1>
           {totalCount > 0 && (
             <p className="text-slate-500 mt-2 text-sm">
               {completedCount} of {totalCount} completed
@@ -105,7 +111,11 @@ export default function App() {
                   onCheckedChange={(checked) => toggleTask(task.id, checked)}
                   className="w-5 h-5 rounded-md border-slate-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                 />
-                <span className={`flex-1 text-slate-700 transition-all ${task.completed ? 'line-through text-slate-400' : ''}`}>
+                <span
+                  className={`flex-1 text-slate-700 transition-all ${
+                    task.completed ? "line-through text-slate-400" : ""
+                  }`}
+                >
                   {task.title}
                 </span>
                 <Button
@@ -124,7 +134,10 @@ export default function App() {
         {/* Footer */}
         {completedCount > 0 && (
           <div className="mt-8 text-center">
-            <button onClick={clearCompleted} className="text-sm text-slate-400 hover:text-slate-600 transition-colors">
+            <button
+              onClick={clearCompleted}
+              className="text-sm text-slate-400 hover:text-slate-600 transition-colors"
+            >
               Clear completed
             </button>
           </div>
