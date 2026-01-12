@@ -28,8 +28,8 @@ async function generateAndDisplayDeviceCode(): Promise<DeviceCodeResponse> {
   );
 
   log.info(
-    `Your code is: ${chalk.bold(deviceCodeResponse.userCode)}` +
-      `\nPlease visit: ${deviceCodeResponse.verificationUriComplete}`
+    `Verification code: ${chalk.bold(deviceCodeResponse.userCode)}` +
+      `\nPlease confirm this code at: ${deviceCodeResponse.verificationUri}`
   );
 
   return deviceCodeResponse;
@@ -44,7 +44,7 @@ async function waitForAuthentication(
 
   try {
     await runTask(
-      "Waiting for you to complete authentication...",
+      "Waiting for authentication...",
       async () => {
         await pWaitFor(
           async () => {
