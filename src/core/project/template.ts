@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { join, isAbsolute } from "node:path";
 import { globby } from "globby";
 import ejs from "ejs";
 import { getTemplatesDir } from "../config.js";
@@ -29,6 +29,11 @@ export async function renderTemplate(
   destPath: string,
   data: TemplateData
 ): Promise<void> {
+  // Validate template path to prevent directory traversal
+  if (template.path.includes("..") || isAbsolute(template.path)) {
+    throw new Error(`Invalid template path: ${template.path}`);
+  }
+
   const templateDir = join(getTemplatesDir(), template.path);
 
   // Get all files in the template directory
@@ -41,16 +46,21 @@ export async function renderTemplate(
   for (const file of files) {
     const srcPath = join(templateDir, file);
 
-    if (file.endsWith(".ejs")) {
-      // Render EJS template and write without .ejs extension
-      const destFile = file.replace(".ejs", "");
-      const destFilePath = join(destPath, destFile);
-      const rendered = await ejs.renderFile(srcPath, data);
-      await writeFile(destFilePath, rendered);
-    } else {
-      // Copy file directly
-      const destFilePath = join(destPath, file);
-      await copyFile(srcPath, destFilePath);
+    try {
+      if (file.endsWith(".ejs")) {
+        // Render EJS template and write without .ejs extension
+        const destFile = file.replace(/\.ejs$/, "");
+        const destFilePath = join(destPath, destFile);
+        const rendered = await ejs.renderFile(srcPath, data);
+        await writeFile(destFilePath, rendered);
+      } else {
+        // Copy file directly
+        const destFilePath = join(destPath, file);
+        await copyFile(srcPath, destFilePath);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to process template file "${file}": ${message}`);
     }
   }
 }
