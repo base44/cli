@@ -1,7 +1,12 @@
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { homedir } from "node:os";
+import { fileURLToPath } from "node:url";
 import { config } from "dotenv";
 import { findProjectRoot } from "./project/index.js";
+
+// After bundling, import.meta.url points to dist/cli/index.js
+// Templates are copied to dist/cli/templates/
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Static constants
 export const PROJECT_SUBDIR = "base44";
@@ -15,6 +20,10 @@ export function getBase44Dir() {
 
 export function getAuthFilePath() {
   return join(getBase44Dir(), "auth", "auth.json");
+}
+
+export function getTemplatesDir() {
+  return join(__dirname, "templates");
 }
 
 export function getProjectConfigPatterns() {

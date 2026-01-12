@@ -1,6 +1,7 @@
 import {
   readFile as fsReadFile,
   writeFile as fsWriteFile,
+  copyFile as fsCopyFile,
   mkdir,
   unlink,
   access,
@@ -27,6 +28,14 @@ export async function writeFile(
     await mkdir(dir, { recursive: true });
   }
   await fsWriteFile(filePath, content, "utf-8");
+}
+
+export async function copyFile(src: string, dest: string): Promise<void> {
+  const dir = dirname(dest);
+  if (!(await pathExists(dir))) {
+    await mkdir(dir, { recursive: true });
+  }
+  await fsCopyFile(src, dest);
 }
 
 export async function readJsonFile(filePath: string): Promise<unknown> {

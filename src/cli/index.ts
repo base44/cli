@@ -6,7 +6,7 @@ import { whoamiCommand } from "./commands/auth/whoami.js";
 import { logoutCommand } from "./commands/auth/logout.js";
 import { showProjectCommand } from "./commands/project/show-project.js";
 import { entitiesPushCommand } from "./commands/entities/push.js";
-import { initCommand } from "./commands/project/init.js";
+import { createCommand } from "./commands/project/create.js";
 import packageJson from "../../package.json";
 
 const program = new Command();
@@ -24,7 +24,7 @@ program.addCommand(whoamiCommand);
 program.addCommand(logoutCommand);
 
 // Register project commands
-program.addCommand(initCommand);
+program.addCommand(createCommand);
 program.addCommand(showProjectCommand);
 
 // Register entities commands

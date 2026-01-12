@@ -1,0 +1,17 @@
+// Base44 Project Configuration
+// JSONC enables inline documentation and discoverability directly in config files.
+// Full-stack template with backend and client configuration.
+
+{
+  "name": "<%= name %>"<% if (description) { %>,
+  "description": "<%= description %>"<% } %>,
+
+  // Site/hosting configuration for the client application
+  // Docs: https://docs.base44.com/configuration/hosting
+  "site": {
+    "buildCommand": "npm run build",
+    "serveCommand": "npm run dev",
+    "outputDirectory": "./dist",
+    "installCommand": "npm ci"
+  }
+}
