@@ -441,6 +441,147 @@ When adding async operations to CLI commands:
 - Follows existing patterns in `create.ts` (entity push, site deploy, skills install)
 - Avoid manual try/catch with `log.message` for async operations
 
+## Testing
+
+CLI tests run the **built artifact** (`dist/cli/index.js`) via Node, not TypeScript directly. The `pretest` script ensures a fresh build before each test run.
+
+### Test Structure
+
+```
+tests/
+├── cli/                      # CLI integration tests (flat structure)
+│   ├── testkit/              # Test utilities
+│   │   ├── CLITestkit.ts     # Main testkit class
+│   │   ├── MockServer.ts     # Shared HTTP mock server
+│   │   ├── CLIResultMatcher.ts # Assertion helpers
+│   │   └── index.ts          # Barrel export
+│   ├── login.spec.ts         # Single commands: <command>.spec.ts
+│   ├── whoami.spec.ts
+│   ├── entities_push.spec.ts # Subcommands: <parent>_<sub>.spec.ts
+│   └── show_project.spec.ts
+├── core/                     # Core module unit tests
+│   └── project.spec.ts
+└── fixtures/                 # Test fixtures (project configs, entities, etc.)
+```
+
+### CLITestkit Pattern
+
+CLI tests use a **testkit pattern** with Given/When/Then structure for readable, maintainable tests.
+
+#### Writing a New Command Test
+
+1. Create test file: `tests/cli/<command>.spec.ts` (or `<parent>_<sub>.spec.ts` for subcommands)
+2. Follow this pattern:
+
+```typescript
+import { describe, it } from "vitest";
+import { setupCLITests, fixture } from "./testkit/index.js";
+
+describe("<command> command", () => {
+  const { kit } = setupCLITests(); // Handles kit lifecycle + mock server
+
+  it("succeeds when <scenario>", async () => {
+    // Given: setup preconditions
+    await kit().givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    await kit().givenProject(fixture("with-entities"));
+    kit().givenEnv("BASE44_CLIENT_ID", "test-app-id");
+
+    // Mock API endpoint (supports route params like :appId)
+    kit().givenRoute("PUT", "/api/apps/:appId/entities", () => ({
+      body: { created: ["Entity1"], updated: [], deleted: [] },
+    }));
+
+    // When: run the command
+    const result = await kit().run("<command>", "--flag", "value");
+
+    // Then: assert outcomes
+    kit().expect(result).toSucceed();
+    kit().expect(result).toContain("expected output");
+  });
+
+  it("fails when <error scenario>", async () => {
+    // Given: no auth (user not logged in)
+
+    const result = await kit().run("<command>");
+
+    kit().expect(result).toFail();
+    kit().expect(result).toContain("error message");
+  });
+});
+```
+
+### CLITestkit API Reference
+
+#### Setup
+
+| Method | Description |
+|--------|-------------|
+| `setupCLITests()` | Returns `{ kit }` - call inside `describe()`, handles lifecycle |
+
+#### Given Methods (Setup)
+
+| Method | Description |
+|--------|-------------|
+| `givenLoggedIn({ email, name })` | Creates auth file with user credentials |
+| `givenProject(fixturePath)` | Sets working directory to a project fixture |
+| `givenEnv(key, value)` | Sets environment variable for CLI execution |
+| `givenRoute(method, path, handler)` | Registers mock HTTP endpoint (supports `:param`) |
+
+#### When Methods (Actions)
+
+| Method | Description |
+|--------|-------------|
+| `run(...args)` | Executes CLI command, returns `{ stdout, stderr, exitCode }` |
+
+#### Then Methods (Assertions)
+
+| Method | Description |
+|--------|-------------|
+| `expect(result).toSucceed()` | Assert exit code is 0 |
+| `expect(result).toFail()` | Assert exit code is non-zero |
+| `expect(result).toHaveExitCode(n)` | Assert specific exit code |
+| `expect(result).toContain(text)` | Assert stdout OR stderr contains text |
+| `expect(result).toContainInStdout(text)` | Assert stdout contains text |
+| `expect(result).toContainInStderr(text)` | Assert stderr contains text |
+| `readAuthFile()` | Read auth.json from temp HOME directory |
+
+#### Utilities
+
+| Function | Description |
+|----------|-------------|
+| `fixture(name)` | Resolves path to test fixture in `tests/fixtures/` |
+
+### Mocking HTTP Endpoints
+
+A shared mock HTTP server (polka-based) runs automatically during tests. Register routes with `givenRoute`:
+
+```typescript
+// Static response
+kit().givenRoute("POST", "/oauth/device/code", () => ({
+  body: { device_code: "abc", user_code: "ABCD-1234" },
+}));
+
+// With route parameters
+kit().givenRoute("PUT", "/api/apps/:appId/entities", (params) => ({
+  body: { appId: params.appId, created: [], updated: [], deleted: [] },
+}));
+
+// With custom status
+kit().givenRoute("GET", "/api/not-found", () => ({
+  status: 404,
+  body: { error: "Not found" },
+}));
+```
+
+Routes are automatically cleared between tests. `BASE44_API_URL` is set automatically.
+
+### Important Testing Rules
+
+1. **Use `setupCLITests()` inside describe** - Handles kit lifecycle and mock server
+2. **Test both success and failure paths** - Commands should handle errors gracefully
+3. **Use fixtures for complex projects** - Don't recreate project structures in tests
+4. **Tests run the built CLI** - Tests execute `dist/cli/index.js` via Node (not tsx)
+
 ## File Locations
 
 - `cli/plan.md` - Implementation plan
@@ -457,3 +598,5 @@ When adding async operations to CLI commands:
 - `cli/src/cli/utils/runTask.ts` - Async operation wrapper with spinner and success/error messages
 - `cli/tsdown.config.mjs` - Build configuration (bundles index.ts to dist/)
 - `cli/.node-version` - Node.js version pinning
+- `cli/tests/cli/testkit/` - CLI test utilities (CLITestkit, MockServer, CLIResultMatcher)
+- `cli/tests/fixtures/` - Test fixtures (project configs, entities)
