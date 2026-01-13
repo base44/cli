@@ -6,42 +6,40 @@ import { deploySite } from "@core/site/index.js";
 import { runCommand, runTask } from "../../utils/index.js";
 
 async function deployAction(): Promise<void> {
-  // 1. Load project config
   const { project } = await readProjectConfig();
 
-  // 2. Validate site configuration exists
   if (!project.site?.outputDirectory) {
-    log.error(
-      "No site configuration found. Please add a 'site.outputDirectory' to your config.jsonc"
+    throw new Error(
+      "No site configuration found. Please add 'site.outputDirectory' to your config.jsonc"
     );
-    process.exit(1);
   }
 
   const outputDir = resolve(project.root, project.site.outputDirectory);
 
-  // 3. Confirm with user
   const shouldDeploy = await confirm({
     message: `Deploy site from ${project.site.outputDirectory}?`,
   });
 
   if (isCancel(shouldDeploy) || !shouldDeploy) {
     log.warn("Deployment cancelled");
-    process.exit(0);
+    return;
   }
 
-  // 4. Deploy to Base44
   const result = await runTask(
-    "Deploying site...",
-    async () => {
-      return await deploySite(outputDir);
+    "Reading site files...",
+    async (updateMessage) => {
+      return await deploySite(outputDir, (progress) => {
+        updateMessage(
+          `Reading files (${progress.current}/${progress.total}): ${progress.path}`
+        );
+      });
     },
     {
       successMessage: "Site deployed successfully",
-      errorMessage: "Failed to deploy site",
+      errorMessage: "Deployment failed",
     }
   );
 
-  // 5. Display the deployed URL
   log.success(`Site deployed to: ${result.url}`);
 }
 
