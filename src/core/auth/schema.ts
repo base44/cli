@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-// Auth data schema (stored locally)
 export const AuthDataSchema = z.object({
   accessToken: z.string().min(1, "Token cannot be empty"),
   refreshToken: z.string().min(1, "Refresh token cannot be empty"),

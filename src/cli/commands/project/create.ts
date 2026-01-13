@@ -4,17 +4,11 @@ import { log, group, text, select } from "@clack/prompts";
 import type { Option } from "@clack/prompts";
 import chalk from "chalk";
 import kebabCase from "lodash.kebabcase";
-import { loadProjectEnv } from "@core/config.js";
 import { createProjectFiles, listTemplates } from "@core/project/index.js";
 import type { Template } from "@core/project/index.js";
-import { runTask, printBanner, onPromptCancel } from "../../utils/index.js";
+import { runCommand, runTask, onPromptCancel } from "../../utils/index.js";
 
 async function create(): Promise<void> {
-  printBanner();
-
-  // Load .env.local from project root (if in a project)
-  await loadProjectEnv();
-
   const templates = await listTemplates();
   const templateOptions: Array<Option<Template>> = templates.map((t) => ({
     value: t,
@@ -83,14 +77,5 @@ async function create(): Promise<void> {
 export const createCommand = new Command("create")
   .description("Create a new Base44 project")
   .action(async () => {
-    try {
-      await create();
-    } catch (e) {
-      if (e instanceof Error) {
-        log.error(e.stack ?? e.message);
-      } else {
-        log.error(String(e));
-      }
-      process.exit(1);
-    }
+    await runCommand(create, { fullBanner: true });
   });

@@ -10,11 +10,11 @@ import type {
   TokenResponse,
   UserInfoResponse,
 } from "./schema.js";
-import { AUTH_CLIENT_ID } from "../config.js";
-import authClient from "./authClient.js";
+import { AUTH_CLIENT_ID } from "../consts.js";
+import { oauthClient } from "../clients/index.js";
 
 export async function generateDeviceCode(): Promise<DeviceCodeResponse> {
-  const response = await authClient.post("oauth/device/code", {
+  const response = await oauthClient.post("oauth/device/code", {
     json: {
       client_id: AUTH_CLIENT_ID,
       scope: "apps:read apps:write",
@@ -50,7 +50,7 @@ export async function getTokenFromDeviceCode(
   searchParams.set("device_code", deviceCode);
   searchParams.set("client_id", AUTH_CLIENT_ID);
 
-  const response = await authClient.post("oauth/token", {
+  const response = await oauthClient.post("oauth/token", {
     body: searchParams.toString(),
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
@@ -99,7 +99,7 @@ export async function renewAccessToken(
   searchParams.set("refresh_token", refreshToken);
   searchParams.set("client_id", AUTH_CLIENT_ID);
 
-  const response = await authClient.post("oauth/token", {
+  const response = await oauthClient.post("oauth/token", {
     body: searchParams.toString(),
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
@@ -134,7 +134,7 @@ export async function renewAccessToken(
 export async function getUserInfo(
   accessToken: string
 ): Promise<UserInfoResponse> {
-  const response = await authClient.get("oauth/userinfo", {
+  const response = await oauthClient.get("oauth/userinfo", {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
 

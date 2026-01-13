@@ -1,5 +1,5 @@
 import { globby } from "globby";
-import { getProjectConfigPatterns } from "../config.js";
+import { getProjectConfigPatterns } from "../consts.js";
 import { createProject } from "./api.js";
 import { renderTemplate } from "./template.js";
 import type { Template } from "./schema.js";

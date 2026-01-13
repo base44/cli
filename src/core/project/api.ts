@@ -1,4 +1,4 @@
-import { base44Client } from "@core/utils/httpClient.js";
+import { base44Client } from "@core/clients/index.js";
 import { CreateProjectResponseSchema } from "./schema.js";
 
 export async function createProject(projectName: string, description?: string) {

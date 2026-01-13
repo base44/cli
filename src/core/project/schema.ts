@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-// Template schemas
 export const TemplateSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -15,7 +14,6 @@ export const TemplatesConfigSchema = z.object({
 export type Template = z.infer<typeof TemplateSchema>;
 export type TemplatesConfig = z.infer<typeof TemplatesConfigSchema>;
 
-// App config schemas
 const SiteConfigSchema = z.object({
   buildCommand: z.string().optional(),
   serveCommand: z.string().optional(),
@@ -23,15 +21,16 @@ const SiteConfigSchema = z.object({
   installCommand: z.string().optional(),
 });
 
-export const AppConfigSchema = z.object({
+export const ProjectConfigSchema = z.object({
   name: z.string().min(1, "App name cannot be empty"),
   description: z.string().optional(),
   site: SiteConfigSchema.optional(),
-  domains: z.array(z.string()).optional(),
+  entitiesDir: z.string().optional().default("entities"),
+  functionsDir: z.string().optional().default("functions"),
 });
 
 export type SiteConfig = z.infer<typeof SiteConfigSchema>;
-export type AppConfig = z.infer<typeof AppConfigSchema>;
+export type ProjectConfig = z.infer<typeof ProjectConfigSchema>;
 
 export const CreateProjectResponseSchema = z.looseObject({
   id: z.string(),

@@ -10,6 +10,16 @@ const TOKEN_REFRESH_BUFFER_MS = 60 * 1000;
 // Lock to prevent concurrent token refreshes
 let refreshPromise: Promise<string | null> | null = null;
 
+/**
+ * Reads and validates the stored authentication data.
+ *
+ * @returns The parsed authentication data (tokens, user info).
+ * @throws {Error} If not logged in or if auth data is corrupted.
+ *
+ * @example
+ * const auth = await readAuth();
+ * console.log(`Logged in as: ${auth.email}`);
+ */
 export async function readAuth(): Promise<AuthData> {
   try {
     const parsed = await readJsonFile(getAuthFilePath());
@@ -25,12 +35,6 @@ export async function readAuth(): Promise<AuthData> {
 
     return result.data;
   } catch (error) {
-    if (error instanceof Error && error.message.includes("Authentication")) {
-      throw error;
-    }
-    if (error instanceof Error && error.message.includes("File not found")) {
-      throw new Error("Authentication file not found. Please login first.");
-    }
     throw new Error(
       `Failed to read authentication file: ${
         error instanceof Error ? error.message : "Unknown error"
@@ -73,18 +77,10 @@ export async function deleteAuth(): Promise<void> {
   }
 }
 
-/**
- * Checks if the access token is expired or about to expire.
- */
 export function isTokenExpired(auth: AuthData): boolean {
   return Date.now() >= auth.expiresAt - TOKEN_REFRESH_BUFFER_MS;
 }
 
-/**
- * Refreshes the access token and saves the new tokens.
- * Returns the new access token, or null if refresh failed.
- * Uses a lock to prevent concurrent refresh requests.
- */
 export async function refreshAndSaveTokens(): Promise<string | null> {
   // If a refresh is already in progress, wait for it
   if (refreshPromise) {

@@ -1,3 +1,8 @@
+/**
+ * Authenticated HTTP client for Base44 API.
+ * Automatically handles token refresh and retry on 401 responses.
+ */
+
 import ky from "ky";
 import type { KyRequest, KyResponse, NormalizedOptions } from "ky";
 import { getBase44ApiUrl, getBase44ClientId } from "../config.js";
@@ -42,7 +47,11 @@ async function handleUnauthorized(
   });
 }
 
-const base44Client = ky.create({
+/**
+ * Base44 API client with automatic authentication.
+ * Use this for general API calls that require authentication.
+ */
+export const base44Client = ky.create({
   prefixUrl: getBase44ApiUrl(),
   headers: {
     "User-Agent": "Base44 CLI",
@@ -74,12 +83,23 @@ const base44Client = ky.create({
 
 /**
  * Returns an HTTP client scoped to the current app.
+ * Use this for API calls to app-specific endpoints (entities, functions, etc.).
+ *
+ * @throws {Error} If BASE44_CLIENT_ID environment variable is not set.
+ *
+ * @example
+ * const appClient = getAppClient();
+ * const response = await appClient.get("entities");
  */
-function getAppClient() {
+export function getAppClient() {
+  const clientId = getBase44ClientId();
+  if (!clientId) {
+    throw new Error(
+      "BASE44_CLIENT_ID environment variable is required. Set it in your .env.local file."
+    );
+  }
+
   return base44Client.extend({
-    prefixUrl: new URL(`/api/apps/${getBase44ClientId()}/`, getBase44ApiUrl())
-      .href,
+    prefixUrl: new URL(`/api/apps/${clientId}/`, getBase44ApiUrl()).href,
   });
 }
-
-export { base44Client, getAppClient };

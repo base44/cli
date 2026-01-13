@@ -1,22 +1,44 @@
 import { intro, log } from "@clack/prompts";
 import chalk from "chalk";
 import { loadProjectEnv } from "@core/config.js";
+import { printBanner } from "./banner.js";
 
 const base44Color = chalk.bgHex("#E86B3C");
 
+export interface RunCommandOptions {
+  /**
+   * Use the full ASCII art banner instead of the simple intro tag.
+   * Useful for commands like `create` that want more visual impact.
+   * @default false
+   */
+  fullBanner?: boolean;
+}
+
 /**
- * Wraps a command function with the Base44 intro banner.
+ * Wraps a command function with the Base44 intro banner and error handling.
  * All CLI commands should use this utility to ensure consistent branding.
  * Also loads .env.local from the project root if available.
  *
  * @param commandFn - The async function to execute as the command
+ * @param options - Optional configuration for the command wrapper
+ *
+ * @example
+ * // Standard command with simple intro
+ * export const myCommand = new Command("my-command")
+ *   .action(async () => {
+ *     await runCommand(myAction);
+ *   });
  */
 export async function runCommand(
-  commandFn: () => Promise<void>
+  commandFn: () => Promise<void>,
+  options?: RunCommandOptions
 ): Promise<void> {
-  intro(base44Color(" Base 44 "));
+  if (options?.fullBanner) {
+    printBanner();
+  } else {
+    intro(base44Color(" Base 44 "));
+  }
 
-  // Load .env.local from project root (if in a project)
   await loadProjectEnv();
 
   try {

@@ -1,36 +1,11 @@
 import { join, dirname } from "node:path";
-import { z } from "zod";
 import { globby } from "globby";
-import { getProjectConfigPatterns, PROJECT_SUBDIR } from "../config.js";
+import { getProjectConfigPatterns, PROJECT_SUBDIR } from "../consts.js";
 import { readJsonFile } from "../utils/fs.js";
 import { entityResource } from "../resources/entity/index.js";
-import type { Entity } from "../resources/entity/index.js";
 import { functionResource } from "../resources/function/index.js";
-import type { FunctionConfig } from "../resources/function/index.js";
-
-export const ProjectConfigSchema = z.looseObject({
-  name: z.string().min(1, "Project name cannot be empty"),
-  entitiesDir: z.string().default("./entities"),
-  functionsDir: z.string().default("./functions"),
-});
-
-export type ProjectConfig = z.infer<typeof ProjectConfigSchema>;
-
-export interface ProjectWithPaths extends ProjectConfig {
-  root: string;
-  configPath: string;
-}
-
-export interface ProjectRoot {
-  root: string;
-  configPath: string;
-}
-
-export interface ProjectData {
-  project: ProjectWithPaths;
-  entities: Entity[];
-  functions: FunctionConfig[];
-}
+import type { ProjectData, ProjectRoot } from "./types.js";
+import { ProjectConfigSchema } from "./schema.js";
 
 async function findConfigInDir(dir: string): Promise<string | null> {
   const files = await globby(getProjectConfigPatterns(), {
@@ -40,6 +15,19 @@ async function findConfigInDir(dir: string): Promise<string | null> {
   return files[0] ?? null;
 }
 
+/**
+ * Searches for a Base44 project root by looking for config files.
+ * Walks up the directory tree from the starting path until it finds a config file.
+ *
+ * @param startPath - Directory to start searching from. Defaults to cwd.
+ * @returns Project root info if found, null otherwise.
+ *
+ * @example
+ * const found = await findProjectRoot();
+ * if (found) {
+ *   console.log(`Project found at: ${found.root}`);
+ * }
+ */
 export async function findProjectRoot(
   startPath?: string
 ): Promise<ProjectRoot | null> {
@@ -56,6 +44,17 @@ export async function findProjectRoot(
   return null;
 }
 
+/**
+ * Reads and validates a Base44 project configuration from the filesystem.
+ * Also loads all entities and functions defined in the project.
+ *
+ * @param projectRoot - Optional path to start searching from. Defaults to cwd.
+ * @returns Project configuration including entities and functions.
+ * @throws {Error} If no config file is found or if the config is invalid.
+ *
+ * @example
+ * const { project, entities, functions } = await readProjectConfig();
+ */
 export async function readProjectConfig(
   projectRoot?: string
 ): Promise<ProjectData> {
@@ -80,8 +79,7 @@ export async function readProjectConfig(
   const result = ProjectConfigSchema.safeParse(parsed);
 
   if (!result.success) {
-    const errors = result.error.issues.map((e) => e.message).join(", ");
-    throw new Error(`Invalid project configuration: ${errors}`);
+    throw new Error(`Invalid project configuration: ${result.error.message}`);
   }
 
   const project = result.data;
