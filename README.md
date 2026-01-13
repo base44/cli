@@ -47,6 +47,12 @@ base44 entities push
 |---------|-------------|
 | `base44 entities push` | Push local entity schemas to Base44 |
 
+### AI Documentation
+
+| Command | Description |
+|---------|-------------|
+| `base44 ai docs` | Generate AI-specific documentation files (AGENTS.md, CLAUDE.md, .cursorrules) |
+
 ## Configuration
 
 ### Project Configuration

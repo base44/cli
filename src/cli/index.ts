@@ -7,6 +7,7 @@ import { logoutCommand } from "./commands/auth/logout.js";
 import { showProjectCommand } from "./commands/project/show-project.js";
 import { entitiesPushCommand } from "./commands/entities/push.js";
 import { createCommand } from "./commands/project/create.js";
+import { aiDocsCommand } from "./commands/ai/docs.js";
 import packageJson from "../../package.json";
 
 const program = new Command();
@@ -29,6 +30,9 @@ program.addCommand(showProjectCommand);
 
 // Register entities commands
 program.addCommand(entitiesPushCommand);
+
+// Register AI commands
+program.addCommand(aiDocsCommand);
 
 // Parse command line arguments
 program.parse();
