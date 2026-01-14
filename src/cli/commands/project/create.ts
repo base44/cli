@@ -78,7 +78,7 @@ async function create(): Promise<void> {
   );
 
   log.success(`Project ${chalk.bold(name)} has been initialized!`);
-  log.success(`Dashboard link:\n${chalk.bold(`https://pr-2624.velino.org/apps/${projectId}/editor/preview`)}`);
+  log.success(`Dashboard link:\n${chalk.bold(`https://app.base44.com/apps/${projectId}/editor/preview`)}`);
 }
 
 export const createCommand = new Command("create")
