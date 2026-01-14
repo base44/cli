@@ -2,43 +2,32 @@ import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { config } from "dotenv";
+import { PROJECT_SUBDIR } from "./consts.js";
 import { findProjectRoot } from "./project/index.js";
 
 // After bundling, import.meta.url points to dist/cli/index.js
 // Templates are copied to dist/cli/templates/
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// Static constants
-export const PROJECT_SUBDIR = "base44";
-export const FUNCTION_CONFIG_FILE = "function.jsonc";
-export const AUTH_CLIENT_ID = "base44_cli";
-
-// Path helpers
-export function getBase44Dir() {
+export function getBase44GlobalDir(): string {
   return join(homedir(), ".base44");
 }
 
-export function getAuthFilePath() {
-  return join(getBase44Dir(), "auth", "auth.json");
+export function getAuthFilePath(): string {
+  return join(getBase44GlobalDir(), "auth", "auth.json");
 }
 
-export function getTemplatesDir() {
+export function getTemplatesDir(): string {
   return join(__dirname, "templates");
 }
 
-export function getProjectConfigPatterns() {
-  return [
-    `${PROJECT_SUBDIR}/config.jsonc`,
-    `${PROJECT_SUBDIR}/config.json`,
-    "config.jsonc",
-    "config.json",
-  ];
+export function getTemplatesIndexPath(): string {
+  return join(getTemplatesDir(), "templates.json");
 }
 
 /**
  * Load .env.local from the project root if it exists.
  * Values won't override existing process.env variables.
- * Safe to call multiple times - only loads once.
  */
 export async function loadProjectEnv(projectRoot?: string): Promise<void> {
   const found = projectRoot ? { root: projectRoot } : await findProjectRoot();
@@ -51,19 +40,10 @@ export async function loadProjectEnv(projectRoot?: string): Promise<void> {
   config({ path: envPath, override: false, quiet: true });
 }
 
-/**
- * Get the Base44 API URL.
- * Priority: process.env.BASE44_API_URL > .env.local > default
- */
 export function getBase44ApiUrl(): string {
   return process.env.BASE44_API_URL || "https://app.base44.com";
 }
 
-/**
- * Get the Base44 Client ID (app ID).
- * Priority: process.env.BASE44_CLIENT_ID > .env.local
- * Returns undefined if not set.
- */
 export function getBase44ClientId(): string | undefined {
   return process.env.BASE44_CLIENT_ID;
 }

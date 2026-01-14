@@ -1,7 +1,7 @@
-import { join, isAbsolute } from "node:path";
+import { join } from "node:path";
 import { globby } from "globby";
 import ejs from "ejs";
-import { getTemplatesDir } from "../config.js";
+import { getTemplatesDir, getTemplatesIndexPath } from "../config.js";
 import { readJsonFile, writeFile, copyFile } from "../utils/fs.js";
 import { TemplatesConfigSchema } from "./schema.js";
 import type { Template } from "./schema.js";
@@ -13,8 +13,7 @@ export interface TemplateData {
 }
 
 export async function listTemplates(): Promise<Template[]> {
-  const configPath = join(getTemplatesDir(), "templates.json");
-  const parsed = await readJsonFile(configPath);
+  const parsed = await readJsonFile(getTemplatesIndexPath());
   const result = TemplatesConfigSchema.parse(parsed);
   return result.templates;
 }
@@ -29,11 +28,6 @@ export async function renderTemplate(
   destPath: string,
   data: TemplateData
 ): Promise<void> {
-  // Validate template path to prevent directory traversal
-  if (template.path.includes("..") || isAbsolute(template.path)) {
-    throw new Error(`Invalid template path: ${template.path}`);
-  }
-
   const templateDir = join(getTemplatesDir(), template.path);
 
   // Get all files in the template directory

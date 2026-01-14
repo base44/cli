@@ -195,20 +195,26 @@ Generate a comprehensive CLI tool that provides a unified interface for managing
 
 2. **Build Process & Configuration**
    - Set up TypeScript configuration (`tsconfig.json`)
-   - Set up source maps for debugging
-   - Configure output directory structure (`dist/`)
+   - Configure output directory structure (`dist/cli/`)
    - **ES Modules**: Package uses `"type": "module"` for ES module support
-   - **Development**: Use `tsx` for development/watch mode (not just `tsc`)
-   - **Production**: Use `tsc` for production builds
+   - **Development**: Use `tsx` for development/watch mode
+   - **Production**: Use `tsdown` to bundle all code and dependencies into single file
+   - **Zero Dependencies**: All packages bundled
 
 3. **Package.json Setup**
    - **Package** (`base44`):
-     - Install all dependencies:
+     - All dependencies in `devDependencies` (bundled at build time):
        - `zod` - Schema validation
        - `commander` - CLI framework
        - `@clack/prompts` - User prompts and UI components
        - `chalk` - Terminal colors (Base44 brand color: #E86B3C)
-     - Set up bin entry point for CLI executable (`./dist/index.js`)
+       - `json5` - JSONC/JSON5 config parsing
+       - `ky` - HTTP client
+       - `ejs` - Template rendering
+       - `globby` - File globbing
+       - `dotenv` - Environment variables
+     - Zero runtime `dependencies` - everything bundled
+     - Set up bin entry point for CLI executable (`./dist/cli/index.js`)
      - Set up build and dev scripts
      - **Shebang**: Main entry point (`src/cli/index.ts`) includes `#!/usr/bin/env node`
 
@@ -301,11 +307,12 @@ Generate a comprehensive CLI tool that provides a unified interface for managing
 
 ### Build & Distribution
 - **Project Structure** - Single package with `core` and `cli` modules
-- **TypeScript Compiler** - `tsc` for type-checked builds
 - **ES Modules** - Package uses `"type": "module"` for native ES module support
+- **Zero-Dependency Distribution** - All runtime dependencies bundled into single JS file
 - **Build Tools**:
-  - Production: `tsc` (TypeScript compiler) for type-checked builds
+  - Production: `tsdown` bundles all code and dependencies into `dist/cli/index.js`
   - Development: `tsx` for fast watch mode and direct TypeScript execution
+  - Type checking: `tsc --noEmit` for validation without emitting files
 - **CLI Entry Point**: `src/cli/index.ts` includes shebang (`#!/usr/bin/env node`)
 - GitHub Actions for automated builds and npm releases
 
@@ -363,33 +370,23 @@ Generate a comprehensive CLI tool that provides a unified interface for managing
 
 ## Dependencies
 
-### Core CLI
+### Core CLI (bundled - zero runtime dependencies)
+All dependencies are bundled into a single file at build time using tsdown.
+
 - **commander** - CLI framework for command parsing and help generation
 - **@clack/prompts** - Beautiful, accessible prompts and UI components
 - **chalk** - Terminal colors (Base44 brand color: #E86B3C)
-- **typescript** - TypeScript compiler and type system
-- **tsx** - TypeScript execution for development/watch mode
-
-### API & HTTP
-- **axios** or **node-fetch** - HTTP client for API communication
-- **zod** - **Primary schema validation library** for:
-  - API response validation
-  - Configuration file validation
-  - Input validation
-  - File schema validation
-  - Type inference for TypeScript
-
-### Configuration
-- **cosmiconfig** or **conf** - Configuration file management
-- **js-yaml** or **toml** - YAML/TOML parsing for config files
-
-### Security & Storage
-- **keytar** or **@napi-rs/keyring** - Secure credential storage (OS keychain)
-- **crypto** (Node.js built-in) - Encryption for secrets
-
-### Utilities
-- **fs-extra** - Enhanced file system operations
+- **json5** - JSONC/JSON5 config file parsing (supports comments and trailing commas)
+- **zod** - Schema validation for API responses, config files, and inputs
+- **ky** - HTTP client for API communication
+- **ejs** - Template rendering for project scaffolding
+- **globby** - File globbing for resource discovery
+- **dotenv** - Environment variable loading
 
 ### Development
+- **typescript** - TypeScript compiler and type system
+- **tsx** - TypeScript execution for development/watch mode
+- **tsdown** - Bundler (powered by Rolldown) for zero-dependency distribution
+- **vitest** - Testing framework
 - **@types/node** - TypeScript definitions for Node.js
 

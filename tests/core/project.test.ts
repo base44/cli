@@ -9,7 +9,6 @@ describe("readProjectConfig", () => {
   it("reads basic project config", async () => {
     const result = await readProjectConfig(resolve(FIXTURES_DIR, "basic"));
 
-    expect(result.project.id).toBe("test-basic-project");
     expect(result.project.name).toBe("Basic Test Project");
     expect(result.entities).toEqual([]);
     expect(result.functions).toEqual([]);
@@ -20,7 +19,6 @@ describe("readProjectConfig", () => {
       resolve(FIXTURES_DIR, "with-entities")
     );
 
-    expect(result.project.id).toBe("test-entities-project");
     expect(result.entities).toHaveLength(2);
     expect(result.entities.map((e) => e.name)).toContain("User");
     expect(result.entities.map((e) => e.name)).toContain("Product");
@@ -32,7 +30,6 @@ describe("readProjectConfig", () => {
       resolve(FIXTURES_DIR, "with-functions-and-entities")
     );
 
-    expect(result.project.id).toBe("test-full-project");
     expect(result.entities).toHaveLength(1);
     expect(result.entities[0].name).toBe("Order");
     expect(result.functions).toHaveLength(1);

@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-// Auth data schema (stored locally)
 export const AuthDataSchema = z.object({
   accessToken: z.string().min(1, "Token cannot be empty"),
   refreshToken: z.string().min(1, "Refresh token cannot be empty"),
@@ -16,7 +15,6 @@ export const DeviceCodeResponseSchema = z
     device_code: z.string().min(1, "Device code cannot be empty"),
     user_code: z.string().min(1, "User code cannot be empty"),
     verification_uri: z.url("Invalid verification URL"),
-    verification_uri_complete: z.url("Invalid complete verification URL"),
     expires_in: z
       .number()
       .int()
@@ -30,7 +28,6 @@ export const DeviceCodeResponseSchema = z
     deviceCode: data.device_code,
     userCode: data.user_code,
     verificationUri: data.verification_uri,
-    verificationUriComplete: data.verification_uri_complete,
     expiresIn: data.expires_in,
     interval: data.interval,
   }));

@@ -6,8 +6,21 @@ import { spinner } from "@clack/prompts";
  *
  * @param startMessage - Message to show when spinner starts
  * @param operation - The async operation to execute
- * @param options - Optional configuration
+ * @param options - Optional configuration for success/error messages
  * @returns The result of the operation
+ *
+ * @example
+ * const data = await runTask(
+ *   "Fetching data...",
+ *   async () => {
+ *     const response = await fetch(url);
+ *     return response.json();
+ *   },
+ *   {
+ *     successMessage: "Data fetched successfully",
+ *     errorMessage: "Failed to fetch data",
+ *   }
+ * );
  */
 export async function runTask<T>(
   startMessage: string,
