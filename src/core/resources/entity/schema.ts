@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const EntitySchema = z.object({
+export const EntitySchema = z.looseObject({
   name: z.string().min(1, "Entity name cannot be empty"),
 });
 
