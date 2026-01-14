@@ -8,6 +8,4 @@ export default defineConfig({
   clean: true,
   tsconfig: "tsconfig.json",
   copy: ["templates"],
-  // Bundle all dependencies into a single file for zero-dependency distribution
-  noExternal: [/.*/],
 });
