@@ -7,8 +7,7 @@ import {
   access,
 } from "node:fs/promises";
 import { dirname } from "node:path";
-import type { ParseError } from "jsonc-parser";
-import { parse, printParseErrorCode } from "jsonc-parser";
+import JSON5 from "json5";
 
 export async function pathExists(path: string): Promise<boolean> {
   try {
@@ -45,22 +44,10 @@ export async function readJsonFile(filePath: string): Promise<unknown> {
 
   try {
     const fileContent = await fsReadFile(filePath, "utf-8");
-    const errors: ParseError[] = [];
-    const result = parse(fileContent, errors, { allowTrailingComma: true });
-
-    if (errors.length > 0) {
-      const errorMessages = errors
-        .map((e) => `${printParseErrorCode(e.error)} at offset ${e.offset}`)
-        .join(", ");
-      throw new Error(
-        `File contains invalid JSONC: ${filePath} (${errorMessages})`
-      );
-    }
-
-    return result;
+    return JSON5.parse(fileContent);
   } catch (error) {
-    if (error instanceof Error && error.message.includes("invalid JSONC")) {
-      throw error;
+    if (error instanceof SyntaxError) {
+      throw new Error(`File contains invalid JSON: ${filePath} (${error.message})`);
     }
     throw new Error(
       `Failed to read file ${filePath}: ${
