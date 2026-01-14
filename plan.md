@@ -199,7 +199,7 @@ Generate a comprehensive CLI tool that provides a unified interface for managing
    - **ES Modules**: Package uses `"type": "module"` for ES module support
    - **Development**: Use `tsx` for development/watch mode
    - **Production**: Use `tsdown` to bundle all code and dependencies into single file
-   - **Zero Dependencies**: All packages bundled via `noExternal: [/.*/]` in tsdown config
+   - **Zero Dependencies**: All packages bundled
 
 3. **Package.json Setup**
    - **Package** (`base44`):
