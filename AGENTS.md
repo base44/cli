@@ -10,8 +10,15 @@ The Base44 CLI is a TypeScript-based command-line tool built with:
 - **Commander.js** - CLI framework for command parsing
 - **@clack/prompts** - Interactive user prompts and UI components
 - **Zod** - Schema validation for API responses, config files, and user inputs
+- **JSON5** - Parsing JSONC/JSON5 config files (supports comments and trailing commas)
 - **TypeScript** - Primary language
 - **tsdown** - Bundler (powered by Rolldown, the Rust-based Rollup successor)
+
+### Distribution Strategy
+The CLI is distributed as a **zero-dependency package**. All runtime dependencies are bundled into a single JavaScript file. This means:
+- Users only download the bundled code 
+- No dependency resolution or node_modules installation
+- Faster install times and no version conflicts
 
 ### Project Structure
 - **Package**: `base44` - Single package published to npm
@@ -244,6 +251,7 @@ import { base44Client } from "@core/api/index.js";
 7. **Task wrapper** - Use `runTask()` for async operations with spinners
 8. **consts.ts has no imports** - Keep `consts.ts` dependency-free to avoid circular deps
 9. **Keep AGENTS.md updated** - Update this file when architecture changes
+10. **Zero-dependency distribution** - All packages go in `devDependencies`; they get bundled at build time
 
 ## Development
 

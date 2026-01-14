@@ -2,6 +2,8 @@
 
 A unified command-line interface for managing Base44 applications, entities, functions, deployments, and related services.
 
+**Zero dependencies** - installs in seconds with no dependency resolution.
+
 ## Installation
 
 ```bash
