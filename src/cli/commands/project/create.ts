@@ -61,7 +61,7 @@ async function create(): Promise<void> {
   const resolvedPath = resolve(projectPath as string);
 
   // Create the project
-  await runTask(
+  const { projectId } = await runTask(
     "Creating project...",
     async () => {
       return await createProjectFiles({
@@ -78,6 +78,7 @@ async function create(): Promise<void> {
   );
 
   log.success(`Project ${chalk.bold(name)} has been initialized!`);
+  log.success(`Dashboard link:\n${chalk.bold(`https://pr-2624.velino.org/apps/${projectId}/editor/preview`)}`);
 }
 
 export const createCommand = new Command("create")

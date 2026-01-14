@@ -12,6 +12,7 @@ export interface CreateProjectOptions {
 }
 
 export interface CreateProjectResult {
+  projectId: string;
   projectDir: string;
 }
 
@@ -43,6 +44,7 @@ export async function createProjectFiles(
   });
 
   return {
+    projectId,
     projectDir: basePath,
   };
 }
