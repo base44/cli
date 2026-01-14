@@ -7,6 +7,7 @@ import kebabCase from "lodash.kebabcase";
 import { loadProjectEnv } from "@core/config.js";
 import { createProjectFiles, listTemplates } from "@core/project/index.js";
 import type { Template } from "@core/project/index.js";
+import { getBase44ApiUrl } from "@core/config.js";
 import { runTask, printBanner, onPromptCancel } from "../../utils/index.js";
 
 async function create(): Promise<void> {
@@ -78,7 +79,7 @@ async function create(): Promise<void> {
   );
 
   log.success(`Project ${chalk.bold(name)} has been initialized!`);
-  log.success(`Dashboard link:\n${chalk.bold(`https://app.base44.com/apps/${projectId}/editor/preview`)}`);
+  log.success(`Dashboard link:\n${chalk.bold(`${getBase44ApiUrl()}/apps/${projectId}/editor/preview`)}`);
 }
 
 export const createCommand = new Command("create")
