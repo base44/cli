@@ -7,7 +7,7 @@ import kebabCase from "lodash.kebabcase";
 import { createProjectFiles, listTemplates } from "@core/project/index.js";
 import type { Template } from "@core/project/index.js";
 import { getBase44ApiUrl } from "@core/config.js";
-import { runCommand, runTask, printBanner, onPromptCancel } from "../../utils/index.js";
+import { runCommand, runTask, onPromptCancel } from "../../utils/index.js";
 
 async function create(): Promise<void> {
   const templates = await listTemplates();
