@@ -12,8 +12,9 @@ import type { DeployResponse } from "./schema.js";
  */
 export async function uploadSite(archivePath: string): Promise<DeployResponse> {
   const archiveBuffer = await readFile(archivePath);
+  const blob = new Blob([archiveBuffer], { type: "application/gzip" });
   const formData = new FormData();
-  formData.append("file", archiveBuffer, "dist.tar.gz");
+  formData.append("file", blob, "dist.tar.gz");
 
   const appClient = getAppClient();
   const response = await appClient.post("deploy-dist", {
