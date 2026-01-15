@@ -42,9 +42,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build package
-        run: npm run build
-
       - name: Check if version needs to be bumped
         id: check-version
         run: |
@@ -67,6 +64,9 @@ jobs:
         run: |
           npm version ${{ github.event.inputs.version }} --no-git-tag-version
           echo "NEW_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
+
+      - name: Build package
+        run: npm run build
 
       - name: Show package info
         run: |
