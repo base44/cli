@@ -7,11 +7,9 @@ import kebabCase from "lodash.kebabcase";
 import { createProjectFiles, listTemplates } from "@core/project/index.js";
 import type { Template } from "@core/project/index.js";
 import { getBase44ApiUrl } from "@core/config.js";
-import { requireAuth } from "@core/auth/index.js";
 import { runCommand, runTask, onPromptCancel } from "../../utils/index.js";
 
 async function create(): Promise<void> {
-  await requireAuth();
   const templates = await listTemplates();
   const templateOptions: Array<Option<Template>> = templates.map((t) => ({
     value: t,
@@ -81,5 +79,5 @@ async function create(): Promise<void> {
 export const createCommand = new Command("create")
   .description("Create a new Base44 project")
   .action(async () => {
-    await runCommand(create, { fullBanner: true });
+    await runCommand(create, { fullBanner: true, requireAuth: true });
   });

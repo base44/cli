@@ -1,10 +1,9 @@
 import { Command } from "commander";
 import { log } from "@clack/prompts";
-import { readAuth, requireAuth } from "@core/auth/index.js";
+import { readAuth } from "@core/auth/index.js";
 import { runCommand } from "../../utils/index.js";
 
 async function whoami(): Promise<void> {
-  await requireAuth();
   const auth = await readAuth();
   log.info(`Logged in as: ${auth.name} (${auth.email})`);
 }
@@ -12,5 +11,5 @@ async function whoami(): Promise<void> {
 export const whoamiCommand = new Command("whoami")
   .description("Display current authenticated user")
   .action(async () => {
-    await runCommand(whoami);
+    await runCommand(whoami, { requireAuth: true });
   });

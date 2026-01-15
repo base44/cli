@@ -2,11 +2,9 @@ import { Command } from "commander";
 import { log } from "@clack/prompts";
 import { pushEntities } from "@core/resources/entity/index.js";
 import { readProjectConfig } from "@core/index.js";
-import { requireAuth } from "@core/auth/index.js";
 import { runCommand, runTask } from "../../utils/index.js";
 
 async function pushEntitiesAction(): Promise<void> {
-  await requireAuth();
   const { entities } = await readProjectConfig();
 
   if (entities.length === 0) {
@@ -53,6 +51,6 @@ export const entitiesPushCommand = new Command("entities")
     new Command("push")
       .description("Push local entities to Base44")
       .action(async () => {
-        await runCommand(pushEntitiesAction);
+        await runCommand(pushEntitiesAction, { requireAuth: true });
       })
   );

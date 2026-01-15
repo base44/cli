@@ -149,8 +149,11 @@ await runCommand(myAction);
 // Command with full ASCII art banner (for special commands like create)
 await runCommand(myAction, { fullBanner: true });
 
-// Command with no intro (rare)
-await runCommand(myAction, { skipIntro: true });
+// Command requiring authentication
+await runCommand(myAction, { requireAuth: true });
+
+// Command with multiple options
+await runCommand(myAction, { fullBanner: true, requireAuth: true });
 ```
 
 ## Making API Calls

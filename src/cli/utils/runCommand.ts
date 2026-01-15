@@ -1,6 +1,7 @@
 import { intro, log } from "@clack/prompts";
 import chalk from "chalk";
 import { loadProjectEnv } from "@core/config.js";
+import { requireAuth } from "@core/auth/index.js";
 import { printBanner } from "./banner.js";
 
 const base44Color = chalk.bgHex("#E86B3C");
@@ -12,6 +13,12 @@ export interface RunCommandOptions {
    * @default false
    */
   fullBanner?: boolean;
+  /**
+   * Require user authentication before running this command.
+   * If the user is not logged in, they will see an error message.
+   * @default false
+   */
+  requireAuth?: boolean;
 }
 
 /**
@@ -28,6 +35,13 @@ export interface RunCommandOptions {
  *   .action(async () => {
  *     await runCommand(myAction);
  *   });
+ *
+ * @example
+ * // Command requiring authentication
+ * export const myCommand = new Command("my-command")
+ *   .action(async () => {
+ *     await runCommand(myAction, { requireAuth: true });
+ *   });
  */
 export async function runCommand(
   commandFn: () => Promise<void>,
@@ -42,6 +56,11 @@ export async function runCommand(
   await loadProjectEnv();
 
   try {
+    // Check authentication if required
+    if (options?.requireAuth) {
+      await requireAuth();
+    }
+
     await commandFn();
   } catch (e) {
     if (e instanceof Error) {
