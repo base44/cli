@@ -135,8 +135,9 @@ export async function isLoggedIn(): Promise<boolean> {
 
 /**
  * Ensures the user is logged in before proceeding.
+ * If the user is not logged in, automatically starts the login flow.
  *
- * @throws {Error} If the user is not logged in.
+ * @throws {Error} If the login flow fails.
  *
  * @example
  * await requireAuth();
@@ -144,6 +145,8 @@ export async function isLoggedIn(): Promise<boolean> {
  */
 export async function requireAuth(): Promise<void> {
   if (!(await isLoggedIn())) {
-    throw new Error("Not logged in. Please run 'base44 login' first.");
+    // Import login flow dynamically to avoid circular dependencies
+    const { performLogin } = await import("./login.js");
+    await performLogin();
   }
 }
