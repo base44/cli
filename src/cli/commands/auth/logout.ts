@@ -1,9 +1,10 @@
 import { Command } from "commander";
 import { log } from "@clack/prompts";
-import { deleteAuth } from "@core/auth/index.js";
+import { deleteAuth, requireAuth } from "@core/auth/index.js";
 import { runCommand } from "../../utils/index.js";
 
 async function logout(): Promise<void> {
+  await requireAuth();
   await deleteAuth();
   log.info("Logged out successfully");
 }

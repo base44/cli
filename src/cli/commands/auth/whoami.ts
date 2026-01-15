@@ -1,9 +1,10 @@
 import { Command } from "commander";
 import { log } from "@clack/prompts";
-import { readAuth } from "@core/auth/index.js";
+import { readAuth, requireAuth } from "@core/auth/index.js";
 import { runCommand } from "../../utils/index.js";
 
 async function whoami(): Promise<void> {
+  await requireAuth();
   const auth = await readAuth();
   log.info(`Logged in as: ${auth.name} (${auth.email})`);
 }

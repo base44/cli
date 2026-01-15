@@ -111,3 +111,39 @@ export async function refreshAndSaveTokens(): Promise<string | null> {
 
   return refreshPromise;
 }
+
+/**
+ * Checks if the user is currently logged in.
+ *
+ * @returns True if authentication data exists and is valid, false otherwise.
+ *
+ * @example
+ * if (await isLoggedIn()) {
+ *   console.log("User is logged in");
+ * } else {
+ *   console.log("Please login first");
+ * }
+ */
+export async function isLoggedIn(): Promise<boolean> {
+  try {
+    await readAuth();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Ensures the user is logged in before proceeding.
+ *
+ * @throws {Error} If the user is not logged in.
+ *
+ * @example
+ * await requireAuth();
+ * // Code here will only run if user is authenticated
+ */
+export async function requireAuth(): Promise<void> {
+  if (!(await isLoggedIn())) {
+    throw new Error("Not logged in. Please run 'base44 login' first.");
+  }
+}

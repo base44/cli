@@ -2,9 +2,11 @@ import { Command } from "commander";
 import { log } from "@clack/prompts";
 import { pushEntities } from "@core/resources/entity/index.js";
 import { readProjectConfig } from "@core/index.js";
+import { requireAuth } from "@core/auth/index.js";
 import { runCommand, runTask } from "../../utils/index.js";
 
 async function pushEntitiesAction(): Promise<void> {
+  await requireAuth();
   const { entities } = await readProjectConfig();
 
   if (entities.length === 0) {
