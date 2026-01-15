@@ -45,6 +45,6 @@ export const siteDeployCommand = new Command("site")
     new Command("deploy")
       .description("Deploy built site files to Base44 hosting")
       .action(async () => {
-        await runCommand(deployAction);
+        await runCommand(deployAction, { requireAuth: true });
       })
   );
