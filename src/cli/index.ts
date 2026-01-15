@@ -4,7 +4,6 @@ import { Command } from "commander";
 import { loginCommand } from "./commands/auth/login.js";
 import { whoamiCommand } from "./commands/auth/whoami.js";
 import { logoutCommand } from "./commands/auth/logout.js";
-import { showProjectCommand } from "./commands/project/show-project.js";
 import { entitiesPushCommand } from "./commands/entities/push.js";
 import { createCommand } from "./commands/project/create.js";
 import packageJson from "../../package.json";
@@ -25,7 +24,6 @@ program.addCommand(logoutCommand);
 
 // Register project commands
 program.addCommand(createCommand);
-program.addCommand(showProjectCommand);
 
 // Register entities commands
 program.addCommand(entitiesPushCommand);

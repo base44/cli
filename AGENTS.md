@@ -75,8 +75,7 @@ cli/
 │       │   │   ├── logout.ts
 │       │   │   └── whoami.ts
 │       │   ├── project/
-│       │   │   ├── create.ts
-│       │   │   └── show-project.ts
+│       │   │   └── create.ts
 │       │   └── entities/
 │       │       └── push.ts
 │       ├── utils/
