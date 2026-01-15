@@ -25,6 +25,10 @@ base44 create
 
 # 3. Push entities to Base44
 base44 entities push
+
+# 4. Build and deploy your site
+npm run build
+base44 site deploy
 ```
 
 ## Commands
@@ -49,6 +53,12 @@ base44 entities push
 |---------|-------------|
 | `base44 entities push` | Push local entity schemas to Base44 |
 
+### Site Deployment
+
+| Command | Description |
+|---------|-------------|
+| `base44 site deploy` | Deploy built site files to Base44 hosting |
+
 ## Configuration
 
 ### Project Configuration
@@ -61,7 +71,10 @@ Base44 projects are configured via a `config.jsonc` (or `config.json`) file in t
   "id": "your-app-id",           // Set after project creation
   "name": "My Project",
   "entitiesDir": "./entities",   // Default: ./entities
-  "functionsDir": "./functions"  // Default: ./functions
+  "functionsDir": "./functions", // Default: ./functions
+  "site": {
+    "outputDirectory": "../dist" // Path to built site files
+  }
 }
 ```
 
@@ -91,6 +104,7 @@ my-project/
 │   │   ├── user.jsonc
 │   │   └── product.jsonc
 ├── src/                       # Your frontend code
+├── dist/                      # Built site files (for deployment)
 └── package.json
 ```
 
