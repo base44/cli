@@ -1,23 +1,26 @@
-import type { SiteFile, DeployResponse } from "./schema.js";
+import { getAppClient } from "@core/clients/index.js";
+import { readFile } from "../utils/fs.js";
+import { DeployResponseSchema } from "./schema.js";
+import type { DeployResponse } from "./schema.js";
 
 /**
- * Uploads site files to the Base44 hosting API.
+ * Uploads a tar.gz archive file to the Base44 hosting API.
  *
- * @param files - Array of files with base64-encoded content to upload
- * @returns Deploy response with the site URL
+ * @param archivePath - Path to the tar.gz archive file
+ * @returns Deploy response with the site URL and deployment details
+ * @throws Error if file read or upload fails
  */
-export async function uploadSite(files: SiteFile[]): Promise<DeployResponse> {
-  // TODO: Implement actual FormData upload to Base44 API
-  // The endpoint will accept multipart/form-data with all files
-  // and return the deployed site URL
+export async function uploadSite(archivePath: string): Promise<DeployResponse> {
+  const archiveBuffer = await readFile(archivePath);
+  const formData = new FormData();
+  formData.append("file", archiveBuffer, "dist.tar.gz");
 
-  // Placeholder implementation - simulate API call
-  await new Promise((resolve) => setTimeout(resolve, 2000));
+  const appClient = getAppClient();
+  const response = await appClient.post("deploy-dist", {
+    body: formData,
+  });
 
-  // Log file count for debugging (remove when implementing real API)
-  // console.log(`[Placeholder] Would upload ${files.length} files`);
+  const result = DeployResponseSchema.parse(await response.json());
 
-  return {
-    url: "https://example.base44.app",
-  };
+  return result;
 }

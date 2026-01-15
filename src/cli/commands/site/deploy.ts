@@ -26,13 +26,9 @@ async function deployAction(): Promise<void> {
   }
 
   const result = await runTask(
-    "Reading site files...",
-    async (updateMessage) => {
-      return await deploySite(outputDir, (progress) => {
-        updateMessage(
-          `Reading files (${progress.current}/${progress.total}): ${progress.path}`
-        );
-      });
+    "Creating archive and deploying site...",
+    async () => {
+      return await deploySite(outputDir);
     },
     {
       successMessage: "Site deployed successfully",
@@ -40,7 +36,7 @@ async function deployAction(): Promise<void> {
     }
   );
 
-  log.success(`Site deployed to: ${result.url}`);
+  log.success(`Site deployed to: ${result.app_url}`);
 }
 
 export const siteDeployCommand = new Command("site")

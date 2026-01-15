@@ -1,24 +1,21 @@
 import { z } from "zod";
 
 /**
- * Represents a single file to be deployed.
- * Contains the relative path and base64-encoded content.
- */
-export const SiteFileSchema = z.object({
-  /** Relative path from output directory (e.g., "index.html", "assets/main.js") */
-  path: z.string(),
-  /** Base64-encoded file content */
-  content: z.string(),
-});
-
-export type SiteFile = z.infer<typeof SiteFileSchema>;
-
-/**
  * Response from the deploy API endpoint.
  */
 export const DeployResponseSchema = z.object({
+  /** Whether the deployment was successful */
+  success: z.boolean(),
+  /** The app ID */
+  app_id: z.string(),
+  /** Number of files deployed */
+  files_count: z.number(),
+  /** Total size of deployed files in bytes */
+  total_size_bytes: z.number(),
+  /** Timestamp when deployment completed */
+  deployed_at: z.string(),
   /** The URL where the site is deployed */
-  url: z.string().url(),
+  app_url: z.string().url(),
 });
 
 export type DeployResponse = z.infer<typeof DeployResponseSchema>;

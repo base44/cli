@@ -37,6 +37,22 @@ export async function copyFile(src: string, dest: string): Promise<void> {
   await fsCopyFile(src, dest);
 }
 
+export async function readFile(filePath: string): Promise<Buffer> {
+  if (!(await pathExists(filePath))) {
+    throw new Error(`File not found: ${filePath}`);
+  }
+
+  try {
+    return await fsReadFile(filePath);
+  } catch (error) {
+    throw new Error(
+      `Failed to read file ${filePath}: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`
+    );
+  }
+}
+
 export async function readJsonFile(filePath: string): Promise<unknown> {
   if (!(await pathExists(filePath))) {
     throw new Error(`File not found: ${filePath}`);
