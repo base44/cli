@@ -1,12 +1,15 @@
-import { resolve } from "node:path";
+import { resolve, join } from "node:path";
+import { execSync } from "node:child_process";
 import { Command } from "commander";
 import { log, group, text, select } from "@clack/prompts";
 import type { Option } from "@clack/prompts";
 import chalk from "chalk";
 import kebabCase from "lodash.kebabcase";
-import { createProjectFiles, listTemplates } from "@core/project/index.js";
+import { createProjectFiles, listTemplates, readProjectConfig } from "@core/project/index.js";
 import type { Template } from "@core/project/index.js";
 import { getBase44ApiUrl } from "@core/config.js";
+import { pathExists } from "@core/utils/fs.js";
+import { pushEntities } from "@core/resources/entity/index.js";
 import { runCommand, runTask, onPromptCancel } from "../../utils/index.js";
 
 async function create(): Promise<void> {
@@ -71,6 +74,43 @@ async function create(): Promise<void> {
       errorMessage: "Failed to create project",
     }
   );
+
+  // Install dependencies if package.json exists
+  const packageJsonPath = join(resolvedPath, "package.json");
+  if (await pathExists(packageJsonPath)) {
+    await runTask(
+      "Installing dependencies...",
+      async () => {
+        execSync("npm install", {
+          cwd: resolvedPath,
+          stdio: "pipe",
+        });
+      },
+      {
+        successMessage: "Dependencies installed",
+        errorMessage: "Failed to install dependencies",
+      }
+    );
+  }
+
+  // Push entities if any exist in the template
+  try {
+    const { entities } = await readProjectConfig(resolvedPath);
+    if (entities.length > 0) {
+      await runTask(
+        `Pushing ${entities.length} entities to Base44...`,
+        async () => {
+          return await pushEntities(entities);
+        },
+        {
+          successMessage: "Entities pushed successfully",
+          errorMessage: "Failed to push entities",
+        }
+      );
+    }
+  } catch {
+    // No entities or config not found - skip silently
+  }
 
   log.success(`Project ${chalk.bold(name)} has been initialized!`);
   log.success(`Dashboard link:\n${chalk.bold(`${getBase44ApiUrl()}/apps/${projectId}/editor/preview`)}`);
