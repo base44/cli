@@ -79,5 +79,5 @@ async function create(): Promise<void> {
 export const createCommand = new Command("create")
   .description("Create a new Base44 project")
   .action(async () => {
-    await runCommand(create, { fullBanner: true, requireAuth: true });
+    await runCommand(create, { fullBanner: true, requireAuth: true, autoLogin: true });
   });

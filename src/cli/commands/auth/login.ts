@@ -95,7 +95,11 @@ async function saveAuthData(
   });
 }
 
-async function login(): Promise<void> {
+/**
+ * Performs the login flow: generates device code, waits for authentication, and saves auth data.
+ * This function is exported for use by other commands that need to trigger login (e.g., create).
+ */
+export async function login(): Promise<void> {
   const deviceCodeResponse = await generateAndDisplayDeviceCode();
 
   const token = await waitForAuthentication(
