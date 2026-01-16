@@ -5,6 +5,8 @@ export const TemplateSchema = z.object({
   name: z.string(),
   description: z.string(),
   path: z.string(),
+  /** Source of the template: 'bundled' (in CLI package) or 'remote' (from GitHub) */
+  source: z.enum(["bundled", "remote"]).optional(),
 });
 
 export const TemplatesConfigSchema = z.object({
