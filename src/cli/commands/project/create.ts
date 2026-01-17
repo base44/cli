@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import { Command } from "commander";
-import { log, group, text, select } from "@clack/prompts";
+import { group, text, select, intro, log, outro } from "@clack/prompts";
 import type { Option } from "@clack/prompts";
 import chalk from "chalk";
 import kebabCase from "lodash.kebabcase";
@@ -9,7 +9,12 @@ import type { Template } from "@core/project/index.js";
 import { getBase44ApiUrl } from "@core/config.js";
 import { runCommand, runTask, onPromptCancel } from "../../utils/index.js";
 
+const orange = chalk.hex("#E86B3C");
+const cyan = chalk.hex("#00D4FF");
+
 async function create(): Promise<void> {
+  intro("Let's create something amazing!");
+
   const templates = await listTemplates();
   const templateOptions: Array<Option<Template>> = templates.map((t) => ({
     value: t,
@@ -21,22 +26,22 @@ async function create(): Promise<void> {
     {
       template: () =>
         select({
-          message: "Select a project template",
+          message: "Pick a template",
           options: templateOptions,
         }),
       name: () =>
         text({
           message: "What is the name of your project?",
-          placeholder: "my-app-backend",
+          placeholder: "my-app",
           validate: (value) => {
             if (!value || value.trim().length === 0) {
-              return "Project name is required";
+              return "Every project deserves a name";
             }
           },
         }),
       description: () =>
         text({
-          message: "Project description (optional)",
+          message: "Description (optional)",
           placeholder: "A brief description of your project",
         }),
       projectPath: async ({ results }) => {
@@ -57,7 +62,7 @@ async function create(): Promise<void> {
 
   // Create the project
   const { projectId } = await runTask(
-    "Creating project...",
+    "Setting up your project...",
     async () => {
       return await createProjectFiles({
         name: name.trim(),
@@ -67,13 +72,17 @@ async function create(): Promise<void> {
       });
     },
     {
-      successMessage: "Project created successfully",
+      successMessage: `${orange("✓")} ${chalk.bold("Project created successfully!")}`,
       errorMessage: "Failed to create project",
     }
   );
 
-  log.success(`Project ${chalk.bold(name)} has been initialized!`);
-  log.success(`Dashboard link:\n${chalk.bold(`${getBase44ApiUrl()}/apps/${projectId}/editor/preview`)}`);
+  const dashboardUrl = `${getBase44ApiUrl()}/apps/${projectId}/editor/preview`;
+
+  log.message(`${chalk.dim("Project")}: ${orange(name.trim())}`);
+  log.message(`${chalk.dim("Dashboard")}: ${cyan(dashboardUrl)}`);
+
+  outro("All set and ready!");
 }
 
 export const createCommand = new Command("create")
