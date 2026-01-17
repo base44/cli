@@ -1,15 +1,14 @@
 import { resolve, join } from "node:path";
-import { execSync } from "node:child_process";
+import { execa } from "execa";
 import { Command } from "commander";
-import { log, group, text, select } from "@clack/prompts";
+import { log, group, text, select, confirm } from "@clack/prompts";
 import type { Option } from "@clack/prompts";
 import chalk from "chalk";
 import kebabCase from "lodash.kebabcase";
 import { createProjectFiles, listTemplates, readProjectConfig } from "@core/project/index.js";
 import type { Template } from "@core/project/index.js";
 import { getBase44ApiUrl } from "@core/config.js";
-import { pathExists } from "@core/utils/fs.js";
-import { pushEntities } from "@core/resources/entity/index.js";
+import { deploySite, pushEntities } from "@core/index.js";
 import { runCommand, runTask, onPromptCancel } from "../../utils/index.js";
 
 async function create(): Promise<void> {
@@ -75,32 +74,24 @@ async function create(): Promise<void> {
     }
   );
 
-  // Install dependencies if package.json exists
-  const packageJsonPath = join(resolvedPath, "package.json");
-  if (await pathExists(packageJsonPath)) {
-    await runTask(
-      "Installing dependencies...",
-      async () => {
-        execSync("npm install", {
-          cwd: resolvedPath,
-          stdio: "pipe",
-        });
-      },
-      {
-        successMessage: "Dependencies installed",
-        errorMessage: "Failed to install dependencies",
-      }
-    );
-  }
+  // Set the project ID in the environment variables for following client calls
+  process.env.BASE44_CLIENT_ID = projectId;
 
-  // Push entities if any exist in the template
-  try {
-    const { entities } = await readProjectConfig(resolvedPath);
-    if (entities.length > 0) {
+  log.success(`Dashboard link:\n${chalk.bold(`${getBase44ApiUrl()}/apps/${projectId}/editor/preview`)}`);
+
+  const { project, entities } = await readProjectConfig(resolvedPath);
+
+  // Prompt to push entities if needed
+  if (entities.length > 0) {
+    const shouldPushEntities = await confirm({
+      message: 'Would you like to push entities now?',
+    })
+
+    if (shouldPushEntities) {
       await runTask(
         `Pushing ${entities.length} entities to Base44...`,
         async () => {
-          return await pushEntities(entities);
+          await pushEntities(entities);
         },
         {
           successMessage: "Entities pushed successfully",
@@ -108,12 +99,56 @@ async function create(): Promise<void> {
         }
       );
     }
-  } catch {
-    // No entities or config not found - skip silently
   }
 
-  log.success(`Project ${chalk.bold(name)} has been initialized!`);
-  log.success(`Dashboard link:\n${chalk.bold(`${getBase44ApiUrl()}/apps/${projectId}/editor/preview`)}`);
+  // Prompt to install dependencies if needed
+  if (project.site) {
+    const installCommand = project.site.installCommand;
+    const buildCommand = project.site.buildCommand;
+
+    const shouldDeploy = await confirm({
+      message: 'Would you like to deploy the site now?'
+    })
+
+    if (shouldDeploy && installCommand && buildCommand) {
+      await runTask(
+        "Installing dependencies...",
+        async () => {
+          await execa({ cwd: resolvedPath, shell: true })`${installCommand}`;
+        },
+        {
+          successMessage: "Dependencies installed successfully",
+          errorMessage: "Failed to install dependencies",
+        }
+      );
+
+      await runTask(
+        "Building project output...",
+        async () => {
+          await execa({ cwd: resolvedPath, shell: true })`${buildCommand}`;
+        },
+        {
+          successMessage: "Project output built successfully",
+          errorMessage: "Failed to build project output",
+        }
+      );
+
+      const { app_url } = await runTask(
+        "Deploying site...",
+        async () => {
+          return await deploySite(join(resolvedPath, project.site!.outputDirectory!));
+        },
+        {
+          successMessage: "Site deployed successfully",
+          errorMessage: "Failed to deploy site",
+        }
+      );
+
+      log.success(`Visit your site on ${app_url}`);
+    }
+  }
+
+  log.success(`Project ${chalk.bold(name)} is set and ready to use!`);
 }
 
 export const createCommand = new Command("create")
