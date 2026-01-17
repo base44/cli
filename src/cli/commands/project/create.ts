@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import { Command } from "commander";
-import { group, text, select, intro, log, outro } from "@clack/prompts";
+import { log, group, text, select, intro, outro } from "@clack/prompts";
 import type { Option } from "@clack/prompts";
 import chalk from "chalk";
 import kebabCase from "lodash.kebabcase";
