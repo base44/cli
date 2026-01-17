@@ -20,13 +20,6 @@ export interface RunCommandOptions {
    * @default false
    */
   requireAuth?: boolean;
-  /**
-   * Automatically trigger the login flow if the user is not authenticated.
-   * This provides a smoother experience for commands like `create`.
-   * Only applies when requireAuth is also true.
-   * @default false
-   */
-  autoLogin?: boolean;
 }
 
 /**
@@ -45,10 +38,10 @@ export interface RunCommandOptions {
  *   });
  *
  * @example
- * // Command requiring authentication with auto-login
+ * // Command requiring authentication
  * export const myCommand = new Command("my-command")
  *   .action(async () => {
- *     await runCommand(myAction, { requireAuth: true, autoLogin: true });
+ *     await runCommand(myAction, { requireAuth: true });
  *   });
  */
 export async function runCommand(
@@ -67,13 +60,10 @@ export async function runCommand(
     // Check authentication if required
     if (options?.requireAuth) {
       const loggedIn = await isLoggedIn();
+      
       if (!loggedIn) {
-        if (options.autoLogin) {
-          log.info("You need to login first to continue.");
-          await login();
-        } else {
-          throw new Error("Not logged in. Please run 'base44 login' first.");
-        }
+        log.info("You need to login first to continue.");
+        await login();
       }
     }
 
