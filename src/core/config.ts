@@ -9,6 +9,11 @@ import { findProjectRoot } from "./project/index.js";
 // Templates are copied to dist/cli/templates/
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+// Remote templates repository configuration
+export const TEMPLATES_REPO_OWNER = "base44";
+export const TEMPLATES_REPO_NAME = "apps-examples";
+export const TEMPLATES_BRANCH = "main";
+
 export function getBase44GlobalDir(): string {
   return join(homedir(), ".base44");
 }
@@ -23,6 +28,20 @@ export function getTemplatesDir(): string {
 
 export function getTemplatesIndexPath(): string {
   return join(getTemplatesDir(), "templates.json");
+}
+
+/**
+ * Get the directory for cached remote templates.
+ */
+export function getRemoteTemplatesCacheDir(): string {
+  return join(getBase44GlobalDir(), "templates");
+}
+
+/**
+ * Get the path to the cached templates index file.
+ */
+export function getRemoteTemplatesIndexPath(): string {
+  return join(getRemoteTemplatesCacheDir(), "templates.json");
 }
 
 /**

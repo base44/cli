@@ -2,9 +2,10 @@ import { join } from "node:path";
 import { globby } from "globby";
 import ejs from "ejs";
 import { getTemplatesDir, getTemplatesIndexPath } from "../config.js";
-import { readJsonFile, writeFile, copyFile } from "../utils/fs.js";
+import { readJsonFile, writeFile, copyFile, pathExists } from "../utils/fs.js";
 import { TemplatesConfigSchema } from "./schema.js";
 import type { Template } from "./schema.js";
+import { listRemoteTemplates, getRemoteTemplateDir } from "./remote.js";
 
 export interface TemplateData {
   name: string;
@@ -12,10 +13,65 @@ export interface TemplateData {
   projectId: string;
 }
 
+/**
+ * List all available templates.
+ * Combines bundled templates with remote templates from base44/apps-examples.
+ */
 export async function listTemplates(): Promise<Template[]> {
-  const parsed = await readJsonFile(getTemplatesIndexPath());
-  const result = TemplatesConfigSchema.parse(parsed);
-  return result.templates;
+  const templates: Template[] = [];
+
+  // First, try to load bundled templates (fallback for offline use)
+  try {
+    const bundledIndexPath = getTemplatesIndexPath();
+    if (await pathExists(bundledIndexPath)) {
+      const parsed = await readJsonFile(bundledIndexPath);
+      const result = TemplatesConfigSchema.parse(parsed);
+      templates.push(...result.templates.map((t) => ({ ...t, source: "bundled" as const })));
+    }
+  } catch {
+    // Bundled templates not available
+  }
+
+  // Then, try to fetch remote templates
+  try {
+    const remoteTemplates = await listRemoteTemplates();
+    // Mark remote templates and add them (avoiding duplicates by id)
+    const bundledIds = new Set(templates.map((t) => t.id));
+    for (const t of remoteTemplates) {
+      if (!bundledIds.has(t.id)) {
+        templates.push({ ...t, source: "remote" as const });
+      }
+    }
+  } catch {
+    // Remote templates not available (offline mode)
+  }
+
+  if (templates.length === 0) {
+    throw new Error(
+      "No templates available. Please check your internet connection or try again later."
+    );
+  }
+
+  return templates;
+}
+
+/**
+ * Get the directory path for a template, handling both bundled and remote templates.
+ */
+async function getTemplateDirectory(template: Template): Promise<string> {
+  // Check if it's a remote template
+  if ((template as Template & { source?: string }).source === "remote") {
+    return await getRemoteTemplateDir(template);
+  }
+
+  // Default to bundled templates
+  const bundledPath = join(getTemplatesDir(), template.path);
+  if (await pathExists(bundledPath)) {
+    return bundledPath;
+  }
+
+  // If bundled path doesn't exist, try remote
+  return await getRemoteTemplateDir(template);
 }
 
 /**
@@ -28,7 +84,7 @@ export async function renderTemplate(
   destPath: string,
   data: TemplateData
 ): Promise<void> {
-  const templateDir = join(getTemplatesDir(), template.path);
+  const templateDir = await getTemplateDirectory(template);
 
   // Get all files in the template directory
   const files = await globby("**/*", {
