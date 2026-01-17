@@ -1,6 +1,7 @@
 import { dirname, join } from "node:path";
 import { globby } from "globby";
-import ejs from "ejs";
+import { render, renderFile } from "ejs";
+import frontmatter from 'front-matter';
 import { getTemplatesDir, getTemplatesIndexPath } from "../config.js";
 import { readJsonFile, readFile, writeFile, copyFile } from "../utils/fs.js";
 import { TemplatesConfigSchema } from "./schema.js";
@@ -16,45 +17,6 @@ interface TemplateFrontmatter {
   outputPath?: string;
 }
 
-/**
- * Parse YAML-like frontmatter from a template file.
- * Frontmatter is delimited by --- at the start of the file.
- *
- * @example
- * ---
- * outputPath: .env.local
- * ---
- * REST_OF_CONTENT
- */
-function parseFrontmatter(content: string): {
-  frontmatter: TemplateFrontmatter;
-  body: string;
-} {
-  const frontmatterRegex = /^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/;
-  const match = content.match(frontmatterRegex);
-
-  if (!match) {
-    return { frontmatter: {}, body: content };
-  }
-
-  const [, frontmatterStr, body] = match;
-  const frontmatter: TemplateFrontmatter = {};
-
-  // Parse simple key: value pairs
-  for (const line of frontmatterStr.split("\n")) {
-    const colonIndex = line.indexOf(":");
-    if (colonIndex > 0) {
-      const key = line.slice(0, colonIndex).trim();
-      const value = line.slice(colonIndex + 1).trim();
-      if (key === "outputPath") {
-        frontmatter.outputPath = value;
-      }
-    }
-  }
-
-  return { frontmatter, body };
-}
-
 export async function listTemplates(): Promise<Template[]> {
   const parsed = await readJsonFile(getTemplatesIndexPath());
   const result = TemplatesConfigSchema.parse(parsed);
@@ -64,7 +26,7 @@ export async function listTemplates(): Promise<Template[]> {
 /**
  * Render a template directory to a destination path.
  * - Files ending in .ejs are rendered with EJS and written without the .ejs extension
- * - EJS files can have frontmatter with `outputPath` to specify a custom output filename
+ * - EJS files can have frontmatter with custom attributes
  * - All other files are copied directly
  */
 export async function renderTemplate(
@@ -86,24 +48,12 @@ export async function renderTemplate(
 
     try {
       if (file.endsWith(".ejs")) {
-        // Read the file content to check for frontmatter
-        const contentBuffer = await readFile(srcPath);
-        const content = contentBuffer.toString("utf-8");
-        const { frontmatter, body } = parseFrontmatter(content);
+        // Render EJS template and write to outputPath or filename without .ejs extension
+        const rendered = await renderFile(srcPath, data);
+        const { attributes, body } = frontmatter<TemplateFrontmatter>(rendered);
+        const destFilePath = join(destPath, attributes.outputPath ?? file.replace(/\.ejs$/, ""));
 
-        // Determine output path: use frontmatter.outputPath or default to removing .ejs
-        let destFile: string;
-        if (frontmatter.outputPath) {
-          // Replace the filename with the frontmatter outputPath, keeping the directory
-          const dir = dirname(file);
-          destFile = dir === "." ? frontmatter.outputPath : join(dir, frontmatter.outputPath);
-        } else {
-          destFile = file.replace(/\.ejs$/, "");
-        }
-
-        const destFilePath = join(destPath, destFile);
-        const rendered = await ejs.render(body, data, { filename: srcPath });
-        await writeFile(destFilePath, rendered);
+        await writeFile(destFilePath, body);
       } else {
         // Copy file directly
         const destFilePath = join(destPath, file);
