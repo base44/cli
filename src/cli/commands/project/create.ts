@@ -72,7 +72,7 @@ async function create(): Promise<void> {
       });
     },
     {
-      successMessage: `${orange("✓")} ${chalk.bold("Project created successfully!")}`,
+      successMessage: chalk.bold("Project created successfully!"),
       errorMessage: "Failed to create project",
     }
   );
