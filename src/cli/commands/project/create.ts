@@ -1,7 +1,7 @@
 import { resolve, join } from "node:path";
 import { execa } from "execa";
 import { Command } from "commander";
-import { log, group, text, select, confirm } from "@clack/prompts";
+import { log, group, text, select, confirm, isCancel } from "@clack/prompts";
 import type { Option } from "@clack/prompts";
 import chalk from "chalk";
 import kebabCase from "lodash.kebabcase";
@@ -87,7 +87,7 @@ async function create(): Promise<void> {
       message: 'Would you like to push entities now?',
     })
 
-    if (shouldPushEntities) {
+    if (!isCancel(shouldPushEntities) && shouldPushEntities) {
       await runTask(
         `Pushing ${entities.length} entities to Base44...`,
         async () => {
@@ -110,7 +110,7 @@ async function create(): Promise<void> {
       message: 'Would you like to deploy the site now?'
     })
 
-    if (shouldDeploy && installCommand && buildCommand) {
+    if (!isCancel(shouldDeploy) && shouldDeploy && installCommand && buildCommand) {
       await runTask(
         "Installing dependencies...",
         async () => {
