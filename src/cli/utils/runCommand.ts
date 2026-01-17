@@ -60,7 +60,7 @@ export async function runCommand(
     // Check authentication if required
     if (options?.requireAuth) {
       const loggedIn = await isLoggedIn();
-      
+
       if (!loggedIn) {
         log.info("You need to login first to continue.");
         await login();
