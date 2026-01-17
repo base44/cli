@@ -16,11 +16,11 @@ function sleep(ms: number): Promise<void> {
 async function animateLineReveal(line: string, duration: number): Promise<void> {
   const steps = 8;
   const stepDuration = duration / steps;
-  
+
   for (let step = 0; step <= steps; step++) {
     const progress = step / steps;
     const revealIndex = Math.floor(progress * line.length);
-    
+
     // Build the line with gradient reveal
     let output = "";
     for (let i = 0; i < line.length; i++) {
@@ -32,11 +32,11 @@ async function animateLineReveal(line: string, duration: number): Promise<void> 
         output += chalk.dim(line[i]);
       }
     }
-    
+
     process.stdout.write(`\r${output}`);
     await sleep(stepDuration);
   }
-  
+
   // Final state
   process.stdout.write(`\r${orange(line)}\n`);
 }
@@ -49,12 +49,12 @@ async function shimmerPass(lines: string[], duration: number): Promise<void> {
   const steps = 12;
   const stepDuration = duration / steps;
   const maxWidth = Math.max(...lines.map(l => l.length));
-  
+
   for (let step = 0; step <= steps; step++) {
     const shimmerPos = Math.floor((step / steps) * (maxWidth + 6));
-    
+
     process.stdout.write(moveUp);
-    
+
     for (const line of lines) {
       let output = "";
       for (let i = 0; i < line.length; i++) {
@@ -67,10 +67,10 @@ async function shimmerPass(lines: string[], duration: number): Promise<void> {
       }
       console.log(output);
     }
-    
+
     await sleep(stepDuration);
   }
-  
+
   // Final clean render
   process.stdout.write(moveUp);
   for (const line of lines) {
@@ -81,25 +81,25 @@ async function shimmerPass(lines: string[], duration: number): Promise<void> {
 /**
  * Animate the output with a smooth line-by-line reveal.
  * Each line fades in with a gradient sweep effect.
- * 
+ *
  * Total duration: ~1.5 seconds for a magical but not slow feel.
  */
 export async function printAnimatedLines(lines: string[]): Promise<void> {
   const totalDuration = 1000; // 1 second total
   const lineDelay = totalDuration / lines.length;
-  
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    
+
     // Animate this line with a gradient sweep
     await animateLineReveal(line, 100);
-    
+
     // Small pause between lines for staggered effect
     if (i < lines.length - 1) {
       await sleep(lineDelay - 100);
     }
   }
-  
+
   // Final shimmer pass
   await shimmerPass(lines, 200);
 }
