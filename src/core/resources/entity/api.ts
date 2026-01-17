@@ -1,4 +1,4 @@
-import { getAppClient } from "@core/clients/index.js";
+import { getAppClient } from "../../clients/index.js";
 import { SyncEntitiesResponseSchema } from "./schema.js";
 import type { SyncEntitiesResponse, Entity } from "./schema.js";
 

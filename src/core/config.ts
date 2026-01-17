@@ -5,8 +5,8 @@ import { config } from "dotenv";
 import { PROJECT_SUBDIR } from "./consts.js";
 import { findProjectRoot } from "./project/index.js";
 
-// After bundling, import.meta.url points to dist/cli/index.js
-// Templates are copied to dist/cli/templates/
+// After bundling, import.meta.url points to dist/index.js
+// Templates are copied to dist/templates/ by tsdown
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export function getBase44GlobalDir(): string {

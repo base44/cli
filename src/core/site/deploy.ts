@@ -2,7 +2,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
 import { create as tarCreate } from "tar";
-import { getBase44ClientId } from "@core/config.js";
+import { getBase44ClientId } from "../config.js";
 import type { DeployResponse } from "./schema.js";
 import { getSiteFilePaths } from "./config.js";
 import { uploadSite } from "./api.js";

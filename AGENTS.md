@@ -7,48 +7,54 @@ This document provides essential context and guidelines for AI agents working on
 ## Project Overview
 
 The Base44 CLI is a TypeScript-based command-line tool built with:
-- **Commander.js** - CLI framework for command parsing
+- **oclif** - CLI framework by Salesforce (command parsing, help generation, plugins)
 - **@clack/prompts** - Interactive user prompts and UI components
 - **Zod** - Schema validation for API responses, config files, and user inputs
 - **JSON5** - Parsing JSONC/JSON5 config files (supports comments and trailing commas)
 - **TypeScript** - Primary language
-- **tsdown** - Bundler (powered by Rolldown, the Rust-based Rollup successor)
+- **tsdown** - Bundler (powered by Rolldown)
 
 ### Distribution Strategy
-The CLI is distributed as a **zero-dependency package**. All runtime dependencies are bundled into a single JavaScript file. This means:
-- Users only download the bundled code 
-- No dependency resolution or node_modules installation
-- Faster install times and no version conflicts
+The CLI is distributed as a **minimal dependency package**. All code except `@oclif/core` is bundled into a single JavaScript file:
+- tsdown bundles everything to `dist/index.js` (~750KB)
+- Uses oclif's **explicit command discovery strategy** (commands exported from entry file)
+- Only `@oclif/core` is a runtime dependency (kept external for oclif compatibility)
+- Faster install times and smaller node_modules
 
 ### Project Structure
 - **Package**: `base44` - Single package published to npm
 - **Core Module**: `src/core/` - Resources, utilities, errors, and config
-- **CLI Module**: `src/cli/` - CLI commands and entry point
+- **CLI Module**: `src/cli/` - CLI commands, base command, and utilities
 
 ## Folder Structure
 
 ```
 cli/
+├── bin/
+│   ├── run.js           # Production entry point
+│   ├── run.cmd          # Windows production
+│   ├── dev.js           # Development entry point (tsx)
+│   └── dev.cmd          # Windows development
 ├── src/
 │   ├── core/
-│   │   ├── api/                  # HTTP clients
-│   │   │   ├── oauth-client.ts   # Unauthenticated client for login flow
-│   │   │   ├── base44-client.ts  # Authenticated client with token refresh
+│   │   ├── clients/             # HTTP clients
+│   │   │   ├── oauth-client.ts  # Unauthenticated client for login flow
+│   │   │   ├── base44-client.ts # Authenticated client with token refresh
 │   │   │   └── index.ts
-│   │   ├── auth/                 # User authentication
-│   │   │   ├── api.ts            # OAuth API calls
-│   │   │   ├── schema.ts         # Auth Zod schemas
-│   │   │   ├── config.ts         # Token storage/refresh
+│   │   ├── auth/                # User authentication
+│   │   │   ├── api.ts           # OAuth API calls
+│   │   │   ├── schema.ts        # Auth Zod schemas
+│   │   │   ├── config.ts        # Token storage/refresh
 │   │   │   └── index.ts
-│   │   ├── project/              # Project configuration
-│   │   │   ├── config.ts         # Project loading logic
-│   │   │   ├── schema.ts         # Project/template schemas
-│   │   │   ├── api.ts            # Project creation API
-│   │   │   ├── create.ts         # Project scaffolding
-│   │   │   ├── template.ts       # Template rendering
+│   │   ├── project/             # Project configuration
+│   │   │   ├── config.ts        # Project loading logic
+│   │   │   ├── schema.ts        # Project/template schemas
+│   │   │   ├── api.ts           # Project creation API
+│   │   │   ├── create.ts        # Project scaffolding
+│   │   │   ├── template.ts      # Template rendering
 │   │   │   └── index.ts
-│   │   ├── resources/            # Project resources (entity, function, etc.)
-│   │   │   ├── types.ts          # Resource<T> interface
+│   │   ├── resources/           # Project resources (entity, function, etc.)
+│   │   │   ├── types.ts         # Resource<T> interface
 │   │   │   ├── entity/
 │   │   │   │   ├── schema.ts
 │   │   │   │   ├── config.ts
@@ -61,116 +67,150 @@ cli/
 │   │   │   │   ├── resource.ts
 │   │   │   │   └── index.ts
 │   │   │   └── index.ts
-│   │   ├── site/                 # Site deployment (NOT a Resource)
-│   │   │   ├── schema.ts         # DeployResponse Zod schema
-│   │   │   ├── config.ts         # getSiteFilePaths() - glob files for validation
-│   │   │   ├── api.ts            # uploadSite() - reads archive, sends to API
-│   │   │   ├── deploy.ts         # deploySite() - validates, creates tar.gz, uploads
+│   │   ├── site/                # Site deployment (NOT a Resource)
+│   │   │   ├── schema.ts        # DeployResponse Zod schema
+│   │   │   ├── config.ts        # getSiteFilePaths() - glob files for validation
+│   │   │   ├── api.ts           # uploadSite() - reads archive, sends to API
+│   │   │   ├── deploy.ts        # deploySite() - validates, creates tar.gz, uploads
 │   │   │   └── index.ts
 │   │   ├── utils/
-│   │   │   ├── fs.ts             # File system utilities
+│   │   │   ├── fs.ts            # File system utilities
 │   │   │   └── index.ts
-│   │   ├── consts.ts             # Pure constants (NO imports from other core modules)
-│   │   ├── config.ts             # Path helpers and env loading
-│   │   ├── errors.ts             # Error classes
-│   │   └── index.ts              # Barrel export for all core modules
+│   │   ├── consts.ts            # Pure constants (NO imports from other core modules)
+│   │   ├── config.ts            # Path helpers and env loading
+│   │   ├── errors.ts            # Error classes
+│   │   └── index.ts             # Barrel export for all core modules
 │   └── cli/
-│       ├── commands/
-│       │   ├── auth/
-│       │   │   ├── login.ts
-│       │   │   ├── logout.ts
-│       │   │   └── whoami.ts
-│       │   ├── project/
-│       │   │   └── create.ts
-│       │   └── entities/
-│       │       └── push.ts
+│       ├── commands/            # oclif commands (discovered by file path)
+│       │   ├── login.ts         # base44 login
+│       │   ├── logout.ts        # base44 logout
+│       │   ├── whoami.ts        # base44 whoami
+│       │   ├── create.ts        # base44 create
+│       │   ├── entities/
+│       │   │   └── push.ts      # base44 entities push
 │       │   └── site/
-│       │       └── deploy.ts
-│       ├── utils/
-│       │   ├── runCommand.ts     # Command wrapper with branding
-│       │   ├── runTask.ts        # Spinner wrapper
-│       │   ├── banner.ts         # ASCII art banner
-│       │   ├── prompts.ts        # Prompt utilities
+│       │       └── deploy.ts    # base44 site deploy
+│       ├── hooks/
+│       │   └── prerun.ts        # Prerun hook (banner, env, auth)
+│       ├── lib/
+│       │   ├── base-command.ts  # Base class with static config properties
+│       │   ├── logger.ts        # Custom oclif logger using @clack/prompts
+│       │   ├── run-task.ts      # Spinner wrapper
+│       │   ├── banner.ts        # ASCII art banner
+│       │   ├── prompts.ts       # Prompt utilities
 │       │   └── index.ts
-│       └── index.ts              # CLI entry point
-├── templates/                    # Project templates
+│       └── index.ts             # Entry point - exports COMMANDS and hooks
+├── templates/                   # Project templates
 ├── tests/
 ├── dist/
+│   └── index.js                 # Bundled output (single file)
+├── tsdown.config.mjs            # tsdown bundler config
 ├── package.json
 └── tsconfig.json
 ```
 
 ## Adding a New Command
 
-Commands live in `src/cli/commands/`. Follow these steps:
+Commands live in `src/cli/commands/`. oclif discovers commands by file path:
+- `src/cli/commands/foo.ts` → `base44 foo`
+- `src/cli/commands/foo/bar.ts` → `base44 foo bar`
 
 ### 1. Create the command file
 
 ```typescript
-// src/cli/commands/<domain>/<action>.ts
-import { Command } from "commander";
+// src/cli/commands/<name>.ts (or <topic>/<name>.ts for nested)
 import { log } from "@clack/prompts";
-import { runCommand, runTask } from "../../utils/index.js";
+import { BaseCommand } from "../lib/base-command.js";
+import { runTask } from "../lib/run-task.js";
 
-async function myAction(): Promise<void> {
-  // Use runTask for async operations with spinners
-  const result = await runTask(
-    "Doing something...",
-    async () => {
-      // Your async operation here
-      return someResult;
-    },
-    {
-      successMessage: "Done!",
-      errorMessage: "Failed to do something",
-    }
-  );
+export default class MyCommand extends BaseCommand {
+  static override description = "What this command does";
+  static override examples = ["<%= config.bin %> mycommand"];
 
-  log.success("Operation completed!");
+  // Set these static properties to customize behavior
+  static override requiresAuth = false;  // Set to true if auth required
+  static override showFullBanner = false; // Set to true for ASCII banner
+
+  async run(): Promise<void> {
+    // Use runTask for async operations with spinners
+    const result = await runTask(
+      "Doing something...",
+      async () => {
+        // Your async operation here
+        return someResult;
+      },
+      {
+        successMessage: "Done!",
+        errorMessage: "Failed to do something",
+      }
+    );
+
+    log.success("Operation completed!");
+  }
 }
-
-export const myCommand = new Command("<name>")
-  .description("<description>")
-  .option("-f, --flag", "Some flag")
-  .action(async (options) => {
-    await runCommand(myAction);
-  });
 ```
 
-### 2. Register in CLI entry point
+### 2. Command with flags and args
 
 ```typescript
-// src/cli/index.ts
-import { myCommand } from "./commands/<domain>/<action>.js";
+import { Flags, Args } from "@oclif/core";
+import { BaseCommand } from "../lib/base-command.js";
 
-// ...
-program.addCommand(myCommand);
+export default class MyCommand extends BaseCommand {
+  static override description = "Command with options";
+
+  static override flags = {
+    force: Flags.boolean({ char: "f", description: "Force the operation" }),
+    name: Flags.string({ char: "n", description: "Name to use", required: true }),
+  };
+
+  static override args = {
+    file: Args.string({ description: "File to process", required: true }),
+  };
+
+  async run(): Promise<void> {
+    const { args, flags } = await this.parse(MyCommand);
+    // Use args.file, flags.force, flags.name
+  }
+}
 ```
 
-### 3. Command wrapper options
+### 3. BaseCommand and the Prerun Hook
+
+The `BaseCommand` class provides static properties that are read by the `prerun` hook:
+
+**BaseCommand static properties:**
+- `requiresAuth` - Set to true if the command requires authentication
+- `showFullBanner` - Set to true to show full ASCII art banner
+
+**The prerun hook (`src/cli/hooks/prerun.ts`) handles:**
+- Displaying the Base44 intro banner (or full ASCII art)
+- Loading `.env.local` from project root
+- Checking authentication if required
+
+This separation follows oclif best practices - hooks handle cross-cutting concerns.
 
 ```typescript
 // Standard command with simple intro tag
-await runCommand(myAction);
-
-// Command with full ASCII art banner (for special commands like create)
-await runCommand(myAction, { fullBanner: true });
+static override requiresAuth = false;
+static override showFullBanner = false;
 
 // Command requiring authentication
-await runCommand(myAction, { requireAuth: true });
+static override requiresAuth = true;
 
-// Command with multiple options
-await runCommand(myAction, { fullBanner: true, requireAuth: true });
+// Command with full ASCII art banner (for special commands like create)
+static override showFullBanner = true;
+static override requiresAuth = true;
 ```
 
 ## Making API Calls
 
-Use the HTTP clients from `@core/api/index.js`:
+Use the HTTP clients from `src/core/clients/index.js`:
 
 ### Authenticated API calls (most common)
 
 ```typescript
-import { base44Client, getAppClient } from "@core/api/index.js";
+import { base44Client, getAppClient } from "../../core/clients/index.js";
 
 // For general Base44 API calls
 const response = await base44Client.get("api/endpoint");
@@ -190,7 +230,7 @@ const response = await base44Client.post("api/endpoint", {
 ### OAuth endpoints (login flow only)
 
 ```typescript
-import { oauthClient } from "@core/api/index.js";
+import { oauthClient } from "../../core/clients/index.js";
 
 // Used only in auth/api.ts for device code flow
 const response = await oauthClient.post("oauth/device/code", {
@@ -261,7 +301,7 @@ site/
 ### Key Functions
 
 ```typescript
-import { deploySite } from "@core/site/index.js";
+import { deploySite } from "../../core/site/index.js";
 
 // Deploy site from output directory (returns deployment details)
 const { app_url, files_count } = await deploySite("./dist");
@@ -281,16 +321,42 @@ const { app_url, files_count } = await deploySite("./dist");
 base44 site deploy
 ```
 
-## Path Aliases
+## Hooks
 
-Single alias defined in `tsconfig.json`:
-- `@core/*` → `./src/core/*`
+oclif hooks are used for cross-cutting concerns. Hooks are registered in `package.json` under `oclif.hooks`.
+
+### Prerun Hook (`src/cli/hooks/prerun.ts`)
+
+Runs after the command is found but before execution. Handles:
+- Displaying the Base44 banner (reads `showFullBanner` from command)
+- Loading project environment variables (`.env.local`)
+- Authentication checks (reads `requiresAuth` from command)
 
 ```typescript
-import { readProjectConfig } from "@core/project/index.js";
-import { entityResource } from "@core/resources/entity/index.js";
-import { base44Client } from "@core/api/index.js";
+// The hook reads these static properties from the command class:
+static requiresAuth = true;
+static showFullBanner = false;
 ```
+
+### Adding a New Hook
+
+1. Create the hook file in `src/cli/hooks/<event>.ts`
+2. Export it from `src/cli/index.ts`:
+   ```typescript
+   import myHook from "./hooks/my-hook.js";
+   export const MY_HOOK = myHook;
+   ```
+3. Register in `package.json` under `oclif.hooks`:
+   ```json
+   "hooks": {
+     "prerun": {
+       "target": "./dist/index.js",
+       "identifier": "PRERUN_HOOK"
+     }
+   }
+   ```
+
+Available lifecycle events: `init`, `prerun`, `postrun`, `command_not_found`, `finally`
 
 ## Important Rules
 
@@ -299,31 +365,94 @@ import { base44Client } from "@core/api/index.js";
 3. **@clack/prompts** - For all user interaction (prompts, spinners, logs)
 4. **ES Modules** - Use `.js` extensions in imports
 5. **Cross-platform** - Use `path` module utilities, never hardcode separators
-6. **Command wrapper** - All commands use `runCommand()` utility
-7. **Task wrapper** - Use `runTask()` for async operations with spinners
+6. **BaseCommand** - All commands extend `BaseCommand` from `lib/base-command.js`
+7. **runTask** - Use `runTask()` for async operations with spinners
 8. **consts.ts has no imports** - Keep `consts.ts` dependency-free to avoid circular deps
 9. **Keep AGENTS.md updated** - Update this file when architecture changes
-10. **Zero-dependency distribution** - All packages go in `devDependencies`; they get bundled at build time
+10. **Relative imports in core/** - Use relative paths (not `@core/`) for imports within core modules
+11. **Default exports for commands** - oclif requires commands to use `export default class`
 
 ## Development
 
 ```bash
-npm run build      # tsdown - bundles to single file in dist/cli/index.js
+npm run build      # tsdown - bundles to single file dist/index.js
 npm run typecheck  # tsc --noEmit - type checking only
-npm run dev        # tsx for development
+npm run dev        # Run CLI in development mode (auto-transpiles)
 npm test           # vitest
 npm run lint       # eslint
+```
+
+### Running commands in development
+
+```bash
+./bin/dev.js --help
+./bin/dev.js login
+./bin/dev.js create
+./bin/dev.js entities push
+```
+
+### Running commands in production (after build)
+
+```bash
+./bin/run.js --help
+./bin/run.js login
 ```
 
 ### Node.js Version
 
 This project requires Node.js >= 20.19.0. A `.node-version` file is provided for fnm/nodenv.
 
+## oclif Configuration
+
+The oclif configuration uses the **explicit strategy** for bundling compatibility:
+
+```json
+{
+  "oclif": {
+    "bin": "base44",
+    "dirname": "base44",
+    "commands": {
+      "strategy": "explicit",
+      "target": "./dist/index.js",
+      "identifier": "COMMANDS"
+    },
+    "hooks": {
+      "prerun": {
+        "target": "./dist/index.js",
+        "identifier": "PRERUN_HOOK"
+      }
+    },
+    "topicSeparator": " "
+  }
+}
+```
+
+- `strategy: "explicit"` - Commands are exported from entry file, not discovered by path
+- `target` - Path to the bundled file
+- `identifier` - Name of the export (COMMANDS object or hook function)
+- `topicSeparator` - Use space instead of colon (e.g., `entities push` not `entities:push`)
+
+### Adding a New Command
+
+When adding a new command, you must:
+1. Create the command file in `src/cli/commands/`
+2. Import and add it to `COMMANDS` in `src/cli/index.ts`:
+   ```typescript
+   import MyCommand from "./commands/my-command.js";
+
+   export const COMMANDS = {
+     // ... existing commands
+     "my-command": MyCommand,
+   };
+   ```
+
 ## File Locations
 
-- `cli/plan.md` - Implementation plan
 - `cli/AGENTS.md` - This file
 - `cli/src/core/` - Core module
-- `cli/src/cli/` - CLI commands
-- `cli/tsdown.config.mjs` - Build configuration
+- `cli/src/cli/commands/` - CLI commands
+- `cli/src/cli/lib/` - CLI utilities (BaseCommand, logger, etc.)
+- `cli/src/cli/index.ts` - Entry point (exports COMMANDS and hooks)
+- `cli/bin/` - Entry point scripts
+- `cli/tsdown.config.mjs` - Bundler configuration
 - `cli/.node-version` - Node.js version pinning

@@ -1,36 +1,35 @@
-#!/usr/bin/env node
+/**
+ * CLI entry point for explicit command discovery.
+ *
+ * This file exports all commands and hooks for oclif's "explicit" strategy,
+ * allowing the CLI to be bundled with tsdown while still working with oclif.
+ */
 
-import { Command } from "commander";
-import { loginCommand } from "./commands/auth/login.js";
-import { whoamiCommand } from "./commands/auth/whoami.js";
-import { logoutCommand } from "./commands/auth/logout.js";
-import { entitiesPushCommand } from "./commands/entities/push.js";
-import { createCommand } from "./commands/project/create.js";
-import { siteDeployCommand } from "./commands/site/deploy.js";
-import packageJson from "../../package.json";
+// Commands - exported for oclif explicit strategy
+import Login from "./commands/login.js";
+import Logout from "./commands/logout.js";
+import Whoami from "./commands/whoami.js";
+import Create from "./commands/create.js";
+import EntitiesPush from "./commands/entities/push.js";
+import SiteDeploy from "./commands/site/deploy.js";
 
-const program = new Command();
+// Hooks
+import prerunHook from "./hooks/prerun.js";
 
-program
-  .name("base44")
-  .description(
-    "Base44 CLI - Unified interface for managing Base44 applications"
-  )
-  .version(packageJson.version);
+/**
+ * Command mapping for oclif explicit discovery.
+ * Keys are command IDs, values are command classes.
+ */
+export const COMMANDS = {
+  login: Login,
+  logout: Logout,
+  whoami: Whoami,
+  create: Create,
+  "entities:push": EntitiesPush,
+  "site:deploy": SiteDeploy,
+};
 
-// Register authentication commands
-program.addCommand(loginCommand);
-program.addCommand(whoamiCommand);
-program.addCommand(logoutCommand);
-
-// Register project commands
-program.addCommand(createCommand);
-
-// Register entities commands
-program.addCommand(entitiesPushCommand);
-
-// Register site commands
-program.addCommand(siteDeployCommand);
-
-// Parse command line arguments
-program.parse();
+/**
+ * Hooks for oclif.
+ */
+export const PRERUN_HOOK = prerunHook;

@@ -4,8 +4,10 @@ export default defineConfig({
   entry: ["src/cli/index.ts"],
   format: ["esm"],
   platform: "node",
-  outDir: "dist/cli",
+  outDir: "dist",
   clean: true,
-  tsconfig: "tsconfig.json",
-  copy: ["templates"],
+  // Don't bundle @oclif/core - it needs to be external for oclif to work properly
+  external: ["@oclif/core"],
+  // Copy templates to dist/templates/ so they're accessible at runtime
+  copy: [{ from: "templates", to: "dist/templates" }],
 });

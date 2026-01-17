@@ -1,5 +1,5 @@
 import { defineConfig } from "vitest/config";
-import { resolve } from "path";
+
 
 export default defineConfig({
   test: {
@@ -7,10 +7,5 @@ export default defineConfig({
     globals: true,
     include: ["tests/**/*.test.ts"],
     testTimeout: 10000,
-  },
-  resolve: {
-    alias: {
-      "@core": resolve(__dirname, "./src/core"),
-    },
   },
 });

@@ -1,4 +1,4 @@
-import { getAppClient } from "@core/clients/index.js";
+import { getAppClient } from "../clients/index.js";
 import { readFile } from "../utils/fs.js";
 import { DeployResponseSchema } from "./schema.js";
 import type { DeployResponse } from "./schema.js";
