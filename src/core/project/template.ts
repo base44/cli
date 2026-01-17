@@ -1,9 +1,9 @@
-import { dirname, join } from "node:path";
+import { join, dirname } from "node:path";
 import { globby } from "globby";
-import { render, renderFile } from "ejs";
+import { renderFile } from "ejs";
 import frontmatter from 'front-matter';
 import { getTemplatesDir, getTemplatesIndexPath } from "../config.js";
-import { readJsonFile, readFile, writeFile, copyFile } from "../utils/fs.js";
+import { readJsonFile, writeFile, copyFile } from "../utils/fs.js";
 import { TemplatesConfigSchema } from "./schema.js";
 import type { Template } from "./schema.js";
 
@@ -14,7 +14,7 @@ export interface TemplateData {
 }
 
 interface TemplateFrontmatter {
-  outputPath?: string;
+  outputFileName?: string;
 }
 
 export async function listTemplates(): Promise<Template[]> {
@@ -45,13 +45,14 @@ export async function renderTemplate(
 
   for (const file of files) {
     const srcPath = join(templateDir, file);
-
+    
     try {
       if (file.endsWith(".ejs")) {
-        // Render EJS template and write to outputPath or filename without .ejs extension
+        // Render EJS template and write to outputFileName or filename without .ejs extension
         const rendered = await renderFile(srcPath, data);
         const { attributes, body } = frontmatter<TemplateFrontmatter>(rendered);
-        const destFilePath = join(destPath, attributes.outputPath ?? file.replace(/\.ejs$/, ""));
+        const destFile = attributes.outputFileName ? join(dirname(file), attributes.outputFileName) : file.replace(/\.ejs$/, "");
+        const destFilePath = join(destPath, destFile);
 
         await writeFile(destFilePath, body);
       } else {
