@@ -3,13 +3,13 @@
     {
       "id": "backend-only",
       "name": "Init a basic project",
-      "description": "Minimal Base44 backend setup with entities, functions, and APIs",
+      "description": "Minimal Base44 backend setup for creating entities",
       "path": "backend-only"
     },
     {
       "id": "backend-and-client",
       "name": "Bootstrap from an example",
-      "description": "Full-stack example with Base44 backend, Vite and a React client application",
+      "description": "Full-stack example with Base44 backend and a Vite + React client application",
       "path": "backend-and-client"
     }
   ]
