@@ -1,6 +1,6 @@
 import { join, dirname } from "node:path";
 import { globby } from "globby";
-import { renderFile } from "ejs";
+import ejs from "ejs";
 import frontmatter from 'front-matter';
 import { getTemplatesDir, getTemplatesIndexPath } from "../config.js";
 import { readJsonFile, writeFile, copyFile } from "../utils/fs.js";
@@ -45,11 +45,11 @@ export async function renderTemplate(
 
   for (const file of files) {
     const srcPath = join(templateDir, file);
-    
+
     try {
       if (file.endsWith(".ejs")) {
         // Render EJS template and write to outputFileName or filename without .ejs extension
-        const rendered = await renderFile(srcPath, data);
+        const rendered = await ejs.renderFile(srcPath, data);
         const { attributes, body } = frontmatter<TemplateFrontmatter>(rendered);
         const destFile = attributes.outputFileName ? join(dirname(file), attributes.outputFileName) : file.replace(/\.ejs$/, "");
         const destFilePath = join(destPath, destFile);
