@@ -106,7 +106,8 @@ async function create(): Promise<void> {
   }
 
   // Prompt to install dependencies if needed
-  if (project.site) {
+  // TODO: add a flag to check for using experimental features
+  if (project.site && process.env.BASE44_API_URL) {
     const installCommand = project.site.installCommand;
     const buildCommand = project.site.buildCommand;
     const outputDirectory = project.site.outputDirectory;
