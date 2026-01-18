@@ -80,10 +80,10 @@ async function create(): Promise<void> {
   );
 
   // Set the project ID in the environment variables for following client calls
-  await loadProjectEnv();
+  await loadProjectEnv(resolvedPath);
 
   const { project, entities } = await readProjectConfig(resolvedPath);
-  let appUrl: string | undefined;
+  let finalAppUrl: string | undefined;
 
   // Prompt to push entities if needed
   if (entities.length > 0) {
@@ -109,13 +109,14 @@ async function create(): Promise<void> {
   if (project.site) {
     const installCommand = project.site.installCommand;
     const buildCommand = project.site.buildCommand;
+    const outputDirectory = project.site.outputDirectory;
 
     const shouldDeploy = await confirm({
       message: 'Would you like to deploy the site now?'
     })
 
-    if (!isCancel(shouldDeploy) && shouldDeploy && installCommand && buildCommand) {
-      const { app_url } = await runTask(
+    if (!isCancel(shouldDeploy) && shouldDeploy && installCommand && buildCommand && outputDirectory) {
+      const { appUrl } = await runTask(
         "Installing dependencies...",
         async (updateMessage) => {
           await execa({ cwd: resolvedPath, shell: true })`${installCommand}`;
@@ -124,7 +125,7 @@ async function create(): Promise<void> {
           await execa({ cwd: resolvedPath, shell: true })`${buildCommand}`;
 
           updateMessage("Deploying site...");
-          return await deploySite(join(resolvedPath, project.site!.outputDirectory!));
+          return await deploySite(join(resolvedPath, outputDirectory));
         },
         {
           successMessage: orange("Site deployed successfully"),
@@ -132,7 +133,7 @@ async function create(): Promise<void> {
         }
       );
 
-      appUrl = app_url;
+      finalAppUrl = appUrl;
     }
   }
 
@@ -142,8 +143,8 @@ async function create(): Promise<void> {
   log.message(`${chalk.dim("Dashboard")}: ${cyan(dashboardUrl)}`);
 
 
-  if (appUrl) {
-    log.message(`${chalk.dim("Site")}: ${cyan(appUrl)}`);
+  if (finalAppUrl) {
+    log.message(`${chalk.dim("Site")}: ${cyan(finalAppUrl)}`);
   }
 
   outro("Your project is set and ready to use");

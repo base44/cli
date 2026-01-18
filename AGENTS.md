@@ -264,7 +264,7 @@ site/
 import { deploySite } from "@core/site/index.js";
 
 // Deploy site from output directory (returns deployment details)
-const { app_url, files_count } = await deploySite("./dist");
+const { appUrl } = await deploySite("./dist");
 ```
 
 ### Deploy Flow

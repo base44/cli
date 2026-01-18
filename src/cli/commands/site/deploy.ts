@@ -36,7 +36,7 @@ async function deployAction(): Promise<void> {
     }
   );
 
-  log.success(`Site deployed to: ${result.app_url}`);
+  log.success(`Site deployed to: ${result.appUrl}`);
 }
 
 export const siteDeployCommand = new Command("site")
