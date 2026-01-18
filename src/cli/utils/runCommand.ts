@@ -69,7 +69,7 @@ export async function runCommand(
   options?: RunCommandOptions
 ): Promise<void> {
   console.log();
-  
+
   if (options?.fullBanner) {
     await printBanner();
     intro("");
