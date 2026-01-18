@@ -1,6 +1,7 @@
-import { join } from "node:path";
+import { join, dirname } from "node:path";
 import { globby } from "globby";
 import ejs from "ejs";
+import frontmatter from 'front-matter';
 import { getTemplatesDir, getTemplatesIndexPath } from "../config.js";
 import { readJsonFile, writeFile, copyFile } from "../utils/fs.js";
 import { TemplatesConfigSchema } from "./schema.js";
@@ -12,6 +13,10 @@ export interface TemplateData {
   projectId: string;
 }
 
+interface TemplateFrontmatter {
+  outputFileName?: string;
+}
+
 export async function listTemplates(): Promise<Template[]> {
   const parsed = await readJsonFile(getTemplatesIndexPath());
   const result = TemplatesConfigSchema.parse(parsed);
@@ -21,6 +26,7 @@ export async function listTemplates(): Promise<Template[]> {
 /**
  * Render a template directory to a destination path.
  * - Files ending in .ejs are rendered with EJS and written without the .ejs extension
+ * - EJS files can have frontmatter with custom attributes
  * - All other files are copied directly
  */
 export async function renderTemplate(
@@ -42,11 +48,13 @@ export async function renderTemplate(
 
     try {
       if (file.endsWith(".ejs")) {
-        // Render EJS template and write without .ejs extension
-        const destFile = file.replace(/\.ejs$/, "");
-        const destFilePath = join(destPath, destFile);
+        // Render EJS template and write to outputFileName or filename without .ejs extension
         const rendered = await ejs.renderFile(srcPath, data);
-        await writeFile(destFilePath, rendered);
+        const { attributes, body } = frontmatter<TemplateFrontmatter>(rendered);
+        const destFile = attributes.outputFileName ? join(dirname(file), attributes.outputFileName) : file.replace(/\.ejs$/, "");
+        const destFilePath = join(destPath, destFile);
+
+        await writeFile(destFilePath, body);
       } else {
         // Copy file directly
         const destFilePath = join(destPath, file);
