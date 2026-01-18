@@ -1,8 +1,9 @@
 import { intro, log } from "@clack/prompts";
 import chalk from "chalk";
 import { loadProjectEnv } from "@core/config.js";
-import { requireAuth } from "@core/auth/index.js";
+import { isLoggedIn } from "@core/auth/index.js";
 import { printBanner } from "./banner.js";
+import { login } from "../commands/auth/login.js";
 
 const base44Color = chalk.bgHex("#E86B3C");
 
@@ -58,7 +59,12 @@ export async function runCommand(
   try {
     // Check authentication if required
     if (options?.requireAuth) {
-      await requireAuth();
+      const loggedIn = await isLoggedIn();
+
+      if (!loggedIn) {
+        log.info("You need to login first to continue.");
+        await login();
+      }
     }
 
     await commandFn();

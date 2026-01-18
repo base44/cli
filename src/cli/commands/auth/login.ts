@@ -95,7 +95,7 @@ async function saveAuthData(
   });
 }
 
-async function login(): Promise<void> {
+export async function login(): Promise<void> {
   const deviceCodeResponse = await generateAndDisplayDeviceCode();
 
   const token = await waitForAuthentication(
