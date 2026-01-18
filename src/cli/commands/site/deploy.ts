@@ -1,11 +1,12 @@
 import { resolve } from "node:path";
 import { Command } from "commander";
-import { log, confirm, isCancel } from "@clack/prompts";
+import { confirm, isCancel } from "@clack/prompts";
 import { readProjectConfig } from "@core/project/index.js";
 import { deploySite } from "@core/site/index.js";
 import { runCommand, runTask } from "../../utils/index.js";
+import type { RunCommandResult } from "../../utils/runCommand.js";
 
-async function deployAction(): Promise<void> {
+async function deployAction(): Promise<RunCommandResult> {
   const { project } = await readProjectConfig();
 
   if (!project.site?.outputDirectory) {
@@ -21,8 +22,7 @@ async function deployAction(): Promise<void> {
   });
 
   if (isCancel(shouldDeploy) || !shouldDeploy) {
-    log.warn("Deployment cancelled");
-    return;
+    return { outroMessage: "Deployment cancelled" };
   }
 
   const result = await runTask(
@@ -36,7 +36,7 @@ async function deployAction(): Promise<void> {
     }
   );
 
-  log.success(`Site deployed to: ${result.app_url}`);
+  return { outroMessage: `Visit your site at: ${result.app_url}` };
 }
 
 export const siteDeployCommand = new Command("site")

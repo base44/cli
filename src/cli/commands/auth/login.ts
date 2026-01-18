@@ -14,6 +14,7 @@ import type {
   UserInfoResponse,
 } from "@core/auth/index.js";
 import { runCommand, runTask } from "../../utils/index.js";
+import type { RunCommandResult } from "../../utils/runCommand.js";
 
 async function generateAndDisplayDeviceCode(): Promise<DeviceCodeResponse> {
   const deviceCodeResponse = await runTask(
@@ -95,7 +96,7 @@ async function saveAuthData(
   });
 }
 
-export async function login(): Promise<void> {
+export async function login(): Promise<RunCommandResult> {
   const deviceCodeResponse = await generateAndDisplayDeviceCode();
 
   const token = await waitForAuthentication(
@@ -108,7 +109,7 @@ export async function login(): Promise<void> {
 
   await saveAuthData(token, userInfo);
 
-  log.success(`Successfully logged in as ${chalk.bold(userInfo.email)}`);
+  return { outroMessage: `Successfully logged in as ${chalk.bold(userInfo.email)}` };
 }
 
 export const loginCommand = new Command("login")

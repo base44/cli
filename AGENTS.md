@@ -111,8 +111,9 @@ Commands live in `src/cli/commands/`. Follow these steps:
 import { Command } from "commander";
 import { log } from "@clack/prompts";
 import { runCommand, runTask } from "../../utils/index.js";
+import type { RunCommandResult } from "../../utils/index.js";
 
-async function myAction(): Promise<void> {
+async function myAction(): Promise<RunCommandResult> {
   // Use runTask for async operations with spinners
   const result = await runTask(
     "Doing something...",
@@ -127,6 +128,9 @@ async function myAction(): Promise<void> {
   );
 
   log.success("Operation completed!");
+
+  // Return an optional outro message (displayed at the end)
+  return { outroMessage: "All done!" };
 }
 
 export const myCommand = new Command("<name>")
@@ -136,6 +140,10 @@ export const myCommand = new Command("<name>")
     await runCommand(myAction);
   });
 ```
+
+**Important**: Commands should NOT call `intro()` or `outro()` directly - `runCommand()` handles both:
+- **Intro**: Displayed automatically (simple tag or full ASCII banner based on options)
+- **Outro**: Displayed from the `outroMessage` returned by the command function
 
 ### 2. Register in CLI entry point
 

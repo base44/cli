@@ -3,13 +3,13 @@ import { log } from "@clack/prompts";
 import { pushEntities } from "@core/resources/entity/index.js";
 import { readProjectConfig } from "@core/index.js";
 import { runCommand, runTask } from "../../utils/index.js";
+import type { RunCommandResult } from "../../utils/runCommand.js";
 
-async function pushEntitiesAction(): Promise<void> {
+async function pushEntitiesAction(): Promise<RunCommandResult> {
   const { entities } = await readProjectConfig();
 
   if (entities.length === 0) {
-    log.warn("No entities found in project");
-    return;
+    return { outroMessage: "No entities found in project" };
   }
 
   log.info(`Found ${entities.length} entities to push`);
@@ -36,13 +36,7 @@ async function pushEntitiesAction(): Promise<void> {
     log.warn(`Deleted: ${result.deleted.join(", ")}`);
   }
 
-  if (
-    result.created.length === 0 &&
-    result.updated.length === 0 &&
-    result.deleted.length === 0
-  ) {
-    log.info("No changes detected");
-  }
+  return {};
 }
 
 export const entitiesPushCommand = new Command("entities")

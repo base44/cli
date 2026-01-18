@@ -1,11 +1,12 @@
+import chalk from "chalk";
 import { Command } from "commander";
-import { log } from "@clack/prompts";
 import { readAuth } from "@core/auth/index.js";
 import { runCommand } from "../../utils/index.js";
+import type { RunCommandResult } from "../../utils/runCommand.js";
 
-async function whoami(): Promise<void> {
+async function whoami(): Promise<RunCommandResult> {
   const auth = await readAuth();
-  log.info(`Logged in as: ${auth.name} (${auth.email})`);
+  return { outroMessage: `Logged in as: ${chalk.bold(auth.email)}` };
 }
 
 export const whoamiCommand = new Command("whoami")

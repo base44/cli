@@ -1,16 +1,16 @@
 import { Command } from "commander";
-import { log } from "@clack/prompts";
 import { deleteAuth } from "@core/auth/index.js";
 import { runCommand } from "../../utils/index.js";
+import type { RunCommandResult } from "../../utils/runCommand.js";
 
-async function logout(): Promise<void> {
+async function logout(): Promise<RunCommandResult> {
   await deleteAuth();
-  log.info("Logged out successfully");
+  return { outroMessage: "Logged out successfully" };
 }
 
 export const logoutCommand = new Command("logout")
   .description("Logout from current device")
   .action(async () => {
-    await runCommand(logout, { requireAuth: true });
+    await runCommand(logout);
   });
 

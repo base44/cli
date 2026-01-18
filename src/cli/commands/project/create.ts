@@ -1,7 +1,7 @@
 import { resolve, join } from "node:path";
 import { execa } from "execa";
 import { Command } from "commander";
-import { log, group, text, select, confirm, intro, outro, isCancel } from "@clack/prompts";
+import { log, group, text, select, confirm, isCancel } from "@clack/prompts";
 import type { Option } from "@clack/prompts";
 import chalk from "chalk";
 import kebabCase from "lodash.kebabcase";
@@ -10,13 +10,12 @@ import type { Template } from "@core/project/index.js";
 import { getBase44ApiUrl, loadProjectEnv } from "@core/config.js";
 import { deploySite, pushEntities } from "@core/index.js";
 import { runCommand, runTask, onPromptCancel } from "../../utils/index.js";
+import type { RunCommandResult } from "../../utils/runCommand.js";
 
 const orange = chalk.hex("#E86B3C");
 const cyan = chalk.hex("#00D4FF");
 
-async function create(): Promise<void> {
-  intro("Let's create something amazing!");
-
+async function create(): Promise<RunCommandResult> {
   const templates = await listTemplates();
   const templateOptions: Array<Option<Template>> = templates.map((t) => ({
     value: t,
@@ -146,7 +145,7 @@ async function create(): Promise<void> {
     log.message(`${chalk.dim("Site")}: ${cyan(appUrl)}`);
   }
 
-  outro("Your project is set and ready to use");
+  return { outroMessage: "Your project is set and ready to use" };
 }
 
 export const createCommand = new Command("create")
