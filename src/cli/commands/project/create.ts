@@ -7,7 +7,7 @@ import chalk from "chalk";
 import kebabCase from "lodash.kebabcase";
 import { createProjectFiles, listTemplates, readProjectConfig } from "@core/project/index.js";
 import type { Template } from "@core/project/index.js";
-import { getBase44ApiUrl } from "@core/config.js";
+import { getBase44ApiUrl, loadProjectEnv } from "@core/config.js";
 import { deploySite, pushEntities } from "@core/index.js";
 import { runCommand, runTask, onPromptCancel } from "../../utils/index.js";
 
@@ -75,7 +75,7 @@ async function create(): Promise<void> {
   );
 
   // Set the project ID in the environment variables for following client calls
-  process.env.BASE44_CLIENT_ID = projectId;
+  await loadProjectEnv();
 
   log.success(`Dashboard link:\n${chalk.bold(`${getBase44ApiUrl()}/apps/${projectId}/editor/preview`)}`);
 
