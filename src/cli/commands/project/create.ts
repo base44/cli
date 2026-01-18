@@ -7,7 +7,7 @@ import kebabCase from "lodash.kebabcase";
 import { createProjectFiles, listTemplates } from "@core/project/index.js";
 import type { Template } from "@core/project/index.js";
 import { getBase44ApiUrl } from "@core/config.js";
-import { runCommand, runTask, onPromptCancel } from "../../utils/index.js";
+import { runCommand, runTask, onPromptCancel, createLink } from "../../utils/index.js";
 
 async function create(): Promise<void> {
   const templates = await listTemplates();
@@ -73,7 +73,8 @@ async function create(): Promise<void> {
   );
 
   log.success(`Project ${chalk.bold(name)} has been initialized!`);
-  log.success(`Dashboard link:\n${chalk.bold(`${getBase44ApiUrl()}/apps/${projectId}/editor/preview`)}`);
+  const dashboardUrl = `${getBase44ApiUrl()}/apps/${projectId}/editor/preview`;
+  log.success(`Dashboard link:\n${createLink(dashboardUrl, dashboardUrl)}`);
 }
 
 export const createCommand = new Command("create")

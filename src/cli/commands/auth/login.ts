@@ -13,7 +13,7 @@ import type {
   TokenResponse,
   UserInfoResponse,
 } from "@core/auth/index.js";
-import { runCommand, runTask } from "../../utils/index.js";
+import { runCommand, runTask, createLink } from "../../utils/index.js";
 
 async function generateAndDisplayDeviceCode(): Promise<DeviceCodeResponse> {
   const deviceCodeResponse = await runTask(
@@ -29,7 +29,7 @@ async function generateAndDisplayDeviceCode(): Promise<DeviceCodeResponse> {
 
   log.info(
     `Verification code: ${chalk.bold(deviceCodeResponse.userCode)}` +
-      `\nPlease confirm this code at: ${deviceCodeResponse.verificationUri}`
+      `\nPlease confirm this code at: ${createLink(deviceCodeResponse.verificationUri, deviceCodeResponse.verificationUri)}`
   );
 
   return deviceCodeResponse;

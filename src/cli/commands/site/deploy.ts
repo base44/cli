@@ -3,7 +3,7 @@ import { Command } from "commander";
 import { log, confirm, isCancel } from "@clack/prompts";
 import { readProjectConfig } from "@core/project/index.js";
 import { deploySite } from "@core/site/index.js";
-import { runCommand, runTask } from "../../utils/index.js";
+import { runCommand, runTask, createLink } from "../../utils/index.js";
 
 async function deployAction(): Promise<void> {
   const { project } = await readProjectConfig();
@@ -36,7 +36,7 @@ async function deployAction(): Promise<void> {
     }
   );
 
-  log.success(`Site deployed to: ${result.app_url}`);
+  log.success(`Site deployed to: ${createLink(result.app_url, result.app_url)}`);
 }
 
 export const siteDeployCommand = new Command("site")
