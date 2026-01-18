@@ -68,6 +68,8 @@ export async function runCommand(
   commandFn: () => Promise<RunCommandResult>,
   options?: RunCommandOptions
 ): Promise<void> {
+  console.log();
+  
   if (options?.fullBanner) {
     await printBanner();
     intro("");
