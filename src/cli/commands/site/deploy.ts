@@ -36,7 +36,7 @@ async function deployAction(): Promise<RunCommandResult> {
     }
   );
 
-  return { outroMessage: `Visit your site at: ${result.app_url}` };
+  return { outroMessage: `Visit your site at: ${result.appUrl}` };
 }
 
 export const siteDeployCommand = new Command("site")
