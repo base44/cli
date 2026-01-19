@@ -14,16 +14,44 @@ import type { RunCommandResult } from "../../utils/runCommand.js";
 
 const orange = chalk.hex("#E86B3C");
 const cyan = chalk.hex("#00D4FF");
+const DEFAULT_TEMPLATE_NAME = "backend-only";
 
 interface CreateOptions {
-  template?: string;
   name?: string;
   description?: string;
   path?: string;
   deploy?: boolean;
 }
 
-async function create(options: CreateOptions): Promise<RunCommandResult> {
+async function getDefaultTemplate(): Promise<Template> {
+  const templates = await listTemplates();
+  const template = templates.find((t) => t.name === DEFAULT_TEMPLATE_NAME);
+  if (!template) {
+    throw new Error(`Default template "${DEFAULT_TEMPLATE_NAME}" not found`);
+  }
+  return template;
+}
+
+function validateNonInteractiveFlags(command: Command): void {
+  const { name, path } = command.opts<CreateOptions>();
+  const providedCount = [name, path].filter(Boolean).length;
+
+  if (providedCount > 0 && providedCount < 2) {
+    command.error("Non-interactive mode requires all flags: --name, --path");
+  }
+}
+
+async function chooseCreate(options: CreateOptions): Promise<void> {
+  const isNonInteractive = !!(options.name && options.path);
+
+  if (isNonInteractive) {
+    await runCommand(() => createNonInteractive(options), { requireAuth: true });
+  } else {
+    await runCommand(() => createInteractive(options), { fullBanner: true, requireAuth: true });
+  }
+}
+
+async function createInteractive(options: CreateOptions): Promise<RunCommandResult> {
   const templates = await listTemplates();
   const templateOptions: Array<Option<Template>> = templates.map((t) => ({
     value: t,
@@ -31,82 +59,89 @@ async function create(options: CreateOptions): Promise<RunCommandResult> {
     hint: t.description,
   }));
 
-  // Use provided options or prompt interactively
-  let template: Template;
-  let name: string;
-  let description: string | undefined;
-  let projectPath: string;
-
-  if (options.template && options.name) {
-    // Non-interactive mode
-    const foundTemplate = templates.find((t) => t.name === options.template);
-    if (!foundTemplate) {
-      throw new Error(
-        `Template "${options.template}" not found. Available templates: ${templates.map((t) => t.name).join(", ")}`
-      );
-    }
-
-    if (!options.name || options.name.trim().length === 0) {
-      throw new Error("Project name is required");
-    }
-
-    template = foundTemplate;
-    name = options.name;
-    description = options.description;
-    projectPath = options.path || `./${kebabCase(options.name)}`;
-  } else {
-    // Interactive mode
-    const result = await group(
-      {
-        template: () =>
-          select({
-            message: "Pick a template",
-            options: templateOptions,
-          }),
-        name: () =>
-          text({
-            message: "What is the name of your project?",
-            placeholder: "my-app",
-            validate: (value) => {
-              if (!value || value.trim().length === 0) {
-                return "Every project deserves a name";
-              }
-            },
-          }),
-        description: () =>
-          text({
-            message: "Description (optional)",
-            placeholder: "A brief description of your project",
-          }),
-        projectPath: async ({ results }) => {
-          const suggestedPath = `./${kebabCase(results.name)}`;
-          return text({
-            message: "Where should we create the base44 folder?",
-            placeholder: suggestedPath,
-            initialValue: suggestedPath,
-          });
-        },
+  const result = await group(
+    {
+      template: () =>
+        select({
+          message: "Pick a template",
+          options: templateOptions,
+        }),
+      name: () =>
+        text({
+          message: "What is the name of your project?",
+          placeholder: "my-app",
+          validate: (value) => {
+            if (!value || value.trim().length === 0) {
+              return "Every project deserves a name";
+            }
+          },
+        }),
+      description: () =>
+        text({
+          message: "Description (optional)",
+          placeholder: "A brief description of your project",
+        }),
+      projectPath: async ({ results }) => {
+        const suggestedPath = `./${kebabCase(results.name)}`;
+        return text({
+          message: "Where should we create the base44 folder?",
+          placeholder: suggestedPath,
+          initialValue: suggestedPath,
+        });
       },
-      {
-        onCancel: onPromptCancel,
-      }
-    );
+    },
+    {
+      onCancel: onPromptCancel,
+    }
+  );
 
-    template = result.template as Template;
-    name = result.name as string;
-    description = result.description as string | undefined;
-    projectPath = result.projectPath as string;
-  }
+  return await executeCreate({
+    template: result.template,
+    name: result.name,
+    description: result.description || undefined,
+    projectPath: result.projectPath as string,
+    deploy: options.deploy,
+    isInteractive: true,
+  });
+}
 
-  const resolvedPath = resolve(projectPath as string);
+async function createNonInteractive(options: CreateOptions): Promise<RunCommandResult> {
+  const template = await getDefaultTemplate();
 
-  // Create the project
+  return await executeCreate({
+    template,
+    name: options.name!,
+    description: options.description,
+    projectPath: options.path!,
+    deploy: options.deploy,
+    isInteractive: false,
+  });
+}
+
+async function executeCreate({
+  template,
+  name: rawName,
+  description,
+  projectPath,
+  deploy,
+  isInteractive,
+}: {
+  template: Template;
+  name: string;
+  description?: string;
+  projectPath: string;
+  deploy?: boolean;
+  isInteractive: boolean;
+}): Promise<RunCommandResult> {
+  const name = rawName.trim();
+  const resolvedPath = resolve(projectPath);
+
   const { projectId } = await runTask(
     "Setting up your project...",
     async () => {
       return await createProjectFiles({
-        name: name.trim(),
-        description: description ? description.trim() : undefined,
+        name,
+        description: description?.trim(),
         path: resolvedPath,
         template,
       });
@@ -117,25 +152,21 @@ async function create(options: CreateOptions): Promise<RunCommandResult> {
     }
   );
 
-  // Set the project ID in the environment variables for following client calls
   await loadProjectEnv(resolvedPath);
 
   const { project, entities } = await readProjectConfig(resolvedPath);
   let finalAppUrl: string | undefined;
 
-  // Prompt to push entities if needed
   if (entities.length > 0) {
     let shouldPushEntities: boolean;
 
-    if (options.template && options.name) {
-      // Non-interactive mode: push entities only if --deploy flag is specified
-      shouldPushEntities = options.deploy === true;
-    } else {
-      // Interactive mode: prompt the user
+    if (isInteractive) {
       const result = await confirm({
-        message: 'Would you like to push entities now?',
+        message: "Would you like to push entities now?",
       });
       shouldPushEntities = !isCancel(result) && result;
+    } else {
+      shouldPushEntities = !!deploy;
     }
 
     if (shouldPushEntities) {
@@ -152,23 +183,18 @@ async function create(options: CreateOptions): Promise<RunCommandResult> {
     }
   }
 
-  // Prompt to install dependencies if needed
   if (project.site) {
-    const installCommand = project.site.installCommand;
-    const buildCommand = project.site.buildCommand;
-    const outputDirectory = project.site.outputDirectory;
+    const { installCommand, buildCommand, outputDirectory } = project.site;
 
     let shouldDeploy: boolean;
 
-    if (options.template && options.name) {
-      // Non-interactive mode: deploy only if --deploy flag is specified
-      shouldDeploy = options.deploy === true;
-    } else {
-      // Interactive mode: prompt the user
+    if (isInteractive) {
       const result = await confirm({
-        message: 'Would you like to deploy the site now?'
+        message: "Would you like to deploy the site now?",
       });
       shouldDeploy = !isCancel(result) && result;
+    } else {
+      shouldDeploy = !!deploy;
     }
 
     if (shouldDeploy && installCommand && buildCommand && outputDirectory) {
@@ -195,9 +221,8 @@ async function create(options: CreateOptions): Promise<RunCommandResult> {
 
   const dashboardUrl = `${getBase44ApiUrl()}/apps/${projectId}/editor/preview`;
 
-  log.message(`${chalk.dim("Project")}: ${orange(name.trim())}`);
+  log.message(`${chalk.dim("Project")}: ${orange(name)}`);
   log.message(`${chalk.dim("Dashboard")}: ${cyan(dashboardUrl)}`);
-
 
   if (finalAppUrl) {
     log.message(`${chalk.dim("Site")}: ${cyan(finalAppUrl)}`);
@@ -208,12 +233,11 @@ async function create(options: CreateOptions): Promise<RunCommandResult> {
 
 export const createCommand = new Command("create")
   .description("Create a new Base44 project")
-  .option("-t, --template <template>", "Template to use")
   .option("-n, --name <name>", "Project name")
   .option("-d, --description <description>", "Project description")
   .option("-p, --path <path>", "Path where to create the project")
-  .option("--deploy", "Build and deploy the site (includes pushing entities)")
+  .option("--deploy", "Build and deploy the site")
+  .hook("preAction", validateNonInteractiveFlags)
   .action(async (options: CreateOptions) => {
-    const isNonInteractive = !!(options.template && options.name);
-    await runCommand(() => create(options), { fullBanner: !isNonInteractive, requireAuth: true });
+    await chooseCreate(options);
   });
