@@ -18,6 +18,11 @@ on:
         required: false
         default: false
         type: boolean
+      update_changelog:
+        description: "Update CHANGELOG.md with release notes"
+        required: false
+        default: true
+        type: boolean
 
 jobs:
   publish:
@@ -73,6 +78,68 @@ jobs:
           npm version ${{ github.event.inputs.version }} --no-git-tag-version
           echo "NEW_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
 
+      - name: Get previous release tag
+        id: prev-tag
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          echo "tag=$PREV_TAG" >> $GITHUB_OUTPUT
+          echo "Previous tag: $PREV_TAG"
+
+      - name: Generate Changelog
+        if: github.event.inputs.update_changelog == 'true' && github.event.inputs.dry_run == 'false' && steps.prev-tag.outputs.tag != ''
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Generate a changelog entry for version ${{ env.NEW_VERSION }} (release date: today).
+            Previous version tag: ${{ steps.prev-tag.outputs.tag }}
+
+            ## Instructions
+
+            1. Get commits since last release:
+               `git log ${{ steps.prev-tag.outputs.tag }}..HEAD --pretty=format:"%s (%h)" --no-merges`
+
+            2. Get merged PRs (for better context):
+               `gh pr list --state merged --base main --json number,title,body,mergedAt --limit 100`
+
+            3. Analyze and categorize changes using these categories (only include sections that have changes):
+               - **Added** - new features
+               - **Changed** - changes in existing functionality
+               - **Deprecated** - soon-to-be removed features
+               - **Removed** - now removed features
+               - **Fixed** - bug fixes
+               - **Security** - vulnerability fixes
+
+            4. Update CHANGELOG.md by inserting the new version entry AFTER the `## [Unreleased]` line.
+
+            ## Important Rules
+
+            - **EXCLUDE** any commits/PRs related to:
+              - Changelog updates (commits mentioning "changelog", "CHANGELOG")
+              - Version bumps (commits like "chore: bump version to X.X.X")
+              - Release commits (commits like "chore: release vX.X.X")
+            - Be concise but descriptive - focus on user-facing changes
+            - Include PR numbers in parentheses when available, e.g., "Added foo feature (#123)"
+            - Follow keepachangelog.com format exactly
+            - Use ISO date format: YYYY-MM-DD
+
+            ## Example Output Format
+
+            ```markdown
+            ## [0.0.8] - 2026-01-19
+
+            ### Added
+            - Non-interactive mode for `create` command (#67)
+
+            ### Changed
+            - Improved intro/outro alignment across all commands (#61)
+
+            ### Fixed
+            - Various small fixes and improvements (#60)
+            ```
+
+          claude_args: '--allowed-tools "Bash(git log:*),Bash(git diff:*),Bash(gh pr:*),Read,Write"'
+
       - name: Build package
         run: npm run build
 
@@ -99,7 +166,9 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add package.json package-lock.json
-          git commit -m "chore: bump version to ${{ env.NEW_VERSION }}"
+          # Add CHANGELOG.md only if it was updated
+          git add CHANGELOG.md 2>/dev/null || true
+          git commit -m "chore: release v${{ env.NEW_VERSION }}"
           git tag v${{ env.NEW_VERSION }}
           git push origin HEAD:${{ github.ref }}
           git push origin v${{ env.NEW_VERSION }}
@@ -131,4 +200,5 @@ jobs:
 permissions:
   contents: write
   packages: write
+  pull-requests: read
   id-token: write
