@@ -6,6 +6,7 @@ import { whoamiCommand } from "./commands/auth/whoami.js";
 import { logoutCommand } from "./commands/auth/logout.js";
 import { entitiesPushCommand } from "./commands/entities/push.js";
 import { createCommand } from "./commands/project/create.js";
+import { linkCommand } from "./commands/project/link.js";
 import { siteDeployCommand } from "./commands/site/deploy.js";
 import packageJson from "../../package.json";
 
@@ -25,6 +26,7 @@ program.addCommand(logoutCommand);
 
 // Register project commands
 program.addCommand(createCommand);
+program.addCommand(linkCommand);
 
 // Register entities commands
 program.addCommand(entitiesPushCommand);
