@@ -14,7 +14,7 @@ import type { RunCommandResult } from "../../utils/runCommand.js";
 
 const orange = chalk.hex("#E86B3C");
 const cyan = chalk.hex("#00D4FF");
-const DEFAULT_TEMPLATE_NAME = "backend-only";
+const DEFAULT_TEMPLATE_ID = "backend-only";
 
 interface CreateOptions {
   name?: string;
@@ -25,9 +25,9 @@ interface CreateOptions {
 
 async function getDefaultTemplate(): Promise<Template> {
   const templates = await listTemplates();
-  const template = templates.find((t) => t.name === DEFAULT_TEMPLATE_NAME);
+  const template = templates.find((t) => t.id === DEFAULT_TEMPLATE_ID);
   if (!template) {
-    throw new Error(`Default template "${DEFAULT_TEMPLATE_NAME}" not found`);
+    throw new Error(`Default template "${DEFAULT_TEMPLATE_ID}" not found`);
   }
   return template;
 }
