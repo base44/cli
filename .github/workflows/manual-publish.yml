@@ -84,6 +84,12 @@ jobs:
           PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
           echo "tag=$PREV_TAG" >> $GITHUB_OUTPUT
           echo "Previous tag: $PREV_TAG"
+          if [[ -n "$PREV_TAG" ]]; then
+            # Get the date of the previous tag in ISO format for filtering PRs
+            PREV_TAG_DATE=$(git log -1 --format=%aI "$PREV_TAG")
+            echo "date=$PREV_TAG_DATE" >> $GITHUB_OUTPUT
+            echo "Previous tag date: $PREV_TAG_DATE"
+          fi
 
       - name: Generate Changelog
         if: github.event.inputs.update_changelog == 'true' && github.event.inputs.dry_run == 'false' && steps.prev-tag.outputs.tag != ''
@@ -99,31 +105,24 @@ jobs:
             1. Get commits since last release:
                `git log ${{ steps.prev-tag.outputs.tag }}..HEAD --pretty=format:"%s (%h)" --no-merges`
 
-            2. Get merged PRs (for better context):
-               `gh pr list --state merged --json number,title,body,mergedAt --limit 100`
+            2. Get merged PRs since last release:
+               `gh pr list --state merged --search "merged:>${{ steps.prev-tag.outputs.date }}" --json number,title,mergedAt --limit 20`
 
-            3. Analyze and categorize changes using these categories (only include sections that have changes):
+            3. Categorize changes (only include sections with changes):
                - **Added** - new features
                - **Changed** - changes in existing functionality
-               - **Deprecated** - soon-to-be removed features
-               - **Removed** - now removed features
                - **Fixed** - bug fixes
-               - **Security** - vulnerability fixes
+               - **Removed** - removed features
 
-            4. Update CHANGELOG.md by inserting the new version entry AFTER the `## [Unreleased]` line.
+            4. Update CHANGELOG.md by inserting the new entry AFTER `## [Unreleased]`.
 
-            ## Important Rules
+            ## Rules
 
-            - **EXCLUDE** any commits/PRs related to:
-              - Changelog updates (commits mentioning "changelog", "CHANGELOG")
-              - Version bumps (commits like "chore: bump version to X.X.X")
-              - Release commits (commits like "chore: release vX.X.X")
-            - Be concise but descriptive - focus on user-facing changes
-            - Include PR numbers in parentheses when available, e.g., "Added foo feature (#123)"
-            - Follow keepachangelog.com format exactly
-            - Use ISO date format: YYYY-MM-DD
+            - EXCLUDE: changelog commits, version bumps ("chore: bump version", "chore: release")
+            - Include PR numbers: "Added foo feature (#123)"
+            - Use ISO date: YYYY-MM-DD
 
-            ## Example Output Format
+            ## Example
 
             ```markdown
             ## [0.0.8] - 2026-01-19
@@ -131,14 +130,13 @@ jobs:
             ### Added
             - Non-interactive mode for `create` command (#67)
 
-            ### Changed
-            - Improved intro/outro alignment across all commands (#61)
-
             ### Fixed
-            - Various small fixes and improvements (#60)
+            - Various small fixes (#60)
             ```
 
-          claude_args: '--allowed-tools "Bash(git log:*),Bash(git diff:*),Bash(gh pr:*),Read,Write"'
+          claude_args: |
+            --allowed-tools "Bash(git log:*),Bash(gh pr:*),Read,Write"
+            --model "claude-sonnet-4-20250514"
 
       - name: Build package
         run: npm run build
@@ -162,9 +160,13 @@ jobs:
 
       - name: Create Git tag
         if: github.event.inputs.dry_run == 'false'
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
+          # Re-configure git remote to use the App token for push
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
           git add package.json package-lock.json
           # Add CHANGELOG.md only if changelog update was requested
           if [[ "${{ github.event.inputs.update_changelog }}" == "true" ]]; then
