@@ -100,7 +100,7 @@ jobs:
                `git log ${{ steps.prev-tag.outputs.tag }}..HEAD --pretty=format:"%s (%h)" --no-merges`
 
             2. Get merged PRs (for better context):
-               `gh pr list --state merged --base main --json number,title,body,mergedAt --limit 100`
+               `gh pr list --state merged --json number,title,body,mergedAt --limit 100`
 
             3. Analyze and categorize changes using these categories (only include sections that have changes):
                - **Added** - new features
@@ -168,7 +168,7 @@ jobs:
           git add package.json package-lock.json
           # Add CHANGELOG.md only if changelog update was requested
           if [[ "${{ github.event.inputs.update_changelog }}" == "true" ]]; then
-            git add CHANGELOG.md 2>/dev/null || true
+            git add CHANGELOG.md
           fi
           git commit -m "chore: release v${{ env.NEW_VERSION }}"
           git tag v${{ env.NEW_VERSION }}
