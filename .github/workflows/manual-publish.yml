@@ -166,8 +166,10 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add package.json package-lock.json
-          # Add CHANGELOG.md only if it was updated
-          git add CHANGELOG.md 2>/dev/null || true
+          # Add CHANGELOG.md only if changelog update was requested
+          if [[ "${{ github.event.inputs.update_changelog }}" == "true" ]]; then
+            git add CHANGELOG.md 2>/dev/null || true
+          fi
           git commit -m "chore: release v${{ env.NEW_VERSION }}"
           git tag v${{ env.NEW_VERSION }}
           git push origin HEAD:${{ github.ref }}
