@@ -214,5 +214,6 @@ export const createCommand = new Command("create")
   .option("-p, --path <path>", "Path where to create the project")
   .option("--deploy", "Build and deploy the site (includes pushing entities)")
   .action(async (options: CreateOptions) => {
-    await runCommand(() => create(options), { fullBanner: true, requireAuth: true });
+    const isNonInteractive = !!(options.template && options.name);
+    await runCommand(() => create(options), { fullBanner: !isNonInteractive, requireAuth: true });
   });
