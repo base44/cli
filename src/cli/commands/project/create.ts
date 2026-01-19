@@ -20,7 +20,6 @@ interface CreateOptions {
   name?: string;
   description?: string;
   path?: string;
-  pushEntities?: boolean;
   deploy?: boolean;
 }
 
@@ -128,9 +127,9 @@ async function create(options: CreateOptions): Promise<RunCommandResult> {
   if (entities.length > 0) {
     let shouldPushEntities: boolean;
 
-    if (options.pushEntities !== undefined) {
-      // Non-interactive mode: use the provided flag
-      shouldPushEntities = options.pushEntities;
+    if (options.template && options.name) {
+      // Non-interactive mode: push entities only if --deploy flag is specified
+      shouldPushEntities = options.deploy === true;
     } else {
       // Interactive mode: prompt the user
       const result = await confirm({
@@ -161,9 +160,9 @@ async function create(options: CreateOptions): Promise<RunCommandResult> {
 
     let shouldDeploy: boolean;
 
-    if (options.deploy !== undefined) {
-      // Non-interactive mode: use the provided flag
-      shouldDeploy = options.deploy;
+    if (options.template && options.name) {
+      // Non-interactive mode: deploy only if --deploy flag is specified
+      shouldDeploy = options.deploy === true;
     } else {
       // Interactive mode: prompt the user
       const result = await confirm({
@@ -213,10 +212,7 @@ export const createCommand = new Command("create")
   .option("-n, --name <name>", "Project name")
   .option("-d, --description <description>", "Project description")
   .option("-p, --path <path>", "Path where to create the project")
-  .option("--push-entities", "Automatically push entities after creation")
-  .option("--no-push-entities", "Skip pushing entities")
-  .option("--deploy", "Automatically deploy the site after creation")
-  .option("--no-deploy", "Skip deploying the site")
+  .option("--deploy", "Build and deploy the site (includes pushing entities)")
   .action(async (options: CreateOptions) => {
     await runCommand(() => create(options), { fullBanner: true, requireAuth: true });
   });
