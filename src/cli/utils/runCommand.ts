@@ -93,7 +93,32 @@ export async function runCommand(
     const { outroMessage } = await commandFn();
     outro(outroMessage || "");
   } catch (e) {
-    if (e instanceof Error) {
+    // Check if this is an HTTP error from the server
+    if (e && typeof e === "object" && "response" in e) {
+      try {
+        const response = (e as { response: Response }).response;
+        const errorData = await response.json();
+
+        // Check if this is an HTTPException from the server
+        if (errorData.error_type === "HTTPException") {
+          log.error(errorData.message || errorData.detail || "An error occurred");
+        } else {
+          // Fall back to default error handling
+          if (e instanceof Error) {
+            log.error(e.stack ?? e.message);
+          } else {
+            log.error(String(e));
+          }
+        }
+      } catch {
+        // If parsing fails, fall back to default error handling
+        if (e instanceof Error) {
+          log.error(e.stack ?? e.message);
+        } else {
+          log.error(String(e));
+        }
+      }
+    } else if (e instanceof Error) {
       log.error(e.stack ?? e.message);
     } else {
       log.error(String(e));
