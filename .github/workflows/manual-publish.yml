@@ -21,7 +21,7 @@ on:
       update_changelog:
         description: "Update CHANGELOG.md with release notes"
         required: false
-        default: true
+        default: false
         type: boolean
 
 jobs:
