@@ -1,5 +1,0 @@
----
-globs: *.py
-alwaysApply: true
----
-Always keep the imports at the top of the file

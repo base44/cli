@@ -1,9 +1,6 @@
 import { getAppClient } from "@core/clients/index.js";
 import { DeployFunctionsResponseSchema } from "./schema.js";
-import type {
-  FunctionWithCode,
-  DeployFunctionsResponse,
-} from "./schema.js";
+import type { FunctionWithCode, DeployFunctionsResponse } from "./schema.js";
 
 function toDeployPayloadItem(fn: FunctionWithCode) {
   return {
@@ -27,8 +24,8 @@ export async function deployFunctions(
   });
 
   if (!response.ok) {
-    const errorJson: { message: string } = await response.json();
-    throw new Error(`Failed to deploy functions: ${errorJson.message}`);
+    const errorJson = await response.json();
+    throw new Error(`Failed to deploy functions: ${errorJson}`);
   }
 
   const result = DeployFunctionsResponseSchema.parse(await response.json());

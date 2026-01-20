@@ -60,6 +60,7 @@ cli/
 │   │   │   │   ├── config.ts
 │   │   │   │   ├── resource.ts
 │   │   │   │   ├── api.ts
+│   │   │   │   ├── deploy.ts
 │   │   │   │   └── index.ts
 │   │   │   └── index.ts
 │   │   ├── site/                 # Site deployment (NOT a Resource)
@@ -83,8 +84,10 @@ cli/
 │       │   │   └── whoami.ts
 │       │   ├── project/
 │       │   │   └── create.ts
-│       │   └── entities/
-│       │       └── push.ts
+│       │   ├── entities/
+│       │   │   └── push.ts
+│       │   ├── functions/
+│       │   │   └── deploy.ts
 │       │   └── site/
 │       │       └── deploy.ts
 │       ├── utils/

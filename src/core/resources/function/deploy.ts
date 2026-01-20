@@ -10,7 +10,6 @@ async function loadFunctionCode(fn: Function): Promise<FunctionWithCode> {
 export async function pushFunctions(
   functions: Function[]
 ): Promise<DeployFunctionsResponse> {
-  // Lazy load the functions code before deployment
   const functionsWithCode = await Promise.all(functions.map(loadFunctionCode));
   return deployFunctions(functionsWithCode);
 }
