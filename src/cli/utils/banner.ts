@@ -1,5 +1,5 @@
 import { printAnimatedLines } from "./animate.js";
-import { ORANGE } from "./consts.js";
+import { theme } from "./theme.js";
 const BANNER_LINES = [
   "██████╗  █████╗ ███████╗███████╗ ██╗  ██╗██╗  ██╗",
   "██╔══██╗██╔══██╗██╔════╝██╔════╝ ██║  ██║██║  ██║",
@@ -17,6 +17,6 @@ export async function printBanner(): Promise<void> {
   if (process.stdout.isTTY) {
     await printAnimatedLines(BANNER_LINES);
   } else {
-    console.log(ORANGE(BANNER_LINES.join("\n")));
+    console.log(theme.colors.orange(BANNER_LINES.join("\n")));
   }
 }

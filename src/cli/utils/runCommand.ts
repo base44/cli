@@ -3,7 +3,7 @@ import { loadProjectEnv } from "@core/config.js";
 import { isLoggedIn } from "@core/auth/index.js";
 import { printBanner } from "./banner.js";
 import { login } from "../commands/auth/login.js";
-import { BASE44_BG } from "./consts.js";
+import { theme } from "./theme.js";
 
 export interface RunCommandOptions {
   /**
@@ -72,7 +72,7 @@ export async function runCommand(
     await printBanner();
     intro("");
   } else {
-    intro(BASE44_BG(" Base 44 "));
+    intro(theme.colors.base44Bg(" Base 44 "));
   }
 
   await loadProjectEnv();

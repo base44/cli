@@ -9,7 +9,7 @@ import { createProjectFiles, listTemplates, readProjectConfig } from "@core/proj
 import type { Template } from "@core/project/index.js";
 import { getBase44ApiUrl, loadProjectEnv } from "@core/config.js";
 import { deploySite, pushEntities } from "@core/index.js";
-import { runCommand, runTask, onPromptCancel, ORANGE, CYAN } from "../../utils/index.js";
+import { runCommand, runTask, onPromptCancel, theme } from "../../utils/index.js";
 import type { RunCommandResult } from "../../utils/runCommand.js";
 
 const DEFAULT_TEMPLATE_ID = "backend-only";
@@ -145,7 +145,7 @@ async function executeCreate({
       });
     },
     {
-      successMessage: ORANGE("Project created successfully"),
+      successMessage: theme.colors.orange("Project created successfully"),
       errorMessage: "Failed to create project",
     }
   );
@@ -174,7 +174,7 @@ async function executeCreate({
           await pushEntities(entities);
         },
         {
-          successMessage: ORANGE("Entities pushed successfully"),
+          successMessage: theme.colors.orange("Entities pushed successfully"),
           errorMessage: "Failed to push entities",
         }
       );
@@ -208,7 +208,7 @@ async function executeCreate({
           return await deploySite(join(resolvedPath, outputDirectory));
         },
         {
-          successMessage: ORANGE("Site deployed successfully"),
+          successMessage: theme.colors.orange("Site deployed successfully"),
           errorMessage: "Failed to deploy site",
         }
       );
@@ -219,11 +219,11 @@ async function executeCreate({
 
   const dashboardUrl = `${getBase44ApiUrl()}/apps/${projectId}/editor/preview`;
 
-  log.message(`${chalk.dim("Project")}: ${ORANGE(name)}`);
-  log.message(`${chalk.dim("Dashboard")}: ${CYAN(dashboardUrl)}`);
+  log.message(`${chalk.dim("Project")}: ${theme.colors.orange(name)}`);
+  log.message(`${chalk.dim("Dashboard")}: ${theme.colors.cyan(dashboardUrl)}`);
 
   if (finalAppUrl) {
-    log.message(`${chalk.dim("Site")}: ${CYAN(finalAppUrl)}`);
+    log.message(`${chalk.dim("Site")}: ${theme.colors.cyan(finalAppUrl)}`);
   }
 
   return { outroMessage: "Your project is set and ready to use" };
