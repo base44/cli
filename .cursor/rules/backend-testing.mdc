@@ -1,0 +1,81 @@
+---
+description: Backend Python testing guidelines and commands
+globs: backend/**/*.py, backend/tests/**/*
+---
+
+# Backend Testing
+
+## Running Tests
+
+### For AI Assistants / No Docker Environment
+
+Use these commands when Docker is not available:
+
+```bash
+# First time setup (creates venv, installs deps, creates directories)
+make llm-init-test-env
+
+# Run all unit tests (~1500 tests, ~60-90 seconds)
+make llm-test
+
+# Run specific test file
+make llm-test args="backend/tests/unit/test_specific.py"
+
+# Run tests with verbose output
+make llm-test-verbose
+```
+
+### With Docker
+
+```bash
+# Run tests inside Docker container
+make test-in-docker path=backend/tests/unit/
+
+# Run unit tests (requires uv on host)
+make backend-tests-unit
+
+# Run integration tests
+make backend-tests-it
+
+# Run E2E tests
+make backend-tests-e2e
+```
+
+## Test Structure
+
+- **Unit tests**: `backend/tests/unit/` - Fast, isolated tests with mocks
+- **Integration tests**: `backend/tests/user_apps/it/` - Tests with real database interactions
+- **E2E tests**: `backend/tests/user_apps/e2e/` - Full end-to-end tests
+
+## Test Environment
+
+When `ENV=test` is set:
+- MongoDB uses `mongomock_motor` (in-memory mock)
+- Redis uses `fakeredis` (in-memory mock)
+- No real external services are called
+
+The `.env.test` file provides dummy values for all required environment variables.
+
+## Writing Tests
+
+```python
+import pytest
+from unittest.mock import AsyncMock, patch
+
+@pytest.mark.asyncio
+async def test_example():
+    # Arrange
+    mock_service = AsyncMock()
+
+    # Act
+    result = await some_function()
+
+    # Assert
+    assert result is not None
+```
+
+## Test Configuration
+
+- Configuration: `pytest.ini`
+- Fixtures: `backend/tests/conftest.py`
+- Test markers: `e2e`, `flaky`, `using_global_httpx_client`

@@ -1,0 +1,38 @@
+---
+description: for frontend development in the /frontend folder files only
+alwaysApply: false
+---
+**Core Goal**: Design and implement frontend code in javascript, typescript and React
+
+## Phase 1 - Analysis and Design
+create todo list for `Requirement Analysis`, `Retrieve Guidelines`, `Design`, `Brainstorm`, `Create Tracking Docs` steps and complete them one-by-one till all are completed:
+
+1. `Requirements Analysis`: go over the requirement and create a technical description for them.
+2. `Retrieve Guidelines`: locate fronent rules from /frontend/.cursor-rules, understand them and use them as `guidlines` for the next steps if/when they are relevant.
+3. `Design`: create a `tech-design` for the `Requirement Analysis` outcome, design the architecture and implementation details, prefer used patterns, code minimalization, efficiency that correlate to the `guidelines`.
+4. `Brainstorm`: mark the `Brainstorm` step as `waiting for user input`, then, according to the `tech-design` ask the user a series of questions relevant to each step of the `tech-design`, for example: 
+	- what api requests and server data is required, how to retrieve and persist it, 
+	- which main components should be created,
+	- which states or stores should be created and how to manage their injection,
+	- optionally ask to supply components images or figma frames to help with the implementation of the ux. and more questions that are relevant to the `tech-design`. ask each question one-by-one and add the answers to the tech-design you're planning.
+
+### Checkpoint: once the user approves to continue mark the `Brainstorm` step as `completed` and continue the process.
+
+## Phase 2 - Tracking Documentation
+* create a tracking README doc (`tracking-doc`) which will contain the main implementation steps and design concepts, to be used as reference to the implementation progress 
+
+## Phase 3 - Implementation
+according to the `tech-design` created in the previous phase, list the implementation-steps and create a new todos list for them, then complete them one be one till all are completed.
+
+* before each implementation-step, create a list of documents needed to implement it. this can be done by following this approach:
+	- check in `guidelines` what are the relevant guidelines-steps required for the implementation of the implementation-step.
+	- follow these guidelines-steps during the implementation.
+	- in case a step refers to another document (usually a link to api-ref and .md files) then locate these files and use them for implementation correctness.
+* during the step implementation refer to the `tracking-doc` to make sure the implementation is aligned with the design approach.
+* once the step is completed, update the `tracking-doc` with the added capabilities, ensure types and code correctness in this `tracking-doc`.
+
+### Checkpoint: after each implementation-step:
+- validate code correctness, typescript, lint and syntax.
+- describe to the user what you implemented, which guidelines and api-refs did you use. Brainstorm on the implementation and modifications
+- mark the step-todo as `waiting for user input`
+- once the user approves to continue, continue to the next implementation step

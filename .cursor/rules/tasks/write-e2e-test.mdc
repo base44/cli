@@ -1,0 +1,122 @@
+# Flow
+
+1. DO THIS FIRST: CHECK SYSTEM BEHAVIOR BEFORE WRITING TEST CODE
+   Use the playwright MCP to try out a user flow yourself first.
+   Open the app in the browser, perform the actions as the user and see the app behavior, the selectors needed to perform actions or view data and use that infromation you gather in order to write the test that covers that user flow.
+   <important>
+   ask the user on what hostname the system is running to know where you need to navigate</important>
+   Once you have your own experience of the flow, write down the test using the selectors and other info that you use while working through the user flow youself.
+2. Run the tests IN NON INTERACTIVE MODE to get feedback on the tests you write, those commands will exit once the test run completes. DO NOT use interactive commands.
+3. The implementation of the system under test is inside this repository. As you run through the system yourself to try out the user flow, you may discover that the system is not fully accessible and makes the ability to write tests and for you to experience the system harder, as both tests and you rely on accessbility features to work with the site. You can include changes in the implementation that are required to make testing and your experience and our accessibility-requiring users much easier.
+   Example: App creation submit button is icon-only with no aria-label, making it hard to select reliably in tests and inaccessible to screen readers - should add aria-label="Create app" or accessible text.
+
+# Tests Structure
+
+- Keep test data like app prompts, user details and other data that's used for the simulation of a scenario in the tests/scenarios-data folder as JavaScript modules (not JSON), organize the data there for reusability through the tests. Use JS modules for better IDE support.
+- Use fixtures to extend test capabilities with page objects, configuration, and authentication helpers. Fixtures provide clean test isolation and reusable components across test suites.
+  - Place POMs in tests/poms
+- Follow the separation pattern: spec files describe WHAT to test (user behavior and outcomes), fixtures and POMs contain HOW to do it (implementation details, selectors, and complex operations). This keeps tests readable and maintainable.
+  Example: Instead of `await page.getByRole('button', { name: 'Send' }).click()` in specs, use `await appCreationPage.createApp(prompt)` - the spec focuses on user intent, fixtures handle implementation.
+- Follow page object pattern for UI interactions: encapsulate selectors and actions in page object classes, inherit from BasePage for common functionality.
+- Structure tests with test.step() for detailed reporting and use tags (@smoke, @regression, @accessibility) for test categorization and filtering.
+
+# ✅ Playwright Test Patterns: Fixtures + Page Object Model (POM)
+
+## 👉 Page Object Model (POM)
+
+Encapsulate UI structure and behavior in reusable classes.
+
+### Example
+
+```ts
+// LoginPage.ts
+import { Page } from "@playwright/test";
+
+export class LoginPage {
+  constructor(private page: Page) {}
+
+  async goto() {
+    await this.page.goto("/login");
+  }
+
+  async login(username: string, password: string) {
+    await this.page.fill("#username", username);
+    await this.page.fill("#password", password);
+    await this.page.click('button[type="submit"]');
+  }
+
+  async getErrorMessage() {
+    return this.page.textContent(".error-message");
+  }
+}
+```
+
+```ts
+// login.spec.ts
+import { test, expect } from "@playwright/test";
+import { LoginPage } from "./LoginPage";
+
+test("invalid credentials show error", async ({ page }) => {
+  const loginPage = new LoginPage(page);
+  await loginPage.goto();
+  await loginPage.login("wrong", "wrong");
+  expect(await loginPage.getErrorMessage()).toContain("Invalid");
+});
+```
+
+### 🔹 Benefits of POM
+
+- Clean, readable test logic
+- Centralized UI updates
+- Reusability across test suites
+
+---
+
+## ⚙️ Fixtures
+
+Use `test.extend()` to inject reusable setup/teardown logic.
+
+### Example: Inject a Page Object
+
+```ts
+// fixtures.ts
+import { test as base } from "@playwright/test";
+import { LoginPage } from "./LoginPage";
+
+export const test = base.extend<{
+  loginPage: LoginPage;
+}>({
+  loginPage: async ({ page }, use) => {
+    await use(new LoginPage(page));
+  },
+});
+```
+
+```ts
+// login.spec.ts using fixture
+import { test, expect } from "./fixtures";
+
+test("invalid login shows error", async ({ loginPage }) => {
+  await loginPage.goto();
+  await loginPage.login("wrong", "wrong");
+  expect(await loginPage.getErrorMessage()).toContain("Invalid");
+});
+```
+
+### 🔹 Fixture Types
+
+- **Test-scoped** (default): Runs before/after each test
+- **Worker-scoped**: Runs once per worker (for heavy resources)
+- Fixtures can be composed, overridden, or auto-triggered
+
+---
+
+## 🧠 Best Practices
+
+✅ Use fixtures to inject preconfigured state
+✅ Use POM to encapsulate page interactions
+✅ Keep assertions in test files
+✅ Use clear method names like `login()`, `gotoDashboard()`
+✅ Organize each page/component into its own file
+
+---
