@@ -91,6 +91,7 @@ cli/
 │       │   ├── runTask.ts        # Spinner wrapper
 │       │   ├── banner.ts         # ASCII art banner
 │       │   ├── prompts.ts        # Prompt utilities
+│       │   ├── theme.ts          # Centralized theme configuration (colors, styles)
 │       │   └── index.ts
 │       └── index.ts              # CLI entry point
 ├── templates/                    # Project templates
@@ -110,7 +111,7 @@ Commands live in `src/cli/commands/`. Follow these steps:
 // src/cli/commands/<domain>/<action>.ts
 import { Command } from "commander";
 import { log } from "@clack/prompts";
-import { runCommand, runTask } from "../../utils/index.js";
+import { runCommand, runTask, theme } from "../../utils/index.js";
 import type { RunCommandResult } from "../../utils/index.js";
 
 async function myAction(): Promise<RunCommandResult> {
@@ -122,7 +123,8 @@ async function myAction(): Promise<RunCommandResult> {
       return someResult;
     },
     {
-      successMessage: "Done!",
+      // Use theme colors for success messages
+      successMessage: theme.colors.base44Orange("Done!"),
       errorMessage: "Failed to do something",
     }
   );
@@ -130,7 +132,7 @@ async function myAction(): Promise<RunCommandResult> {
   log.success("Operation completed!");
 
   // Return an optional outro message (displayed at the end)
-  return { outroMessage: "All done!" };
+  return { outroMessage: `Created ${theme.styles.bold(result.name)}` };
 }
 
 export const myCommand = new Command("<name>")
@@ -170,6 +172,24 @@ await runCommand(myAction, { requireAuth: true });
 // Command with multiple options
 await runCommand(myAction, { fullBanner: true, requireAuth: true });
 ```
+
+## Theming
+
+All CLI styling is centralized in `src/cli/utils/theme.ts`. **Never use `chalk` directly** - import `theme` from utils instead.
+
+```typescript
+import { theme } from "../../utils/index.js";
+
+// Colors
+theme.colors.base44Orange("Success!")     // Primary brand color
+theme.colors.links(url)                   // URLs and links
+
+// Styles  
+theme.styles.bold(email)                  // Bold emphasis
+theme.styles.header("Label")              // Dim text for labels
+```
+
+When adding new theme properties, use semantic names (e.g., `links`, `header`) not color names.
 
 ## Making API Calls
 
@@ -312,6 +332,7 @@ import { base44Client } from "@core/api/index.js";
 8. **consts.ts has no imports** - Keep `consts.ts` dependency-free to avoid circular deps
 9. **Keep AGENTS.md updated** - Update this file when architecture changes
 10. **Zero-dependency distribution** - All packages go in `devDependencies`; they get bundled at build time
+11. **Use theme for styling** - Never use `chalk` directly in commands; import `theme` from utils and use semantic color/style names
 
 ## Development
 

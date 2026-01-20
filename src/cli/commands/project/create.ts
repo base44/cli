@@ -3,7 +3,6 @@ import { execa } from "execa";
 import { Command } from "commander";
 import { log, group, text, select, confirm, isCancel } from "@clack/prompts";
 import type { Option } from "@clack/prompts";
-import chalk from "chalk";
 import kebabCase from "lodash.kebabcase";
 import { createProjectFiles, listTemplates, readProjectConfig } from "@core/project/index.js";
 import type { Template } from "@core/project/index.js";
@@ -145,7 +144,7 @@ async function executeCreate({
       });
     },
     {
-      successMessage: theme.colors.orange("Project created successfully"),
+      successMessage: theme.colors.base44Orange("Project created successfully"),
       errorMessage: "Failed to create project",
     }
   );
@@ -174,7 +173,7 @@ async function executeCreate({
           await pushEntities(entities);
         },
         {
-          successMessage: theme.colors.orange("Entities pushed successfully"),
+          successMessage: theme.colors.base44Orange("Entities pushed successfully"),
           errorMessage: "Failed to push entities",
         }
       );
@@ -208,7 +207,7 @@ async function executeCreate({
           return await deploySite(join(resolvedPath, outputDirectory));
         },
         {
-          successMessage: theme.colors.orange("Site deployed successfully"),
+          successMessage: theme.colors.base44Orange("Site deployed successfully"),
           errorMessage: "Failed to deploy site",
         }
       );
@@ -219,11 +218,11 @@ async function executeCreate({
 
   const dashboardUrl = `${getBase44ApiUrl()}/apps/${projectId}/editor/preview`;
 
-  log.message(`${chalk.dim("Project")}: ${theme.colors.orange(name)}`);
-  log.message(`${chalk.dim("Dashboard")}: ${theme.colors.cyan(dashboardUrl)}`);
+  log.message(`${theme.styles.header("Project")}: ${theme.colors.base44Orange(name)}`);
+  log.message(`${theme.styles.header("Dashboard")}: ${theme.colors.links(dashboardUrl)}`);
 
   if (finalAppUrl) {
-    log.message(`${chalk.dim("Site")}: ${theme.colors.cyan(finalAppUrl)}`);
+    log.message(`${theme.styles.header("Site")}: ${theme.colors.links(finalAppUrl)}`);
   }
 
   return { outroMessage: "Your project is set and ready to use" };

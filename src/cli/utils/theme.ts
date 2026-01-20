@@ -1,13 +1,18 @@
 import chalk from "chalk";
 
 /**
- * Base44 theme configuration
+ * Base44 CLI theme configuration
  */
 export const theme = {
   colors: {
-    orange: chalk.hex("#E86B3C"),
-    cyan: chalk.hex("#00D4FF"),
-    gold: chalk.hex("#FFD700"),
-    base44Bg: chalk.bgHex("#E86B3C"),
+    base44Orange: chalk.hex("#E86B3C"),
+    shinyOrange: chalk.hex("#FFD700"),
+    links: chalk.hex("#00D4FF"),
+    white: chalk.white
   },
+  styles: {
+    header: chalk.dim,
+    bold: chalk.bold,
+    dim: chalk.dim
+  }
 };
