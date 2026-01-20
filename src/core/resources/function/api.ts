@@ -18,15 +18,9 @@ export async function deployFunctions(
     functions: functions.map(toDeployPayloadItem),
   };
 
-  const response = await appClient.put("backend-functions/deploy", {
+  const response = await appClient.put("backend-functions", {
     json: payload,
-    throwHttpErrors: false,
   });
-
-  if (!response.ok) {
-    const errorJson = await response.json();
-    throw new Error(`Failed to deploy functions: ${errorJson}`);
-  }
 
   const result = DeployFunctionsResponseSchema.parse(await response.json());
   return result;
