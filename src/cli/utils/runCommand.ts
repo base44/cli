@@ -1,11 +1,9 @@
 import { intro, log, outro } from "@clack/prompts";
-import chalk from "chalk";
 import { loadProjectEnv } from "@core/config.js";
 import { isLoggedIn } from "@core/auth/index.js";
 import { printBanner } from "./banner.js";
 import { login } from "../commands/auth/login.js";
-
-const base44Color = chalk.bgHex("#E86B3C");
+import { BASE44_BG } from "./consts.js";
 
 export interface RunCommandOptions {
   /**
@@ -74,7 +72,7 @@ export async function runCommand(
     await printBanner();
     intro("");
   } else {
-    intro(base44Color(" Base 44 "));
+    intro(BASE44_BG(" Base 44 "));
   }
 
   await loadProjectEnv();
