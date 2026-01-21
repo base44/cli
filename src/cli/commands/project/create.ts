@@ -7,7 +7,7 @@ import kebabCase from "lodash.kebabcase";
 import { createProjectFiles, listTemplates, readProjectConfig } from "@core/project/index.js";
 import type { Template } from "@core/project/index.js";
 import { getBase44ApiUrl, loadProjectEnv } from "@core/config.js";
-import { deploySite, pushEntities } from "@core/index.js";
+import { deploySite, pushEntities, pushFunctions } from "@core/index.js";
 import { runCommand, runTask, onPromptCancel, theme } from "../../utils/index.js";
 import type { RunCommandResult } from "../../utils/runCommand.js";
 
@@ -151,68 +151,119 @@ async function executeCreate({
 
   await loadProjectEnv(resolvedPath);
 
-  const { project, entities } = await readProjectConfig(resolvedPath);
+  const { project, entities, functions } = await readProjectConfig(resolvedPath);
   let finalAppUrl: string | undefined;
 
-  if (entities.length > 0) {
-    let shouldPushEntities: boolean;
+  const hasBackend = entities.length > 0 || functions.length > 0;
+  const hasSite = !!project.site;
+
+  if (hasBackend || hasSite) {
+    type DeploymentChoice = "backend" | "backend+client" | "none";
+    let deploymentChoice: DeploymentChoice = "none";
 
     if (isInteractive) {
-      const result = await confirm({
-        message: "Set up the backend data now? (This pushes the data models used by the template to Base44)",
-      });
-      shouldPushEntities = !isCancel(result) && result;
-    } else {
-      shouldPushEntities = !!deploy;
-    }
+      const options: Array<Option<DeploymentChoice>> = [];
 
-    if (shouldPushEntities) {
-      await runTask(
-        `Pushing ${entities.length} data models to Base44...`,
-        async () => {
-          await pushEntities(entities);
-        },
-        {
-          successMessage: theme.colors.base44Orange("Data models pushed successfully"),
-          errorMessage: "Failed to push data models",
+      if (hasBackend) {
+        options.push({
+          value: "backend",
+          label: "Deploy backend",
+          hint: "Deploy entities and functions only",
+        });
+      }
+
+      if (hasBackend && hasSite) {
+        options.push({
+          value: "backend+client",
+          label: "Deploy backend+client",
+          hint: "Deploy entities, functions, and site",
+        });
+      } else if (hasSite) {
+        options.push({
+          value: "backend+client",
+          label: "Deploy site",
+          hint: "Deploy the site to Base44",
+        });
+      }
+
+      if (options.length > 0) {
+        const result = await select({
+          message: "What would you like to deploy?",
+          options: [
+            ...options,
+            {
+              value: "none",
+              label: "Skip deployment",
+              hint: "You can deploy later",
+            },
+          ],
+        });
+
+        if (!isCancel(result)) {
+          deploymentChoice = result;
         }
-      );
-    }
-  }
-
-  if (project.site) {
-    const { installCommand, buildCommand, outputDirectory } = project.site;
-
-    let shouldDeploy: boolean;
-
-    if (isInteractive) {
-      const result = await confirm({
-        message: "Would you like to deploy the site now? (Hosted on Base44)",
-      });
-      shouldDeploy = !isCancel(result) && result;
+      }
     } else {
-      shouldDeploy = !!deploy;
+      deploymentChoice = deploy ? "backend+client" : "none";
     }
 
-    if (shouldDeploy && installCommand && buildCommand && outputDirectory) {
-      const { appUrl } = await runTask(
-        "Installing dependencies...",
-        async (updateMessage) => {
-          await execa({ cwd: resolvedPath, shell: true })`${installCommand}`;
+    // Deploy backend (entities and functions)
+    if (deploymentChoice === "backend" || deploymentChoice === "backend+client") {
+      if (entities.length > 0) {
+        await runTask(
+          `Pushing ${entities.length} ${entities.length === 1 ? "entity" : "entities"} to Base44...`,
+          async () => {
+            await pushEntities(entities);
+          },
+          {
+            successMessage: theme.colors.base44Orange(
+              `${entities.length === 1 ? "Entity" : "Entities"} pushed successfully`
+            ),
+            errorMessage: "Failed to push entities",
+          }
+        );
+      }
 
-          updateMessage("Building project...");
-          await execa({ cwd: resolvedPath, shell: true })`${buildCommand}`;
+      if (functions.length > 0) {
+        await runTask(
+          `Pushing ${functions.length} ${functions.length === 1 ? "function" : "functions"} to Base44...`,
+          async () => {
+            await pushFunctions(functions);
+          },
+          {
+            successMessage: theme.colors.base44Orange(
+              `${functions.length === 1 ? "Function" : "Functions"} pushed successfully`
+            ),
+            errorMessage: "Failed to push functions",
+          }
+        );
+      }
+    }
 
-          updateMessage("Deploying site...");
-          return await deploySite(join(resolvedPath, outputDirectory));
-        },
-        {
-          successMessage: theme.colors.base44Orange("Site deployed successfully"),
-          errorMessage: "Failed to deploy site",
-        }
-      );
+    // Deploy site
+    if (deploymentChoice === "backend+client" && project.site) {
+      const { installCommand, buildCommand, outputDirectory } = project.site;
 
-      finalAppUrl = appUrl;
+      if (installCommand && buildCommand && outputDirectory) {
+        const { appUrl } = await runTask(
+          "Installing dependencies...",
+          async (updateMessage) => {
+            await execa({ cwd: resolvedPath, shell: true })`${installCommand}`;
+
+            updateMessage("Building project...");
+            await execa({ cwd: resolvedPath, shell: true })`${buildCommand}`;
+
+            updateMessage("Deploying site...");
+            return await deploySite(join(resolvedPath, outputDirectory));
+          },
+          {
+            successMessage: theme.colors.base44Orange("Site deployed successfully"),
+            errorMessage: "Failed to deploy site",
+          }
+        );
+
+        finalAppUrl = appUrl;
+      }
     }
   }
 
