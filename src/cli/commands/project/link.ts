@@ -64,7 +64,6 @@ async function promptForProjectDetails() {
     }
   );
 
-
   return {
     name: result.name.trim(),
     description: result.description ? result.description.trim() : undefined,

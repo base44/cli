@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { Command, Help } from "commander";
+import { Command } from "commander";
 import { loginCommand } from "./commands/auth/login.js";
 import { whoamiCommand } from "./commands/auth/whoami.js";
 import { logoutCommand } from "./commands/auth/logout.js";
