@@ -72,7 +72,7 @@ export async function runCommand(
     await printBanner();
     intro("");
   } else {
-    intro(theme.colors.base44Orange(" Base 44 "));
+    intro(theme.colors.base44OrangeBackground(" Base 44 "));
   }
 
   await loadProjectEnv();
