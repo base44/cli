@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import open from 'open';
+import open from "open";
 import { getBase44ApiUrl, getBase44ClientId, loadProjectEnv } from "@core/config.js";
 import { runCommand } from "../../utils/index.js";
 import type { RunCommandResult } from "../../utils/runCommand.js";
