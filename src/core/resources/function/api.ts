@@ -20,7 +20,7 @@ export async function deployFunctions(
 
   const response = await appClient.put("backend-functions", {
     json: payload,
-    timeout: 30000
+    timeout: 120_000
   });
 
   const result = DeployFunctionsResponseSchema.parse(await response.json());
