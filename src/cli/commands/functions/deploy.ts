@@ -38,7 +38,7 @@ async function deployFunctionsAction(): Promise<RunCommandResult> {
   }
   if (result.errors && result.errors.length > 0) {
     const errorMessages = result.errors
-      .map((e) => `  ${e.name}: ${e.message}`)
+      .map((e) => `'${e.name}' function: ${e.message}`)
       .join("\n");
     throw new Error(`Function deployment errors:\n${errorMessages}`);
   }
