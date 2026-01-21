@@ -10,7 +10,7 @@ export async function pushEntities(
     entities.map((entity) => [entity.name, entity])
   );
 
-  const response = await appClient.put("entities-schemas/sync-all", {
+  const response = await appClient.put("entity-schemas", {
     json: {
       entityNameToSchema: schemaSyncPayload,
     },
