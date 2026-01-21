@@ -7,7 +7,7 @@ import kebabCase from "lodash.kebabcase";
 import { createProjectFiles, listTemplates, readProjectConfig } from "@core/project/index.js";
 import type { Template } from "@core/project/index.js";
 import { getBase44ApiUrl, loadProjectEnv } from "@core/config.js";
-import { deploySite, pushEntities } from "@core/index.js";
+import { deploySite, pushEntities, pushFunctions } from "@core/index.js";
 import { runCommand, runTask, onPromptCancel, theme } from "../../utils/index.js";
 import type { RunCommandResult } from "../../utils/runCommand.js";
 
@@ -151,7 +151,7 @@ async function executeCreate({
 
   await loadProjectEnv(resolvedPath);
 
-  const { project, entities } = await readProjectConfig(resolvedPath);
+  const { project, entities, functions } = await readProjectConfig(resolvedPath);
   let finalAppUrl: string | undefined;
 
   if (entities.length > 0) {
@@ -175,6 +175,32 @@ async function executeCreate({
         {
           successMessage: theme.colors.base44Orange("Data models pushed successfully"),
           errorMessage: "Failed to push data models",
+        }
+      );
+    }
+  }
+
+  if (functions.length > 0) {
+    let shouldPushFunctions: boolean;
+
+    if (isInteractive) {
+      const result = await confirm({
+        message: "Deploy backend functions now? (This pushes the functions used by the template to Base44)",
+      });
+      shouldPushFunctions = !isCancel(result) && result;
+    } else {
+      shouldPushFunctions = !!deploy;
+    }
+
+    if (shouldPushFunctions) {
+      await runTask(
+        `Deploying ${functions.length} backend ${functions.length === 1 ? "function" : "functions"} to Base44...`,
+        async () => {
+          await pushFunctions(functions);
+        },
+        {
+          successMessage: theme.colors.base44Orange("Functions deployed successfully"),
+          errorMessage: "Failed to deploy functions",
         }
       );
     }
