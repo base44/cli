@@ -61,7 +61,8 @@
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.52.0",
     "vitest": "^4.0.16",
-    "zod": "^4.3.5"
+    "zod": "^4.3.5",
+    "open": "^11.0.0"
   },
   "engines": {
     "node": ">=20.19.0"

@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import { log } from "@clack/prompts";
 import { execa } from "execa";
+import open from 'open';
 import { getBase44ApiUrl, getBase44ClientId, loadProjectEnv } from "@core/config.js";
 import { runCommand, theme } from "../../utils/index.js";
 import type { RunCommandResult } from "../../utils/runCommand.js";
@@ -17,31 +18,9 @@ async function openDashboard(): Promise<RunCommandResult> {
     );
   }
 
-  const dashboardUrl = `${getBase44ApiUrl()}/apps/${projectId}/editor/preview`;
+  const dashboardUrl = `${getBase44ApiUrl()}/apps/${projectId}/editor/workspace/overview`;
 
-  log.info(theme.colors.base44Orange("Opening dashboard..."));
-
-  // Determine the command to open the browser based on platform
-  const platform = process.platform;
-  let openCommand: string;
-
-  if (platform === "darwin") {
-    openCommand = "open";
-  } else if (platform === "win32") {
-    openCommand = "start";
-  } else {
-    // Linux and other Unix-like systems
-    openCommand = "xdg-open";
-  }
-
-  try {
-    await execa(openCommand, [dashboardUrl], { shell: true });
-  } catch (error) {
-    // If the command fails, just log the URL for the user to open manually
-    log.warn("Could not open browser automatically");
-    log.message(`${theme.styles.header("Dashboard")}: ${theme.colors.links(dashboardUrl)}`);
-    return {};
-  }
+  await open(dashboardUrl);
 
   return { outroMessage: `Dashboard opened at ${dashboardUrl}` };
 }
