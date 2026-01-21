@@ -25,6 +25,10 @@ export function getTemplatesIndexPath(): string {
   return join(getTemplatesDir(), "templates.json");
 }
 
+export function getProjectEnvPath(projectRoot: string): string {
+  return join(projectRoot, PROJECT_SUBDIR, ".env.local");
+}
+
 /**
  * Load .env.local from the project root if it exists.
  * Values won't override existing process.env variables.
@@ -36,7 +40,7 @@ export async function loadProjectEnv(projectRoot?: string): Promise<void> {
     return;
   }
 
-  const envPath = join(found.root, PROJECT_SUBDIR, ".env.local");
+  const envPath = getProjectEnvPath(found.root);
   config({ path: envPath, override: false, quiet: true });
 }
 

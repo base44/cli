@@ -46,6 +46,7 @@ cli/
 │   │   │   ├── api.ts            # Project creation API
 │   │   │   ├── create.ts         # Project scaffolding
 │   │   │   ├── template.ts       # Template rendering
+│   │   │   ├── env.ts            # .env.local file generation
 │   │   │   └── index.ts
 │   │   ├── resources/            # Project resources (entity, function, etc.)
 │   │   │   ├── types.ts          # Resource<T> interface
@@ -83,7 +84,9 @@ cli/
 │       │   │   ├── logout.ts
 │       │   │   └── whoami.ts
 │       │   ├── project/
-│       │   │   └── create.ts
+│       │   │   ├── create.ts
+│       │   │   ├── dashboard.ts
+│       │   │   └── link.ts
 │       │   ├── entities/
 │       │   │   └── push.ts
 │       │   ├── functions/
