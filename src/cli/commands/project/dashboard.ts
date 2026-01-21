@@ -1,9 +1,7 @@
 import { Command } from "commander";
-import { log } from "@clack/prompts";
-import { execa } from "execa";
 import open from 'open';
 import { getBase44ApiUrl, getBase44ClientId, loadProjectEnv } from "@core/config.js";
-import { runCommand, theme } from "../../utils/index.js";
+import { runCommand } from "../../utils/index.js";
 import type { RunCommandResult } from "../../utils/runCommand.js";
 
 async function openDashboard(): Promise<RunCommandResult> {
@@ -28,5 +26,5 @@ async function openDashboard(): Promise<RunCommandResult> {
 export const dashboardCommand = new Command("dashboard")
   .description("Open the app dashboard in your browser")
   .action(async () => {
-    await runCommand(openDashboard);
+    await runCommand(openDashboard, { requireAuth: true });
   });
