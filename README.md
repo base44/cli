@@ -23,12 +23,9 @@ base44 login
 # 2. Create a new project
 base44 create
 
-# 3. Push entities to Base44
-base44 entities push
-
-# 4. Build and deploy your site
+# 3. Deploy everything (entities, functions, and site)
 npm run build
-base44 site deploy
+base44 deploy
 ```
 
 ## Commands
@@ -46,6 +43,14 @@ base44 site deploy
 | Command | Description |
 |---------|-------------|
 | `base44 create` | Create a new Base44 project from a template |
+| `base44 link` | Link an existing local project to Base44 |
+| `base44 dashboard` | Open the app dashboard in your browser |
+
+### Deployment
+
+| Command | Description |
+|---------|-------------|
+| `base44 deploy` | Deploy all resources (entities, functions, and site) |
 
 ### Entities
 
@@ -53,7 +58,13 @@ base44 site deploy
 |---------|-------------|
 | `base44 entities push` | Push local entity schemas to Base44 |
 
-### Site Deployment
+### Functions
+
+| Command | Description |
+|---------|-------------|
+| `base44 functions deploy` | Deploy local functions to Base44 |
+
+### Site
 
 | Command | Description |
 |---------|-------------|
@@ -103,6 +114,10 @@ my-project/
 │   ├── entities/              # Entity schema files
 │   │   ├── user.jsonc
 │   │   └── product.jsonc
+│   └── functions/             # Backend functions
+│       └── my-function/
+│           ├── config.jsonc
+│           └── index.js
 ├── src/                       # Your frontend code
 ├── dist/                      # Built site files (for deployment)
 └── package.json

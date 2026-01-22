@@ -2,7 +2,7 @@ import { getAppClient } from "@core/clients/index.js";
 import { SyncEntitiesResponseSchema } from "./schema.js";
 import type { SyncEntitiesResponse, Entity } from "./schema.js";
 
-export async function pushEntities(
+export async function syncEntities(
   entities: Entity[]
 ): Promise<SyncEntitiesResponse> {
   const appClient = getAppClient();

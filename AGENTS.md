@@ -45,6 +45,7 @@ cli/
 │   │   │   ├── schema.ts         # Project/template schemas
 │   │   │   ├── api.ts            # Project creation API
 │   │   │   ├── create.ts         # Project scaffolding
+│   │   │   ├── deploy.ts      
 │   │   │   ├── template.ts       # Template rendering
 │   │   │   ├── env.ts            # .env.local file generation
 │   │   │   └── index.ts
@@ -54,14 +55,15 @@ cli/
 │   │   │   │   ├── schema.ts
 │   │   │   │   ├── config.ts
 │   │   │   │   ├── resource.ts
-│   │   │   │   ├── api.ts
+│   │   │   │   ├── api.ts        
+│   │   │   │   ├── deploy.ts     
 │   │   │   │   └── index.ts
 │   │   │   ├── function/
 │   │   │   │   ├── schema.ts
 │   │   │   │   ├── config.ts
 │   │   │   │   ├── resource.ts
-│   │   │   │   ├── api.ts
-│   │   │   │   ├── deploy.ts
+│   │   │   │   ├── api.ts        
+│   │   │   │   ├── deploy.ts     
 │   │   │   │   └── index.ts
 │   │   │   └── index.ts
 │   │   ├── site/                 # Site deployment (NOT a Resource)
@@ -86,6 +88,7 @@ cli/
 │       │   ├── project/
 │       │   │   ├── create.ts
 │       │   │   ├── dashboard.ts
+│       │   │   ├── deploy.ts     # Unified deploy command
 │       │   │   └── link.ts
 │       │   ├── entities/
 │       │   │   └── push.ts
@@ -99,6 +102,7 @@ cli/
 │       │   ├── banner.ts         # ASCII art banner
 │       │   ├── prompts.ts        # Prompt utilities
 │       │   ├── theme.ts          # Centralized theme configuration (colors, styles)
+│       │   ├── urls.ts           # URL utilities (getDashboardUrl)
 │       │   └── index.ts
 │       └── index.ts              # CLI entry point
 ├── templates/                    # Project templates
@@ -249,9 +253,11 @@ Resources are project-specific collections (entities, functions) that can be loa
 ```typescript
 export interface Resource<T> {
   readAll: (dir: string) => Promise<T[]>;
-  push?: (items: T[]) => Promise<unknown>;
+  push: (items: T[]) => Promise<unknown>;
 }
 ```
+
+Note: The `push` method handles empty arrays gracefully (returns early without API call).
 
 ### Resource Implementation (`resources/<name>/resource.ts`)
 
@@ -314,6 +320,36 @@ const { appUrl } = await deploySite("./dist");
 
 ```bash
 base44 site deploy
+```
+
+## Unified Deploy Command
+
+The `base44 deploy` command deploys all project resources in one operation:
+
+1. Pushes entities (via `entityResource.push()`)
+2. Pushes functions (via `functionResource.push()`)
+3. Deploys site (if `site.outputDirectory` is configured)
+
+### Core Functions (`project/deploy.ts`)
+
+```typescript
+import { deployAll, hasResourcesToDeploy } from "@core/project/index.js";
+
+// Check if there's anything to deploy
+if (!hasResourcesToDeploy(projectData)) {
+  return;
+}
+
+// Deploy all resources
+const { appUrl } = await deployAll(projectData);
+```
+
+### CLI Command
+
+```bash
+base44 deploy        # With confirmation prompt
+base44 deploy -y     # Skip confirmation
+base44 deploy --yes  # Skip confirmation
 ```
 
 ## Path Aliases

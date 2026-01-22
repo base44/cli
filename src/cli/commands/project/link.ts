@@ -7,8 +7,13 @@ import {
   writeEnvLocal,
   envLocalExists,
 } from "@core/project/index.js";
-import { getBase44ApiUrl } from "@core/config.js";
-import { runCommand, runTask, onPromptCancel, theme } from "../../utils/index.js";
+import {
+  runCommand,
+  runTask,
+  onPromptCancel,
+  theme,
+  getDashboardUrl,
+} from "../../utils/index.js";
 import type { RunCommandResult } from "../../utils/runCommand.js";
 
 interface LinkOptions {
@@ -103,9 +108,7 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
 
   await writeEnvLocal(projectRoot.root, projectId);
 
-  const dashboardUrl = `${getBase44ApiUrl()}/apps/${projectId}/editor/workspace/overview`;
-
-  log.message(`${theme.styles.header("Dashboard")}: ${theme.colors.links(dashboardUrl)}`);
+  log.message(`${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(projectId))}`);
 
   return { outroMessage: "Project linked" };
 }

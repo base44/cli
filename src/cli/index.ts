@@ -8,6 +8,7 @@ import { entitiesPushCommand } from "./commands/entities/push.js";
 import { functionsDeployCommand } from "./commands/functions/deploy.js";
 import { createCommand } from "./commands/project/create.js";
 import { dashboardCommand } from "./commands/project/dashboard.js";
+import { deployCommand } from "./commands/project/deploy.js";
 import { linkCommand } from "./commands/project/link.js";
 import { siteDeployCommand } from "./commands/site/deploy.js";
 import packageJson from "../../package.json";
@@ -33,6 +34,7 @@ program.addCommand(logoutCommand);
 // Register project commands
 program.addCommand(createCommand);
 program.addCommand(dashboardCommand);
+program.addCommand(deployCommand);
 program.addCommand(linkCommand);
 
 // Register entities commands

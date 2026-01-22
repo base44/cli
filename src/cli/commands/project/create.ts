@@ -6,9 +6,15 @@ import type { Option } from "@clack/prompts";
 import kebabCase from "lodash.kebabcase";
 import { createProjectFiles, listTemplates, readProjectConfig } from "@core/project/index.js";
 import type { Template } from "@core/project/index.js";
-import { getBase44ApiUrl, loadProjectEnv } from "@core/config.js";
+import { loadProjectEnv } from "@core/config.js";
 import { deploySite, pushEntities } from "@core/index.js";
-import { runCommand, runTask, onPromptCancel, theme } from "../../utils/index.js";
+import {
+  runCommand,
+  runTask,
+  onPromptCancel,
+  theme,
+  getDashboardUrl,
+} from "../../utils/index.js";
 import type { RunCommandResult } from "../../utils/runCommand.js";
 
 const DEFAULT_TEMPLATE_ID = "backend-only";
@@ -218,10 +224,8 @@ async function executeCreate({
     }
   }
 
-  const dashboardUrl = `${getBase44ApiUrl()}/apps/${projectId}/editor/preview`;
-
   log.message(`${theme.styles.header("Project")}: ${theme.colors.base44Orange(name)}`);
-  log.message(`${theme.styles.header("Dashboard")}: ${theme.colors.links(dashboardUrl)}`);
+  log.message(`${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(projectId))}`);
 
   if (finalAppUrl) {
     log.message(`${theme.styles.header("Site")}: ${theme.colors.links(finalAppUrl)}`);
