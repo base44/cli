@@ -2,11 +2,11 @@
 
 Command-line interface for building applications with [Base44's backend service](https://docs.base44.com/developers/backend/overview/introduction).
 
-Base44's backend service provides a managed backend for your applications — data storage with entities, serverless functions, authentication, and hosting. The CLI lets you:
+Base44's backend service provides a managed backend for your applications, including data storage with entities, serverless functions, authentication, and hosting. The CLI lets you:
 
-- **Create projects** from templates (backend-only or full-stack React)
-- **Sync** entities and functions defined in local code with your Base44 backend
-- **Deploy sites** to Base44's hosting platform
+- **Create projects** from templates.
+- **Sync** resources defined in local code with your Base44 backend.
+- **Deploy sites** to Base44's hosting platform.
 
 To get started, see the full list of commands below or check out the [documentation](https://docs.base44.com/developers/references/cli/get-started/overview).
 
@@ -44,6 +44,8 @@ The CLI will guide you through project setup. For step-by-step tutorials, see th
 | Command | Description |
 | ------- | ----------- |
 | [`create`](https://docs.base44.com/developers/references/cli/commands/create) | Create a new Base44 project from a template |
+| [`deploy`](https://docs.base44.com/developers/references/cli/commands/deploy) | Deploy resources and site to Base44 |
+| [`eject`](https://docs.base44.com/developers/references/cli/commands/eject) | Create a Base44 backend project from an existing Base44 app |
 | [`link`](https://docs.base44.com/developers/references/cli/commands/link) | Link a local project to a project on Base44 |
 | [`dashboard`](https://docs.base44.com/developers/references/cli/commands/dashboard) | Open the app dashboard in your browser |
 | [`login`](https://docs.base44.com/developers/references/cli/commands/login) | Authenticate with Base44 |
@@ -68,7 +70,7 @@ base44 --version
 
 ## Alpha
 
-The CLI and Base44 backend service are currently in alpha. We're actively improving them based on user feedback. Share your thoughts and feature requests on our [feedback board](https://feedback.base44.com/roadmap).
+The CLI and Base44 backend service are currently in alpha. We're actively improving them based on user feedback. Share your thoughts and feature requests on our [GitHub Discussions](https://github.com/orgs/base44/discussions).
 
 Found a bug? [Open an issue](https://github.com/base44/cli/issues).
 
