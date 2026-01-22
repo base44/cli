@@ -10,6 +10,10 @@ async function loadFunctionCode(fn: Function): Promise<FunctionWithCode> {
 export async function pushFunctions(
   functions: Function[]
 ): Promise<DeployFunctionsResponse> {
+  if (functions.length === 0) {
+    return { deployed: [], deleted: [], errors: null };
+  }
+
   const functionsWithCode = await Promise.all(functions.map(loadFunctionCode));
   return deployFunctions(functionsWithCode);
 }

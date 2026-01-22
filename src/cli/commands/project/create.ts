@@ -4,11 +4,16 @@ import { Command } from "commander";
 import { log, group, text, select, confirm, isCancel } from "@clack/prompts";
 import type { Option } from "@clack/prompts";
 import kebabCase from "lodash.kebabcase";
-import { createProjectFiles, listTemplates, readProjectConfig } from "@core/project/index.js";
+import { createProjectFiles, listTemplates, readProjectConfig, setAppConfig } from "@core/project/index.js";
 import type { Template } from "@core/project/index.js";
-import { getBase44ApiUrl, loadProjectEnv } from "@core/config.js";
 import { deploySite, pushEntities } from "@core/index.js";
-import { runCommand, runTask, onPromptCancel, theme } from "../../utils/index.js";
+import {
+  runCommand,
+  runTask,
+  onPromptCancel,
+  theme,
+  getDashboardUrl,
+} from "../../utils/index.js";
 import type { RunCommandResult } from "../../utils/runCommand.js";
 
 const DEFAULT_TEMPLATE_ID = "backend-only";
@@ -44,9 +49,9 @@ async function chooseCreate(options: CreateOptions): Promise<void> {
   const isNonInteractive = !!(options.name && options.path);
 
   if (isNonInteractive) {
-    await runCommand(() => createNonInteractive(options), { requireAuth: true });
+    await runCommand(() => createNonInteractive(options), { requireAuth: true, requireAppConfig: false });
   } else {
-    await runCommand(() => createInteractive(options), { fullBanner: true, requireAuth: true });
+    await runCommand(() => createInteractive(options), { fullBanner: true, requireAuth: true, requireAppConfig: false });
   }
 }
 
@@ -151,7 +156,8 @@ async function executeCreate({
     }
   );
 
-  await loadProjectEnv(resolvedPath);
+  // Set app config in cache for sync access to getDashboardUrl and getAppClient
+  setAppConfig({ id: projectId, projectRoot: resolvedPath });
 
   const { project, entities } = await readProjectConfig(resolvedPath);
   let finalAppUrl: string | undefined;
@@ -218,10 +224,8 @@ async function executeCreate({
     }
   }
 
-  const dashboardUrl = `${getBase44ApiUrl()}/apps/${projectId}/editor/preview`;
-
   log.message(`${theme.styles.header("Project")}: ${theme.colors.base44Orange(name)}`);
-  log.message(`${theme.styles.header("Dashboard")}: ${theme.colors.links(dashboardUrl)}`);
+  log.message(`${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(projectId))}`);
 
   if (finalAppUrl) {
     log.message(`${theme.styles.header("Site")}: ${theme.colors.links(finalAppUrl)}`);

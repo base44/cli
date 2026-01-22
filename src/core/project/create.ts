@@ -1,5 +1,5 @@
 import { globby } from "globby";
-import { getProjectConfigPatterns } from "../consts.js";
+import { PROJECT_CONFIG_PATTERNS } from "../consts.js";
 import { createProject } from "./api.js";
 import { renderTemplate } from "./template.js";
 import type { Template } from "./schema.js";
@@ -22,7 +22,7 @@ export async function createProjectFiles(
   const { name, description, path: basePath, template } = options;
 
   // Check if project already exists
-  const existingConfigs = await globby(getProjectConfigPatterns(), {
+  const existingConfigs = await globby(PROJECT_CONFIG_PATTERNS, {
     cwd: basePath,
     absolute: true,
   });

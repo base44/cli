@@ -11,5 +11,5 @@ async function whoami(): Promise<RunCommandResult> {
 export const whoamiCommand = new Command("whoami")
   .description("Display current authenticated user")
   .action(async () => {
-    await runCommand(whoami, { requireAuth: true });
+    await runCommand(whoami, { requireAuth: true, requireAppConfig: false });
   });

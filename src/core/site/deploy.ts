@@ -2,7 +2,6 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
 import { create as tarCreate } from "tar";
-import { getBase44ClientId } from "@core/config.js";
 import type { DeployResponse } from "./schema.js";
 import { getSiteFilePaths } from "./config.js";
 import { uploadSite } from "./api.js";
@@ -27,7 +26,7 @@ export async function deploySite(
   // Create a temporary file for the archive
   const archivePath = join(
     tmpdir(),
-    `base44-site-${getBase44ClientId()}-${randomUUID().toString()}.tar.gz`
+    `base44-site-${randomUUID()}.tar.gz`
   );
 
   try {

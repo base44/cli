@@ -5,12 +5,13 @@
 
 import ky from "ky";
 import type { KyRequest, KyResponse, NormalizedOptions } from "ky";
-import { getBase44ApiUrl, getBase44ClientId } from "../config.js";
+import { getBase44ApiUrl } from "../config.js";
 import {
   readAuth,
   refreshAndSaveTokens,
   isTokenExpired,
 } from "../auth/config.js";
+import { getAppConfig } from "../project/index.js";
 
 // Track requests that have already been retried to prevent infinite loops
 const retriedRequests = new WeakSet<KyRequest>();
@@ -83,23 +84,18 @@ export const base44Client = ky.create({
 
 /**
  * Returns an HTTP client scoped to the current app.
+ * Requires app config to be initialized first via initAppConfig() or setAppConfig().
  * Use this for API calls to app-specific endpoints (entities, functions, etc.).
  *
- * @throws {Error} If BASE44_CLIENT_ID environment variable is not set.
+ * @throws {Error} If app config is not initialized.
  *
  * @example
  * const appClient = getAppClient();
  * const response = await appClient.get("entities");
  */
 export function getAppClient() {
-  const clientId = getBase44ClientId();
-  if (!clientId) {
-    throw new Error(
-      "BASE44_CLIENT_ID environment variable is required. Set it in your .env.local file."
-    );
-  }
-
+  const { id } = getAppConfig();
   return base44Client.extend({
-    prefixUrl: new URL(`/api/apps/${clientId}/`, getBase44ApiUrl()).href,
+    prefixUrl: new URL(`/api/apps/${id}/`, getBase44ApiUrl()).href,
   });
 }

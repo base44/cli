@@ -1,7 +1,7 @@
 /**
  * Base interface for all project resources (entities, functions, etc.).
  * Resources are project-specific collections that can be loaded from the filesystem
- * and optionally pushed to the Base44 API.
+ * and pushed to the Base44 API.
  *
  * @template T - The type of items in this resource collection
  */
@@ -14,9 +14,9 @@ export interface Resource<T> {
   readAll: (dir: string) => Promise<T[]>;
 
   /**
-   * Push items to the Base44 API (optional).
+   * Push items to the Base44 API.
    * @param items - The items to push
    * @returns API response
    */
-  push?: (items: T[]) => Promise<unknown>;
+  push: (items: T[]) => Promise<unknown>;
 }

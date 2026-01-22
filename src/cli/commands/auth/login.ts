@@ -115,5 +115,5 @@ export async function login(): Promise<RunCommandResult> {
 export const loginCommand = new Command("login")
   .description("Authenticate with Base44")
   .action(async () => {
-    await runCommand(login);
+    await runCommand(login, { requireAppConfig: false });
   });

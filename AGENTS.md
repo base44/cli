@@ -45,8 +45,9 @@ cli/
 │   │   │   ├── schema.ts         # Project/template schemas
 │   │   │   ├── api.ts            # Project creation API
 │   │   │   ├── create.ts         # Project scaffolding
+│   │   │   ├── deploy.ts      
 │   │   │   ├── template.ts       # Template rendering
-│   │   │   ├── env.ts            # .env.local file generation
+│   │   │   ├── app-config.ts     # .app.jsonc read/write and caching
 │   │   │   └── index.ts
 │   │   ├── resources/            # Project resources (entity, function, etc.)
 │   │   │   ├── types.ts          # Resource<T> interface
@@ -54,14 +55,15 @@ cli/
 │   │   │   │   ├── schema.ts
 │   │   │   │   ├── config.ts
 │   │   │   │   ├── resource.ts
-│   │   │   │   ├── api.ts
+│   │   │   │   ├── api.ts        
+│   │   │   │   ├── deploy.ts     
 │   │   │   │   └── index.ts
 │   │   │   ├── function/
 │   │   │   │   ├── schema.ts
 │   │   │   │   ├── config.ts
 │   │   │   │   ├── resource.ts
-│   │   │   │   ├── api.ts
-│   │   │   │   ├── deploy.ts
+│   │   │   │   ├── api.ts        
+│   │   │   │   ├── deploy.ts     
 │   │   │   │   └── index.ts
 │   │   │   └── index.ts
 │   │   ├── site/                 # Site deployment (NOT a Resource)
@@ -74,7 +76,7 @@ cli/
 │   │   │   ├── fs.ts             # File system utilities
 │   │   │   └── index.ts
 │   │   ├── consts.ts             # Pure constants (NO imports from other core modules)
-│   │   ├── config.ts             # Path helpers and env loading
+│   │   ├── config.ts             # Path helpers (global dir, templates, API URL)
 │   │   ├── errors.ts             # Error classes
 │   │   └── index.ts              # Barrel export for all core modules
 │   └── cli/
@@ -86,6 +88,7 @@ cli/
 │       │   ├── project/
 │       │   │   ├── create.ts
 │       │   │   ├── dashboard.ts
+│       │   │   ├── deploy.ts     # Unified deploy command
 │       │   │   └── link.ts
 │       │   ├── entities/
 │       │   │   └── push.ts
@@ -99,6 +102,7 @@ cli/
 │       │   ├── banner.ts         # ASCII art banner
 │       │   ├── prompts.ts        # Prompt utilities
 │       │   ├── theme.ts          # Centralized theme configuration (colors, styles)
+│       │   ├── urls.ts           # URL utilities (getDashboardUrl)
 │       │   └── index.ts
 │       └── index.ts              # CLI entry point
 ├── templates/                    # Project templates
@@ -167,7 +171,7 @@ program.addCommand(myCommand);
 ### 3. Command wrapper options
 
 ```typescript
-// Standard command with simple intro tag
+// Standard command - loads app config by default
 await runCommand(myAction);
 
 // Command with full ASCII art banner (for special commands like create)
@@ -176,9 +180,17 @@ await runCommand(myAction, { fullBanner: true });
 // Command requiring authentication
 await runCommand(myAction, { requireAuth: true });
 
+// Command that doesn't need app config (auth commands, create, link)
+await runCommand(myAction, { requireAppConfig: false });
+
 // Command with multiple options
 await runCommand(myAction, { fullBanner: true, requireAuth: true });
 ```
+
+**Options:**
+- `fullBanner`: Show ASCII art banner instead of simple tag
+- `requireAuth`: Check authentication before running (auto-login if needed)
+- `requireAppConfig`: Load `.app.jsonc` and cache for sync access (default: `true`)
 
 ## Theming
 
@@ -211,7 +223,7 @@ import { base44Client, getAppClient } from "@core/api/index.js";
 const response = await base44Client.get("api/endpoint");
 const data = await response.json();
 
-// For app-specific API calls (requires BASE44_CLIENT_ID env var)
+// For app-specific API calls (requires .app.jsonc with id)
 const appClient = getAppClient();
 const response = await appClient.get("entities");
 const entities = await response.json();
@@ -249,9 +261,11 @@ Resources are project-specific collections (entities, functions) that can be loa
 ```typescript
 export interface Resource<T> {
   readAll: (dir: string) => Promise<T[]>;
-  push?: (items: T[]) => Promise<unknown>;
+  push: (items: T[]) => Promise<unknown>;
 }
 ```
+
+Note: The `push` method handles empty arrays gracefully (returns early without API call).
 
 ### Resource Implementation (`resources/<name>/resource.ts`)
 
@@ -314,6 +328,36 @@ const { appUrl } = await deploySite("./dist");
 
 ```bash
 base44 site deploy
+```
+
+## Unified Deploy Command
+
+The `base44 deploy` command deploys all project resources in one operation:
+
+1. Pushes entities (via `entityResource.push()`)
+2. Pushes functions (via `functionResource.push()`)
+3. Deploys site (if `site.outputDirectory` is configured)
+
+### Core Functions (`project/deploy.ts`)
+
+```typescript
+import { deployAll, hasResourcesToDeploy } from "@core/project/index.js";
+
+// Check if there's anything to deploy
+if (!hasResourcesToDeploy(projectData)) {
+  return;
+}
+
+// Deploy all resources
+const { appUrl } = await deployAll(projectData);
+```
+
+### CLI Command
+
+```bash
+base44 deploy        # With confirmation prompt
+base44 deploy -y     # Skip confirmation
+base44 deploy --yes  # Skip confirmation
 ```
 
 ## Path Aliases
