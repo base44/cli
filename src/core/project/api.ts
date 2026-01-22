@@ -6,7 +6,7 @@ export async function createProject(projectName: string, description?: string) {
     json: {
       name: projectName,
       user_description: description ?? `Backend for '${projectName}'`,
-      app_type: "baas",
+      is_managed_source_code: false,
       public_settings: "public_without_login"
     },
   });
