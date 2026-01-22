@@ -13,7 +13,7 @@ function toDeployPayloadItem(fn: FunctionWithCode) {
 export async function deployFunctions(
   functions: FunctionWithCode[]
 ): Promise<DeployFunctionsResponse> {
-  const appClient = await getAppClient();
+  const appClient = getAppClient();
   const payload = {
     functions: functions.map(toDeployPayloadItem),
   };

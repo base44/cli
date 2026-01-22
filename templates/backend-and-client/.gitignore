@@ -14,3 +14,6 @@ dist
 .idea
 .DS_Store
 *.swp
+
+# Base44 App Config
+.app.json*

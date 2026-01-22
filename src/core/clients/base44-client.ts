@@ -11,7 +11,7 @@ import {
   refreshAndSaveTokens,
   isTokenExpired,
 } from "../auth/config.js";
-import { findProjectRoot, getAppId } from "../project/index.js";
+import { getAppConfig } from "../project/index.js";
 
 // Track requests that have already been retried to prevent infinite loops
 const retriedRequests = new WeakSet<KyRequest>();
@@ -84,32 +84,18 @@ export const base44Client = ky.create({
 
 /**
  * Returns an HTTP client scoped to the current app.
+ * Requires app config to be initialized first via initAppConfig() or setAppConfig().
  * Use this for API calls to app-specific endpoints (entities, functions, etc.).
  *
- * @throws {Error} If .app.jsonc config file is not found or appId is not set.
+ * @throws {Error} If app config is not initialized.
  *
  * @example
- * const appClient = await getAppClient();
+ * const appClient = getAppClient();
  * const response = await appClient.get("entities");
  */
-export async function getAppClient() {
-  const projectRoot = await findProjectRoot();
-
-  if (!projectRoot) {
-    throw new Error(
-      "No Base44 project found. Run this command from a project directory with a config.jsonc file."
-    );
-  }
-
-  const appId = await getAppId(projectRoot.root);
-
-  if (!appId) {
-    throw new Error(
-      "App not configured. Create a .app.jsonc file with your appId, or run 'base44 link' to link this project."
-    );
-  }
-
+export function getAppClient() {
+  const { id } = getAppConfig();
   return base44Client.extend({
-    prefixUrl: new URL(`/api/apps/${appId}/`, getBase44ApiUrl()).href,
+    prefixUrl: new URL(`/api/apps/${id}/`, getBase44ApiUrl()).href,
   });
 }

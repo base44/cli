@@ -1,6 +1,6 @@
 import { join, dirname } from "node:path";
 import { globby } from "globby";
-import { getProjectConfigPatterns, PROJECT_SUBDIR } from "../consts.js";
+import { PROJECT_CONFIG_PATTERNS, PROJECT_SUBDIR } from "../consts.js";
 import { readJsonFile } from "../utils/fs.js";
 import { entityResource } from "../resources/entity/index.js";
 import { functionResource } from "../resources/function/index.js";
@@ -8,7 +8,7 @@ import type { ProjectData, ProjectRoot } from "./types.js";
 import { ProjectConfigSchema } from "./schema.js";
 
 async function findConfigInDir(dir: string): Promise<string | null> {
-  const files = await globby(getProjectConfigPatterns(), {
+  const files = await globby(PROJECT_CONFIG_PATTERNS, {
     cwd: dir,
     absolute: true,
   });

@@ -1,24 +1,77 @@
-import { join } from "node:path";
 import { globby } from "globby";
-import { writeFile, pathExists, readJsonFile } from "../utils/fs.js";
-import { PROJECT_SUBDIR, getAppConfigPatterns } from "../consts.js";
+import { getAppConfigPath } from "@core/config.js";
+import { writeFile, readJsonFile } from "../utils/fs.js";
+import { APP_CONFIG_PATTERN } from "../consts.js";
 import { AppConfigSchema } from "./schema.js";
 import type { AppConfig } from "./schema.js";
+import { findProjectRoot } from "./config.js";
 
-const APP_CONFIG_TEMPLATE = `// Base44 App Configuration
+export interface CachedAppConfig {
+  id: string;
+  projectRoot: string;
+}
+
+let cache: CachedAppConfig | null = null;
+
+/**
+ * Initialize app config by reading from .app.jsonc.
+ * Must be called before using getAppConfig().
+ * @throws Error if no project found or .app.jsonc missing
+ */
+export async function initAppConfig(): Promise<void> {
+  if (cache) {
+    return;
+  }
+
+  const projectRoot = await findProjectRoot();
+  if (!projectRoot) {
+    throw new Error(
+      "No Base44 project found. Run this command from a project directory with a config.jsonc file."
+    );
+  }
+
+  const config = await readAppConfig(projectRoot.root);
+  if (!config?.id) {
+    throw new Error(
+      "App not configured. Create a .app.jsonc file or run 'base44 link' to link this project."
+    );
+  }
+
+  cache = { projectRoot: projectRoot.root, id: config.id };
+}
+
+/**
+ * Clear the cache. Useful for testing.
+ */
+export function clearAppConfigCache(): void {
+  cache = null;
+}
+
+/**
+ * Get the cached app config.
+ * @throws Error if not initialized - call initAppConfig() or setAppConfig() first
+ */
+export function getAppConfig(): CachedAppConfig {
+  if (!cache) {
+    throw new Error(
+      "App config not initialized. Ensure the command uses requireAppConfig option."
+    );
+  }
+  return cache;
+}
+
+export function setAppConfig(config: CachedAppConfig): void {
+  cache = config;
+}
+
+export function generateAppConfigContent(id: string): string {
+  return `// Base44 App Configuration
 // This file links your local project to your Base44 app.
 // Do not commit this file to version control.
 {
-  "appId": "{{appId}}"
+  "id": "${id}"
 }
 `;
-
-export function generateAppConfigContent(appId: string): string {
-  return APP_CONFIG_TEMPLATE.replace("{{appId}}", appId);
-}
-
-export function getAppConfigPath(projectRoot: string): string {
-  return join(projectRoot, PROJECT_SUBDIR, ".app.jsonc");
 }
 
 export async function writeAppConfig(
@@ -31,13 +84,10 @@ export async function writeAppConfig(
   return configPath;
 }
 
-/**
- * Find the app config file (.app.jsonc or .app.json) in the project root.
- */
 export async function findAppConfigPath(
   projectRoot: string
 ): Promise<string | null> {
-  const files = await globby(getAppConfigPatterns(), {
+  const files = await globby(APP_CONFIG_PATTERN, {
     cwd: projectRoot,
     absolute: true,
   });
@@ -46,14 +96,10 @@ export async function findAppConfigPath(
 
 export async function appConfigExists(projectRoot: string): Promise<boolean> {
   const configPath = await findAppConfigPath(projectRoot);
-  return configPath !== null && (await pathExists(configPath));
+  return configPath !== null;
 }
 
-/**
- * Read and validate the app config from the project root.
- * Returns null if the config file doesn't exist.
- */
-export async function readAppConfig(
+async function readAppConfig(
   projectRoot: string
 ): Promise<AppConfig | null> {
   const configPath = await findAppConfigPath(projectRoot);
@@ -70,13 +116,4 @@ export async function readAppConfig(
   }
 
   return result.data;
-}
-
-/**
- * Get the appId from the project's .app.jsonc file.
- * Returns undefined if the config file doesn't exist.
- */
-export async function getAppId(projectRoot: string): Promise<string | undefined> {
-  const config = await readAppConfig(projectRoot);
-  return config?.appId;
 }

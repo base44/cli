@@ -79,7 +79,6 @@ Base44 projects are configured via a `config.jsonc` (or `config.json`) file in t
 ```jsonc
 // base44/config.jsonc
 {
-  "id": "your-app-id",           // Set after project creation
   "name": "My Project",
   "entitiesDir": "./entities",   // Default: ./entities
   "functionsDir": "./functions", // Default: ./functions
@@ -96,7 +95,7 @@ Your app ID is stored in a `.app.jsonc` file in the `base44/` directory. This fi
 ```jsonc
 // base44/.app.jsonc
 {
-  "appId": "your-app-id"
+  "id": "your-app-id"
 }
 ```
 

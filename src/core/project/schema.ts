@@ -33,7 +33,7 @@ export type SiteConfig = z.infer<typeof SiteConfigSchema>;
 export type ProjectConfig = z.infer<typeof ProjectConfigSchema>;
 
 export const AppConfigSchema = z.object({
-  appId: z.string().min(1, "appId cannot be empty"),
+  id: z.string().min(1, "id cannot be empty"),
 });
 
 export type AppConfig = z.infer<typeof AppConfigSchema>;

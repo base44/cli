@@ -6,6 +6,7 @@ import {
   createProject,
   writeAppConfig,
   appConfigExists,
+  setAppConfig,
 } from "@core/project/index.js";
 import {
   runCommand,
@@ -108,6 +109,9 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
 
   await writeAppConfig(projectRoot.root, projectId);
 
+  // Set app config in cache for sync access to getDashboardUrl
+  setAppConfig({ id: projectId, projectRoot: projectRoot.root });
+
   log.message(`${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(projectId))}`);
 
   return { outroMessage: "Project linked" };
@@ -120,5 +124,5 @@ export const linkCommand = new Command("link")
   .option("-d, --description <description>", "Project description")
   .hook("preAction", validateNonInteractiveFlags)
   .action(async (options: LinkOptions) => {
-    await runCommand(() => link(options), { requireAuth: true });
+    await runCommand(() => link(options), { requireAuth: true, requireAppConfig: false });
   });

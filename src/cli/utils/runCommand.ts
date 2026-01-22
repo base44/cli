@@ -1,5 +1,6 @@
 import { intro, log, outro } from "@clack/prompts";
 import { isLoggedIn } from "@core/auth/index.js";
+import { initAppConfig } from "@core/project/index.js";
 import { printBanner } from "./banner.js";
 import { login } from "../commands/auth/login.js";
 import { theme } from "./theme.js";
@@ -17,6 +18,12 @@ export interface RunCommandOptions {
    * @default false
    */
   requireAuth?: boolean;
+  /**
+   * Initialize app config before running this command.
+   * Reads .app.jsonc and caches the appId for sync access via getAppConfig().
+   * @default true
+   */
+  requireAppConfig?: boolean;
 }
 
 export interface RunCommandResult {
@@ -26,13 +33,6 @@ export interface RunCommandResult {
 /**
  * Wraps a command function with the Base44 intro/outro and error handling.
  * All CLI commands should use this utility to ensure consistent branding.
- *
- * **Responsibilities**:
- * - Displays the intro (simple tag or full ASCII banner)
- * - Checks authentication if `requireAuth` is set
- * - Runs the command function
- * - Displays the outro message returned by the command
- * - Handles errors and exits with code 1 on failure
  *
  * **Important**: Commands should NOT call `intro()` or `outro()` directly.
  * This function handles both. Commands can return an optional `outroMessage`
@@ -82,6 +82,11 @@ export async function runCommand(
         log.info("You need to login first to continue.");
         await login();
       }
+    }
+
+    // Initialize app config unless explicitly disabled
+    if (options?.requireAppConfig !== false) {
+      await initAppConfig();
     }
 
     const { outroMessage } = await commandFn();

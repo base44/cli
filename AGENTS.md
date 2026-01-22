@@ -47,7 +47,7 @@ cli/
 │   │   │   ├── create.ts         # Project scaffolding
 │   │   │   ├── deploy.ts      
 │   │   │   ├── template.ts       # Template rendering
-│   │   │   ├── app-config.ts     # .app.jsonc file generation
+│   │   │   ├── app-config.ts     # .app.jsonc read/write and caching
 │   │   │   └── index.ts
 │   │   ├── resources/            # Project resources (entity, function, etc.)
 │   │   │   ├── types.ts          # Resource<T> interface
@@ -171,7 +171,7 @@ program.addCommand(myCommand);
 ### 3. Command wrapper options
 
 ```typescript
-// Standard command with simple intro tag
+// Standard command - loads app config by default
 await runCommand(myAction);
 
 // Command with full ASCII art banner (for special commands like create)
@@ -180,9 +180,17 @@ await runCommand(myAction, { fullBanner: true });
 // Command requiring authentication
 await runCommand(myAction, { requireAuth: true });
 
+// Command that doesn't need app config (auth commands, create, link)
+await runCommand(myAction, { requireAppConfig: false });
+
 // Command with multiple options
 await runCommand(myAction, { fullBanner: true, requireAuth: true });
 ```
+
+**Options:**
+- `fullBanner`: Show ASCII art banner instead of simple tag
+- `requireAuth`: Check authentication before running (auto-login if needed)
+- `requireAppConfig`: Load `.app.jsonc` and cache for sync access (default: `true`)
 
 ## Theming
 
@@ -215,8 +223,8 @@ import { base44Client, getAppClient } from "@core/api/index.js";
 const response = await base44Client.get("api/endpoint");
 const data = await response.json();
 
-// For app-specific API calls (requires .app.jsonc with appId)
-const appClient = await getAppClient();
+// For app-specific API calls (requires .app.jsonc with id)
+const appClient = getAppClient();
 const response = await appClient.get("entities");
 const entities = await response.json();
 

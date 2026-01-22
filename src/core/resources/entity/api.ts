@@ -5,7 +5,7 @@ import type { SyncEntitiesResponse, Entity } from "./schema.js";
 export async function syncEntities(
   entities: Entity[]
 ): Promise<SyncEntitiesResponse> {
-  const appClient = await getAppClient();
+  const appClient = getAppClient();
   const schemaSyncPayload = Object.fromEntries(
     entities.map((entity) => [entity.name, entity])
   );
