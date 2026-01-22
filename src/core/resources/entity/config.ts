@@ -2,6 +2,7 @@ import { globby } from "globby";
 import { readJsonFile, pathExists } from "../../utils/fs.js";
 import { EntitySchema } from "./schema.js";
 import type { Entity } from "./schema.js";
+import { CONFIG_FILE_EXTENSION_GLOB } from "../../consts.js";
 
 async function readEntityFile(entityPath: string): Promise<Entity> {
   const parsed = await readJsonFile(entityPath);
@@ -23,7 +24,7 @@ export async function readAllEntities(entitiesDir: string): Promise<Entity[]> {
     return [];
   }
 
-  const files = await globby("*.{json,jsonc}", {
+  const files = await globby(`*.${CONFIG_FILE_EXTENSION_GLOB}`, {
     cwd: entitiesDir,
     absolute: true,
   });
