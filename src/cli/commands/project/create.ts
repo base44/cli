@@ -21,15 +21,6 @@ interface CreateOptions {
   deploy?: boolean;
 }
 
-async function getDefaultTemplate(): Promise<Template> {
-  const templates = await listTemplates();
-  const template = templates.find((t) => t.id === DEFAULT_TEMPLATE_ID);
-  if (!template) {
-    throw new Error(`Default template "${DEFAULT_TEMPLATE_ID}" not found`);
-  }
-  return template;
-}
-
 async function getTemplateById(templateId: string): Promise<Template> {
   const templates = await listTemplates();
   const template = templates.find((t) => t.id === templateId);
@@ -114,9 +105,7 @@ async function createInteractive(options: CreateOptions): Promise<RunCommandResu
 }
 
 async function createNonInteractive(options: CreateOptions): Promise<RunCommandResult> {
-  const template = options.template
-    ? await getTemplateById(options.template)
-    : await getDefaultTemplate();
+  const template = await getTemplateById(options.template ?? DEFAULT_TEMPLATE_ID);
 
   return await executeCreate({
     template,
