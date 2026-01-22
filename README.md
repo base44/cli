@@ -5,8 +5,7 @@ Command-line interface for building applications with [Base44's backend service]
 Base44's backend service provides a managed backend for your applications — data storage with entities, serverless functions, authentication, and hosting. The CLI lets you:
 
 - **Create projects** from templates (backend-only or full-stack React)
-- **Define entities** as JSON schemas and sync them with Base44
-- **Deploy functions** written in TypeScript (Deno runtime)
+- **Sync** entities and functions defined in local code with your Base44 backend
 - **Deploy sites** to Base44's hosting platform
 
 ## Installation
@@ -43,12 +42,11 @@ base44 --help
 base44 <command> --help
 ```
 
-## Feedback
+## Alpha
 
-The CLI is in alpha. We'd love to hear from you:
+The CLI and Base44 backend service are currently in alpha. We're actively improving them based on user feedback. Share your thoughts and feature requests on our [feedback board](https://feedback.base44.com/roadmap).
 
-- [Feature requests & feedback](https://feedback.base44.com/roadmap)
-- [Report issues](https://github.com/base44/cli/issues)
+Found a bug? [Open an issue](https://github.com/base44/cli/issues).
 
 ## License
 
