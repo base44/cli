@@ -24,7 +24,7 @@ npx base44 <command>
 
 Requires Node.js 20.19.0 or higher.
 
-## Quick Start
+## Quick start
 
 ```bash
 # Authenticate
