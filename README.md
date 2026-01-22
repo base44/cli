@@ -89,17 +89,15 @@ Base44 projects are configured via a `config.jsonc` (or `config.json`) file in t
 }
 ```
 
-### Environment Variables
+### App Configuration
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `BASE44_CLIENT_ID` | Your app ID | - |
+Your app ID is stored in a `.app.jsonc` file in the `base44/` directory. This file is created automatically when you run `base44 create` or `base44 link`:
 
-You can set these in a `.env.local` file in your `base44/` directory:
-
-```bash
-# base44/.env.local
-BASE44_CLIENT_ID=your-app-id
+```jsonc
+// base44/.app.jsonc
+{
+  "appId": "your-app-id"
+}
 ```
 
 ## Project Structure
@@ -110,7 +108,7 @@ A typical Base44 project has this structure:
 my-project/
 ├── base44/
 │   ├── config.jsonc           # Project configuration
-│   ├── .env.local             # Environment variables (git-ignored)
+│   ├── .app.jsonc             # App ID (git-ignored)
 │   ├── entities/              # Entity schema files
 │   │   ├── user.jsonc
 │   │   └── product.jsonc

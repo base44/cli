@@ -6,7 +6,6 @@ import type { Option } from "@clack/prompts";
 import kebabCase from "lodash.kebabcase";
 import { createProjectFiles, listTemplates, readProjectConfig } from "@core/project/index.js";
 import type { Template } from "@core/project/index.js";
-import { loadProjectEnv } from "@core/config.js";
 import { deploySite, pushEntities } from "@core/index.js";
 import {
   runCommand,
@@ -156,8 +155,6 @@ async function executeCreate({
       errorMessage: "Failed to create project",
     }
   );
-
-  await loadProjectEnv(resolvedPath);
 
   const { project, entities } = await readProjectConfig(resolvedPath);
   let finalAppUrl: string | undefined;

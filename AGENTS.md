@@ -47,7 +47,7 @@ cli/
 │   │   │   ├── create.ts         # Project scaffolding
 │   │   │   ├── deploy.ts      
 │   │   │   ├── template.ts       # Template rendering
-│   │   │   ├── env.ts            # .env.local file generation
+│   │   │   ├── app-config.ts     # .app.jsonc file generation
 │   │   │   └── index.ts
 │   │   ├── resources/            # Project resources (entity, function, etc.)
 │   │   │   ├── types.ts          # Resource<T> interface
@@ -76,7 +76,7 @@ cli/
 │   │   │   ├── fs.ts             # File system utilities
 │   │   │   └── index.ts
 │   │   ├── consts.ts             # Pure constants (NO imports from other core modules)
-│   │   ├── config.ts             # Path helpers and env loading
+│   │   ├── config.ts             # Path helpers (global dir, templates, API URL)
 │   │   ├── errors.ts             # Error classes
 │   │   └── index.ts              # Barrel export for all core modules
 │   └── cli/
@@ -215,8 +215,8 @@ import { base44Client, getAppClient } from "@core/api/index.js";
 const response = await base44Client.get("api/endpoint");
 const data = await response.json();
 
-// For app-specific API calls (requires BASE44_CLIENT_ID env var)
-const appClient = getAppClient();
+// For app-specific API calls (requires .app.jsonc with appId)
+const appClient = await getAppClient();
 const response = await appClient.get("entities");
 const entities = await response.json();
 

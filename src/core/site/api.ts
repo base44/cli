@@ -16,7 +16,7 @@ export async function uploadSite(archivePath: string): Promise<DeployResponse> {
   const formData = new FormData();
   formData.append("file", blob, "dist.tar.gz");
 
-  const appClient = getAppClient();
+  const appClient = await getAppClient();
   const response = await appClient.post("deploy-dist", {
     body: formData,
   });

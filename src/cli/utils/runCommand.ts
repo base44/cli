@@ -1,5 +1,4 @@
 import { intro, log, outro } from "@clack/prompts";
-import { loadProjectEnv } from "@core/config.js";
 import { isLoggedIn } from "@core/auth/index.js";
 import { printBanner } from "./banner.js";
 import { login } from "../commands/auth/login.js";
@@ -30,7 +29,6 @@ export interface RunCommandResult {
  *
  * **Responsibilities**:
  * - Displays the intro (simple tag or full ASCII banner)
- * - Loads `.env.local` from the project root if available
  * - Checks authentication if `requireAuth` is set
  * - Runs the command function
  * - Displays the outro message returned by the command
@@ -74,8 +72,6 @@ export async function runCommand(
   } else {
     intro(theme.colors.base44OrangeBackground(" Base 44 "));
   }
-
-  await loadProjectEnv();
 
   try {
     // Check authentication if required

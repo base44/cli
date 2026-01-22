@@ -9,5 +9,12 @@ export function getProjectConfigPatterns(): string[] {
   ];
 }
 
+export function getAppConfigPatterns(): string[] {
+  return [
+    `${PROJECT_SUBDIR}/.app.jsonc`,
+    `${PROJECT_SUBDIR}/.app.json`,
+  ];
+}
+
 // Auth
 export const AUTH_CLIENT_ID = "base44_cli";

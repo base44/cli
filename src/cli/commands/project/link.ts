@@ -4,8 +4,8 @@ import type { Option } from "@clack/prompts";
 import {
   findProjectRoot,
   createProject,
-  writeEnvLocal,
-  envLocalExists,
+  writeAppConfig,
+  appConfigExists,
 } from "@core/project/index.js";
 import {
   runCommand,
@@ -84,9 +84,9 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
     );
   }
 
-  if (await envLocalExists(projectRoot.root)) {
+  if (await appConfigExists(projectRoot.root)) {
     throw new Error(
-      "Project is already linked. A .env.local file with BASE44_CLIENT_ID already exists."
+      "Project is already linked. An .app.jsonc file with the appId already exists."
     );
   }
 
@@ -106,7 +106,7 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
     }
   );
 
-  await writeEnvLocal(projectRoot.root, projectId);
+  await writeAppConfig(projectRoot.root, projectId);
 
   log.message(`${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(projectId))}`);
 
