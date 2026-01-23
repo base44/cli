@@ -174,8 +174,19 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
 
   if (action === "choose") {
     const selectedApp = await promptForExistingApp(linkableApps);
-    await writeAppConfig(projectRoot.root, selectedApp.id);
-    setAppConfig({ id: selectedApp.id, projectRoot: projectRoot.root });
+
+    await runTask(
+      "Linking project...",
+      async () => {
+        await writeAppConfig(projectRoot.root, selectedApp.id);
+        setAppConfig({ id: selectedApp.id, projectRoot: projectRoot.root });
+      },
+      {
+        successMessage: "Project linked successfully",
+        errorMessage: "Failed to link project",
+      }
+    );
+
     log.message(`${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(selectedApp.id))}`);
     return { outroMessage: "Project linked" };
   }
