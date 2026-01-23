@@ -8,6 +8,7 @@ export default defineConfig({
     include: ["tests/**/*.spec.ts"],
     testTimeout: 10000,
     mockReset: true,
+    silent: true, // Suppress stdout/stderr from tests (CLI output is very noisy)
   },
   resolve: {
     alias: {
