@@ -1,5 +1,5 @@
-import { describe, it } from "vitest";
 import { join } from "node:path";
+import { describe, it } from "vitest";
 import { setupCLITests } from "./testkit/index.js";
 
 describe("create command", () => {

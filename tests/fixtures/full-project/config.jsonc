@@ -1,6 +1,6 @@
 {
   "name": "Full Project",
   "site": {
-    "outputDirectory": "dist"
+    "outputDirectory": "site-output"
   }
 }
