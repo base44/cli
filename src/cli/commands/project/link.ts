@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { log, group, text, select } from "@clack/prompts";
+import { log, group, text, select, isCancel, cancel } from "@clack/prompts";
 import type { Option } from "@clack/prompts";
 import {
   findProjectRoot,
@@ -7,7 +7,9 @@ import {
   writeAppConfig,
   appConfigExists,
   setAppConfig,
+  fetchLinkableApps,
 } from "@core/project/index.js";
+import type { App } from "@core/project/index.js";
 import {
   runCommand,
   runTask,
@@ -19,6 +21,7 @@ import type { RunCommandResult } from "../../utils/runCommand.js";
 
 interface LinkOptions {
   create?: boolean;
+  existing?: string;
   name?: string;
   description?: string;
 }
@@ -26,13 +29,16 @@ interface LinkOptions {
 type LinkAction = "create" | "choose";
 
 function validateNonInteractiveFlags(command: Command): void {
-  const { create, name } = command.opts<LinkOptions>();
+  const { create, existing, name } = command.opts<LinkOptions>();
+  if (create && existing) {
+    command.error("--create and --existing cannot be used together");
+  }
   if (create && !name) {
     command.error("--name is required when using --create");
   }
 }
 
-async function promptForProjectDetails() {
+async function promptForLinkAction(linkableApps: App[]): Promise<LinkAction> {
   const actionOptions: Array<Option<LinkAction>> = [
     {
       value: "create",
@@ -41,13 +47,30 @@ async function promptForProjectDetails() {
     },
   ];
 
+  if (linkableApps.length > 0) {
+    actionOptions.push({
+      value: "choose",
+      label: "Link an existing project",
+      hint: `Choose from ${linkableApps.length} available project${linkableApps.length === 1 ? "" : "s"}`,
+    });
+  }
+
+  const action = await select({
+    message: "How would you like to link this project?",
+    options: actionOptions,
+  });
+
+  if (isCancel(action)) {
+    cancel("Operation cancelled.");
+    process.exit(0);
+  }
+
+  return action as LinkAction;
+}
+
+async function promptForNewProjectDetails() {
   const result = await group(
     {
-      action: () =>
-        select({
-          message: "How would you like to link this project?",
-          options: actionOptions,
-        }),
       name: () => {
         return text({
           message: "What is the name of your project?",
@@ -76,6 +99,25 @@ async function promptForProjectDetails() {
   };
 }
 
+async function promptForExistingApp(linkableApps: App[]): Promise<App> {
+  const appOptions: Array<Option<App>> = linkableApps.map((app) => ({
+    value: app,
+    label: app.name,
+  }));
+
+  const selectedApp = await select({
+    message: "Choose a project to link",
+    options: appOptions,
+  });
+
+  if (isCancel(selectedApp)) {
+    cancel("Operation cancelled.");
+    process.exit(0);
+  }
+
+  return selectedApp as App;
+}
+
 async function link(options: LinkOptions): Promise<RunCommandResult> {
   const projectRoot = await findProjectRoot();
 
@@ -91,10 +133,55 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
     );
   }
 
-  // Get project details from options or prompts
-  const { name, description } = options.create
-    ? { name: options.name!.trim(), description: options.description?.trim() }
-    : await promptForProjectDetails();
+  // Handle non-interactive mode with --existing flag
+  if (options.existing) {
+    await writeAppConfig(projectRoot.root, options.existing);
+    setAppConfig({ id: options.existing, projectRoot: projectRoot.root });
+    log.message(`${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(options.existing))}`);
+    return { outroMessage: "Project linked" };
+  }
+
+  // Handle non-interactive mode with --create flag
+  if (options.create) {
+    const { projectId } = await runTask(
+      "Creating project on Base44...",
+      async () => {
+        return await createProject(options.name!.trim(), options.description?.trim());
+      },
+      {
+        successMessage: "Project created successfully",
+        errorMessage: "Failed to create project",
+      }
+    );
+
+    await writeAppConfig(projectRoot.root, projectId);
+    setAppConfig({ id: projectId, projectRoot: projectRoot.root });
+    log.message(`${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(projectId))}`);
+    return { outroMessage: "Project linked" };
+  }
+
+  // Interactive mode: fetch linkable apps and prompt for action
+  const linkableApps = await runTask(
+    "Fetching your projects...",
+    async () => fetchLinkableApps(),
+    {
+      successMessage: `Found ${theme.colors.base44Orange("projects")} available for linking`,
+      errorMessage: "Failed to fetch projects",
+    }
+  );
+
+  const action = await promptForLinkAction(linkableApps);
+
+  if (action === "choose") {
+    const selectedApp = await promptForExistingApp(linkableApps);
+    await writeAppConfig(projectRoot.root, selectedApp.id);
+    setAppConfig({ id: selectedApp.id, projectRoot: projectRoot.root });
+    log.message(`${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(selectedApp.id))}`);
+    return { outroMessage: "Project linked" };
+  }
+
+  // action === "create"
+  const { name, description } = await promptForNewProjectDetails();
 
   const { projectId } = await runTask(
     "Creating project on Base44...",
@@ -108,10 +195,7 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
   );
 
   await writeAppConfig(projectRoot.root, projectId);
-
-  // Set app config in cache for sync access to getDashboardUrl
   setAppConfig({ id: projectId, projectRoot: projectRoot.root });
-
   log.message(`${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(projectId))}`);
 
   return { outroMessage: "Project linked" };
@@ -120,6 +204,7 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
 export const linkCommand = new Command("link")
   .description("Link a local project to a Base44 project")
   .option("-c, --create", "Create a new project (skip selection prompt)")
+  .option("-e, --existing <id>", "Link to an existing project by ID (skip selection prompt)")
   .option("-n, --name <name>", "Project name (required when --create is used)")
   .option("-d, --description <description>", "Project description")
   .hook("preAction", validateNonInteractiveFlags)
