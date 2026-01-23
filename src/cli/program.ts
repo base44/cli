@@ -10,6 +10,7 @@ import { dashboardCommand } from "@/cli/commands/project/dashboard.js";
 import { deployCommand } from "@/cli/commands/project/deploy.js";
 import { linkCommand } from "@/cli/commands/project/link.js";
 import { siteDeployCommand } from "@/cli/commands/site/deploy.js";
+import { connectorsCommand } from "@/cli/commands/connectors/index.js";
 import packageJson from "../../package.json";
 
 const program = new Command();
@@ -47,5 +48,8 @@ program.addCommand(functionsDeployCommand);
 
 // Register site commands
 program.addCommand(siteDeployCommand);
+
+// Register connectors commands
+program.addCommand(connectorsCommand);
 
 export { program };
