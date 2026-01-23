@@ -47,7 +47,7 @@ export type CreateProjectResponse = z.infer<typeof CreateProjectResponseSchema>;
 export const AppSchema = z.looseObject({
   id: z.string(),
   name: z.string(),
-  has_source_code: z.boolean(),
+  is_managed_source_code: z.boolean(),
 });
 
 export type App = z.infer<typeof AppSchema>;

@@ -27,5 +27,6 @@ export async function fetchApps(): Promise<App[]> {
 
 export async function fetchLinkableApps(): Promise<App[]> {
   const apps = await fetchApps();
-  return apps.filter((app) => !app.has_source_code);
+  // Filter for apps where source code is not managed by Base44 AI (i.e., CLI-managed apps)
+  return apps.filter((app) => !app.is_managed_source_code);
 }
