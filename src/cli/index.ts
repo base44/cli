@@ -11,6 +11,9 @@ import { dashboardCommand } from "./commands/project/dashboard.js";
 import { deployCommand } from "./commands/project/deploy.js";
 import { linkCommand } from "./commands/project/link.js";
 import { siteDeployCommand } from "./commands/site/deploy.js";
+import { connectorsAddCommand } from "./commands/connectors/add.js";
+import { connectorsListCommand } from "./commands/connectors/list.js";
+import { connectorsRemoveCommand } from "./commands/connectors/remove.js";
 import packageJson from "../../package.json";
 
 const program = new Command();
@@ -45,6 +48,11 @@ program.addCommand(functionsDeployCommand);
 
 // Register site commands
 program.addCommand(siteDeployCommand);
+
+// Register connectors commands
+program.addCommand(connectorsAddCommand);
+program.addCommand(connectorsListCommand);
+program.addCommand(connectorsRemoveCommand);
 
 // Parse command line arguments
 program.parse();

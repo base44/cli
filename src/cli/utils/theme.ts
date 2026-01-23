@@ -9,11 +9,14 @@ export const theme = {
     base44OrangeBackground: chalk.bgHex("#E86B3C"),
     shinyOrange: chalk.hex("#FFD700"),
     links: chalk.hex("#00D4FF"),
-    white: chalk.white
+    white: chalk.white,
+    success: chalk.green,
+    warning: chalk.yellow,
+    error: chalk.red,
   },
   styles: {
     header: chalk.dim,
     bold: chalk.bold,
-    dim: chalk.dim
-  }
+    dim: chalk.dim,
+  },
 };
