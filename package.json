@@ -16,10 +16,9 @@
     "dev": "./bin/dev.js",
     "start": "./bin/run.js",
     "clean": "rm -rf dist",
-    "lint": "eslint src",
-    "pretest": "npm run build",
+    "lint": "eslint src tests",
     "test": "vitest run",
-    "test:watch": "npm run build && vitest"
+    "test:watch": "vitest"
   },
   "keywords": [
     "base44",
@@ -39,7 +38,6 @@
     "@types/lodash.kebabcase": "^4.1.9",
     "@types/node": "^22.10.5",
     "@types/tar": "^6.1.13",
-    "@types/polka": "^0.5.8",
     "@typescript-eslint/eslint-plugin": "^8.51.0",
     "@typescript-eslint/parser": "^8.51.0",
     "chalk": "^5.6.2",
@@ -54,18 +52,18 @@
     "json5": "^2.2.3",
     "ky": "^1.14.2",
     "lodash.kebabcase": "^4.1.1",
+    "msw": "^2.12.7",
+    "open": "^11.0.0",
     "p-wait-for": "^6.0.0",
-    "tar": "^7.5.4",
-    "polka": "^0.5.2",
     "strip-ansi": "^7.1.2",
+    "tar": "^7.5.4",
     "tmp-promise": "^3.0.3",
     "tsdown": "^0.12.4",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.52.0",
     "vitest": "^4.0.16",
-    "zod": "^4.3.5",
-    "open": "^11.0.0"
+    "zod": "^4.3.5"
   },
   "engines": {
     "node": ">=20.19.0"

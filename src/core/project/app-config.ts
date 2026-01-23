@@ -14,11 +14,38 @@ export interface CachedAppConfig {
 let cache: CachedAppConfig | null = null;
 
 /**
+ * Load app config from BASE44_CLI_TEST_OVERRIDES env var.
+ * @returns true if override was applied, false otherwise
+ */
+function loadFromTestOverrides(): boolean {
+  const overrides = process.env.BASE44_CLI_TEST_OVERRIDES;
+  if (!overrides) {
+    return false;
+  }
+
+  try {
+    const data = JSON.parse(overrides);
+    if (data.appConfig?.id && data.appConfig?.projectRoot) {
+      cache = { id: data.appConfig.id, projectRoot: data.appConfig.projectRoot };
+      return true;
+    }
+  } catch {
+    // Invalid JSON, ignore
+  }
+  return false;
+}
+
+/**
  * Initialize app config by reading from .app.jsonc.
  * Must be called before using getAppConfig().
  * @throws Error if no project found or .app.jsonc missing
  */
 export async function initAppConfig(): Promise<void> {
+  // Check for test overrides first
+  if (loadFromTestOverrides()) {
+    return;
+  }
+
   if (cache) {
     return;
   }
@@ -38,13 +65,6 @@ export async function initAppConfig(): Promise<void> {
   }
 
   cache = { projectRoot: projectRoot.root, id: config.id };
-}
-
-/**
- * Clear the cache. Useful for testing.
- */
-export function clearAppConfigCache(): void {
-  cache = null;
 }
 
 /**

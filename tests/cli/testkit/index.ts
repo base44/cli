@@ -1,12 +1,11 @@
-import { beforeAll, beforeEach, afterAll, afterEach } from "vitest";
-import { resolve } from "path";
-import { mockServer } from "./MockServer.js";
+import { resolve } from "node:path";
+import { beforeAll, beforeEach, afterEach, afterAll } from "vitest";
+import { setupServer } from "msw/node";
 import { CLITestkit } from "./CLITestkit.js";
 
-export { CLITestkit };
-export type { CLIResult } from "./CLIResultMatcher.js";
-
 const FIXTURES_DIR = resolve(__dirname, "../../fixtures");
+
+export const mswServer = setupServer();
 
 /** Resolve a fixture path by name */
 export function fixture(name: string): string {
@@ -15,9 +14,9 @@ export function fixture(name: string): string {
 
 /**
  * Sets up the CLI test environment for a describe block.
- * - Starts mock server once (shared across all tests)
+ * - Starts MSW server once (shared across all tests)
  * - Creates fresh CLITestkit per test
- * - Cleans up routes and temp dirs after each test
+ * - Cleans up handlers and temp dirs after each test
  *
  * @example
  * import { setupCLITests } from "./testkit/index.js";
@@ -35,8 +34,8 @@ export function fixture(name: string): string {
 export function setupCLITests(): { kit: () => CLITestkit } {
   let currentKit: CLITestkit | null = null;
 
-  beforeAll(async () => {
-    await mockServer.start();
+  beforeAll(() => {
+    mswServer.listen({ onUnhandledRequest: "bypass" });
   });
 
   beforeEach(async () => {
@@ -44,15 +43,15 @@ export function setupCLITests(): { kit: () => CLITestkit } {
   });
 
   afterEach(async () => {
-    mockServer.resetRoutes();
+    mswServer.resetHandlers();  // Clear handlers between tests
     if (currentKit) {
       await currentKit.cleanup();
       currentKit = null;
     }
   });
 
-  afterAll(async () => {
-    await mockServer.stop();
+  afterAll(() => {
+    mswServer.close();
   });
 
   return {

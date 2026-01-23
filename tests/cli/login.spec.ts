@@ -13,34 +13,25 @@ describe("login command", () => {
 
   it("completes login flow and saves auth file", async () => {
     // Given: mock OAuth endpoints
-    kit().givenRoute("POST", "/oauth/device/code", () => ({
-      body: {
-        device_code: "test-device-code",
-        user_code: "ABCD-1234",
-        verification_uri: "https://app.base44.com/device",
-        expires_in: 300,
-        interval: 1, // 1 second for fast polling
-      },
-    }));
+    kit().api.setDeviceCodeResponse({
+      device_code: "test-device-code",
+      user_code: "ABCD-1234",
+      verification_uri: "https://app.base44.com/device",
+      expires_in: 300,
+      interval: 1,
+    });
 
-    // Mock token endpoint - return token immediately (no pending state)
-    kit().givenRoute("POST", "/oauth/token", () => ({
-      body: {
-        access_token: "test-access-token-from-login",
-        token_type: "Bearer",
-        expires_in: 3600,
-        refresh_token: "test-refresh-token-from-login",
-        scope: "apps:read apps:write",
-      },
-    }));
+    kit().api.setTokenResponse({
+      access_token: "test-access-token-from-login",
+      token_type: "Bearer",
+      expires_in: 3600,
+      refresh_token: "test-refresh-token-from-login",
+    });
 
-    // Mock userinfo endpoint
-    kit().givenRoute("GET", "/oauth/userinfo", () => ({
-      body: {
-        email: "logged-in@example.com",
-        name: "Logged In User",
-      },
-    }));
+    kit().api.setUserInfoResponse({
+      email: "logged-in@example.com",
+      name: "Logged In User",
+    });
 
     // When: run login command
     const result = await kit().run("login");

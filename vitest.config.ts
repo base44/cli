@@ -7,6 +7,7 @@ export default defineConfig({
     globals: true,
     include: ["tests/**/*.spec.ts"],
     testTimeout: 10000,
+    mockReset: true,
   },
   resolve: {
     alias: {

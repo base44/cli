@@ -85,6 +85,7 @@ cli/
 │   │   ├── errors.ts             # Error classes
 │   │   └── index.ts              # Barrel export for all core modules
 │   └── cli/
+│       ├── program.ts            # createProgram() factory + CLIExitError
 │       ├── commands/
 │       │   ├── auth/
 │       │   │   ├── login.ts
@@ -171,7 +172,7 @@ export const myCommand = new Command("<name>")
 // src/cli/program.ts
 import { myCommand } from "./commands/<domain>/<action>.js";
 
-// ...
+// Inside createProgram():
 program.addCommand(myCommand);
 ```
 
@@ -443,7 +444,11 @@ When adding async operations to CLI commands:
 
 ## Testing
 
-CLI tests run the **built artifact** (`dist/cli/index.js`) via Node, not TypeScript directly. The `pretest` script ensures a fresh build before each test run.
+CLI tests run **in-process** by importing `createProgram()` from source directly. This means:
+- No build step required for running tests
+- Fast iteration with `npm run test:watch`
+- MSW (Mock Service Worker) for HTTP mocking
+- Tests import TypeScript source via Vitest's esbuild integration
 
 ### Test Structure
 
@@ -452,16 +457,20 @@ tests/
 ├── cli/                      # CLI integration tests (flat structure)
 │   ├── testkit/              # Test utilities
 │   │   ├── CLITestkit.ts     # Main testkit class
-│   │   ├── MockServer.ts     # Shared HTTP mock server
+│   │   ├── Base44APIMock.ts  # Typed API mock for Base44 endpoints
 │   │   ├── CLIResultMatcher.ts # Assertion helpers
-│   │   └── index.ts          # Barrel export
+│   │   └── index.ts          # Barrel export + MSW server setup
 │   ├── login.spec.ts         # Single commands: <command>.spec.ts
 │   ├── whoami.spec.ts
-│   ├── entities_push.spec.ts # Subcommands: <parent>_<sub>.spec.ts
-│   └── show_project.spec.ts
+│   ├── logout.spec.ts
+│   ├── create.spec.ts
+│   └── entities_push.spec.ts # Subcommands: <parent>_<sub>.spec.ts
 ├── core/                     # Core module unit tests
 │   └── project.spec.ts
 └── fixtures/                 # Test fixtures (project configs, entities, etc.)
+    ├── basic/                # Minimal project
+    ├── with-entities/        # Project with entities
+    └── with-functions-and-entities/
 ```
 
 ### CLITestkit Pattern
@@ -478,18 +487,15 @@ import { describe, it } from "vitest";
 import { setupCLITests, fixture } from "./testkit/index.js";
 
 describe("<command> command", () => {
-  const { kit } = setupCLITests(); // Handles kit lifecycle + mock server
+  const { kit } = setupCLITests(); // Handles kit lifecycle + MSW server
 
   it("succeeds when <scenario>", async () => {
     // Given: setup preconditions
     await kit().givenLoggedIn({ email: "test@example.com", name: "Test User" });
     await kit().givenProject(fixture("with-entities"));
-    kit().givenEnv("BASE44_CLIENT_ID", "test-app-id");
 
-    // Mock API endpoint (supports route params like :appId)
-    kit().givenRoute("PUT", "/api/apps/:appId/entities", () => ({
-      body: { created: ["Entity1"], updated: [], deleted: [] },
-    }));
+    // Mock API response
+    kit().api.setEntitiesPushResponse({ created: ["Entity1"], updated: [], deleted: [] });
 
     // When: run the command
     const result = await kit().run("<command>", "--flag", "value");
@@ -524,8 +530,7 @@ describe("<command> command", () => {
 |--------|-------------|
 | `givenLoggedIn({ email, name })` | Creates auth file with user credentials |
 | `givenProject(fixturePath)` | Sets working directory to a project fixture |
-| `givenEnv(key, value)` | Sets environment variable for CLI execution |
-| `givenRoute(method, path, handler)` | Registers mock HTTP endpoint (supports `:param`) |
+| `givenPromptResponses(responses)` | Mocks @clack/prompts responses for interactive commands |
 
 #### When Methods (Actions)
 
@@ -551,40 +556,56 @@ describe("<command> command", () => {
 |----------|-------------|
 | `fixture(name)` | Resolves path to test fixture in `tests/fixtures/` |
 
-### Mocking HTTP Endpoints
+### Mocking API Endpoints
 
-A shared mock HTTP server (polka-based) runs automatically during tests. Register routes with `givenRoute`:
+The testkit provides a typed `api` property (`Base44APIMock`) for mocking Base44 API endpoints. Methods use `setXxxResponse` naming to make it clear you're configuring mocks.
 
 ```typescript
-// Static response
-kit().givenRoute("POST", "/oauth/device/code", () => ({
-  body: { device_code: "abc", user_code: "ABCD-1234" },
-}));
+// Auth endpoints
+kit().api.setDeviceCodeResponse({ device_code: "abc", user_code: "ABCD-1234", ... });
+kit().api.setTokenResponse({ access_token: "...", refresh_token: "...", ... });
+kit().api.setUserInfoResponse({ email: "user@example.com", name: "User" });
 
-// With route parameters
-kit().givenRoute("PUT", "/api/apps/:appId/entities", (params) => ({
-  body: { appId: params.appId, created: [], updated: [], deleted: [] },
-}));
+// App-scoped endpoints (uses appId from CLITestkit.create())
+kit().api.setEntitiesPushResponse({ created: ["User"], updated: ["Product"], deleted: [] });
+kit().api.setFunctionsPushResponse({ created: [], updated: [], deleted: [] });
+kit().api.setSiteDeployResponse({ appUrl: "https://my-app.base44.app" });
 
-// With custom status
-kit().givenRoute("GET", "/api/not-found", () => ({
-  status: 404,
-  body: { error: "Not found" },
-}));
+// General endpoints
+kit().api.setCreateAppResponse({ id: "new-app-id", name: "New App" });
 ```
 
-Routes are automatically cleared between tests. `BASE44_API_URL` is set automatically.
+The `appId` is configured when creating the testkit (defaults to `"test-app-id"`):
+
+```typescript
+// In setupCLITests or CLITestkit.create()
+const kit = await CLITestkit.create("custom-app-id");
+```
+
+Handlers are collected and applied once when `run()` is called. Mocks are cleared between tests via `mswServer.resetHandlers()`.
+
+### Mocking Interactive Prompts
+
+For commands that use `@clack/prompts`, mock responses with `givenPromptResponses`:
+
+```typescript
+kit().givenPromptResponses({
+  "Project name": "my-app",
+  "Select template": "backend-only",
+});
+const result = await kit().run("create");
+```
 
 ### Important Testing Rules
 
-1. **Use `setupCLITests()` inside describe** - Handles kit lifecycle and mock server
+1. **Use `setupCLITests()` inside describe** - Handles kit lifecycle and MSW server
 2. **Test both success and failure paths** - Commands should handle errors gracefully
 3. **Use fixtures for complex projects** - Don't recreate project structures in tests
-4. **Tests run the built CLI** - Tests execute `dist/cli/index.js` via Node (not tsx)
+4. **Fixtures need `.app.jsonc`** - Add `base44/.app.jsonc` with `{ "id": "test-app-id" }` to fixtures
+5. **Tests run in-process** - Tests import source directly, no build required
 
 ## File Locations
 
-- `cli/plan.md` - Implementation plan
 - `cli/AGENTS.md` - This file
 - `cli/bin/run.js` - Production entry point (imports bundled dist/index.js)
 - `cli/bin/dev.js` - Development entry point (uses tsx for TypeScript)
@@ -598,5 +619,5 @@ Routes are automatically cleared between tests. `BASE44_API_URL` is set automati
 - `cli/src/cli/utils/runTask.ts` - Async operation wrapper with spinner and success/error messages
 - `cli/tsdown.config.mjs` - Build configuration (bundles index.ts to dist/)
 - `cli/.node-version` - Node.js version pinning
-- `cli/tests/cli/testkit/` - CLI test utilities (CLITestkit, MockServer, CLIResultMatcher)
+- `cli/tests/cli/testkit/` - CLI test utilities (CLITestkit, mswSetup, CLIResultMatcher)
 - `cli/tests/fixtures/` - Test fixtures (project configs, entities)
