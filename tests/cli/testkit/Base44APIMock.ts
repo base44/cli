@@ -47,6 +47,11 @@ export interface CreateAppResponse {
   name: string;
 }
 
+export interface ErrorResponse {
+  status: number;
+  body?: unknown;
+}
+
 // ─── MOCK CLASS ──────────────────────────────────────────────
 
 export class Base44APIMock {
@@ -120,6 +125,42 @@ export class Base44APIMock {
       http.post(`${BASE_URL}/api/apps`, () => HttpResponse.json(response))
     );
     return this;
+  }
+
+  // ─── ERROR RESPONSES ────────────────────────────────────────
+
+  /** Mock any endpoint to return an error */
+  setErrorResponse(method: "get" | "post" | "put" | "delete", path: string, error: ErrorResponse): this {
+    const url = path.startsWith("/") ? `${BASE_URL}${path}` : `${BASE_URL}/${path}`;
+    this.handlers.push(
+      http[method](url, () => HttpResponse.json(error.body ?? { error: "Error" }, { status: error.status }))
+    );
+    return this;
+  }
+
+  /** Mock entities push to return an error */
+  setEntitiesPushError(error: ErrorResponse): this {
+    return this.setErrorResponse("put", `/api/apps/${this.appId}/entity-schemas`, error);
+  }
+
+  /** Mock functions push to return an error */
+  setFunctionsPushError(error: ErrorResponse): this {
+    return this.setErrorResponse("put", `/api/apps/${this.appId}/backend-functions`, error);
+  }
+
+  /** Mock site deploy to return an error */
+  setSiteDeployError(error: ErrorResponse): this {
+    return this.setErrorResponse("post", `/api/apps/${this.appId}/deploy-dist`, error);
+  }
+
+  /** Mock token endpoint to return an error (for auth failure testing) */
+  setTokenError(error: ErrorResponse): this {
+    return this.setErrorResponse("post", "/oauth/token", error);
+  }
+
+  /** Mock userinfo endpoint to return an error */
+  setUserInfoError(error: ErrorResponse): this {
+    return this.setErrorResponse("get", "/oauth/userinfo", error);
   }
 
   // ─── INTERNAL ──────────────────────────────────────────────

@@ -27,7 +27,7 @@ describe("entities push command", () => {
 
     // Then: command fails with project not found error
     kit().expect(result).toFail();
-    kit().expect(result).toContain("Project root not found");
+    kit().expect(result).toContain("No Base44 project found");
   });
 
   it("finds and lists entities in project", async () => {

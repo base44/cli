@@ -444,11 +444,11 @@ When adding async operations to CLI commands:
 
 ## Testing
 
-CLI tests run **in-process** by importing `createProgram()` from source directly. This means:
-- No build step required for running tests
-- Fast iteration with `npm run test:watch`
+CLI tests run **in-process** by importing `createProgram()` from the bundled `dist/program.js`. This means:
+- Tests verify the actual bundled output (catches bundling issues)
+- Build is required before running tests (`npm run build && npm test`)
 - MSW (Mock Service Worker) for HTTP mocking
-- Tests import TypeScript source via Vitest's esbuild integration
+- `BASE44_CLI_TEST_OVERRIDES` env var allows tests to inject config without file I/O
 
 ### Test Structure
 
@@ -602,7 +602,7 @@ const result = await kit().run("create");
 2. **Test both success and failure paths** - Commands should handle errors gracefully
 3. **Use fixtures for complex projects** - Don't recreate project structures in tests
 4. **Fixtures need `.app.jsonc`** - Add `base44/.app.jsonc` with `{ "id": "test-app-id" }` to fixtures
-5. **Tests run in-process** - Tests import source directly, no build required
+5. **Build before testing** - Tests import from `dist/program.js`, run `npm run build` first
 
 ## File Locations
 

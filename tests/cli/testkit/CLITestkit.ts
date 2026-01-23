@@ -79,57 +79,22 @@ export class CLITestkit {
     // Reset modules to clear any cached state (e.g., refreshPromise)
     vi.resetModules();
 
-    const projectDir = this.projectDir;
-    const promptResponses = this.promptResponses;
+    // Setup mocks
+    this.setupCwdMock();
+    this.setupPromptMock();
+    this.setupEnvOverrides();
 
-    // Mock process.cwd if we have a project directory
-    if (projectDir) {
-      vi.spyOn(process, "cwd").mockReturnValue(projectDir);
-    }
-
-    // Mock @clack/prompts if we have prompt responses
-    if (Object.keys(promptResponses).length > 0) {
-      vi.doMock("@clack/prompts", async (importOriginal) => {
-        const actual = await importOriginal<typeof import("@clack/prompts")>();
-        return {
-          ...actual,
-          text: async (opts: { message: string }) => promptResponses[opts.message] ?? "",
-          select: async (opts: { message: string }) => promptResponses[opts.message],
-          confirm: async (opts: { message: string }) => promptResponses[opts.message] ?? false,
-        };
-      });
-    }
-
-    // Set test overrides env var (initializes app config cache without file reads)
-    if (this.projectDir) {
-      this.env.BASE44_CLI_TEST_OVERRIDES = JSON.stringify({
-        appConfig: { id: this.api.appId, projectRoot: this.projectDir },
-      });
-    }
+    // Save original env values for cleanup
+    const originalEnv = this.captureEnvSnapshot();
 
     // Set testkit environment variables
     Object.assign(process.env, this.env);
 
-    // Capture stdout/stderr
-    const stdout: string[] = [];
-    const stderr: string[] = [];
+    // Setup output capture
+    const { stdout, stderr, stdoutSpy, stderrSpy } = this.setupOutputCapture();
 
-    const stdoutSpy = vi.spyOn(process.stdout, "write").mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
-    const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation((chunk) => {
-      stderr.push(String(chunk));
-      return true;
-    });
-
-    // Track if process.exit was called (use object to help TypeScript track mutation)
-    const exitState = { code: null as number | null };
-    const originalExit = process.exit;
-    process.exit = ((code?: number) => {
-      exitState.code = code ?? 0;
-      throw new Error(`process.exit called with ${code}`);
-    }) as typeof process.exit;
+    // Setup process.exit mock
+    const { exitState, originalExit } = this.setupExitMock();
 
     // Apply all API mocks before running
     this.api.apply();
@@ -160,11 +125,102 @@ export class CLITestkit {
     } finally {
       // Restore process.exit
       process.exit = originalExit;
+      // Restore environment variables
+      this.restoreEnvSnapshot(originalEnv);
       // Restore mocks
       stdoutSpy.mockRestore();
       stderrSpy.mockRestore();
       vi.restoreAllMocks();
     }
+  }
+
+  // ─── PRIVATE HELPERS ───────────────────────────────────────────
+
+  private setupCwdMock(): void {
+    if (this.projectDir) {
+      vi.spyOn(process, "cwd").mockReturnValue(this.projectDir);
+    }
+  }
+
+  private setupPromptMock(): void {
+    const promptResponses = this.promptResponses;
+    if (Object.keys(promptResponses).length === 0) {
+      return;
+    }
+
+    vi.doMock("@clack/prompts", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("@clack/prompts")>();
+
+      const getResponse = (message: string) => {
+        if (!(message in promptResponses)) {
+          throw new Error(
+            `Unexpected prompt: "${message}". ` +
+              `Did you forget to call givenPromptResponses({ "${message}": <value> })?`
+          );
+        }
+        return promptResponses[message];
+      };
+
+      return {
+        ...actual,
+        text: async (opts: { message: string }) => getResponse(opts.message) ?? "",
+        select: async (opts: { message: string }) => getResponse(opts.message),
+        confirm: async (opts: { message: string }) => getResponse(opts.message) ?? false,
+      };
+    });
+  }
+
+  private setupEnvOverrides(): void {
+    if (this.projectDir) {
+      this.env.BASE44_CLI_TEST_OVERRIDES = JSON.stringify({
+        appConfig: { id: this.api.appId, projectRoot: this.projectDir },
+      });
+    }
+  }
+
+  private captureEnvSnapshot(): Record<string, string | undefined> {
+    const snapshot: Record<string, string | undefined> = {};
+    for (const key of Object.keys(this.env)) {
+      snapshot[key] = process.env[key];
+    }
+    return snapshot;
+  }
+
+  private restoreEnvSnapshot(snapshot: Record<string, string | undefined>): void {
+    for (const [key, value] of Object.entries(snapshot)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  }
+
+  private setupOutputCapture() {
+    const stdout: string[] = [];
+    const stderr: string[] = [];
+
+    const stdoutSpy = vi.spyOn(process.stdout, "write").mockImplementation((chunk) => {
+      stdout.push(String(chunk));
+      return true;
+    });
+    const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation((chunk) => {
+      stderr.push(String(chunk));
+      return true;
+    });
+
+    return { stdout, stderr, stdoutSpy, stderrSpy };
+  }
+
+  private setupExitMock() {
+    const exitState = { code: null as number | null };
+    const originalExit = process.exit;
+    process.exit = ((code?: number) => {
+      exitState.code = code ?? 0;
+      throw new Error(`process.exit called with ${code}`);
+    }) as typeof process.exit;
+
+    return { exitState, originalExit };
   }
 
   // ─── THEN METHODS ─────────────────────────────────────────────
