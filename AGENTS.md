@@ -473,6 +473,9 @@ tests/
     └── with-functions-and-entities/
 ```
 
+### Known Testing Gaps
+
+**Interactive prompts cannot be tested.** The CLI is bundled into `dist/program.js`, which means `vi.doMock("@clack/prompts")` cannot intercept calls within the bundled code. Commands with interactive mode (like `create`) can only be tested via their non-interactive flags (e.g., `--name`, `--path`).
 ### CLITestkit Pattern
 
 CLI tests use a **testkit pattern** with Given/When/Then structure for readable, maintainable tests.
@@ -530,7 +533,6 @@ describe("<command> command", () => {
 |--------|-------------|
 | `givenLoggedIn({ email, name })` | Creates auth file with user credentials |
 | `givenProject(fixturePath)` | Sets working directory to a project fixture |
-| `givenPromptResponses(responses)` | Mocks @clack/prompts responses for interactive commands |
 
 #### When Methods (Actions)
 
@@ -583,18 +585,6 @@ const kit = await CLITestkit.create("custom-app-id");
 ```
 
 Handlers are collected and applied once when `run()` is called. Mocks are cleared between tests via `mswServer.resetHandlers()`.
-
-### Mocking Interactive Prompts
-
-For commands that use `@clack/prompts`, mock responses with `givenPromptResponses`:
-
-```typescript
-kit().givenPromptResponses({
-  "Project name": "my-app",
-  "Select template": "backend-only",
-});
-const result = await kit().run("create");
-```
 
 ### Important Testing Rules
 

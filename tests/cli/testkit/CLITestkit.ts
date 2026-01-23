@@ -19,7 +19,6 @@ export class CLITestkit {
   private cleanupFn: () => Promise<void>;
   private env: Record<string, string> = {};
   private projectDir?: string;
-  private promptResponses: Record<string, unknown> = {};
 
   /** Typed API mock for Base44 endpoints */
   readonly api: Base44APIMock;
@@ -67,11 +66,6 @@ export class CLITestkit {
     await cp(fixturePath, this.projectDir, { recursive: true });
   }
 
-  /** Mock @clack/prompts responses for interactive commands */
-  givenPromptResponses(responses: Record<string, unknown>): void {
-    this.promptResponses = { ...this.promptResponses, ...responses };
-  }
-
   // ─── WHEN METHODS ─────────────────────────────────────────────
 
   /** Execute CLI command */
@@ -81,7 +75,6 @@ export class CLITestkit {
 
     // Setup mocks
     this.setupCwdMock();
-    this.setupPromptMock();
     this.setupEnvOverrides();
 
     // Save original env values for cleanup
@@ -140,34 +133,6 @@ export class CLITestkit {
     if (this.projectDir) {
       vi.spyOn(process, "cwd").mockReturnValue(this.projectDir);
     }
-  }
-
-  private setupPromptMock(): void {
-    const promptResponses = this.promptResponses;
-    if (Object.keys(promptResponses).length === 0) {
-      return;
-    }
-
-    vi.doMock("@clack/prompts", async (importOriginal) => {
-      const actual = await importOriginal<typeof import("@clack/prompts")>();
-
-      const getResponse = (message: string) => {
-        if (!(message in promptResponses)) {
-          throw new Error(
-            `Unexpected prompt: "${message}". ` +
-              `Did you forget to call givenPromptResponses({ "${message}": <value> })?`
-          );
-        }
-        return promptResponses[message];
-      };
-
-      return {
-        ...actual,
-        text: async (opts: { message: string }) => getResponse(opts.message) ?? "",
-        select: async (opts: { message: string }) => getResponse(opts.message),
-        confirm: async (opts: { message: string }) => getResponse(opts.message) ?? false,
-      };
-    });
   }
 
   private setupEnvOverrides(): void {

@@ -33,13 +33,13 @@ export interface EntitiesPushResponse {
 }
 
 export interface FunctionsPushResponse {
-  created: string[];
-  updated: string[];
+  deployed: string[];
   deleted: string[];
+  errors: Array<{ name: string; message: string }> | null;
 }
 
 export interface SiteDeployResponse {
-  appUrl: string;
+  app_url: string;
 }
 
 export interface CreateAppResponse {

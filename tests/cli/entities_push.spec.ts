@@ -36,7 +36,7 @@ describe("entities push command", () => {
     await kit().givenProject(fixture("with-entities"));
 
     kit().api.setEntitiesPushResponse({
-      created: ["User", "Product"],
+      created: ["Customer", "Product"],
       updated: [],
       deleted: [],
     });
@@ -46,7 +46,7 @@ describe("entities push command", () => {
 
     // Then: it finds and lists the entities
     kit().expect(result).toContain("Found 2 entities to push");
-    kit().expect(result).toContain("User");
+    kit().expect(result).toContain("Customer");
     kit().expect(result).toContain("Product");
   });
 
@@ -56,7 +56,7 @@ describe("entities push command", () => {
     await kit().givenProject(fixture("with-entities"));
 
     kit().api.setEntitiesPushResponse({
-      created: ["User"],
+      created: ["Customer"],
       updated: ["Product"],
       deleted: [],
     });
@@ -67,7 +67,7 @@ describe("entities push command", () => {
     // Then: succeeds and shows created/updated entities
     kit().expect(result).toSucceed();
     kit().expect(result).toContain("Entities pushed successfully");
-    kit().expect(result).toContain("Created: User");
+    kit().expect(result).toContain("Created: Customer");
     kit().expect(result).toContain("Updated: Product");
   });
 });

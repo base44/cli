@@ -17,6 +17,7 @@
     "start": "./bin/run.js",
     "clean": "rm -rf dist",
     "lint": "eslint src tests",
+    "pretest": "npm run build",
     "test": "vitest run",
     "test:watch": "vitest"
   },

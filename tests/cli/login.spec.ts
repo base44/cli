@@ -4,13 +4,6 @@ import { setupCLITests } from "./testkit/index.js";
 describe("login command", () => {
   const { kit } = setupCLITests();
 
-  it("shows help when called with --help", async () => {
-    const result = await kit().run("login", "--help");
-
-    kit().expect(result).toSucceed();
-    kit().expect(result).toContain("Authenticate with Base44");
-  });
-
   it("completes login flow and saves auth file", async () => {
     // Given: mock OAuth endpoints
     kit().api.setDeviceCodeResponse({

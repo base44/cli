@@ -1,4 +1,4 @@
-import { describe, it } from "vitest";
+import { describe, it, expect } from "vitest";
 import { setupCLITests } from "./testkit/index.js";
 
 describe("logout command", () => {
@@ -17,6 +17,10 @@ describe("logout command", () => {
     // Then: command succeeds with logout message
     kit().expect(result).toSucceed();
     kit().expect(result).toContain("Logged out successfully");
+
+    // And: auth file is removed
+    const authData = await kit().readAuthFile();
+    expect(authData).toBeNull();
   });
 
   it("succeeds even when not logged in", async () => {

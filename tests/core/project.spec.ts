@@ -20,7 +20,7 @@ describe("readProjectConfig", () => {
     );
 
     expect(result.entities).toHaveLength(2);
-    expect(result.entities.map((e) => e.name)).toContain("User");
+    expect(result.entities.map((e) => e.name)).toContain("Customer");
     expect(result.entities.map((e) => e.name)).toContain("Product");
     expect(result.functions).toEqual([]);
   });

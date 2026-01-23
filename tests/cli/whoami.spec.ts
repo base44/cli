@@ -16,10 +16,22 @@ describe("whoami command", () => {
 
     // Then: command succeeds and shows user email
     kit().expect(result).toSucceed();
+    kit().expect(result).toContain("Logged in as:");
     kit().expect(result).toContain("test@example.com");
   });
 
-  // Note: When not logged in, the CLI triggers a login flow which requires
-  // user interaction. This test is skipped because mocking the full login
-  // flow is complex and covered by login.spec.ts.
+  it("displays different user email correctly", async () => {
+    // Given: a different user is logged in
+    await kit().givenLoggedIn({
+      email: "another-user@company.org",
+      name: "Another User",
+    });
+
+    // When: run whoami command
+    const result = await kit().run("whoami");
+
+    // Then: shows correct email
+    kit().expect(result).toSucceed();
+    kit().expect(result).toContain("another-user@company.org");
+  });
 });
