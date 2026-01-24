@@ -6,7 +6,7 @@ import { whoamiCommand } from "./commands/auth/whoami.js";
 import { logoutCommand } from "./commands/auth/logout.js";
 import { entitiesPushCommand } from "./commands/entities/push.js";
 import { functionsDeployCommand } from "./commands/functions/deploy.js";
-import { generateTypesCommand } from "./commands/generate/types.js";
+import { typesGenerateCommand } from "./commands/types/generate.js";
 import { createCommand } from "./commands/project/create.js";
 import { dashboardCommand } from "./commands/project/dashboard.js";
 import { deployCommand } from "./commands/project/deploy.js";
@@ -44,8 +44,8 @@ program.addCommand(entitiesPushCommand);
 // Register functions commands
 program.addCommand(functionsDeployCommand);
 
-// Register generate commands
-program.addCommand(generateTypesCommand);
+// Register types commands
+program.addCommand(typesGenerateCommand);
 
 // Register site commands
 program.addCommand(siteDeployCommand);

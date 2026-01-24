@@ -43,7 +43,7 @@ async function generateTypesAction(
   return { outroMessage: "Types generated successfully!" };
 }
 
-export const generateTypesCommand = new Command("generate")
+export const typesGenerateCommand = new Command("types")
   .description("Generate TypeScript types from entity schemas")
   .option("-o, --output <dir>", "Output directory", "src/base44")
   .option("--entities-only", "Only generate entity types, skip client types")
