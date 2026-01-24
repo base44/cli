@@ -199,7 +199,7 @@ export async function removeConnectorCommand(
   };
 }
 
-export const connectorsRemoveCommand = new Command("connectors:remove")
+export const connectorsRemoveCommand = new Command("remove")
   .argument("[type]", "Integration type to remove (e.g., slack, notion)")
   .option("--hard", "Permanently remove the connector (cannot be undone)")
   .description("Remove an OAuth integration")

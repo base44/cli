@@ -110,7 +110,7 @@ export async function listConnectorsCommand(): Promise<RunCommandResult> {
 
   if (merged.length === 0) {
     log.info("No connectors configured for this app.");
-    log.info(`Run ${theme.styles.bold("base44 connectors:add")} to connect an integration.`);
+    log.info(`Run ${theme.styles.bold("base44 connectors add")} to connect an integration.`);
     return { outroMessage: "" };
   }
 
@@ -127,13 +127,13 @@ export async function listConnectorsCommand(): Promise<RunCommandResult> {
   let summary = `${connected} connected`;
   if (pending > 0) {
     summary += `, ${pending} pending`;
-    log.info(`Run ${theme.styles.bold("base44 connectors:push")} to connect pending integrations.`);
+    log.info(`Run ${theme.styles.bold("base44 connectors push")} to connect pending integrations.`);
   }
 
   return { outroMessage: summary };
 }
 
-export const connectorsListCommand = new Command("connectors:list")
+export const connectorsListCommand = new Command("list")
   .description("List all connected OAuth integrations")
   .action(async () => {
     await runCommand(listConnectorsCommand, {

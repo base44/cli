@@ -170,7 +170,7 @@ export async function addConnector(
   };
 }
 
-export const connectorsAddCommand = new Command("connectors:add")
+export const connectorsAddCommand = new Command("add")
   .argument("[type]", "Integration type (e.g., slack, notion, googlecalendar)")
   .description("Connect an OAuth integration")
   .action(async (type?: string) => {
