@@ -72,27 +72,43 @@ base44 deploy
 
 ### Connectors
 
-Manage OAuth integrations to connect your app with external services.
+Manage OAuth integrations to connect your app with external services. Connectors are tracked in a local `connectors.jsonc` file and synced with the backend.
 
 | Command | Description |
 |---------|-------------|
-| `base44 connectors:add [type]` | Connect an OAuth integration (opens browser for auth) |
-| `base44 connectors:list` | List all connected integrations |
-| `base44 connectors:remove [type]` | Disconnect an integration |
+| `base44 connectors:add [type]` | Add and connect an OAuth integration |
+| `base44 connectors:list` | List all connectors (local and connected) |
+| `base44 connectors:push` | Connect all pending integrations from local config |
+| `base44 connectors:remove [type]` | Remove an integration |
 | `base44 connectors:remove [type] --hard` | Permanently remove an integration |
 
 **Supported integrations:** Slack, Google Calendar, Google Drive, Gmail, Google Sheets, Google Docs, Google Slides, Notion, Salesforce, HubSpot, LinkedIn, TikTok
 
-**Example:**
+**Example workflow:**
 ```bash
-# Connect Slack (opens browser for OAuth)
+# Add connectors (saves to connectors.jsonc and opens OAuth)
 base44 connectors:add slack
+base44 connectors:add googlecalendar
 
-# List connected integrations
+# List connectors showing local vs connected status
 base44 connectors:list
+# Output:
+# ● Slack - user@example.com
+# ○ Google Calendar (not connected)
 
-# Disconnect Slack
+# Connect all pending integrations
+base44 connectors:push
+
+# Remove a connector
 base44 connectors:remove slack
+```
+
+**Local configuration** (`base44/connectors.jsonc`):
+```jsonc
+{
+  "slack": {},
+  "googlecalendar": { "scopes": ["calendar.readonly"] }
+}
 ```
 
 Once connected, use the SDK's `connectors.getAccessToken()` to retrieve tokens:

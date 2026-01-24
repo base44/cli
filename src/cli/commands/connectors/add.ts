@@ -5,6 +5,7 @@ import open from "open";
 import {
   initiateOAuth,
   checkOAuthStatus,
+  addLocalConnector,
   SUPPORTED_INTEGRATIONS,
   isValidIntegration,
   getIntegrationDisplayName,
@@ -124,8 +125,10 @@ export async function addConnector(
 
   // Check if already authorized
   if (initiateResponse.already_authorized) {
+    // Still add to local config file
+    await addLocalConnector(selectedType);
     return {
-      outroMessage: `Already connected to ${theme.styles.bold(displayName)}`,
+      outroMessage: `Already connected to ${theme.styles.bold(displayName)} (added to connectors.jsonc)`,
     };
   }
 
@@ -154,6 +157,9 @@ export async function addConnector(
   if (!result.success) {
     throw new Error(result.error || "Authorization failed");
   }
+
+  // Add to local config file after successful OAuth
+  await addLocalConnector(selectedType);
 
   const accountInfo = result.accountEmail
     ? ` as ${theme.styles.bold(result.accountEmail)}`
