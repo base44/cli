@@ -16,11 +16,17 @@ export type InitiateResponse = z.infer<typeof InitiateResponseSchema>;
 /**
  * Response from GET /api/apps/{app_id}/external-auth/status
  */
-export const StatusResponseSchema = z.object({
-  status: z.enum(["ACTIVE", "PENDING", "FAILED"]),
-  account_email: z.string().optional(),
-  error: z.string().optional(),
-});
+export const StatusResponseSchema = z
+  .object({
+    status: z.enum(["ACTIVE", "PENDING", "FAILED"]),
+    account_email: z.string().optional(),
+    error: z.string().optional(),
+  })
+  .transform((data) => ({
+    status: data.status,
+    accountEmail: data.account_email,
+    error: data.error,
+  }));
 
 export type StatusResponse = z.infer<typeof StatusResponseSchema>;
 
