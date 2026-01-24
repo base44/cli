@@ -7,6 +7,19 @@ export {
   removeConnector,
 } from "./api.js";
 
+// Local config functions
+export {
+  readLocalConnectors,
+  writeLocalConnectors,
+  addLocalConnector,
+  removeLocalConnector,
+  hasLocalConnector,
+  findConnectorsFile,
+  getDefaultConnectorsPath,
+} from "./config.js";
+
+export type { LocalConnector, ConnectorConfig, ConnectorsFile } from "./config.js";
+
 // Schemas and types
 export {
   InitiateResponseSchema,
