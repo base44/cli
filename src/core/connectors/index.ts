@@ -4,6 +4,7 @@ export {
   checkOAuthStatus,
   listConnectors,
   disconnectConnector,
+  removeConnector,
 } from "./api.js";
 
 // Schemas and types
