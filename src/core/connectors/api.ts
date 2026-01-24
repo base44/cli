@@ -154,3 +154,31 @@ export async function disconnectConnector(
   }
 }
 
+/**
+ * Removes (hard delete) a connector integration.
+ * This permanently removes the connector and cannot be undone.
+ */
+export async function removeConnector(
+  integrationType: IntegrationType
+): Promise<void> {
+  const appClient = getAppClient();
+
+  const response = await appClient.delete(
+    `external-auth/integrations/${integrationType}/remove`,
+    {
+      throwHttpErrors: false,
+    }
+  );
+
+  if (!response.ok) {
+    const json = await response.json();
+    const errorResult = ApiErrorSchema.safeParse(json);
+    if (errorResult.success) {
+      throw new ConnectorApiError(errorResult.data.error);
+    }
+    throw new ConnectorApiError(
+      `Failed to remove connector: ${response.status} ${response.statusText}`
+    );
+  }
+}
+

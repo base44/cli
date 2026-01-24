@@ -3,6 +3,7 @@ import { confirm, select, isCancel } from "@clack/prompts";
 import {
   listConnectors,
   disconnectConnector,
+  removeConnector,
   isValidIntegration,
   getIntegrationDisplayName,
 } from "@core/connectors/index.js";
@@ -10,6 +11,10 @@ import type { IntegrationType, Connector } from "@core/connectors/index.js";
 import { runCommand, runTask } from "../../utils/index.js";
 import type { RunCommandResult } from "../../utils/runCommand.js";
 import { theme } from "../../utils/theme.js";
+
+interface RemoveOptions {
+  hard?: boolean;
+}
 
 async function promptForConnectorToRemove(
   connectors: Connector[]
@@ -32,8 +37,11 @@ async function promptForConnectorToRemove(
 }
 
 export async function removeConnectorCommand(
-  integrationType?: string
+  integrationType?: string,
+  options: RemoveOptions = {}
 ): Promise<RunCommandResult> {
+  const isHardDelete = options.hard === true;
+
   // Fetch current connectors to validate selection
   const connectors = await runTask(
     "Fetching connectors...",
@@ -88,9 +96,10 @@ export async function removeConnectorCommand(
     ? ` (${connector.accountInfo.email})`
     : "";
 
-  // Confirm removal
+  // Confirm removal with appropriate message
+  const actionWord = isHardDelete ? "Permanently remove" : "Disconnect";
   const shouldRemove = await confirm({
-    message: `Disconnect ${displayName}${accountInfo}?`,
+    message: `${actionWord} ${displayName}${accountInfo}?`,
     initialValue: false,
   });
 
@@ -98,28 +107,44 @@ export async function removeConnectorCommand(
     return { outroMessage: "Cancelled" };
   }
 
-  // Perform disconnection
+  // Perform disconnection or removal
+  const taskMessage = isHardDelete
+    ? `Removing ${displayName}...`
+    : `Disconnecting ${displayName}...`;
+  const successMessage = isHardDelete
+    ? `${displayName} removed`
+    : `${displayName} disconnected`;
+  const errorMessage = isHardDelete
+    ? `Failed to remove ${displayName}`
+    : `Failed to disconnect ${displayName}`;
+
   await runTask(
-    `Disconnecting ${displayName}...`,
+    taskMessage,
     async () => {
-      await disconnectConnector(selectedType);
+      if (isHardDelete) {
+        await removeConnector(selectedType);
+      } else {
+        await disconnectConnector(selectedType);
+      }
     },
     {
-      successMessage: `${displayName} disconnected`,
-      errorMessage: `Failed to disconnect ${displayName}`,
+      successMessage,
+      errorMessage,
     }
   );
 
+  const outroAction = isHardDelete ? "removed" : "disconnected";
   return {
-    outroMessage: `Successfully disconnected ${theme.styles.bold(displayName)}`,
+    outroMessage: `Successfully ${outroAction} ${theme.styles.bold(displayName)}`,
   };
 }
 
 export const connectorsRemoveCommand = new Command("connectors:remove")
   .argument("[type]", "Integration type to remove (e.g., slack, notion)")
+  .option("--hard", "Permanently remove the connector (cannot be undone)")
   .description("Disconnect an OAuth integration")
-  .action(async (type?: string) => {
-    await runCommand(() => removeConnectorCommand(type), {
+  .action(async (type: string | undefined, options: RemoveOptions) => {
+    await runCommand(() => removeConnectorCommand(type, options), {
       requireAuth: true,
       requireAppConfig: true,
     });
