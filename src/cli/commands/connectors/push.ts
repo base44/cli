@@ -6,7 +6,9 @@ import {
   readLocalConnectors,
   initiateOAuth,
   checkOAuthStatus,
+  disconnectConnector,
   getIntegrationDisplayName,
+  isValidIntegration,
 } from "@core/connectors/index.js";
 import type { IntegrationType, Connector, LocalConnector } from "@core/connectors/index.js";
 import { runCommand, runTask } from "../../utils/index.js";
@@ -20,6 +22,12 @@ interface PendingConnector {
   type: IntegrationType;
   displayName: string;
   scopes?: string[];
+}
+
+interface OrphanedConnector {
+  type: IntegrationType;
+  displayName: string;
+  accountEmail?: string;
 }
 
 function findPendingConnectors(
@@ -38,6 +46,23 @@ function findPendingConnectors(
       type: c.type,
       displayName: getIntegrationDisplayName(c.type),
       scopes: c.scopes,
+    }));
+}
+
+function findOrphanedConnectors(
+  local: LocalConnector[],
+  backend: Connector[]
+): OrphanedConnector[] {
+  const localTypes = new Set(local.map((c) => c.type));
+
+  return backend
+    .filter((c) => c.status.toLowerCase() === "active")
+    .filter((c) => !localTypes.has(c.integrationType))
+    .filter((c) => isValidIntegration(c.integrationType))
+    .map((c) => ({
+      type: c.integrationType,
+      displayName: getIntegrationDisplayName(c.integrationType),
+      accountEmail: (c.accountInfo?.email || c.accountInfo?.name) ?? undefined,
     }));
 }
 
@@ -123,29 +148,38 @@ export async function pushConnectorsCommand(): Promise<RunCommandResult> {
     }
   );
 
-  if (localConnectors.length === 0) {
-    log.info("No connectors defined in config");
-    log.info(`Run ${theme.styles.bold("base44 connectors add")} to add a connector.`);
-    return { outroMessage: "" };
-  }
-
   const pending = findPendingConnectors(localConnectors, backendConnectors);
+  const orphaned = findOrphanedConnectors(localConnectors, backendConnectors);
 
-  if (pending.length === 0) {
-    return { outroMessage: "All connectors are already connected" };
+  // Nothing to do
+  if (pending.length === 0 && orphaned.length === 0) {
+    return { outroMessage: "All connectors are in sync" };
   }
 
-  // Show what needs to be connected
+  // Show what will happen
   console.log();
-  log.info(`${pending.length} connector${pending.length === 1 ? "" : "s"} need${pending.length === 1 ? "s" : ""} to be connected:`);
-  for (const c of pending) {
-    console.log(`  ${theme.colors.warning("○")} ${c.displayName}`);
+
+  if (pending.length > 0) {
+    log.info(`${pending.length} connector${pending.length === 1 ? "" : "s"} to connect:`);
+    for (const c of pending) {
+      console.log(`  ${theme.colors.success("+")} ${c.displayName}`);
+    }
   }
+
+  if (orphaned.length > 0) {
+    log.info(`${orphaned.length} connector${orphaned.length === 1 ? "" : "s"} to remove:`);
+    for (const c of orphaned) {
+      const accountInfo = c.accountEmail ? ` (${c.accountEmail})` : "";
+      console.log(`  ${theme.colors.error("-")} ${c.displayName}${accountInfo}`);
+    }
+  }
+
   console.log();
 
   // Confirm
+  const totalChanges = pending.length + orphaned.length;
   const shouldProceed = await confirm({
-    message: `Connect ${pending.length} integration${pending.length === 1 ? "" : "s"}?`,
+    message: `Apply ${totalChanges} change${totalChanges === 1 ? "" : "s"}?`,
     initialValue: true,
   });
 
@@ -153,10 +187,23 @@ export async function pushConnectorsCommand(): Promise<RunCommandResult> {
     return { outroMessage: "Cancelled" };
   }
 
-  // Connect each one
   let connected = 0;
+  let removed = 0;
   let failed = 0;
 
+  // Remove orphaned connectors first
+  for (const connector of orphaned) {
+    try {
+      await disconnectConnector(connector.type);
+      log.success(`Removed ${connector.displayName}`);
+      removed++;
+    } catch (err) {
+      log.error(`Failed to remove ${connector.displayName}: ${err instanceof Error ? err.message : "Unknown error"}`);
+      failed++;
+    }
+  }
+
+  // Connect pending connectors
   for (const connector of pending) {
     console.log();
     log.info(`Connecting ${theme.styles.bold(connector.displayName)}...`);
@@ -175,15 +222,23 @@ export async function pushConnectorsCommand(): Promise<RunCommandResult> {
 
   console.log();
 
-  if (failed === 0) {
-    return { outroMessage: `Successfully connected ${connected} integration${connected === 1 ? "" : "s"}` };
+  // Build summary
+  const parts: string[] = [];
+  if (connected > 0) {
+    parts.push(`${connected} connected`);
+  }
+  if (removed > 0) {
+    parts.push(`${removed} removed`);
+  }
+  if (failed > 0) {
+    parts.push(`${failed} failed`);
   }
 
-  return { outroMessage: `Connected ${connected}, failed ${failed}` };
+  return { outroMessage: parts.join(", ") };
 }
 
 export const connectorsPushCommand = new Command("push")
-  .description("Connect all pending integrations from config")
+  .description("Sync connectors with backend (connect new, remove missing)")
   .action(async () => {
     await runCommand(pushConnectorsCommand, {
       requireAuth: true,
