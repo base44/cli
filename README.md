@@ -70,6 +70,36 @@ base44 deploy
 |---------|-------------|
 | `base44 site deploy` | Deploy built site files to Base44 hosting |
 
+### Connectors
+
+Manage OAuth integrations to connect your app with external services.
+
+| Command | Description |
+|---------|-------------|
+| `base44 connectors:add [type]` | Connect an OAuth integration (opens browser for auth) |
+| `base44 connectors:list` | List all connected integrations |
+| `base44 connectors:remove [type]` | Disconnect an integration |
+| `base44 connectors:remove [type] --hard` | Permanently remove an integration |
+
+**Supported integrations:** Slack, Google Calendar, Google Drive, Gmail, Google Sheets, Google Docs, Google Slides, Notion, Salesforce, HubSpot, LinkedIn, TikTok
+
+**Example:**
+```bash
+# Connect Slack (opens browser for OAuth)
+base44 connectors:add slack
+
+# List connected integrations
+base44 connectors:list
+
+# Disconnect Slack
+base44 connectors:remove slack
+```
+
+Once connected, use the SDK's `connectors.getAccessToken()` to retrieve tokens:
+```javascript
+const token = await base44.connectors.getAccessToken("slack");
+```
+
 ## Configuration
 
 ### Project Configuration
