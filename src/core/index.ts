@@ -3,7 +3,7 @@ export * from "./resources/index.js";
 export * from "./project/index.js";
 export * from "./clients/index.js";
 export * from "./site/index.js";
-export * from "./generate/index.js";
+export * from "./types/index.js";
 export * from "./utils/index.js";
 export * from "./errors.js";
 export * from "./consts.js";

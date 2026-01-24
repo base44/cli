@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import { log } from "@clack/prompts";
-import { generateTypes } from "@core/generate/index.js";
+import { generateTypes } from "@core/types/index.js";
 import { runCommand, runTask } from "../../utils/index.js";
 import type { RunCommandResult } from "../../utils/runCommand.js";
 import { relative } from "node:path";
