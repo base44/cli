@@ -14,11 +14,9 @@ export {
   addLocalConnector,
   removeLocalConnector,
   hasLocalConnector,
-  findConnectorsFile,
-  getDefaultConnectorsPath,
 } from "./config.js";
 
-export type { LocalConnector, ConnectorConfig, ConnectorsFile } from "./config.js";
+export type { LocalConnector } from "./config.js";
 
 // Schemas and types
 export {

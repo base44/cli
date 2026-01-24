@@ -21,16 +21,25 @@ const SiteConfigSchema = z.object({
   installCommand: z.string().optional(),
 });
 
+const ConnectorConfigSchema = z.object({
+  scopes: z.array(z.string()).optional(),
+});
+
+const ConnectorsConfigSchema = z.record(z.string(), ConnectorConfigSchema);
+
 export const ProjectConfigSchema = z.object({
   name: z.string().min(1, "App name cannot be empty"),
   description: z.string().optional(),
   site: SiteConfigSchema.optional(),
+  connectors: ConnectorsConfigSchema.optional(),
   entitiesDir: z.string().optional().default("entities"),
   functionsDir: z.string().optional().default("functions"),
   agentsDir: z.string().optional().default("agents"),
 });
 
 export type SiteConfig = z.infer<typeof SiteConfigSchema>;
+export type ConnectorConfig = z.infer<typeof ConnectorConfigSchema>;
+export type ConnectorsConfig = z.infer<typeof ConnectorsConfigSchema>;
 export type ProjectConfig = z.infer<typeof ProjectConfigSchema>;
 
 export const AppConfigSchema = z.object({

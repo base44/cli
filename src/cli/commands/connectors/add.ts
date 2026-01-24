@@ -127,7 +127,7 @@ export async function addConnector(
     // Still add to local config file
     await addLocalConnector(selectedType);
     return {
-      outroMessage: `Already connected to ${theme.styles.bold(displayName)} (added to connectors.jsonc)`,
+      outroMessage: `Already connected to ${theme.styles.bold(displayName)} (added to config)`,
     };
   }
 

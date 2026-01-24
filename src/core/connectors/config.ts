@@ -1,26 +1,8 @@
-import { join } from "node:path";
-import { globby } from "globby";
-import { z } from "zod";
+import { findProjectRoot } from "../project/config.js";
 import { readJsonFile, writeJsonFile } from "../utils/fs.js";
-import { PROJECT_SUBDIR, CONFIG_FILE_EXTENSION_GLOB } from "../consts.js";
 import { isValidIntegration } from "./constants.js";
 import type { IntegrationType } from "./constants.js";
-
-/**
- * Schema for a single connector configuration
- */
-export const ConnectorConfigSchema = z.object({
-  scopes: z.array(z.string()).optional(),
-});
-
-export type ConnectorConfig = z.infer<typeof ConnectorConfigSchema>;
-
-/**
- * Schema for the connectors.jsonc file
- */
-export const ConnectorsFileSchema = z.record(z.string(), ConnectorConfigSchema);
-
-export type ConnectorsFile = z.infer<typeof ConnectorsFileSchema>;
+import type { ConnectorsConfig } from "../project/schema.js";
 
 /**
  * Parsed connector with its type
@@ -30,59 +12,28 @@ export interface LocalConnector {
   scopes?: string[];
 }
 
-const CONNECTORS_FILE_PATTERNS = [
-  `${PROJECT_SUBDIR}/connectors.${CONFIG_FILE_EXTENSION_GLOB}`,
-  `connectors.${CONFIG_FILE_EXTENSION_GLOB}`,
-];
-
 /**
- * Find the connectors config file in the project
- */
-export async function findConnectorsFile(
-  startPath?: string
-): Promise<string | null> {
-  const cwd = startPath || process.cwd();
-
-  const files = await globby(CONNECTORS_FILE_PATTERNS, {
-    cwd,
-    absolute: true,
-  });
-
-  return files[0] ?? null;
-}
-
-/**
- * Get the default path for the connectors file
- */
-export function getDefaultConnectorsPath(projectRoot?: string): string {
-  const root = projectRoot || process.cwd();
-  return join(root, PROJECT_SUBDIR, "connectors.jsonc");
-}
-
-/**
- * Read all connectors from the local config file
+ * Read all connectors from the project config file
  */
 export async function readLocalConnectors(
   projectRoot?: string
 ): Promise<LocalConnector[]> {
-  const filePath = await findConnectorsFile(projectRoot);
+  const found = await findProjectRoot(projectRoot);
 
-  if (!filePath) {
+  if (!found) {
     return [];
   }
 
-  const parsed = await readJsonFile(filePath);
-  const result = ConnectorsFileSchema.safeParse(parsed);
+  const parsed = (await readJsonFile(found.configPath)) as Record<string, unknown>;
+  const connectorsData = parsed.connectors as ConnectorsConfig | undefined;
 
-  if (!result.success) {
-    throw new Error(
-      `Invalid connectors configuration: ${result.error.message}`
-    );
+  if (!connectorsData) {
+    return [];
   }
 
   const connectors: LocalConnector[] = [];
 
-  for (const [type, config] of Object.entries(result.data)) {
+  for (const [type, config] of Object.entries(connectorsData)) {
     if (!isValidIntegration(type)) {
       throw new Error(`Unknown connector type: ${type}`);
     }
@@ -97,33 +48,48 @@ export async function readLocalConnectors(
 }
 
 /**
- * Write connectors to the local config file
+ * Write connectors to the project config file
  */
 export async function writeLocalConnectors(
   connectors: LocalConnector[],
   projectRoot?: string
 ): Promise<string> {
-  let filePath = await findConnectorsFile(projectRoot);
+  const found = await findProjectRoot(projectRoot);
 
-  if (!filePath) {
-    filePath = getDefaultConnectorsPath(projectRoot);
+  if (!found) {
+    throw new Error("Project config not found. Run this command from a Base44 project directory.");
   }
 
-  const data: ConnectorsFile = {};
+  // Read existing config to preserve other fields
+  const existingConfig = (await readJsonFile(found.configPath)) as Record<string, unknown>;
+
+  // Build connectors object
+  const connectorsData: ConnectorsConfig = {};
 
   for (const connector of connectors) {
-    data[connector.type] = {
+    connectorsData[connector.type] = {
       ...(connector.scopes && { scopes: connector.scopes }),
     };
   }
 
-  await writeJsonFile(filePath, data);
+  // Update config with new connectors
+  const updatedConfig = {
+    ...existingConfig,
+    connectors: Object.keys(connectorsData).length > 0 ? connectorsData : undefined,
+  };
 
-  return filePath;
+  // Remove connectors key if empty
+  if (!updatedConfig.connectors) {
+    delete updatedConfig.connectors;
+  }
+
+  await writeJsonFile(found.configPath, updatedConfig);
+
+  return found.configPath;
 }
 
 /**
- * Add a connector to the local config file
+ * Add a connector to the project config file
  */
 export async function addLocalConnector(
   type: IntegrationType,
@@ -147,7 +113,7 @@ export async function addLocalConnector(
 }
 
 /**
- * Remove a connector from the local config file
+ * Remove a connector from the project config file
  */
 export async function removeLocalConnector(
   type: IntegrationType,
@@ -157,7 +123,7 @@ export async function removeLocalConnector(
   const filtered = connectors.filter((c) => c.type !== type);
 
   if (filtered.length === connectors.length) {
-    // Connector wasn't in the file
+    // Connector wasn't in the config
     return null;
   }
 
@@ -165,7 +131,7 @@ export async function removeLocalConnector(
 }
 
 /**
- * Check if a connector exists in the local config file
+ * Check if a connector exists in the project config file
  */
 export async function hasLocalConnector(
   type: IntegrationType,

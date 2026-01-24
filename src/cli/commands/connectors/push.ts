@@ -124,7 +124,7 @@ export async function pushConnectorsCommand(): Promise<RunCommandResult> {
   );
 
   if (localConnectors.length === 0) {
-    log.info("No connectors defined in connectors.jsonc");
+    log.info("No connectors defined in config");
     log.info(`Run ${theme.styles.bold("base44 connectors add")} to add a connector.`);
     return { outroMessage: "" };
   }
@@ -183,7 +183,7 @@ export async function pushConnectorsCommand(): Promise<RunCommandResult> {
 }
 
 export const connectorsPushCommand = new Command("push")
-  .description("Connect all pending integrations from connectors.jsonc")
+  .description("Connect all pending integrations from config")
   .action(async () => {
     await runCommand(pushConnectorsCommand, {
       requireAuth: true,
