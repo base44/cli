@@ -38,10 +38,11 @@ function mergeConnectors(
   // Add/update with backend connectors
   for (const connector of backend) {
     const existing = merged.get(connector.integrationType);
+    const accountEmail = (connector.accountInfo?.email || connector.accountInfo?.name) ?? undefined;
     if (existing) {
       existing.inBackend = true;
       existing.status = connector.status;
-      existing.accountEmail = connector.accountInfo?.email || connector.accountInfo?.name;
+      existing.accountEmail = accountEmail;
     } else {
       merged.set(connector.integrationType, {
         type: connector.integrationType,
@@ -49,7 +50,7 @@ function mergeConnectors(
         inLocal: false,
         inBackend: true,
         status: connector.status,
-        accountEmail: connector.accountInfo?.email || connector.accountInfo?.name,
+        accountEmail,
       });
     }
   }

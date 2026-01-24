@@ -52,7 +52,7 @@ async function waitForOAuthCompletion(
             const status = await checkOAuthStatus(integrationType, connectionId);
 
             if (status.status === "ACTIVE") {
-              accountEmail = status.accountEmail;
+              accountEmail = status.accountEmail ?? undefined;
               return true;
             }
 

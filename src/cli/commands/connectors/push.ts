@@ -81,7 +81,7 @@ async function connectSingleConnector(
         const status = await checkOAuthStatus(type, initiateResponse.connection_id!);
 
         if (status.status === "ACTIVE") {
-          accountEmail = status.accountEmail;
+          accountEmail = status.accountEmail ?? undefined;
           return true;
         }
 

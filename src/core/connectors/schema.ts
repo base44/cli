@@ -4,11 +4,11 @@ import { z } from "zod";
  * Response from POST /api/apps/{app_id}/external-auth/initiate
  */
 export const InitiateResponseSchema = z.object({
-  redirect_url: z.string().optional(),
-  connection_id: z.string().optional(),
-  already_authorized: z.boolean().optional(),
-  other_user_email: z.string().optional(),
-  error: z.string().optional(),
+  redirect_url: z.string().nullish(),
+  connection_id: z.string().nullish(),
+  already_authorized: z.boolean().nullish(),
+  other_user_email: z.string().nullish(),
+  error: z.string().nullish(),
 });
 
 export type InitiateResponse = z.infer<typeof InitiateResponseSchema>;
@@ -19,8 +19,8 @@ export type InitiateResponse = z.infer<typeof InitiateResponseSchema>;
 export const StatusResponseSchema = z
   .object({
     status: z.enum(["ACTIVE", "PENDING", "FAILED"]),
-    account_email: z.string().optional(),
-    error: z.string().optional(),
+    account_email: z.string().nullish(),
+    error: z.string().nullish(),
   })
   .transform((data) => ({
     status: data.status,
@@ -37,13 +37,13 @@ export const ConnectorSchema = z
   .object({
     integration_type: z.string(),
     status: z.string(),
-    connected_at: z.string().optional(),
+    connected_at: z.string().nullish(),
     account_info: z
       .object({
-        email: z.string().optional(),
-        name: z.string().optional(),
+        email: z.string().nullish(),
+        name: z.string().nullish(),
       })
-      .optional(),
+      .nullish(),
   })
   .transform((data) => ({
     integrationType: data.integration_type,
@@ -68,7 +68,7 @@ export type ListResponse = z.infer<typeof ListResponseSchema>;
  */
 export const ApiErrorSchema = z.object({
   error: z.string(),
-  detail: z.string().optional(),
+  detail: z.string().nullish(),
 });
 
 export type ApiError = z.infer<typeof ApiErrorSchema>;
