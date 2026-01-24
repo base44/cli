@@ -43,8 +43,30 @@ base44 deploy
 | Command | Description |
 |---------|-------------|
 | `base44 create` | Create a new Base44 project from a template |
-| `base44 link` | Link an existing local project to Base44 |
+| `base44 link` | Link a local project to Base44 (create new or link existing) |
 | `base44 dashboard` | Open the app dashboard in your browser |
+
+#### Link Command Options
+
+The `link` command supports both creating new projects and linking to existing ones:
+
+```bash
+# Interactive mode - choose to create new or link existing
+base44 link
+
+# Create a new project (non-interactive)
+base44 link --create --name "my-app" --description "My app description"
+
+# Link to an existing project by ID (non-interactive)
+base44 link --existing <app-id>
+```
+
+| Option | Description |
+|--------|-------------|
+| `-c, --create` | Create a new project (skip selection prompt) |
+| `-e, --existing <id>` | Link to an existing project by ID |
+| `-n, --name <name>` | Project name (required with --create) |
+| `-d, --description <desc>` | Project description (optional) |
 
 ### Deployment
 
