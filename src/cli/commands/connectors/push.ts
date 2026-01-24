@@ -1,7 +1,6 @@
 import { Command } from "commander";
 import { log, confirm, isCancel } from "@clack/prompts";
 import pWaitFor from "p-wait-for";
-import open from "open";
 import {
   listConnectors,
   readLocalConnectors,
@@ -68,9 +67,10 @@ async function connectSingleConnector(
     return { success: false, error: "Invalid response from server" };
   }
 
-  // Open browser for OAuth
-  log.info(`Opening browser for ${displayName} authorization...`);
-  await open(initiateResponse.redirect_url);
+  // Show authorization URL
+  log.info(
+    `Please authorize ${displayName} at:\n${theme.colors.links(initiateResponse.redirect_url)}`
+  );
 
   // Poll for completion
   let accountEmail: string | undefined;

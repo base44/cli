@@ -1,7 +1,6 @@
 import { Command } from "commander";
 import { log, select, isCancel } from "@clack/prompts";
 import pWaitFor from "p-wait-for";
-import open from "open";
 import {
   initiateOAuth,
   checkOAuthStatus,
@@ -144,9 +143,10 @@ export async function addConnector(
     throw new Error("Invalid response from server: missing redirect URL or connection ID");
   }
 
-  // Open browser for OAuth
-  log.info(`Opening browser for ${displayName} authorization...`);
-  await open(initiateResponse.redirect_url);
+  // Show authorization URL
+  log.info(
+    `Please authorize ${displayName} at:\n${theme.colors.links(initiateResponse.redirect_url)}`
+  );
 
   // Poll for completion
   const result = await waitForOAuthCompletion(
