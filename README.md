@@ -70,6 +70,93 @@ base44 deploy
 |---------|-------------|
 | `base44 site deploy` | Deploy built site files to Base44 hosting |
 
+### Types
+
+| Command | Description |
+|---------|-------------|
+| `base44 types` | Generate TypeScript types from entity schemas |
+
+**Options:**
+- `-o, --output <dir>` - Output directory (default: `src/base44`)
+- `--entities-only` - Only generate entity types, skip client types
+
+## TypeScript Type Generation
+
+Generate fully-typed interfaces from your entity schemas for type-safe SDK usage.
+
+### Usage
+
+```bash
+# Generate types (outputs to src/base44/)
+base44 types
+
+# Custom output directory
+base44 types --output ./types
+```
+
+### Generated Files
+
+| File | Contents |
+|------|----------|
+| `entities.ts` | Entity interfaces, CreateInput, UpdateInput, Filter types |
+| `client.ts` | Typed SDK client interface |
+| `index.ts` | Barrel exports |
+
+### Setup with @base44/sdk
+
+1. Generate types:
+   ```bash
+   base44 types
+   ```
+
+2. Add to `tsconfig.json`:
+   ```json
+   {
+     "include": ["src", "src/base44/entities.ts"]
+   }
+   ```
+
+3. Use in your code:
+   ```typescript
+   import { createClient } from '@base44/sdk';
+   import type { TypedBase44Client } from './base44/client';
+
+   const base44 = createClient({ appId: 'my-app' }) as TypedBase44Client;
+
+   // Fully typed!
+   const { items: tasks } = await base44.entities.Task.list();
+   await base44.entities.Task.create({ title: 'Buy milk' });
+   ```
+
+### Example
+
+Given an entity schema:
+```jsonc
+// base44/entities/task.jsonc
+{
+  "name": "Task",
+  "type": "object",
+  "properties": {
+    "title": { "type": "string", "description": "Task title" },
+    "completed": { "type": "boolean", "default": false }
+  },
+  "required": ["title"]
+}
+```
+
+Generated types:
+```typescript
+export interface Task extends BaseEntity {
+  title: string;
+  completed?: boolean;
+}
+
+export interface TaskCreateInput {
+  title: string;
+  completed?: boolean;
+}
+```
+
 ## Configuration
 
 ### Project Configuration
@@ -115,7 +202,12 @@ my-project/
 │       └── my-function/
 │           ├── config.jsonc
 │           └── index.js
-├── src/                       # Your frontend code
+├── src/
+│   ├── base44/                # Generated types (from `base44 types`)
+│   │   ├── entities.ts
+│   │   ├── client.ts
+│   │   └── index.ts
+│   └── ...                    # Your frontend code
 ├── dist/                      # Built site files (for deployment)
 └── package.json
 ```
