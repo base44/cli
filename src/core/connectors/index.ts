@@ -11,6 +11,10 @@ export {
 export { waitForOAuthCompletion } from "./oauth.js";
 export type { OAuthCompletionResult } from "./oauth.js";
 
+// State utilities
+export { fetchConnectorState } from "./state.js";
+export type { ConnectorState } from "./state.js";
+
 // Local config functions
 export {
   readLocalConnectors,

@@ -1,8 +1,7 @@
 import { Command } from "commander";
 import { log } from "@clack/prompts";
 import {
-  listConnectors,
-  readLocalConnectors,
+  fetchConnectorState,
   getIntegrationDisplayName,
 } from "@core/connectors/index.js";
 import type { Connector, LocalConnector } from "@core/connectors/index.js";
@@ -91,15 +90,9 @@ function formatConnectorLine(connector: MergedConnector): string {
 
 export async function listConnectorsCommand(): Promise<RunCommandResult> {
   // Fetch both local and backend connectors in parallel
-  const [localConnectors, backendConnectors] = await runTask(
+  const { local: localConnectors, backend: backendConnectors } = await runTask(
     "Fetching connectors...",
-    async () => {
-      const [local, backend] = await Promise.all([
-        readLocalConnectors().catch(() => [] as LocalConnector[]),
-        listConnectors().catch(() => [] as Connector[]),
-      ]);
-      return [local, backend] as const;
-    },
+    fetchConnectorState,
     {
       successMessage: "Connectors loaded",
       errorMessage: "Failed to fetch connectors",

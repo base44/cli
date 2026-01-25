@@ -1,8 +1,7 @@
 import { Command } from "commander";
 import { cancel, confirm, select, isCancel } from "@clack/prompts";
 import {
-  listConnectors,
-  readLocalConnectors,
+  fetchConnectorState,
   removeLocalConnector,
   disconnectConnector,
   removeConnector,
@@ -121,15 +120,9 @@ export async function removeConnectorCommand(
   const isHardDelete = options.hard === true;
 
   // Fetch both local and backend connectors
-  const [localConnectors, backendConnectors] = await runTask(
+  const { local: localConnectors, backend: backendConnectors } = await runTask(
     "Fetching connectors...",
-    async () => {
-      const [local, backend] = await Promise.all([
-        readLocalConnectors().catch(() => [] as LocalConnector[]),
-        listConnectors().catch(() => [] as Connector[]),
-      ]);
-      return [local, backend] as const;
-    },
+    fetchConnectorState,
     {
       successMessage: "Connectors loaded",
       errorMessage: "Failed to fetch connectors",

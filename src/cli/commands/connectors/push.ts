@@ -1,8 +1,7 @@
 import { Command } from "commander";
 import { log, confirm, isCancel } from "@clack/prompts";
 import {
-  listConnectors,
-  readLocalConnectors,
+  fetchConnectorState,
   initiateOAuth,
   waitForOAuthCompletion,
   disconnectConnector,
@@ -108,15 +107,9 @@ async function connectSingleConnector(
 
 export async function pushConnectorsCommand(): Promise<RunCommandResult> {
   // Fetch both local and backend connectors
-  const [localConnectors, backendConnectors] = await runTask(
+  const { local: localConnectors, backend: backendConnectors } = await runTask(
     "Checking connector status...",
-    async () => {
-      const [local, backend] = await Promise.all([
-        readLocalConnectors(),
-        listConnectors().catch(() => [] as Connector[]),
-      ]);
-      return [local, backend] as const;
-    },
+    fetchConnectorState,
     {
       successMessage: "Status checked",
       errorMessage: "Failed to check status",
