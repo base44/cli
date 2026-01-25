@@ -101,31 +101,40 @@ async function connectSingleConnector(
   let accountEmail: string | undefined;
 
   try {
-    await pWaitFor(
+    await runTask(
+      "Waiting for authorization...",
       async () => {
-        const status = await checkOAuthStatus(type, initiateResponse.connection_id!);
+        await pWaitFor(
+          async () => {
+            const status = await checkOAuthStatus(type, initiateResponse.connection_id!);
 
-        if (status.status === "ACTIVE") {
-          accountEmail = status.accountEmail ?? undefined;
-          return true;
-        }
+            if (status.status === "ACTIVE") {
+              accountEmail = status.accountEmail ?? undefined;
+              return true;
+            }
 
-        if (status.status === "FAILED") {
-          throw new Error(status.error || "Authorization failed");
-        }
+            if (status.status === "FAILED") {
+              throw new Error(status.error || "Authorization failed");
+            }
 
-        return false;
+            return false;
+          },
+          {
+            interval: POLL_INTERVAL_MS,
+            timeout: POLL_TIMEOUT_MS,
+          }
+        );
       },
       {
-        interval: POLL_INTERVAL_MS,
-        timeout: POLL_TIMEOUT_MS,
+        successMessage: "Authorization completed!",
+        errorMessage: "Authorization failed",
       }
     );
 
     return { success: true, accountEmail };
   } catch (err) {
     if (err instanceof Error && err.message.includes("timed out")) {
-      return { success: false, error: "Authorization timed out" };
+      return { success: false, error: "Authorization timed out. Please try again." };
     }
     return { success: false, error: err instanceof Error ? err.message : "Unknown error" };
   }
