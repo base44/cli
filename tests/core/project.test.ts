@@ -12,6 +12,7 @@ describe("readProjectConfig", () => {
     expect(result.project.name).toBe("Basic Test Project");
     expect(result.entities).toEqual([]);
     expect(result.functions).toEqual([]);
+    expect(result.agents).toEqual([]);
   });
 
   it("reads project with entities", async () => {
@@ -23,6 +24,7 @@ describe("readProjectConfig", () => {
     expect(result.entities.map((e) => e.name)).toContain("User");
     expect(result.entities.map((e) => e.name)).toContain("Product");
     expect(result.functions).toEqual([]);
+    expect(result.agents).toEqual([]);
   });
 
   it("reads project with functions and entities", async () => {
@@ -35,6 +37,23 @@ describe("readProjectConfig", () => {
     expect(result.functions).toHaveLength(1);
     expect(result.functions[0].name).toBe("process-order");
     expect(result.functions[0].entry).toBe("index.ts");
+    expect(result.agents).toEqual([]);
+  });
+
+  it("reads project with agents", async () => {
+    const result = await readProjectConfig(
+      resolve(FIXTURES_DIR, "with-agents")
+    );
+
+    expect(result.agents).toHaveLength(2);
+    expect(result.agents.map((a) => a.name)).toContain("support_agent");
+    expect(result.agents.map((a) => a.name)).toContain("sales_agent");
+
+    const salesAgent = result.agents.find((a) => a.name === "sales_agent");
+    expect(salesAgent?.tool_configs).toHaveLength(1);
+    expect(salesAgent?.whatsapp_greeting).toBe(
+      "Welcome! How can I help you today?"
+    );
   });
 
   // Error cases
@@ -60,5 +79,17 @@ describe("readProjectConfig", () => {
     await expect(
       readProjectConfig(resolve(FIXTURES_DIR, "invalid-entity"))
     ).rejects.toThrow(/Invalid entity configuration/);
+  });
+
+  it("throws on invalid agent file", async () => {
+    await expect(
+      readProjectConfig(resolve(FIXTURES_DIR, "invalid-agent"))
+    ).rejects.toThrow(/Invalid agent configuration/);
+  });
+
+  it("throws on duplicate agent names", async () => {
+    await expect(
+      readProjectConfig(resolve(FIXTURES_DIR, "duplicate-agent-names"))
+    ).rejects.toThrow(/Duplicate agent name/);
   });
 });

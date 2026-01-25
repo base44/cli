@@ -3,6 +3,7 @@ import { loginCommand } from "./commands/auth/login.js";
 import { whoamiCommand } from "./commands/auth/whoami.js";
 import { logoutCommand } from "./commands/auth/logout.js";
 import { entitiesPushCommand } from "./commands/entities/push.js";
+import { agentsCommand } from "./commands/agents/push.js";
 import { functionsDeployCommand } from "./commands/functions/deploy.js";
 import { createCommand } from "./commands/project/create.js";
 import { dashboardCommand } from "./commands/project/dashboard.js";
@@ -37,6 +38,9 @@ program.addCommand(linkCommand);
 
 // Register entities commands
 program.addCommand(entitiesPushCommand);
+
+// Register agents commands
+program.addCommand(agentsCommand);
 
 // Register functions commands
 program.addCommand(functionsDeployCommand);
