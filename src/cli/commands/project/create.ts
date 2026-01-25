@@ -246,7 +246,7 @@ async function executeCreate({
     });
 
     if (!isCancel(result)) {
-      selectedAgents = result as string[];
+      selectedAgents = result;
     }
   } else if (skills) {
     selectedAgents = SUPPORTED_AGENTS.map((agent) => agent.value);
@@ -254,10 +254,10 @@ async function executeCreate({
 
   if (selectedAgents.length > 0) {
     const agentArgs = selectedAgents.flatMap((agent) => ["-a", agent]);
-    log.step("Installing skills for: " + selectedAgents.join(", "));
+    log.step(`Installing skills for: ${selectedAgents.join(", ")}`);
 
     await runTask(
-      "Installing skills for: " + selectedAgents.join(", "),
+      `Installing skills for: ${selectedAgents.join(", ")}`,
       async () => {
         await execa("npx", [
           "-y", "add-skill", "base44/skills",
