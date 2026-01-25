@@ -1,13 +1,10 @@
 import { Command } from "commander";
 import { cancel, log, select, isCancel } from "@clack/prompts";
-import pWaitFor from "p-wait-for";
 import {
   initiateOAuth,
-  checkOAuthStatus,
   addLocalConnector,
+  waitForOAuthCompletion,
   SUPPORTED_INTEGRATIONS,
-  OAUTH_POLL_INTERVAL_MS,
-  OAUTH_POLL_TIMEOUT_MS,
   isValidIntegration,
   getIntegrationDisplayName,
 } from "@core/connectors/index.js";
@@ -45,54 +42,20 @@ async function promptForIntegrationType(): Promise<IntegrationType> {
   return selected;
 }
 
-async function waitForOAuthCompletion(
+async function pollForOAuthCompletion(
   integrationType: IntegrationType,
   connectionId: string
 ): Promise<{ success: boolean; accountEmail?: string; error?: string }> {
-  let accountEmail: string | undefined;
-  let error: string | undefined;
-
-  try {
-    await runTask(
-      "Waiting for authorization...",
-      async (updateMessage) => {
-        await pWaitFor(
-          async () => {
-            const status = await checkOAuthStatus(integrationType, connectionId);
-
-            if (status.status === "ACTIVE") {
-              accountEmail = status.accountEmail ?? undefined;
-              return true;
-            }
-
-            if (status.status === "FAILED") {
-              error = status.error || "Authorization failed";
-              throw new Error(error);
-            }
-
-            // PENDING - continue polling
-            updateMessage("Waiting for authorization in browser...");
-            return false;
-          },
-          {
-            interval: OAUTH_POLL_INTERVAL_MS,
-            timeout: OAUTH_POLL_TIMEOUT_MS,
-          }
-        );
-      },
-      {
-        successMessage: "Authorization completed!",
-        errorMessage: "Authorization failed",
-      }
-    );
-
-    return { success: true, accountEmail };
-  } catch (err) {
-    if (err instanceof Error && err.message.includes("timed out")) {
-      return { success: false, error: "Authorization timed out. Please try again." };
+  return await runTask(
+    "Waiting for authorization...",
+    async () => {
+      return await waitForOAuthCompletion(integrationType, connectionId);
+    },
+    {
+      successMessage: "Authorization completed!",
+      errorMessage: "Authorization failed",
     }
-    return { success: false, error: error || (err instanceof Error ? err.message : "Unknown error") };
-  }
+  );
 }
 
 export async function addConnector(
@@ -144,7 +107,7 @@ export async function addConnector(
   );
 
   // Poll for completion
-  const result = await waitForOAuthCompletion(
+  const result = await pollForOAuthCompletion(
     selectedType,
     initiateResponse.connection_id
   );

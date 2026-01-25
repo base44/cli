@@ -7,6 +7,10 @@ export {
   removeConnector,
 } from "./api.js";
 
+// OAuth flow utilities
+export { waitForOAuthCompletion } from "./oauth.js";
+export type { OAuthCompletionResult } from "./oauth.js";
+
 // Local config functions
 export {
   readLocalConnectors,

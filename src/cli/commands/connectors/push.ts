@@ -1,16 +1,13 @@
 import { Command } from "commander";
 import { log, confirm, isCancel } from "@clack/prompts";
-import pWaitFor from "p-wait-for";
 import {
   listConnectors,
   readLocalConnectors,
   initiateOAuth,
-  checkOAuthStatus,
+  waitForOAuthCompletion,
   disconnectConnector,
   getIntegrationDisplayName,
   isValidIntegration,
-  OAUTH_POLL_INTERVAL_MS,
-  OAUTH_POLL_TIMEOUT_MS,
 } from "@core/connectors/index.js";
 import type { IntegrationType, Connector, LocalConnector } from "@core/connectors/index.js";
 import { runCommand, runTask } from "../../utils/index.js";
@@ -96,47 +93,17 @@ async function connectSingleConnector(
     `Please authorize ${displayName} at:\n${theme.colors.links(initiateResponse.redirect_url)}`
   );
 
-  // Poll for completion
-  let accountEmail: string | undefined;
-
-  try {
-    await runTask(
-      "Waiting for authorization...",
-      async () => {
-        await pWaitFor(
-          async () => {
-            const status = await checkOAuthStatus(type, initiateResponse.connection_id!);
-
-            if (status.status === "ACTIVE") {
-              accountEmail = status.accountEmail ?? undefined;
-              return true;
-            }
-
-            if (status.status === "FAILED") {
-              throw new Error(status.error || "Authorization failed");
-            }
-
-            return false;
-          },
-          {
-            interval: OAUTH_POLL_INTERVAL_MS,
-            timeout: OAUTH_POLL_TIMEOUT_MS,
-          }
-        );
-      },
-      {
-        successMessage: "Authorization completed!",
-        errorMessage: "Authorization failed",
-      }
-    );
-
-    return { success: true, accountEmail };
-  } catch (err) {
-    if (err instanceof Error && err.message.includes("timed out")) {
-      return { success: false, error: "Authorization timed out. Please try again." };
+  // Poll for completion using shared utility
+  return await runTask(
+    "Waiting for authorization...",
+    async () => {
+      return await waitForOAuthCompletion(type, initiateResponse.connection_id!);
+    },
+    {
+      successMessage: "Authorization completed!",
+      errorMessage: "Authorization failed",
     }
-    return { success: false, error: err instanceof Error ? err.message : "Unknown error" };
-  }
+  );
 }
 
 export async function pushConnectorsCommand(): Promise<RunCommandResult> {
