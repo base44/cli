@@ -1,18 +1,43 @@
 import { Command } from "commander";
 import open from "open";
-import { runCommand, getDashboardUrl } from "../../utils/index.js";
+import { runCommand, getDashboardUrl, isJsonMode } from "../../utils/index.js";
 import type { RunCommandResult } from "../../utils/runCommand.js";
 
-async function openDashboard(): Promise<RunCommandResult> {
+interface DashboardOptions {
+  open?: boolean;
+}
+
+/**
+ * JSON output result for the dashboard command.
+ */
+interface DashboardResult {
+  /** The URL to the project dashboard. */
+  dashboardUrl: string;
+}
+
+async function openDashboard(options: DashboardOptions): Promise<RunCommandResult<DashboardResult>> {
   const dashboardUrl = getDashboardUrl();
 
-  await open(dashboardUrl);
+  // Skip opening browser in JSON mode or with --no-open flag
+  const shouldOpen = !isJsonMode() && options.open !== false;
 
-  return { outroMessage: `Dashboard opened at ${dashboardUrl}` };
+  if (shouldOpen) {
+    await open(dashboardUrl);
+  }
+
+  return {
+    outroMessage: shouldOpen
+      ? `Dashboard opened at ${dashboardUrl}`
+      : `Dashboard URL: ${dashboardUrl}`,
+    data: {
+      dashboardUrl,
+    },
+  };
 }
 
 export const dashboardCommand = new Command("dashboard")
   .description("Open the app dashboard in your browser")
-  .action(async () => {
-    await runCommand(openDashboard, { requireAuth: true });
+  .option("--no-open", "Print the URL without opening the browser")
+  .action(async (options: DashboardOptions) => {
+    await runCommand(() => openDashboard(options), { requireAuth: true });
   });

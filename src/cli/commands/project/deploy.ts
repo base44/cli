@@ -1,23 +1,54 @@
 import { Command } from "commander";
-import { confirm, isCancel, log } from "@clack/prompts";
+import { confirm, isCancel } from "@clack/prompts";
 import {
   readProjectConfig,
   deployAll,
   hasResourcesToDeploy,
 } from "@core/project/index.js";
-import { runCommand, runTask, theme, getDashboardUrl } from "../../utils/index.js";
+import { runCommand, runTask, theme, getDashboardUrl, isJsonMode, log } from "../../utils/index.js";
 import type { RunCommandResult } from "../../utils/runCommand.js";
 
 interface DeployOptions {
   yes?: boolean;
 }
 
-async function deployAction(options: DeployOptions): Promise<RunCommandResult> {
+/**
+ * JSON output result for the deploy command.
+ */
+interface DeployResult {
+  /** The URL to the project dashboard. */
+  dashboardUrl: string;
+  /** The public URL where the site is hosted (if site was deployed). */
+  appUrl?: string;
+  /** Number of entities deployed. */
+  entitiesCount: number;
+  /** Number of functions deployed. */
+  functionsCount: number;
+  /** Whether the site was deployed. */
+  siteDeployed: boolean;
+  /** True if the deployment was cancelled by the user. */
+  cancelled?: boolean;
+}
+
+function validateNonInteractiveFlags(command: Command): void {
+  const opts = command.optsWithGlobals<DeployOptions & { json?: boolean }>();
+  if (opts.json && !opts.yes) {
+    throw new Error("JSON mode requires: --yes (-y) to skip confirmation");
+  }
+}
+
+async function deployAction(options: DeployOptions): Promise<RunCommandResult<DeployResult>> {
   const projectData = await readProjectConfig();
 
   if (!hasResourcesToDeploy(projectData)) {
     return {
       outroMessage: "No resources found to deploy",
+      data: {
+        dashboardUrl: getDashboardUrl(),
+        entitiesCount: 0,
+        functionsCount: 0,
+        siteDeployed: false,
+      },
     };
   }
 
@@ -35,7 +66,7 @@ async function deployAction(options: DeployOptions): Promise<RunCommandResult> {
     summaryLines.push(`  - Site from ${project.site.outputDirectory}`);
   }
 
-  // Confirmation prompt
+  // Confirmation prompt (skipped in JSON mode due to validateNonInteractiveFlags)
   if (!options.yes) {
     log.warn(
       `This will update your Base44 app with:\n${summaryLines.join("\n")}`
@@ -46,9 +77,18 @@ async function deployAction(options: DeployOptions): Promise<RunCommandResult> {
     });
 
     if (isCancel(shouldDeploy) || !shouldDeploy) {
-      return { outroMessage: "Deployment cancelled" };
+      return {
+        outroMessage: "Deployment cancelled",
+        data: {
+          dashboardUrl: getDashboardUrl(),
+          entitiesCount: entities.length,
+          functionsCount: functions.length,
+          siteDeployed: false,
+          cancelled: true,
+        },
+      };
     }
-  } else {
+  } else if (!isJsonMode()) {
     log.info(`Deploying:\n${summaryLines.join("\n")}`);
   }
 
@@ -63,17 +103,29 @@ async function deployAction(options: DeployOptions): Promise<RunCommandResult> {
     }
   );
 
-  log.message(`${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl())}`);
+  const dashboardUrl = getDashboardUrl();
+
+  log.message(`${theme.styles.header("Dashboard")}: ${theme.colors.links(dashboardUrl)}`);
   if (result.appUrl) {
     log.message(`${theme.styles.header("App URL")}: ${theme.colors.links(result.appUrl)}`);
   }
 
-  return { outroMessage: "App deployed successfully" };
+  return {
+    outroMessage: "App deployed successfully",
+    data: {
+      dashboardUrl,
+      appUrl: result.appUrl,
+      entitiesCount: entities.length,
+      functionsCount: functions.length,
+      siteDeployed: !!project.site?.outputDirectory,
+    },
+  };
 }
 
 export const deployCommand = new Command("deploy")
   .description("Deploy all project resources (entities, functions, and site)")
   .option("-y, --yes", "Skip confirmation prompt")
+  .hook("preAction", validateNonInteractiveFlags)
   .action(async (options: DeployOptions) => {
     await runCommand(() => deployAction(options), { requireAuth: true });
   });

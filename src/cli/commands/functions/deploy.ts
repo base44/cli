@@ -1,17 +1,27 @@
 import { Command } from "commander";
-import { log } from "@clack/prompts";
 import { pushFunctions } from "@core/resources/function/index.js";
 import { readProjectConfig } from "@core/index.js";
-import { runCommand, runTask } from "../../utils/index.js";
+import { runCommand, runTask, log } from "../../utils/index.js";
 import type { RunCommandResult } from "../../utils/runCommand.js";
 
-async function deployFunctionsAction(): Promise<RunCommandResult> {
+/**
+ * JSON output result for the functions deploy command.
+ */
+interface FunctionsDeployResult {
+  /** Names of functions that were successfully deployed. */
+  deployed: string[];
+  /** Names of functions that were deleted from the server. */
+  deleted: string[];
+}
+
+async function deployFunctionsAction(): Promise<RunCommandResult<FunctionsDeployResult>> {
   const { functions } = await readProjectConfig();
 
   if (functions.length === 0) {
     return {
       outroMessage:
         "No functions found. Create functions in the 'functions' directory.",
+      data: { deployed: [], deleted: [] },
     };
   }
 
@@ -36,6 +46,7 @@ async function deployFunctionsAction(): Promise<RunCommandResult> {
   if (result.deleted.length > 0) {
     log.warn(`Deleted: ${result.deleted.join(", ")}`);
   }
+
   if (result.errors && result.errors.length > 0) {
     const errorMessages = result.errors
       .map((e) => `'${e.name}' function: ${e.message}`)
@@ -43,7 +54,12 @@ async function deployFunctionsAction(): Promise<RunCommandResult> {
     throw new Error(`Function deployment errors:\n${errorMessages}`);
   }
 
-  return {};
+  return {
+    data: {
+      deployed: result.deployed,
+      deleted: result.deleted,
+    },
+  };
 }
 
 export const functionsDeployCommand = new Command("functions")

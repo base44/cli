@@ -5,6 +5,7 @@ import { CLIExitError } from "../errors.js";
 import { printBanner } from "./banner.js";
 import { login } from "../commands/auth/login.js";
 import { theme } from "./theme.js";
+import { isJsonMode, outputJson, outputJsonError } from "./json.js";
 
 export interface RunCommandOptions {
   /**
@@ -27,9 +28,25 @@ export interface RunCommandOptions {
   requireAppConfig?: boolean;
 }
 
-export interface RunCommandResult {
+/**
+ * Result returned by command functions.
+ *
+ * @template TData - The shape of the JSON output data. Use `never` for commands
+ *                   that don't support `--json` output (e.g., login, logout).
+ */
+export interface RunCommandResult<TData = Record<string, unknown>> {
+  /**
+   * Human-friendly message displayed in the outro (non-JSON mode only).
+   */
   outroMessage?: string;
-};
+  /**
+   * Structured data for JSON output. When `--json` flag is used,
+   * this data is output as `{ success: true, data: ... }`.
+   *
+   * Commands that don't support `--json` should use `never` for TData.
+   */
+  data?: TData;
+}
 
 /**
  * Wraps a command function with the Base44 intro/outro and error handling.
@@ -61,17 +78,22 @@ export interface RunCommandResult {
  *     await runCommand(myAction, { requireAuth: true, fullBanner: true });
  *   });
  */
-export async function runCommand(
-  commandFn: () => Promise<RunCommandResult>,
+export async function runCommand<TData = Record<string, unknown>>(
+  commandFn: () => Promise<RunCommandResult<TData>>,
   options?: RunCommandOptions
 ): Promise<void> {
-  console.log();
+  const jsonMode = isJsonMode();
 
-  if (options?.fullBanner) {
-    await printBanner();
-    intro("");
-  } else {
-    intro(theme.colors.base44OrangeBackground(" Base 44 "));
+  // Skip visual elements in JSON mode
+  if (!jsonMode) {
+    console.log();
+
+    if (options?.fullBanner) {
+      await printBanner();
+      intro("");
+    } else {
+      intro(theme.colors.base44OrangeBackground(" Base 44 "));
+    }
   }
 
   try {
@@ -80,6 +102,9 @@ export async function runCommand(
       const loggedIn = await isLoggedIn();
 
       if (!loggedIn) {
+        if (jsonMode) {
+          throw new Error("Authentication required. Please run 'base44 login' first.");
+        }
         log.info("You need to login first to continue.");
         await login();
       }
@@ -90,13 +115,25 @@ export async function runCommand(
       await initAppConfig();
     }
 
-    const { outroMessage } = await commandFn();
-    outro(outroMessage || "");
-  } catch (e) {
-    if (e instanceof Error) {
-      log.error(e.stack ?? e.message);
+    const { outroMessage, data } = await commandFn();
+
+    if (jsonMode) {
+      // Output JSON response
+      outputJson(data ?? {});
     } else {
-      log.error(String(e));
+      // Output human-friendly outro
+      outro(outroMessage || "");
+    }
+  } catch (e) {
+    if (jsonMode) {
+      // Output JSON error
+      outputJsonError(e instanceof Error ? e : String(e));
+    } else {
+      if (e instanceof Error) {
+        log.error(e.stack ?? e.message);
+      } else {
+        log.error(String(e));
+      }
     }
     throw new CLIExitError(1);
   }

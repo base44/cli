@@ -1,5 +1,4 @@
 import { Command } from "commander";
-import { log } from "@clack/prompts";
 import pWaitFor from "p-wait-for";
 import {
   writeAuth,
@@ -12,9 +11,14 @@ import type {
   TokenResponse,
   UserInfoResponse,
 } from "@core/auth/index.js";
-import { runCommand, runTask } from "../../utils/index.js";
+import { runCommand, runTask, log } from "../../utils/index.js";
 import type { RunCommandResult } from "../../utils/runCommand.js";
 import { theme } from "../../utils/theme.js";
+
+/**
+ * Login command does not support --json output.
+ * It requires interactive browser authentication via device code flow.
+ */
 
 async function generateAndDisplayDeviceCode(): Promise<DeviceCodeResponse> {
   const deviceCodeResponse = await runTask(
@@ -96,7 +100,7 @@ async function saveAuthData(
   });
 }
 
-export async function login(): Promise<RunCommandResult> {
+export async function login(): Promise<RunCommandResult<never>> {
   const deviceCodeResponse = await generateAndDisplayDeviceCode();
 
   const token = await waitForAuthentication(

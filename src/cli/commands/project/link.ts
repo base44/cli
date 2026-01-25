@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { log, group, text, select, isCancel, cancel } from "@clack/prompts";
+import { group, text, select, isCancel, cancel } from "@clack/prompts";
 import type { Option } from "@clack/prompts";
 import {
   findProjectRoot,
@@ -16,6 +16,7 @@ import {
   onPromptCancel,
   theme,
   getDashboardUrl,
+  log,
 } from "../../utils/index.js";
 import type { RunCommandResult } from "../../utils/runCommand.js";
 
@@ -26,17 +27,33 @@ interface LinkOptions {
   projectId?: string;
 }
 
+/**
+ * JSON output result for the link command.
+ */
+interface LinkResult {
+  /** The unique identifier of the linked project. */
+  projectId: string;
+  /** The URL to the project dashboard. */
+  dashboardUrl: string;
+}
+
 type LinkAction = "create" | "choose";
 
 function validateNonInteractiveFlags(command: Command): void {
-  const { create, name, projectId } = command.opts<LinkOptions>();
+  const opts = command.optsWithGlobals<LinkOptions & { json?: boolean }>();
+  const { create, name, projectId, json } = opts;
 
   if (create && projectId) {
-    command.error("--create and --projectId cannot be used together");
+    throw new Error("--create and --projectId cannot be used together");
   }
 
   if (create && !name) {
-    command.error("--name is required when using --create");
+    throw new Error("--name is required when using --create");
+  }
+
+  // In JSON mode, either --create with --name OR --projectId is required
+  if (json && !create && !projectId) {
+    throw new Error("JSON mode requires flags: --create and --name, or --projectId");
   }
 }
 
@@ -118,7 +135,7 @@ async function promptForExistingProject(linkableProjects: Project[]): Promise<Pr
   return selectedProject;
 }
 
-async function link(options: LinkOptions): Promise<RunCommandResult> {
+async function link(options: LinkOptions): Promise<RunCommandResult<LinkResult>> {
   const projectRoot = await findProjectRoot();
 
   if (!projectRoot) {
@@ -149,7 +166,7 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
     const linkableProjects = projects.filter((p) => p.isManagedSourceCode !== true);
 
     if (!linkableProjects.length) {
-      return { outroMessage: "No projects available for linking" };
+      throw new Error("No projects available for linking");
     }
 
     let projectId: string;
@@ -208,8 +225,17 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
     finalProjectId = projectId;
   }
 
-  log.message(`${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(finalProjectId))}`);
-  return { outroMessage: "Project linked" };
+  const dashboardUrl = getDashboardUrl(finalProjectId);
+
+  log.message(`${theme.styles.header("Dashboard")}: ${theme.colors.links(dashboardUrl)}`);
+
+  return {
+    outroMessage: "Project linked",
+    data: {
+      projectId: finalProjectId!,
+      dashboardUrl,
+    },
+  };
 }
 
 export const linkCommand = new Command("link")

@@ -1,7 +1,7 @@
 import { resolve, join } from "node:path";
 import { execa } from "execa";
 import { Command } from "commander";
-import { log, group, text, select, confirm, isCancel } from "@clack/prompts";
+import { group, text, select, confirm, isCancel } from "@clack/prompts";
 import type { Option } from "@clack/prompts";
 import kebabCase from "lodash.kebabcase";
 import { createProjectFiles, listTemplates, readProjectConfig, setAppConfig } from "@core/project/index.js";
@@ -13,6 +13,7 @@ import {
   onPromptCancel,
   theme,
   getDashboardUrl,
+  log,
 } from "../../utils/index.js";
 import type { RunCommandResult } from "../../utils/runCommand.js";
 
@@ -27,6 +28,20 @@ interface CreateOptions {
   skills?: boolean;
 }
 
+/**
+ * JSON output result for the create command.
+ */
+interface CreateResult {
+  /** The unique identifier of the created project. */
+  projectId: string;
+  /** The absolute path where the project was created. */
+  path: string;
+  /** The URL to the project dashboard. */
+  dashboardUrl: string;
+  /** The public URL where the site is hosted (if deployed). */
+  appUrl?: string;
+}
+
 async function getTemplateById(templateId: string): Promise<Template> {
   const templates = await listTemplates();
   const template = templates.find((t) => t.id === templateId);
@@ -38,11 +53,18 @@ async function getTemplateById(templateId: string): Promise<Template> {
 }
 
 function validateNonInteractiveFlags(command: Command): void {
-  const { name, path } = command.opts<CreateOptions>();
+  const opts = command.optsWithGlobals<CreateOptions & { json?: boolean }>();
+  const { name, path, json } = opts;
   const providedCount = [name, path].filter(Boolean).length;
 
+  // In JSON mode, all flags are required (no interactive prompts)
+  if (json && providedCount < 2) {
+    throw new Error("JSON mode requires all flags: --name, --path");
+  }
+
+  // In non-interactive mode (some flags provided), all must be provided
   if (providedCount > 0 && providedCount < 2) {
-    command.error("Non-interactive mode requires all flags: --name, --path");
+    throw new Error("Non-interactive mode requires all flags: --name, --path");
   }
 }
 
@@ -56,7 +78,7 @@ async function chooseCreate(options: CreateOptions): Promise<void> {
   }
 }
 
-async function createInteractive(options: CreateOptions): Promise<RunCommandResult> {
+async function createInteractive(options: CreateOptions): Promise<RunCommandResult<CreateResult>> {
   const templates = await listTemplates();
   const templateOptions: Array<Option<Template>> = templates.map((t) => ({
     value: t,
@@ -111,7 +133,7 @@ async function createInteractive(options: CreateOptions): Promise<RunCommandResu
   });
 }
 
-async function createNonInteractive(options: CreateOptions): Promise<RunCommandResult> {
+async function createNonInteractive(options: CreateOptions): Promise<RunCommandResult<CreateResult>> {
   const template = await getTemplateById(options.template ?? DEFAULT_TEMPLATE_ID);
 
   return await executeCreate({
@@ -141,7 +163,7 @@ async function executeCreate({
   deploy?: boolean;
   skills?: boolean;
   isInteractive: boolean;
-}): Promise<RunCommandResult> {
+}): Promise<RunCommandResult<CreateResult>> {
   const name = rawName.trim();
   const resolvedPath = resolve(projectPath);
 
@@ -229,7 +251,7 @@ async function executeCreate({
     }
   }
 
-  // Add AI agent skills
+// Add AI agent skills
   let shouldAddSkills = false;
 
   if (isInteractive) {
@@ -257,14 +279,24 @@ async function executeCreate({
     );
   }
 
+  const dashboardUrl = getDashboardUrl(projectId);
+
   log.message(`${theme.styles.header("Project")}: ${theme.colors.base44Orange(name)}`);
-  log.message(`${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(projectId))}`);
+  log.message(`${theme.styles.header("Dashboard")}: ${theme.colors.links(dashboardUrl)}`);
 
   if (finalAppUrl) {
     log.message(`${theme.styles.header("Site")}: ${theme.colors.links(finalAppUrl)}`);
   }
 
-  return { outroMessage: "Your project is set up and ready to use" };
+  return {
+    outroMessage: "Your project is set up and ready to use",
+    data: {
+      projectId,
+      path: resolvedPath,
+      dashboardUrl,
+      ...(finalAppUrl && { appUrl: finalAppUrl }),
+    },
+  };
 }
 
 export const createCommand = new Command("create")

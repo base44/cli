@@ -1,8 +1,11 @@
 import { spinner } from "@clack/prompts";
+import { isJsonMode } from "./json.js";
 
 /**
  * Wraps an async operation with automatic spinner management.
  * The spinner is automatically started, and stopped on both success and error.
+ *
+ * In JSON mode, the spinner is suppressed and the operation runs silently.
  *
  * @param startMessage - Message to show when spinner starts
  * @param operation - The async operation to execute. Receives an updateMessage function
@@ -46,6 +49,12 @@ export async function runTask<T>(
     errorMessage?: string;
   }
 ): Promise<T> {
+  // In JSON mode, run silently without spinner
+  if (isJsonMode()) {
+    const noopUpdateMessage = () => {};
+    return await operation(noopUpdateMessage);
+  }
+
   const s = spinner();
   s.start(startMessage);
 

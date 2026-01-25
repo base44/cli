@@ -108,6 +108,8 @@ cli/
 │       │   ├── prompts.ts        # Prompt utilities
 │       │   ├── theme.ts          # Centralized theme configuration (colors, styles)
 │       │   ├── urls.ts           # URL utilities (getDashboardUrl)
+│       │   ├── json.ts           # JSON output utilities for --json flag
+│       │   ├── log.ts            # Wrapped @clack/prompts log (auto-suppresses in JSON mode)
 │       │   └── index.ts
 │       ├── errors.ts             # CLI-specific errors (CLIExitError)
 │       ├── program.ts            # Commander program definition
@@ -128,11 +130,20 @@ Commands live in `src/cli/commands/`. Follow these steps:
 ```typescript
 // src/cli/commands/<domain>/<action>.ts
 import { Command } from "commander";
-import { log } from "@clack/prompts";
-import { runCommand, runTask, theme } from "../../utils/index.js";
+import { runCommand, runTask, theme, log } from "../../utils/index.js";
 import type { RunCommandResult } from "../../utils/index.js";
 
-async function myAction(): Promise<RunCommandResult> {
+/**
+ * JSON output result for the my-action command.
+ */
+interface MyActionResult {
+  /** The display name of the created resource. */
+  name: string;
+  /** The unique identifier of the created resource. */
+  id: string;
+}
+
+async function myAction(): Promise<RunCommandResult<MyActionResult>> {
   // Use runTask for async operations with spinners
   const result = await runTask(
     "Doing something...",
@@ -147,10 +158,17 @@ async function myAction(): Promise<RunCommandResult> {
     }
   );
 
+  // log.* calls are automatically suppressed in JSON mode
   log.success("Operation completed!");
 
-  // Return an optional outro message (displayed at the end)
-  return { outroMessage: `Created ${theme.styles.bold(result.name)}` };
+  // Return both human-friendly message and structured data for JSON output
+  return {
+    outroMessage: `Created ${theme.styles.bold(result.name)}`,
+    data: {
+      name: result.name,
+      id: result.id,
+    },
+  };
 }
 
 export const myCommand = new Command("<name>")
@@ -367,6 +385,113 @@ base44 deploy -y     # Skip confirmation
 base44 deploy --yes  # Skip confirmation
 ```
 
+## JSON Output Mode
+
+All commands support the `--json` flag for machine-readable output, except `login` and `logout` (user-facing auth commands, rarely scripted).
+
+### Behavior
+
+When `--json` is passed:
+- Suppresses all human-friendly output (banners, spinners, colored text, progress messages)
+- Outputs a single JSON object to stdout
+- Errors output JSON to stderr with exit code 1
+- Interactive prompts are disabled; required flags must be provided
+- Commands that open browsers skip that action (see `dashboard --no-open`)
+
+### JSON Output Structure
+
+```typescript
+// Success response (stdout)
+{
+  "success": true,
+  "data": { /* command-specific result */ }
+}
+
+// Error response (stderr)
+{
+  "success": false,
+  "error": {
+    "message": "Error description",
+    "code": "ERROR_CODE" // optional
+  }
+}
+```
+
+### Implementation Requirements
+
+When creating new commands:
+
+1. **Define a typed result interface** after the options interface:
+
+```typescript
+interface MyCommandOptions {
+  flag?: boolean;
+}
+
+/**
+ * JSON output result for the my-command command.
+ */
+interface MyCommandResult {
+  /** The unique identifier of the created resource. */
+  resourceId: string;
+  /** The URL to access the resource. */
+  resourceUrl: string;
+}
+```
+
+2. **Return structured `data`** with the typed `RunCommandResult<T>`:
+
+```typescript
+async function myAction(): Promise<RunCommandResult<MyCommandResult>> {
+  // ... do work ...
+  return {
+    outroMessage: "Human-friendly message",
+    data: {
+      resourceId: "abc123",
+      resourceUrl: "https://...",
+    },
+  };
+}
+```
+
+For commands that don't support `--json` (like `login`, `logout`), use `never`:
+
+```typescript
+async function login(): Promise<RunCommandResult<never>> {
+  // ... interactive auth flow ...
+  return { outroMessage: "Logged in successfully" };
+}
+```
+
+3. **Use wrapped `log` from utils** - The wrapped `log` automatically suppresses output in JSON mode:
+
+```typescript
+import { log } from "../../utils/index.js";
+
+// No need to check isJsonMode() - log is automatically suppressed
+log.info("Found 5 entities to push");
+```
+
+4. **Handle interactive prompts** - In JSON mode, either:
+   - Require flags that provide the same information (fail early with clear error)
+   - Auto-confirm prompts (for non-destructive actions)
+
+5. **Validate required flags** in `preAction` hook (throw errors, never use `command.error()`):
+
+```typescript
+function validateFlags(command: Command): void {
+  const opts = command.optsWithGlobals<Options & { json?: boolean }>();
+  if (opts.json && !opts.requiredFlag) {
+    throw new Error("JSON mode requires: --required-flag");
+  }
+}
+```
+
+### Exceptions
+
+- `login`: Does not support `--json` (interactive browser authentication)
+- `logout`: Does not support `--json` (user-facing command, rarely scripted)
+
 ## Path Aliases
 
 Single alias defined in `tsconfig.json`:
@@ -392,7 +517,10 @@ import { base44Client } from "@core/api/index.js";
 10. **Zero-dependency distribution** - All packages go in `devDependencies`; they get bundled at build time
 11. **Use theme for styling** - Never use `chalk` directly in commands; import `theme` from utils and use semantic color/style names
 12. **Use fs.ts utilities** - Always use `@core/utils/fs.js` for file operations
-13. **No direct process.exit()** - Throw `CLIExitError` instead; entry points handle the actual exit 
+13. **No direct process.exit()** - Throw `CLIExitError` instead; entry points handle the actual exit
+14. **JSON output support** - Commands must return `data` in `RunCommandResult`
+15. **Never use `command.error()`** - Always use `throw new Error()` instead; errors are caught globally and output as JSON when `--json` is used
+16. **Use wrapped log for output** - Import `log` from `../../utils/index.js`, not from `@clack/prompts`. The wrapped `log` automatically suppresses output in JSON mode. Only use `isJsonMode()` directly for non-logging decisions (prompts, browser opens)
 
 ## Development
 

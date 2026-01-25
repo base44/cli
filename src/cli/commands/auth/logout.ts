@@ -3,7 +3,11 @@ import { deleteAuth } from "@core/auth/index.js";
 import { runCommand } from "../../utils/index.js";
 import type { RunCommandResult } from "../../utils/runCommand.js";
 
-async function logout(): Promise<RunCommandResult> {
+/**
+ * Logout command does not support --json output.
+ * It is a user-facing auth command that is rarely scripted.
+ */
+async function logout(): Promise<RunCommandResult<never>> {
   await deleteAuth();
   return { outroMessage: "Logged out successfully" };
 }

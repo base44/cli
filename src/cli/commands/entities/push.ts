@@ -1,15 +1,29 @@
 import { Command } from "commander";
-import { log } from "@clack/prompts";
 import { pushEntities } from "@core/resources/entity/index.js";
 import { readProjectConfig } from "@core/index.js";
-import { runCommand, runTask } from "../../utils/index.js";
+import { runCommand, runTask, log } from "../../utils/index.js";
 import type { RunCommandResult } from "../../utils/runCommand.js";
 
-async function pushEntitiesAction(): Promise<RunCommandResult> {
+/**
+ * JSON output result for the entities push command.
+ */
+interface EntitiesPushResult {
+  /** Names of entities that were newly created. */
+  created: string[];
+  /** Names of entities that were updated. */
+  updated: string[];
+  /** Names of entities that were deleted. */
+  deleted: string[];
+}
+
+async function pushEntitiesAction(): Promise<RunCommandResult<EntitiesPushResult>> {
   const { entities } = await readProjectConfig();
 
   if (entities.length === 0) {
-    return { outroMessage: "No entities found in project" };
+    return {
+      outroMessage: "No entities found in project",
+      data: { created: [], updated: [], deleted: [] },
+    };
   }
 
   log.info(`Found ${entities.length} entities to push`);
@@ -25,7 +39,6 @@ async function pushEntitiesAction(): Promise<RunCommandResult> {
     }
   );
 
-  // Print the results
   if (result.created.length > 0) {
     log.success(`Created: ${result.created.join(", ")}`);
   }
@@ -36,7 +49,13 @@ async function pushEntitiesAction(): Promise<RunCommandResult> {
     log.warn(`Deleted: ${result.deleted.join(", ")}`);
   }
 
-  return {};
+  return {
+    data: {
+      created: result.created,
+      updated: result.updated,
+      deleted: result.deleted,
+    },
+  };
 }
 
 export const entitiesPushCommand = new Command("entities")

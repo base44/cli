@@ -3,14 +3,24 @@ import { Command } from "commander";
 import { confirm, isCancel } from "@clack/prompts";
 import { readProjectConfig } from "@core/project/index.js";
 import { deploySite } from "@core/site/index.js";
-import { runCommand, runTask } from "../../utils/index.js";
+import { runCommand, runTask, isJsonMode } from "../../utils/index.js";
 import type { RunCommandResult } from "../../utils/runCommand.js";
 
 interface DeployOptions {
   yes?: boolean;
 }
 
-async function deployAction(options: DeployOptions): Promise<RunCommandResult> {
+/**
+ * JSON output result for the site deploy command.
+ */
+interface SiteDeployResult {
+  /** The public URL where the site is hosted. */
+  appUrl?: string;
+  /** True if the deployment was cancelled by the user. */
+  cancelled?: boolean;
+}
+
+async function deployAction(options: DeployOptions): Promise<RunCommandResult<SiteDeployResult>> {
   const { project } = await readProjectConfig();
 
   if (!project.site?.outputDirectory) {
@@ -21,13 +31,17 @@ async function deployAction(options: DeployOptions): Promise<RunCommandResult> {
 
   const outputDir = resolve(project.root, project.site.outputDirectory);
 
-  if (!options.yes) {
+  // Skip confirmation in JSON mode (no interactive prompts) or with --yes flag
+  if (!options.yes && !isJsonMode()) {
     const shouldDeploy = await confirm({
       message: `Deploy site from ${project.site.outputDirectory}?`,
     });
 
     if (isCancel(shouldDeploy) || !shouldDeploy) {
-      return { outroMessage: "Deployment cancelled" };
+      return {
+        outroMessage: "Deployment cancelled",
+        data: { cancelled: true },
+      };
     }
   }
 
@@ -42,7 +56,12 @@ async function deployAction(options: DeployOptions): Promise<RunCommandResult> {
     }
   );
 
-  return { outroMessage: `Visit your site at: ${result.appUrl}` };
+  return {
+    outroMessage: `Visit your site at: ${result.appUrl}`,
+    data: {
+      appUrl: result.appUrl,
+    },
+  };
 }
 
 export const siteDeployCommand = new Command("site")
