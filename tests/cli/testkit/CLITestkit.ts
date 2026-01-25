@@ -1,4 +1,5 @@
-import { join } from "node:path";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { mkdir, writeFile, cp, readFile } from "node:fs/promises";
 import { vi } from "vitest";
 import { dir } from "tmp-promise";
@@ -7,6 +8,9 @@ import { CommanderError } from "commander";
 import { CLIResultMatcher } from "./CLIResultMatcher.js";
 import { Base44APIMock } from "./Base44APIMock.js";
 import type { CLIResult } from "./CLIResultMatcher.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const DIST_INDEX_PATH = join(__dirname, "../../../dist/index.js");
 
 /** Type for the bundled program module */
 interface ProgramModule {
@@ -93,8 +97,7 @@ export class CLITestkit {
     this.api.apply();
 
     // Dynamic import after vi.resetModules() to get fresh module instances
-    // @ts-expect-error - importing from bundled output; typed via ProgramModule cast
-    const { program, CLIExitError } = (await import("../../../dist/index.js")) as ProgramModule;
+    const { program, CLIExitError } = (await import(DIST_INDEX_PATH)) as ProgramModule;
 
     const buildResult = (exitCode: number): CLIResult => ({
       stdout: stdout.join(""),
