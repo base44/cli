@@ -192,6 +192,130 @@ await runCommand(myAction, { fullBanner: true, requireAuth: true });
 - `requireAuth`: Check authentication before running (auto-login if needed)
 - `requireAppConfig`: Load `.app.jsonc` and cache for sync access (default: `true`)
 
+## Interactive/Non-Interactive Command Pattern
+
+When a CLI command supports both interactive mode (prompts) and non-interactive mode (flags), use a **unified function pattern** to avoid code duplication. The `link` command demonstrates this approach.
+
+### Key Principles
+
+1. **Single action function** - One function handles both modes, no separate `commandInteractive()` / `commandNonInteractive()` functions
+2. **Ternary-driven flow** - Use ternary operators to conditionally prompt or use provided flag values
+3. **Extract prompt functions** - Keep prompts in small, focused helper functions
+4. **Pre-action validation** - Use Commander's `preAction` hook to validate flag combinations
+
+### Pattern Structure
+
+```typescript
+interface CommandOptions {
+  flagA?: string;
+  flagB?: string;
+}
+
+// 1. Validate incompatible or required flag combinations
+function validateNonInteractiveFlags(command: Command): void {
+  const { flagA, flagB } = command.opts<CommandOptions>();
+
+  if (flagA && !flagB) {
+    command.error("--flagB is required when using --flagA");
+  }
+}
+
+// 2. Extract prompts into small helper functions
+async function promptForValue(): Promise<string> {
+  const result = await text({
+    message: "Enter value:",
+    validate: (v) => (!v ? "Required" : undefined),
+  });
+
+  if (isCancel(result)) {
+    cancel("Operation cancelled.");
+    process.exit(0);
+  }
+
+  return result;
+}
+
+// 3. Single unified action function
+async function commandAction(options: CommandOptions): Promise<RunCommandResult> {
+  // Determine value from flag OR prompt (single line)
+  const value = options.flagA ?? await promptForValue();
+
+  // Shared execution path continues...
+  await runTask("Processing...", async () => {
+    // Common logic for both modes
+  });
+
+  return { outroMessage: "Done" };
+}
+
+// 4. Command definition with preAction hook
+export const myCommand = new Command("my-command")
+  .option("-a, --flagA <value>", "Provide value (skips prompt)")
+  .option("-b, --flagB <value>", "Another value")
+  .hook("preAction", validateNonInteractiveFlags)
+  .action(async (options: CommandOptions) => {
+    await runCommand(() => commandAction(options), { requireAuth: true });
+  });
+```
+
+### Handling Multiple Actions
+
+When a command has branching actions (like `link` with "create" vs "choose existing"):
+
+```typescript
+type CommandAction = "create" | "choose";
+
+async function commandAction(options: CommandOptions): Promise<RunCommandResult> {
+  // Determine action from flags OR prompt
+  const action: CommandAction = options.existingId
+    ? "choose"
+    : options.create
+      ? "create"
+      : await promptForAction();
+
+  if (action === "choose") {
+    // Get ID from flag OR prompt
+    const id = options.existingId ?? await promptForExistingItem();
+    // Execute choose logic...
+  }
+
+  if (action === "create") {
+    // Get details from flags OR prompt
+    const { name, description } = options.create
+      ? { name: options.name!, description: options.description }
+      : await promptForNewItemDetails();
+    // Execute create logic...
+  }
+
+  return { outroMessage: "Complete" };
+}
+```
+
+### Why Not Split Functions?
+
+Avoid this pattern (creates duplication):
+
+```typescript
+// ❌ Don't do this
+async function chooseMode(options: Options): Promise<void> {
+  if (isNonInteractive) {
+    await runCommand(() => commandNonInteractive(options), ...);
+  } else {
+    await runCommand(() => commandInteractive(options), ...);
+  }
+}
+
+async function commandInteractive(options: Options) { /* prompts */ }
+async function commandNonInteractive(options: Options) { /* flags */ }
+async function executeCommand(...) { /* shared logic */ }
+```
+
+The unified pattern is preferred because:
+- Less code to maintain
+- No risk of modes diverging in behavior
+- Clearer flow - one function tells the whole story
+- Easier to add new options without updating multiple functions
+
 ## Theming
 
 All CLI styling is centralized in `src/cli/utils/theme.ts`. **Never use `chalk` directly** - import `theme` from utils instead.
