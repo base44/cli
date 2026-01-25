@@ -1,7 +1,8 @@
 import { Command } from "commander";
-import { log, confirm, isCancel } from "@clack/prompts";
+import { log } from "@clack/prompts";
 import pWaitFor from "p-wait-for";
 import open from "open";
+import * as readline from "readline";
 import {
   writeAuth,
   generateDeviceCode,
@@ -34,15 +35,19 @@ async function generateAndDisplayDeviceCode(): Promise<DeviceCodeResponse> {
     `\nPlease confirm this code at: ${theme.colors.links(deviceCodeResponse.verificationUri)}`
   );
 
-  const shouldOpen = await confirm({
-    message: "Press enter to open the browser",
-    active: "Open",
-    inactive: "Skip",
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
   });
 
-  if (!isCancel(shouldOpen) && shouldOpen) {
-    await open(deviceCodeResponse.verificationUri);
-  }
+  await new Promise<void>((resolve) => {
+    rl.question("Press Enter to open in browser...", () => {
+      rl.close();
+      resolve();
+    });
+  });
+
+  await open(deviceCodeResponse.verificationUri);
 
   return deviceCodeResponse;
 }
