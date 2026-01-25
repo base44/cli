@@ -1,6 +1,7 @@
 import { intro, log, outro } from "@clack/prompts";
 import { isLoggedIn } from "@core/auth/index.js";
 import { initAppConfig } from "@core/project/index.js";
+import { CLIExitError } from "../errors.js";
 import { printBanner } from "./banner.js";
 import { login } from "../commands/auth/login.js";
 import { theme } from "./theme.js";
@@ -97,6 +98,6 @@ export async function runCommand(
     } else {
       log.error(String(e));
     }
-    process.exit(1);
+    throw new CLIExitError(1);
   }
 }

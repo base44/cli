@@ -93,10 +93,10 @@ jobs:
 
       - name: Generate Changelog
         if: github.event.inputs.update_changelog == 'true' && github.event.inputs.dry_run == 'false' && steps.prev-tag.outputs.tag != ''
-        uses: anthropics/claude-code-action@beta
+        uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          direct_prompt: |
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
             Generate a changelog entry for version ${{ env.NEW_VERSION }} (release date: today).
             Previous version tag: ${{ steps.prev-tag.outputs.tag }}
 
@@ -133,9 +133,9 @@ jobs:
             ### Fixed
             - Various small fixes (#60)
             ```
-
-          model: "claude-3-5-haiku-latest"
-          allowed_tools: "Bash(git log:*),Bash(gh pr:*),Read(*),Edit(CHANGELOG.md)"
+          claude_args: |
+            --model claude-3-5-haiku-latest
+            --allowedTools Bash(git log:*),Bash(gh pr:*),Read(*),Edit(CHANGELOG.md)
 
       - name: Build package
         run: npm run build
