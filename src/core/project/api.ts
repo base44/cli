@@ -1,6 +1,6 @@
 import { base44Client } from "@core/clients/index.js";
-import { CreateProjectResponseSchema, AppsResponseSchema } from "./schema.js";
-import type { App } from "./schema.js";
+import { CreateProjectResponseSchema, ProjectsResponseSchema } from "./schema.js";
+import type { ProjectsResponse } from "./schema.js";
 
 export async function createProject(projectName: string, description?: string) {
   const response = await base44Client.post("api/apps", {
@@ -19,15 +19,10 @@ export async function createProject(projectName: string, description?: string) {
   };
 }
 
-export async function fetchApps(): Promise<App[]> {
-  const response = await base44Client.get("api/apps");
-  const apps = AppsResponseSchema.parse(await response.json());
-  return apps;
-}
+export async function listProjects(): Promise<ProjectsResponse> {
+  const query = 'sort=-updated_date&fields=id,name,user_description,is_managed_source_code';
+  const response = await base44Client.get(`api/apps?${query}`);
+  const projects = ProjectsResponseSchema.parse(await response.json());
 
-export async function fetchLinkableApps(): Promise<App[]> {
-  const apps = await fetchApps();
-  // Filter for apps explicitly marked as CLI-managed (is_managed_source_code === false)
-  // Apps with undefined are treated as AI-managed and not linkable
-  return apps.filter((app) => app.is_managed_source_code === false);
+  return projects;
 }

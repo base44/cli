@@ -7,10 +7,9 @@ import {
   writeAppConfig,
   appConfigExists,
   setAppConfig,
-  fetchLinkableApps,
-  fetchApps,
+  listProjects,
 } from "@core/project/index.js";
-import type { App } from "@core/project/index.js";
+import type { Project } from "@core/project/index.js";
 import {
   runCommand,
   runTask,
@@ -22,24 +21,30 @@ import type { RunCommandResult } from "../../utils/runCommand.js";
 
 interface LinkOptions {
   create?: boolean;
-  existing?: string;
   name?: string;
   description?: string;
+  existing?: boolean;
+  projectId?: string;
 }
 
 type LinkAction = "create" | "choose";
 
 function validateNonInteractiveFlags(command: Command): void {
-  const { create, existing, name } = command.opts<LinkOptions>();
+  const { create, name, existing, projectId } = command.opts<LinkOptions>();
   if (create && existing) {
     command.error("--create and --existing cannot be used together");
   }
+
+  if (existing && !projectId) {
+    command.error("--projectId is required when using --existing");
+  }
+
   if (create && !name) {
     command.error("--name is required when using --create");
   }
 }
 
-async function promptForLinkAction(linkableApps: App[]): Promise<LinkAction> {
+async function promptForLinkAction(): Promise<LinkAction> {
   const actionOptions: Array<Option<LinkAction>> = [
     {
       value: "create",
@@ -48,13 +53,11 @@ async function promptForLinkAction(linkableApps: App[]): Promise<LinkAction> {
     },
   ];
 
-  if (linkableApps.length > 0) {
-    actionOptions.push({
-      value: "choose",
-      label: "Link an existing project",
-      hint: `Choose from ${linkableApps.length} available project${linkableApps.length === 1 ? "" : "s"}`,
-    });
-  }
+  actionOptions.push({
+    value: "choose",
+    label: "Link an existing project",
+    hint: `Choose from one of your available projects previously created by the Base44 CLI`,
+  });
 
   const action = await select({
     message: "How would you like to link this project?",
@@ -100,23 +103,23 @@ async function promptForNewProjectDetails() {
   };
 }
 
-async function promptForExistingApp(linkableApps: App[]): Promise<App> {
-  const appOptions: Array<Option<App>> = linkableApps.map((app) => ({
-    value: app,
-    label: app.name,
+async function promptForExistingProject(linkableProjects: Project[]): Promise<Project> {
+  const projectOptions: Array<Option<Project>> = linkableProjects.map((project) => ({
+    value: project,
+    label: project.name,
   }));
 
-  const selectedApp = await select({
+  const selectedProject = await select({
     message: "Choose a project to link",
-    options: appOptions,
+    options: projectOptions,
   });
 
-  if (isCancel(selectedApp)) {
+  if (isCancel(selectedProject)) {
     cancel("Operation cancelled.");
     process.exit(0);
   }
 
-  return selectedApp;
+  return selectedProject;
 }
 
 async function link(options: LinkOptions): Promise<RunCommandResult> {
@@ -134,31 +137,32 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
     );
   }
 
-  // Handle non-interactive mode with --existing flag
-  if (options.existing) {
-    // Validate that the app exists and is linkable
-    const apps = await runTask(
-      "Validating project...",
-      async () => fetchApps(),
+  let finalProjectId: string | undefined;
+  const action = options.existing ? "choose" : options.create ? "create" : await promptForLinkAction();
+
+  if (action === 'choose') {
+    const projects = await runTask(
+      "Fetching projects...",
+      async () => listProjects(),
       {
-        successMessage: "Project validated",
-        errorMessage: "Failed to validate project",
+        successMessage: "Projects fetched",
+        errorMessage: "Failed to fetch projects",
       }
     );
 
-    const app = apps.find((a) => a.id === options.existing);
-    if (!app) {
-      throw new Error(`Project with ID "${options.existing}" not found. Please check the ID and try again.`);
-    }
-    if (app.is_managed_source_code === true) {
-      throw new Error(`Project "${app.name}" is managed by Base44 AI and cannot be linked to external source code.`);
-    }
+    const linkableProjects = projects.filter((p) => p.isManagedSourceCode !== true);
+
+    if (!linkableProjects.length) {
+      return { outroMessage: "No projects available for linking" };
+    };
+
+    const { id: projectId } = options.existing ? { id: options.projectId! } : await promptForExistingProject(linkableProjects);
 
     await runTask(
       "Linking project...",
       async () => {
-        await writeAppConfig(projectRoot.root, options.existing!);
-        setAppConfig({ id: options.existing!, projectRoot: projectRoot.root });
+        await writeAppConfig(projectRoot.root, projectId);
+        setAppConfig({ id: projectId, projectRoot: projectRoot.root });
       },
       {
         successMessage: "Project linked successfully",
@@ -166,16 +170,18 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
       }
     );
 
-    log.message(`${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(options.existing))}`);
-    return { outroMessage: "Project linked" };
+    finalProjectId = projectId;
   }
 
-  // Handle non-interactive mode with --create flag
-  if (options.create) {
+  if (action === 'create') {
+    const { name, description } = options.create
+      ? { name: options.name!.trim(), description: options.description?.trim() }
+      : await promptForNewProjectDetails();
+
     const { projectId } = await runTask(
       "Creating project on Base44...",
       async () => {
-        return await createProject(options.name!.trim(), options.description?.trim());
+        return await createProject(name, description);
       },
       {
         successMessage: "Project created successfully",
@@ -183,74 +189,26 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
       }
     );
 
+
     await writeAppConfig(projectRoot.root, projectId);
+
+    // Set app config in cache for sync access to getDashboardUrl
     setAppConfig({ id: projectId, projectRoot: projectRoot.root });
-    log.message(`${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(projectId))}`);
-    return { outroMessage: "Project linked" };
-  }
 
-  // Interactive mode: fetch linkable apps and prompt for action
-  const linkableApps = await runTask(
-    "Fetching your projects...",
-    async () => fetchLinkableApps(),
-    {
-      successMessage: "Fetched projects",
-      errorMessage: "Failed to fetch projects",
-    }
-  );
+    finalProjectId = projectId;
+  };
 
-  if (linkableApps.length > 0) {
-    log.info(`Found ${theme.colors.base44Orange(String(linkableApps.length))} project${linkableApps.length === 1 ? "" : "s"} available for linking`);
-  }
-
-  const action = await promptForLinkAction(linkableApps);
-
-  if (action === "choose") {
-    const selectedApp = await promptForExistingApp(linkableApps);
-
-    await runTask(
-      "Linking project...",
-      async () => {
-        await writeAppConfig(projectRoot.root, selectedApp.id);
-        setAppConfig({ id: selectedApp.id, projectRoot: projectRoot.root });
-      },
-      {
-        successMessage: "Project linked successfully",
-        errorMessage: "Failed to link project",
-      }
-    );
-
-    log.message(`${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(selectedApp.id))}`);
-    return { outroMessage: "Project linked" };
-  }
-
-  // action === "create"
-  const { name, description } = await promptForNewProjectDetails();
-
-  const { projectId } = await runTask(
-    "Creating project on Base44...",
-    async () => {
-      return await createProject(name, description);
-    },
-    {
-      successMessage: "Project created successfully",
-      errorMessage: "Failed to create project",
-    }
-  );
-
-  await writeAppConfig(projectRoot.root, projectId);
-  setAppConfig({ id: projectId, projectRoot: projectRoot.root });
-  log.message(`${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(projectId))}`);
-
+  log.message(`${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(finalProjectId))}`);
   return { outroMessage: "Project linked" };
 }
 
 export const linkCommand = new Command("link")
   .description("Link a local project to a Base44 project (create new or link existing)")
   .option("-c, --create", "Create a new project (skip selection prompt)")
-  .option("-e, --existing <id>", "Link to an existing project by ID (skip selection prompt)")
   .option("-n, --name <name>", "Project name (required when --create is used)")
   .option("-d, --description <description>", "Project description")
+  .option("-e, --existing", "Link to an existing project (skip selection prompt)")
+  .option("-p, --projectId <id>", "Project ID (required when --existing is used)")
   .hook("preAction", validateNonInteractiveFlags)
   .action(async (options: LinkOptions) => {
     await runCommand(() => link(options), { requireAuth: true, requireAppConfig: false });
