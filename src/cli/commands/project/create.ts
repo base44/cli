@@ -18,8 +18,6 @@ import type { RunCommandResult } from "../../utils/runCommand.js";
 
 const DEFAULT_TEMPLATE_ID = "backend-only";
 
-const SUPPORTED_AGENTS = ["cursor", "claude-code"];
-
 interface CreateOptions {
   name?: string;
   description?: string;
@@ -244,17 +242,13 @@ async function executeCreate({
   }
 
   if (shouldAddSkills) {
-    const agentArgs = SUPPORTED_AGENTS.flatMap((agent) => ["-a", agent]);
-    log.step(`Installing skills for: ${SUPPORTED_AGENTS.join(", ")}`);
-
     await runTask(
-      `Installing skills for: ${SUPPORTED_AGENTS.join(", ")}`,
+      "Installing AI agent skills...",
       async () => {
         await execa("npx", [
           "-y", "add-skill", "base44/skills",
-          "-y",  // Skip add-skill prompts (use defaults: project scope, symlink)
+          "-y",  // Skip add-skill prompts (use defaults)
           "-s", "base44-cli", "-s", "base44-sdk",
-          ...agentArgs
         ], {
           cwd: resolvedPath,
           stdio: "inherit",
