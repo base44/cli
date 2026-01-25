@@ -73,7 +73,7 @@ export async function generateTypes(
   const files: string[] = [];
 
   // Generate entities file
-  const entitiesContent = generateEntitiesFile(parsedEntities);
+  const entitiesContent = await generateEntitiesFile(parsedEntities);
   const entitiesPath = join(outputDir, "entities.ts");
   await writeFile(entitiesPath, entitiesContent, "utf-8");
   files.push(entitiesPath);
