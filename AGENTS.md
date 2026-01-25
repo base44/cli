@@ -433,6 +433,14 @@ The CLI uses a split architecture for better development experience:
 
 This project requires Node.js >= 20.19.0. A `.node-version` file is provided for fnm/nodenv.
 
+### CLI Utilities
+
+When adding async operations to CLI commands:
+- Use `runTask()` from `src/cli/utils/runTask.ts` for operations with progress feedback
+- Provides automatic spinner, success/error messages
+- Follows existing patterns in `create.ts` (entity push, site deploy, skills install)
+- Avoid manual try/catch with `log.message` for async operations
+
 ## File Locations
 
 - `cli/plan.md` - Implementation plan
@@ -446,5 +454,6 @@ This project requires Node.js >= 20.19.0. A `.node-version` file is provided for
 - `cli/src/cli/index.ts` - Barrel export for entry points (program, CLIExitError)
 - `cli/src/cli/program.ts` - Commander program definition
 - `cli/src/cli/utils/runCommand.ts` - Command wrapper that throws CLIExitError on errors
+- `cli/src/cli/utils/runTask.ts` - Async operation wrapper with spinner and success/error messages
 - `cli/tsdown.config.mjs` - Build configuration (bundles index.ts to dist/)
 - `cli/.node-version` - Node.js version pinning
