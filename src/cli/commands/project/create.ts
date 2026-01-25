@@ -245,11 +245,7 @@ async function executeCreate({
     await runTask(
       "Installing AI agent skills...",
       async () => {
-        await execa("npx", [
-          "-y", "add-skill", "base44/skills",
-          "-y",  // Skip add-skill prompts (use defaults)
-          "-s", "base44-cli", "-s", "base44-sdk",
-        ], {
+        await execa("npx", ["-y", "add-skill", "base44/skills", "-y"], {
           cwd: resolvedPath,
           stdio: "inherit",
         });
