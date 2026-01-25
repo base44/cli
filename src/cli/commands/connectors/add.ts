@@ -6,6 +6,8 @@ import {
   checkOAuthStatus,
   addLocalConnector,
   SUPPORTED_INTEGRATIONS,
+  OAUTH_POLL_INTERVAL_MS,
+  OAUTH_POLL_TIMEOUT_MS,
   isValidIntegration,
   getIntegrationDisplayName,
 } from "@core/connectors/index.js";
@@ -13,9 +15,6 @@ import type { IntegrationType } from "@core/connectors/index.js";
 import { runCommand, runTask } from "../../utils/index.js";
 import type { RunCommandResult } from "../../utils/runCommand.js";
 import { theme } from "../../utils/theme.js";
-
-const POLL_INTERVAL_MS = 2000;
-const POLL_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
 async function promptForIntegrationType(): Promise<IntegrationType | null> {
   const options = SUPPORTED_INTEGRATIONS.map((type) => ({
@@ -65,8 +64,8 @@ async function waitForOAuthCompletion(
             return false;
           },
           {
-            interval: POLL_INTERVAL_MS,
-            timeout: POLL_TIMEOUT_MS,
+            interval: OAUTH_POLL_INTERVAL_MS,
+            timeout: OAUTH_POLL_TIMEOUT_MS,
           }
         );
       },

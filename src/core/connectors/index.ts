@@ -37,6 +37,8 @@ export type {
 
 // Constants
 export {
+  OAUTH_POLL_INTERVAL_MS,
+  OAUTH_POLL_TIMEOUT_MS,
   SUPPORTED_INTEGRATIONS,
   INTEGRATION_DISPLAY_NAMES,
   isValidIntegration,

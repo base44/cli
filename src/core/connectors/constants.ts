@@ -1,4 +1,10 @@
 /**
+ * OAuth polling configuration
+ */
+export const OAUTH_POLL_INTERVAL_MS = 2000;
+export const OAUTH_POLL_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+
+/**
  * Supported OAuth connector integrations.
  * Based on apper/backend/app/external_auth/models/constants.py
  */
