@@ -1,0 +1,11 @@
+{
+  "name": "order_assistant",
+  "description": "An agent that helps customers track and manage their tasks",
+  "instructions": "You help customers with task-related inquiries. You can look up task status and help manage tasks. Be concise and helpful.",
+  "tool_configs": [
+    {
+      "entity_name": "task",
+      "allowed_operations": ["read", "update", "delete"]
+    }
+  ]
+}

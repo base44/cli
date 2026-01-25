@@ -70,6 +70,12 @@ cli/
 │   │   │   │   ├── api.ts        
 │   │   │   │   ├── deploy.ts     
 │   │   │   │   └── index.ts
+│   │   │   ├── agent/
+│   │   │   │   ├── schema.ts
+│   │   │   │   ├── config.ts
+│   │   │   │   ├── resource.ts
+│   │   │   │   ├── api.ts
+│   │   │   │   └── index.ts
 │   │   │   └── index.ts
 │   │   ├── site/                 # Site deployment (NOT a Resource)
 │   │   │   ├── schema.ts         # DeployResponse Zod schema
@@ -96,6 +102,8 @@ cli/
 │       │   │   ├── deploy.ts     # Unified deploy command
 │       │   │   └── link.ts
 │       │   ├── entities/
+│       │   │   └── push.ts
+│       │   ├── agents/
 │       │   │   └── push.ts
 │       │   ├── functions/
 │       │   │   └── deploy.ts
