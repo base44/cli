@@ -7,7 +7,7 @@ import { relative } from "node:path";
 
 interface GenerateTypesOptions {
   output?: string;
-  entitiesOnly?: boolean;
+  nodeOnly?: boolean;
 }
 
 async function generateTypesAction(
@@ -18,7 +18,7 @@ async function generateTypesAction(
     async () => {
       return await generateTypes({
         output: options.output,
-        entitiesOnly: options.entitiesOnly,
+        nodeOnly: options.nodeOnly,
       });
     },
     {
@@ -44,9 +44,9 @@ async function generateTypesAction(
 }
 
 export const typesGenerateCommand = new Command("types")
-  .description("Generate TypeScript types from entity schemas")
-  .option("-o, --output <dir>", "Output directory", "src/base44")
-  .option("--entities-only", "Only generate entity types, skip client types")
+  .description("Generate TypeScript declaration files from entity schemas")
+  .option("-o, --output <dir>", "Output directory (default: base44)")
+  .option("--node-only", "Only generate Node.js types, skip Deno types")
   .action(async (options: GenerateTypesOptions) => {
     await runCommand(() => generateTypesAction(options), {
       requireAuth: false,

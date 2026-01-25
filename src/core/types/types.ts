@@ -2,17 +2,13 @@ import { join, dirname } from "node:path";
 import { mkdir, writeFile } from "node:fs/promises";
 import { readProjectConfig, findProjectRoot } from "../project/config.js";
 import { EntityDefinitionSchema, type EntityDefinition } from "./schema.js";
-import {
-  generateEntitiesFile,
-  generateClientFile,
-  generateIndexFile,
-} from "./generator.js";
+import { generateNodeTypes, generateDenoTypes } from "./generator.js";
 
 export interface GenerateOptions {
-  /** Output directory relative to project root (default: "src/base44") */
+  /** Output directory relative to project root (default: "base44") */
   output?: string;
-  /** Only generate entity types, skip client types */
-  entitiesOnly?: boolean;
+  /** Skip generating Deno types */
+  nodeOnly?: boolean;
 }
 
 export interface GenerateResult {
@@ -36,19 +32,27 @@ function parseEntities(entities: Record<string, unknown>[]): EntityDefinition[] 
       }
       // Skip invalid entities but log warning with error details
       const entityName = (entity as { name?: string }).name ?? "unknown";
-      console.warn(`Skipping invalid entity "${entityName}": ${result.error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join(', ')}`);
+      console.warn(
+        `Skipping invalid entity "${entityName}": ${result.error.issues
+          .map((i) => `${i.path.join(".")}: ${i.message}`)
+          .join(", ")}`
+      );
       return null;
     })
     .filter((e): e is EntityDefinition => e !== null);
 }
 
 /**
- * Generate TypeScript types from local entity schemas
+ * Generate TypeScript declaration files from local entity schemas.
+ *
+ * Generates:
+ * - types.d.ts - For Node.js (declare module '@base44/sdk')
+ * - types.deno.d.ts - For Deno (declare module 'npm:@base44/sdk')
  */
 export async function generateTypes(
   options: GenerateOptions = {}
 ): Promise<GenerateResult> {
-  const { output = "src/base44", entitiesOnly = false } = options;
+  const { output = "base44", nodeOnly = false } = options;
 
   // Find project root
   const projectRoot = await findProjectRoot();
@@ -64,7 +68,7 @@ export async function generateTypes(
   // Parse entities into our schema format
   const parsedEntities = parseEntities(entities);
 
-  // Determine output directory
+  // Determine output directory (base44/ by default)
   const outputDir = join(projectRoot.root, output);
 
   // Ensure output directory exists
@@ -72,24 +76,18 @@ export async function generateTypes(
 
   const files: string[] = [];
 
-  // Generate entities file
-  const entitiesContent = await generateEntitiesFile(parsedEntities);
-  const entitiesPath = join(outputDir, "entities.ts");
-  await writeFile(entitiesPath, entitiesContent, "utf-8");
-  files.push(entitiesPath);
+  // Generate Node.js types.d.ts
+  const nodeTypesContent = await generateNodeTypes(parsedEntities);
+  const nodeTypesPath = join(outputDir, "types.d.ts");
+  await writeFile(nodeTypesPath, nodeTypesContent, "utf-8");
+  files.push(nodeTypesPath);
 
-  // Generate client file (unless entities-only)
-  if (!entitiesOnly) {
-    const clientContent = generateClientFile(parsedEntities);
-    const clientPath = join(outputDir, "client.ts");
-    await writeFile(clientPath, clientContent, "utf-8");
-    files.push(clientPath);
-
-    // Generate index file
-    const indexContent = generateIndexFile();
-    const indexPath = join(outputDir, "index.ts");
-    await writeFile(indexPath, indexContent, "utf-8");
-    files.push(indexPath);
+  // Generate Deno types.deno.d.ts (unless node-only)
+  if (!nodeOnly) {
+    const denoTypesContent = await generateDenoTypes(parsedEntities);
+    const denoTypesPath = join(outputDir, "types.deno.d.ts");
+    await writeFile(denoTypesPath, denoTypesContent, "utf-8");
+    files.push(denoTypesPath);
   }
 
   return {
