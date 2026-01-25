@@ -23,20 +23,16 @@ interface LinkOptions {
   create?: boolean;
   name?: string;
   description?: string;
-  existing?: boolean;
   projectId?: string;
 }
 
 type LinkAction = "create" | "choose";
 
 function validateNonInteractiveFlags(command: Command): void {
-  const { create, name, existing, projectId } = command.opts<LinkOptions>();
-  if (create && existing) {
-    command.error("--create and --existing cannot be used together");
-  }
+  const { create, name, projectId } = command.opts<LinkOptions>();
 
-  if (existing && !projectId) {
-    command.error("--projectId is required when using --existing");
+  if (create && projectId) {
+    command.error("--create and --projectId cannot be used together");
   }
 
   if (create && !name) {
@@ -138,7 +134,7 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
   }
 
   let finalProjectId: string | undefined;
-  const action = options.existing ? "choose" : options.create ? "create" : await promptForLinkAction();
+  const action = options.projectId ? "choose" : options.create ? "create" : await promptForLinkAction();
 
   if (action === 'choose') {
     const projects = await runTask(
@@ -154,9 +150,23 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
 
     if (!linkableProjects.length) {
       return { outroMessage: "No projects available for linking" };
-    };
+    }
 
-    const { id: projectId } = options.existing ? { id: options.projectId! } : await promptForExistingProject(linkableProjects);
+    let projectId: string;
+
+    if (options.projectId) {
+      // Validate that the provided project ID exists and is linkable
+      const project = linkableProjects.find((p) => p.id === options.projectId);
+      if (!project) {
+        throw new Error(
+          `Project with ID "${options.projectId}" not found or not available for linking.`
+        );
+      }
+      projectId = options.projectId;
+    } else {
+      const selectedProject = await promptForExistingProject(linkableProjects);
+      projectId = selectedProject.id;
+    }
 
     await runTask(
       "Linking project...",
@@ -196,7 +206,7 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
     setAppConfig({ id: projectId, projectRoot: projectRoot.root });
 
     finalProjectId = projectId;
-  };
+  }
 
   log.message(`${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(finalProjectId))}`);
   return { outroMessage: "Project linked" };
@@ -207,8 +217,7 @@ export const linkCommand = new Command("link")
   .option("-c, --create", "Create a new project (skip selection prompt)")
   .option("-n, --name <name>", "Project name (required when --create is used)")
   .option("-d, --description <description>", "Project description")
-  .option("-e, --existing", "Link to an existing project (skip selection prompt)")
-  .option("-p, --projectId <id>", "Project ID (required when --existing is used)")
+  .option("-p, --projectId <id>", "Project ID to link to an existing project (skips selection prompt)")
   .hook("preAction", validateNonInteractiveFlags)
   .action(async (options: LinkOptions) => {
     await runCommand(() => link(options), { requireAuth: true, requireAppConfig: false });

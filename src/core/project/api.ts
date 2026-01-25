@@ -20,8 +20,13 @@ export async function createProject(projectName: string, description?: string) {
 }
 
 export async function listProjects(): Promise<ProjectsResponse> {
-  const query = 'sort=-updated_date&fields=id,name,user_description,is_managed_source_code';
-  const response = await base44Client.get(`api/apps?${query}`);
+  const response = await base44Client.get(`api/apps`, {
+    searchParams: {
+      "sort": "-updated_date",
+      "fields": "id,name,user_description,is_managed_source_code"
+    }
+  });
+
   const projects = ProjectsResponseSchema.parse(await response.json());
 
   return projects;

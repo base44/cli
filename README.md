@@ -58,15 +58,15 @@ base44 link
 base44 link --create --name "my-app" --description "My app description"
 
 # Link to an existing project by ID (non-interactive)
-base44 link --existing <app-id>
+base44 link --projectId <app-id>
 ```
 
 | Option | Description |
 |--------|-------------|
 | `-c, --create` | Create a new project (skip selection prompt) |
-| `-e, --existing <id>` | Link to an existing project by ID |
 | `-n, --name <name>` | Project name (required with --create) |
 | `-d, --description <desc>` | Project description (optional) |
+| `-p, --projectId <id>` | Link to an existing project by ID (skips selection prompt) |
 
 ### Deployment
 
