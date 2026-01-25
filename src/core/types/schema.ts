@@ -1,16 +1,26 @@
 import { z } from "zod";
 
+/** JSON Schema primitive types */
+export type JsonSchemaType = "string" | "number" | "integer" | "boolean" | "array" | "object" | "null";
+
 /**
- * Entity field type definition (used for type generation, not strict validation)
+ * Entity field type definition (JSON Schema compatible)
+ * Supports both single types and union types (e.g., ["string", "null"])
  */
 export interface EntityField {
-  type: "string" | "number" | "boolean" | "array" | "object";
+  type: JsonSchemaType | JsonSchemaType[];
   description?: string;
   default?: unknown;
-  enum?: string[];
+  /** Enum values - can be strings, numbers, or mixed */
+  enum?: (string | number | boolean | null)[];
+  /** For array types - schema of array items */
   items?: EntityField;
+  /** For object types - nested property schemas */
   properties?: Record<string, EntityField>;
+  /** For object types - list of required property names */
   required?: string[];
+  /** JSON Schema format hint (date, date-time, email, uri, etc.) */
+  format?: string;
   [key: string]: unknown;
 }
 
