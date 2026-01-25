@@ -1,7 +1,7 @@
 import { resolve, join } from "node:path";
 import { execa } from "execa";
 import { Command } from "commander";
-import { log, group, text, select, multiselect, confirm, isCancel } from "@clack/prompts";
+import { log, group, text, select, confirm, isCancel } from "@clack/prompts";
 import type { Option } from "@clack/prompts";
 import kebabCase from "lodash.kebabcase";
 import { createProjectFiles, listTemplates, readProjectConfig, setAppConfig } from "@core/project/index.js";
@@ -18,10 +18,7 @@ import type { RunCommandResult } from "../../utils/runCommand.js";
 
 const DEFAULT_TEMPLATE_ID = "backend-only";
 
-const SUPPORTED_AGENTS = [
-  { value: "cursor", label: "Cursor" },
-  { value: "claude-code", label: "Claude Code" },
-];
+const SUPPORTED_AGENTS = ["cursor", "claude-code"];
 
 interface CreateOptions {
   name?: string;
@@ -235,29 +232,23 @@ async function executeCreate({
   }
 
   // Add AI agent skills
-  let selectedAgents: string[] = [];
+  let shouldAddSkills = false;
 
   if (isInteractive) {
-    const result = await multiselect({
-      message: "Add AI agent skills? (Select agents to configure)",
-      options: SUPPORTED_AGENTS,
-      initialValues: SUPPORTED_AGENTS.map((agent) => agent.value),
-      required: false,
+    const result = await confirm({
+      message: "Add AI agent skills? (Cursor, Claude Code)",
     });
-
-    if (!isCancel(result)) {
-      selectedAgents = result;
-    }
-  } else if (skills) {
-    selectedAgents = SUPPORTED_AGENTS.map((agent) => agent.value);
+    shouldAddSkills = !isCancel(result) && result;
+  } else {
+    shouldAddSkills = !!skills;
   }
 
-  if (selectedAgents.length > 0) {
-    const agentArgs = selectedAgents.flatMap((agent) => ["-a", agent]);
-    log.step(`Installing skills for: ${selectedAgents.join(", ")}`);
+  if (shouldAddSkills) {
+    const agentArgs = SUPPORTED_AGENTS.flatMap((agent) => ["-a", agent]);
+    log.step(`Installing skills for: ${SUPPORTED_AGENTS.join(", ")}`);
 
     await runTask(
-      `Installing skills for: ${selectedAgents.join(", ")}`,
+      `Installing skills for: ${SUPPORTED_AGENTS.join(", ")}`,
       async () => {
         await execa("npx", [
           "-y", "add-skill", "base44/skills",
