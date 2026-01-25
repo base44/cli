@@ -5,7 +5,6 @@ import { CLIExitError } from "../errors.js";
 import { printBanner } from "./banner.js";
 import { login } from "../commands/auth/login.js";
 import { theme } from "./theme.js";
-import { CLIExitError } from "../program.js";
 
 export interface RunCommandOptions {
   /**
