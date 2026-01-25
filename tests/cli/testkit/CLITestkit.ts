@@ -10,7 +10,7 @@ import type { CLIResult } from "./CLIResultMatcher.js";
 
 /** Type for the bundled program module */
 interface ProgramModule {
-  createProgram: () => Command;
+  program: Command;
   CLIExitError: new (code: number) => Error & { code: number };
 }
 
@@ -92,9 +92,9 @@ export class CLITestkit {
     // Apply all API mocks before running
     this.api.apply();
 
-    // Dynamic import after mocks are set up to get fresh module instances
+    // Dynamic import after vi.resetModules() to get fresh module instances
     // @ts-expect-error - importing from bundled output; typed via ProgramModule cast
-    const { createProgram, CLIExitError } = (await import("../../../dist/program.js")) as ProgramModule;
+    const { program, CLIExitError } = (await import("../../../dist/index.js")) as ProgramModule;
 
     const buildResult = (exitCode: number): CLIResult => ({
       stdout: stdout.join(""),
@@ -103,7 +103,6 @@ export class CLITestkit {
     });
 
     try {
-      const program = createProgram();
       await program.parseAsync(["node", "base44", ...args]);
       return buildResult(0);
     } catch (e) {
