@@ -45,14 +45,15 @@ describe("readProjectConfig", () => {
       resolve(FIXTURES_DIR, "with-agents")
     );
 
-    expect(result.agents).toHaveLength(2);
-    expect(result.agents.map((a) => a.name)).toContain("support_agent");
-    expect(result.agents.map((a) => a.name)).toContain("sales_agent");
+    expect(result.agents).toHaveLength(3);
+    expect(result.agents.map((a) => a.name)).toContain("customer_support");
+    expect(result.agents.map((a) => a.name)).toContain("data_analyst");
+    expect(result.agents.map((a) => a.name)).toContain("order_assistant");
 
-    const salesAgent = result.agents.find((a) => a.name === "sales_agent");
-    expect(salesAgent?.tool_configs).toHaveLength(1);
-    expect(salesAgent?.whatsapp_greeting).toBe(
-      "Welcome! How can I help you today?"
+    const customerSupport = result.agents.find((a) => a.name === "customer_support");
+    expect(customerSupport?.tool_configs).toHaveLength(1);
+    expect(customerSupport?.whatsapp_greeting).toBe(
+      "Hi! I'm your support assistant. How can I help you today?"
     );
   });
 
