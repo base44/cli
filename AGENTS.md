@@ -433,59 +433,6 @@ The CLI uses a split architecture for better development experience:
 
 This project requires Node.js >= 20.19.0. A `.node-version` file is provided for fnm/nodenv.
 
-## AI Agent Skills Integration
-
-The `create` command offers to install AI agent skills from [base44/skills](https://github.com/base44/skills) after project creation.
-
-### Implementation Details
-
-The skills installation uses [add-skill](https://github.com/vercel-labs/add-skill) CLI:
-
-```typescript
-// src/cli/commands/project/create.ts
-const SUPPORTED_AGENTS = [
-  { value: "cursor", label: "Cursor" },
-  { value: "claude-code", label: "Claude Code" },
-];
-
-// Command executed:
-await execa("npx", [
-  "-y", "add-skill", "base44/skills",
-  "-y",  // Skip add-skill prompts (use defaults: project scope, symlink)
-  "-s", "base44-cli", "-s", "base44-sdk",  // Install both skills
-  "-a", "cursor", "-a", "claude-code"       // For selected agents
-], { cwd: resolvedPath, stdio: "inherit" });
-```
-
-### Key Learnings
-
-1. **Two `-y` flags required**:
-   - First `-y` is for `npx` (auto-confirm package installation)
-   - Second `-y` is for `add-skill` (skip interactive prompts for scope/method)
-
-2. **Skill vs Agent distinction**:
-   - **Skills** (`-s`): The instruction sets (`base44-cli`, `base44-sdk`)
-   - **Agents** (`-a`): The AI tools (`cursor`, `claude-code`)
-
-3. **add-skill prompts** (skipped with `-y`):
-   - Installation scope: Project vs Global → defaults to Project
-   - Installation method: Symlink vs Copy → defaults to Symlink (recommended)
-
-4. **Files created**:
-   - `.agents/skills/` - Universal skills directory
-   - `.claude/skills/` - Claude Code specific (when selected)
-   - `.cursor/rules/` - Cursor specific (when selected)
-
-### Interactive vs Non-Interactive Mode
-
-```bash
-# Interactive: prompts with multiselect (all agents pre-selected)
-base44 create
-
-# Non-interactive: installs for all supported agents
-base44 create --name my-app --path ./my-app --skills
-```
-
 ## File Locations
 
 - `cli/plan.md` - Implementation plan
