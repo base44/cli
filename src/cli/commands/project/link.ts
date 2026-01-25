@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { log, group, text, select } from "@clack/prompts";
+import { log, group, text, select, isCancel, cancel } from "@clack/prompts";
 import type { Option } from "@clack/prompts";
 import {
   findProjectRoot,
@@ -7,7 +7,9 @@ import {
   writeAppConfig,
   appConfigExists,
   setAppConfig,
+  listProjects,
 } from "@core/project/index.js";
+import type { Project } from "@core/project/index.js";
 import {
   runCommand,
   runTask,
@@ -21,18 +23,24 @@ interface LinkOptions {
   create?: boolean;
   name?: string;
   description?: string;
+  projectId?: string;
 }
 
 type LinkAction = "create" | "choose";
 
 function validateNonInteractiveFlags(command: Command): void {
-  const { create, name } = command.opts<LinkOptions>();
+  const { create, name, projectId } = command.opts<LinkOptions>();
+
+  if (create && projectId) {
+    command.error("--create and --projectId cannot be used together");
+  }
+
   if (create && !name) {
     command.error("--name is required when using --create");
   }
 }
 
-async function promptForProjectDetails() {
+async function promptForLinkAction(): Promise<LinkAction> {
   const actionOptions: Array<Option<LinkAction>> = [
     {
       value: "create",
@@ -41,13 +49,28 @@ async function promptForProjectDetails() {
     },
   ];
 
+  actionOptions.push({
+    value: "choose",
+    label: "Link an existing project",
+    hint: `Choose from one of your available projects previously created by the Base44 CLI`,
+  });
+
+  const action = await select({
+    message: "How would you like to link this project?",
+    options: actionOptions,
+  });
+
+  if (isCancel(action)) {
+    cancel("Operation cancelled.");
+    process.exit(0);
+  }
+
+  return action;
+}
+
+async function promptForNewProjectDetails() {
   const result = await group(
     {
-      action: () =>
-        select({
-          message: "How would you like to link this project?",
-          options: actionOptions,
-        }),
       name: () => {
         return text({
           message: "What is the name of your project?",
@@ -76,6 +99,25 @@ async function promptForProjectDetails() {
   };
 }
 
+async function promptForExistingProject(linkableProjects: Project[]): Promise<Project> {
+  const projectOptions: Array<Option<Project>> = linkableProjects.map((project) => ({
+    value: project,
+    label: project.name,
+  }));
+
+  const selectedProject = await select({
+    message: "Choose a project to link",
+    options: projectOptions,
+  });
+
+  if (isCancel(selectedProject)) {
+    cancel("Operation cancelled.");
+    process.exit(0);
+  }
+
+  return selectedProject;
+}
+
 async function link(options: LinkOptions): Promise<RunCommandResult> {
   const projectRoot = await findProjectRoot();
 
@@ -91,37 +133,91 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
     );
   }
 
-  // Get project details from options or prompts
-  const { name, description } = options.create
-    ? { name: options.name!.trim(), description: options.description?.trim() }
-    : await promptForProjectDetails();
+  let finalProjectId: string | undefined;
+  const action = options.projectId ? "choose" : options.create ? "create" : await promptForLinkAction();
 
-  const { projectId } = await runTask(
-    "Creating project on Base44...",
-    async () => {
-      return await createProject(name, description);
-    },
-    {
-      successMessage: "Project created successfully",
-      errorMessage: "Failed to create project",
+  if (action === 'choose') {
+    const projects = await runTask(
+      "Fetching projects...",
+      async () => listProjects(),
+      {
+        successMessage: "Projects fetched",
+        errorMessage: "Failed to fetch projects",
+      }
+    );
+
+    const linkableProjects = projects.filter((p) => p.isManagedSourceCode !== true);
+
+    if (!linkableProjects.length) {
+      return { outroMessage: "No projects available for linking" };
     }
-  );
 
-  await writeAppConfig(projectRoot.root, projectId);
+    let projectId: string;
 
-  // Set app config in cache for sync access to getDashboardUrl
-  setAppConfig({ id: projectId, projectRoot: projectRoot.root });
+    if (options.projectId) {
+      // Validate that the provided project ID exists and is linkable
+      const project = linkableProjects.find((p) => p.id === options.projectId);
+      if (!project) {
+        throw new Error(
+          `Project with ID "${options.projectId}" not found or not available for linking.`
+        );
+      }
+      projectId = options.projectId;
+    } else {
+      const selectedProject = await promptForExistingProject(linkableProjects);
+      projectId = selectedProject.id;
+    }
 
-  log.message(`${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(projectId))}`);
+    await runTask(
+      "Linking project...",
+      async () => {
+        await writeAppConfig(projectRoot.root, projectId);
+        setAppConfig({ id: projectId, projectRoot: projectRoot.root });
+      },
+      {
+        successMessage: "Project linked successfully",
+        errorMessage: "Failed to link project",
+      }
+    );
 
+    finalProjectId = projectId;
+  }
+
+  if (action === 'create') {
+    const { name, description } = options.create
+      ? { name: options.name!.trim(), description: options.description?.trim() }
+      : await promptForNewProjectDetails();
+
+    const { projectId } = await runTask(
+      "Creating project on Base44...",
+      async () => {
+        return await createProject(name, description);
+      },
+      {
+        successMessage: "Project created successfully",
+        errorMessage: "Failed to create project",
+      }
+    );
+
+
+    await writeAppConfig(projectRoot.root, projectId);
+
+    // Set app config in cache for sync access to getDashboardUrl
+    setAppConfig({ id: projectId, projectRoot: projectRoot.root });
+
+    finalProjectId = projectId;
+  }
+
+  log.message(`${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(finalProjectId))}`);
   return { outroMessage: "Project linked" };
 }
 
 export const linkCommand = new Command("link")
-  .description("Link a local project to a Base44 project")
+  .description("Link a local project to a Base44 project (create new or link existing)")
   .option("-c, --create", "Create a new project (skip selection prompt)")
   .option("-n, --name <name>", "Project name (required when --create is used)")
   .option("-d, --description <description>", "Project description")
+  .option("-p, --projectId <id>", "Project ID to link to an existing project (skips selection prompt)")
   .hook("preAction", validateNonInteractiveFlags)
   .action(async (options: LinkOptions) => {
     await runCommand(() => link(options), { requireAuth: true, requireAppConfig: false });

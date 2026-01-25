@@ -43,3 +43,16 @@ export const CreateProjectResponseSchema = z.looseObject({
 });
 
 export type CreateProjectResponse = z.infer<typeof CreateProjectResponseSchema>;
+
+export const ProjectSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  userDescription: z.string().optional(),
+  isManagedSourceCode: z.boolean().optional(),
+});
+
+export type Project = z.infer<typeof ProjectSchema>;
+
+export const ProjectsResponseSchema = z.array(ProjectSchema);
+
+export type ProjectsResponse = z.infer<typeof ProjectsResponseSchema>;

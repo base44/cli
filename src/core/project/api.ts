@@ -1,5 +1,6 @@
 import { base44Client } from "@core/clients/index.js";
-import { CreateProjectResponseSchema } from "./schema.js";
+import { CreateProjectResponseSchema, ProjectsResponseSchema } from "./schema.js";
+import type { ProjectsResponse } from "./schema.js";
 
 export async function createProject(projectName: string, description?: string) {
   const response = await base44Client.post("api/apps", {
@@ -16,4 +17,17 @@ export async function createProject(projectName: string, description?: string) {
   return {
     projectId: result.id,
   };
+}
+
+export async function listProjects(): Promise<ProjectsResponse> {
+  const response = await base44Client.get(`api/apps`, {
+    searchParams: {
+      "sort": "-updated_date",
+      "fields": "id,name,user_description,is_managed_source_code"
+    }
+  });
+
+  const projects = ProjectsResponseSchema.parse(await response.json());
+
+  return projects;
 }
