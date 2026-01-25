@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { log, select, isCancel } from "@clack/prompts";
+import { cancel, log, select, isCancel } from "@clack/prompts";
 import pWaitFor from "p-wait-for";
 import {
   initiateOAuth,
@@ -16,7 +16,17 @@ import { runCommand, runTask } from "../../utils/index.js";
 import type { RunCommandResult } from "../../utils/runCommand.js";
 import { theme } from "../../utils/theme.js";
 
-async function promptForIntegrationType(): Promise<IntegrationType | null> {
+function validateIntegrationType(type: string): IntegrationType {
+  if (!isValidIntegration(type)) {
+    const supportedList = SUPPORTED_INTEGRATIONS.join(", ");
+    throw new Error(
+      `Unsupported connector: ${type}\nSupported connectors: ${supportedList}`
+    );
+  }
+  return type;
+}
+
+async function promptForIntegrationType(): Promise<IntegrationType> {
   const options = SUPPORTED_INTEGRATIONS.map((type) => ({
     value: type,
     label: getIntegrationDisplayName(type),
@@ -28,7 +38,8 @@ async function promptForIntegrationType(): Promise<IntegrationType | null> {
   });
 
   if (isCancel(selected)) {
-    return null;
+    cancel("Operation cancelled.");
+    process.exit(0);
   }
 
   return selected;
@@ -87,25 +98,10 @@ async function waitForOAuthCompletion(
 export async function addConnector(
   integrationType?: string
 ): Promise<RunCommandResult> {
-  // If no type provided, prompt for selection
-  let selectedType: IntegrationType;
-
-  if (!integrationType) {
-    const prompted = await promptForIntegrationType();
-    if (!prompted) {
-      return { outroMessage: "Cancelled" };
-    }
-    selectedType = prompted;
-  } else {
-    // Validate the provided integration type
-    if (!isValidIntegration(integrationType)) {
-      const supportedList = SUPPORTED_INTEGRATIONS.join(", ");
-      throw new Error(
-        `Unsupported connector: ${integrationType}\nSupported connectors: ${supportedList}`
-      );
-    }
-    selectedType = integrationType;
-  }
+  // Get type from argument or prompt
+  const selectedType = integrationType
+    ? validateIntegrationType(integrationType)
+    : await promptForIntegrationType();
 
   const displayName = getIntegrationDisplayName(selectedType);
 

@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { confirm, select, isCancel } from "@clack/prompts";
+import { cancel, confirm, select, isCancel } from "@clack/prompts";
 import {
   listConnectors,
   readLocalConnectors,
@@ -16,6 +16,7 @@ import { theme } from "../../utils/theme.js";
 
 interface RemoveOptions {
   hard?: boolean;
+  yes?: boolean;
 }
 
 interface MergedConnector {
@@ -67,9 +68,25 @@ function mergeConnectorsForRemoval(
   return Array.from(merged.values());
 }
 
+function validateConnectorType(
+  type: string,
+  merged: MergedConnector[]
+): { type: IntegrationType; connector: MergedConnector } {
+  if (!isValidIntegration(type)) {
+    throw new Error(`Invalid connector type: ${type}`);
+  }
+
+  const connector = merged.find((c) => c.type === type);
+  if (!connector) {
+    throw new Error(`No ${getIntegrationDisplayName(type)} connector found`);
+  }
+
+  return { type, connector };
+}
+
 async function promptForConnectorToRemove(
   connectors: MergedConnector[]
-): Promise<IntegrationType | null> {
+): Promise<{ type: IntegrationType; connector: MergedConnector }> {
   const options = connectors.map((c) => {
     let label = c.displayName;
     if (c.accountEmail) {
@@ -89,10 +106,12 @@ async function promptForConnectorToRemove(
   });
 
   if (isCancel(selected)) {
-    return null;
+    cancel("Operation cancelled.");
+    process.exit(0);
   }
 
-  return selected;
+  const connector = connectors.find((c) => c.type === selected)!;
+  return { type: selected, connector };
 }
 
 export async function removeConnectorCommand(
@@ -125,59 +144,36 @@ export async function removeConnectorCommand(
     };
   }
 
-  // If no type provided, prompt for selection
-  let selectedType: IntegrationType;
-  let selectedConnector: MergedConnector | undefined;
-
-  if (!integrationType) {
-    const prompted = await promptForConnectorToRemove(merged);
-    if (!prompted) {
-      return { outroMessage: "Cancelled" };
-    }
-    selectedType = prompted;
-    selectedConnector = merged.find((c) => c.type === selectedType);
-  } else {
-    // Validate the provided integration type
-    if (!isValidIntegration(integrationType)) {
-      throw new Error(`Invalid connector type: ${integrationType}`);
-    }
-
-    selectedConnector = merged.find((c) => c.type === integrationType);
-    if (!selectedConnector) {
-      throw new Error(
-        `No ${getIntegrationDisplayName(integrationType)} connector found`
-      );
-    }
-
-    selectedType = integrationType;
-  }
+  // Get type from argument or prompt
+  const { type: selectedType, connector: selectedConnector } = integrationType
+    ? validateConnectorType(integrationType, merged)
+    : await promptForConnectorToRemove(merged);
 
   const displayName = getIntegrationDisplayName(selectedType);
-  const accountInfo = selectedConnector?.accountEmail
+  const accountInfo = selectedConnector.accountEmail
     ? ` (${selectedConnector.accountEmail})`
     : "";
 
-  // Confirm removal with appropriate message
-  const actionWord = isHardDelete ? "Permanently remove" : "Remove";
-  const shouldRemove = await confirm({
-    message: `${actionWord} ${displayName}${accountInfo}?`,
-    initialValue: false,
-  });
+  // Confirm removal (skip if --yes flag is provided)
+  if (!options.yes) {
+    const actionWord = isHardDelete ? "Permanently remove" : "Remove";
+    const shouldRemove = await confirm({
+      message: `${actionWord} ${displayName}${accountInfo}?`,
+      initialValue: false,
+    });
 
-  if (isCancel(shouldRemove) || !shouldRemove) {
-    return { outroMessage: "Cancelled" };
+    if (isCancel(shouldRemove) || !shouldRemove) {
+      cancel("Operation cancelled.");
+      process.exit(0);
+    }
   }
 
   // Perform removal
-  const taskMessage = isHardDelete
-    ? `Removing ${displayName}...`
-    : `Removing ${displayName}...`;
-
   await runTask(
-    taskMessage,
+    `Removing ${displayName}...`,
     async () => {
       // Remove from backend if it exists there
-      if (selectedConnector?.inBackend) {
+      if (selectedConnector.inBackend) {
         if (isHardDelete) {
           await removeConnector(selectedType);
         } else {
@@ -202,6 +198,7 @@ export async function removeConnectorCommand(
 export const connectorsRemoveCommand = new Command("remove")
   .argument("[type]", "Integration type to remove (e.g., slack, notion)")
   .option("--hard", "Permanently remove the connector (cannot be undone)")
+  .option("-y, --yes", "Skip confirmation prompt")
   .description("Remove an OAuth integration")
   .action(async (type: string | undefined, options: RemoveOptions) => {
     await runCommand(() => removeConnectorCommand(type, options), {
