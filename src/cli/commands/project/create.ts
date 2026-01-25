@@ -236,7 +236,7 @@ async function executeCreate({
 
   if (isInteractive) {
     const result = await confirm({
-      message: "Add AI agent skills? (Cursor, Claude Code)",
+      message: "Add AI agent skills?",
     });
     shouldAddSkills = !isCancel(result) && result;
   } else {
@@ -284,7 +284,7 @@ export const createCommand = new Command("create")
   .option("-p, --path <path>", "Path where to create the project")
   .option("-t, --template <id>", "Template ID (e.g., backend-only, backend-and-client)")
   .option("--deploy", "Build and deploy the site")
-  .option("--skills", "Add AI agent skills (Cursor, Claude Code)")
+  .option("--skills", "Add AI agent skills")
   .hook("preAction", validateNonInteractiveFlags)
   .action(async (options: CreateOptions) => {
     await chooseCreate(options);
