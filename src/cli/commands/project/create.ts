@@ -1,7 +1,7 @@
 import { resolve, join } from "node:path";
 import { execa } from "execa";
 import { Command } from "commander";
-import { log, group, text, select, multiselect, isCancel } from "@clack/prompts";
+import { log, group, text, select, multiselect, confirm, isCancel } from "@clack/prompts";
 import type { Option } from "@clack/prompts";
 import kebabCase from "lodash.kebabcase";
 import { createProjectFiles, listTemplates, readProjectConfig, setAppConfig } from "@core/project/index.js";
@@ -21,7 +21,7 @@ const DEFAULT_TEMPLATE_ID = "backend-only";
 const SUPPORTED_AGENTS = [
   { value: "cursor", label: "Cursor" },
   { value: "claude-code", label: "Claude Code" },
-] as const;
+];
 
 interface CreateOptions {
   name?: string;
@@ -240,10 +240,7 @@ async function executeCreate({
   if (isInteractive) {
     const result = await multiselect({
       message: "Add AI agent skills? (Select agents to configure)",
-      options: SUPPORTED_AGENTS.map((agent) => ({
-        value: agent.value,
-        label: agent.label,
-      })),
+      options: SUPPORTED_AGENTS,
       initialValues: SUPPORTED_AGENTS.map((agent) => agent.value),
       required: false,
     });
@@ -257,21 +254,26 @@ async function executeCreate({
 
   if (selectedAgents.length > 0) {
     const agentArgs = selectedAgents.flatMap((agent) => ["-a", agent]);
-    log.message("Installing skills for: " + selectedAgents.join(", "));
-    try {
-      await execa("npx", [
-        "-y", "add-skill", "base44/skills",
-        "-y",  // Skip add-skill prompts (use defaults: project scope, symlink)
-        "-s", "base44-cli", "-s", "base44-sdk",
-        ...agentArgs
-      ], {
-        cwd: resolvedPath,
-        stdio: "inherit",
-      });
-      log.message(theme.colors.base44Orange("AI agent skills added successfully"));
-    } catch (error) {
-      log.message("Failed to add AI agent skills - you can add them later with: npx add-skill base44/skills");
-    }
+    log.step("Installing skills for: " + selectedAgents.join(", "));
+
+    await runTask(
+      "Installing skills for: " + selectedAgents.join(", "),
+      async () => {
+        await execa("npx", [
+          "-y", "add-skill", "base44/skills",
+          "-y",  // Skip add-skill prompts (use defaults: project scope, symlink)
+          "-s", "base44-cli", "-s", "base44-sdk",
+          ...agentArgs
+        ], {
+          cwd: resolvedPath,
+          stdio: "inherit",
+        });
+      },
+      {
+        successMessage: theme.colors.base44Orange("AI agent skills added successfully"),
+        errorMessage: "Failed to add AI agent skills - you can add them later with: npx add-skill base44/skills",
+      }
+    );
   }
 
   log.message(`${theme.styles.header("Project")}: ${theme.colors.base44Orange(name)}`);
