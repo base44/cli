@@ -32,7 +32,7 @@ The CLI is distributed as a **zero-dependency package**. All runtime dependencie
 ```
 cli/
 ├── bin/                          # Entry point scripts
-│   ├── run.js                    # Production entry (imports dist/program.js)
+│   ├── run.js                    # Production entry (imports dist/index.js)
 │   └── dev.js                    # Development entry (uses tsx for TypeScript)
 ├── src/
 │   ├── core/
@@ -437,7 +437,7 @@ This project requires Node.js >= 20.19.0. A `.node-version` file is provided for
 
 - `cli/plan.md` - Implementation plan
 - `cli/AGENTS.md` - This file
-- `cli/bin/run.js` - Production entry point (imports bundled dist/program.js)
+- `cli/bin/run.js` - Production entry point (imports bundled dist/index.js)
 - `cli/bin/dev.js` - Development entry point (uses tsx for TypeScript)
 - `cli/src/core/` - Core module
 - `cli/src/core/errors.ts` - Core error classes (AuthApiError, AuthValidationError)
