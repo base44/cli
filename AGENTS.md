@@ -15,20 +15,25 @@ The Base44 CLI is a TypeScript-based command-line tool built with:
 - **tsdown** - Bundler (powered by Rolldown, the Rust-based Rollup successor)
 
 ### Distribution Strategy
-The CLI is distributed as a **zero-dependency package**. All runtime dependencies are bundled into a single JavaScript file. This means:
-- Users only download the bundled code 
+The CLI is distributed as a **zero-dependency package**. All runtime dependencies are bundled into JavaScript files. This means:
+- Users only download the bundled code (`dist/` and `bin/` directories)
 - No dependency resolution or node_modules installation
 - Faster install times and no version conflicts
+- The npm `bin` field points to `./bin/run.js` which imports the bundled program
 
 ### Project Structure
 - **Package**: `base44` - Single package published to npm
 - **Core Module**: `src/core/` - Resources, utilities, errors, and config
-- **CLI Module**: `src/cli/` - CLI commands and entry point
+- **CLI Module**: `src/cli/` - CLI commands and program definition
+- **Bin Scripts**: `bin/` - Entry point scripts for dev and production
 
 ## Folder Structure
 
 ```
 cli/
+├── bin/                          # Entry point scripts
+│   ├── run.js                    # Production entry (imports dist/program.js)
+│   └── dev.js                    # Development entry (uses tsx for TypeScript)
 ├── src/
 │   ├── core/
 │   │   ├── api/                  # HTTP clients
@@ -104,10 +109,12 @@ cli/
 │       │   ├── theme.ts          # Centralized theme configuration (colors, styles)
 │       │   ├── urls.ts           # URL utilities (getDashboardUrl)
 │       │   └── index.ts
-│       └── index.ts              # CLI entry point
+│       ├── errors.ts             # CLI-specific errors (CLIExitError)
+│       ├── program.ts            # Commander program definition
+│       └── index.ts              # Barrel export (program, CLIExitError)
 ├── templates/                    # Project templates
 ├── tests/
-├── dist/
+├── dist/                         # Build output (program.js + templates/)
 ├── package.json
 └── tsconfig.json
 ```
@@ -158,10 +165,10 @@ export const myCommand = new Command("<name>")
 - **Intro**: Displayed automatically (simple tag or full ASCII banner based on options)
 - **Outro**: Displayed from the `outroMessage` returned by the command function
 
-### 2. Register in CLI entry point
+### 2. Register in program.ts
 
 ```typescript
-// src/cli/index.ts
+// src/cli/program.ts
 import { myCommand } from "./commands/<domain>/<action>.js";
 
 // ...
@@ -384,17 +391,43 @@ import { base44Client } from "@core/api/index.js";
 9. **Keep AGENTS.md updated** - Update this file when architecture changes
 10. **Zero-dependency distribution** - All packages go in `devDependencies`; they get bundled at build time
 11. **Use theme for styling** - Never use `chalk` directly in commands; import `theme` from utils and use semantic color/style names
-12. **Use fs.ts utilities** - Always use `@core/utils/fs.js` for file operations 
+12. **Use fs.ts utilities** - Always use `@core/utils/fs.js` for file operations
+13. **No direct process.exit()** - Throw `CLIExitError` instead; entry points handle the actual exit 
 
 ## Development
 
 ```bash
-npm run build      # tsdown - bundles to single file in dist/cli/index.js
+npm run build      # tsdown - bundles to dist/index.js
 npm run typecheck  # tsc --noEmit - type checking only
-npm run dev        # tsx for development
+npm run dev        # runs ./bin/dev.js (tsx for direct TypeScript execution)
+npm run start      # runs ./bin/run.js (production, requires build first)
 npm test           # vitest
 npm run lint       # eslint
 ```
+
+### Entry Points Architecture
+
+The CLI uses a split architecture for better development experience:
+
+**Production** (`./bin/run.js`):
+- Used when installed via npm (`base44` command)
+- Imports from bundled `dist/index.js`
+- Requires `npm run build` first
+
+**Development** (`./bin/dev.js`):
+- Used during development (`npm run dev`)
+- Uses `tsx` shebang to run TypeScript directly from `src/cli/index.ts`
+- No build step required - changes are reflected immediately
+
+**CLI Module** (`src/cli/`):
+- `program.ts` - Defines the Commander program and registers all commands
+- `errors.ts` - CLI-specific errors (CLIExitError)
+- `index.ts` - Barrel export for entry points (exports program, CLIExitError)
+
+**Error Handling Flow**:
+- Commands throw errors → `runCommand()` catches, logs, and throws `CLIExitError(1)`
+- Entry points (`bin/run.js`, `bin/dev.js`) catch `CLIExitError` and call `process.exit(code)`
+- This keeps `process.exit()` out of core code, making it testable
 
 ### Node.js Version
 
@@ -404,7 +437,14 @@ This project requires Node.js >= 20.19.0. A `.node-version` file is provided for
 
 - `cli/plan.md` - Implementation plan
 - `cli/AGENTS.md` - This file
+- `cli/bin/run.js` - Production entry point (imports bundled dist/program.js)
+- `cli/bin/dev.js` - Development entry point (uses tsx for TypeScript)
 - `cli/src/core/` - Core module
-- `cli/src/cli/` - CLI commands
-- `cli/tsdown.config.mjs` - Build configuration
+- `cli/src/core/errors.ts` - Core error classes (AuthApiError, AuthValidationError)
+- `cli/src/cli/errors.ts` - CLI-specific errors (CLIExitError)
+- `cli/src/cli/` - CLI commands and program definition
+- `cli/src/cli/index.ts` - Barrel export for entry points (program, CLIExitError)
+- `cli/src/cli/program.ts` - Commander program definition
+- `cli/src/cli/utils/runCommand.ts` - Command wrapper that throws CLIExitError on errors
+- `cli/tsdown.config.mjs` - Build configuration (bundles index.ts to dist/)
 - `cli/.node-version` - Node.js version pinning

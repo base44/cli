@@ -3,19 +3,18 @@
   "version": "0.0.17",
   "description": "Base44 CLI - Unified interface for managing Base44 applications",
   "type": "module",
-  "main": "./dist/cli/index.js",
-  "bin": "./dist/cli/index.js",
-  "exports": {
-    ".": "./dist/cli/index.js"
+  "bin": {
+    "base44": "./bin/run.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "bin"
   ],
   "scripts": {
     "build": "tsdown",
     "typecheck": "tsc --noEmit",
-    "dev": "tsx src/cli/index.ts",
-    "start": "node dist/cli/index.js",
+    "dev": "./bin/dev.js",
+    "start": "./bin/run.js",
     "clean": "rm -rf dist",
     "lint": "eslint src",
     "test": "vitest run",
