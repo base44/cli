@@ -1,8 +1,8 @@
 import { join } from "node:path";
 import { writeJsonFile } from "@core/utils/fs.js";
 import { getAppClient } from "@core/clients/index.js";
-import { SyncEntitiesResponseSchema } from "./schema.js";
-import type { SyncEntitiesResponse, Entity } from "./schema.js";
+import { GetEntitiesResponseSchema, SyncEntitiesResponseSchema } from "./schema.js";
+import type { SyncEntitiesResponse, Entity, GetEntitiesResponse } from "./schema.js";
 
 export async function syncEntities(
   entities: Entity[]
@@ -35,14 +35,12 @@ export async function syncEntities(
   return result;
 }
 
-export async function pullEntities(destPath: string): Promise<any> {
+export async function getEntities(): Promise<GetEntitiesResponse> {
   const appClient = getAppClient();
-  const response = await appClient.get("entities-schemas");
-  const result = await response.json() as { schemas: { entity_name: string, schema: any }[] };
-
-  result.schemas.forEach((entity) => {
-    writeJsonFile(join(destPath, 'base44', 'entities', `${entity.entity_name}.json`), entity.schema);
-  });
+  const response = await appClient.get("entity-schemas");
+  const data = await response.json();
+  
+  const result = GetEntitiesResponseSchema.parse(data);
 
   return result;
 };

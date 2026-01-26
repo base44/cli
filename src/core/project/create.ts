@@ -1,11 +1,12 @@
 import { globby } from "globby";
 import { PROJECT_CONFIG_PATTERNS } from "../consts.js";
-import { createProject } from "./api.js";
-import { renderTemplate } from "./template.js";
+import { createProject, downloadProject } from "./api.js";
+import { listTemplates, renderTemplate } from "./template.js";
 import type { Template } from "./schema.js";
 import kebabCase from "lodash.kebabcase";
-import { pushEntities, pullEntities } from "@core/resources/index.js";
+import { pushEntities, pullEntities, getEntities } from "@core/resources/index.js";
 import { readProjectConfig } from "./config.js";
+import { setAppConfig } from "./app-config.js";
 
 export interface CreateProjectOptions {
   name: string;
@@ -52,13 +53,13 @@ export async function createProjectFiles(
   };
 }
 
-export async function createProjectFileForExistingProject(
+export async function createProjectFilesForExistingProject(
   options: { projectId: string, projectName: string, path: string; }
 ): Promise<CreateProjectResult> {
   const { projectId, projectName, path: basePath } = options;
 
   // Check if project already exists
-  const existingConfigs = await globby(getProjectConfigPatterns(), {
+  const existingConfigs = await globby(PROJECT_CONFIG_PATTERNS, {
     cwd: basePath,
     absolute: true,
   });
@@ -71,31 +72,22 @@ export async function createProjectFileForExistingProject(
 
   // Create the project via API to get the app ID
   await downloadProject(projectId, projectName);
-  process.env.BASE44_CLIENT_ID = projectId;
-
+  
   // Render the template to the destination path
   const newProject = await createProject(`${projectName} Copy`);
   
-  await renderTemplate({
-    "id": "backend-only",
-    "name": "Init a basic project",
-    "description": "Minimal Base44 backend setup for creating entities",
-    "path": "backend-only"
-  }, kebabCase(projectName), {
+  // Get the default template
+  const templates = await listTemplates();
+  const template = templates.find((t) => t.id === 'backend-only');
+  
+  await renderTemplate(template!, kebabCase(projectName), {
     name: `${projectName} Copy`,
     description: `Copy of ${projectName}`,
     projectId: newProject.projectId,
   });
-  
-  await pullEntities(kebabCase(projectName));
-  
-  process.env.BASE44_CLIENT_ID = newProject.projectId;
-  const { entities } = await readProjectConfig(kebabCase(projectName));
-
-  await pushEntities(entities);
 
   return {
     projectId,
-    projectDir: basePath,
+    projectDir: kebabCase(projectName),
   };
 }

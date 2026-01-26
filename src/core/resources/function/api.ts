@@ -1,6 +1,6 @@
 import { getAppClient } from "@core/clients/index.js";
-import { DeployFunctionsResponseSchema } from "./schema.js";
-import type { FunctionWithCode, DeployFunctionsResponse } from "./schema.js";
+import { DeployFunctionsResponseSchema, GetFunctionsResponseSchema } from "./schema.js";
+import type { FunctionWithCode, DeployFunctionsResponse, GetFunctionsResponse } from "./schema.js";
 
 function toDeployPayloadItem(fn: FunctionWithCode) {
   return {
@@ -24,5 +24,13 @@ export async function deployFunctions(
   });
 
   const result = DeployFunctionsResponseSchema.parse(await response.json());
+  return result;
+}
+
+export async function getFunctions(): Promise<GetFunctionsResponse> {
+  const appClient = getAppClient();
+  const response = await appClient.get("backend-functions");
+  const result = GetFunctionsResponseSchema.parse(await response.json());
+  
   return result;
 }

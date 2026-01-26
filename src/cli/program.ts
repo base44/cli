@@ -10,6 +10,7 @@ import { deployCommand } from "./commands/project/deploy.js";
 import { linkCommand } from "./commands/project/link.js";
 import { siteDeployCommand } from "./commands/site/deploy.js";
 import packageJson from "../../package.json";
+import { ejectCommand } from "./commands/project/eject.js";
 
 const program = new Command();
 
@@ -34,6 +35,7 @@ program.addCommand(createCommand);
 program.addCommand(dashboardCommand);
 program.addCommand(deployCommand);
 program.addCommand(linkCommand);
+program.addCommand(ejectCommand);
 
 // Register entities commands
 program.addCommand(entitiesPushCommand);
