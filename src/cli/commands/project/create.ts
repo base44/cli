@@ -69,8 +69,8 @@ async function createInteractive(options: CreateOptions): Promise<RunCommandResu
           message: "Pick a template",
           options: templateOptions,
         }),
-      name: () =>
-        text({
+      name: () => {
+        return options.name ? Promise.resolve(options.name) : text({
           message: "What is the name of your project?",
           placeholder: basename(process.cwd()),
           initialValue: basename(process.cwd()),
@@ -79,7 +79,8 @@ async function createInteractive(options: CreateOptions): Promise<RunCommandResu
               return "Every project deserves a name";
             }
           },
-        }),
+        })
+      },
       projectPath: async ({ results }) => {
         const suggestedPath = await isDirEmpty() ? `./` : `./${kebabCase(results.name)}`;
         return text({
