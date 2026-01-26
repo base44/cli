@@ -68,7 +68,7 @@ async function createInteractive(options: CreateOptions): Promise<RunCommandResu
     {
       template: () =>
         select({
-          message: "Pick a template",
+          message: "Who are you?",
           options: templateOptions,
         }),
       name: () =>
