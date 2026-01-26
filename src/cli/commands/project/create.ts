@@ -242,19 +242,24 @@ async function executeCreate({
   }
 
   if (shouldAddSkills) {
-    await runTask(
-      "Installing AI agent skills...",
-      async () => {
-        await execa("npx", ["-y", "add-skill", "base44/skills", "-y"], {
-          cwd: resolvedPath,
-          shell: true
-        });
-      },
-      {
-        successMessage: theme.colors.base44Orange("AI agent skills added successfully"),
-        errorMessage: "Failed to add AI agent skills - you can add them later with: npx add-skill base44/skills",
-      }
-    );
+    try {
+      await runTask(
+        "Installing AI agent skills...",
+        async () => {
+          await execa("npx", ["-y", "add-skill", "base44/skills", "-y"], {
+            cwd: resolvedPath,
+            shell: true
+          });
+        },
+        {
+          successMessage: theme.colors.base44Orange("AI agent skills added successfully"),
+          errorMessage: "Failed to add AI agent skills - you can add them later with: npx add-skill base44/skills",
+        }
+      );
+    } catch {
+      // Skills installation is non-critical (e.g., user may not have git installed)
+      // The error message is already shown by runTask, so we just continue
+    }
   }
 
   log.message(`${theme.styles.header("Project")}: ${theme.colors.base44Orange(name)}`);
