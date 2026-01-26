@@ -1,6 +1,6 @@
 import { resolve, join, basename } from "node:path";
 import { execa } from "execa";
-import { Command } from "commander";
+import { Argument, Command } from "commander";
 import { log, group, text, select, confirm, isCancel } from "@clack/prompts";
 import type { Option } from "@clack/prompts";
 import kebabCase from "lodash.kebabcase";
@@ -20,7 +20,6 @@ const DEFAULT_TEMPLATE_ID = "backend-only";
 
 interface CreateOptions {
   name?: string;
-  description?: string;
   path?: string;
   template?: string;
   deploy?: boolean;
@@ -38,10 +37,9 @@ async function getTemplateById(templateId: string): Promise<Template> {
 }
 
 function validateNonInteractiveFlags(command: Command): void {
-  const { name, path } = command.opts<CreateOptions>();
-  const providedCount = [name, path].filter(Boolean).length;
+  const { path } = command.opts<CreateOptions>();
 
-  if (providedCount > 0 && providedCount < 2) {
+  if (path && !command.args.length) {
     command.error("Non-interactive mode requires all flags: --name, --path");
   }
 }
@@ -247,7 +245,6 @@ async function executeCreate({
     }
   }
 
-
   log.message(`${theme.styles.header("Project")}: ${theme.colors.base44Orange(name)}`);
   log.message(`${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(projectId))}`);
 
@@ -260,13 +257,12 @@ async function executeCreate({
 
 export const createCommand = new Command("create")
   .description("Create a new Base44 project")
-  .option("-n, --name <name>", "Project name")
-  .option("-d, --description <description>", "Project description")
+  .addArgument(new Argument('name', 'Project name').argOptional())
   .option("-p, --path <path>", "Path where to create the project")
   .option("-t, --template <id>", "Template ID (e.g., backend-only, backend-and-client)")
   .option("--deploy", "Build and deploy the site")
   .option("--skills", "Add AI agent skills")
   .hook("preAction", validateNonInteractiveFlags)
-  .action(async (options: CreateOptions) => {
-    await chooseCreate(options);
+  .action(async (name: string | undefined, options: CreateOptions) => {
+    await chooseCreate({ name, ...options });
   });
