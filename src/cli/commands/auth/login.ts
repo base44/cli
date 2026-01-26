@@ -2,7 +2,6 @@ import { Command } from "commander";
 import { log } from "@clack/prompts";
 import pWaitFor from "p-wait-for";
 import open from "open";
-import * as readline from "readline";
 import {
   writeAuth,
   generateDeviceCode,
@@ -35,19 +34,10 @@ async function generateAndDisplayDeviceCode(): Promise<DeviceCodeResponse> {
     `\nPlease confirm this code at: ${theme.colors.links(deviceCodeResponse.verificationUri)}`
   );
 
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-
-  await new Promise<void>((resolve) => {
-    rl.question("Press Enter to open in browser...", () => {
-      rl.close();
-      resolve();
-    });
-  });
-
-  await open(deviceCodeResponse.verificationUri);
+  // Auto-open browser in TTY environments
+  if (process.stdout.isTTY) {
+    await open(deviceCodeResponse.verificationUri);
+  }
 
   return deviceCodeResponse;
 }
