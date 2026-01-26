@@ -90,6 +90,8 @@ export async function findAppConfigPath(
   const files = await globby(APP_CONFIG_PATTERN, {
     cwd: projectRoot,
     absolute: true,
+    deep: 3,
+    gitignore: true,
   });
   return files[0] ?? null;
 }
