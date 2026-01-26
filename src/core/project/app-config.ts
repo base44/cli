@@ -91,7 +91,6 @@ export async function findAppConfigPath(
     cwd: projectRoot,
     absolute: true,
     deep: 3,
-    gitignore: true,
   });
   return files[0] ?? null;
 }
