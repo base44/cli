@@ -128,13 +128,11 @@ export async function runCommand<TData = Record<string, unknown>>(
     if (jsonMode) {
       // Output JSON error
       outputJsonError(e instanceof Error ? e : String(e));
-    } else {
-      if (e instanceof Error) {
+    } else if (e instanceof Error) {
         log.error(e.stack ?? e.message);
       } else {
         log.error(String(e));
       }
-    }
     throw new CLIExitError(1);
   }
 }
