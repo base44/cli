@@ -49,7 +49,7 @@ async function pullAgentsAction(): Promise<RunCommandResult> {
 }
 
 export const agentsPullCommand = new Command("pull")
-  .description("Pull agents from Base44 to local files")
+  .description("Pull agents from Base44 to local files (replaces all local agent configs)")
   .action(async () => {
     await runCommand(pullAgentsAction, { requireAuth: true });
   });
