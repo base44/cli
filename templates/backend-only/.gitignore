@@ -1,0 +1,7 @@
+# Environment
+.env
+.env.*
+*.local
+
+# Base44 App Config
+.app.json*

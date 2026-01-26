@@ -1,21 +1,20 @@
 {
   "name": "base44",
-  "version": "0.0.7",
+  "version": "0.0.19",
   "description": "Base44 CLI - Unified interface for managing Base44 applications",
   "type": "module",
-  "main": "./dist/cli/index.js",
-  "bin": "./dist/cli/index.js",
-  "exports": {
-    ".": "./dist/cli/index.js"
+  "bin": {
+    "base44": "./bin/run.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "bin"
   ],
   "scripts": {
     "build": "tsdown",
     "typecheck": "tsc --noEmit",
-    "dev": "tsx src/cli/index.ts",
-    "start": "node dist/cli/index.js",
+    "dev": "./bin/dev.js",
+    "start": "./bin/run.js",
     "clean": "rm -rf dist",
     "lint": "eslint src",
     "test": "vitest run",
@@ -44,7 +43,6 @@
     "@typescript-eslint/parser": "^8.51.0",
     "chalk": "^5.6.2",
     "commander": "^12.1.0",
-    "dotenv": "^17.2.3",
     "ejs": "^3.1.10",
     "eslint": "^9.39.2",
     "eslint-plugin-import": "^2.32.0",
@@ -56,14 +54,15 @@
     "ky": "^1.14.2",
     "lodash.kebabcase": "^4.1.1",
     "p-wait-for": "^6.0.0",
-    "tar": "^7.4.3",
+    "tar": "^7.5.4",
     "tsdown": "^0.12.4",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.52.0",
     "unzipper": "^0.12.3",
     "vitest": "^4.0.16",
-    "zod": "^4.3.5"
+    "zod": "^4.3.5",
+    "open": "^11.0.0"
   },
   "engines": {
     "node": ">=20.19.0"

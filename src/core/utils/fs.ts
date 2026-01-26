@@ -53,6 +53,22 @@ export async function readFile(filePath: string): Promise<Buffer> {
   }
 }
 
+export async function readTextFile(filePath: string): Promise<string> {
+  if (!(await pathExists(filePath))) {
+    throw new Error(`File not found: ${filePath}`);
+  }
+
+  try {
+    return await fsReadFile(filePath, "utf-8");
+  } catch (error) {
+    throw new Error(
+      `Failed to read file ${filePath}: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`
+    );
+  }
+}
+
 export async function readJsonFile(filePath: string): Promise<unknown> {
   if (!(await pathExists(filePath))) {
     throw new Error(`File not found: ${filePath}`);

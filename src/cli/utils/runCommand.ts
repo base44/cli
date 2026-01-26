@@ -1,11 +1,10 @@
 import { intro, log, outro } from "@clack/prompts";
-import chalk from "chalk";
-import { loadProjectEnv } from "@core/config.js";
 import { isLoggedIn } from "@core/auth/index.js";
+import { initAppConfig } from "@core/project/index.js";
+import { CLIExitError } from "../errors.js";
 import { printBanner } from "./banner.js";
 import { login } from "../commands/auth/login.js";
-
-const base44Color = chalk.bgHex("#E86B3C");
+import { theme } from "./theme.js";
 
 export interface RunCommandOptions {
   /**
@@ -20,6 +19,12 @@ export interface RunCommandOptions {
    * @default false
    */
   requireAuth?: boolean;
+  /**
+   * Initialize app config before running this command.
+   * Reads .app.jsonc and caches the appId for sync access via getAppConfig().
+   * @default true
+   */
+  requireAppConfig?: boolean;
 }
 
 export interface RunCommandResult {
@@ -29,14 +34,6 @@ export interface RunCommandResult {
 /**
  * Wraps a command function with the Base44 intro/outro and error handling.
  * All CLI commands should use this utility to ensure consistent branding.
- *
- * **Responsibilities**:
- * - Displays the intro (simple tag or full ASCII banner)
- * - Loads `.env.local` from the project root if available
- * - Checks authentication if `requireAuth` is set
- * - Runs the command function
- * - Displays the outro message returned by the command
- * - Handles errors and exits with code 1 on failure
  *
  * **Important**: Commands should NOT call `intro()` or `outro()` directly.
  * This function handles both. Commands can return an optional `outroMessage`
@@ -74,10 +71,8 @@ export async function runCommand(
     await printBanner();
     intro("");
   } else {
-    intro(base44Color(" Base 44 "));
+    intro(theme.colors.base44OrangeBackground(" Base 44 "));
   }
-
-  await loadProjectEnv();
 
   try {
     // Check authentication if required
@@ -90,6 +85,11 @@ export async function runCommand(
       }
     }
 
+    // Initialize app config unless explicitly disabled
+    if (options?.requireAppConfig !== false) {
+      await initAppConfig();
+    }
+
     const { outroMessage } = await commandFn();
     outro(outroMessage || "");
   } catch (e) {
@@ -98,6 +98,6 @@ export async function runCommand(
     } else {
       log.error(String(e));
     }
-    process.exit(1);
+    throw new CLIExitError(1);
   }
 }

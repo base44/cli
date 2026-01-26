@@ -27,7 +27,7 @@ body:
         2. Enter input '...'
         3. See error
     validations:
-      required: true
+      required: false
 
   - type: textarea
     id: expected
@@ -36,7 +36,7 @@ body:
       description: What did you expect to happen?
       placeholder: I expected...
     validations:
-      required: true
+      required: false
 
   - type: textarea
     id: actual
@@ -45,7 +45,7 @@ body:
       description: What actually happened?
       placeholder: Instead, this happened...
     validations:
-      required: true
+      required: false
 
   - type: textarea
     id: environment
@@ -61,7 +61,7 @@ body:
         - Node.js version:
         - CLI version:
     validations:
-      required: true
+      required: false
 
   - type: textarea
     id: logs

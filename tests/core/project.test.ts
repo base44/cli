@@ -33,12 +33,8 @@ describe("readProjectConfig", () => {
     expect(result.entities).toHaveLength(1);
     expect(result.entities[0].name).toBe("Order");
     expect(result.functions).toHaveLength(1);
+    expect(result.functions[0].name).toBe("process-order");
     expect(result.functions[0].entry).toBe("index.ts");
-    expect(result.functions[0].triggers).toHaveLength(1);
-    expect(result.functions[0].triggers?.[0]).toMatchObject({
-      type: "http",
-      path: "/process-order",
-    });
   });
 
   // Error cases

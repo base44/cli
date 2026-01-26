@@ -15,20 +15,25 @@ The Base44 CLI is a TypeScript-based command-line tool built with:
 - **tsdown** - Bundler (powered by Rolldown, the Rust-based Rollup successor)
 
 ### Distribution Strategy
-The CLI is distributed as a **zero-dependency package**. All runtime dependencies are bundled into a single JavaScript file. This means:
-- Users only download the bundled code 
+The CLI is distributed as a **zero-dependency package**. All runtime dependencies are bundled into JavaScript files. This means:
+- Users only download the bundled code (`dist/` and `bin/` directories)
 - No dependency resolution or node_modules installation
 - Faster install times and no version conflicts
+- The npm `bin` field points to `./bin/run.js` which imports the bundled program
 
 ### Project Structure
 - **Package**: `base44` - Single package published to npm
 - **Core Module**: `src/core/` - Resources, utilities, errors, and config
-- **CLI Module**: `src/cli/` - CLI commands and entry point
+- **CLI Module**: `src/cli/` - CLI commands and program definition
+- **Bin Scripts**: `bin/` - Entry point scripts for dev and production
 
 ## Folder Structure
 
 ```
 cli/
+├── bin/                          # Entry point scripts
+│   ├── run.js                    # Production entry (imports dist/index.js)
+│   └── dev.js                    # Development entry (uses tsx for TypeScript)
 ├── src/
 │   ├── core/
 │   │   ├── api/                  # HTTP clients
@@ -45,7 +50,9 @@ cli/
 │   │   │   ├── schema.ts         # Project/template schemas
 │   │   │   ├── api.ts            # Project creation API
 │   │   │   ├── create.ts         # Project scaffolding
+│   │   │   ├── deploy.ts      
 │   │   │   ├── template.ts       # Template rendering
+│   │   │   ├── app-config.ts     # .app.jsonc read/write and caching
 │   │   │   └── index.ts
 │   │   ├── resources/            # Project resources (entity, function, etc.)
 │   │   │   ├── types.ts          # Resource<T> interface
@@ -53,12 +60,15 @@ cli/
 │   │   │   │   ├── schema.ts
 │   │   │   │   ├── config.ts
 │   │   │   │   ├── resource.ts
-│   │   │   │   ├── api.ts
+│   │   │   │   ├── api.ts        
+│   │   │   │   ├── deploy.ts     
 │   │   │   │   └── index.ts
 │   │   │   ├── function/
 │   │   │   │   ├── schema.ts
 │   │   │   │   ├── config.ts
 │   │   │   │   ├── resource.ts
+│   │   │   │   ├── api.ts        
+│   │   │   │   ├── deploy.ts     
 │   │   │   │   └── index.ts
 │   │   │   └── index.ts
 │   │   ├── site/                 # Site deployment (NOT a Resource)
@@ -71,7 +81,7 @@ cli/
 │   │   │   ├── fs.ts             # File system utilities
 │   │   │   └── index.ts
 │   │   ├── consts.ts             # Pure constants (NO imports from other core modules)
-│   │   ├── config.ts             # Path helpers and env loading
+│   │   ├── config.ts             # Path helpers (global dir, templates, API URL)
 │   │   ├── errors.ts             # Error classes
 │   │   └── index.ts              # Barrel export for all core modules
 │   └── cli/
@@ -81,9 +91,14 @@ cli/
 │       │   │   ├── logout.ts
 │       │   │   └── whoami.ts
 │       │   ├── project/
-│       │   │   └── create.ts
-│       │   └── entities/
-│       │       └── push.ts
+│       │   │   ├── create.ts
+│       │   │   ├── dashboard.ts
+│       │   │   ├── deploy.ts     # Unified deploy command
+│       │   │   └── link.ts
+│       │   ├── entities/
+│       │   │   └── push.ts
+│       │   ├── functions/
+│       │   │   └── deploy.ts
 │       │   └── site/
 │       │       └── deploy.ts
 │       ├── utils/
@@ -91,11 +106,15 @@ cli/
 │       │   ├── runTask.ts        # Spinner wrapper
 │       │   ├── banner.ts         # ASCII art banner
 │       │   ├── prompts.ts        # Prompt utilities
+│       │   ├── theme.ts          # Centralized theme configuration (colors, styles)
+│       │   ├── urls.ts           # URL utilities (getDashboardUrl)
 │       │   └── index.ts
-│       └── index.ts              # CLI entry point
+│       ├── errors.ts             # CLI-specific errors (CLIExitError)
+│       ├── program.ts            # Commander program definition
+│       └── index.ts              # Barrel export (program, CLIExitError)
 ├── templates/                    # Project templates
 ├── tests/
-├── dist/
+├── dist/                         # Build output (program.js + templates/)
 ├── package.json
 └── tsconfig.json
 ```
@@ -110,7 +129,7 @@ Commands live in `src/cli/commands/`. Follow these steps:
 // src/cli/commands/<domain>/<action>.ts
 import { Command } from "commander";
 import { log } from "@clack/prompts";
-import { runCommand, runTask } from "../../utils/index.js";
+import { runCommand, runTask, theme } from "../../utils/index.js";
 import type { RunCommandResult } from "../../utils/index.js";
 
 async function myAction(): Promise<RunCommandResult> {
@@ -122,7 +141,8 @@ async function myAction(): Promise<RunCommandResult> {
       return someResult;
     },
     {
-      successMessage: "Done!",
+      // Use theme colors for success messages
+      successMessage: theme.colors.base44Orange("Done!"),
       errorMessage: "Failed to do something",
     }
   );
@@ -130,7 +150,7 @@ async function myAction(): Promise<RunCommandResult> {
   log.success("Operation completed!");
 
   // Return an optional outro message (displayed at the end)
-  return { outroMessage: "All done!" };
+  return { outroMessage: `Created ${theme.styles.bold(result.name)}` };
 }
 
 export const myCommand = new Command("<name>")
@@ -145,10 +165,10 @@ export const myCommand = new Command("<name>")
 - **Intro**: Displayed automatically (simple tag or full ASCII banner based on options)
 - **Outro**: Displayed from the `outroMessage` returned by the command function
 
-### 2. Register in CLI entry point
+### 2. Register in program.ts
 
 ```typescript
-// src/cli/index.ts
+// src/cli/program.ts
 import { myCommand } from "./commands/<domain>/<action>.js";
 
 // ...
@@ -158,7 +178,7 @@ program.addCommand(myCommand);
 ### 3. Command wrapper options
 
 ```typescript
-// Standard command with simple intro tag
+// Standard command - loads app config by default
 await runCommand(myAction);
 
 // Command with full ASCII art banner (for special commands like create)
@@ -167,9 +187,35 @@ await runCommand(myAction, { fullBanner: true });
 // Command requiring authentication
 await runCommand(myAction, { requireAuth: true });
 
+// Command that doesn't need app config (auth commands, create, link)
+await runCommand(myAction, { requireAppConfig: false });
+
 // Command with multiple options
 await runCommand(myAction, { fullBanner: true, requireAuth: true });
 ```
+
+**Options:**
+- `fullBanner`: Show ASCII art banner instead of simple tag
+- `requireAuth`: Check authentication before running (auto-login if needed)
+- `requireAppConfig`: Load `.app.jsonc` and cache for sync access (default: `true`)
+
+## Theming
+
+All CLI styling is centralized in `src/cli/utils/theme.ts`. **Never use `chalk` directly** - import `theme` from utils instead.
+
+```typescript
+import { theme } from "../../utils/index.js";
+
+// Colors
+theme.colors.base44Orange("Success!")     // Primary brand color
+theme.colors.links(url)                   // URLs and links
+
+// Styles  
+theme.styles.bold(email)                  // Bold emphasis
+theme.styles.header("Label")              // Dim text for labels
+```
+
+When adding new theme properties, use semantic names (e.g., `links`, `header`) not color names.
 
 ## Making API Calls
 
@@ -184,7 +230,7 @@ import { base44Client, getAppClient } from "@core/api/index.js";
 const response = await base44Client.get("api/endpoint");
 const data = await response.json();
 
-// For app-specific API calls (requires BASE44_CLIENT_ID env var)
+// For app-specific API calls (requires .app.jsonc with id)
 const appClient = getAppClient();
 const response = await appClient.get("entities");
 const entities = await response.json();
@@ -222,9 +268,11 @@ Resources are project-specific collections (entities, functions) that can be loa
 ```typescript
 export interface Resource<T> {
   readAll: (dir: string) => Promise<T[]>;
-  push?: (items: T[]) => Promise<unknown>;
+  push: (items: T[]) => Promise<unknown>;
 }
 ```
+
+Note: The `push` method handles empty arrays gracefully (returns early without API call).
 
 ### Resource Implementation (`resources/<name>/resource.ts`)
 
@@ -289,6 +337,36 @@ const { appUrl } = await deploySite("./dist");
 base44 site deploy
 ```
 
+## Unified Deploy Command
+
+The `base44 deploy` command deploys all project resources in one operation:
+
+1. Pushes entities (via `entityResource.push()`)
+2. Pushes functions (via `functionResource.push()`)
+3. Deploys site (if `site.outputDirectory` is configured)
+
+### Core Functions (`project/deploy.ts`)
+
+```typescript
+import { deployAll, hasResourcesToDeploy } from "@core/project/index.js";
+
+// Check if there's anything to deploy
+if (!hasResourcesToDeploy(projectData)) {
+  return;
+}
+
+// Deploy all resources
+const { appUrl } = await deployAll(projectData);
+```
+
+### CLI Command
+
+```bash
+base44 deploy        # With confirmation prompt
+base44 deploy -y     # Skip confirmation
+base44 deploy --yes  # Skip confirmation
+```
+
 ## Path Aliases
 
 Single alias defined in `tsconfig.json`:
@@ -312,26 +390,70 @@ import { base44Client } from "@core/api/index.js";
 8. **consts.ts has no imports** - Keep `consts.ts` dependency-free to avoid circular deps
 9. **Keep AGENTS.md updated** - Update this file when architecture changes
 10. **Zero-dependency distribution** - All packages go in `devDependencies`; they get bundled at build time
+11. **Use theme for styling** - Never use `chalk` directly in commands; import `theme` from utils and use semantic color/style names
+12. **Use fs.ts utilities** - Always use `@core/utils/fs.js` for file operations
+13. **No direct process.exit()** - Throw `CLIExitError` instead; entry points handle the actual exit 
 
 ## Development
 
 ```bash
-npm run build      # tsdown - bundles to single file in dist/cli/index.js
+npm run build      # tsdown - bundles to dist/index.js
 npm run typecheck  # tsc --noEmit - type checking only
-npm run dev        # tsx for development
+npm run dev        # runs ./bin/dev.js (tsx for direct TypeScript execution)
+npm run start      # runs ./bin/run.js (production, requires build first)
 npm test           # vitest
 npm run lint       # eslint
 ```
+
+### Entry Points Architecture
+
+The CLI uses a split architecture for better development experience:
+
+**Production** (`./bin/run.js`):
+- Used when installed via npm (`base44` command)
+- Imports from bundled `dist/index.js`
+- Requires `npm run build` first
+
+**Development** (`./bin/dev.js`):
+- Used during development (`npm run dev`)
+- Uses `tsx` shebang to run TypeScript directly from `src/cli/index.ts`
+- No build step required - changes are reflected immediately
+
+**CLI Module** (`src/cli/`):
+- `program.ts` - Defines the Commander program and registers all commands
+- `errors.ts` - CLI-specific errors (CLIExitError)
+- `index.ts` - Barrel export for entry points (exports program, CLIExitError)
+
+**Error Handling Flow**:
+- Commands throw errors → `runCommand()` catches, logs, and throws `CLIExitError(1)`
+- Entry points (`bin/run.js`, `bin/dev.js`) catch `CLIExitError` and call `process.exit(code)`
+- This keeps `process.exit()` out of core code, making it testable
 
 ### Node.js Version
 
 This project requires Node.js >= 20.19.0. A `.node-version` file is provided for fnm/nodenv.
 
+### CLI Utilities
+
+When adding async operations to CLI commands:
+- Use `runTask()` from `src/cli/utils/runTask.ts` for operations with progress feedback
+- Provides automatic spinner, success/error messages
+- Follows existing patterns in `create.ts` (entity push, site deploy, skills install)
+- Avoid manual try/catch with `log.message` for async operations
+
 ## File Locations
 
 - `cli/plan.md` - Implementation plan
 - `cli/AGENTS.md` - This file
+- `cli/bin/run.js` - Production entry point (imports bundled dist/index.js)
+- `cli/bin/dev.js` - Development entry point (uses tsx for TypeScript)
 - `cli/src/core/` - Core module
-- `cli/src/cli/` - CLI commands
-- `cli/tsdown.config.mjs` - Build configuration
+- `cli/src/core/errors.ts` - Core error classes (AuthApiError, AuthValidationError)
+- `cli/src/cli/errors.ts` - CLI-specific errors (CLIExitError)
+- `cli/src/cli/` - CLI commands and program definition
+- `cli/src/cli/index.ts` - Barrel export for entry points (program, CLIExitError)
+- `cli/src/cli/program.ts` - Commander program definition
+- `cli/src/cli/utils/runCommand.ts` - Command wrapper that throws CLIExitError on errors
+- `cli/src/cli/utils/runTask.ts` - Async operation wrapper with spinner and success/error messages
+- `cli/tsdown.config.mjs` - Build configuration (bundles index.ts to dist/)
 - `cli/.node-version` - Node.js version pinning

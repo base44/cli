@@ -1,159 +1,109 @@
 # Base44 CLI
 
-A unified command-line interface for managing Base44 applications, entities, functions, deployments, and related services.
+Command-line interface for building applications with [Base44's backend service](https://docs.base44.com/developers/backend/overview/introduction).
 
-**Zero dependencies** - installs in seconds with no dependency resolution.
+Base44's backend service provides a managed backend for your applications, including data storage with entities, serverless functions, authentication, and hosting. The CLI lets you:
+
+- **Create projects** from templates.
+- **Sync** resources defined in local code with your Base44 backend.
+- **Deploy sites** to Base44's hosting platform.
+
+To get started, see the full list of commands below or check out the [documentation](https://docs.base44.com/developers/references/cli/get-started/overview).
 
 ## Installation
 
 ```bash
-# Using npm (globally)
 npm install -g base44
+```
 
-# Or run directly with npx
+Or run commands directly with npx:
+
+```bash
 npx base44 <command>
 ```
 
-## Quick Start
+Requires Node.js 20.19.0 or higher.
+
+## Quick start
 
 ```bash
-# 1. Login to Base44
+# Authenticate
 base44 login
 
-# 2. Create a new project
+# Create a project
 base44 create
-
-# 3. Push entities to Base44
-base44 entities push
-
-# 4. Build and deploy your site
-npm run build
-base44 site deploy
 ```
+
+The CLI will guide you through project setup. For step-by-step tutorials, see the quickstart guides:
+
+- [Backend only](https://docs.base44.com/developers/backend/quickstart/quickstart-backend-only) — for headless apps or custom frontends
+- [React](https://docs.base44.com/developers/backend/quickstart/quickstart-with-react) — full-stack with Vite + React
 
 ## Commands
 
-### Authentication
-
 | Command | Description |
-|---------|-------------|
-| `base44 login` | Authenticate with Base44 using device code flow |
-| `base44 whoami` | Display current authenticated user |
-| `base44 logout` | Logout from current device |
+| ------- | ----------- |
+| [`create`](https://docs.base44.com/developers/references/cli/commands/create) | Create a new Base44 project from a template |
+| [`deploy`](https://docs.base44.com/developers/references/cli/commands/deploy) | Deploy resources and site to Base44 |
+| [`link`](https://docs.base44.com/developers/references/cli/commands/link) | Link a local project to a project on Base44 |
+| [`dashboard`](https://docs.base44.com/developers/references/cli/commands/dashboard) | Open the app dashboard in your browser |
+| [`login`](https://docs.base44.com/developers/references/cli/commands/login) | Authenticate with Base44 |
+| [`logout`](https://docs.base44.com/developers/references/cli/commands/logout) | Sign out and clear stored credentials |
+| [`whoami`](https://docs.base44.com/developers/references/cli/commands/whoami) | Display the current authenticated user |
+| [`entities push`](https://docs.base44.com/developers/references/cli/commands/entities-push) | Push local entity schemas to Base44 |
+| [`functions deploy`](https://docs.base44.com/developers/references/cli/commands/functions-deploy) | Deploy local functions to Base44 |
+| [`site deploy`](https://docs.base44.com/developers/references/cli/commands/site-deploy) | Deploy built site files to Base44 hosting |
 
-### Project Management
 
-| Command | Description |
-|---------|-------------|
-| `base44 create` | Create a new Base44 project from a template |
+<!--| [`eject`](https://docs.base44.com/developers/references/cli/commands/eject) | Create a Base44 backend project from an existing Base44 app | -->
 
-### Entities
+## AI Agent Skills
 
-| Command | Description |
-|---------|-------------|
-| `base44 entities push` | Push local entity schemas to Base44 |
+When creating a project, you'll be prompted to install AI agent skills for your preferred coding assistants:
 
-### Site Deployment
-
-| Command | Description |
-|---------|-------------|
-| `base44 site deploy` | Deploy built site files to Base44 hosting |
-
-## Configuration
-
-### Project Configuration
-
-Base44 projects are configured via a `config.jsonc` (or `config.json`) file in the `base44/` subdirectory:
-
-```jsonc
-// base44/config.jsonc
-{
-  "id": "your-app-id",           // Set after project creation
-  "name": "My Project",
-  "entitiesDir": "./entities",   // Default: ./entities
-  "functionsDir": "./functions", // Default: ./functions
-  "site": {
-    "outputDirectory": "../dist" // Path to built site files
-  }
-}
+```
+◆  Add AI agent skills? (Select agents to configure)
+│  ◼ Cursor
+│  ◼ Claude Code
+└
 ```
 
-### Environment Variables
+This installs [base44/skills](https://github.com/base44/skills) which helps AI agents understand how to work with Base44 projects.
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `BASE44_CLIENT_ID` | Your app ID | - |
-
-You can set these in a `.env.local` file in your `base44/` directory:
+**Non-interactive mode:**
 
 ```bash
-# base44/.env.local
-BASE44_CLIENT_ID=your-app-id
+# Install skills for all supported agents
+base44 create --name my-app --path ./my-app --skills
+
+# Skip skills installation
+base44 create --name my-app --path ./my-app
 ```
 
-## Project Structure
-
-A typical Base44 project has this structure:
-
-```
-my-project/
-├── base44/
-│   ├── config.jsonc           # Project configuration
-│   ├── .env.local             # Environment variables (git-ignored)
-│   ├── entities/              # Entity schema files
-│   │   ├── user.jsonc
-│   │   └── product.jsonc
-├── src/                       # Your frontend code
-├── dist/                      # Built site files (for deployment)
-└── package.json
-```
-
-## Development
-
-### Prerequisites
-
-- Node.js >= 20.19.0
-- npm
-
-### Setup
+**Manual installation:**
 
 ```bash
-# Clone the repository
-git clone https://github.com/base44/cli.git
-cd cli
-
-# Install dependencies
-npm install
-
-# Build
-npm run build
-
-# Run in development mode
-npm run dev -- <command>
+npx add-skill base44/skills
 ```
 
-### Available Scripts
+## Help
 
 ```bash
-npm run build      # Build with tsdown
-npm run typecheck  # Type check with tsc
-npm run dev        # Run in development mode with tsx
-npm run lint       # Lint with ESLint
-npm test           # Run tests with Vitest
+base44 --help
+base44 <command> --help
 ```
 
-### Running the Built CLI
+## Version
 
 ```bash
-# After building
-npm start -- <command>
-
-# Or directly
-./dist/cli/index.js <command>
+base44 --version
 ```
-## Contributing
 
-See [AGENTS.md](./AGENTS.md) for development guidelines and architecture documentation.
+## Alpha
+
+The CLI and Base44 backend service are currently in alpha. We're actively improving them based on user feedback. Share your thoughts and feature requests on our [GitHub Discussions](https://github.com/orgs/base44/discussions).
+
+Found a bug? [Open an issue](https://github.com/base44/cli/issues).
 
 ## License
 

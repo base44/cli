@@ -4,7 +4,7 @@ import { getAppClient } from "@core/clients/index.js";
 import { SyncEntitiesResponseSchema } from "./schema.js";
 import type { SyncEntitiesResponse, Entity } from "./schema.js";
 
-export async function pushEntities(
+export async function syncEntities(
   entities: Entity[]
 ): Promise<SyncEntitiesResponse> {
   const appClient = getAppClient();
@@ -12,7 +12,7 @@ export async function pushEntities(
     entities.map((entity) => [entity.name, entity])
   );
 
-  const response = await appClient.put("entities-schemas/sync-all", {
+  const response = await appClient.put("entity-schemas", {
     json: {
       entityNameToSchema: schemaSyncPayload,
     },

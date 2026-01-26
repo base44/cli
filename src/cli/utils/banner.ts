@@ -1,7 +1,5 @@
-import chalk from "chalk";
 import { printAnimatedLines } from "./animate.js";
-
-const orange = chalk.hex("#E86B3C");
+import { theme } from "./theme.js";
 const BANNER_LINES = [
   "██████╗  █████╗ ███████╗███████╗ ██╗  ██╗██╗  ██╗",
   "██╔══██╗██╔══██╗██╔════╝██╔════╝ ██║  ██║██║  ██║",
@@ -19,6 +17,6 @@ export async function printBanner(): Promise<void> {
   if (process.stdout.isTTY) {
     await printAnimatedLines(BANNER_LINES);
   } else {
-    console.log(orange(BANNER_LINES.join("\n")));
+    console.log(theme.colors.base44Orange(BANNER_LINES.join("\n")));
   }
 }

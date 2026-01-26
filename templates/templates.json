@@ -2,14 +2,14 @@
   "templates": [
     {
       "id": "backend-only",
-      "name": "Init a basic project",
-      "description": "Minimal Base44 backend setup for creating entities",
+      "name": "Create a basic project",
+      "description": "Minimal Base44 backend for defining your data models and logic",
       "path": "backend-only"
     },
     {
       "id": "backend-and-client",
-      "name": "Bootstrap from an example",
-      "description": "Full-stack example with Base44 backend and a Vite + React client application",
+      "name": "Start from a template",
+      "description": "Full-stack example with a Base44 backend and a Vite + React client application",
       "path": "backend-and-client"
     }
   ]

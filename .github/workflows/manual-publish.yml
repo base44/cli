@@ -18,6 +18,11 @@ on:
         required: false
         default: false
         type: boolean
+      update_changelog:
+        description: "Update CHANGELOG.md with release notes"
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   publish:
@@ -73,6 +78,65 @@ jobs:
           npm version ${{ github.event.inputs.version }} --no-git-tag-version
           echo "NEW_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
 
+      - name: Get previous release tag
+        id: prev-tag
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          echo "tag=$PREV_TAG" >> $GITHUB_OUTPUT
+          echo "Previous tag: $PREV_TAG"
+          if [[ -n "$PREV_TAG" ]]; then
+            # Get the date of the previous tag in ISO format for filtering PRs
+            PREV_TAG_DATE=$(git log -1 --format=%aI "$PREV_TAG")
+            echo "date=$PREV_TAG_DATE" >> $GITHUB_OUTPUT
+            echo "Previous tag date: $PREV_TAG_DATE"
+          fi
+
+      - name: Generate Changelog
+        if: github.event.inputs.update_changelog == 'true' && github.event.inputs.dry_run == 'false' && steps.prev-tag.outputs.tag != ''
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Generate a changelog entry for version ${{ env.NEW_VERSION }} (release date: today).
+            Previous version tag: ${{ steps.prev-tag.outputs.tag }}
+
+            ## Instructions
+
+            1. Get commits since last release:
+               `git log ${{ steps.prev-tag.outputs.tag }}..HEAD --pretty=format:"%s (%h)" --no-merges`
+
+            2. Get merged PRs since last release:
+               `gh pr list --state merged --search "merged:>${{ steps.prev-tag.outputs.date }}" --json number,title,mergedAt --limit 20`
+
+            3. Categorize changes (only include sections with changes):
+               - **Added** - new features
+               - **Changed** - changes in existing functionality
+               - **Fixed** - bug fixes
+               - **Removed** - removed features
+
+            4. Update CHANGELOG.md by inserting the new entry AFTER `## [Unreleased]`.
+
+            ## Rules
+
+            - EXCLUDE: changelog commits, version bumps ("chore: bump version", "chore: release")
+            - Include PR numbers: "Added foo feature (#123)"
+            - Use ISO date: YYYY-MM-DD
+
+            ## Example
+
+            ```markdown
+            ## [0.0.8] - 2026-01-19
+
+            ### Added
+            - Non-interactive mode for `create` command (#67)
+
+            ### Fixed
+            - Various small fixes (#60)
+            ```
+          claude_args: |
+            --model claude-3-5-haiku-latest
+            --allowedTools Bash(git log:*),Bash(gh pr:*),Read(*),Edit(CHANGELOG.md)
+
       - name: Build package
         run: npm run build
 
@@ -95,11 +159,19 @@ jobs:
 
       - name: Create Git tag
         if: github.event.inputs.dry_run == 'false'
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
+          # Re-configure git remote to use the App token for push
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
           git add package.json package-lock.json
-          git commit -m "chore: bump version to ${{ env.NEW_VERSION }}"
+          # Add CHANGELOG.md only if changelog update was requested
+          if [[ "${{ github.event.inputs.update_changelog }}" == "true" ]]; then
+            git add CHANGELOG.md
+          fi
+          git commit -m "chore: release v${{ env.NEW_VERSION }}"
           git tag v${{ env.NEW_VERSION }}
           git push origin HEAD:${{ github.ref }}
           git push origin v${{ env.NEW_VERSION }}
@@ -131,4 +203,5 @@ jobs:
 permissions:
   contents: write
   packages: write
+  pull-requests: read
   id-token: write

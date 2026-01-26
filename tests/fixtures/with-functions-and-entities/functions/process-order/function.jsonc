@@ -1,6 +1,4 @@
 {
-  "entry": "index.ts",
-  "triggers": [
-    { "type": "http", "path": "/process-order" }
-  ]
+  "name": "process-order",
+  "entry": "index.ts"
 }

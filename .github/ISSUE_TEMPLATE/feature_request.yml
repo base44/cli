@@ -15,7 +15,7 @@ body:
       description: Is your feature request related to a problem? Please describe.
       placeholder: I'm frustrated when...
     validations:
-      required: true
+      required: false
 
   - type: textarea
     id: solution
@@ -24,7 +24,7 @@ body:
       description: Describe the solution you'd like to see
       placeholder: I would like to be able to...
     validations:
-      required: true
+      required: false
 
   - type: textarea
     id: alternatives

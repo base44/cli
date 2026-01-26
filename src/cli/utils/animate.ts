@@ -1,7 +1,4 @@
-import chalk from "chalk";
-
-const orange = chalk.hex("#E86B3C");
-const gold = chalk.hex("#FFD700");
+import { theme } from "./theme.js";
 
 /**
  * Sleep for a specified number of milliseconds.
@@ -25,11 +22,11 @@ async function animateLineReveal(line: string, duration: number): Promise<void> 
     let output = "";
     for (let i = 0; i < line.length; i++) {
       if (i < revealIndex) {
-        output += orange(line[i]);
+        output += theme.colors.base44Orange(line[i]);
       } else if (i === revealIndex) {
-        output += gold(line[i]);
+        output += theme.colors.shinyOrange(line[i]);
       } else {
-        output += chalk.dim(line[i]);
+        output += theme.styles.dim(line[i]);
       }
     }
 
@@ -38,7 +35,7 @@ async function animateLineReveal(line: string, duration: number): Promise<void> 
   }
 
   // Final state
-  process.stdout.write(`\r${orange(line)}\n`);
+  process.stdout.write(`\r${theme.colors.base44Orange(line)}\n`);
 }
 
 /**
@@ -60,9 +57,9 @@ async function shimmerPass(lines: string[], duration: number): Promise<void> {
       for (let i = 0; i < line.length; i++) {
         const dist = Math.abs(i - shimmerPos);
         if (dist < 3) {
-          output += dist === 0 ? chalk.white(line[i]) : gold(line[i]);
+          output += dist === 0 ? theme.colors.white(line[i]) : theme.colors.shinyOrange(line[i]);
         } else {
-          output += orange(line[i]);
+          output += theme.colors.base44Orange(line[i]);
         }
       }
       console.log(output);
@@ -74,7 +71,7 @@ async function shimmerPass(lines: string[], duration: number): Promise<void> {
   // Final clean render
   process.stdout.write(moveUp);
   for (const line of lines) {
-    console.log(orange(line));
+    console.log(theme.colors.base44Orange(line));
   }
 }
 

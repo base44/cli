@@ -1,8 +1,9 @@
+import { dirname, join } from "node:path";
 import { globby } from "globby";
 import { FUNCTION_CONFIG_FILE } from "../../consts.js";
 import { readJsonFile, pathExists } from "../../utils/fs.js";
-import { FunctionConfigSchema } from "./schema.js";
-import type { FunctionConfig } from "./schema.js";
+import { FunctionConfigSchema, FunctionSchema } from "./schema.js";
+import type { FunctionConfig, Function } from "./schema.js";
 
 export async function readFunctionConfig(
   configPath: string
@@ -12,9 +13,29 @@ export async function readFunctionConfig(
 
   if (!result.success) {
     throw new Error(
-      `Invalid function configuration in ${configPath}: ${result.error.issues
-        .map((e) => e.message)
-        .join(", ")}`
+      `Invalid function configuration in ${configPath}: ${result.error.message}`
+    );
+  }
+
+  return result.data;
+}
+
+export async function readFunction(configPath: string): Promise<Function> {
+  const config = await readFunctionConfig(configPath);
+  const functionDir = dirname(configPath);
+  const codePath = join(functionDir, config.entry);
+
+  if (!(await pathExists(codePath))) {
+    throw new Error(
+      `Function code file not found: ${codePath} (referenced in ${configPath})`
+    );
+  }
+
+  const functionData = { ...config, codePath };
+  const result = FunctionSchema.safeParse(functionData);
+  if (!result.success) {
+    throw new Error(
+      `Invalid function in ${configPath}: ${result.error.message}`
     );
   }
 
@@ -23,7 +44,7 @@ export async function readFunctionConfig(
 
 export async function readAllFunctions(
   functionsDir: string
-): Promise<FunctionConfig[]> {
+): Promise<Function[]> {
   if (!(await pathExists(functionsDir))) {
     return [];
   }
@@ -33,10 +54,18 @@ export async function readAllFunctions(
     absolute: true,
   });
 
-  const functionConfigs = await Promise.all(
-    configFiles.map((configPath) => readFunctionConfig(configPath))
+  const functions = await Promise.all(
+    configFiles.map((configPath) => readFunction(configPath))
   );
 
-  return functionConfigs;
+  const names = new Set<string>();
+  for (const fn of functions) {
+    if (names.has(fn.name)) {
+      throw new Error(`Duplicate function name "${fn.name}"`);
+    }
+    names.add(fn.name);
+  }
+
+  return functions;
 }
 
