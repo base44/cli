@@ -1,3 +1,4 @@
+import { dirname } from "node:path";
 import { globby } from "globby";
 import { getAppConfigPath } from "@core/config.js";
 import { writeFile, readJsonFile } from "../utils/fs.js";
@@ -87,11 +88,34 @@ export async function writeAppConfig(
 export async function findAppConfigPath(
   projectRoot: string
 ): Promise<string | null> {
-  const files = await globby(APP_CONFIG_PATTERN, {
-    cwd: projectRoot,
+  let current = projectRoot;
+  const root = dirname(projectRoot);
+
+  // First, try to find the .app.jsonc in the project root
+  let files = await globby(APP_CONFIG_PATTERN, {
+    cwd: current,
     absolute: true,
   });
-  return files[0] ?? null;
+
+  if (files.length > 0) {
+    return files[0];
+  }
+
+  // If not found and we're in a base44 subdirectory, try the parent directory
+  // This handles the case where config.jsonc is in base44/ but .app.jsonc is in parent/base44/
+  while (current !== root && current !== dirname(current)) {
+    current = dirname(current);
+    files = await globby(APP_CONFIG_PATTERN, {
+      cwd: current,
+      absolute: true,
+    });
+
+    if (files.length > 0) {
+      return files[0];
+    }
+  }
+
+  return null;
 }
 
 export async function appConfigExists(projectRoot: string): Promise<boolean> {
