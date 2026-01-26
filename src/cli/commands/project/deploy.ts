@@ -4,9 +4,9 @@ import {
   readProjectConfig,
   deployAll,
   hasResourcesToDeploy,
-} from "@core/project/index.js";
-import { runCommand, runTask, theme, getDashboardUrl } from "../../utils/index.js";
-import type { RunCommandResult } from "../../utils/runCommand.js";
+} from "@/core/project/index.js";
+import { runCommand, runTask, theme, getDashboardUrl } from "@/cli/utils/index.js";
+import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 
 interface DeployOptions {
   yes?: boolean;

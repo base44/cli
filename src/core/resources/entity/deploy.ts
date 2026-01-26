@@ -1,5 +1,5 @@
-import { syncEntities } from "./api.js";
-import type { Entity, SyncEntitiesResponse } from "./schema.js";
+import { syncEntities } from "@/core/resources/entity/api.js";
+import type { Entity, SyncEntitiesResponse } from "@/core/resources/entity/schema.js";
 
 export async function pushEntities(
   entities: Entity[]

@@ -1,9 +1,9 @@
 import { dirname, join } from "node:path";
 import { globby } from "globby";
-import { FUNCTION_CONFIG_FILE } from "../../consts.js";
-import { readJsonFile, pathExists } from "../../utils/fs.js";
-import { FunctionConfigSchema, FunctionSchema } from "./schema.js";
-import type { FunctionConfig, Function } from "./schema.js";
+import { FUNCTION_CONFIG_FILE } from "@/core/consts.js";
+import { readJsonFile, pathExists } from "@/core/utils/fs.js";
+import { FunctionConfigSchema, FunctionSchema } from "@/core/resources/function/schema.js";
+import type { FunctionConfig, Function } from "@/core/resources/function/schema.js";
 
 export async function readFunctionConfig(
   configPath: string

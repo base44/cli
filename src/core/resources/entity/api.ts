@@ -1,6 +1,6 @@
-import { getAppClient } from "@core/clients/index.js";
-import { SyncEntitiesResponseSchema } from "./schema.js";
-import type { SyncEntitiesResponse, Entity } from "./schema.js";
+import { getAppClient } from "@/core/clients/index.js";
+import { SyncEntitiesResponseSchema } from "@/core/resources/entity/schema.js";
+import type { SyncEntitiesResponse, Entity } from "@/core/resources/entity/schema.js";
 
 export async function syncEntities(
   entities: Entity[]

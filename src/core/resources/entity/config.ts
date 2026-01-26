@@ -1,8 +1,8 @@
 import { globby } from "globby";
-import { readJsonFile, pathExists } from "../../utils/fs.js";
-import { EntitySchema } from "./schema.js";
-import type { Entity } from "./schema.js";
-import { CONFIG_FILE_EXTENSION_GLOB } from "../../consts.js";
+import { readJsonFile, pathExists } from "@/core/utils/fs.js";
+import { EntitySchema } from "@/core/resources/entity/schema.js";
+import type { Entity } from "@/core/resources/entity/schema.js";
+import { CONFIG_FILE_EXTENSION_GLOB } from "@/core/consts.js";
 
 async function readEntityFile(entityPath: string): Promise<Entity> {
   const parsed = await readJsonFile(entityPath);

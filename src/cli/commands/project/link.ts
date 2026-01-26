@@ -8,16 +8,16 @@ import {
   appConfigExists,
   setAppConfig,
   listProjects,
-} from "@core/project/index.js";
-import type { Project } from "@core/project/index.js";
+} from "@/core/project/index.js";
+import type { Project } from "@/core/project/index.js";
 import {
   runCommand,
   runTask,
   onPromptCancel,
   theme,
   getDashboardUrl,
-} from "../../utils/index.js";
-import type { RunCommandResult } from "../../utils/runCommand.js";
+} from "@/cli/utils/index.js";
+import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 
 interface LinkOptions {
   create?: boolean;

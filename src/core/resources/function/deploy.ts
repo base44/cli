@@ -1,6 +1,6 @@
-import { readTextFile } from "../../utils/fs.js";
-import { deployFunctions } from "./api.js";
-import type { Function, FunctionWithCode, DeployFunctionsResponse } from "./schema.js";
+import { readTextFile } from "@/core/utils/fs.js";
+import { deployFunctions } from "@/core/resources/function/api.js";
+import type { Function, FunctionWithCode, DeployFunctionsResponse } from "@/core/resources/function/schema.js";
 
 async function loadFunctionCode(fn: Function): Promise<FunctionWithCode> {
   const code = await readTextFile(fn.codePath);

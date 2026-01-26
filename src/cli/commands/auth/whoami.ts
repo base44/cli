@@ -1,7 +1,7 @@
 import { Command } from "commander";
-import { readAuth } from "@core/auth/index.js";
-import { runCommand, theme } from "../../utils/index.js";
-import type { RunCommandResult } from "../../utils/runCommand.js";
+import { readAuth } from "@/core/auth/index.js";
+import { runCommand, theme } from "@/cli/utils/index.js";
+import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 
 async function whoami(): Promise<RunCommandResult> {
   const auth = await readAuth();

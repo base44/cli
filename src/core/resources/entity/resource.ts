@@ -1,7 +1,7 @@
-import type { Resource } from "../types.js";
-import type { Entity } from "./schema.js";
-import { readAllEntities } from "./config.js";
-import { pushEntities } from "./deploy.js";
+import type { Resource } from "@/core/resources/types.js";
+import type { Entity } from "@/core/resources/entity/schema.js";
+import { readAllEntities } from "@/core/resources/entity/config.js";
+import { pushEntities } from "@/core/resources/entity/deploy.js";
 
 export const entityResource: Resource<Entity> = {
   readAll: readAllEntities,

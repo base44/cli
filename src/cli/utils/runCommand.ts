@@ -1,10 +1,10 @@
 import { intro, log, outro } from "@clack/prompts";
-import { isLoggedIn } from "@core/auth/index.js";
-import { initAppConfig } from "@core/project/index.js";
-import { CLIExitError } from "../errors.js";
-import { printBanner } from "./banner.js";
-import { login } from "../commands/auth/login.js";
-import { theme } from "./theme.js";
+import { isLoggedIn } from "@/core/auth/index.js";
+import { initAppConfig } from "@/core/project/index.js";
+import { CLIExitError } from "@/cli/errors.js";
+import { printBanner } from "@/cli/utils/banner.js";
+import { login } from "@/cli/commands/auth/login.js";
+import { theme } from "@/cli/utils/theme.js";
 
 export interface RunCommandOptions {
   /**

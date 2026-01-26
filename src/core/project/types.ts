@@ -1,6 +1,6 @@
-import type { Entity } from "../resources/entity/index.js";
-import type { Function } from "../resources/function/index.js";
-import type { ProjectConfig } from "./schema.js";
+import type { Entity } from "@/core/resources/entity/index.js";
+import type { Function } from "@/core/resources/function/index.js";
+import type { ProjectConfig } from "@/core/project/schema.js";
 
 interface ProjectWithPaths extends ProjectConfig {
   root: string;

@@ -4,17 +4,17 @@ import { Argument, Command } from "commander";
 import { log, group, text, select, confirm, isCancel } from "@clack/prompts";
 import type { Option } from "@clack/prompts";
 import kebabCase from "lodash.kebabcase";
-import { createProjectFiles, listTemplates, readProjectConfig, setAppConfig } from "@core/project/index.js";
-import type { Template } from "@core/project/index.js";
-import { deploySite, isDirEmpty, pushEntities } from "@core/index.js";
+import { createProjectFiles, listTemplates, readProjectConfig, setAppConfig } from "@/core/project/index.js";
+import type { Template } from "@/core/project/index.js";
+import { deploySite, isDirEmpty, pushEntities } from "@/core/index.js";
 import {
   runCommand,
   runTask,
   onPromptCancel,
   theme,
   getDashboardUrl,
-} from "../../utils/index.js";
-import type { RunCommandResult } from "../../utils/runCommand.js";
+} from "@/cli/utils/index.js";
+import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 
 const DEFAULT_TEMPLATE_ID = "backend-only";
 

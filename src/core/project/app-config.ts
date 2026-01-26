@@ -1,10 +1,10 @@
 import { globby } from "globby";
-import { getAppConfigPath } from "@core/config.js";
-import { writeFile, readJsonFile } from "../utils/fs.js";
-import { APP_CONFIG_PATTERN } from "../consts.js";
-import { AppConfigSchema } from "./schema.js";
-import type { AppConfig } from "./schema.js";
-import { findProjectRoot } from "./config.js";
+import { getAppConfigPath } from "@/core/config.js";
+import { writeFile, readJsonFile } from "@/core/utils/fs.js";
+import { APP_CONFIG_PATTERN } from "@/core/consts.js";
+import { AppConfigSchema } from "@/core/project/schema.js";
+import type { AppConfig } from "@/core/project/schema.js";
+import { findProjectRoot } from "@/core/project/config.js";
 
 export interface CachedAppConfig {
   id: string;

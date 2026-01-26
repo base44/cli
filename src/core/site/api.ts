@@ -1,7 +1,7 @@
-import { getAppClient } from "@core/clients/index.js";
-import { readFile } from "../utils/fs.js";
-import { DeployResponseSchema } from "./schema.js";
-import type { DeployResponse } from "./schema.js";
+import { getAppClient } from "@/core/clients/index.js";
+import { readFile } from "@/core/utils/fs.js";
+import { DeployResponseSchema } from "@/core/site/schema.js";
+import type { DeployResponse } from "@/core/site/schema.js";
 
 /**
  * Uploads a tar.gz archive file to the Base44 hosting API.

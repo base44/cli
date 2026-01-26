@@ -2,10 +2,10 @@ import { join, dirname } from "node:path";
 import { globby } from "globby";
 import ejs from "ejs";
 import frontmatter from 'front-matter';
-import { getTemplatesDir, getTemplatesIndexPath } from "../config.js";
-import { readJsonFile, writeFile, copyFile } from "../utils/fs.js";
-import { TemplatesConfigSchema } from "./schema.js";
-import type { Template } from "./schema.js";
+import { getTemplatesDir, getTemplatesIndexPath } from "@/core/config.js";
+import { readJsonFile, writeFile, copyFile } from "@/core/utils/fs.js";
+import { TemplatesConfigSchema } from "@/core/project/schema.js";
+import type { Template } from "@/core/project/schema.js";
 
 export interface TemplateData {
   name: string;

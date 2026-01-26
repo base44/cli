@@ -1,7 +1,7 @@
 import { Command } from "commander";
-import { deleteAuth } from "@core/auth/index.js";
-import { runCommand } from "../../utils/index.js";
-import type { RunCommandResult } from "../../utils/runCommand.js";
+import { deleteAuth } from "@/core/auth/index.js";
+import { runCommand } from "@/cli/utils/index.js";
+import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 
 async function logout(): Promise<RunCommandResult> {
   await deleteAuth();
