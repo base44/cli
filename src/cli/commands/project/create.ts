@@ -247,7 +247,7 @@ async function executeCreate({
       async () => {
         await execa("npx", ["-y", "add-skill", "base44/skills", "-y"], {
           cwd: resolvedPath,
-          stdio: "inherit",
+          shell: true
         });
       },
       {
