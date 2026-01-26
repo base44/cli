@@ -104,6 +104,7 @@ cli/
 │       │   ├── entities/
 │       │   │   └── push.ts
 │       │   ├── agents/
+│       │   │   ├── pull.ts
 │       │   │   └── push.ts
 │       │   ├── functions/
 │       │   │   └── deploy.ts
