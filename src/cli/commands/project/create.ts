@@ -1,4 +1,4 @@
-import { resolve, join } from "node:path";
+import { resolve, join, basename } from "node:path";
 import { execa } from "execa";
 import { Command } from "commander";
 import { log, group, text, select, confirm, isCancel } from "@clack/prompts";
@@ -6,7 +6,7 @@ import type { Option } from "@clack/prompts";
 import kebabCase from "lodash.kebabcase";
 import { createProjectFiles, listTemplates, readProjectConfig, setAppConfig } from "@core/project/index.js";
 import type { Template } from "@core/project/index.js";
-import { deploySite, pushEntities } from "@core/index.js";
+import { deploySite, isDirEmpty, pushEntities } from "@core/index.js";
 import {
   runCommand,
   runTask,
@@ -74,20 +74,16 @@ async function createInteractive(options: CreateOptions): Promise<RunCommandResu
       name: () =>
         text({
           message: "What is the name of your project?",
-          placeholder: "my-app",
+          placeholder: basename(process.cwd()),
+          initialValue: basename(process.cwd()),
           validate: (value) => {
             if (!value || value.trim().length === 0) {
               return "Every project deserves a name";
             }
           },
         }),
-      description: () =>
-        text({
-          message: "Description (optional)",
-          placeholder: "A brief description of your project",
-        }),
       projectPath: async ({ results }) => {
-        const suggestedPath = `./${kebabCase(results.name)}`;
+        const suggestedPath = await isDirEmpty() ? `./` : `./${kebabCase(results.name)}`;
         return text({
           message: "Where should we create your project?",
           placeholder: suggestedPath,
@@ -103,7 +99,6 @@ async function createInteractive(options: CreateOptions): Promise<RunCommandResu
   return await executeCreate({
     template: result.template,
     name: result.name,
-    description: result.description || undefined,
     projectPath: result.projectPath as string,
     deploy: options.deploy,
     skills: options.skills,
@@ -117,7 +112,6 @@ async function createNonInteractive(options: CreateOptions): Promise<RunCommandR
   return await executeCreate({
     template,
     name: options.name!,
-    description: options.description,
     projectPath: options.path!,
     deploy: options.deploy,
     skills: options.skills,
@@ -230,16 +224,7 @@ async function executeCreate({
   }
 
   // Add AI agent skills
-  let shouldAddSkills = false;
-
-  if (isInteractive) {
-    const result = await confirm({
-      message: "Add AI agent skills?",
-    });
-    shouldAddSkills = !isCancel(result) && result;
-  } else {
-    shouldAddSkills = !!skills;
-  }
+  const shouldAddSkills = skills ?? true;
 
   if (shouldAddSkills) {
     await runTask(
@@ -256,6 +241,7 @@ async function executeCreate({
       }
     );
   }
+
 
   log.message(`${theme.styles.header("Project")}: ${theme.colors.base44Orange(name)}`);
   log.message(`${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(projectId))}`);
