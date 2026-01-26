@@ -57,9 +57,8 @@ Plugins enable:
 │  └─────────────────────────────────────────────────────┘   │
 │                                                             │
 │  ┌─────────────────────────────────────────────────────┐   │
-│  │                   EXTENSIONS                         │   │
+│  │              ENTITY EXTENSIONS (Core)                │   │
 │  │  User entity + { companyId, role }                   │   │
-│  │  login() + custom validation                         │   │
 │  └─────────────────────────────────────────────────────┘   │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
@@ -151,17 +150,19 @@ Base44-specific configuration lives in a separate file:
 
   // Extension points - what can host apps customize
   "extensible": {
+    // Entity extensions (Core - Phase 1)
     "entities": {
       "User": {
         "allowAddProperties": true,      // Host can add fields
         "allowOverrideProperties": false // Host cannot change existing fields
       }
-    },
-    "functions": {
-      "login": {
-        "hooks": ["beforeLogin", "afterLogin"]  // Available hooks
-      }
     }
+    // Function hooks (Optional - Future consideration)
+    // "functions": {
+    //   "login": {
+    //     "hooks": ["beforeLogin", "afterLogin"]
+    //   }
+    // }
   },
 
   // Plugin configuration schema (validated at install time)
@@ -262,7 +263,7 @@ Plugin entities follow the same format as app entities, with additional plugin-s
 
 ### 3.2 Plugin Extensions Directory
 
-Host apps can extend plugins through an `extensions/` directory:
+Host apps can extend plugin entities through an `extensions/` directory:
 
 ```
 my-app/
@@ -274,18 +275,19 @@ my-app/
 └── extensions/                # NEW: Plugin extensions
     └── @base44/
         └── auth/
-            ├── entities/
-            │   └── user.extend.jsonc
-            └── functions/
-                └── login/
-                    └── hooks.ts
+            └── entities/
+                └── user.extend.jsonc
 ```
 
 ---
 
 ## 4. Extension Mechanism
 
-### 4.1 Extending Entity Schemas
+> **Core vs Optional:**
+> - **Entity Extensions** (4.1): Core feature - available in Phase 1
+> - **Function Extensions** (4.2, 4.3): Optional - future consideration
+
+### 4.1 Extending Entity Schemas (Core)
 
 Host apps can extend plugin entities by adding new properties:
 
@@ -346,9 +348,12 @@ Host apps can extend plugin entities by adding new properties:
 }
 ```
 
-### 4.2 Extending Backend Functions
+### 4.2 Extending Backend Functions (Optional - Future)
 
-Host apps can hook into plugin functions at defined extension points:
+> **Status:** This feature is optional and may be considered for future phases.
+> For Phase 1, host apps can create their own functions that call plugin functions.
+
+Host apps could hook into plugin functions at defined extension points:
 
 ```typescript
 // extensions/@base44/auth/functions/login/hooks.ts
@@ -401,9 +406,11 @@ export const afterLogin: AfterLoginHook = async (context) => {
 };
 ```
 
-### 4.3 Function Wrapping (Advanced)
+### 4.3 Function Wrapping (Optional - Future, Advanced)
 
-For more control, host apps can wrap entire plugin functions:
+> **Status:** Advanced feature for future consideration.
+
+For more control, host apps could wrap entire plugin functions:
 
 ```typescript
 // extensions/@base44/auth/functions/login/wrapper.ts
@@ -1144,14 +1151,14 @@ Based on this analysis, we recommend a **phased hybrid approach**:
 
 The Plugin System introduces a powerful abstraction for sharing and extending Base44 resources:
 
-| Feature | Benefit |
-|---------|---------|
-| **Reusable Packages** | Share entities & functions across projects |
-| **Version Control** | Lock files ensure reproducible deployments |
-| **Extensions** | Customize plugins without forking |
-| **Hooks & Wrappers** | Inject custom logic into plugin functions |
-| **Multiple Sources** | Install from registry, npm, git, or local |
-| **Namespace Safety** | Prevent resource name collisions |
-| **Security Model** | Permission system for plugin capabilities |
+| Feature | Status | Benefit |
+|---------|--------|---------|
+| **Reusable Packages** | Core | Share entities & functions across projects |
+| **Version Control** | Core | Lock files ensure reproducible deployments |
+| **Entity Extensions** | Core | Add properties to plugin schemas without forking |
+| **Multiple Sources** | Core | Install from npm, git, or local |
+| **Namespace Safety** | Core | Prevent resource name collisions |
+| **Function Hooks** | Optional | Inject custom logic into plugin functions (future) |
+| **Security Model** | Phase 3 | Permission system for plugin capabilities |
 
 This system enables Base44 to evolve from a single-app platform to a composable ecosystem of reusable backend components.
