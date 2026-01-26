@@ -871,7 +871,145 @@ Your app now uses the @myorg/core plugin!
 
 ---
 
-## 12. Summary
+## 12. Competitive Analysis: How Other Platforms Handle Plugins
+
+### 12.1 Overview Comparison
+
+| Platform | Registry Type | Installation Method | Verification/Trust | Versioning |
+|----------|---------------|---------------------|-------------------|------------|
+| **Terraform** | Own registry (registry.terraform.io) | CLI (`terraform init`) | GPG signing + tier badges | Semantic versioning |
+| **VS Code** | Own marketplace + Open VSX | CLI/GUI/VSIX files | Verified publisher badge + signatures | Semantic versioning |
+| **Figma** | Own marketplace (Figma Community) | In-app installation | Figma review process + org approval | Version tracking |
+| **Shopify CLI** | npm | npm/CLI (`npm init @shopify/app`) | npm package trust | Semantic versioning |
+| **Heroku CLI** | npm | CLI (`heroku plugins:install`) | npm trust only | Semantic versioning |
+| **Gatsby** | npm + Plugin Library | npm (`npm install`) | Official badge for Gatsby-maintained | Semantic versioning |
+| **Strapi** | npm + Own marketplace | npm + in-app browser | Reviewed badge (checkmark) | Semantic versioning |
+| **WordPress** | Own repository (wordpress.org) | WP Admin/CLI | Human review + security scans | WordPress versioning |
+| **Backstage** | npm + Spotify Marketplace | npm | Partner verification | Semantic versioning |
+
+### 12.2 Registry Approaches
+
+#### A. Own Registry Only (Terraform, Figma, WordPress)
+
+**Terraform (HashiCorp)**
+- Custom registry at `registry.terraform.io`
+- Providers auto-downloaded during `terraform init`
+- **GPG Signing Required** for all releases
+- Three-tier trust system:
+  1. HashiCorp-signed (official)
+  2. Partner-signed (verified third-party)
+  3. Self-signed (community)
+
+**Figma**
+- Centralized Figma Community marketplace
+- All public plugins reviewed before listing
+- Organization admins can curate approved lists
+- 15% platform fee for paid plugins
+
+**WordPress**
+- SVN-based repository (60,000+ plugins)
+- **Most rigorous: mandatory human review** (14+ days)
+- 2FA required for submitting (as of 2024)
+- Security team can patch vulnerable plugins
+- GPL license required
+
+#### B. npm Only (Shopify, Heroku, Gatsby)
+
+**Shopify CLI**
+- Fully npm-based modular architecture
+- Plugins are npm packages: `@shopify/theme`, `@shopify/app`
+- Also available via Homebrew on macOS
+- Relies entirely on npm's trust mechanisms
+
+**Heroku CLI**
+- Built on [oclif](https://oclif.io/) (Open CLI Framework)
+- `heroku plugins:install PLUGINNAME` (npm package)
+- Can restrict to specific npm scopes
+- No additional verification layer
+
+**Gatsby**
+- All plugins distributed via npm
+- Gatsby Plugin Library is searchable directory (1,750+ plugins)
+- "Official" badge for Gatsby-maintained plugins only
+
+#### C. Hybrid: npm + Own Marketplace (Strapi, VS Code, Backstage)
+
+**Strapi**
+- Must be on npm first, then submit to Strapi Market
+- In-app marketplace browser in admin panel
+- "Reviewed" badge (checkmark) for plugins passing review
+- 1-2 day listing time after submission
+
+**VS Code**
+- Primary: Visual Studio Marketplace (Azure DevOps backed)
+- Alternative: Open VSX Registry for forks like VSCodium
+- New (2025): Private Marketplace for enterprise
+- Verified publisher badge + extension signing
+
+**Backstage (Spotify)**
+- Plugins are npm packages
+- Spotify Marketplace for partner/official plugins
+- Bundle subscription includes enterprise features
+
+### 12.3 Verification Spectrum
+
+From least to most rigorous:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                      VERIFICATION RIGOR                              │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  NONE          BADGE/REVIEW      CRYPTO SIGNING     HUMAN REVIEW    │
+│    │                │                  │                  │          │
+│    ▼                ▼                  ▼                  ▼          │
+│                                                                      │
+│  Heroku         Strapi            Terraform          WordPress      │
+│  Gatsby         VS Code                              Figma          │
+│  Shopify        Backstage                                           │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### 12.4 Key Patterns & Insights
+
+| Approach | Pros | Cons |
+|----------|------|------|
+| **Own Registry Only** | Full control, custom verification, quality curation | Development overhead, adoption friction |
+| **npm Only** | No infrastructure cost, familiar tooling, fast to implement | Limited verification, trust delegated to npm |
+| **Hybrid (npm + Own)** | Best of both worlds, discoverability + trust | Complexity, potential sync issues |
+
+### 12.5 Recommendations for Base44
+
+Based on this analysis, we recommend a **phased hybrid approach**:
+
+**Phase 1: npm-First (MVP)**
+- Plugins are npm packages with `base44-plugin-*` naming convention
+- `base44 plugins add <npm-package>` installs from npm
+- Official plugins under `@base44/*` scope
+- Leverage existing npm infrastructure
+
+**Phase 2: Base44 Registry (Growth)**
+- Build searchable plugin directory at `plugins.base44.com`
+- Index npm packages that match plugin schema
+- Add "Verified" badges for reviewed plugins
+- In-CLI browsing: `base44 plugins search`
+
+**Phase 3: Enterprise Features (Scale)**
+- Private registry support for organizations
+- GPG signing for official plugins
+- Permission/capability review process
+- Plugin analytics and usage metrics
+
+**Rationale:**
+- Shopify/Heroku prove npm-only works well for developer tools
+- Strapi's hybrid model shows gradual evolution path
+- WordPress's review rigor is overkill for initial launch
+- Terraform's signing is gold standard for security-critical infra
+
+---
+
+## 13. Summary
 
 The Plugin System introduces a powerful abstraction for sharing and extending Base44 resources:
 
