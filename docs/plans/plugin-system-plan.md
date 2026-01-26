@@ -4,6 +4,18 @@
 
 This document outlines the design for a **Plugin System** in the Base44 CLI. Plugins are reusable packages of **entities (schemas)** and **backend functions** that can be shared across multiple Base44 applications. Host applications can install plugins and optionally extend their schemas and functions.
 
+### Phased Rollout Strategy
+
+Based on [competitive analysis](#12-competitive-analysis-how-other-platforms-handle-plugins), we recommend an **npm-first phased approach**:
+
+| Phase | Focus | Key Features |
+|-------|-------|--------------|
+| **Phase 1 (MVP)** | npm-first | Plugins are npm packages; install via `base44 plugins add <npm-package>` |
+| **Phase 2** | Discoverability | Base44 registry at `plugins.base44.com`; `base44 plugins search` |
+| **Phase 3** | Enterprise | Private registries, GPG signing, security audits |
+
+This approach minimizes initial infrastructure while enabling future growth.
+
 ---
 
 ## 1. Core Concepts
@@ -57,11 +69,15 @@ Plugins enable:
 
 ## 2. Plugin Structure
 
+> **Distribution Strategy:** Plugins are npm packages first, enabling immediate ecosystem integration.
+> See [Section 12.5](#125-recommendations-for-base44) for the phased rollout plan.
+
 ### 2.1 Directory Layout
 
 ```
 my-plugin/
-├── plugin.jsonc              # Plugin manifest (required)
+├── package.json              # npm package manifest (required for distribution)
+├── base44.plugin.jsonc       # Base44 plugin config (required)
 ├── entities/
 │   ├── user.jsonc
 │   └── session.jsonc
@@ -75,25 +91,53 @@ my-plugin/
 └── README.md                 # Documentation
 ```
 
-### 2.2 Plugin Manifest (`plugin.jsonc`)
+### 2.2 Package Manifest (`package.json`)
 
-```jsonc
+Since plugins are distributed via npm, they use standard `package.json`:
+
+```json
 {
-  // Required fields
-  "name": "@base44/auth",           // Unique identifier (npm-style naming)
-  "version": "1.0.0",               // Semantic versioning
-
-  // Optional metadata
+  "name": "@base44/auth",
+  "version": "1.0.0",
   "description": "Authentication plugin for Base44 apps",
   "author": "Base44 Team",
   "license": "MIT",
-  "repository": "https://github.com/base44/auth-plugin",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/base44/auth-plugin"
+  },
 
-  // Plugin dependencies (other plugins this depends on)
+  "keywords": ["base44-plugin", "authentication", "auth"],
+
+  "base44": {
+    "type": "plugin",
+    "minCliVersion": "1.0.0"
+  },
+
   "dependencies": {
     "@base44/email": "^2.0.0"
   },
 
+  "files": [
+    "base44.plugin.jsonc",
+    "entities/",
+    "functions/",
+    "README.md"
+  ]
+}
+```
+
+**Key conventions:**
+- `keywords` must include `"base44-plugin"` for discoverability
+- `base44.type` field identifies this as a Base44 plugin
+- `files` array specifies what gets published to npm
+
+### 2.3 Plugin Config (`base44.plugin.jsonc`)
+
+Base44-specific configuration lives in a separate file:
+
+```jsonc
+{
   // Resource configuration
   "entities": {
     "directory": "entities",        // Default: "entities"
@@ -118,11 +162,27 @@ my-plugin/
         "hooks": ["beforeLogin", "afterLogin"]  // Available hooks
       }
     }
+  },
+
+  // Plugin configuration schema (validated at install time)
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "sessionDuration": {
+        "type": "string",
+        "default": "24h",
+        "description": "How long sessions remain valid"
+      },
+      "requireEmailVerification": {
+        "type": "boolean",
+        "default": false
+      }
+    }
   }
 }
 ```
 
-### 2.3 Plugin Entity Schema
+### 2.4 Plugin Entity Schema
 
 Plugin entities follow the same format as app entities, with additional plugin-specific metadata:
 
@@ -384,22 +444,38 @@ export default wrapFunction(originalLogin, {
 
 ## 5. Plugin Installation
 
+> **Phased Approach:** Installation evolves across phases.
+> - **Phase 1 (MVP):** npm-only installation
+> - **Phase 2:** Add Base44 registry as discovery layer
+> - **Phase 3:** Enterprise private registries
+
 ### 5.1 Installation Sources
 
-Plugins can be installed from multiple sources:
+Plugins can be installed from multiple sources (npm is primary):
 
-| Source | Command | Example |
-|--------|---------|---------|
-| **Base44 Registry** | `base44 plugins add <name>` | `base44 plugins add @base44/auth` |
-| **npm Registry** | `base44 plugins add <npm-package>` | `base44 plugins add base44-auth-plugin` |
-| **Git Repository** | `base44 plugins add <git-url>` | `base44 plugins add github:acme/payments` |
-| **Local Path** | `base44 plugins add <path>` | `base44 plugins add ../my-plugin` |
+| Source | Command | Phase | Example |
+|--------|---------|-------|---------|
+| **npm Registry** | `base44 plugins add <npm-package>` | 1 (MVP) | `base44 plugins add @base44/auth` |
+| **Local Path** | `base44 plugins add <path>` | 1 (MVP) | `base44 plugins add ../my-plugin` |
+| **Git Repository** | `base44 plugins add <git-url>` | 1 (MVP) | `base44 plugins add github:acme/payments` |
+| **Base44 Registry** | `base44 plugins add <name>` | 2 | `base44 plugins add auth` (shorthand) |
 
-### 5.2 Installation Flow
+**Phase 1 Resolution Order:**
+1. Check if input is a local path → install from filesystem
+2. Check if input is a git URL → clone and install
+3. Otherwise → resolve from npm registry
+
+**Phase 2+ Resolution Order:**
+1. Check if input is a local path → install from filesystem
+2. Check if input is a git URL → clone and install
+3. Check Base44 registry for shorthand names → resolve to npm package
+4. Fall back to npm registry directly
+
+### 5.2 Installation Flow (Phase 1 - npm-first)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                  PLUGIN INSTALLATION FLOW                   │
+│              PLUGIN INSTALLATION FLOW (npm-first)           │
 └─────────────────────────────────────────────────────────────┘
 
 User runs: base44 plugins add @base44/auth
@@ -407,16 +483,16 @@ User runs: base44 plugins add @base44/auth
      │
      ▼
 ┌─────────────────────┐
-│ 1. Resolve Plugin   │  • Check Base44 registry
-│                     │  • Fall back to npm
-│                     │  • Parse git URLs
+│ 1. Resolve Plugin   │  • Parse input (npm package, git, local)
+│                     │  • Query npm registry for metadata
+│                     │  • Check base44.type === "plugin"
 └─────────────────────┘
      │
      ▼
 ┌─────────────────────┐
-│ 2. Fetch Plugin     │  • Download package
-│                     │  • Verify checksum
-│                     │  • Extract to temp
+│ 2. Fetch Plugin     │  • npm pack / download tarball
+│                     │  • Verify integrity (npm checksums)
+│                     │  • Extract to temp directory
 └─────────────────────┘
      │
      ▼
@@ -469,13 +545,15 @@ my-app/
 
 ### 5.4 Lock File (`plugins.lock.jsonc`)
 
+The lock file uses npm registry URLs (Phase 1) or Base44 registry (Phase 2+):
+
 ```jsonc
 {
   "lockfileVersion": 1,
   "plugins": {
     "@base44/auth": {
       "version": "1.2.3",
-      "resolved": "https://registry.base44.com/@base44/auth/-/auth-1.2.3.tgz",
+      "resolved": "https://registry.npmjs.org/@base44/auth/-/auth-1.2.3.tgz",
       "integrity": "sha512-abc123...",
       "dependencies": {
         "@base44/email": "2.0.0"
@@ -483,12 +561,14 @@ my-app/
     },
     "@base44/email": {
       "version": "2.0.0",
-      "resolved": "https://registry.base44.com/@base44/email/-/email-2.0.0.tgz",
+      "resolved": "https://registry.npmjs.org/@base44/email/-/email-2.0.0.tgz",
       "integrity": "sha512-def456..."
     }
   }
 }
 ```
+
+**Note:** In Phase 2+, the `resolved` URL may point to `registry.base44.com` for plugins registered there, while still supporting npm URLs for community plugins.
 
 ---
 
@@ -496,36 +576,57 @@ my-app/
 
 ### 6.1 New Plugin Commands
 
+Commands are introduced across phases:
+
 ```bash
+# ═══════════════════════════════════════════════════════════════
+# PHASE 1 (MVP) - Core plugin management
+# ═══════════════════════════════════════════════════════════════
+
 # Plugin management
-base44 plugins add <plugin>          # Install a plugin
+base44 plugins add <plugin>          # Install from npm/git/local
 base44 plugins remove <plugin>       # Remove a plugin
 base44 plugins list                  # List installed plugins
 base44 plugins update [plugin]       # Update plugin(s)
-base44 plugins info <plugin>         # Show plugin details
+base44 plugins info <plugin>         # Show plugin details (from npm)
 
 # Plugin development
 base44 plugins init                  # Initialize new plugin project
 base44 plugins validate              # Validate plugin structure
-base44 plugins publish               # Publish to Base44 registry
-base44 plugins pack                  # Create distributable archive
+base44 plugins pack                  # Create distributable tarball
 
 # Extension management
 base44 plugins extend <plugin>       # Scaffold extension for a plugin
+
+# ═══════════════════════════════════════════════════════════════
+# PHASE 2 - Base44 Registry integration
+# ═══════════════════════════════════════════════════════════════
+
+base44 plugins search <query>        # Search Base44 plugin registry
+base44 plugins publish               # Publish to Base44 registry
+base44 plugins browse                # Open registry in browser
+
+# ═══════════════════════════════════════════════════════════════
+# PHASE 3 - Enterprise features
+# ═══════════════════════════════════════════════════════════════
+
+base44 plugins config registry <url> # Set private registry URL
+base44 plugins verify <plugin>       # Verify plugin signatures
+base44 plugins audit                 # Security audit of plugins
 ```
 
 ### 6.2 Command Examples
 
 ```bash
-# Install auth plugin
+# Install auth plugin (from npm registry)
 $ base44 plugins add @base44/auth
 
-◐ Resolving @base44/auth...
-✓ Found @base44/auth@1.2.3
+◐ Resolving @base44/auth from npm...
+✓ Found @base44/auth@1.2.3 on npm
 
 ◐ Checking dependencies...
-✓ Requires @base44/email@^2.0.0
-◐ Installing @base44/email@2.0.0...
+  └─ @base44/email@^2.0.0 (required)
+◐ Installing @base44/email@2.0.0 from npm...
 ✓ Installed @base44/email@2.0.0
 
 ◐ Installing @base44/auth@1.2.3...
@@ -545,6 +646,16 @@ Next steps:
   1. Configure the plugin in base44/config.jsonc
   2. Run 'base44 deploy' to deploy plugin resources
   3. Run 'base44 plugins extend @base44/auth' to customize
+
+# Install from git repository
+$ base44 plugins add github:acme/payments-plugin
+
+◐ Cloning github:acme/payments-plugin...
+✓ Cloned to temp directory
+◐ Validating plugin structure...
+✓ Found base44.plugin.jsonc
+◐ Installing acme-payments@0.5.0...
+✓ Plugin installed successfully
 
 # List installed plugins
 $ base44 plugins list
@@ -674,19 +785,19 @@ $ base44 plugins init
 ✓ Created plugin structure:
 
 my-plugin/
-├── plugin.jsonc
+├── package.json           # npm package manifest
+├── base44.plugin.jsonc    # Base44 plugin config
 ├── entities/
 │   └── .gitkeep
 ├── functions/
 │   └── .gitkeep
-├── README.md
-└── package.json
+└── README.md
 
 Next steps:
   1. Add entities to entities/
   2. Add functions to functions/
   3. Run 'base44 plugins validate' to check structure
-  4. Run 'base44 plugins publish' when ready
+  4. Run 'npm publish' to publish to npm (Phase 1)
 ```
 
 ### 8.2 Plugin Testing
@@ -696,7 +807,10 @@ Next steps:
 $ base44 plugins validate
 
 Validating plugin...
-✓ plugin.jsonc is valid
+✓ package.json is valid
+✓ base44.plugin.jsonc is valid
+✓ package.json has "base44-plugin" keyword
+✓ package.json has base44.type = "plugin"
 ✓ All exported entities found
 ✓ All exported functions found
 ✓ No circular dependencies
@@ -712,23 +826,40 @@ $ base44 deploy                     # Deploy and test
 
 ### 8.3 Publishing
 
+**Phase 1 (MVP): Publish to npm**
+
+```bash
+# Standard npm publishing workflow
+$ npm login
+$ npm publish --access public
+
+✓ Published @myorg/notifications@1.0.0 to npm
+
+# Users can now install with:
+#   base44 plugins add @myorg/notifications
+```
+
+**Phase 2+: Register with Base44 (optional, for discoverability)**
+
 ```bash
 $ base44 plugins publish
 
 ◐ Validating plugin...
 ✓ Plugin structure valid
 
-◐ Checking registry...
-? Version 1.0.0 does not exist. Publish? Yes
+◐ Checking npm registry...
+✓ Found @myorg/notifications@1.0.0 on npm
 
-◐ Packaging plugin...
-✓ Created @myorg-notifications-1.0.0.tgz (12.3 KB)
+◐ Registering with Base44...
+? Add to Base44 plugin directory? Yes
+? Categories: [notifications, messaging]
 
-◐ Publishing to Base44 registry...
-✓ Published @myorg/notifications@1.0.0
+✓ Registered @myorg/notifications@1.0.0
 
-View at: https://registry.base44.com/plugins/@myorg/notifications
+View at: https://plugins.base44.com/@myorg/notifications
 ```
+
+**Note:** In Phase 2+, `base44 plugins publish` registers an existing npm package with the Base44 directory for discoverability. The actual package still lives on npm.
 
 ---
 
