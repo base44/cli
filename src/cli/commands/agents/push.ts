@@ -9,11 +9,11 @@ import { agentsPullCommand } from "./pull.js";
 async function pushAgentsAction(): Promise<RunCommandResult> {
   const { agents } = await readProjectConfig();
 
-  if (agents.length === 0) {
-    return { outroMessage: "No agents found in project" };
-  }
-
-  log.info(`Found ${agents.length} agents to push`);
+  log.info(
+    agents.length === 0
+      ? "No local agents found - this will delete all remote agents"
+      : `Found ${agents.length} agents to push`
+  );
 
   const result = await runTask(
     "Pushing agents to Base44",
@@ -26,7 +26,6 @@ async function pushAgentsAction(): Promise<RunCommandResult> {
     }
   );
 
-  // Print the results
   if (result.created.length > 0) {
     log.success(`Created: ${result.created.join(", ")}`);
   }

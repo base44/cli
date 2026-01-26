@@ -49,18 +49,15 @@ export async function writeAgents(
   agentsDir: string,
   agents: AgentConfigApiResponse[]
 ): Promise<{ written: string[]; deleted: string[] }> {
-  // Read existing agents to determine which files to delete
   const existingAgents = await readAllAgents(agentsDir);
   const newNames = new Set(agents.map((a) => a.name));
 
-  // Delete agents that no longer exist on remote
   const toDelete = existingAgents.filter((a) => !newNames.has(a.name));
   for (const agent of toDelete) {
     const filePath = join(agentsDir, `${agent.name}.${CONFIG_FILE_EXTENSION}`);
     await deleteFile(filePath);
   }
 
-  // Write all agents from remote
   for (const agent of agents) {
     const filePath = join(agentsDir, `${agent.name}.${CONFIG_FILE_EXTENSION}`);
     await writeJsonFile(filePath, {
