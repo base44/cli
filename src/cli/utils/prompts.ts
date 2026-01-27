@@ -3,7 +3,7 @@ import { CLIExitError } from "@/cli/errors.js";
 
 /**
  * Standard onCancel handler for prompt groups.
-gst * Throws CLIExitError(0) for graceful exit when the user cancels.
+g * Throws CLIExitError(0) for graceful exit when the user cancels.
  */
 export const onPromptCancel = () => {
   cancel("Operation cancelled.");

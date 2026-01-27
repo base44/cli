@@ -1,7 +1,7 @@
 import { Command } from "commander";
+import type { Option } from "@clack/prompts";
 import { log, group, text, select, isCancel, cancel } from "@clack/prompts";
 import { CLIExitError } from "@/cli/errors.js";
-import type { Option } from "@clack/prompts";
 import {
   findProjectRoot,
   createProject,
