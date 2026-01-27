@@ -1,5 +1,4 @@
-import { getAppClient } from "@/core/clients/index.js";
-import { formatApiError } from "@/core/errors.js";
+import { getAppClient, formatApiError } from "@/core/clients/index.js";
 import { SyncEntitiesResponseSchema } from "@/core/resources/entity/schema.js";
 import type { SyncEntitiesResponse, Entity } from "@/core/resources/entity/schema.js";
 

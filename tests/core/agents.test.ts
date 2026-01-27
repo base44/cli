@@ -4,11 +4,15 @@ import { pushAgents } from "../../src/core/resources/agent/api.js";
 
 // Mock the HTTP client
 const mockPut = vi.fn();
-vi.mock("../../src/core/clients/index.js", () => ({
-  getAppClient: () => ({
-    put: mockPut,
-  }),
-}));
+vi.mock("../../src/core/clients/index.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../src/core/clients/index.js")>();
+  return {
+    ...actual,
+    getAppClient: () => ({
+      put: mockPut,
+    }),
+  };
+});
 
 
 describe("pushAgents", () => {

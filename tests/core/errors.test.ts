@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatApiError } from "../../src/core/errors.js";
+import { formatApiError } from "../../src/core/clients/index.js";
 
 describe("formatApiError", () => {
   it("returns message when present", () => {
