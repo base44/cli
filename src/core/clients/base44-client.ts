@@ -12,9 +12,13 @@ import {
   isTokenExpired,
 } from "@/core/auth/config.js";
 import { getAppConfig } from "@/core/project/index.js";
-import type { ApiErrorResponse } from "./schemas.js";
+import { ApiErrorSchema, type ApiErrorResponse } from "./schemas.js";
 
-export function formatApiError(errorJson: unknown): string {
+/**
+ * Formats API error responses into human-readable strings.
+ * Internal utility used by error handling hooks.
+ */
+function formatApiError(errorJson: unknown): string {
   const error = errorJson as Partial<ApiErrorResponse> | null;
   const content = error?.message ?? error?.detail ?? errorJson;
   return typeof content === "string" ? content : JSON.stringify(content, null, 2);
@@ -56,8 +60,46 @@ async function handleUnauthorized(
 }
 
 /**
- * Base44 API client with automatic authentication.
+ * Handles HTTPErrors by formatting the API error response into a readable message.
+ * This hook runs before ky throws the error, allowing us to customize the error message.
+ */
+async function handleApiErrors(error: Error): Promise<Error> {
+  // Only handle HTTPError from ky
+  if (error.name !== "HTTPError") {
+    return error;
+  }
+
+  // Cast to access response property
+  const httpError = error as Error & { response?: Response };
+
+  if (!httpError.response) {
+    return error;
+  }
+
+  // Try to parse the error response body
+  try {
+    const errorJson: unknown = await httpError.response.clone().json();
+    const formattedMessage = formatApiError(errorJson);
+
+    // Create a new error with the formatted message
+    const newError = new Error(formattedMessage);
+    newError.name = error.name;
+    newError.stack = error.stack;
+
+    // Preserve the original response for debugging
+    (newError as typeof httpError).response = httpError.response;
+
+    return newError;
+  } catch {
+    // If we can't parse the body, return the original error
+    return error;
+  }
+}
+
+/**
+ * Base44 API client with automatic authentication and error handling.
  * Use this for general API calls that require authentication.
+ * All non-OK responses are automatically caught and formatted into Error objects.
  */
 export const base44Client = ky.create({
   prefixUrl: getBase44ApiUrl(),
@@ -86,6 +128,7 @@ export const base44Client = ky.create({
       },
     ],
     afterResponse: [handleUnauthorized],
+    beforeError: [handleApiErrors],
   },
 });
 

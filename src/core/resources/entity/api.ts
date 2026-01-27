@@ -1,7 +1,8 @@
-import { getAppClient, formatApiError } from "@/core/clients/index.js";
+import { getAppClient } from "@/core/clients/index.js";
 import { SyncEntitiesResponseSchema } from "@/core/resources/entity/schema.js";
 import type { SyncEntitiesResponse, Entity } from "@/core/resources/entity/schema.js";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";
+import { HTTPError } from "ky";
 
 export async function syncEntities(
   entities: Entity[]
@@ -11,24 +12,24 @@ export async function syncEntities(
     entities.map((entity) => [entity.name, entity])
   );
 
-  const response = await appClient.put("entity-schemas", {
-    json: {
-      entityNameToSchema: schemaSyncPayload,
-    },
-    throwHttpErrors: false,
-  });
-
-  if (!response.ok) {
-    const errorJson: unknown = await response.json();
-    if (response.status === 428) {
-      throw new ApiError(`Failed to delete entity: ${formatApiError(errorJson)}`, {
-        statusCode: response.status,
-      });
+  let response;
+  try {
+    response = await appClient.put("entity-schemas", {
+      json: {
+        entityNameToSchema: schemaSyncPayload,
+      },
+    });
+  } catch (error) {
+    // Handle 428 status code specifically
+    if (error instanceof HTTPError && error.response.status === 428) {
+      throw new ApiError(
+        `Failed to delete entity: ${error instanceof Error ? error.message : String(error)}`,
+        { statusCode: 428 }
+      );
     }
 
     throw new ApiError(
-      `Error occurred while syncing entities: ${formatApiError(errorJson)}`,
-      { statusCode: response.status }
+      `Error occurred while syncing entities: ${error instanceof Error ? error.message : String(error)}`
     );
   }
 
