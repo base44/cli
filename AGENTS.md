@@ -219,12 +219,12 @@ When adding new theme properties, use semantic names (e.g., `links`, `header`) n
 
 ## Making API Calls
 
-Use the HTTP clients from `@core/api/index.js`:
+Use the HTTP clients from `@/core/api/index.js`:
 
 ### Authenticated API calls (most common)
 
 ```typescript
-import { base44Client, getAppClient } from "@core/api/index.js";
+import { base44Client, getAppClient } from "@/core/api/index.js";
 
 // For general Base44 API calls
 const response = await base44Client.get("api/endpoint");
@@ -244,7 +244,7 @@ const response = await base44Client.post("api/endpoint", {
 ### OAuth endpoints (login flow only)
 
 ```typescript
-import { oauthClient } from "@core/api/index.js";
+import { oauthClient } from "@/core/api/index.js";
 
 // Used only in auth/api.ts for device code flow
 const response = await oauthClient.post("oauth/device/code", {
@@ -317,7 +317,7 @@ site/
 ### Key Functions
 
 ```typescript
-import { deploySite } from "@core/site/index.js";
+import { deploySite } from "@/core/site/index.js";
 
 // Deploy site from output directory (returns deployment details)
 const { appUrl } = await deploySite("./dist");
@@ -348,7 +348,7 @@ The `base44 deploy` command deploys all project resources in one operation:
 ### Core Functions (`project/deploy.ts`)
 
 ```typescript
-import { deployAll, hasResourcesToDeploy } from "@core/project/index.js";
+import { deployAll, hasResourcesToDeploy } from "@/core/project/index.js";
 
 // Check if there's anything to deploy
 if (!hasResourcesToDeploy(projectData)) {
@@ -370,12 +370,12 @@ base44 deploy --yes  # Skip confirmation
 ## Path Aliases
 
 Single alias defined in `tsconfig.json`:
-- `@core/*` → `./src/core/*`
+- `@/*` → `./src/*`
 
 ```typescript
-import { readProjectConfig } from "@core/project/index.js";
-import { entityResource } from "@core/resources/entity/index.js";
-import { base44Client } from "@core/api/index.js";
+import { readProjectConfig } from "@/core/project/index.js";
+import { entityResource } from "@/core/resources/entity/index.js";
+import { base44Client } from "@/core/api/index.js";
 ```
 
 ## Important Rules
@@ -391,7 +391,7 @@ import { base44Client } from "@core/api/index.js";
 9. **Keep AGENTS.md updated** - Update this file when architecture changes
 10. **Zero-dependency distribution** - All packages go in `devDependencies`; they get bundled at build time
 11. **Use theme for styling** - Never use `chalk` directly in commands; import `theme` from utils and use semantic color/style names
-12. **Use fs.ts utilities** - Always use `@core/utils/fs.js` for file operations
+12. **Use fs.ts utilities** - Always use `@/core/utils/fs.js` for file operations
 13. **No direct process.exit()** - Throw `CLIExitError` instead; entry points handle the actual exit 
 
 ## Development

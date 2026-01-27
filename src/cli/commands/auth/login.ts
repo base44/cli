@@ -6,12 +6,12 @@ import {
   generateDeviceCode,
   getTokenFromDeviceCode,
   getUserInfo,
-} from "@core/auth/index.js";
+} from "@/core/auth/index.js";
 import type {
   DeviceCodeResponse,
   TokenResponse,
   UserInfoResponse,
-} from "@core/auth/index.js";
+} from "@/core/auth/index.js";
 import { runCommand, runTask } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 import { theme } from "@/cli/utils/theme.js";
