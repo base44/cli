@@ -18,15 +18,10 @@ export const AgentConfigApiResponseSchema = z.looseObject({
   name: z.string(),
 });
 
-export const ListAgentsResponseSchema = z
-  .object({
-    items: z.array(AgentConfigApiResponseSchema),
-    total: z.number(),
-  })
-  .transform((data) => ({
-    items: data.items,
-    total: data.total,
-  }));
+export const ListAgentsResponseSchema = z.object({
+  items: z.array(AgentConfigApiResponseSchema),
+  total: z.number(),
+});
 
 export type AgentConfigApiResponse = z.infer<typeof AgentConfigApiResponseSchema>;
 export type ListAgentsResponse = z.infer<typeof ListAgentsResponseSchema>;
