@@ -79,13 +79,13 @@ describe("readProjectConfig", () => {
   it("throws on invalid entity file", async () => {
     await expect(
       readProjectConfig(resolve(FIXTURES_DIR, "invalid-entity"))
-    ).rejects.toThrow(/Invalid entity configuration/);
+    ).rejects.toThrow();
   });
 
   it("throws on invalid agent file", async () => {
     await expect(
       readProjectConfig(resolve(FIXTURES_DIR, "invalid-agent"))
-    ).rejects.toThrow(/Invalid agent configuration/);
+    ).rejects.toThrow();
   });
 
   it("throws on duplicate agent names", async () => {

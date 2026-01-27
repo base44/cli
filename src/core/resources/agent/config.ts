@@ -5,19 +5,28 @@ import { AgentConfigSchema } from "./schema.js";
 import type { AgentConfig, AgentConfigApiResponse } from "./schema.js";
 import { CONFIG_FILE_EXTENSION_GLOB, CONFIG_FILE_EXTENSION } from "../../consts.js";
 
+export function generateAgentConfigContent(name: string): string {
+  return `// Base44 Agent Configuration
+// Agent name must be lowercase alphanumeric with underscores only
+{
+  "name": "${name}",
+  // Brief description of what this agent does
+  "description": "",
+  // Detailed instructions for the agent's behavior
+  "instructions": "",
+  // Tool configurations - entity tools and backend function tools
+  // Entity tool example: { "entity_name": "tasks", "allowed_operations": ["read", "create"] }
+  // Function tool example: { "function_name": "send_email", "description": "Send an email" }
+  "tool_configs": [],
+  // Optional WhatsApp greeting message
+  "whatsapp_greeting": null
+}
+`;
+}
+
 async function readAgentFile(agentPath: string): Promise<AgentConfig> {
   const parsed = await readJsonFile(agentPath);
-  const result = AgentConfigSchema.safeParse(parsed);
-
-  if (!result.success) {
-    throw new Error(
-      `Invalid agent configuration in ${agentPath}: ${result.error.issues
-        .map((e) => e.message)
-        .join(", ")}`
-    );
-  }
-
-  return result.data;
+  return AgentConfigSchema.parse(parsed);
 }
 
 export async function readAllAgents(agentsDir: string): Promise<AgentConfig[]> {
@@ -47,29 +56,28 @@ export async function readAllAgents(agentsDir: string): Promise<AgentConfig[]> {
 
 export async function writeAgents(
   agentsDir: string,
-  agents: AgentConfigApiResponse[]
+  remoteAgents: AgentConfigApiResponse[]
 ): Promise<{ written: string[]; deleted: string[] }> {
   const existingAgents = await readAllAgents(agentsDir);
-  const newNames = new Set(agents.map((a) => a.name));
+  const newNames = new Set(remoteAgents.map((a) => a.name));
 
   const toDelete = existingAgents.filter((a) => !newNames.has(a.name));
   for (const agent of toDelete) {
-    const filePath = join(agentsDir, `${agent.name}.${CONFIG_FILE_EXTENSION}`);
-    await deleteFile(filePath);
-  }
-
-  for (const agent of agents) {
-    const filePath = join(agentsDir, `${agent.name}.${CONFIG_FILE_EXTENSION}`);
-    await writeJsonFile(filePath, {
-      name: agent.name,
-      description: agent.description,
-      instructions: agent.instructions,
-      tool_configs: agent.tool_configs,
-      whatsapp_greeting: agent.whatsapp_greeting ?? null,
+    const files = await globby(`${agent.name}.${CONFIG_FILE_EXTENSION_GLOB}`, {
+      cwd: agentsDir,
+      absolute: true,
     });
+    for (const filePath of files) {
+      await deleteFile(filePath);
+    }
   }
 
-  const written = agents.map((a) => a.name);
+  for (const agent of remoteAgents) {
+    const filePath = join(agentsDir, `${agent.name}.${CONFIG_FILE_EXTENSION}`);
+    await writeJsonFile(filePath, agent);
+  }
+
+  const written = remoteAgents.map((a) => a.name);
   const deleted = toDelete.map((a) => a.name);
 
   return { written, deleted };

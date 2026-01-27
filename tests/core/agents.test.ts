@@ -69,7 +69,7 @@ describe("pushAgents", () => {
     expect(result.created).toEqual(["test_agent"]);
   });
 
-  it("handles null whatsapp_greeting when not provided", async () => {
+  it("passes agents through as-is", async () => {
     const agents = [
       {
         name: "agent_no_greeting",
@@ -94,7 +94,6 @@ describe("pushAgents", () => {
           description: "Test",
           instructions: "Do stuff",
           tool_configs: [],
-          whatsapp_greeting: null,
         },
       ],
       throwHttpErrors: false,

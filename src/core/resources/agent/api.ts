@@ -6,16 +6,9 @@ export async function pushAgents(
   agents: AgentConfig[]
 ): Promise<SyncAgentsResponse> {
   const appClient = getAppClient();
-  const payload = agents.map((agent) => ({
-    name: agent.name,
-    description: agent.description,
-    instructions: agent.instructions,
-    tool_configs: agent.tool_configs,
-    whatsapp_greeting: agent.whatsapp_greeting ?? null,
-  }));
 
   const response = await appClient.put("agent-configs", {
-    json: payload,
+    json: agents,
     throwHttpErrors: false,
   });
 
@@ -24,9 +17,7 @@ export async function pushAgents(
     throw new Error(`Error occurred while syncing agents: ${formatApiError(errorJson)}`);
   }
 
-  const result = SyncAgentsResponseSchema.parse(await response.json());
-
-  return result;
+  return SyncAgentsResponseSchema.parse(await response.json());
 }
 
 export async function fetchAgents(): Promise<ListAgentsResponse> {

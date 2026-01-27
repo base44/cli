@@ -36,7 +36,7 @@ async function pushEntitiesAction(): Promise<RunCommandResult> {
     log.warn(`Deleted: ${result.deleted.join(", ")}`);
   }
 
-  return {};
+  return { outroMessage: "Entities pushed to Base44" };
 }
 
 export const entitiesPushCommand = new Command("entities")

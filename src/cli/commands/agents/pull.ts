@@ -12,7 +12,7 @@ async function pullAgentsAction(): Promise<RunCommandResult> {
   const configDir = dirname(project.configPath);
   const agentsDir = join(configDir, project.agentsDir);
 
-  const response = await runTask(
+  const remoteAgents = await runTask(
     "Fetching agents from Base44",
     async () => {
       return await fetchAgents();
@@ -23,14 +23,14 @@ async function pullAgentsAction(): Promise<RunCommandResult> {
     }
   );
 
-  if (response.items.length === 0) {
+  if (remoteAgents.items.length === 0) {
     return { outroMessage: "No agents found on Base44" };
   }
 
   const { written, deleted } = await runTask(
     "Writing agent files",
     async () => {
-      return await writeAgents(agentsDir, response.items);
+      return await writeAgents(agentsDir, remoteAgents.items);
     },
     {
       successMessage: "Agent files written successfully",
@@ -45,7 +45,7 @@ async function pullAgentsAction(): Promise<RunCommandResult> {
     log.warn(`Deleted: ${deleted.join(", ")}`);
   }
 
-  return { outroMessage: `Pulled ${response.total} agents to ${agentsDir}` };
+  return { outroMessage: `Pulled ${remoteAgents.total} agents to ${agentsDir}` };
 }
 
 export const agentsPullCommand = new Command("pull")

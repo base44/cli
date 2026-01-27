@@ -4,7 +4,6 @@ import { pushAgents } from "@/core/resources/agent/index.js";
 import { readProjectConfig } from "@/core/index.js";
 import { runCommand, runTask } from "../../utils/index.js";
 import type { RunCommandResult } from "../../utils/runCommand.js";
-import { agentsPullCommand } from "./pull.js";
 
 async function pushAgentsAction(): Promise<RunCommandResult> {
   const { agents } = await readProjectConfig();
@@ -36,16 +35,11 @@ async function pushAgentsAction(): Promise<RunCommandResult> {
     log.warn(`Deleted: ${result.deleted.join(", ")}`);
   }
 
-  return {};
+  return { outroMessage: "Agents pushed to Base44" };
 }
 
-export const agentsCommand = new Command("agents")
-  .description("Manage project agents")
-  .addCommand(
-    new Command("push")
-      .description("Push local agents to Base44 (replaces all remote agent configs)")
-      .action(async () => {
-        await runCommand(pushAgentsAction, { requireAuth: true });
-      })
-  )
-  .addCommand(agentsPullCommand);
+export const agentsPushCommand = new Command("push")
+  .description("Push local agents to Base44 (replaces all remote agent configs)")
+  .action(async () => {
+    await runCommand(pushAgentsAction, { requireAuth: true });
+  });
