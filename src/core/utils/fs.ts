@@ -5,6 +5,7 @@ import {
   mkdir,
   unlink,
   access,
+  readdir,
 } from "node:fs/promises";
 import { dirname } from "node:path";
 import JSON5 from "json5";
@@ -46,8 +47,7 @@ export async function readFile(filePath: string): Promise<Buffer> {
     return await fsReadFile(filePath);
   } catch (error) {
     throw new Error(
-      `Failed to read file ${filePath}: ${
-        error instanceof Error ? error.message : "Unknown error"
+      `Failed to read file ${filePath}: ${error instanceof Error ? error.message : "Unknown error"
       }`
     );
   }
@@ -62,8 +62,7 @@ export async function readTextFile(filePath: string): Promise<string> {
     return await fsReadFile(filePath, "utf-8");
   } catch (error) {
     throw new Error(
-      `Failed to read file ${filePath}: ${
-        error instanceof Error ? error.message : "Unknown error"
+      `Failed to read file ${filePath}: ${error instanceof Error ? error.message : "Unknown error"
       }`
     );
   }
@@ -82,8 +81,7 @@ export async function readJsonFile(filePath: string): Promise<unknown> {
       throw new Error(`File contains invalid JSON: ${filePath} (${error.message})`);
     }
     throw new Error(
-      `Failed to read file ${filePath}: ${
-        error instanceof Error ? error.message : "Unknown error"
+      `Failed to read file ${filePath}: ${error instanceof Error ? error.message : "Unknown error"
       }`
     );
   }
@@ -106,6 +104,11 @@ export async function deleteFile(filePath: string): Promise<void> {
     return;
   }
   await unlink(filePath);
+}
+
+export async function isDirEmpty(dir = process.cwd()) {
+  const files = await readdir(dir);
+  return files.length === 0;
 }
 
 export async function makeDirectory(dirPath: string): Promise<void> {
