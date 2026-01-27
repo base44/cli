@@ -93,6 +93,10 @@ export async function runCommand(
     const { outroMessage } = await commandFn();
     outro(outroMessage || "");
   } catch (e) {
+    // Pass through CLIExitError without logging (intentional exits, e.g., user cancellation)
+    if (e instanceof CLIExitError) {
+      throw e;
+    }
     if (e instanceof Error) {
       log.error(e.stack ?? e.message);
     } else {
