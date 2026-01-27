@@ -37,6 +37,32 @@ describe("readProjectConfig", () => {
     expect(result.functions[0].entry).toBe("index.ts");
   });
 
+  it("reads project with mixed functions (with and without config files)", async () => {
+    const result = await readProjectConfig(
+      resolve(FIXTURES_DIR, "with-mixed-functions")
+    );
+
+    expect(result.functions).toHaveLength(3);
+
+    const functionNames = result.functions.map((f) => f.name).sort();
+    expect(functionNames).toEqual(["my-complex-func", "my-func", "other-func"]);
+
+    // Check function with config file
+    const myFunc = result.functions.find((f) => f.name === "my-func");
+    expect(myFunc).toBeDefined();
+    expect(myFunc?.entry).toBe("index.ts");
+
+    // Check auto-detected function
+    const otherFunc = result.functions.find((f) => f.name === "other-func");
+    expect(otherFunc).toBeDefined();
+    expect(otherFunc?.entry).toBe("index.ts");
+
+    // Check auto-detected function with kebab-cased name
+    const myComplexFunc = result.functions.find((f) => f.name === "my-complex-func");
+    expect(myComplexFunc).toBeDefined();
+    expect(myComplexFunc?.entry).toBe("index.ts");
+  });
+
   // Error cases
   it("throws when no config file exists", async () => {
     await expect(
