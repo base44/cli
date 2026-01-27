@@ -1,5 +1,5 @@
-import { getAppClient } from "@core/clients/index.js";
-import { formatApiError } from "@core/errors.js";
+import { getAppClient } from "@/core/clients/index.js";
+import { formatApiError } from "@/core/errors.js";
 import { SyncAgentsResponseSchema, ListAgentsResponseSchema } from "./schema.js";
 import type { SyncAgentsResponse, AgentConfig, ListAgentsResponse } from "./schema.js";
 

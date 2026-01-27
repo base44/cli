@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import { log } from "@clack/prompts";
-import { pushAgents } from "@core/resources/agent/index.js";
-import { readProjectConfig } from "@core/index.js";
+import { pushAgents } from "@/core/resources/agent/index.js";
+import { readProjectConfig } from "@/core/index.js";
 import { runCommand, runTask } from "../../utils/index.js";
 import type { RunCommandResult } from "../../utils/runCommand.js";
 import { agentsPullCommand } from "./pull.js";
