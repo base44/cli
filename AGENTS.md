@@ -441,6 +441,19 @@ When adding async operations to CLI commands:
 - Follows existing patterns in `create.ts` (entity push, site deploy, skills install)
 - Avoid manual try/catch with `log.message` for async operations
 
+### Subprocess Logging in runTask
+
+When running subprocesses with `execa` inside `runTask()`, use `{ shell: true }` without `stdio: "inherit"` to suppress subprocess output. The spinner provides user feedback, and subprocess logs would interfere with the UI.
+
+```typescript
+await runTask("Installing...", async () => {
+  await execa("npx", ["-y", "some-package"], {
+    cwd: targetPath,
+    shell: true  // Suppresses subprocess output
+  });
+});
+```
+
 ## File Locations
 
 - `cli/plan.md` - Implementation plan
