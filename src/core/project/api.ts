@@ -1,9 +1,12 @@
+import { createWriteStream } from "node:fs";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
+import { tmpdir } from "node:os";
 import unzipper from "unzipper";
 import kebabCase from "lodash.kebabcase";
 import { base44Client } from "@core/clients/index.js";
+import { deleteFile, makeDirectory } from "@core/utils/fs.js";
 import { CreateProjectResponseSchema, ProjectsResponseSchema } from "./schema.js";
 import type { ProjectsResponse } from "./schema.js";
 
@@ -41,8 +44,22 @@ export async function downloadProject(projectId: string, projectName: string) {
   const response = await base44Client.get(`api/apps/${projectId}/coding/export-to-zip`);
   const nodeStream = Readable.fromWeb(response.body as import("node:stream/web").ReadableStream);
 
-  await pipeline(
-    nodeStream,
-    unzipper.Extract({ path: join(process.cwd(), kebabCase(projectName)) })
-  );
+  // Save zip to temp file first (unzipper.Extract has issues with some files)
+  const zipPath = join(tmpdir(), `base44-${projectId}-${Date.now()}.zip`);
+  await pipeline(nodeStream, createWriteStream(zipPath));
+
+  // Extract manually for reliable extraction of all files
+  const outputDir = join(process.cwd(), kebabCase(projectName));
+  const directory = await unzipper.Open.file(zipPath);
+
+  for (const file of directory.files) {
+    if (file.type === 'Directory') continue;
+
+    const filePath = join(outputDir, file.path);
+    await makeDirectory(dirname(filePath));
+    await pipeline(file.stream(), createWriteStream(filePath));
+  }
+
+  // Clean up temp zip file
+  await deleteFile(zipPath);
 };

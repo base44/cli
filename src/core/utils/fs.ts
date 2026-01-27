@@ -107,3 +107,9 @@ export async function deleteFile(filePath: string): Promise<void> {
   }
   await unlink(filePath);
 }
+
+export async function makeDirectory(dirPath: string): Promise<void> {
+  if (!(await pathExists(dirPath))) {
+    await mkdir(dirPath, { recursive: true });
+  }
+}
