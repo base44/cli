@@ -1,10 +1,16 @@
+import { basename } from "node:path";
 import { readTextFile } from "@/core/utils/fs.js";
 import { deployFunctions } from "@/core/resources/function/api.js";
-import type { Function, FunctionWithCode, DeployFunctionsResponse } from "@/core/resources/function/schema.js";
+import type { Function, FunctionWithCode, DeployFunctionsResponse, FunctionFile } from "@/core/resources/function/schema.js";
 
 async function loadFunctionCode(fn: Function): Promise<FunctionWithCode> {
-  const code = await readTextFile(fn.codePath);
-  return { ...fn, code };
+  const files: FunctionFile[] = await Promise.all(
+    fn.codePaths.map(async (filePath) => {
+      const content = await readTextFile(filePath);
+      return { path: basename(filePath), content };
+    })
+  );
+  return { ...fn, files };
 }
 
 export async function pushFunctions(

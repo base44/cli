@@ -6,7 +6,7 @@ function toDeployPayloadItem(fn: FunctionWithCode) {
   return {
     name: fn.name,
     entry: fn.entry,
-    files: [{ path: fn.entry, content: fn.code }],
+    files: fn.files,
   };
 }
 

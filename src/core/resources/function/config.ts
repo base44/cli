@@ -31,7 +31,13 @@ export async function readFunction(configPath: string): Promise<Function> {
     );
   }
 
-  const functionData = { ...config, codePath };
+  // Collect all .ts files in the function directory
+  const allFiles = await globby("*.ts", {
+    cwd: functionDir,
+    absolute: true,
+  });
+
+  const functionData = { ...config, codePath, codePaths: allFiles };
   const result = FunctionSchema.safeParse(functionData);
   if (!result.success) {
     throw new Error(

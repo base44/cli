@@ -35,6 +35,10 @@ describe("readProjectConfig", () => {
     expect(result.functions).toHaveLength(1);
     expect(result.functions[0].name).toBe("process-order");
     expect(result.functions[0].entry).toBe("index.ts");
+    // Verify that codePaths includes all .ts files in the function directory
+    expect(result.functions[0].codePaths).toBeInstanceOf(Array);
+    expect(result.functions[0].codePaths.length).toBeGreaterThanOrEqual(1);
+    expect(result.functions[0].codePaths.some(path => path.endsWith("index.ts"))).toBe(true);
   });
 
   // Error cases
