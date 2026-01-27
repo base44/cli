@@ -85,3 +85,4 @@ jobs:
             - For Checklist items: check them based on your code analysis (e.g., check "style guidelines" if code follows existing patterns)
             - Be concise but informative in the Description and Changes Made sections
           claude_args: '--allowed-tools "Bash(gh pr:*)" "Bash(git diff:*)" "Bash(git log:*)" Read Glob Grep'
+          allowed_bots: 'claude[bot]'
