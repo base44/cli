@@ -11,6 +11,12 @@ async function logout(): Promise<RunCommandResult> {
 export const logoutCommand = new Command("logout")
   .description("Logout from current device")
   .action(async () => {
-    await runCommand(logout, { requireAppConfig: false });
+    await runCommand(logout, {
+      requireAppConfig: false,
+      telemetry: {
+        command: "logout",
+        flow: "authentication",
+      },
+    });
   });
 

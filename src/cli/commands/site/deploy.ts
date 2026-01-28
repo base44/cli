@@ -52,6 +52,13 @@ export const siteDeployCommand = new Command("site")
       .description("Deploy built site files to Base44 hosting")
       .option("-y, --yes", "Skip confirmation prompt")
       .action(async (options: DeployOptions) => {
-        await runCommand(() => deployAction(options), { requireAuth: true });
+        await runCommand(() => deployAction(options), {
+          requireAuth: true,
+          telemetry: {
+            command: "site",
+            subCommand: "deploy",
+            flow: "deployment",
+          },
+        });
       })
   );

@@ -221,5 +221,13 @@ export const linkCommand = new Command("link")
   .option("-p, --projectId <id>", "Project ID to link to an existing project (skips selection prompt)")
   .hook("preAction", validateNonInteractiveFlags)
   .action(async (options: LinkOptions) => {
-    await runCommand(() => link(options), { requireAuth: true, requireAppConfig: false });
+    await runCommand(() => link(options), {
+      requireAuth: true,
+      requireAppConfig: false,
+      telemetry: {
+        command: "link",
+        flow: "project_setup",
+        additionalInfo: options.create ? "action:create" : options.projectId ? "action:choose" : undefined,
+      },
+    });
   });

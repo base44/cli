@@ -75,5 +75,11 @@ export const deployCommand = new Command("deploy")
   .description("Deploy all project resources (entities, functions, and site)")
   .option("-y, --yes", "Skip confirmation prompt")
   .action(async (options: DeployOptions) => {
-    await runCommand(() => deployAction(options), { requireAuth: true });
+    await runCommand(() => deployAction(options), {
+      requireAuth: true,
+      telemetry: {
+        command: "deploy",
+        flow: "deployment",
+      },
+    });
   });

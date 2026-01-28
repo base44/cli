@@ -45,6 +45,13 @@ export const entitiesPushCommand = new Command("entities")
     new Command("push")
       .description("Push local entities to Base44")
       .action(async () => {
-        await runCommand(pushEntitiesAction, { requireAuth: true });
+        await runCommand(pushEntitiesAction, {
+          requireAuth: true,
+          telemetry: {
+            command: "entities",
+            subCommand: "push",
+            flow: "resource_sync",
+          },
+        });
       })
   );

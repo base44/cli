@@ -46,11 +46,16 @@ function validateNonInteractiveFlags(command: Command): void {
 
 async function chooseCreate(options: CreateOptions): Promise<void> {
   const isNonInteractive = !!(options.name && options.path);
+  const telemetry = {
+    command: "create",
+    flow: "project_creation",
+    additionalInfo: options.template ? `template:${options.template}` : undefined,
+  };
 
   if (isNonInteractive) {
-    await runCommand(() => createNonInteractive(options), { requireAuth: true, requireAppConfig: false });
+    await runCommand(() => createNonInteractive(options), { requireAuth: true, requireAppConfig: false, telemetry });
   } else {
-    await runCommand(() => createInteractive(options), { fullBanner: true, requireAuth: true, requireAppConfig: false });
+    await runCommand(() => createInteractive(options), { fullBanner: true, requireAuth: true, requireAppConfig: false, telemetry });
   }
 }
 

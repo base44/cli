@@ -14,5 +14,11 @@ async function openDashboard(): Promise<RunCommandResult> {
 export const dashboardCommand = new Command("dashboard")
   .description("Open the app dashboard in your browser")
   .action(async () => {
-    await runCommand(openDashboard, { requireAuth: true });
+    await runCommand(openDashboard, {
+      requireAuth: true,
+      telemetry: {
+        command: "dashboard",
+        flow: "navigation",
+      },
+    });
   });

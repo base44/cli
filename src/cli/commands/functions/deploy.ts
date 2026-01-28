@@ -52,6 +52,13 @@ export const functionsDeployCommand = new Command("functions")
     new Command("deploy")
       .description("Deploy local functions to Base44")
       .action(async () => {
-        await runCommand(deployFunctionsAction, { requireAuth: true });
+        await runCommand(deployFunctionsAction, {
+          requireAuth: true,
+          telemetry: {
+            command: "functions",
+            subCommand: "deploy",
+            flow: "deployment",
+          },
+        });
       })
   );

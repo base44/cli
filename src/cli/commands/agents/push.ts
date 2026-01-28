@@ -41,5 +41,12 @@ async function pushAgentsAction(): Promise<RunCommandResult> {
 export const agentsPushCommand = new Command("push")
   .description("Push local agents to Base44 (replaces all remote agent configs)")
   .action(async () => {
-    await runCommand(pushAgentsAction, { requireAuth: true });
+    await runCommand(pushAgentsAction, {
+      requireAuth: true,
+      telemetry: {
+        command: "agents",
+        subCommand: "push",
+        flow: "resource_sync",
+      },
+    });
   });
