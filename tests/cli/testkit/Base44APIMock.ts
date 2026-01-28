@@ -42,6 +42,17 @@ export interface SiteDeployResponse {
   app_url: string;
 }
 
+export interface AgentsPushResponse {
+  created: string[];
+  updated: string[];
+  deleted: string[];
+}
+
+export interface AgentsFetchResponse {
+  items: Array<{ name: string; [key: string]: unknown }>;
+  total: number;
+}
+
 export interface CreateAppResponse {
   id: string;
   name: string;
@@ -54,6 +65,23 @@ export interface ErrorResponse {
 
 // ─── MOCK CLASS ──────────────────────────────────────────────
 
+/**
+ * Typed API mock for Base44 endpoints.
+ *
+ * Method naming convention:
+ * - `mock<Resource>()` - Mock successful response
+ * - `mock<Resource>Error()` - Mock error response
+ *
+ * @example
+ * ```typescript
+ * // Success responses
+ * api.mockEntitiesPush({ created: ["User"], updated: [], deleted: [] });
+ * api.mockAgentsFetch({ items: [{ name: "support" }], total: 1 });
+ *
+ * // Error responses
+ * api.mockEntitiesPushError({ status: 500, body: { error: "Server error" } });
+ * ```
+ */
 export class Base44APIMock {
   private handlers: RequestHandler[] = [];
 
@@ -62,7 +90,7 @@ export class Base44APIMock {
   // ─── AUTH ENDPOINTS ────────────────────────────────────────
 
   /** Mock POST /oauth/device/code - Start device authorization flow */
-  setDeviceCodeResponse(response: DeviceCodeResponse): this {
+  mockDeviceCode(response: DeviceCodeResponse): this {
     this.handlers.push(
       http.post(`${BASE_URL}/oauth/device/code`, () => HttpResponse.json(response))
     );
@@ -70,7 +98,7 @@ export class Base44APIMock {
   }
 
   /** Mock POST /oauth/token - Exchange code for tokens or refresh */
-  setTokenResponse(response: TokenResponse): this {
+  mockToken(response: TokenResponse): this {
     this.handlers.push(
       http.post(`${BASE_URL}/oauth/token`, () => HttpResponse.json(response))
     );
@@ -78,7 +106,7 @@ export class Base44APIMock {
   }
 
   /** Mock GET /oauth/userinfo - Get authenticated user info */
-  setUserInfoResponse(response: UserInfoResponse): this {
+  mockUserInfo(response: UserInfoResponse): this {
     this.handlers.push(
       http.get(`${BASE_URL}/oauth/userinfo`, () => HttpResponse.json(response))
     );
@@ -88,7 +116,7 @@ export class Base44APIMock {
   // ─── APP-SCOPED ENDPOINTS ──────────────────────────────────
 
   /** Mock PUT /api/apps/{appId}/entity-schemas - Push entities */
-  setEntitiesPushResponse(response: EntitiesPushResponse): this {
+  mockEntitiesPush(response: EntitiesPushResponse): this {
     this.handlers.push(
       http.put(`${BASE_URL}/api/apps/${this.appId}/entity-schemas`, () =>
         HttpResponse.json(response)
@@ -98,7 +126,7 @@ export class Base44APIMock {
   }
 
   /** Mock PUT /api/apps/{appId}/backend-functions - Push functions */
-  setFunctionsPushResponse(response: FunctionsPushResponse): this {
+  mockFunctionsPush(response: FunctionsPushResponse): this {
     this.handlers.push(
       http.put(`${BASE_URL}/api/apps/${this.appId}/backend-functions`, () =>
         HttpResponse.json(response)
@@ -108,9 +136,29 @@ export class Base44APIMock {
   }
 
   /** Mock POST /api/apps/{appId}/deploy-dist - Deploy site */
-  setSiteDeployResponse(response: SiteDeployResponse): this {
+  mockSiteDeploy(response: SiteDeployResponse): this {
     this.handlers.push(
       http.post(`${BASE_URL}/api/apps/${this.appId}/deploy-dist`, () =>
+        HttpResponse.json(response)
+      )
+    );
+    return this;
+  }
+
+  /** Mock PUT /api/apps/{appId}/agent-configs - Push agents */
+  mockAgentsPush(response: AgentsPushResponse): this {
+    this.handlers.push(
+      http.put(`${BASE_URL}/api/apps/${this.appId}/agent-configs`, () =>
+        HttpResponse.json(response)
+      )
+    );
+    return this;
+  }
+
+  /** Mock GET /api/apps/{appId}/agent-configs - Fetch agents */
+  mockAgentsFetch(response: AgentsFetchResponse): this {
+    this.handlers.push(
+      http.get(`${BASE_URL}/api/apps/${this.appId}/agent-configs`, () =>
         HttpResponse.json(response)
       )
     );
@@ -120,7 +168,7 @@ export class Base44APIMock {
   // ─── GENERAL ENDPOINTS ─────────────────────────────────────
 
   /** Mock POST /api/apps - Create new app */
-  setCreateAppResponse(response: CreateAppResponse): this {
+  mockCreateApp(response: CreateAppResponse): this {
     this.handlers.push(
       http.post(`${BASE_URL}/api/apps`, () => HttpResponse.json(response))
     );
@@ -130,7 +178,7 @@ export class Base44APIMock {
   // ─── ERROR RESPONSES ────────────────────────────────────────
 
   /** Mock any endpoint to return an error */
-  setErrorResponse(method: "get" | "post" | "put" | "delete", path: string, error: ErrorResponse): this {
+  mockError(method: "get" | "post" | "put" | "delete", path: string, error: ErrorResponse): this {
     const url = path.startsWith("/") ? `${BASE_URL}${path}` : `${BASE_URL}/${path}`;
     this.handlers.push(
       http[method](url, () => HttpResponse.json(error.body ?? { error: "Error" }, { status: error.status }))
@@ -139,28 +187,38 @@ export class Base44APIMock {
   }
 
   /** Mock entities push to return an error */
-  setEntitiesPushError(error: ErrorResponse): this {
-    return this.setErrorResponse("put", `/api/apps/${this.appId}/entity-schemas`, error);
+  mockEntitiesPushError(error: ErrorResponse): this {
+    return this.mockError("put", `/api/apps/${this.appId}/entity-schemas`, error);
   }
 
   /** Mock functions push to return an error */
-  setFunctionsPushError(error: ErrorResponse): this {
-    return this.setErrorResponse("put", `/api/apps/${this.appId}/backend-functions`, error);
+  mockFunctionsPushError(error: ErrorResponse): this {
+    return this.mockError("put", `/api/apps/${this.appId}/backend-functions`, error);
   }
 
   /** Mock site deploy to return an error */
-  setSiteDeployError(error: ErrorResponse): this {
-    return this.setErrorResponse("post", `/api/apps/${this.appId}/deploy-dist`, error);
+  mockSiteDeployError(error: ErrorResponse): this {
+    return this.mockError("post", `/api/apps/${this.appId}/deploy-dist`, error);
+  }
+
+  /** Mock agents push to return an error */
+  mockAgentsPushError(error: ErrorResponse): this {
+    return this.mockError("put", `/api/apps/${this.appId}/agent-configs`, error);
+  }
+
+  /** Mock agents fetch to return an error */
+  mockAgentsFetchError(error: ErrorResponse): this {
+    return this.mockError("get", `/api/apps/${this.appId}/agent-configs`, error);
   }
 
   /** Mock token endpoint to return an error (for auth failure testing) */
-  setTokenError(error: ErrorResponse): this {
-    return this.setErrorResponse("post", "/oauth/token", error);
+  mockTokenError(error: ErrorResponse): this {
+    return this.mockError("post", "/oauth/token", error);
   }
 
   /** Mock userinfo endpoint to return an error */
-  setUserInfoError(error: ErrorResponse): this {
-    return this.setErrorResponse("get", "/oauth/userinfo", error);
+  mockUserInfoError(error: ErrorResponse): this {
+    return this.mockError("get", "/oauth/userinfo", error);
   }
 
   // ─── INTERNAL ──────────────────────────────────────────────

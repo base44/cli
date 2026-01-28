@@ -2,48 +2,43 @@ import { describe, it } from "vitest";
 import { setupCLITests, fixture } from "./testkit/index.js";
 
 describe("site deploy command", () => {
-  const { kit } = setupCLITests();
+  const t = setupCLITests();
 
   it("fails when no site configuration found", async () => {
-    // Given: logged in with a project that has no site config
-    await kit().givenLoggedIn({ email: "test@example.com", name: "Test User" });
-    await kit().givenProject(fixture("basic"));
+    await t.givenLoggedInWithProject(fixture("basic"));
 
-    // When: run site deploy with -y
-    const result = await kit().run("site", "deploy", "-y");
+    const result = await t.run("site", "deploy", "-y");
 
-    // Then: command fails with no site config error
-    kit().expect(result).toFail();
-    kit().expect(result).toContain("No site configuration found");
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("No site configuration found");
   });
 
   it("fails when not in a project directory", async () => {
-    // Given: user is logged in but not in a project directory
-    await kit().givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
 
-    // When: run site deploy
-    const result = await kit().run("site", "deploy", "-y");
+    const result = await t.run("site", "deploy", "-y");
 
-    // Then: command fails with project not found error
-    kit().expect(result).toFail();
-    kit().expect(result).toContain("No Base44 project found");
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("No Base44 project found");
   });
 
   it("deploys site successfully", async () => {
-    // Given: logged in with a project that has site config and dist folder
-    await kit().givenLoggedIn({ email: "test@example.com", name: "Test User" });
-    await kit().givenProject(fixture("with-site"));
+    await t.givenLoggedInWithProject(fixture("with-site"));
+    t.api.mockSiteDeploy({ app_url: "https://my-app.base44.app" });
 
-    kit().api.setSiteDeployResponse({
-      app_url: "https://my-app.base44.app",
-    });
+    const result = await t.run("site", "deploy", "-y");
 
-    // When: run site deploy with -y
-    const result = await kit().run("site", "deploy", "-y");
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Site deployed successfully");
+    t.expectResult(result).toContain("https://my-app.base44.app");
+  });
 
-    // Then: command succeeds and shows app URL
-    kit().expect(result).toSucceed();
-    kit().expect(result).toContain("Site deployed successfully");
-    kit().expect(result).toContain("https://my-app.base44.app");
+  it("fails when API returns error", async () => {
+    await t.givenLoggedInWithProject(fixture("with-site"));
+    t.api.mockSiteDeployError({ status: 413, body: { error: "Site too large" } });
+
+    const result = await t.run("site", "deploy", "-y");
+
+    t.expectResult(result).toFail();
   });
 });

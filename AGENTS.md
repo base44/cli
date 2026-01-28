@@ -466,170 +466,111 @@ await runTask("Installing...", async () => {
 
 ## Testing
 
-CLI tests run **in-process** by importing `createProgram()` from the bundled `dist/program.js`. This means:
-- Tests verify the actual bundled output (catches bundling issues)
-- Build is required before running tests (`npm run build && npm test`)
-- MSW (Mock Service Worker) for HTTP mocking
-- `BASE44_CLI_TEST_OVERRIDES` env var allows tests to inject config without file I/O
+**Build before testing**: Tests import the bundled `dist/index.js`, so run `npm run build && npm test`.
 
 ### Test Structure
 
 ```
 tests/
-├── cli/                      # CLI integration tests (flat structure)
-│   ├── testkit/              # Test utilities
-│   │   ├── CLITestkit.ts     # Main testkit class
-│   │   ├── Base44APIMock.ts  # Typed API mock for Base44 endpoints
-│   │   ├── CLIResultMatcher.ts # Assertion helpers
-│   │   └── index.ts          # Barrel export + MSW server setup
-│   ├── login.spec.ts         # Single commands: <command>.spec.ts
-│   ├── whoami.spec.ts
-│   ├── logout.spec.ts
-│   ├── create.spec.ts
-│   └── entities_push.spec.ts # Subcommands: <parent>_<sub>.spec.ts
-├── core/                     # Core module unit tests
+├── cli/                           # CLI integration tests
+│   ├── testkit/                   # Test utilities (CLITestkit, Base44APIMock)
+│   ├── <command>.spec.ts          # e.g., login.spec.ts, deploy.spec.ts
+│   └── <parent>_<sub>.spec.ts     # e.g., entities_push.spec.ts
+├── core/                          # Core module unit tests
+│   ├── agents.spec.ts
+│   ├── errors.spec.ts
 │   └── project.spec.ts
-└── fixtures/                 # Test fixtures (project configs, entities, etc.)
-    ├── basic/                # Minimal project
-    ├── with-entities/        # Project with entities
-    └── with-functions-and-entities/
+└── fixtures/                      # Test project directories
+    ├── basic/                     # Minimal linked project
+    ├── with-entities/             # Project with entities
+    ├── with-agents/               # Project with agents
+    ├── with-functions-and-entities/
+    ├── with-site/                 # Project with site config
+    ├── full-project/              # All resources combined
+    ├── no-app-config/             # Unlinked project (no .app.jsonc)
+    └── invalid-*/                 # Error case fixtures
 ```
 
-### Known Testing Gaps
-
-**Interactive prompts cannot be tested.** The CLI is bundled into `dist/program.js`, which means `vi.doMock("@clack/prompts")` cannot intercept calls within the bundled code. Commands with interactive mode (like `create`) can only be tested via their non-interactive flags (e.g., `--name`, `--path`).
-### CLITestkit Pattern
-
-CLI tests use a **testkit pattern** with Given/When/Then structure for readable, maintainable tests.
-
-#### Writing a New Command Test
-
-1. Create test file: `tests/cli/<command>.spec.ts` (or `<parent>_<sub>.spec.ts` for subcommands)
-2. Follow this pattern:
+### Writing Tests
 
 ```typescript
 import { describe, it } from "vitest";
 import { setupCLITests, fixture } from "./testkit/index.js";
 
 describe("<command> command", () => {
-  const { kit } = setupCLITests(); // Handles kit lifecycle + MSW server
+  const t = setupCLITests();
 
   it("succeeds when <scenario>", async () => {
-    // Given: setup preconditions
-    await kit().givenLoggedIn({ email: "test@example.com", name: "Test User" });
-    await kit().givenProject(fixture("with-entities"));
+    // Given
+    await t.givenLoggedInWithProject(fixture("with-entities"));
+    t.api.mockEntitiesPush({ created: ["User"], updated: [], deleted: [] });
 
-    // Mock API response
-    kit().api.setEntitiesPushResponse({ created: ["Entity1"], updated: [], deleted: [] });
+    // When
+    const result = await t.run("entities", "push");
 
-    // When: run the command
-    const result = await kit().run("<command>", "--flag", "value");
-
-    // Then: assert outcomes
-    kit().expect(result).toSucceed();
-    kit().expect(result).toContain("expected output");
+    // Then
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Entities pushed");
   });
 
-  it("fails when <error scenario>", async () => {
-    // Given: no auth (user not logged in)
+  it("fails when API returns error", async () => {
+    await t.givenLoggedInWithProject(fixture("with-entities"));
+    t.api.mockEntitiesPushError({ status: 500, body: { error: "Server error" } });
 
-    const result = await kit().run("<command>");
+    const result = await t.run("entities", "push");
 
-    kit().expect(result).toFail();
-    kit().expect(result).toContain("error message");
+    t.expectResult(result).toFail();
   });
 });
 ```
 
-### CLITestkit API Reference
+### Testkit API
 
-#### Setup
+**Setup:**
+- `setupCLITests()` - Call inside `describe()`, returns test context `t`
 
-| Method | Description |
-|--------|-------------|
-| `setupCLITests()` | Returns `{ kit }` - call inside `describe()`, handles lifecycle |
+**Given (setup):**
+- `t.givenLoggedIn({ email, name })` - Create auth file
+- `t.givenProject(fixturePath)` - Set project directory
+- `t.givenLoggedInWithProject(fixturePath)` - Combined (most common)
 
-#### Given Methods (Setup)
+**When (actions):**
+- `t.run(...args)` - Execute CLI command
 
-| Method | Description |
-|--------|-------------|
-| `givenLoggedIn({ email, name })` | Creates auth file with user credentials |
-| `givenProject(fixturePath)` | Sets working directory to a project fixture |
+**Then (assertions):**
+- `t.expectResult(result).toSucceed()` - Exit code 0
+- `t.expectResult(result).toFail()` - Exit code non-zero
+- `t.expectResult(result).toContain(text)` - Output contains text
 
-#### When Methods (Actions)
+**Utilities:**
+- `fixture(name)` - Resolve fixture path
+- `t.getTempDir()` - Get temp directory
+- `t.readAuthFile()` - Read saved auth data
 
-| Method | Description |
-|--------|-------------|
-| `run(...args)` | Executes CLI command, returns `{ stdout, stderr, exitCode }` |
-
-#### Then Methods (Assertions)
-
-| Method | Description |
-|--------|-------------|
-| `expect(result).toSucceed()` | Assert exit code is 0 |
-| `expect(result).toFail()` | Assert exit code is non-zero |
-| `expect(result).toHaveExitCode(n)` | Assert specific exit code |
-| `expect(result).toContain(text)` | Assert stdout OR stderr contains text |
-| `expect(result).toContainInStdout(text)` | Assert stdout contains text |
-| `expect(result).toContainInStderr(text)` | Assert stderr contains text |
-| `readAuthFile()` | Read auth.json from temp HOME directory |
-
-#### Utilities
-
-| Function | Description |
-|----------|-------------|
-| `fixture(name)` | Resolves path to test fixture in `tests/fixtures/` |
-
-### Mocking API Endpoints
-
-The testkit provides a typed `api` property (`Base44APIMock`) for mocking Base44 API endpoints. Methods use `setXxxResponse` naming to make it clear you're configuring mocks.
+### API Mocks
 
 ```typescript
-// Auth endpoints
-kit().api.setDeviceCodeResponse({ device_code: "abc", user_code: "ABCD-1234", ... });
-kit().api.setTokenResponse({ access_token: "...", refresh_token: "...", ... });
-kit().api.setUserInfoResponse({ email: "user@example.com", name: "User" });
+// Success responses
+t.api.mockEntitiesPush({ created: [], updated: [], deleted: [] });
+t.api.mockFunctionsPush({ deployed: [], deleted: [], errors: null });
+t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
+t.api.mockAgentsFetch({ items: [], total: 0 });
+t.api.mockSiteDeploy({ app_url: "https://app.base44.app" });
+t.api.mockCreateApp({ id: "app-id", name: "App" });
+t.api.mockDeviceCode({ device_code: "...", user_code: "...", ... });
+t.api.mockToken({ access_token: "...", refresh_token: "...", ... });
+t.api.mockUserInfo({ email: "...", name: "..." });
 
-// App-scoped endpoints (uses appId from CLITestkit.create())
-kit().api.setEntitiesPushResponse({ created: ["User"], updated: ["Product"], deleted: [] });
-kit().api.setFunctionsPushResponse({ created: [], updated: [], deleted: [] });
-kit().api.setSiteDeployResponse({ appUrl: "https://my-app.base44.app" });
-
-// General endpoints
-kit().api.setCreateAppResponse({ id: "new-app-id", name: "New App" });
+// Error responses
+t.api.mockEntitiesPushError({ status: 500, body: { error: "..." } });
+t.api.mockFunctionsPushError({ status: 400, body: { error: "..." } });
+t.api.mockAgentsPushError({ status: 401, body: { error: "..." } });
+t.api.mockSiteDeployError({ status: 413, body: { error: "..." } });
 ```
 
-The `appId` is configured when creating the testkit (defaults to `"test-app-id"`):
+### Testing Rules
 
-```typescript
-// In setupCLITests or CLITestkit.create()
-const kit = await CLITestkit.create("custom-app-id");
-```
-
-Handlers are collected and applied once when `run()` is called. Mocks are cleared between tests via `mswServer.resetHandlers()`.
-
-### Important Testing Rules
-
-1. **Use `setupCLITests()` inside describe** - Handles kit lifecycle and MSW server
-2. **Test both success and failure paths** - Commands should handle errors gracefully
-3. **Use fixtures for complex projects** - Don't recreate project structures in tests
-4. **Fixtures need `.app.jsonc`** - Add `base44/.app.jsonc` with `{ "id": "test-app-id" }` to fixtures
-5. **Build before testing** - Tests import from `dist/program.js`, run `npm run build` first
-
-## File Locations
-
-- `cli/AGENTS.md` - This file
-- `cli/bin/run.js` - Production entry point (imports bundled dist/index.js)
-- `cli/bin/dev.js` - Development entry point (uses tsx for TypeScript)
-- `cli/src/core/` - Core module
-- `cli/src/core/errors.ts` - Core error classes (AuthApiError, AuthValidationError)
-- `cli/src/cli/errors.ts` - CLI-specific errors (CLIExitError)
-- `cli/src/cli/` - CLI commands and program definition
-- `cli/src/cli/index.ts` - Barrel export for entry points (program, CLIExitError)
-- `cli/src/cli/program.ts` - Commander program definition
-- `cli/src/cli/utils/runCommand.ts` - Command wrapper that throws CLIExitError on errors
-- `cli/src/cli/utils/runTask.ts` - Async operation wrapper with spinner and success/error messages
-- `cli/tsdown.config.mjs` - Build configuration (bundles index.ts to dist/)
-- `cli/.node-version` - Node.js version pinning
-- `cli/tests/cli/testkit/` - CLI test utilities (CLITestkit, mswSetup, CLIResultMatcher)
-- `cli/tests/fixtures/` - Test fixtures (project configs, entities)
+1. **Build first** - Run `npm run build` before `npm test`
+2. **Use fixtures** - Don't create project structures in tests
+3. **Fixtures need `.app.jsonc`** - Add `base44/.app.jsonc` with `{ "id": "test-app-id" }`
+4. **Interactive prompts can't be tested** - Only test via non-interactive flags

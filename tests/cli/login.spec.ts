@@ -2,42 +2,37 @@ import { describe, it, expect } from "vitest";
 import { setupCLITests } from "./testkit/index.js";
 
 describe("login command", () => {
-  const { kit } = setupCLITests();
+  const t = setupCLITests();
 
   it("completes login flow and saves auth file", async () => {
-    // Given: mock OAuth endpoints
-    kit().api.setDeviceCodeResponse({
+    t.api.mockDeviceCode({
       device_code: "test-device-code",
       user_code: "ABCD-1234",
       verification_uri: "https://app.base44.com/device",
       expires_in: 300,
       interval: 1,
     });
-
-    kit().api.setTokenResponse({
+    t.api.mockToken({
       access_token: "test-access-token-from-login",
       token_type: "Bearer",
       expires_in: 3600,
       refresh_token: "test-refresh-token-from-login",
     });
-
-    kit().api.setUserInfoResponse({
+    t.api.mockUserInfo({
       email: "logged-in@example.com",
       name: "Logged In User",
     });
 
-    // When: run login command
-    const result = await kit().run("login");
+    const result = await t.run("login");
 
-    // Then: command succeeds
-    kit().expect(result).toSucceed();
-    kit().expect(result).toContain("Device code generated");
-    kit().expect(result).toContain("ABCD-1234");
-    kit().expect(result).toContain("Successfully logged in");
-    kit().expect(result).toContain("logged-in@example.com");
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Device code generated");
+    t.expectResult(result).toContain("ABCD-1234");
+    t.expectResult(result).toContain("Successfully logged in");
+    t.expectResult(result).toContain("logged-in@example.com");
 
-    // And: auth file is created with correct data
-    const authData = await kit().readAuthFile();
+    // Auth file is created with correct data
+    const authData = await t.readAuthFile();
     expect(authData).not.toBeNull();
     expect(authData?.accessToken).toBe("test-access-token-from-login");
     expect(authData?.refreshToken).toBe("test-refresh-token-from-login");

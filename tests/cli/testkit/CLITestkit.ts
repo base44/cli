@@ -4,7 +4,6 @@ import { mkdir, writeFile, cp, readFile } from "node:fs/promises";
 import { vi } from "vitest";
 import { dir } from "tmp-promise";
 import type { Command } from "commander";
-import { CommanderError } from "commander";
 import { CLIResultMatcher } from "./CLIResultMatcher.js";
 import { Base44APIMock } from "./Base44APIMock.js";
 import type { CLIResult } from "./CLIResultMatcher.js";
@@ -32,7 +31,8 @@ export class CLITestkit {
     this.cleanupFn = cleanupFn;
     this.api = new Base44APIMock(appId);
     // Set HOME to temp dir for auth file isolation
-    this.env = { HOME: tempDir };
+    // Set CI to prevent browser opens during tests
+    this.env = { HOME: tempDir, CI: "true" };
   }
 
   /** Factory method - creates isolated test environment */
@@ -110,11 +110,10 @@ export class CLITestkit {
       return buildResult(0);
     } catch (e) {
       // process.exit() was called - our mock throws after capturing the code
+      // This catches Commander's exits for --help, --version, unknown options
       if (exitState.code !== null) { return buildResult(exitState.code); }
-      // CLI's clean exit mechanism
+      // CLI's clean exit mechanism (thrown by runCommand on errors)
       if (e instanceof CLIExitError) { return buildResult(e.code); }
-      // Commander's exit (help, version, unknown command)
-      if (e instanceof CommanderError) { return buildResult(e.exitCode); }
       // Unexpected error - let it bubble up
       throw e;
     } finally {
@@ -145,20 +144,22 @@ export class CLITestkit {
     }
   }
 
-  private captureEnvSnapshot(): Record<string, string | undefined> {
-    const snapshot: Record<string, string | undefined> = {};
-    for (const key of Object.keys(this.env)) {
-      snapshot[key] = process.env[key];
-    }
-    return snapshot;
+  /** Save original values of env vars we're about to modify */
+  private captureEnvSnapshot(): { HOME?: string; BASE44_CLI_TEST_OVERRIDES?: string; CI?: string } {
+    return {
+      HOME: process.env.HOME,
+      BASE44_CLI_TEST_OVERRIDES: process.env.BASE44_CLI_TEST_OVERRIDES,
+      CI: process.env.CI,
+    };
   }
 
-  private restoreEnvSnapshot(snapshot: Record<string, string | undefined>): void {
-    for (const [key, value] of Object.entries(snapshot)) {
-      if (value === undefined) {
+  /** Restore env vars to their original values (or delete if they didn't exist) */
+  private restoreEnvSnapshot(snapshot: { HOME?: string; BASE44_CLI_TEST_OVERRIDES?: string; CI?: string }): void {
+    for (const key of ["HOME", "BASE44_CLI_TEST_OVERRIDES", "CI"] as const) {
+      if (snapshot[key] === undefined) {
         delete process.env[key];
       } else {
-        process.env[key] = value;
+        process.env[key] = snapshot[key];
       }
     }
   }

@@ -2,72 +2,73 @@ import { describe, it } from "vitest";
 import { setupCLITests, fixture } from "./testkit/index.js";
 
 describe("entities push command", () => {
-  const { kit } = setupCLITests();
+  const t = setupCLITests();
 
   it("warns when no entities found in project", async () => {
-    // Given: user is logged in with a project that has no entities
-    await kit().givenLoggedIn({ email: "test@example.com", name: "Test User" });
-    await kit().givenProject(fixture("basic"));
+    await t.givenLoggedInWithProject(fixture("basic"));
 
-    // When: run entities push
-    const result = await kit().run("entities", "push");
+    const result = await t.run("entities", "push");
 
-    // Then: command succeeds but warns about no entities
-    kit().expect(result).toSucceed();
-    kit().expect(result).toContain("No entities found in project");
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("No entities found in project");
   });
 
   it("fails when not in a project directory", async () => {
-    // Given: user is logged in but not in a project directory
-    await kit().givenLoggedIn({ email: "test@example.com", name: "Test User" });
-    // Note: no givenProject() - running from temp dir with no project
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
 
-    // When: run entities push
-    const result = await kit().run("entities", "push");
+    const result = await t.run("entities", "push");
 
-    // Then: command fails with project not found error
-    kit().expect(result).toFail();
-    kit().expect(result).toContain("No Base44 project found");
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("No Base44 project found");
   });
 
   it("finds and lists entities in project", async () => {
-    // Given: project with entities
-    await kit().givenLoggedIn({ email: "test@example.com", name: "Test User" });
-    await kit().givenProject(fixture("with-entities"));
+    await t.givenLoggedInWithProject(fixture("with-entities"));
+    t.api.mockEntitiesPush({ created: ["Customer", "Product"], updated: [], deleted: [] });
 
-    kit().api.setEntitiesPushResponse({
-      created: ["Customer", "Product"],
-      updated: [],
-      deleted: [],
-    });
+    const result = await t.run("entities", "push");
 
-    // When: run entities push
-    const result = await kit().run("entities", "push");
-
-    // Then: it finds and lists the entities
-    kit().expect(result).toContain("Found 2 entities to push");
-    kit().expect(result).toContain("Customer");
-    kit().expect(result).toContain("Product");
+    t.expectResult(result).toContain("Found 2 entities to push");
+    t.expectResult(result).toContain("Customer");
+    t.expectResult(result).toContain("Product");
   });
 
   it("pushes entities successfully and shows results", async () => {
-    // Given: logged in, project with entities, and mock API
-    await kit().givenLoggedIn({ email: "test@example.com", name: "Test User" });
-    await kit().givenProject(fixture("with-entities"));
+    await t.givenLoggedInWithProject(fixture("with-entities"));
+    t.api.mockEntitiesPush({ created: ["Customer"], updated: ["Product"], deleted: [] });
 
-    kit().api.setEntitiesPushResponse({
-      created: ["Customer"],
-      updated: ["Product"],
-      deleted: [],
-    });
+    const result = await t.run("entities", "push");
 
-    // When: run entities push
-    const result = await kit().run("entities", "push");
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Entities pushed successfully");
+    t.expectResult(result).toContain("Created: Customer");
+    t.expectResult(result).toContain("Updated: Product");
+  });
 
-    // Then: succeeds and shows created/updated entities
-    kit().expect(result).toSucceed();
-    kit().expect(result).toContain("Entities pushed successfully");
-    kit().expect(result).toContain("Created: Customer");
-    kit().expect(result).toContain("Updated: Product");
+  it("fails with helpful error when entity is missing required fields", async () => {
+    await t.givenLoggedInWithProject(fixture("invalid-entity"));
+
+    const result = await t.run("entities", "push");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("name");
+  });
+
+  it("fails with helpful error when config has invalid JSON", async () => {
+    await t.givenLoggedInWithProject(fixture("invalid-json"));
+
+    const result = await t.run("entities", "push");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("config.jsonc");
+  });
+
+  it("fails when API returns error", async () => {
+    await t.givenLoggedInWithProject(fixture("with-entities"));
+    t.api.mockEntitiesPushError({ status: 500, body: { error: "Internal server error" } });
+
+    const result = await t.run("entities", "push");
+
+    t.expectResult(result).toFail();
   });
 });
