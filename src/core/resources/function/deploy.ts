@@ -4,13 +4,13 @@ import { deployFunctions } from "@/core/resources/function/api.js";
 import type { Function, FunctionWithCode, DeployFunctionsResponse, FunctionFile } from "@/core/resources/function/schema.js";
 
 async function loadFunctionCode(fn: Function): Promise<FunctionWithCode> {
-  const files: FunctionFile[] = await Promise.all(
-    fn.codePaths.map(async (filePath) => {
+  const loadedFiles: FunctionFile[] = await Promise.all(
+    fn.files.map(async (filePath) => {
       const content = await readTextFile(filePath);
       return { path: basename(filePath), content };
     })
   );
-  return { ...fn, files };
+  return { ...fn, files: loadedFiles };
 }
 
 export async function pushFunctions(

@@ -1,3 +1,3 @@
-export function validateOrder(order: any): boolean {
-  return order && typeof order.id === 'string';
+export function foo(text: string) {
+  console.log(text)
 }

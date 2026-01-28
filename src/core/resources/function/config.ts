@@ -23,21 +23,20 @@ export async function readFunctionConfig(
 export async function readFunction(configPath: string): Promise<Function> {
   const config = await readFunctionConfig(configPath);
   const functionDir = dirname(configPath);
-  const codePath = join(functionDir, config.entry);
+  const entryPath = join(functionDir, config.entry);
 
-  if (!(await pathExists(codePath))) {
+  if (!(await pathExists(entryPath))) {
     throw new Error(
-      `Function code file not found: ${codePath} (referenced in ${configPath})`
+      `Function entry file not found: ${entryPath} (referenced in ${configPath})`
     );
   }
 
-  // Collect all .ts files in the function directory
-  const allFiles = await globby("*.ts", {
+  const files = await globby("*.{js,ts,json}", {
     cwd: functionDir,
     absolute: true,
   });
 
-  const functionData = { ...config, codePath, codePaths: allFiles };
+  const functionData = { ...config, entryPath, files };
   const result = FunctionSchema.safeParse(functionData);
   if (!result.success) {
     throw new Error(
