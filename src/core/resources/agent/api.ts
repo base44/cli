@@ -5,6 +5,10 @@ import type { SyncAgentsResponse, AgentConfig, ListAgentsResponse } from "./sche
 export async function pushAgents(
   agents: AgentConfig[]
 ): Promise<SyncAgentsResponse> {
+  if (agents.length === 0) {
+    return { created: [], updated: [], deleted: [] };
+  }
+
   const appClient = getAppClient();
 
   const response = await appClient.put("agent-configs", {
