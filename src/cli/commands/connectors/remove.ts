@@ -115,7 +115,6 @@ export async function removeConnectorCommand(
     const actionWord = isHardDelete ? "Permanently remove" : "Remove";
     const shouldRemove = await confirm({
       message: `${actionWord} ${displayName}${accountInfo}?`,
-      initialValue: false,
     });
 
     if (isCancel(shouldRemove) || !shouldRemove) {

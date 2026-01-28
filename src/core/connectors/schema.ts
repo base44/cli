@@ -3,13 +3,21 @@ import { z } from "zod";
 /**
  * Response from POST /api/apps/{app_id}/external-auth/initiate
  */
-export const InitiateResponseSchema = z.object({
-  redirect_url: z.string().nullish(),
-  connection_id: z.string().nullish(),
-  already_authorized: z.boolean().nullish(),
-  other_user_email: z.string().nullish(),
-  error: z.string().nullish(),
-});
+export const InitiateResponseSchema = z
+  .object({
+    redirect_url: z.string().nullish(),
+    connection_id: z.string().nullish(),
+    already_authorized: z.boolean().nullish(),
+    other_user_email: z.string().nullish(),
+    error: z.string().nullish(),
+  })
+  .transform((data) => ({
+    redirectUrl: data.redirect_url,
+    connectionId: data.connection_id,
+    alreadyAuthorized: data.already_authorized,
+    otherUserEmail: data.other_user_email,
+    error: data.error,
+  }));
 
 export type InitiateResponse = z.infer<typeof InitiateResponseSchema>;
 
@@ -62,13 +70,3 @@ export const ListResponseSchema = z.object({
 });
 
 export type ListResponse = z.infer<typeof ListResponseSchema>;
-
-/**
- * Generic API error response
- */
-export const ApiErrorSchema = z.object({
-  error: z.string(),
-  detail: z.string().nullish(),
-});
-
-export type ApiError = z.infer<typeof ApiErrorSchema>;

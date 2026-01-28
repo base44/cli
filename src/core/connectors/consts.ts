@@ -1,10 +1,4 @@
 /**
- * OAuth polling configuration
- */
-export const OAUTH_POLL_INTERVAL_MS = 2000;
-export const OAUTH_POLL_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
-
-/**
  * Supported OAuth connector integrations.
  * Based on apper/backend/app/external_auth/models/constants.py
  */
@@ -48,9 +42,6 @@ export function isValidIntegration(type: string): type is IntegrationType {
   return SUPPORTED_INTEGRATIONS.includes(type as IntegrationType);
 }
 
-export function getIntegrationDisplayName(type: string): string {
-  if (isValidIntegration(type)) {
-    return INTEGRATION_DISPLAY_NAMES[type];
-  }
-  return type;
+export function getIntegrationDisplayName(type: IntegrationType): string {
+  return INTEGRATION_DISPLAY_NAMES[type] ?? type;
 }

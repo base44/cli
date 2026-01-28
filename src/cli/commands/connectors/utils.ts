@@ -1,7 +1,9 @@
 import pWaitFor from "p-wait-for";
-import { checkOAuthStatus } from "./api.js";
-import { OAUTH_POLL_INTERVAL_MS, OAUTH_POLL_TIMEOUT_MS } from "./constants.js";
-import type { IntegrationType } from "./constants.js";
+import { checkOAuthStatus } from "@/core/connectors/api.js";
+import type { IntegrationType } from "@/core/connectors/consts.js";
+
+const OAUTH_POLL_INTERVAL_MS = 2000;
+const OAUTH_POLL_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
 export interface OAuthCompletionResult {
   success: boolean;
@@ -54,5 +56,20 @@ export async function waitForOAuthCompletion(
       return { success: false, error: "Authorization timed out. Please try again." };
     }
     return { success: false, error: error || (err instanceof Error ? err.message : "Unknown error") };
+  }
+}
+
+/**
+ * Asserts that a string is a valid integration type, throwing if not.
+ */
+export function assertValidIntegrationType(
+  type: string,
+  supportedIntegrations: readonly string[]
+): asserts type is IntegrationType {
+  if (!supportedIntegrations.includes(type)) {
+    const supportedList = supportedIntegrations.join(", ");
+    throw new Error(
+      `Unsupported connector: ${type}\nSupported connectors: ${supportedList}`
+    );
   }
 }

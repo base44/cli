@@ -2,31 +2,23 @@ import { Command } from "commander";
 import { cancel, log, select, isCancel } from "@clack/prompts";
 import {
   initiateOAuth,
-  waitForOAuthCompletion,
   SUPPORTED_INTEGRATIONS,
-  isValidIntegration,
+  INTEGRATION_DISPLAY_NAMES,
   getIntegrationDisplayName,
 } from "@/core/connectors/index.js";
 import type { IntegrationType } from "@/core/connectors/index.js";
 import { runCommand, runTask } from "../../utils/index.js";
 import type { RunCommandResult } from "../../utils/runCommand.js";
 import { theme } from "../../utils/theme.js";
-
-function validateIntegrationType(type: string): IntegrationType {
-  if (!isValidIntegration(type)) {
-    const supportedList = SUPPORTED_INTEGRATIONS.join(", ");
-    throw new Error(
-      `Unsupported connector: ${type}\nSupported connectors: ${supportedList}`
-    );
-  }
-  return type;
-}
+import { assertValidIntegrationType, waitForOAuthCompletion } from "./utils.js";
 
 async function promptForIntegrationType(): Promise<IntegrationType> {
-  const options = SUPPORTED_INTEGRATIONS.map((type) => ({
-    value: type,
-    label: getIntegrationDisplayName(type),
-  }));
+  const options = Object.entries(INTEGRATION_DISPLAY_NAMES).map(
+    ([type, displayName]) => ({
+      value: type,
+      label: displayName,
+    })
+  );
 
   const selected = await select({
     message: "Select an integration to connect:",
@@ -38,7 +30,7 @@ async function promptForIntegrationType(): Promise<IntegrationType> {
     process.exit(0);
   }
 
-  return selected;
+  return selected as IntegrationType;
 }
 
 async function pollForOAuthCompletion(
@@ -61,9 +53,13 @@ export async function addConnector(
   integrationType?: string
 ): Promise<RunCommandResult> {
   // Get type from argument or prompt
-  const selectedType = integrationType
-    ? validateIntegrationType(integrationType)
-    : await promptForIntegrationType();
+  let selectedType: IntegrationType;
+  if (integrationType) {
+    assertValidIntegrationType(integrationType, SUPPORTED_INTEGRATIONS);
+    selectedType = integrationType;
+  } else {
+    selectedType = await promptForIntegrationType();
+  }
 
   const displayName = getIntegrationDisplayName(selectedType);
 
@@ -80,33 +76,33 @@ export async function addConnector(
   );
 
   // Check if already authorized
-  if (initiateResponse.already_authorized) {
+  if (initiateResponse.alreadyAuthorized) {
     return {
       outroMessage: `Already connected to ${theme.styles.bold(displayName)}`,
     };
   }
 
   // Check if connected by different user
-  if (initiateResponse.error === "different_user" && initiateResponse.other_user_email) {
+  if (initiateResponse.error === "different_user" && initiateResponse.otherUserEmail) {
     throw new Error(
-      `This app is already connected to ${displayName} by ${initiateResponse.other_user_email}`
+      `This app is already connected to ${displayName} by ${initiateResponse.otherUserEmail}`
     );
   }
 
   // Validate we have required fields
-  if (!initiateResponse.redirect_url || !initiateResponse.connection_id) {
+  if (!initiateResponse.redirectUrl || !initiateResponse.connectionId) {
     throw new Error("Invalid response from server: missing redirect URL or connection ID");
   }
 
   // Show authorization URL
   log.info(
-    `Please authorize ${displayName} at:\n${theme.colors.links(initiateResponse.redirect_url)}`
+    `Please authorize ${displayName} at:\n${theme.colors.links(initiateResponse.redirectUrl)}`
   );
 
   // Poll for completion
   const result = await pollForOAuthCompletion(
     selectedType,
-    initiateResponse.connection_id
+    initiateResponse.connectionId
   );
 
   if (!result.success) {
