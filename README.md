@@ -53,8 +53,6 @@ The CLI will guide you through project setup. For step-by-step tutorials, see th
 | [`entities push`](https://docs.base44.com/developers/references/cli/commands/entities-push) | Push local entity schemas to Base44 |
 | [`functions deploy`](https://docs.base44.com/developers/references/cli/commands/functions-deploy) | Deploy local functions to Base44 |
 | [`site deploy`](https://docs.base44.com/developers/references/cli/commands/site-deploy) | Deploy built site files to Base44 hosting |
-| `connectors add [type]` | Connect an OAuth integration |
-| `connectors remove [type]` | Disconnect an integration |
 
 
 <!--| [`eject`](https://docs.base44.com/developers/references/cli/commands/eject) | Create a Base44 backend project from an existing Base44 app | -->
