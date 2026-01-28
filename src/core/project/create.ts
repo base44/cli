@@ -1,8 +1,8 @@
 import { globby } from "globby";
-import { PROJECT_CONFIG_PATTERNS } from "../consts.js";
-import { createProject } from "./api.js";
-import { renderTemplate } from "./template.js";
-import type { Template } from "./schema.js";
+import { PROJECT_CONFIG_PATTERNS } from "@/core/consts.js";
+import { createProject } from "@/core/project/api.js";
+import { renderTemplate } from "@/core/project/template.js";
+import type { Template } from "@/core/project/schema.js";
 
 export interface CreateProjectOptions {
   name: string;

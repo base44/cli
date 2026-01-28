@@ -1,7 +1,7 @@
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { PROJECT_SUBDIR } from "./consts.js";
+import { PROJECT_SUBDIR } from "@/core/consts.js";
 
 // After bundling, import.meta.url points to dist/cli/index.js
 // Templates are copied to dist/cli/templates/

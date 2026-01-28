@@ -1,6 +1,6 @@
-import { base44Client } from "@core/clients/index.js";
-import { CreateProjectResponseSchema, ProjectsResponseSchema } from "./schema.js";
-import type { ProjectsResponse } from "./schema.js";
+import { base44Client } from "@/core/clients/index.js";
+import { CreateProjectResponseSchema, ProjectsResponseSchema } from "@/core/project/schema.js";
+import type { ProjectsResponse } from "@/core/project/schema.js";
 
 export async function createProject(projectName: string, description?: string) {
   const response = await base44Client.post("api/apps", {

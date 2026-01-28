@@ -1,10 +1,11 @@
 import { cancel } from "@clack/prompts";
+import { CLIExitError } from "@/cli/errors.js";
 
 /**
  * Standard onCancel handler for prompt groups.
- * Exits the process gracefully when the user cancels.
+g * Throws CLIExitError(0) for graceful exit when the user cancels.
  */
 export const onPromptCancel = () => {
   cancel("Operation cancelled.");
-  process.exit(0);
+  throw new CLIExitError(0);
 };

@@ -1,31 +1,25 @@
-import { resolve, join } from "node:path";
+import { resolve, join, basename } from "node:path";
 import { execa } from "execa";
-import { Command } from "commander";
-import { log, group, text, select, multiselect, confirm, isCancel } from "@clack/prompts";
+import { Argument, Command } from "commander";
+import { log, group, text, select, confirm, isCancel } from "@clack/prompts";
 import type { Option } from "@clack/prompts";
 import kebabCase from "lodash.kebabcase";
-import { createProjectFiles, listTemplates, readProjectConfig, setAppConfig } from "@core/project/index.js";
-import type { Template } from "@core/project/index.js";
-import { deploySite, pushEntities } from "@core/index.js";
+import { createProjectFiles, listTemplates, readProjectConfig, setAppConfig } from "@/core/project/index.js";
+import type { Template } from "@/core/project/index.js";
+import { deploySite, isDirEmpty, pushEntities } from "@/core/index.js";
 import {
   runCommand,
   runTask,
   onPromptCancel,
   theme,
   getDashboardUrl,
-} from "../../utils/index.js";
-import type { RunCommandResult } from "../../utils/runCommand.js";
+} from "@/cli/utils/index.js";
+import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 
 const DEFAULT_TEMPLATE_ID = "backend-only";
 
-const SUPPORTED_AGENTS = [
-  { value: "cursor", label: "Cursor" },
-  { value: "claude-code", label: "Claude Code" },
-];
-
 interface CreateOptions {
   name?: string;
-  description?: string;
   path?: string;
   template?: string;
   deploy?: boolean;
@@ -43,10 +37,9 @@ async function getTemplateById(templateId: string): Promise<Template> {
 }
 
 function validateNonInteractiveFlags(command: Command): void {
-  const { name, path } = command.opts<CreateOptions>();
-  const providedCount = [name, path].filter(Boolean).length;
+  const { path } = command.opts<CreateOptions>();
 
-  if (providedCount > 0 && providedCount < 2) {
+  if (path && !command.args.length) {
     command.error("Non-interactive mode requires all flags: --name, --path");
   }
 }
@@ -73,26 +66,23 @@ async function createInteractive(options: CreateOptions): Promise<RunCommandResu
     {
       template: () =>
         select({
-          message: "Pick a template",
+          message: "Pick an option",
           options: templateOptions,
         }),
-      name: () =>
-        text({
+      name: () => {
+        return options.name ? Promise.resolve(options.name) : text({
           message: "What is the name of your project?",
-          placeholder: "my-app",
+          placeholder: basename(process.cwd()),
+          initialValue: basename(process.cwd()),
           validate: (value) => {
             if (!value || value.trim().length === 0) {
               return "Every project deserves a name";
             }
           },
-        }),
-      description: () =>
-        text({
-          message: "Description (optional)",
-          placeholder: "A brief description of your project",
-        }),
+        })
+      },
       projectPath: async ({ results }) => {
-        const suggestedPath = `./${kebabCase(results.name)}`;
+        const suggestedPath = await isDirEmpty() ? `./` : `./${kebabCase(results.name)}`;
         return text({
           message: "Where should we create your project?",
           placeholder: suggestedPath,
@@ -108,7 +98,6 @@ async function createInteractive(options: CreateOptions): Promise<RunCommandResu
   return await executeCreate({
     template: result.template,
     name: result.name,
-    description: result.description || undefined,
     projectPath: result.projectPath as string,
     deploy: options.deploy,
     skills: options.skills,
@@ -122,7 +111,6 @@ async function createNonInteractive(options: CreateOptions): Promise<RunCommandR
   return await executeCreate({
     template,
     name: options.name!,
-    description: options.description,
     projectPath: options.path!,
     deploy: options.deploy,
     skills: options.skills,
@@ -234,46 +222,28 @@ async function executeCreate({
     }
   }
 
-  // Add AI agent skills
-  let selectedAgents: string[] = [];
+  // Add AI agent skills (--no-skills flag sets skills to false, otherwise defaults to true)
+  const shouldAddSkills = skills;
 
-  if (isInteractive) {
-    const result = await multiselect({
-      message: "Add AI agent skills? (Select agents to configure)",
-      options: SUPPORTED_AGENTS,
-      initialValues: SUPPORTED_AGENTS.map((agent) => agent.value),
-      required: false,
-    });
-
-    if (!isCancel(result)) {
-      selectedAgents = result;
+  if (shouldAddSkills) {
+    try {
+      await runTask(
+        "Installing AI agent skills...",
+        async () => {
+          await execa("npx", ["-y", "add-skill", "base44/skills", "-y"], {
+            cwd: resolvedPath,
+            shell: true
+          });
+        },
+        {
+          successMessage: theme.colors.base44Orange("AI agent skills added successfully"),
+          errorMessage: "Failed to add AI agent skills - you can add them later with: npx add-skill base44/skills",
+        }
+      );
+    } catch {
+      // Skills installation is non-critical (e.g., user may not have git installed)
+      // The error message is already shown by runTask, so we just continue
     }
-  } else if (skills) {
-    selectedAgents = SUPPORTED_AGENTS.map((agent) => agent.value);
-  }
-
-  if (selectedAgents.length > 0) {
-    const agentArgs = selectedAgents.flatMap((agent) => ["-a", agent]);
-    log.step(`Installing skills for: ${selectedAgents.join(", ")}`);
-
-    await runTask(
-      `Installing skills for: ${selectedAgents.join(", ")}`,
-      async () => {
-        await execa("npx", [
-          "-y", "add-skill", "base44/skills",
-          "-y",  // Skip add-skill prompts (use defaults: project scope, symlink)
-          "-s", "base44-cli", "-s", "base44-sdk",
-          ...agentArgs
-        ], {
-          cwd: resolvedPath,
-          stdio: "inherit",
-        });
-      },
-      {
-        successMessage: theme.colors.base44Orange("AI agent skills added successfully"),
-        errorMessage: "Failed to add AI agent skills - you can add them later with: npx add-skill base44/skills",
-      }
-    );
   }
 
   log.message(`${theme.styles.header("Project")}: ${theme.colors.base44Orange(name)}`);
@@ -288,13 +258,12 @@ async function executeCreate({
 
 export const createCommand = new Command("create")
   .description("Create a new Base44 project")
-  .option("-n, --name <name>", "Project name")
-  .option("-d, --description <description>", "Project description")
+  .addArgument(new Argument('name', 'Project name').argOptional())
   .option("-p, --path <path>", "Path where to create the project")
   .option("-t, --template <id>", "Template ID (e.g., backend-only, backend-and-client)")
   .option("--deploy", "Build and deploy the site")
-  .option("--skills", "Add AI agent skills (Cursor, Claude Code)")
+  .option("--no-skills", "Skip AI agent skills installation")
   .hook("preAction", validateNonInteractiveFlags)
-  .action(async (options: CreateOptions) => {
-    await chooseCreate(options);
+  .action(async (name: string | undefined, options: CreateOptions) => {
+    await chooseCreate({ name, ...options });
   });

@@ -1,4 +1,4 @@
-import { theme } from "./theme.js";
+import { theme } from "@/cli/utils/theme.js";
 
 /**
  * Sleep for a specified number of milliseconds.

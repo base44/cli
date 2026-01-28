@@ -1,9 +1,9 @@
 import { dirname, join } from "node:path";
 import { globby } from "globby";
-import { FUNCTION_CONFIG_FILE } from "../../consts.js";
-import { readJsonFile, pathExists } from "../../utils/fs.js";
-import { FunctionConfigSchema, FunctionSchema } from "./schema.js";
-import type { FunctionConfig, Function } from "./schema.js";
+import { FUNCTION_CONFIG_FILE } from "@/core/consts.js";
+import { readJsonFile, pathExists } from "@/core/utils/fs.js";
+import { FunctionConfigSchema, FunctionSchema } from "@/core/resources/function/schema.js";
+import type { FunctionConfig, Function } from "@/core/resources/function/schema.js";
 
 export async function readFunctionConfig(
   configPath: string
@@ -23,15 +23,20 @@ export async function readFunctionConfig(
 export async function readFunction(configPath: string): Promise<Function> {
   const config = await readFunctionConfig(configPath);
   const functionDir = dirname(configPath);
-  const codePath = join(functionDir, config.entry);
+  const entryPath = join(functionDir, config.entry);
 
-  if (!(await pathExists(codePath))) {
+  if (!(await pathExists(entryPath))) {
     throw new Error(
-      `Function code file not found: ${codePath} (referenced in ${configPath})`
+      `Function entry file not found: ${entryPath} (referenced in ${configPath})`
     );
   }
 
-  const functionData = { ...config, codePath };
+  const files = await globby("*.{js,ts,json}", {
+    cwd: functionDir,
+    absolute: true,
+  });
+
+  const functionData = { ...config, entryPath, files };
   const result = FunctionSchema.safeParse(functionData);
   if (!result.success) {
     throw new Error(

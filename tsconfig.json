@@ -13,7 +13,7 @@
     "types": ["node"],
     "baseUrl": ".",
     "paths": {
-      "@core/*": ["./src/core/*"]
+      "@/*": ["./src/*"]
     }
   },
   "include": ["src/**/*", "tests/**/*"],

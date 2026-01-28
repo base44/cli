@@ -1,6 +1,7 @@
 import { Command } from "commander";
-import { log, group, text, select, isCancel, cancel } from "@clack/prompts";
 import type { Option } from "@clack/prompts";
+import { log, group, text, select, isCancel, cancel } from "@clack/prompts";
+import { CLIExitError } from "@/cli/errors.js";
 import {
   findProjectRoot,
   createProject,
@@ -8,16 +9,16 @@ import {
   appConfigExists,
   setAppConfig,
   listProjects,
-} from "@core/project/index.js";
-import type { Project } from "@core/project/index.js";
+} from "@/core/project/index.js";
+import type { Project } from "@/core/project/index.js";
 import {
   runCommand,
   runTask,
   onPromptCancel,
   theme,
   getDashboardUrl,
-} from "../../utils/index.js";
-import type { RunCommandResult } from "../../utils/runCommand.js";
+} from "@/cli/utils/index.js";
+import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 
 interface LinkOptions {
   create?: boolean;
@@ -62,7 +63,7 @@ async function promptForLinkAction(): Promise<LinkAction> {
 
   if (isCancel(action)) {
     cancel("Operation cancelled.");
-    process.exit(0);
+    throw new CLIExitError(0);
   }
 
   return action;
@@ -112,7 +113,7 @@ async function promptForExistingProject(linkableProjects: Project[]): Promise<Pr
 
   if (isCancel(selectedProject)) {
     cancel("Operation cancelled.");
-    process.exit(0);
+    throw new CLIExitError(0);
   }
 
   return selectedProject;

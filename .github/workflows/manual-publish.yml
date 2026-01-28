@@ -23,6 +23,11 @@ on:
         required: false
         default: false
         type: boolean
+      notify_skills_repo:
+        description: "Notify the skills repo about the release"
+        required: false
+        default: true
+        type: boolean
 
 jobs:
   publish:
@@ -178,6 +183,7 @@ jobs:
 
       - name: Create Release
         if: github.event.inputs.dry_run == 'false'
+        id: create-release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -199,6 +205,30 @@ jobs:
             ### NPM Tag: ${{ github.event.inputs.npm_tag }}
           draft: false
           prerelease: false
+
+      - name: Generate token for skills repo
+        if: github.event.inputs.dry_run == 'false' && github.event.inputs.notify_skills_repo == 'true'
+        id: skills-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.BASE44_GITHUB_ACTIONS_APP_ID }}
+          private-key: ${{ secrets.BASE44_GITHUB_ACTIONS_APP_PRIVATE_KEY }}
+          owner: base44
+          repositories: skills
+
+      - name: Notify skills repo
+        if: github.event.inputs.dry_run == 'false' && github.event.inputs.notify_skills_repo == 'true'
+        uses: peter-evans/repository-dispatch@v4
+        with:
+          token: ${{ steps.skills-token.outputs.token }}
+          repository: base44/skills
+          event-type: cli-release
+          client-payload: |
+            {
+              "version": "v${{ env.NEW_VERSION }}",
+              "release_url": "${{ steps.create-release.outputs.html_url }}",
+              "release_name": "Release v${{ env.NEW_VERSION }}"
+            }
 
 permissions:
   contents: write

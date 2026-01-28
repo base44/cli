@@ -1,9 +1,9 @@
 import { Command } from "commander";
 import { log } from "@clack/prompts";
-import { pushFunctions } from "@core/resources/function/index.js";
-import { readProjectConfig } from "@core/index.js";
-import { runCommand, runTask } from "../../utils/index.js";
-import type { RunCommandResult } from "../../utils/runCommand.js";
+import { pushFunctions } from "@/core/resources/function/index.js";
+import { readProjectConfig } from "@/core/index.js";
+import { runCommand, runTask } from "@/cli/utils/index.js";
+import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 
 async function deployFunctionsAction(): Promise<RunCommandResult> {
   const { functions } = await readProjectConfig();
@@ -43,7 +43,7 @@ async function deployFunctionsAction(): Promise<RunCommandResult> {
     throw new Error(`Function deployment errors:\n${errorMessages}`);
   }
 
-  return {};
+  return { outroMessage: "Functions deployed to Base44" };
 }
 
 export const functionsDeployCommand = new Command("functions")

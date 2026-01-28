@@ -2,10 +2,10 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
 import { create as tarCreate } from "tar";
-import type { DeployResponse } from "./schema.js";
-import { getSiteFilePaths } from "./config.js";
-import { uploadSite } from "./api.js";
-import { pathExists, deleteFile } from "../utils/fs.js";
+import type { DeployResponse } from "@/core/site/schema.js";
+import { getSiteFilePaths } from "@/core/site/config.js";
+import { uploadSite } from "@/core/site/api.js";
+import { pathExists, deleteFile } from "@/core/utils/fs.js";
 
 export async function deploySite(
   siteOutputDir: string

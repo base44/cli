@@ -10,7 +10,8 @@ export const FunctionConfigSchema = z.object({
 });
 
 export const FunctionSchema = FunctionConfigSchema.extend({
-  codePath: z.string().min(1, "Code path cannot be empty"),
+  entryPath: z.string().min(1, "Entry path cannot be empty"),
+  files: z.array(z.string()).min(1, "Files array cannot be empty"),
 });
 
 export const DeployFunctionsResponseSchema = z.object({
@@ -23,7 +24,10 @@ export const DeployFunctionsResponseSchema = z.object({
 
 export type FunctionConfig = z.infer<typeof FunctionConfigSchema>;
 export type Function = z.infer<typeof FunctionSchema>;
-export type FunctionWithCode = Function & { code: string };
+export type FunctionFile = { path: string; content: string };
+export type FunctionWithCode = Omit<Function, "files"> & {
+  files: FunctionFile[];
+};
 export type DeployFunctionsResponse = z.infer<
   typeof DeployFunctionsResponseSchema
 >;

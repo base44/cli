@@ -1,8 +1,8 @@
 import { resolve } from "node:path";
-import { entityResource } from "../resources/entity/index.js";
-import { functionResource } from "../resources/function/index.js";
-import { deploySite } from "../site/index.js";
-import type { ProjectData } from "./types.js";
+import { entityResource } from "@/core/resources/entity/index.js";
+import { functionResource } from "@/core/resources/function/index.js";
+import { deploySite } from "@/core/site/index.js";
+import type { ProjectData } from "@/core/project/types.js";
 
 /**
  * Checks if there are any resources to deploy in the project.

@@ -1,6 +1,94 @@
 # Changelog
 
 
+## [0.0.22] - 2026-01-27
+
+### Added
+
+- Agents integration with `base44 agents pull` and `base44 agents push` commands (#112)
+- Path alias mapping `@` to `src/` for imports (#124)
+- GitHub Actions workflow to notify skills repository on release (#115)
+- Allowed bots configuration for claude bot in workflows (#126)
+
+## [0.0.21] - 2026-01-26
+
+_Re-release with no changes_
+
+## [0.0.20] - 2026-01-26
+
+### Added
+
+- GitHub Action for auto PR description generation (#118)
+
+### Changed
+
+- Minor improvements to create command output (#122)
+
+### Fixed
+
+- Make skills installation non-critical in create command (#121)
+- Use colon-based allowed-tools patterns for gh commands (#120)
+- Change globby pattern to find `.app.jsonc` files (#117)
+
+## [0.0.19] - 2026-01-26
+
+### Fixed
+
+- Change stdio to shell option in skill installation for cleaner output
+
+## [0.0.18] - 2026-01-26
+
+### Added
+
+- AI agent skills option to `base44 create` command (#95)
+
+### Changed
+
+- Simplify AI agent skills selection to yes/no prompt (#111)
+- Refactor CLI code to separate concerns between running and exporting (#109)
+- Update README documentation (#93)
+
+## [0.0.17] - 2026-01-25
+
+### Changed
+
+- Remove `--existing` flag from link command API (#107)
+
+## [0.0.16] - 2026-01-25
+
+### Added
+
+- Support for linking to existing projects with `base44 link` (#97)
+- Claude Code GitHub Workflow for automated code review (#98, #106)
+
+### Changed
+
+- Configuration file changed from `.env.local` to `.app.jsonc` (or `.app.json`) (#96)
+
+## [0.0.15] - 2026-01-22
+
+### Added
+
+- New unified `base44 deploy` command to deploy entities, functions, and site in one step (#92)
+- Template option (`--template`) to project creation command (#86)
+
+### Fixed
+
+- Find both `.json` and `.jsonc` files for configuration (#90)
+
+## [0.0.14] - 2026-01-22
+
+### Fixed
+
+- Align params to backend requirements (#89)
+
+## [0.0.13] - 2026-01-22
+
+### Fixed
+
+- Align entities schema API to match backend requirements (#81)
+- Fix intro background color (#84)
+
 ## [0.0.12] - 2026-01-21
 
 ### Added

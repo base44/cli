@@ -5,6 +5,7 @@ import {
   mkdir,
   unlink,
   access,
+  readdir,
 } from "node:fs/promises";
 import { dirname } from "node:path";
 import JSON5 from "json5";
@@ -106,4 +107,9 @@ export async function deleteFile(filePath: string): Promise<void> {
     return;
   }
   await unlink(filePath);
+}
+
+export async function isDirEmpty(dir = process.cwd()) {
+  const files = await readdir(dir);
+  return files.length === 0;
 }

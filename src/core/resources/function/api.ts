@@ -1,12 +1,12 @@
-import { getAppClient } from "@core/clients/index.js";
-import { DeployFunctionsResponseSchema } from "./schema.js";
-import type { FunctionWithCode, DeployFunctionsResponse } from "./schema.js";
+import { getAppClient } from "@/core/clients/index.js";
+import { DeployFunctionsResponseSchema } from "@/core/resources/function/schema.js";
+import type { FunctionWithCode, DeployFunctionsResponse } from "@/core/resources/function/schema.js";
 
 function toDeployPayloadItem(fn: FunctionWithCode) {
   return {
     name: fn.name,
     entry: fn.entry,
-    files: [{ path: fn.entry, content: fn.code }],
+    files: fn.files,
   };
 }
 
