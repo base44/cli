@@ -1,14 +1,13 @@
 import { Command } from "commander";
 import { cancel, confirm, select, isCancel } from "@clack/prompts";
 import {
-  fetchConnectorState,
-  removeLocalConnector,
+  listConnectors,
   disconnectConnector,
   removeConnector,
   isValidIntegration,
   getIntegrationDisplayName,
-} from "@core/connectors/index.js";
-import type { IntegrationType, Connector, LocalConnector } from "@core/connectors/index.js";
+} from "@/core/connectors/index.js";
+import type { IntegrationType, Connector } from "@/core/connectors/index.js";
 import { runCommand, runTask } from "../../utils/index.js";
 import type { RunCommandResult } from "../../utils/runCommand.js";
 import { theme } from "../../utils/theme.js";
@@ -18,80 +17,45 @@ interface RemoveOptions {
   yes?: boolean;
 }
 
-interface MergedConnector {
+interface ConnectorInfo {
   type: IntegrationType;
   displayName: string;
-  inLocal: boolean;
-  inBackend: boolean;
   accountEmail?: string;
 }
 
-function mergeConnectorsForRemoval(
-  local: LocalConnector[],
-  backend: Connector[]
-): MergedConnector[] {
-  const merged = new Map<string, MergedConnector>();
-
-  // Add local connectors
-  for (const connector of local) {
-    merged.set(connector.type, {
-      type: connector.type,
-      displayName: getIntegrationDisplayName(connector.type),
-      inLocal: true,
-      inBackend: false,
-    });
-  }
-
-  // Add/update with backend connectors
-  for (const connector of backend) {
-    if (!isValidIntegration(connector.integrationType)) {
-      continue;
-    }
-
-    const existing = merged.get(connector.integrationType);
-    const accountEmail = (connector.accountInfo?.email || connector.accountInfo?.name) ?? undefined;
-    if (existing) {
-      existing.inBackend = true;
-      existing.accountEmail = accountEmail;
-    } else {
-      merged.set(connector.integrationType, {
-        type: connector.integrationType,
-        displayName: getIntegrationDisplayName(connector.integrationType),
-        inLocal: false,
-        inBackend: true,
-        accountEmail,
-      });
-    }
-  }
-
-  return Array.from(merged.values());
+function mapBackendConnectors(connectors: Connector[]): ConnectorInfo[] {
+  return connectors
+    .filter((c) => isValidIntegration(c.integrationType))
+    .map((c) => ({
+      type: c.integrationType,
+      displayName: getIntegrationDisplayName(c.integrationType),
+      accountEmail: (c.accountInfo?.email || c.accountInfo?.name) ?? undefined,
+    }));
 }
 
 function validateConnectorType(
   type: string,
-  merged: MergedConnector[]
-): { type: IntegrationType; connector: MergedConnector } {
+  connectors: ConnectorInfo[]
+): ConnectorInfo {
   if (!isValidIntegration(type)) {
     throw new Error(`Invalid connector type: ${type}`);
   }
 
-  const connector = merged.find((c) => c.type === type);
+  const connector = connectors.find((c) => c.type === type);
   if (!connector) {
     throw new Error(`No ${getIntegrationDisplayName(type)} connector found`);
   }
 
-  return { type, connector };
+  return connector;
 }
 
 async function promptForConnectorToRemove(
-  connectors: MergedConnector[]
-): Promise<{ type: IntegrationType; connector: MergedConnector }> {
+  connectors: ConnectorInfo[]
+): Promise<ConnectorInfo> {
   const options = connectors.map((c) => {
     let label = c.displayName;
     if (c.accountEmail) {
       label += ` (${c.accountEmail})`;
-    } else if (c.inLocal && !c.inBackend) {
-      label += " (not connected)";
     }
     return {
       value: c.type,
@@ -109,8 +73,7 @@ async function promptForConnectorToRemove(
     process.exit(0);
   }
 
-  const connector = connectors.find((c) => c.type === selected)!;
-  return { type: selected, connector };
+  return connectors.find((c) => c.type === selected)!;
 }
 
 export async function removeConnectorCommand(
@@ -119,30 +82,30 @@ export async function removeConnectorCommand(
 ): Promise<RunCommandResult> {
   const isHardDelete = options.hard === true;
 
-  // Fetch both local and backend connectors
-  const { local: localConnectors, backend: backendConnectors } = await runTask(
+  // Fetch backend connectors
+  const backendConnectors = await runTask(
     "Fetching connectors...",
-    fetchConnectorState,
+    async () => listConnectors(),
     {
       successMessage: "Connectors loaded",
       errorMessage: "Failed to fetch connectors",
     }
   );
 
-  const merged = mergeConnectorsForRemoval(localConnectors, backendConnectors);
+  const connectors = mapBackendConnectors(backendConnectors);
 
-  if (merged.length === 0) {
+  if (connectors.length === 0) {
     return {
       outroMessage: "No connectors to remove",
     };
   }
 
   // Get type from argument or prompt
-  const { type: selectedType, connector: selectedConnector } = integrationType
-    ? validateConnectorType(integrationType, merged)
-    : await promptForConnectorToRemove(merged);
+  const selectedConnector = integrationType
+    ? validateConnectorType(integrationType, connectors)
+    : await promptForConnectorToRemove(connectors);
 
-  const displayName = getIntegrationDisplayName(selectedType);
+  const displayName = selectedConnector.displayName;
   const accountInfo = selectedConnector.accountEmail
     ? ` (${selectedConnector.accountEmail})`
     : "";
@@ -165,17 +128,11 @@ export async function removeConnectorCommand(
   await runTask(
     `Removing ${displayName}...`,
     async () => {
-      // Remove from backend if it exists there
-      if (selectedConnector.inBackend) {
-        if (isHardDelete) {
-          await removeConnector(selectedType);
-        } else {
-          await disconnectConnector(selectedType);
-        }
+      if (isHardDelete) {
+        await removeConnector(selectedConnector.type);
+      } else {
+        await disconnectConnector(selectedConnector.type);
       }
-
-      // Remove from local config
-      await removeLocalConnector(selectedType);
     },
     {
       successMessage: `${displayName} removed`,

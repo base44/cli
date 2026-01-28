@@ -54,8 +54,6 @@ The CLI will guide you through project setup. For step-by-step tutorials, see th
 | [`functions deploy`](https://docs.base44.com/developers/references/cli/commands/functions-deploy) | Deploy local functions to Base44 |
 | [`site deploy`](https://docs.base44.com/developers/references/cli/commands/site-deploy) | Deploy built site files to Base44 hosting |
 | `connectors add [type]` | Connect an OAuth integration |
-| `connectors list` | List all connected integrations |
-| `connectors push` | Sync connectors with backend (connect new, remove missing) |
 | `connectors remove [type]` | Disconnect an integration |
 
 

@@ -2,13 +2,12 @@ import { Command } from "commander";
 import { cancel, log, select, isCancel } from "@clack/prompts";
 import {
   initiateOAuth,
-  addLocalConnector,
   waitForOAuthCompletion,
   SUPPORTED_INTEGRATIONS,
   isValidIntegration,
   getIntegrationDisplayName,
-} from "@core/connectors/index.js";
-import type { IntegrationType } from "@core/connectors/index.js";
+} from "@/core/connectors/index.js";
+import type { IntegrationType } from "@/core/connectors/index.js";
 import { runCommand, runTask } from "../../utils/index.js";
 import type { RunCommandResult } from "../../utils/runCommand.js";
 import { theme } from "../../utils/theme.js";
@@ -82,10 +81,8 @@ export async function addConnector(
 
   // Check if already authorized
   if (initiateResponse.already_authorized) {
-    // Still add to local config file
-    await addLocalConnector(selectedType);
     return {
-      outroMessage: `Already connected to ${theme.styles.bold(displayName)} (added to config)`,
+      outroMessage: `Already connected to ${theme.styles.bold(displayName)}`,
     };
   }
 
@@ -115,9 +112,6 @@ export async function addConnector(
   if (!result.success) {
     throw new Error(result.error || "Authorization failed");
   }
-
-  // Add to local config file after successful OAuth
-  await addLocalConnector(selectedType);
 
   const accountInfo = result.accountEmail
     ? ` as ${theme.styles.bold(result.accountEmail)}`

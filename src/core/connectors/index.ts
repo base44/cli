@@ -11,21 +11,6 @@ export {
 export { waitForOAuthCompletion } from "./oauth.js";
 export type { OAuthCompletionResult } from "./oauth.js";
 
-// State utilities
-export { fetchConnectorState } from "./state.js";
-export type { ConnectorState } from "./state.js";
-
-// Local config functions
-export {
-  readLocalConnectors,
-  writeLocalConnectors,
-  addLocalConnector,
-  removeLocalConnector,
-  hasLocalConnector,
-} from "./config.js";
-
-export type { LocalConnector } from "./config.js";
-
 // Schemas and types
 export {
   InitiateResponseSchema,
