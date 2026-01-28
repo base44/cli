@@ -1,0 +1,7 @@
+{
+  "name": "Task",
+  "fields": [
+    { "name": "title", "type": "string" },
+    { "name": "description", "type": "string" }
+  ]
+}

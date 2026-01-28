@@ -22,8 +22,8 @@ program
   .version(packageJson.version);
 
 program.configureHelp({
-  sortSubcommands: true
-})
+  sortSubcommands: true,
+});
 
 // Register authentication commands
 program.addCommand(loginCommand);

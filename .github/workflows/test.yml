@@ -20,8 +20,14 @@ jobs:
           node-version-file: ".node-version"
           cache: "npm"
 
+      # We need to install again to get correct binary dependencies for github actions
       - name: Install dependencies
-        run: npm ci
+        run: |
+          rm -f package-lock.json
+          npm install
+
+      - name: Build
+        run: npm run build
 
       - name: Run tests
         run: npm test

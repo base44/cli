@@ -1,6 +1,6 @@
+import { resolve } from "node:path";
 import { describe, it, expect } from "vitest";
 import { readProjectConfig } from "@/core/project/index.js";
-import { resolve } from "path";
 
 const FIXTURES_DIR = resolve(__dirname, "../fixtures");
 
@@ -21,7 +21,7 @@ describe("readProjectConfig", () => {
     );
 
     expect(result.entities).toHaveLength(2);
-    expect(result.entities.map((e) => e.name)).toContain("User");
+    expect(result.entities.map((e) => e.name)).toContain("Customer");
     expect(result.entities.map((e) => e.name)).toContain("Product");
     expect(result.functions).toEqual([]);
     expect(result.agents).toEqual([]);

@@ -1,7 +1,7 @@
 import { defineConfig } from "tsdown";
 
 export default defineConfig({
-  entry: ["src/cli/index.ts"],
+  entry: ["src/cli/index.ts"],  // Bundle the barrel export, bin files are source
   format: ["esm"],
   platform: "node",
   outDir: "dist",

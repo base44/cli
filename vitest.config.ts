@@ -5,8 +5,10 @@ export default defineConfig({
   test: {
     environment: "node",
     globals: true,
-    include: ["tests/**/*.test.ts"],
+    include: ["tests/**/*.spec.ts"],
     testTimeout: 10000,
+    mockReset: true,
+    silent: true, // Suppress stdout/stderr from tests (CLI output is very noisy)
   },
   resolve: {
     alias: {

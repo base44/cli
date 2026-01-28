@@ -49,6 +49,7 @@ describe("formatApiError", () => {
 
   it("handles undefined input", () => {
     // JSON.stringify(undefined) returns undefined (not a string)
+    // eslint-disable-next-line unicorn/no-useless-undefined
     expect(formatApiError(undefined)).toBeUndefined();
   });
 

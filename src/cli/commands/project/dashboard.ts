@@ -6,7 +6,9 @@ import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 async function openDashboard(): Promise<RunCommandResult> {
   const dashboardUrl = getDashboardUrl();
 
-  await open(dashboardUrl);
+  if (!process.env.CI) {
+    await open(dashboardUrl);
+  }
 
   return { outroMessage: `Dashboard opened at ${dashboardUrl}` };
 }

@@ -5,7 +5,7 @@ import stylistic from "@stylistic/eslint-plugin";
 
 export default tseslint.config(
   {
-    ignores: ["**/dist/**", "**/node_modules/**", "**/*.d.ts"],
+    ignores: ["**/dist/**", "**/node_modules/**", "**/*.d.ts", "**/tests/fixtures/**"],
   },
   {
     files: ["**/*.ts"],

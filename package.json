@@ -16,7 +16,7 @@
     "dev": "./bin/dev.js",
     "start": "./bin/run.js",
     "clean": "rm -rf dist",
-    "lint": "eslint src",
+    "lint": "eslint src tests",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -52,17 +52,23 @@
     "json5": "^2.2.3",
     "ky": "^1.14.2",
     "lodash.kebabcase": "^4.1.1",
+    "msw": "^2.12.7",
+    "open": "^11.0.0",
     "p-wait-for": "^6.0.0",
+    "strip-ansi": "^7.1.2",
     "tar": "^7.5.4",
+    "tmp-promise": "^3.0.3",
     "tsdown": "^0.12.4",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.52.0",
     "vitest": "^4.0.16",
-    "zod": "^4.3.5",
-    "open": "^11.0.0"
+    "zod": "^4.3.5"
   },
   "engines": {
     "node": ">=20.19.0"
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-gnu": "^4.56.0"
   }
 }

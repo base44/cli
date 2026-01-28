@@ -12,7 +12,8 @@ async function pushEntitiesAction(): Promise<RunCommandResult> {
     return { outroMessage: "No entities found in project" };
   }
 
-  log.info(`Found ${entities.length} entities to push`);
+  const entityNames = entities.map((e) => e.name).join(", ");
+  log.info(`Found ${entities.length} entities to push: ${entityNames}`);
 
   const result = await runTask(
     "Pushing entities to Base44",
