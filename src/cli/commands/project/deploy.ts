@@ -21,7 +21,7 @@ async function deployAction(options: DeployOptions): Promise<RunCommandResult> {
     };
   }
 
-  const { project, entities, functions } = projectData;
+  const { project, entities, functions, agents } = projectData;
 
   // Build summary of what will be deployed
   const summaryLines: string[] = [];
@@ -30,6 +30,9 @@ async function deployAction(options: DeployOptions): Promise<RunCommandResult> {
   }
   if (functions.length > 0) {
     summaryLines.push(`  - ${functions.length} ${functions.length === 1 ? "function" : "functions"}`);
+  }
+  if (agents.length > 0) {
+    summaryLines.push(`  - ${agents.length} ${agents.length === 1 ? "agent" : "agents"}`);
   }
   if (project.site?.outputDirectory) {
     summaryLines.push(`  - Site from ${project.site.outputDirectory}`);
@@ -72,7 +75,7 @@ async function deployAction(options: DeployOptions): Promise<RunCommandResult> {
 }
 
 export const deployCommand = new Command("deploy")
-  .description("Deploy all project resources (entities, functions, and site)")
+  .description("Deploy all project resources (entities, functions, agents, and site)")
   .option("-y, --yes", "Skip confirmation prompt")
   .action(async (options: DeployOptions) => {
     await runCommand(() => deployAction(options), { requireAuth: true });

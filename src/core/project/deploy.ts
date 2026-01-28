@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { entityResource } from "@/core/resources/entity/index.js";
 import { functionResource } from "@/core/resources/function/index.js";
+import { agentResource } from "@/core/resources/agent/index.js";
 import { deploySite } from "@/core/site/index.js";
 import type { ProjectData } from "@/core/project/types.js";
 
@@ -8,15 +9,16 @@ import type { ProjectData } from "@/core/project/types.js";
  * Checks if there are any resources to deploy in the project.
  *
  * @param projectData - The project configuration and resources
- * @returns true if there are entities, functions, or a configured site to deploy
+ * @returns true if there are entities, functions, agents, or a configured site to deploy
  */
 export function hasResourcesToDeploy(projectData: ProjectData): boolean {
-  const { project, entities, functions } = projectData;
+  const { project, entities, functions, agents } = projectData;
   const hasSite = Boolean(project.site?.outputDirectory);
   const hasEntities = entities.length > 0;
   const hasFunctions = functions.length > 0;
+  const hasAgents = agents.length > 0;
 
-  return hasEntities || hasFunctions || hasSite;
+  return hasEntities || hasFunctions || hasAgents || hasSite;
 }
 
 /**
@@ -30,7 +32,7 @@ export interface DeployAllResult {
 }
 
 /**
- * Deploys all project resources (entities, functions, and site) to Base44.
+ * Deploys all project resources (entities, functions, agents, and site) to Base44.
  *
  * @param projectData - The project configuration and resources to deploy
  * @returns The deployment result including app URL if site was deployed
@@ -38,10 +40,11 @@ export interface DeployAllResult {
 export async function deployAll(
   projectData: ProjectData
 ): Promise<DeployAllResult> {
-  const { project, entities, functions } = projectData;
+  const { project, entities, functions, agents } = projectData;
 
   await entityResource.push(entities);
   await functionResource.push(functions);
+  await agentResource.push(agents);
 
   if (project.site?.outputDirectory) {
     const outputDir = resolve(project.root, project.site.outputDirectory);
