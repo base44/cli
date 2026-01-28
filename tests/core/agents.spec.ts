@@ -20,19 +20,11 @@ describe("pushAgents", () => {
     vi.clearAllMocks();
   });
 
-  it("sends empty array when no agents provided (deletes all remote)", async () => {
-    mockPut.mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ created: [], updated: [], deleted: ["old_agent"] }),
-    });
-
+  it("returns empty result without API call when no agents provided", async () => {
     const result = await pushAgents([]);
 
-    expect(mockPut).toHaveBeenCalledWith("agent-configs", {
-      json: [],
-      throwHttpErrors: false,
-    });
-    expect(result.deleted).toEqual(["old_agent"]);
+    expect(mockPut).not.toHaveBeenCalled();
+    expect(result).toEqual({ created: [], updated: [], deleted: [] });
   });
 
   it("sends list of configs when agents are provided", async () => {
@@ -101,6 +93,15 @@ describe("pushAgents", () => {
   });
 
   it("throws error with message when API returns error", async () => {
+    const agents: AgentConfig[] = [
+      {
+        name: "test_agent",
+        description: "Test",
+        instructions: "Do stuff",
+        tool_configs: [],
+      },
+    ];
+
     mockPut.mockResolvedValue({
       ok: false,
       json: () => Promise.resolve({
@@ -110,23 +111,41 @@ describe("pushAgents", () => {
       }),
     });
 
-    await expect(pushAgents([])).rejects.toThrow(
+    await expect(pushAgents(agents)).rejects.toThrow(
       "Error occurred while syncing agents: Unauthorized access"
     );
   });
 
   it("falls back to detail when message is not present", async () => {
+    const agents: AgentConfig[] = [
+      {
+        name: "test_agent",
+        description: "Test",
+        instructions: "Do stuff",
+        tool_configs: [],
+      },
+    ];
+
     mockPut.mockResolvedValue({
       ok: false,
       json: () => Promise.resolve({ detail: "Some error detail" }),
     });
 
-    await expect(pushAgents([])).rejects.toThrow(
+    await expect(pushAgents(agents)).rejects.toThrow(
       "Error occurred while syncing agents: Some error detail"
     );
   });
 
   it("stringifies object errors", async () => {
+    const agents: AgentConfig[] = [
+      {
+        name: "test_agent",
+        description: "Test",
+        instructions: "Do stuff",
+        tool_configs: [],
+      },
+    ];
+
     mockPut.mockResolvedValue({
       ok: false,
       json: () => Promise.resolve({
@@ -136,7 +155,7 @@ describe("pushAgents", () => {
       }),
     });
 
-    await expect(pushAgents([])).rejects.toThrow(
+    await expect(pushAgents(agents)).rejects.toThrow(
       'Error occurred while syncing agents: {\n  "field": "name",\n  "error": "required"\n}'
     );
   });
