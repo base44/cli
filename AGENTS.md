@@ -185,7 +185,25 @@ import { myCommand } from "./commands/<domain>/<action>.js";
 program.addCommand(myCommand);
 ```
 
-### 3. Command wrapper options
+### 3. Handling user cancellation
+
+When using `@clack/prompts` interactive prompts, always handle user cancellation properly:
+
+```typescript
+import { select, isCancel, cancel } from "@clack/prompts";
+import { CLIExitError } from "@/cli/errors.js";
+
+const result = await select({ message: "Choose an option", options: [...] });
+
+if (isCancel(result)) {
+  cancel("Operation cancelled.");
+  throw new CLIExitError(0);  // NOT process.exit(0)
+}
+```
+
+**Important**: Always throw `CLIExitError(0)` instead of `process.exit(0)` for user cancellations. This allows proper cleanup and keeps the code testable.
+
+### 4. Command wrapper options
 
 ```typescript
 // Standard command - loads app config by default
@@ -434,9 +452,15 @@ The CLI uses a split architecture for better development experience:
 - `errors.ts` - CLI-specific errors (CLIExitError)
 - `index.ts` - Barrel export for entry points (exports program, CLIExitError)
 
+**Non-TTY Environment Handling**:
+- Entry points detect non-interactive environments (`!process.stdin.isTTY || !process.stdout.isTTY`)
+- When detected, sets `process.env.CI = 'true'` to disable `@clack/prompts` animations
+- This prevents broken output when running in piped output, automated scripts, or AI agent contexts
+
 **Error Handling Flow**:
 - Commands throw errors → `runCommand()` catches, logs, and throws `CLIExitError(1)`
 - Entry points (`bin/run.js`, `bin/dev.js`) catch `CLIExitError` and call `process.exit(code)`
+- `CLIExitError` is passed through `runCommand()` without logging (intentional exits like user cancellation)
 - This keeps `process.exit()` out of core code, making it testable
 
 ### Node.js Version
