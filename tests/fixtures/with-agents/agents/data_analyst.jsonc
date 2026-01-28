@@ -1,0 +1,12 @@
+{
+  // A simple agent with minimal config
+  "name": "data_analyst",
+  "description": "Analyzes task data and provides insights",
+  "instructions": "You are a data analyst. When asked about tasks, query the task entity and provide clear, actionable insights.",
+  "tool_configs": [
+    {
+      "entity_name": "task",
+      "allowed_operations": ["read"]
+    }
+  ]
+}

@@ -12,6 +12,13 @@ import {
   isTokenExpired,
 } from "@/core/auth/config.js";
 import { getAppConfig } from "@/core/project/index.js";
+import type { ApiErrorResponse } from "./schemas.js";
+
+export function formatApiError(errorJson: unknown): string {
+  const error = errorJson as Partial<ApiErrorResponse> | null;
+  const content = error?.message ?? error?.detail ?? errorJson;
+  return typeof content === "string" ? content : JSON.stringify(content, null, 2);
+}
 
 // Track requests that have already been retried to prevent infinite loops
 const retriedRequests = new WeakSet<KyRequest>();

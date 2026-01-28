@@ -43,7 +43,7 @@ async function deployFunctionsAction(): Promise<RunCommandResult> {
     throw new Error(`Function deployment errors:\n${errorMessages}`);
   }
 
-  return {};
+  return { outroMessage: "Functions deployed to Base44" };
 }
 
 export const functionsDeployCommand = new Command("functions")

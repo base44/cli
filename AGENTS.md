@@ -70,6 +70,12 @@ cli/
 │   │   │   │   ├── api.ts        
 │   │   │   │   ├── deploy.ts     
 │   │   │   │   └── index.ts
+│   │   │   ├── agent/
+│   │   │   │   ├── schema.ts
+│   │   │   │   ├── config.ts
+│   │   │   │   ├── resource.ts
+│   │   │   │   ├── api.ts
+│   │   │   │   └── index.ts
 │   │   │   └── index.ts
 │   │   ├── site/                 # Site deployment (NOT a Resource)
 │   │   │   ├── schema.ts         # DeployResponse Zod schema
@@ -96,6 +102,9 @@ cli/
 │       │   │   ├── deploy.ts     # Unified deploy command
 │       │   │   └── link.ts
 │       │   ├── entities/
+│       │   │   └── push.ts
+│       │   ├── agents/
+│       │   │   ├── pull.ts
 │       │   │   └── push.ts
 │       │   ├── functions/
 │       │   │   └── deploy.ts
@@ -440,6 +449,19 @@ When adding async operations to CLI commands:
 - Provides automatic spinner, success/error messages
 - Follows existing patterns in `create.ts` (entity push, site deploy, skills install)
 - Avoid manual try/catch with `log.message` for async operations
+
+### Subprocess Logging in runTask
+
+When running subprocesses with `execa` inside `runTask()`, use `{ shell: true }` without `stdio: "inherit"` to suppress subprocess output. The spinner provides user feedback, and subprocess logs would interfere with the UI.
+
+```typescript
+await runTask("Installing...", async () => {
+  await execa("npx", ["-y", "some-package"], {
+    cwd: targetPath,
+    shell: true  // Suppresses subprocess output
+  });
+});
+```
 
 ## File Locations
 

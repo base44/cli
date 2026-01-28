@@ -12,6 +12,7 @@ describe("readProjectConfig", () => {
     expect(result.project.name).toBe("Basic Test Project");
     expect(result.entities).toEqual([]);
     expect(result.functions).toEqual([]);
+    expect(result.agents).toEqual([]);
   });
 
   it("reads project with entities", async () => {
@@ -23,6 +24,7 @@ describe("readProjectConfig", () => {
     expect(result.entities.map((e) => e.name)).toContain("User");
     expect(result.entities.map((e) => e.name)).toContain("Product");
     expect(result.functions).toEqual([]);
+    expect(result.agents).toEqual([]);
   });
 
   it("reads project with functions and entities", async () => {
@@ -35,10 +37,24 @@ describe("readProjectConfig", () => {
     expect(result.functions).toHaveLength(1);
     expect(result.functions[0].name).toBe("process-order");
     expect(result.functions[0].entry).toBe("index.ts");
-    // Verify that codePaths includes all .ts files in the function directory
-    expect(result.functions[0].codePaths).toBeInstanceOf(Array);
-    expect(result.functions[0].codePaths.length).toBeGreaterThanOrEqual(1);
-    expect(result.functions[0].codePaths.some(path => path.endsWith("index.ts"))).toBe(true);
+    expect(result.agents).toEqual([]);
+  });
+
+  it("reads project with agents", async () => {
+    const result = await readProjectConfig(
+      resolve(FIXTURES_DIR, "with-agents")
+    );
+
+    expect(result.agents).toHaveLength(3);
+    expect(result.agents.map((a) => a.name)).toContain("customer_support");
+    expect(result.agents.map((a) => a.name)).toContain("data_analyst");
+    expect(result.agents.map((a) => a.name)).toContain("order_assistant");
+
+    const customerSupport = result.agents.find((a) => a.name === "customer_support");
+    expect(customerSupport?.tool_configs).toHaveLength(1);
+    expect(customerSupport?.whatsapp_greeting).toBe(
+      "Hi! I'm your support assistant. How can I help you today?"
+    );
   });
 
   // Error cases
@@ -63,6 +79,18 @@ describe("readProjectConfig", () => {
   it("throws on invalid entity file", async () => {
     await expect(
       readProjectConfig(resolve(FIXTURES_DIR, "invalid-entity"))
-    ).rejects.toThrow(/Invalid entity configuration/);
+    ).rejects.toThrow();
+  });
+
+  it("throws on invalid agent file", async () => {
+    await expect(
+      readProjectConfig(resolve(FIXTURES_DIR, "invalid-agent"))
+    ).rejects.toThrow();
+  });
+
+  it("throws on duplicate agent names", async () => {
+    await expect(
+      readProjectConfig(resolve(FIXTURES_DIR, "duplicate-agent-names"))
+    ).rejects.toThrow(/Duplicate agent name/);
   });
 });

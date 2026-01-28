@@ -1,6 +1,7 @@
 import { Command } from "commander";
-import { log, group, text, select, isCancel, cancel } from "@clack/prompts";
 import type { Option } from "@clack/prompts";
+import { log, group, text, select, isCancel, cancel } from "@clack/prompts";
+import { CLIExitError } from "@/cli/errors.js";
 import {
   findProjectRoot,
   createProject,
@@ -62,7 +63,7 @@ async function promptForLinkAction(): Promise<LinkAction> {
 
   if (isCancel(action)) {
     cancel("Operation cancelled.");
-    process.exit(0);
+    throw new CLIExitError(0);
   }
 
   return action;
@@ -112,7 +113,7 @@ async function promptForExistingProject(linkableProjects: Project[]): Promise<Pr
 
   if (isCancel(selectedProject)) {
     cancel("Operation cancelled.");
-    process.exit(0);
+    throw new CLIExitError(0);
   }
 
   return selectedProject;
