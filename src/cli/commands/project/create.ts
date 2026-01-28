@@ -222,8 +222,8 @@ async function executeCreate({
     }
   }
 
-  // Add AI agent skills
-  const shouldAddSkills = skills ?? true;
+  // Add AI agent skills (--no-skills flag sets skills to false, otherwise defaults to true)
+  const shouldAddSkills = skills;
 
   if (shouldAddSkills) {
     try {
@@ -262,7 +262,7 @@ export const createCommand = new Command("create")
   .option("-p, --path <path>", "Path where to create the project")
   .option("-t, --template <id>", "Template ID (e.g., backend-only, backend-and-client)")
   .option("--deploy", "Build and deploy the site")
-  .option("--skills", "Add AI agent skills")
+  .option("--no-skills", "Skip AI agent skills installation")
   .hook("preAction", validateNonInteractiveFlags)
   .action(async (name: string | undefined, options: CreateOptions) => {
     await chooseCreate({ name, ...options });
