@@ -57,30 +57,11 @@ The CLI will guide you through project setup. For step-by-step tutorials, see th
 
 <!--| [`eject`](https://docs.base44.com/developers/references/cli/commands/eject) | Create a Base44 backend project from an existing Base44 app | -->
 
-## AI Agent Skills
+## AI agent skills
 
-When creating a project, you'll be prompted to install AI agent skills for your preferred coding assistants:
+When creating a project, [base44/skills](https://github.com/base44/skills) are automatically installed. These help AI agents understand how to work with Base44 projects.
 
-```
-◆  Add AI agent skills? (Select agents to configure)
-│  ◼ Cursor
-│  ◼ Claude Code
-└
-```
-
-This installs [base44/skills](https://github.com/base44/skills) which helps AI agents understand how to work with Base44 projects.
-
-**Non-interactive mode:**
-
-```bash
-# Install skills for all supported agents
-base44 create --name my-app --path ./my-app --skills
-
-# Skip skills installation
-base44 create --name my-app --path ./my-app
-```
-
-**Manual installation:**
+If you need to install skills manually, use the following command:
 
 ```bash
 npx add-skill base44/skills
