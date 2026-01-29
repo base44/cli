@@ -74,22 +74,28 @@ export async function runCommand(
     intro(theme.colors.base44OrangeBackground(" Base 44 "));
   }
 
-  // Check authentication if required
-  if (options?.requireAuth) {
-    const loggedIn = await isLoggedIn();
+  try {
+    // Check authentication if required
+    if (options?.requireAuth) {
+      const loggedIn = await isLoggedIn();
 
-    if (!loggedIn) {
-      log.info("You need to login first to continue.");
-      await login();
+      if (!loggedIn) {
+        log.info("You need to login first to continue.");
+        await login();
+      }
     }
-  }
 
-  // Initialize app config unless explicitly disabled
-  if (options?.requireAppConfig !== false) {
-    const appConfig = await initAppConfig();
-    errorReporter.setAppContext(appConfig.id);
-  }
+    // Initialize app config unless explicitly disabled
+    if (options?.requireAppConfig !== false) {
+      const appConfig = await initAppConfig();
+      errorReporter.setAppContext(appConfig.id);
+    }
 
-  const { outroMessage } = await commandFn();
-  outro(outroMessage || "");
+    const { outroMessage } = await commandFn();
+    outro(outroMessage || "");
+  } catch (error) {
+    // Display error with nice formatting, then re-throw for runCLI to handle
+    log.error(error instanceof Error ? (error.stack ?? error.message) : String(error));
+    throw error;
+  }
 }

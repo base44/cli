@@ -192,8 +192,6 @@ class ErrorReporter {
       }
 
       client.captureException(error, this.getDistinctId(), this.buildProperties());
-
-      // Don't await flush - let shutdown handle it
     } catch {
       // Error during error reporting - silent
     }
