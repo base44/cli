@@ -91,7 +91,7 @@ cli/
 │   │   ├── errors.ts             # Error classes
 │   │   └── index.ts              # Barrel export for all core modules
 │   └── cli/
-│       ├── program.ts            # createProgram() factory + CLIExitError
+│       ├── program.ts            # createProgram() factory + runCLI()
 │       ├── commands/
 │       │   ├── auth/
 │       │   │   ├── login.ts
@@ -111,6 +111,12 @@ cli/
 │       │   │   └── deploy.ts
 │       │   └── site/
 │       │       └── deploy.ts
+│       ├── telemetry/            # Error reporting and telemetry
+│       │   ├── consts.ts         # PostHog API key, env var names
+│       │   ├── posthog.ts        # PostHog client singleton
+│       │   ├── error-reporter.ts # ErrorReporter singleton for capturing exceptions
+│       │   ├── commander-hooks.ts# Commander.js integration for command context
+│       │   └── index.ts
 │       ├── utils/
 │       │   ├── runCommand.ts     # Command wrapper with branding
 │       │   ├── runTask.ts        # Spinner wrapper
@@ -120,8 +126,7 @@ cli/
 │       │   ├── urls.ts           # URL utilities (getDashboardUrl)
 │       │   └── index.ts
 │       ├── errors.ts             # CLI-specific errors (CLIExitError)
-│       ├── program.ts            # Commander program definition
-│       └── index.ts              # Barrel export (program, CLIExitError)
+│       └── index.ts              # Barrel export (createProgram, runCLI, CLIExitError)
 ├── templates/                    # Project templates
 ├── tests/
 ├── dist/                         # Build output (program.js + templates/)
@@ -430,14 +435,16 @@ The CLI uses a split architecture for better development experience:
 - No build step required - changes are reflected immediately
 
 **CLI Module** (`src/cli/`):
-- `program.ts` - Defines the Commander program and registers all commands
+- `program.ts` - `createProgram()` factory and `runCLI()` execution with error handling
+- `telemetry/` - Error reporting via PostHog (see folder structure above)
 - `errors.ts` - CLI-specific errors (CLIExitError)
-- `index.ts` - Barrel export for entry points (exports program, CLIExitError)
+- `index.ts` - Barrel export for entry points
 
 **Error Handling Flow**:
 - Commands throw errors → `runCommand()` catches, logs, and throws `CLIExitError(1)`
-- Entry points (`bin/run.js`, `bin/dev.js`) catch `CLIExitError` and call `process.exit(code)`
-- This keeps `process.exit()` out of core code, making it testable
+- `runCLI()` catches errors, reports to PostHog (if not CLIExitError), and calls `process.exit(code)`
+- Entry points (`bin/run.js`, `bin/dev.js`) simply call `createProgram()` and `runCLI(program)`
+- Telemetry can be disabled via `BASE44_DISABLE_TELEMETRY=1` environment variable
 
 ### Node.js Version
 

@@ -37,17 +37,18 @@ function loadFromTestOverrides(): boolean {
 
 /**
  * Initialize app config by reading from .app.jsonc.
- * Must be called before using getAppConfig().
+ * Returns the cached config, reading from disk only on first call.
+ * @returns The app config with id and projectRoot
  * @throws Error if no project found or .app.jsonc missing
  */
-export async function initAppConfig(): Promise<void> {
+export async function initAppConfig(): Promise<CachedAppConfig> {
   // Check for test overrides first
   if (loadFromTestOverrides()) {
-    return;
+    return cache!;
   }
 
   if (cache) {
-    return;
+    return cache;
   }
 
   const projectRoot = await findProjectRoot();
@@ -65,6 +66,7 @@ export async function initAppConfig(): Promise<void> {
   }
 
   cache = { projectRoot: projectRoot.root, id: config.id };
+  return cache;
 }
 
 /**

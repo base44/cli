@@ -1,3 +1,3 @@
-export { program } from "./program.js";
+export { createProgram, runCLI } from "./program.js";
 export { CLIExitError } from "./errors.js";
-export { errorReporter } from "./error-reporter.js";
+export { errorReporter } from "./telemetry/index.js";

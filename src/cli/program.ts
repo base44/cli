@@ -10,42 +10,80 @@ import { dashboardCommand } from "@/cli/commands/project/dashboard.js";
 import { deployCommand } from "@/cli/commands/project/deploy.js";
 import { linkCommand } from "@/cli/commands/project/link.js";
 import { siteDeployCommand } from "@/cli/commands/site/deploy.js";
+import { CLIExitError } from "@/cli/errors.js";
+import { errorReporter, addCommandInfoToErrorReporter } from "@/cli/telemetry/index.js";
+import { readAuth } from "@/core/auth/index.js";
 import packageJson from "../../package.json";
 
-const program = new Command();
+export function createProgram(): Command {
+  const program = new Command();
 
-program
-  .name("base44")
-  .description(
-    "Base44 CLI - Unified interface for managing Base44 applications"
-  )
-  .version(packageJson.version);
+  program
+    .name("base44")
+    .description(
+      "Base44 CLI - Unified interface for managing Base44 applications"
+    )
+    .version(packageJson.version);
 
-program.configureHelp({
-  sortSubcommands: true,
-});
+  program.configureHelp({
+    sortSubcommands: true,
+  });
 
-// Register authentication commands
-program.addCommand(loginCommand);
-program.addCommand(whoamiCommand);
-program.addCommand(logoutCommand);
+  // Register authentication commands
+  program.addCommand(loginCommand);
+  program.addCommand(whoamiCommand);
+  program.addCommand(logoutCommand);
 
-// Register project commands
-program.addCommand(createCommand);
-program.addCommand(dashboardCommand);
-program.addCommand(deployCommand);
-program.addCommand(linkCommand);
+  // Register project commands
+  program.addCommand(createCommand);
+  program.addCommand(dashboardCommand);
+  program.addCommand(deployCommand);
+  program.addCommand(linkCommand);
 
-// Register entities commands
-program.addCommand(entitiesPushCommand);
+  // Register entities commands
+  program.addCommand(entitiesPushCommand);
 
-// Register agents commands
-program.addCommand(agentsCommand);
+  // Register agents commands
+  program.addCommand(agentsCommand);
 
-// Register functions commands
-program.addCommand(functionsDeployCommand);
+  // Register functions commands
+  program.addCommand(functionsDeployCommand);
 
-// Register site commands
-program.addCommand(siteDeployCommand);
+  // Register site commands
+  program.addCommand(siteDeployCommand);
 
-export { program };
+  return program;
+}
+
+export async function runCLI(program: Command): Promise<void> {
+  // Register process error handlers FIRST, do not add more things before this line
+  errorReporter.registerProcessErrorHandlers();
+
+  try {
+    const userInfo = await readAuth();
+    errorReporter.setUser({ email: userInfo.email, name: userInfo.name });
+  } catch {
+    // Ignore - user info is optional context
+  }
+
+  addCommandInfoToErrorReporter(program);
+
+  try {
+    await program.parseAsync();
+  } catch (error) {
+    // CLIExitError = controlled exit, don't report
+    if (!(error instanceof CLIExitError)) {
+      errorReporter.displayErrorInfo();
+      await errorReporter.captureException(
+        error instanceof Error ? error : new Error(String(error))
+      );
+      console.error(error);
+    }
+
+    await errorReporter.shutdown();
+    process.exit(error instanceof CLIExitError ? error.code : 1);
+  }
+
+  // Normal exit
+  await errorReporter.shutdown();
+}

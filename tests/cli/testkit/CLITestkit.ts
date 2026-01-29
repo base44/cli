@@ -13,7 +13,7 @@ const DIST_INDEX_PATH = join(__dirname, "../../../dist/index.js");
 
 /** Type for the bundled program module */
 interface ProgramModule {
-  program: Command;
+  createProgram: () => Command;
   CLIExitError: new (code: number) => Error & { code: number };
 }
 
@@ -32,7 +32,8 @@ export class CLITestkit {
     this.api = new Base44APIMock(appId);
     // Set HOME to temp dir for auth file isolation
     // Set CI to prevent browser opens during tests
-    this.env = { HOME: tempDir, CI: "true" };
+    // Disable telemetry to prevent error reporting during tests
+    this.env = { HOME: tempDir, CI: "true", BASE44_DISABLE_TELEMETRY: "1" };
   }
 
   /** Factory method - creates isolated test environment */
@@ -97,7 +98,8 @@ export class CLITestkit {
     this.api.apply();
 
     // Dynamic import after vi.resetModules() to get fresh module instances
-    const { program, CLIExitError } = (await import(DIST_INDEX_PATH)) as ProgramModule;
+    const { createProgram, CLIExitError } = (await import(DIST_INDEX_PATH)) as ProgramModule;
+    const program = createProgram();
 
     const buildResult = (exitCode: number): CLIResult => ({
       stdout: stdout.join(""),
@@ -145,17 +147,18 @@ export class CLITestkit {
   }
 
   /** Save original values of env vars we're about to modify */
-  private captureEnvSnapshot(): { HOME?: string; BASE44_CLI_TEST_OVERRIDES?: string; CI?: string } {
+  private captureEnvSnapshot(): { HOME?: string; BASE44_CLI_TEST_OVERRIDES?: string; CI?: string; BASE44_DISABLE_TELEMETRY?: string } {
     return {
       HOME: process.env.HOME,
       BASE44_CLI_TEST_OVERRIDES: process.env.BASE44_CLI_TEST_OVERRIDES,
       CI: process.env.CI,
+      BASE44_DISABLE_TELEMETRY: process.env.BASE44_DISABLE_TELEMETRY,
     };
   }
 
   /** Restore env vars to their original values (or delete if they didn't exist) */
-  private restoreEnvSnapshot(snapshot: { HOME?: string; BASE44_CLI_TEST_OVERRIDES?: string; CI?: string }): void {
-    for (const key of ["HOME", "BASE44_CLI_TEST_OVERRIDES", "CI"] as const) {
+  private restoreEnvSnapshot(snapshot: { HOME?: string; BASE44_CLI_TEST_OVERRIDES?: string; CI?: string; BASE44_DISABLE_TELEMETRY?: string }): void {
+    for (const key of ["HOME", "BASE44_CLI_TEST_OVERRIDES", "CI", "BASE44_DISABLE_TELEMETRY"] as const) {
       if (snapshot[key] === undefined) {
         delete process.env[key];
       } else {

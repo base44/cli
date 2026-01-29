@@ -2,6 +2,7 @@ import { intro, log, outro } from "@clack/prompts";
 import { isLoggedIn } from "@/core/auth/index.js";
 import { initAppConfig } from "@/core/project/index.js";
 import { CLIExitError } from "@/cli/errors.js";
+import { errorReporter } from "@/cli/telemetry/index.js";
 import { printBanner } from "@/cli/utils/banner.js";
 import { login } from "@/cli/commands/auth/login.js";
 import { theme } from "@/cli/utils/theme.js";
@@ -87,7 +88,8 @@ export async function runCommand(
 
     // Initialize app config unless explicitly disabled
     if (options?.requireAppConfig !== false) {
-      await initAppConfig();
+      const appConfig = await initAppConfig();
+      errorReporter.setAppContext(appConfig.id);
     }
 
     const { outroMessage } = await commandFn();
