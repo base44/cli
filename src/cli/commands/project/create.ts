@@ -18,10 +18,6 @@ import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 
 const DEFAULT_TEMPLATE_ID = "backend-only";
 
-function pluralize(count: number, singular: string, plural?: string): string {
-  return count === 1 ? singular : (plural ?? `${singular}s`);
-}
-
 interface CreateOptions {
   name?: string;
   path?: string;
@@ -204,13 +200,13 @@ async function executeCreate({
 
     if (shouldPushAgents) {
       await runTask(
-        `Configuring ${agents.length} AI ${pluralize(agents.length, "agent")}...`,
+        `Configuring ${agents.length} AI agents...`,
         async () => {
           await pushAgents(agents);
         },
         {
-          successMessage: theme.colors.base44Orange(`AI ${pluralize(agents.length, "agent")} configured successfully`),
-          errorMessage: `Failed to configure AI ${pluralize(agents.length, "agent")}`,
+          successMessage: theme.colors.base44Orange(`AI agents configured successfully`),
+          errorMessage: `Failed to configure AI agents`,
         }
       );
     }
