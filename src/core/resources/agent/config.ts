@@ -26,7 +26,15 @@ export function generateAgentConfigContent(name: string): string {
 
 async function readAgentFile(agentPath: string): Promise<AgentConfig> {
   const parsed = await readJsonFile(agentPath);
-  return AgentConfigSchema.parse(parsed);
+  const result = AgentConfigSchema.safeParse(parsed);
+
+  if (!result.success) {
+    throw new Error(
+      `Invalid agent config in ${agentPath}: ${result.error.message}`
+    );
+  }
+
+  return result.data;
 }
 
 export async function readAllAgents(agentsDir: string): Promise<AgentConfig[]> {

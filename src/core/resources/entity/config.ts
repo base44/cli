@@ -6,7 +6,15 @@ import { CONFIG_FILE_EXTENSION_GLOB } from "@/core/consts.js";
 
 async function readEntityFile(entityPath: string): Promise<Entity> {
   const parsed = await readJsonFile(entityPath);
-  return EntitySchema.parse(parsed);
+  const result = EntitySchema.safeParse(parsed);
+
+  if (!result.success) {
+    throw new Error(
+      `Invalid entity in ${entityPath}: ${result.error.message}`
+    );
+  }
+
+  return result.data;
 }
 
 export async function readAllEntities(entitiesDir: string): Promise<Entity[]> {
