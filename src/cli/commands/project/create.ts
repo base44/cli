@@ -6,7 +6,7 @@ import type { Option } from "@clack/prompts";
 import kebabCase from "lodash.kebabcase";
 import { createProjectFiles, listTemplates, readProjectConfig, setAppConfig } from "@/core/project/index.js";
 import type { Template } from "@/core/project/index.js";
-import { deploySite, isDirEmpty, pushEntities, pushAgents } from "@/core/index.js";
+import { deploySite, isDirEmpty, pushEntities } from "@/core/index.js";
 import {
   runCommand,
   runTask,
@@ -157,7 +157,7 @@ async function executeCreate({
   // Set app config in cache for sync access to getDashboardUrl and getAppClient
   setAppConfig({ id: projectId, projectRoot: resolvedPath });
 
-  const { project, entities, agents } = await readProjectConfig(resolvedPath);
+  const { project, entities } = await readProjectConfig(resolvedPath);
   let finalAppUrl: string | undefined;
 
   if (entities.length > 0) {
@@ -181,32 +181,6 @@ async function executeCreate({
         {
           successMessage: theme.colors.base44Orange("Data models pushed successfully"),
           errorMessage: "Failed to push data models",
-        }
-      );
-    }
-  }
-
-  if (agents.length > 0) {
-    let shouldPushAgents: boolean;
-
-    if (isInteractive) {
-      const result = await confirm({
-        message: "Configure AI agent? (This sets up the AI assistant included in the template)",
-      });
-      shouldPushAgents = !isCancel(result) && result;
-    } else {
-      shouldPushAgents = !!deploy;
-    }
-
-    if (shouldPushAgents) {
-      await runTask(
-        `Configuring ${agents.length} AI agents...`,
-        async () => {
-          await pushAgents(agents);
-        },
-        {
-          successMessage: theme.colors.base44Orange(`AI agents configured successfully`),
-          errorMessage: `Failed to configure AI agents`,
         }
       );
     }
