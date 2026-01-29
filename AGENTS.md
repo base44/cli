@@ -12,10 +12,11 @@ The Base44 CLI is a TypeScript-based command-line tool built with:
 - **Zod** - Schema validation for API responses, config files, and user inputs
 - **JSON5** - Parsing JSONC/JSON5 config files (supports comments and trailing commas)
 - **TypeScript** - Primary language
-- **tsdown** - Bundler (powered by Rolldown, the Rust-based Rollup successor)
+- **tsdown** - Bundler for production builds (powered by Rolldown)
+- **Bun** - Runtime for local development (runs TypeScript directly)
 
 ### Distribution Strategy
-The CLI is distributed as a **zero-dependency package**. All runtime dependencies are bundled into JavaScript files. This means:
+The CLI is distributed as a **zero-dependency npm package**. All runtime dependencies are bundled into JavaScript files. This means:
 - Users only download the bundled code (`dist/` and `bin/` directories)
 - No dependency resolution or node_modules installation
 - Faster install times and no version conflicts
@@ -33,7 +34,7 @@ The CLI is distributed as a **zero-dependency package**. All runtime dependencie
 cli/
 ├── bin/                          # Entry point scripts
 │   ├── run.js                    # Production entry (imports dist/index.js)
-│   └── dev.js                    # Development entry (uses tsx for TypeScript)
+│   └── dev.ts                    # Development entry (Bun runs TypeScript directly)
 ├── src/
 │   ├── core/
 │   │   ├── api/                  # HTTP clients
@@ -645,7 +646,7 @@ Set the environment variable: `BASE44_DISABLE_TELEMETRY=1`
 
 ## Important Rules
 
-1. **npm only** - Never use yarn
+1. **Bun for development** - Use `bun` commands (not npm/yarn) for install, test, build during development
 2. **Zod validation** - Required for all external data (API responses, config files)
 3. **@clack/prompts** - For all user interaction (prompts, spinners, logs)
 4. **ES Modules** - Use `.js` extensions in imports
@@ -666,12 +667,13 @@ Set the environment variable: `BASE44_DISABLE_TELEMETRY=1`
 ## Development
 
 ```bash
-npm run build      # tsdown - bundles to dist/index.js
-npm run typecheck  # tsc --noEmit - type checking only
-npm run dev        # runs ./bin/dev.js (tsx for direct TypeScript execution)
-npm run start      # runs ./bin/run.js (production, requires build first)
-npm test           # vitest
-npm run lint       # eslint
+bun install        # Install dependencies
+bun run build      # tsdown - bundles to dist/index.js + copies templates
+bun run typecheck  # tsc --noEmit - type checking only
+bun run dev        # runs ./bin/dev.ts (Bun runs TypeScript directly)
+bun run start      # runs ./bin/run.js (production, requires build first)
+bun test           # Run tests with vitest
+bun run lint       # eslint
 ```
 
 ### Debugging
@@ -688,12 +690,13 @@ The CLI uses a split architecture for better development experience:
 
 **Production** (`./bin/run.js`):
 - Used when installed via npm (`base44` command)
+- Uses `#!/usr/bin/env node` shebang for Node.js compatibility
 - Imports from bundled `dist/index.js`
-- Requires `npm run build` first
+- Requires `bun run build` first
 
-**Development** (`./bin/dev.js`):
-- Used during development (`npm run dev`)
-- Uses `tsx` shebang to run TypeScript directly from `src/cli/index.ts`
+**Development** (`./bin/dev.ts`):
+- Used during development (`bun run dev`)
+- Uses `#!/usr/bin/env bun` shebang to run TypeScript directly
 - No build step required - changes are reflected immediately
 
 **CLI Module** (`src/cli/`):
@@ -712,9 +715,10 @@ The CLI uses a split architecture for better development experience:
 6. Telemetry can be disabled via `BASE44_DISABLE_TELEMETRY=1` environment variable
 7. Telemetry includes `error_code` and `is_user_error` properties for all errors
 
-### Node.js Version
+### Prerequisites
 
-This project requires Node.js >= 20.19.0. A `.node-version` file is provided for fnm/nodenv.
+- **Bun**: Install via `curl -fsSL https://bun.sh/install | bash`
+- **Node.js >= 20.19.0**: Still needed for npm publishing (`.node-version` file provided)
 
 ### CLI Utilities
 
@@ -739,7 +743,7 @@ await runTask("Installing...", async () => {
 
 ## Testing
 
-**Build before testing**: Tests import the bundled `dist/index.js`, so run `npm run build && npm test`.
+**Build before testing**: Tests import the bundled `dist/index.js`, so run `bun run build && bun test`.
 
 ### Test Structure
 
@@ -843,7 +847,7 @@ t.api.mockSiteDeployError({ status: 413, body: { error: "..." } });
 
 ### Testing Rules
 
-1. **Build first** - Run `npm run build` before `npm test`
+1. **Build first** - Run `bun run build` before `bun test`
 2. **Use fixtures** - Don't create project structures in tests
 3. **Fixtures need `.app.jsonc`** - Add `base44/.app.jsonc` with `{ "id": "test-app-id" }`
 4. **Interactive prompts can't be tested** - Only test via non-interactive flags

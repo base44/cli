@@ -14,21 +14,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Use Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version-file: ".node-version"
-          cache: "npm"
+          bun-version: latest
+          cache: true
 
-      # We need to install again to get correct binary dependencies for github actions
       - name: Install dependencies
-        run: |
-          rm -f package-lock.json
-          npm install
+        run: bun install --frozen-lockfile
 
       - name: Build
-        run: npm run build
+        run: bun run build
 
       - name: Run tests
-        run: npm test
+        run: bun run test
 

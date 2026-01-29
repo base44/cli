@@ -231,7 +231,7 @@ async function executeCreate({
         async () => {
           await execa("npx", ["-y", "skills", "add", "base44/skills", "-y"], {
             cwd: resolvedPath,
-            shell: true
+            shell: true,
           });
         },
         {
