@@ -17,20 +17,12 @@ const ToolConfigSchema = z.union([
   BackendFunctionToolConfigSchema,
 ]);
 
-const ModelSchema = z
-  .string()
-  .regex(
-    /^(default|(anthropic|gemini|openai|vertex_ai)\/.+)$/,
-    'Model must be "default" or start with: anthropic/, gemini/, openai/, vertex_ai/'
-  );
-
 export const AgentConfigSchema = z.looseObject({
   name: z.string().regex(/^[a-z0-9_]+$/, "Agent name must be lowercase alphanumeric with underscores").min(1).max(100),
   description: z.string().trim().min(1, "Description is required"),
   instructions: z.string().trim().min(1, "Instructions are required"),
   tool_configs: z.array(ToolConfigSchema).optional().default([]),
-  whatsapp_greeting: z.string().nullable().optional().default(null),
-  model: ModelSchema.optional().default("default"),
+  whatsapp_greeting: z.string().nullable().optional(),
 });
 
 export type AgentConfig = z.infer<typeof AgentConfigSchema>;
