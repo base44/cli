@@ -1,7 +1,6 @@
 import { intro, log, outro } from "@clack/prompts";
 import { isLoggedIn } from "@/core/auth/index.js";
 import { initAppConfig } from "@/core/project/index.js";
-import { CLIExitError } from "@/cli/errors.js";
 import { errorReporter } from "@/cli/telemetry/index.js";
 import { printBanner } from "@/cli/utils/banner.js";
 import { login } from "@/cli/commands/auth/login.js";
@@ -75,35 +74,22 @@ export async function runCommand(
     intro(theme.colors.base44OrangeBackground(" Base 44 "));
   }
 
-  try {
-    // Check authentication if required
-    if (options?.requireAuth) {
-      const loggedIn = await isLoggedIn();
+  // Check authentication if required
+  if (options?.requireAuth) {
+    const loggedIn = await isLoggedIn();
 
-      if (!loggedIn) {
-        log.info("You need to login first to continue.");
-        await login();
-      }
+    if (!loggedIn) {
+      log.info("You need to login first to continue.");
+      await login();
     }
-
-    // Initialize app config unless explicitly disabled
-    if (options?.requireAppConfig !== false) {
-      const appConfig = await initAppConfig();
-      errorReporter.setAppContext(appConfig.id);
-    }
-
-    const { outroMessage } = await commandFn();
-    outro(outroMessage || "");
-  } catch (e) {
-    // Pass through CLIExitError without logging (intentional exits, e.g., user cancellation)
-    if (e instanceof CLIExitError) {
-      throw e;
-    }
-    if (e instanceof Error) {
-      log.error(e.stack ?? e.message);
-    } else {
-      log.error(String(e));
-    }
-    throw new CLIExitError(1);
   }
+
+  // Initialize app config unless explicitly disabled
+  if (options?.requireAppConfig !== false) {
+    const appConfig = await initAppConfig();
+    errorReporter.setAppContext(appConfig.id);
+  }
+
+  const { outroMessage } = await commandFn();
+  outro(outroMessage || "");
 }

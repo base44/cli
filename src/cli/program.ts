@@ -71,13 +71,16 @@ export async function runCLI(program: Command): Promise<void> {
   try {
     await program.parseAsync();
   } catch (error) {
-    // CLIExitError = controlled exit, don't report
+    // CLIExitError = controlled exit (e.g., user cancellation), don't report
     if (!(error instanceof CLIExitError)) {
+      // Display error
+      console.error(error instanceof Error ? (error.stack ?? error.message) : String(error));
+
+      // Report to PostHog and display session info for support
       errorReporter.displayErrorInfo();
       await errorReporter.captureException(
         error instanceof Error ? error : new Error(String(error))
       );
-      console.error(error);
     }
 
     await errorReporter.shutdown();

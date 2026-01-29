@@ -114,10 +114,13 @@ export class CLITestkit {
       // process.exit() was called - our mock throws after capturing the code
       // This catches Commander's exits for --help, --version, unknown options
       if (exitState.code !== null) { return buildResult(exitState.code); }
-      // CLI's clean exit mechanism (thrown by runCommand on errors)
+      // CLI's clean exit mechanism (user cancellation, etc.)
       if (e instanceof CLIExitError) { return buildResult(e.code); }
-      // Unexpected error - let it bubble up
-      throw e;
+      // Any other error = command failed with exit code 1
+      // Capture error message in stderr for test assertions
+      const errorMessage = e instanceof Error ? (e.stack ?? e.message) : String(e);
+      stderr.push(errorMessage);
+      return buildResult(1);
     } finally {
       // Restore process.exit
       process.exit = originalExit;
