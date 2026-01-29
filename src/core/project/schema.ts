@@ -28,6 +28,7 @@ export const ProjectConfigSchema = z.object({
   entitiesDir: z.string().optional().default("entities"),
   functionsDir: z.string().optional().default("functions"),
   agentsDir: z.string().optional().default("agents"),
+  connectors: z.array(z.string()).optional(),
 });
 
 export type SiteConfig = z.infer<typeof SiteConfigSchema>;

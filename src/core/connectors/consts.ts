@@ -21,6 +21,11 @@ export const SUPPORTED_INTEGRATIONS = [
 export type IntegrationType = (typeof SUPPORTED_INTEGRATIONS)[number];
 
 /**
+ * Connector categories
+ */
+export type ConnectorCategory = "Communication" | "Productivity" | "CRM" | "Social" | "Google";
+
+/**
  * Display names for integrations (for CLI output)
  */
 export const INTEGRATION_DISPLAY_NAMES: Record<IntegrationType, string> = {
@@ -38,10 +43,32 @@ export const INTEGRATION_DISPLAY_NAMES: Record<IntegrationType, string> = {
   tiktok: "TikTok",
 };
 
+/**
+ * Category metadata for each connector
+ */
+export const INTEGRATION_CATEGORIES: Record<IntegrationType, ConnectorCategory> = {
+  slack: "Communication",
+  notion: "Productivity",
+  hubspot: "CRM",
+  salesforce: "CRM",
+  linkedin: "Social",
+  tiktok: "Social",
+  googlecalendar: "Google",
+  googledrive: "Google",
+  gmail: "Google",
+  googlesheets: "Google",
+  googledocs: "Google",
+  googleslides: "Google",
+};
+
 export function isValidIntegration(type: string): type is IntegrationType {
   return SUPPORTED_INTEGRATIONS.includes(type as IntegrationType);
 }
 
 export function getIntegrationDisplayName(type: IntegrationType): string {
   return INTEGRATION_DISPLAY_NAMES[type] ?? type;
+}
+
+export function getIntegrationCategory(type: IntegrationType): ConnectorCategory {
+  return INTEGRATION_CATEGORIES[type];
 }

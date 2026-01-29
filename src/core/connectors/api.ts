@@ -85,8 +85,6 @@ export async function removeConnector(
 ): Promise<void> {
   const appClient = getAppClient();
 
-  await appClient.delete(
-    `external-auth/integrations/${integrationType}/remove`
-  );
+  await appClient.delete(`external-auth/integrations/${integrationType}`);
 }
 
