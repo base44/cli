@@ -35,9 +35,8 @@ export function getPostHogClient(): PostHog | null {
         // Short timeout - don't block CLI on error path
         requestTimeout: POSTHOG_REQUEST_TIMEOUT_MS,
       });
-    } catch (error) {
+    } catch {
       // Failed to create client - log and continue without error reporting
-      console.error("[PostHog] Failed to initialize client:", error);
       return null;
     }
   }
