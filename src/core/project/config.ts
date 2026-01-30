@@ -7,6 +7,7 @@ import { functionResource } from "@/core/resources/function/index.js";
 import { agentResource } from "@/core/resources/agent/index.js";
 import type { ProjectData, ProjectRoot } from "@/core/project/types.js";
 import { ProjectConfigSchema } from "@/core/project/schema.js";
+import { ConfigNotFoundError, SchemaValidationError } from "@/core/errors.js";
 
 async function findConfigInDir(dir: string): Promise<string | null> {
   const files = await globby(PROJECT_CONFIG_PATTERNS, {
@@ -69,7 +70,7 @@ export async function readProjectConfig(
   }
 
   if (!found) {
-    throw new Error(
+    throw new ConfigNotFoundError(
       `Project root not found. Please ensure config.jsonc or config.json exists in the project directory or ${PROJECT_SUBDIR}/ subdirectory.`
     );
   }
@@ -80,7 +81,7 @@ export async function readProjectConfig(
   const result = ProjectConfigSchema.safeParse(parsed);
 
   if (!result.success) {
-    throw new Error(`Invalid project configuration: ${result.error.message}`);
+    throw new SchemaValidationError("Invalid project configuration", result.error);
   }
 
   const project = result.data;

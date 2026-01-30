@@ -5,32 +5,31 @@ import { readAuth } from "@/core/auth/index.js";
 import { createProgram } from "@/cli/program.js";
 
 async function runCLI(program: Command): Promise<void> {
-    // Register process error handlers FIRST
-    errorReporter.registerProcessErrorHandlers();
+  // Register process error handlers FIRST
+  errorReporter.registerProcessErrorHandlers();
 
-    try {
-        const userInfo = await readAuth();
-        errorReporter.setUser({ email: userInfo.email, name: userInfo.name });
-    } catch {
-        // User info is optional context
+  try {
+    const userInfo = await readAuth();
+    errorReporter.setUser({ email: userInfo.email, name: userInfo.name });
+  } catch {
+    // User info is optional context
+  }
+
+  addCommandInfoToErrorReporter(program);
+
+  try {
+    await program.parseAsync();
+  } catch (error) {
+    // CLIExitError = controlled exit (e.g., user cancellation), don't report
+    if (!(error instanceof CLIExitError)) {
+      const errorObj = error instanceof Error ? error : new Error(String(error));
+      errorReporter.displayErrorInfo(errorObj);
+      errorReporter.captureException(errorObj);
     }
 
-    addCommandInfoToErrorReporter(program);
-
-    try {
-        await program.parseAsync();
-    } catch (error) {
-        // CLIExitError = controlled exit (e.g., user cancellation), don't report
-        if (!(error instanceof CLIExitError)) {
-            errorReporter.displayErrorInfo();
-            errorReporter.captureException(
-                error instanceof Error ? error : new Error(String(error))
-            );
-        }
-
-        // Use exitCode instead of exit() to let event loop drain
-        process.exitCode = error instanceof CLIExitError ? error.code : 1;
-    }
+    // Use exitCode instead of exit() to let event loop drain
+    process.exitCode = error instanceof CLIExitError ? error.code : 1;
+  }
 }
 
 export { runCLI, createProgram, CLIExitError };

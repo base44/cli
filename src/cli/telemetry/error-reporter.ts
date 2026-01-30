@@ -2,6 +2,7 @@ import { release, type } from "node:os";
 import { nanoid } from "nanoid";
 import { determineAgent } from "@vercel/detect-agent";
 import { getPostHogClient, isTelemetryEnabled } from "./posthog.js";
+import { isCLIError } from "@/core/errors.js";
 import packageJson from "../../../package.json";
 
 /**
@@ -103,8 +104,12 @@ class ErrorReporter {
     return this.context.user?.email || "anonymous-cli-user";
   }
 
-  private buildProperties(): Record<string, unknown> {
+  private buildProperties(error?: Error): Record<string, unknown> {
     const executionDurationMs = Date.now() - this.context.session.startedAt.getTime();
+
+    // Extract CLIError-specific properties if applicable
+    const errorCode = error && isCLIError(error) ? error.code : undefined;
+    const isUserError = error && isCLIError(error) ? error.isUserError : undefined;
 
     return {
       // Session context
@@ -130,6 +135,12 @@ class ErrorReporter {
       // App context
       ...(this.context.app && {
         app_id: this.context.app.id,
+      }),
+
+      // Error context (from CLIError)
+      ...(errorCode !== undefined && {
+        error_code: errorCode,
+        is_user_error: isUserError,
       }),
 
       // API error context
@@ -161,11 +172,14 @@ class ErrorReporter {
     };
   }
 
-  displayErrorInfo(): void {
+  displayErrorInfo(error?: Error): void {
+    const errorCode = error && isCLIError(error) ? error.code : "N/A";
+
     const info = [
       "",
       "--- Error Details ---",
       `Session:     ${this.context.session.id}`,
+      `Code:        ${errorCode}`,
       `App ID:      ${this.context.app?.id || "N/A"}`,
       `Command:     ${this.context.command?.name || "N/A"}`,
       `CLI Version: ${packageJson.version}`,
@@ -178,6 +192,7 @@ class ErrorReporter {
 
   /**
    * Capture an exception and report it to PostHog.
+   * Includes error code and isUserError for CLIError instances.
    * Safe to call - never throws, logs errors to console.
    */
   captureException(error: Error) {
@@ -191,7 +206,7 @@ class ErrorReporter {
         return;
       }
 
-      client.captureException(error, this.getDistinctId(), this.buildProperties());
+      client.captureException(error, this.getDistinctId(), this.buildProperties(error));
     } catch {
       // Silent - don't let error reporting break the CLI
     }
@@ -203,7 +218,7 @@ class ErrorReporter {
    */
   registerProcessErrorHandlers(): void {
     const handleError = (error: Error): void => {
-      this.displayErrorInfo();
+      this.displayErrorInfo(error);
       // Fire-and-forget: captureException queues the event, PostHog flushes immediately
       this.captureException(error);
       console.error(error);

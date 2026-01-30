@@ -7,6 +7,7 @@ import kebabCase from "lodash.kebabcase";
 import { createProjectFiles, listTemplates, readProjectConfig, setAppConfig } from "@/core/project/index.js";
 import type { Template } from "@/core/project/index.js";
 import { deploySite, isDirEmpty, pushEntities } from "@/core/index.js";
+import { InvalidInputError } from "@/core/errors.js";
 import {
   runCommand,
   runTask,
@@ -31,7 +32,14 @@ async function getTemplateById(templateId: string): Promise<Template> {
   const template = templates.find((t) => t.id === templateId);
   if (!template) {
     const validIds = templates.map((t) => t.id).join(", ");
-    throw new Error(`Template "${templateId}" not found. Available templates: ${validIds}`);
+    throw new InvalidInputError(
+      `Template "${templateId}" not found.`,
+      {
+        hints: [
+          { message: `Use one of: ${validIds}` },
+        ],
+      }
+    );
   }
   return template;
 }

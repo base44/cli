@@ -88,7 +88,7 @@ cli/
 │   │   │   └── index.ts
 │   │   ├── consts.ts             # Pure constants (NO imports from other core modules)
 │   │   ├── config.ts             # Path helpers (global dir, templates, API URL)
-│   │   ├── errors.ts             # Error classes
+│   │   ├── errors.ts             # CLIError hierarchy (UserError, SystemError, etc.)
 │   │   └── index.ts              # Barrel export for all core modules
 │   └── cli/
 │       ├── program.ts            # createProgram() factory + runCLI()
@@ -393,6 +393,156 @@ import { entityResource } from "@/core/resources/entity/index.js";
 import { base44Client } from "@/core/api/index.js";
 ```
 
+## Error Handling
+
+The CLI uses a structured error hierarchy to provide clear, actionable error messages with hints for users and AI agents.
+
+### Error Hierarchy
+
+```
+CLIError (abstract base class)
+├── UserError (user did something wrong - fixable by user)
+│   ├── AuthRequiredError      # Not logged in
+│   ├── AuthExpiredError       # Token expired
+│   ├── ConfigNotFoundError    # No project found
+│   ├── ConfigInvalidError     # Invalid config syntax/structure
+│   ├── ConfigExistsError      # Project already exists
+│   ├── SchemaValidationError  # Zod validation failed
+│   └── InvalidInputError      # Bad user input (template not found, etc.)
+│
+└── SystemError (something broke - needs investigation)
+    ├── ApiError               # HTTP/network failures
+    ├── FileNotFoundError      # File doesn't exist
+    ├── FileReadError          # Can't read file
+    └── InternalError          # Unexpected errors
+```
+
+### Error Properties
+
+All errors extend `CLIError` and have these properties:
+
+```typescript
+interface CLIError {
+  code: string;           // e.g., "AUTH_REQUIRED", "CONFIG_NOT_FOUND"
+  isUserError: boolean;   // true for UserError, false for SystemError
+  hints: ErrorHint[];     // Actionable suggestions
+  cause?: Error;          // Original error for stack traces
+}
+
+interface ErrorHint {
+  message: string;        // Human-readable hint
+  command?: string;       // Optional command to run (for AI agents)
+}
+```
+
+### Throwing Errors
+
+Import errors from `@/core/errors.js`:
+
+```typescript
+import {
+  ConfigNotFoundError,
+  ConfigExistsError,
+  SchemaValidationError,
+  ApiError,
+  InvalidInputError,
+} from "@/core/errors.js";
+
+// User errors - provide helpful hints
+throw new ConfigNotFoundError();  // Has default hints for create/link
+
+throw new ConfigExistsError("Project already exists at /path/to/config.jsonc");
+
+throw new InvalidInputError(`Template "${templateId}" not found`, {
+  hints: [
+    { message: `Use one of: ${validIds}` },
+  ],
+});
+
+// API errors - include status code for automatic hint generation
+throw new ApiError("Failed to sync entities", { statusCode: response.status });
+// 401 → hints to run `base44 login`
+// 404 → hints about resource not found
+// Other → hints to check network
+```
+
+### SchemaValidationError with Zod
+
+`SchemaValidationError` requires a context message and a `ZodError`. It formats the error automatically using `z.prettifyError()`:
+
+```typescript
+import { SchemaValidationError } from "@/core/errors.js";
+
+const result = EntitySchema.safeParse(parsed);
+
+if (!result.success) {
+  // Pass context message + ZodError - formatting is handled automatically
+  throw new SchemaValidationError("Invalid entity file at " + entityPath, result.error);
+}
+
+// Output:
+// Invalid entity file at /path/to/entity.jsonc:
+// ✖ Invalid input: expected string, received number
+//   → at name
+```
+
+**Important**: Do NOT manually call `z.prettifyError()` - the class does this internally.
+
+### Error Display
+
+When an error is thrown, the CLI displays:
+
+1. **Error message** - The main error text with stack trace
+2. **Next Steps** (if hints exist) - Actionable suggestions for fixing the issue
+3. **Error Details** - Session ID, error code, app ID, command, CLI version, timestamp
+
+Example output:
+```
+■  Error: No Base44 project found in this directory
+   at initAppConfig (...)
+
+--- Next Steps ---
+  → Run 'base44 create' to create a new project
+  → Or run 'base44 link' to link an existing project
+------------------
+
+--- Error Details ---
+Session:     abc123xyz
+Code:        CONFIG_NOT_FOUND
+App ID:      N/A
+Command:     deploy
+CLI Version: 0.0.25
+Time:        2026-01-29T12:00:00.000Z
+---------------------
+```
+
+### Error Code Reference
+
+| Code               | Class                   | When to use                           |
+| ------------------ | ----------------------- | ------------------------------------- |
+| `AUTH_REQUIRED`    | `AuthRequiredError`     | User not logged in                    |
+| `AUTH_EXPIRED`     | `AuthExpiredError`      | Token expired, needs re-login         |
+| `CONFIG_NOT_FOUND` | `ConfigNotFoundError`   | No project/config file found          |
+| `CONFIG_INVALID`   | `ConfigInvalidError`    | Config file has invalid content       |
+| `CONFIG_EXISTS`    | `ConfigExistsError`     | Project already exists at location    |
+| `SCHEMA_INVALID`   | `SchemaValidationError` | Zod validation failed                 |
+| `INVALID_INPUT`    | `InvalidInputError`     | User provided invalid input           |
+| `API_ERROR`        | `ApiError`              | API request failed                    |
+| `FILE_NOT_FOUND`   | `FileNotFoundError`     | File doesn't exist                    |
+| `FILE_READ_ERROR`  | `FileReadError`         | Can't read/write file                 |
+| `INTERNAL_ERROR`   | `InternalError`         | Unexpected error                      |
+
+### CLIExitError (Special Case)
+
+`CLIExitError` in `src/cli/errors.ts` is for controlled exits (e.g., user cancellation). It's NOT reported to telemetry:
+
+```typescript
+import { CLIExitError } from "@/cli/errors.js";
+
+// User cancelled a prompt
+throw new CLIExitError(0);  // Exit code 0 = success (user chose to cancel)
+```
+
 ## Important Rules
 
 1. **npm only** - Never use yarn
@@ -407,7 +557,9 @@ import { base44Client } from "@/core/api/index.js";
 10. **Zero-dependency distribution** - All packages go in `devDependencies`; they get bundled at build time
 11. **Use theme for styling** - Never use `chalk` directly in commands; import `theme` from utils and use semantic color/style names
 12. **Use fs.ts utilities** - Always use `@/core/utils/fs.js` for file operations
-13. **No direct process.exit()** - Throw `CLIExitError` instead; entry points handle the actual exit 
+13. **No direct process.exit()** - Throw `CLIExitError` instead; entry points handle the actual exit
+14. **Use structured errors** - Never `throw new Error()`; use specific error classes from `@/core/errors.js` with appropriate hints
+15. **SchemaValidationError requires ZodError** - Always pass `ZodError`: `new SchemaValidationError("context", result.error)` - don't call `z.prettifyError()` manually 
 
 ## Development
 
@@ -441,10 +593,12 @@ The CLI uses a split architecture for better development experience:
 - `index.ts` - Barrel export for entry points
 
 **Error Handling Flow**:
-- Commands throw errors → `runCommand()` catches, logs, and throws `CLIExitError(1)`
-- `runCLI()` catches errors, reports to PostHog (if not CLIExitError), and calls `process.exit(code)`
+- Commands throw structured errors (`CLIError` subclasses) with hints
+- `runCommand()` catches errors, displays them with `log.error()`, shows hints if available, then re-throws
+- `runCLI()` catches errors, displays error details (session, code, etc.), reports to PostHog (if not CLIExitError), sets exit code
 - Entry points (`bin/run.js`, `bin/dev.js`) simply call `createProgram()` and `runCLI(program)`
 - Telemetry can be disabled via `BASE44_DISABLE_TELEMETRY=1` environment variable
+- Telemetry includes `error_code` and `is_user_error` properties for all errors
 
 ### Node.js Version
 

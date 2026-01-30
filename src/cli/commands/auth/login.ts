@@ -12,6 +12,7 @@ import type {
   TokenResponse,
   UserInfoResponse,
 } from "@/core/auth/index.js";
+import { AuthRequiredError } from "@/core/errors.js";
 import { runCommand, runTask } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 import { theme } from "@/cli/utils/theme.js";
@@ -69,13 +70,21 @@ async function waitForAuthentication(
     );
   } catch (error) {
     if (error instanceof Error && error.message.includes("timed out")) {
-      throw new Error("Authentication timed out. Please try again.");
+      throw new AuthRequiredError("Authentication timed out. Please try again.", {
+        hints: [
+          { message: "Run 'base44 login' to try again", command: "base44 login" },
+        ],
+      });
     }
     throw error;
   }
 
   if (tokenResponse === undefined) {
-    throw new Error("Failed to retrieve authentication token.");
+    throw new AuthRequiredError("Failed to retrieve authentication token.", {
+      hints: [
+        { message: "Run 'base44 login' to try again", command: "base44 login" },
+      ],
+    });
   }
 
   return tokenResponse;

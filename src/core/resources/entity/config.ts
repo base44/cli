@@ -3,10 +3,17 @@ import { readJsonFile, pathExists } from "@/core/utils/fs.js";
 import { EntitySchema } from "@/core/resources/entity/schema.js";
 import type { Entity } from "@/core/resources/entity/schema.js";
 import { CONFIG_FILE_EXTENSION_GLOB } from "@/core/consts.js";
+import { SchemaValidationError } from "@/core/errors.js";
 
 async function readEntityFile(entityPath: string): Promise<Entity> {
   const parsed = await readJsonFile(entityPath);
-  return EntitySchema.parse(parsed);
+  const result = EntitySchema.safeParse(parsed);
+
+  if (!result.success) {
+    throw new SchemaValidationError(`Invalid entity file at ${entityPath}`, result.error);
+  }
+
+  return result.data;
 }
 
 export async function readAllEntities(entitiesDir: string): Promise<Entity[]> {

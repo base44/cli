@@ -4,6 +4,7 @@ import { FUNCTION_CONFIG_FILE } from "@/core/consts.js";
 import { readJsonFile, pathExists } from "@/core/utils/fs.js";
 import { FunctionConfigSchema, FunctionSchema } from "@/core/resources/function/schema.js";
 import type { FunctionConfig, Function } from "@/core/resources/function/schema.js";
+import { SchemaValidationError, FileNotFoundError } from "@/core/errors.js";
 
 export async function readFunctionConfig(
   configPath: string
@@ -12,9 +13,7 @@ export async function readFunctionConfig(
   const result = FunctionConfigSchema.safeParse(parsed);
 
   if (!result.success) {
-    throw new Error(
-      `Invalid function configuration in ${configPath}: ${result.error.message}`
-    );
+    throw new SchemaValidationError(`Invalid function configuration in ${configPath}`, result.error);
   }
 
   return result.data;
@@ -26,7 +25,7 @@ export async function readFunction(configPath: string): Promise<Function> {
   const entryPath = join(functionDir, config.entry);
 
   if (!(await pathExists(entryPath))) {
-    throw new Error(
+    throw new FileNotFoundError(
       `Function entry file not found: ${entryPath} (referenced in ${configPath})`
     );
   }
@@ -39,9 +38,7 @@ export async function readFunction(configPath: string): Promise<Function> {
   const functionData = { ...config, entryPath, files };
   const result = FunctionSchema.safeParse(functionData);
   if (!result.success) {
-    throw new Error(
-      `Invalid function in ${configPath}: ${result.error.message}`
-    );
+    throw new SchemaValidationError(`Invalid function in ${configPath}`, result.error);
   }
 
   return result.data;

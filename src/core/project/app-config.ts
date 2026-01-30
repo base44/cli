@@ -5,6 +5,11 @@ import { APP_CONFIG_PATTERN } from "@/core/consts.js";
 import { AppConfigSchema } from "@/core/project/schema.js";
 import type { AppConfig } from "@/core/project/schema.js";
 import { findProjectRoot } from "@/core/project/config.js";
+import {
+  ConfigNotFoundError,
+  ConfigInvalidError,
+  SchemaValidationError,
+} from "@/core/errors.js";
 
 export interface CachedAppConfig {
   id: string;
@@ -53,15 +58,20 @@ export async function initAppConfig(): Promise<CachedAppConfig> {
 
   const projectRoot = await findProjectRoot();
   if (!projectRoot) {
-    throw new Error(
+    throw new ConfigNotFoundError(
       "No Base44 project found. Run this command from a project directory with a config.jsonc file."
     );
   }
 
   const config = await readAppConfig(projectRoot.root);
   if (!config?.id) {
-    throw new Error(
-      "App not configured. Create a .app.jsonc file or run 'base44 link' to link this project."
+    throw new ConfigInvalidError(
+      "App not configured. Create a .app.jsonc file or run 'base44 link' to link this project.",
+      {
+        hints: [
+          { message: "Run 'base44 link' to link this project to a Base44 app", command: "base44 link" },
+        ],
+      }
     );
   }
 
@@ -71,11 +81,11 @@ export async function initAppConfig(): Promise<CachedAppConfig> {
 
 /**
  * Get the cached app config.
- * @throws Error if not initialized - call initAppConfig() or setAppConfig() first
+ * @throws ConfigInvalidError if not initialized - call initAppConfig() or setAppConfig() first
  */
 export function getAppConfig(): CachedAppConfig {
   if (!cache) {
-    throw new Error(
+    throw new ConfigInvalidError(
       "App config not initialized. Ensure the command uses requireAppConfig option."
     );
   }
@@ -134,7 +144,7 @@ async function readAppConfig(
   const result = AppConfigSchema.safeParse(parsed);
 
   if (!result.success) {
-    throw new Error(`Invalid app configuration: ${result.error.message}`);
+    throw new SchemaValidationError("Invalid app configuration", result.error);
   }
 
   return result.data;

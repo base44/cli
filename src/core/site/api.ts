@@ -2,6 +2,7 @@ import { getAppClient } from "@/core/clients/index.js";
 import { readFile } from "@/core/utils/fs.js";
 import { DeployResponseSchema } from "@/core/site/schema.js";
 import type { DeployResponse } from "@/core/site/schema.js";
+import { SchemaValidationError } from "@/core/errors.js";
 
 /**
  * Uploads a tar.gz archive file to the Base44 hosting API.
@@ -21,7 +22,11 @@ export async function uploadSite(archivePath: string): Promise<DeployResponse> {
     body: formData,
   });
 
-  const result = DeployResponseSchema.parse(await response.json());
+  const result = DeployResponseSchema.safeParse(await response.json());
 
-  return result;
+  if (!result.success) {
+    throw new SchemaValidationError("There was an issue deploying your site", result.error);
+  }
+
+  return result.data;
 }

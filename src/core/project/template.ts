@@ -6,6 +6,7 @@ import { getTemplatesDir, getTemplatesIndexPath } from "@/core/config.js";
 import { readJsonFile, writeFile, copyFile } from "@/core/utils/fs.js";
 import { TemplatesConfigSchema } from "@/core/project/schema.js";
 import type { Template } from "@/core/project/schema.js";
+import { SchemaValidationError } from "@/core/errors.js";
 
 export interface TemplateData {
   name: string;
@@ -19,8 +20,13 @@ interface TemplateFrontmatter {
 
 export async function listTemplates(): Promise<Template[]> {
   const parsed = await readJsonFile(getTemplatesIndexPath());
-  const result = TemplatesConfigSchema.parse(parsed);
-  return result.templates;
+  const result = TemplatesConfigSchema.safeParse(parsed);
+
+  if (!result.success) {
+    throw new SchemaValidationError("Invalid templates configuration", result.error);
+  }
+
+  return result.data.templates;
 }
 
 /**

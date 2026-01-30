@@ -1,10 +1,30 @@
 import { intro, log, outro } from "@clack/prompts";
 import { isLoggedIn } from "@/core/auth/index.js";
 import { initAppConfig } from "@/core/project/index.js";
+import type { CLIError } from "@/core/errors.js";
+import { isCLIError } from "@/core/errors.js";
 import { errorReporter } from "@/cli/telemetry/index.js";
 import { printBanner } from "@/cli/utils/banner.js";
 import { login } from "@/cli/commands/auth/login.js";
 import { theme } from "@/cli/utils/theme.js";
+
+/**
+ * Display hints section for CLIError instances.
+ * Shows actionable next steps that can help users fix the issue.
+ */
+function displayHints(error: CLIError): void {
+  if (error.hints.length === 0) {
+    return;
+  }
+
+  const lines = [
+    "",
+    "--- Agent Next Steps ---",
+    ...error.hints.map((hint) => `  → ${hint.message}`),
+    "------------------",
+  ];
+  console.error(lines.join("\n"));
+}
 
 export interface RunCommandOptions {
   /**
@@ -94,8 +114,15 @@ export async function runCommand(
     const { outroMessage } = await commandFn();
     outro(outroMessage || "");
   } catch (error) {
-    // Display error with nice formatting, then re-throw for runCLI to handle
+    // Display error with nice formatting
     log.error(error instanceof Error ? (error.stack ?? error.message) : String(error));
+
+    // Display hints if this is a CLIError with hints
+    if (isCLIError(error)) {
+      displayHints(error);
+    }
+
+    // Re-throw for runCLI to handle (error reporting, exit code)
     throw error;
   }
 }

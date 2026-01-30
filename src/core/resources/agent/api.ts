@@ -1,6 +1,7 @@
 import { getAppClient, formatApiError } from "@/core/clients/index.js";
 import { SyncAgentsResponseSchema, ListAgentsResponseSchema } from "./schema.js";
 import type { SyncAgentsResponse, AgentConfig, ListAgentsResponse } from "./schema.js";
+import { ApiError, SchemaValidationError } from "@/core/errors.js";
 
 export async function pushAgents(
   agents: AgentConfig[]
@@ -18,10 +19,18 @@ export async function pushAgents(
 
   if (!response.ok) {
     const errorJson: unknown = await response.json();
-    throw new Error(`Error occurred while syncing agents: ${formatApiError(errorJson)}`);
+    throw new ApiError(`Error occurred while syncing agents: ${formatApiError(errorJson)}`, {
+      statusCode: response.status,
+    });
   }
 
-  return SyncAgentsResponseSchema.parse(await response.json());
+  const result = SyncAgentsResponseSchema.safeParse(await response.json());
+
+  if (!result.success) {
+    throw new SchemaValidationError("Invalid response from server", result.error);
+  }
+
+  return result.data;
 }
 
 export async function fetchAgents(): Promise<ListAgentsResponse> {
@@ -32,8 +41,16 @@ export async function fetchAgents(): Promise<ListAgentsResponse> {
 
   if (!response.ok) {
     const errorJson: unknown = await response.json();
-    throw new Error(`Error occurred while fetching agents: ${formatApiError(errorJson)}`);
+    throw new ApiError(`Error occurred while fetching agents: ${formatApiError(errorJson)}`, {
+      statusCode: response.status,
+    });
   }
 
-  return ListAgentsResponseSchema.parse(await response.json());
+  const result = ListAgentsResponseSchema.safeParse(await response.json());
+
+  if (!result.success) {
+    throw new SchemaValidationError("Invalid response from server", result.error);
+  }
+
+  return result.data;
 }

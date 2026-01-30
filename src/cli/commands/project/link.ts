@@ -11,6 +11,7 @@ import {
   listProjects,
 } from "@/core/project/index.js";
 import type { Project } from "@/core/project/index.js";
+import { ConfigNotFoundError, ConfigExistsError, InvalidInputError } from "@/core/errors.js";
 import {
   runCommand,
   runTask,
@@ -123,14 +124,19 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
   const projectRoot = await findProjectRoot();
 
   if (!projectRoot) {
-    throw new Error(
+    throw new ConfigNotFoundError(
       "No Base44 project found. Run this command from a project directory with a config.jsonc file."
     );
   }
 
   if (await appConfigExists(projectRoot.root)) {
-    throw new Error(
-      "Project is already linked. An .app.jsonc file with the appId already exists."
+    throw new ConfigExistsError(
+      "Project is already linked. An .app.jsonc file with the appId already exists.",
+      {
+        hints: [
+          { message: "If you want to re-link, delete the existing .app.jsonc file first" },
+        ],
+      }
     );
   }
 
@@ -159,8 +165,14 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
       // Validate that the provided project ID exists and is linkable
       const project = linkableProjects.find((p) => p.id === options.projectId);
       if (!project) {
-        throw new Error(
-          `Project with ID "${options.projectId}" not found or not available for linking.`
+        throw new InvalidInputError(
+          `Project with ID "${options.projectId}" not found or not available for linking.`,
+          {
+            hints: [
+              { message: "Check the project ID is correct" },
+              { message: "Use 'base44 link' without --projectId to see available projects" },
+            ],
+          }
         );
       }
       projectId = options.projectId;

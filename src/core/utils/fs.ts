@@ -9,6 +9,7 @@ import {
 } from "node:fs/promises";
 import { dirname } from "node:path";
 import JSON5 from "json5";
+import { FileNotFoundError, FileReadError, ConfigInvalidError } from "@/core/errors.js";
 
 export async function pathExists(path: string): Promise<boolean> {
   try {
@@ -40,39 +41,41 @@ export async function copyFile(src: string, dest: string): Promise<void> {
 
 export async function readFile(filePath: string): Promise<Buffer> {
   if (!(await pathExists(filePath))) {
-    throw new Error(`File not found: ${filePath}`);
+    throw new FileNotFoundError(`File not found: ${filePath}`);
   }
 
   try {
     return await fsReadFile(filePath);
   } catch (error) {
-    throw new Error(
+    throw new FileReadError(
       `Failed to read file ${filePath}: ${
         error instanceof Error ? error.message : "Unknown error"
-      }`
+      }`,
+      { cause: error instanceof Error ? error : undefined }
     );
   }
 }
 
 export async function readTextFile(filePath: string): Promise<string> {
   if (!(await pathExists(filePath))) {
-    throw new Error(`File not found: ${filePath}`);
+    throw new FileNotFoundError(`File not found: ${filePath}`);
   }
 
   try {
     return await fsReadFile(filePath, "utf-8");
   } catch (error) {
-    throw new Error(
+    throw new FileReadError(
       `Failed to read file ${filePath}: ${
         error instanceof Error ? error.message : "Unknown error"
-      }`
+      }`,
+      { cause: error instanceof Error ? error : undefined }
     );
   }
 }
 
 export async function readJsonFile(filePath: string): Promise<unknown> {
   if (!(await pathExists(filePath))) {
-    throw new Error(`File not found: ${filePath}`);
+    throw new FileNotFoundError(`File not found: ${filePath}`);
   }
 
   try {
@@ -80,12 +83,15 @@ export async function readJsonFile(filePath: string): Promise<unknown> {
     return JSON5.parse(fileContent);
   } catch (error) {
     if (error instanceof SyntaxError) {
-      throw new Error(`File contains invalid JSON: ${filePath} (${error.message})`);
+      throw new ConfigInvalidError(`File contains invalid JSON: ${filePath} (${error.message})`, {
+        cause: error,
+      });
     }
-    throw new Error(
+    throw new FileReadError(
       `Failed to read file ${filePath}: ${
         error instanceof Error ? error.message : "Unknown error"
-      }`
+      }`,
+      { cause: error instanceof Error ? error : undefined }
     );
   }
 }

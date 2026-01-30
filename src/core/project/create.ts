@@ -3,6 +3,7 @@ import { PROJECT_CONFIG_PATTERNS } from "@/core/consts.js";
 import { createProject } from "@/core/project/api.js";
 import { renderTemplate } from "@/core/project/template.js";
 import type { Template } from "@/core/project/schema.js";
+import { ConfigExistsError } from "@/core/errors.js";
 
 export interface CreateProjectOptions {
   name: string;
@@ -28,7 +29,7 @@ export async function createProjectFiles(
   });
 
   if (existingConfigs.length > 0) {
-    throw new Error(
+    throw new ConfigExistsError(
       `A Base44 project already exists at ${existingConfigs[0]}. Please choose a different location.`
     );
   }

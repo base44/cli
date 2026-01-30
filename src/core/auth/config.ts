@@ -3,6 +3,11 @@ import { readJsonFile, writeJsonFile, deleteFile } from "@/core/utils/fs.js";
 import { renewAccessToken } from "@/core/auth/api.js";
 import { AuthDataSchema } from "@/core/auth/schema.js";
 import type { AuthData } from "@/core/auth/schema.js";
+import {
+  AuthRequiredError,
+  SchemaValidationError,
+  FileReadError,
+} from "@/core/errors.js";
 
 // Buffer time before expiration to trigger proactive refresh (60 seconds)
 const TOKEN_REFRESH_BUFFER_MS = 60 * 1000;
@@ -26,19 +31,19 @@ export async function readAuth(): Promise<AuthData> {
     const result = AuthDataSchema.safeParse(parsed);
 
     if (!result.success) {
-      throw new Error(
-        `Invalid authentication data: ${result.error.issues
-          .map((e) => e.message)
-          .join(", ")}`
-      );
+      throw new SchemaValidationError("Invalid authentication data", result.error);
     }
 
     return result.data;
   } catch (error) {
-    throw new Error(
+    if (error instanceof SchemaValidationError) {
+      throw error;
+    }
+    throw new FileReadError(
       `Failed to read authentication file: ${
         error instanceof Error ? error.message : "Unknown error"
-      }`
+      }`,
+      { cause: error instanceof Error ? error : undefined }
     );
   }
 }
@@ -47,20 +52,17 @@ export async function writeAuth(authData: AuthData): Promise<void> {
   const result = AuthDataSchema.safeParse(authData);
 
   if (!result.success) {
-    throw new Error(
-      `Invalid authentication data: ${result.error.issues
-        .map((e) => e.message)
-        .join(", ")}`
-    );
+    throw new SchemaValidationError("Invalid authentication data", result.error);
   }
 
   try {
     await writeJsonFile(getAuthFilePath(), result.data);
   } catch (error) {
-    throw new Error(
+    throw new FileReadError(
       `Failed to write authentication file: ${
         error instanceof Error ? error.message : "Unknown error"
-      }`
+      }`,
+      { cause: error instanceof Error ? error : undefined }
     );
   }
 }
@@ -69,10 +71,11 @@ export async function deleteAuth(): Promise<void> {
   try {
     await deleteFile(getAuthFilePath());
   } catch (error) {
-    throw new Error(
+    throw new FileReadError(
       `Failed to delete authentication file: ${
         error instanceof Error ? error.message : "Unknown error"
-      }`
+      }`,
+      { cause: error instanceof Error ? error : undefined }
     );
   }
 }
@@ -136,7 +139,7 @@ export async function isLoggedIn(): Promise<boolean> {
 /**
  * Ensures the user is logged in before proceeding.
  *
- * @throws {Error} If the user is not logged in.
+ * @throws {AuthRequiredError} If the user is not logged in.
  *
  * @example
  * await requireAuth();
@@ -144,6 +147,6 @@ export async function isLoggedIn(): Promise<boolean> {
  */
 export async function requireAuth(): Promise<void> {
   if (!(await isLoggedIn())) {
-    throw new Error("Not logged in. Please run 'base44 login' first.");
+    throw new AuthRequiredError("Not logged in. Please run 'base44 login' first.");
   }
 }

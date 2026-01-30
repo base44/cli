@@ -1,6 +1,7 @@
 import { getAppClient } from "@/core/clients/index.js";
 import { DeployFunctionsResponseSchema } from "@/core/resources/function/schema.js";
 import type { FunctionWithCode, DeployFunctionsResponse } from "@/core/resources/function/schema.js";
+import { SchemaValidationError } from "@/core/errors.js";
 
 function toDeployPayloadItem(fn: FunctionWithCode) {
   return {
@@ -23,6 +24,11 @@ export async function deployFunctions(
     timeout: 120_000
   });
 
-  const result = DeployFunctionsResponseSchema.parse(await response.json());
-  return result;
+  const result = DeployFunctionsResponseSchema.safeParse(await response.json());
+
+  if (!result.success) {
+    throw new SchemaValidationError("Invalid response from server", result.error);
+  }
+
+  return result.data;
 }

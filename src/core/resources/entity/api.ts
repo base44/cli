@@ -1,6 +1,7 @@
 import { getAppClient, formatApiError } from "@/core/clients/index.js";
 import { SyncEntitiesResponseSchema } from "@/core/resources/entity/schema.js";
 import type { SyncEntitiesResponse, Entity } from "@/core/resources/entity/schema.js";
+import { ApiError, SchemaValidationError } from "@/core/errors.js";
 
 export async function syncEntities(
   entities: Entity[]
@@ -20,15 +21,22 @@ export async function syncEntities(
   if (!response.ok) {
     const errorJson: unknown = await response.json();
     if (response.status === 428) {
-      throw new Error(`Failed to delete entity: ${formatApiError(errorJson)}`);
+      throw new ApiError(`Failed to delete entity: ${formatApiError(errorJson)}`, {
+        statusCode: response.status,
+      });
     }
 
-    throw new Error(
-      `Error occurred while syncing entities: ${formatApiError(errorJson)}`
+    throw new ApiError(
+      `Error occurred while syncing entities: ${formatApiError(errorJson)}`,
+      { statusCode: response.status }
     );
   }
 
-  const result = SyncEntitiesResponseSchema.parse(await response.json());
+  const result = SyncEntitiesResponseSchema.safeParse(await response.json());
 
-  return result;
+  if (!result.success) {
+    throw new SchemaValidationError("Invalid response from server", result.error);
+  }
+
+  return result.data;
 }

@@ -1,4 +1,4 @@
-import { AuthApiError, AuthValidationError } from "@/core/errors.js";
+import { ApiError, SchemaValidationError } from "@/core/errors.js";
 import {
   DeviceCodeResponseSchema,
   TokenResponseSchema,
@@ -23,17 +23,16 @@ export async function generateDeviceCode(): Promise<DeviceCodeResponse> {
   });
 
   if (!response.ok) {
-    throw new AuthApiError(
-      `Failed to generate device code: ${response.status} ${response.statusText}`
+    throw new ApiError(
+      `Failed to generate device code: ${response.status} ${response.statusText}`,
+      { statusCode: response.status }
     );
   }
 
   const result = DeviceCodeResponseSchema.safeParse(await response.json());
 
   if (!result.success) {
-    throw new AuthValidationError(
-      `Invalid device code response from server: ${result.error.message}`
-    );
+    throw new SchemaValidationError("Invalid device code response from server", result.error);
   }
 
   return result.data;
@@ -64,9 +63,7 @@ export async function getTokenFromDeviceCode(
     const errorResult = OAuthErrorSchema.safeParse(json);
 
     if (!errorResult.success) {
-      throw new AuthValidationError(
-        `Token request failed: ${errorResult.error.message}`
-      );
+      throw new SchemaValidationError("Token request failed", errorResult.error);
     }
 
     const { error, error_description } = errorResult.data;
@@ -77,15 +74,15 @@ export async function getTokenFromDeviceCode(
     }
 
     // Actual errors
-    throw new AuthApiError(error_description ?? `OAuth error: ${error}`);
+    throw new ApiError(error_description ?? `OAuth error: ${error}`, {
+      statusCode: response.status,
+    });
   }
 
   const result = TokenResponseSchema.safeParse(json);
 
   if (!result.success) {
-    throw new AuthValidationError(
-      `Invalid token response from server: ${result.error.message}`
-    );
+    throw new SchemaValidationError("Invalid token response from server", result.error);
   }
 
   return result.data;
@@ -113,19 +110,21 @@ export async function renewAccessToken(
     const errorResult = OAuthErrorSchema.safeParse(json);
 
     if (!errorResult.success) {
-      throw new AuthApiError(`Token refresh failed: ${response.statusText}`);
+      throw new ApiError(`Token refresh failed: ${response.statusText}`, {
+        statusCode: response.status,
+      });
     }
 
     const { error, error_description } = errorResult.data;
-    throw new AuthApiError(error_description ?? `OAuth error: ${error}`);
+    throw new ApiError(error_description ?? `OAuth error: ${error}`, {
+      statusCode: response.status,
+    });
   }
 
   const result = TokenResponseSchema.safeParse(json);
 
   if (!result.success) {
-    throw new AuthValidationError(
-      `Invalid token response from server: ${result.error.message}`
-    );
+    throw new SchemaValidationError("Invalid token response from server", result.error);
   }
 
   return result.data;
@@ -139,15 +138,15 @@ export async function getUserInfo(
   });
 
   if (!response.ok) {
-    throw new AuthApiError(`Failed to fetch user info: ${response.status}`);
+    throw new ApiError(`Failed to fetch user info: ${response.status}`, {
+      statusCode: response.status,
+    });
   }
 
   const result = UserInfoSchema.safeParse(await response.json());
 
   if (!result.success) {
-    throw new AuthValidationError(
-      `Invalid UserInfo response from server: ${result.error.message}`
-    );
+    throw new SchemaValidationError("Invalid UserInfo response from server", result.error);
   }
 
   return result.data;
