@@ -20,10 +20,18 @@ export function createProgram(): Command {
     .description(
       "Base44 CLI - Unified interface for managing Base44 applications"
     )
-    .version(packageJson.version);
+    .version(packageJson.version)
+    .option("--debug", "Show detailed error stack traces");
 
   program.configureHelp({
     sortSubcommands: true,
+  });
+
+  // Set DEBUG env var when --debug flag is used (checked in error handling)
+  program.hook("preAction", (thisCommand) => {
+    if (thisCommand.opts().debug) {
+      process.env.DEBUG = "1";
+    }
   });
 
   // Register authentication commands

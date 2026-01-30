@@ -177,15 +177,13 @@ class ErrorReporter {
 
     const info = [
       "",
-      "--- Error Details ---",
+      "[Error Details]",
       `Session:     ${this.context.session.id}`,
       `Code:        ${errorCode}`,
       `App ID:      ${this.context.app?.id || "N/A"}`,
       `Command:     ${this.context.command?.name || "N/A"}`,
       `CLI Version: ${packageJson.version}`,
       `Time:        ${new Date().toISOString()}`,
-      "---------------------",
-      "",
     ];
     console.error(info.join("\n"));
   }

@@ -8,20 +8,22 @@ import { printBanner } from "@/cli/utils/banner.js";
 import { login } from "@/cli/commands/auth/login.js";
 import { theme } from "@/cli/utils/theme.js";
 
-/**
- * Display hints section for CLIError instances.
- * Shows actionable next steps that can help users fix the issue.
- */
 function displayHints(error: CLIError): void {
   if (error.hints.length === 0) {
     return;
   }
 
+  const hintLines = error.hints.map((hint) => {
+    if (hint.command) {
+      return `  Run: ${hint.command}`;
+    }
+    return `  ${hint.message}`;
+  });
+
   const lines = [
     "",
-    "--- Agent Next Steps ---",
-    ...error.hints.map((hint) => `  → ${hint.message}`),
-    "------------------",
+    "[Agent Hints]",
+    ...hintLines,
   ];
   console.error(lines.join("\n"));
 }
@@ -114,8 +116,15 @@ export async function runCommand(
     const { outroMessage } = await commandFn();
     outro(outroMessage || "");
   } catch (error) {
-    // Display error with nice formatting
-    log.error(error instanceof Error ? (error.stack ?? error.message) : String(error));
+    // Display error message (stack trace only with --debug flag)
+    if (error instanceof Error) {
+      log.error(error.message);
+      if (process.env.DEBUG === "1" && error.stack) {
+        console.error(error.stack);
+      }
+    } else {
+      log.error(String(error));
+    }
 
     // Display hints if this is a CLIError with hints
     if (isCLIError(error)) {
