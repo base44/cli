@@ -3,6 +3,7 @@ import { login } from "@/cli/commands/auth/login-flow.js";
 import type { CLIContext } from "@/cli/types.js";
 import { printBanner } from "@/cli/utils/banner.js";
 import { theme } from "@/cli/utils/theme.js";
+import { printUpgradeNotificationIfAvailable } from "@/cli/utils/upgradeNotification.js";
 import { isLoggedIn } from "@/core/auth/index.js";
 import { isCLIError } from "@/core/errors.js";
 import { initAppConfig } from "@/core/project/index.js";
@@ -92,6 +93,9 @@ export async function runCommand(
 
     const { outroMessage } = await commandFn();
     outro(outroMessage || "");
+
+    // Check for available upgrades (non-blocking)
+    await printUpgradeNotificationIfAvailable();
   } catch (error) {
     // Display error message
     const errorMessage = error instanceof Error ? error.message : String(error);
