@@ -8,4 +8,4 @@ if (!process.stdin.isTTY || !process.stdout.isTTY) {
 }
 
 const program = createProgram();
-await runCLI(program);
+runCLI(program);

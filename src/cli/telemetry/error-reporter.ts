@@ -1,7 +1,7 @@
 import { release, type } from "node:os";
 import { nanoid } from "nanoid";
 import { determineAgent } from "@vercel/detect-agent";
-import { getPostHogClient, shutdownPostHog, isTelemetryEnabled } from "./posthog.js";
+import { getPostHogClient, isTelemetryEnabled } from "./posthog.js";
 import packageJson from "../../../package.json";
 
 /**
@@ -180,7 +180,7 @@ class ErrorReporter {
    * Capture an exception and report it to PostHog.
    * Safe to call - never throws, logs errors to console.
    */
-  async captureException(error: Error): Promise<void> {
+  captureException(error: Error) {
     if (!isTelemetryEnabled()) {
       return;
     }
@@ -193,7 +193,7 @@ class ErrorReporter {
 
       client.captureException(error, this.getDistinctId(), this.buildProperties());
     } catch {
-      // Error during error reporting - silent
+      // Silent - don't let error reporting break the CLI
     }
   }
 
@@ -202,26 +202,23 @@ class ErrorReporter {
    * Should be called early in CLI startup.
    */
   registerProcessErrorHandlers(): void {
-    const handleError = async (error: Error): Promise<void> => {
+    const handleError = (error: Error): void => {
       this.displayErrorInfo();
-      await this.captureException(error);
+      // Fire-and-forget: captureException queues the event, PostHog flushes immediately
+      this.captureException(error);
       console.error(error);
-      await this.shutdown();
-      process.exit(1);
+      // Use exitCode instead of exit() to let event loop drain and allow pending requests to complete
+      process.exitCode = 1;
     };
 
     process.on("uncaughtException", (error) => {
-      void handleError(error);
+      handleError(error);
     });
 
     process.on("unhandledRejection", (reason) => {
       const error = reason instanceof Error ? reason : new Error(String(reason));
-      void handleError(error);
+      handleError(error);
     });
-  }
-
-  async shutdown(): Promise<void> {
-    await shutdownPostHog();
   }
 }
 

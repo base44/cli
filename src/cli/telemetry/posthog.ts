@@ -54,17 +54,8 @@ export async function shutdownPostHog(): Promise<void> {
   client = null; // Prevent further use
 
   try {
-    // Use Promise.race to enforce timeout on shutdown
-    await Promise.race([
-      clientToShutdown.shutdown(),
-      new Promise<void>((_, reject) =>
-        setTimeout(
-          () => reject(new Error("Shutdown timeout")),
-          POSTHOG_SHUTDOWN_TIMEOUT_MS
-        )
-      ),
-    ]);
+    await clientToShutdown.shutdown(POSTHOG_SHUTDOWN_TIMEOUT_MS);
   } catch {
-    // Ignore shutdown errors - don't block CLI exit
+    // Silent - don't let shutdown errors block CLI exit
   }
 }
