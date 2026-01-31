@@ -524,21 +524,6 @@ When an error is thrown, the CLI displays:
 2. **Agent Hints** (if hints exist) - Actionable suggestions for fixing the issue
 3. **Error Context** - Dimmed outro line with session ID, app ID (if available), and timestamp
 
-Example output:
-```
-┌  Base 44
-│
-■  No Base44 project found in this directory
-
-[Agent Hints]
-  Run: base44 create
-  Or run 'base44 link' to link an existing project
-
-└  Session: abc123xyz | App: my-app-id | 2026-01-29T12:00:00.000Z
-```
-
-The error context line uses pipe separators and dimmed styling for a clean look.
-
 ### Error Code Reference
 
 | Code               | Class                   | When to use                           |
