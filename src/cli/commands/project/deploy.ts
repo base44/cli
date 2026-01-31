@@ -1,5 +1,6 @@
 import { Command } from "commander";
 import { confirm, isCancel, log } from "@clack/prompts";
+import type { CLIContext } from "@/cli/types.js";
 import {
   readProjectConfig,
   deployAll,
@@ -74,9 +75,11 @@ async function deployAction(options: DeployOptions): Promise<RunCommandResult> {
   return { outroMessage: "App deployed successfully" };
 }
 
-export const deployCommand = new Command("deploy")
-  .description("Deploy all project resources (entities, functions, agents, and site)")
-  .option("-y, --yes", "Skip confirmation prompt")
-  .action(async (options: DeployOptions) => {
-    await runCommand(() => deployAction(options), { requireAuth: true });
-  });
+export function getDeployCommand(context: CLIContext): Command {
+  return new Command("deploy")
+    .description("Deploy all project resources (entities, functions, agents, and site)")
+    .option("-y, --yes", "Skip confirmation prompt")
+    .action(async (options: DeployOptions) => {
+      await runCommand(() => deployAction(options), { requireAuth: true }, context);
+    });
+}

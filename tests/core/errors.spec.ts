@@ -22,6 +22,7 @@ describe("CLIError base class", () => {
     const error = new AuthRequiredError();
     expect(error.code).toBe("AUTH_REQUIRED");
     expect(error.isUserError).toBe(true);
+    expect(isUserError(error)).toBe(true);
     expect(error.hints.length).toBeGreaterThan(0);
     expect(error.message).toContain("Authentication required");
   });
@@ -30,6 +31,7 @@ describe("CLIError base class", () => {
     const error = new ApiError("Test API error", { statusCode: 500 });
     expect(error.code).toBe("API_ERROR");
     expect(error.isUserError).toBe(false);
+    expect(isUserError(error)).toBe(false);
     expect(error.statusCode).toBe(500);
     expect(error.hints.length).toBeGreaterThan(0);
   });
@@ -52,6 +54,7 @@ describe("UserError subclasses", () => {
     const error = new AuthRequiredError();
     expect(error.code).toBe("AUTH_REQUIRED");
     expect(error.isUserError).toBe(true);
+    expect(isUserError(error)).toBe(true);
     expect(error.hints.some(h => h.command === "base44 login")).toBe(true);
   });
 
@@ -59,12 +62,14 @@ describe("UserError subclasses", () => {
     const error = new AuthExpiredError();
     expect(error.code).toBe("AUTH_EXPIRED");
     expect(error.isUserError).toBe(true);
+    expect(isUserError(error)).toBe(true);
   });
 
   it("ConfigNotFoundError has correct defaults", () => {
     const error = new ConfigNotFoundError();
     expect(error.code).toBe("CONFIG_NOT_FOUND");
     expect(error.isUserError).toBe(true);
+    expect(isUserError(error)).toBe(true);
     expect(error.hints.some(h => h.command === "base44 create")).toBe(true);
     expect(error.hints.some(h => h.command === "base44 link")).toBe(true);
   });
@@ -124,18 +129,21 @@ describe("SystemError subclasses", () => {
     const error = new FileNotFoundError("File not found: /path/to/file");
     expect(error.code).toBe("FILE_NOT_FOUND");
     expect(error.isUserError).toBe(false);
+    expect(isSystemError(error)).toBe(true);
   });
 
   it("FileReadError has correct defaults", () => {
     const error = new FileReadError("Cannot read file");
     expect(error.code).toBe("FILE_READ_ERROR");
     expect(error.isUserError).toBe(false);
+    expect(isSystemError(error)).toBe(true);
   });
 
   it("InternalError has correct defaults", () => {
     const error = new InternalError("Unexpected error");
     expect(error.code).toBe("INTERNAL_ERROR");
     expect(error.isUserError).toBe(false);
+    expect(isSystemError(error)).toBe(true);
   });
 });
 

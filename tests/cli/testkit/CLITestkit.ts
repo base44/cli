@@ -11,9 +11,17 @@ import type { CLIResult } from "./CLIResultMatcher.js";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DIST_INDEX_PATH = join(__dirname, "../../../dist/index.js");
 
+/** Type for CLIContext */
+interface CLIContext {
+  errorReporter: {
+    setContext: (context: Record<string, unknown>) => void;
+    displayErrorInfo: (error?: Error) => void;
+  };
+}
+
 /** Type for the bundled program module */
 interface ProgramModule {
-  createProgram: () => Command;
+  createProgram: (context: CLIContext) => Command;
   CLIExitError: new (code: number) => Error & { code: number };
 }
 
@@ -99,7 +107,15 @@ export class CLITestkit {
 
     // Dynamic import after vi.resetModules() to get fresh module instances
     const { createProgram, CLIExitError } = (await import(DIST_INDEX_PATH)) as ProgramModule;
-    const program = createProgram();
+
+    // Create a mock context for tests (telemetry is disabled via env var anyway)
+    const mockContext: CLIContext = {
+      errorReporter: {
+        setContext: () => {},
+        displayErrorInfo: () => {},
+      },
+    };
+    const program = createProgram(mockContext);
 
     const buildResult = (exitCode: number): CLIResult => ({
       stdout: stdout.join(""),

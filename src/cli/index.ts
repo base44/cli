@@ -1,21 +1,31 @@
-import type { Command } from "commander";
+import type { CLIContext } from "./types.js";
 import { CLIExitError } from "./errors.js";
-import { errorReporter, addCommandInfoToErrorReporter } from "./telemetry/index.js";
+import { ErrorReporter } from "./telemetry/error-reporter.js";
+import { addCommandInfoToErrorReporter } from "./telemetry/index.js";
 import { readAuth } from "@/core/auth/index.js";
 import { createProgram } from "@/cli/program.js";
 
-async function runCLI(program: Command): Promise<void> {
+async function runCLI(): Promise<void> {
+  // Create error reporter - single instance for the CLI session
+  const errorReporter = new ErrorReporter();
+
   // Register process error handlers FIRST
   errorReporter.registerProcessErrorHandlers();
 
+  // Create context for dependency injection
+  const context: CLIContext = { errorReporter };
+
+  // Create program with injected context
+  const program = createProgram(context);
+
   try {
     const userInfo = await readAuth();
-    errorReporter.setUser({ email: userInfo.email, name: userInfo.name });
+    errorReporter.setContext({ user: { email: userInfo.email, name: userInfo.name } });
   } catch {
     // User info is optional context
   }
 
-  addCommandInfoToErrorReporter(program);
+  addCommandInfoToErrorReporter(program, errorReporter);
 
   try {
     await program.parseAsync();

@@ -1,8 +1,11 @@
 import { Command } from "commander";
-import { agentsPushCommand } from "./push.js";
-import { agentsPullCommand } from "./pull.js";
+import type { CLIContext } from "@/cli/types.js";
+import { getAgentsPushCommand } from "./push.js";
+import { getAgentsPullCommand } from "./pull.js";
 
-export const agentsCommand = new Command("agents")
-  .description("Manage project agents")
-  .addCommand(agentsPushCommand)
-  .addCommand(agentsPullCommand);
+export function getAgentsCommand(context: CLIContext): Command {
+  return new Command("agents")
+    .description("Manage project agents")
+    .addCommand(getAgentsPushCommand(context))
+    .addCommand(getAgentsPullCommand(context));
+}
