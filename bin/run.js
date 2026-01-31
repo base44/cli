@@ -7,5 +7,4 @@ if (!process.stdin.isTTY || !process.stdout.isTTY) {
   process.env.CI = "true";
 }
 
-const program = createProgram();
-await runCLI(program);
+await runCLI();
