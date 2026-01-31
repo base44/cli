@@ -35,7 +35,6 @@ export interface CLIErrorOptions {
  */
 export abstract class CLIError extends Error {
   abstract readonly code: string;
-  abstract readonly isUserError: boolean;
   readonly hints: ErrorHint[];
   override readonly cause?: Error;
 
@@ -54,17 +53,13 @@ export abstract class CLIError extends Error {
  * User errors - the user did something wrong that they can fix.
  * Examples: not logged in, invalid config, missing project
  */
-export abstract class UserError extends CLIError {
-  readonly isUserError = true;
-}
+export abstract class UserError extends CLIError {}
 
 /**
  * System errors - something broke that needs investigation.
  * Examples: API failures, network issues, file system errors
  */
-export abstract class SystemError extends CLIError {
-  readonly isUserError = false;
-}
+export abstract class SystemError extends CLIError {}
 
 // ============================================================================
 // User Errors
@@ -261,7 +256,7 @@ export class InternalError extends SystemError {
 // ============================================================================
 
 /**
- * Check if an error is a CLIError (has code, hints, isUserError).
+ * Check if an error is a CLIError (has code and hints).
  */
 export function isCLIError(error: unknown): error is CLIError {
   return error instanceof CLIError;
