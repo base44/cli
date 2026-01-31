@@ -5,140 +5,84 @@ import { getPostHogClient, isTelemetryEnabled } from "./posthog.js";
 import packageJson from "../../../package.json";
 
 /**
- * User context from auth file.
+ * Context that can be set during CLI execution.
  */
-interface UserContext {
-  email: string;
-  name?: string;
+export interface ErrorContext {
+  user?: {
+    email: string;
+    name?: string;
+  };
+  command?: {
+    name: string;
+    args: string[];
+    options: Record<string, unknown>;
+  };
+  appId?: string;
+  api?: {
+    statusCode?: number;
+    errorBody?: unknown;
+  };
 }
 
-/**
- * Command context from Commander.
- */
-interface CommandContext {
-  name: string;
-  args: string[];
-  options: Record<string, unknown>;
-}
-
-/**
- * API error context for debugging Base44 API failures.
- */
-interface ApiErrorContext {
-  statusCode?: number;
-  errorBody?: unknown;
-}
-
-/**
- * Agent context for AI agent detection.
- */
-interface AgentContext {
-  isAgent: boolean;
-  name: string | null;
-}
-
-/**
- * Full context accumulated during CLI execution.
- */
-interface ErrorReporterContext {
-  user?: UserContext;
-  command?: CommandContext;
-  session: { id: string; startedAt: Date };
-  app?: { id: string };
-  api?: ApiErrorContext;
-  agent?: AgentContext;
-  custom: Record<string, unknown>;
-}
-
-class ErrorReporter {
-  private context: ErrorReporterContext;
+export class ErrorReporter {
+  private sessionId = nanoid(12);
+  private sessionStartedAt = new Date();
+  private context: ErrorContext = {};
+  private agentInfo: { isAgent: boolean; name: string | null } | null = null;
 
   constructor() {
-    this.context = {
-      session: { id: nanoid(12), startedAt: new Date() },
-      custom: {},
-    };
-
     this.detectAgent();
   }
 
   private detectAgent(): void {
     determineAgent()
       .then((result) => {
-        this.context.agent = {
+        this.agentInfo = {
           isAgent: result.isAgent,
           name: result.isAgent ? result.agent.name : null,
         };
       })
       .catch(() => {
-        // Ignore detection errors - agent info is optional
+        // Agent detection is optional
       });
   }
 
-  get sessionId(): string {
-    return this.context.session.id;
-  }
-
-  setUser(user: UserContext): void {
-    this.context.user = user;
-  }
-
-  setCommand(command: CommandContext): void {
-    this.context.command = command;
-  }
-
-  setAppContext(appId: string): void {
-    this.context.app = { id: appId };
-  }
-
-  setApiError(statusCode: number, errorBody?: unknown): void {
-    this.context.api = { statusCode, errorBody };
-  }
-
-  setContext(key: string, value: unknown): void {
-    this.context.custom[key] = value;
+  /**
+   * Set context for error reporting. Can be called multiple times to add/update context.
+   */
+  setContext(context: ErrorContext): void {
+    Object.assign(this.context, context);
   }
 
   private getDistinctId(): string {
-    return this.context.user?.email || "anonymous-cli-user";
+    return this.context.user?.email ?? `anon-${this.sessionId}`;
   }
 
   private buildProperties(): Record<string, unknown> {
-    const executionDurationMs = Date.now() - this.context.session.startedAt.getTime();
+    const { user, command, appId, api } = this.context;
 
     return {
-      // Session context
-      session_id: this.context.session.id,
-      session_started_at: this.context.session.startedAt.toISOString(),
-      execution_duration_ms: executionDurationMs,
+      // Session
+      session_id: this.sessionId,
+      session_started_at: this.sessionStartedAt.toISOString(),
+      execution_duration_ms: Date.now() - this.sessionStartedAt.getTime(),
 
-      // User context (also set via $set for person properties)
-      ...(this.context.user && {
-        $set: {
-          email: this.context.user.email,
-          name: this.context.user.name,
-        },
-      }),
+      // User (PostHog person properties)
+      ...(user && { $set: { email: user.email, name: user.name } }),
 
-      // Command context
-      ...(this.context.command && {
-        command_name: this.context.command.name,
-        command_args: this.context.command.args,
-        command_options: this.context.command.options,
-      }),
+      // Command
+      command_name: command?.name,
+      command_args: command?.args,
+      command_options: command?.options,
 
-      // App context
-      ...(this.context.app && {
-        app_id: this.context.app.id,
-      }),
+      // App
+      app_id: appId,
 
-      // API error context
-      ...(this.context.api && {
-        api_status_code: this.context.api.statusCode,
-        api_error_body: this.context.api.errorBody,
-      }),
+      // API error
+      api_status_code: api?.statusCode,
+      api_error_body: api?.errorBody,
 
-      // System context
+      // System
       cli_version: packageJson.version,
       node_version: process.version,
       platform: process.platform,
@@ -146,52 +90,24 @@ class ErrorReporter {
       os_release: release(),
       os_type: type(),
 
-      // Environment context
+      // Environment
       is_tty: Boolean(process.stdout.isTTY),
       cwd: process.cwd(),
 
-      // Agent context
-      ...(this.context.agent && {
-        is_agent: this.context.agent.isAgent,
-        agent_name: this.context.agent.name,
-      }),
-
-      // Custom context
-      ...this.context.custom,
+      // Agent
+      is_agent: this.agentInfo?.isAgent,
+      agent_name: this.agentInfo?.name,
     };
   }
 
-  displayErrorInfo(): void {
-    const info = [
-      "",
-      "--- Error Details ---",
-      `Session:     ${this.context.session.id}`,
-      `App ID:      ${this.context.app?.id || "N/A"}`,
-      `Command:     ${this.context.command?.name || "N/A"}`,
-      `CLI Version: ${packageJson.version}`,
-      `Time:        ${new Date().toISOString()}`,
-      "---------------------",
-      "",
-    ];
-    console.error(info.join("\n"));
-  }
-
-  /**
-   * Capture an exception and report it to PostHog.
-   * Safe to call - never throws, logs errors to console.
-   */
-  captureException(error: Error) {
+  captureException(error: Error): void {
     if (!isTelemetryEnabled()) {
       return;
     }
 
     try {
       const client = getPostHogClient();
-      if (!client) {
-        return;
-      }
-
-      client.captureException(error, this.getDistinctId(), this.buildProperties());
+      client?.captureException(error, this.getDistinctId(), this.buildProperties());
     } catch {
       // Silent - don't let error reporting break the CLI
     }
@@ -199,28 +115,17 @@ class ErrorReporter {
 
   /**
    * Register process-level error handlers for uncaught exceptions.
-   * Should be called early in CLI startup.
    */
   registerProcessErrorHandlers(): void {
     const handleError = (error: Error): void => {
-      this.displayErrorInfo();
-      // Fire-and-forget: captureException queues the event, PostHog flushes immediately
       this.captureException(error);
       console.error(error);
-      // Use exitCode instead of exit() to let event loop drain and allow pending requests to complete
       process.exitCode = 1;
     };
 
-    process.on("uncaughtException", (error) => {
-      handleError(error);
-    });
-
+    process.on("uncaughtException", handleError);
     process.on("unhandledRejection", (reason) => {
-      const error = reason instanceof Error ? reason : new Error(String(reason));
-      handleError(error);
+      handleError(reason instanceof Error ? reason : new Error(String(reason)));
     });
   }
 }
-
-// Singleton instance - created at module load
-export const errorReporter = new ErrorReporter();

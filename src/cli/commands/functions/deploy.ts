@@ -1,5 +1,6 @@
 import { Command } from "commander";
 import { log } from "@clack/prompts";
+import type { CLIContext } from "@/cli/types.js";
 import { pushFunctions } from "@/core/resources/function/index.js";
 import { readProjectConfig } from "@/core/index.js";
 import { runCommand, runTask } from "@/cli/utils/index.js";
@@ -46,12 +47,14 @@ async function deployFunctionsAction(): Promise<RunCommandResult> {
   return { outroMessage: "Functions deployed to Base44" };
 }
 
-export const functionsDeployCommand = new Command("functions")
-  .description("Manage project functions")
-  .addCommand(
-    new Command("deploy")
-      .description("Deploy local functions to Base44")
-      .action(async () => {
-        await runCommand(deployFunctionsAction, { requireAuth: true });
-      })
-  );
+export function getFunctionsDeployCommand(context: CLIContext): Command {
+  return new Command("functions")
+    .description("Manage project functions")
+    .addCommand(
+      new Command("deploy")
+        .description("Deploy local functions to Base44")
+        .action(async () => {
+          await runCommand(deployFunctionsAction, { requireAuth: true }, context);
+        })
+    );
+}

@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import type { Option } from "@clack/prompts";
 import { log, group, text, select, isCancel, cancel } from "@clack/prompts";
+import type { CLIContext } from "@/cli/types.js";
 import { CLIExitError } from "@/cli/errors.js";
 import {
   findProjectRoot,
@@ -213,13 +214,15 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
   return { outroMessage: "Project linked" };
 }
 
-export const linkCommand = new Command("link")
-  .description("Link a local project to a Base44 project (create new or link existing)")
-  .option("-c, --create", "Create a new project (skip selection prompt)")
-  .option("-n, --name <name>", "Project name (required when --create is used)")
-  .option("-d, --description <description>", "Project description")
-  .option("-p, --projectId <id>", "Project ID to link to an existing project (skips selection prompt)")
-  .hook("preAction", validateNonInteractiveFlags)
-  .action(async (options: LinkOptions) => {
-    await runCommand(() => link(options), { requireAuth: true, requireAppConfig: false });
-  });
+export function getLinkCommand(context: CLIContext): Command {
+  return new Command("link")
+    .description("Link a local project to a Base44 project (create new or link existing)")
+    .option("-c, --create", "Create a new project (skip selection prompt)")
+    .option("-n, --name <name>", "Project name (required when --create is used)")
+    .option("-d, --description <description>", "Project description")
+    .option("-p, --projectId <id>", "Project ID to link to an existing project (skips selection prompt)")
+    .hook("preAction", validateNonInteractiveFlags)
+    .action(async (options: LinkOptions) => {
+      await runCommand(() => link(options), { requireAuth: true, requireAppConfig: false }, context);
+    });
+}
