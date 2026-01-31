@@ -64,9 +64,12 @@ export async function initAppConfig(): Promise<CachedAppConfig> {
   }
 
   const config = await readAppConfig(projectRoot.root);
+  const appConfigPath = await findAppConfigPath(projectRoot.root);
+
   if (!config?.id) {
     throw new ConfigInvalidError(
       "App not configured. Create a .app.jsonc file or run 'base44 link' to link this project.",
+      appConfigPath,
       {
         hints: [
           { message: "Run 'base44 link' to link this project to a Base44 app", command: "base44 link" },
@@ -144,7 +147,7 @@ async function readAppConfig(
   const result = AppConfigSchema.safeParse(parsed);
 
   if (!result.success) {
-    throw new SchemaValidationError("Invalid app configuration", result.error);
+    throw new SchemaValidationError(`Invalid app configuration in ${configPath}`, result.error);
   }
 
   return result.data;

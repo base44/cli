@@ -33,7 +33,6 @@ async function runCLI(): Promise<void> {
     // CLIExitError = controlled exit (e.g., user cancellation), don't report
     if (!(error instanceof CLIExitError)) {
       const errorObj = error instanceof Error ? error : new Error(String(error));
-      errorReporter.displayErrorInfo(errorObj);
       errorReporter.captureException(errorObj);
     }
 

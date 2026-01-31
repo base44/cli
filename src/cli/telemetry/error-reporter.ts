@@ -2,13 +2,14 @@ import { release, type } from "node:os";
 import { nanoid } from "nanoid";
 import { determineAgent } from "@vercel/detect-agent";
 import { getPostHogClient, isTelemetryEnabled } from "./posthog.js";
-import { isCLIError, isUserError } from "@/core/errors.js";
+import { isUserError, isCLIError } from "@/core/errors.js";
 import packageJson from "../../../package.json";
 
 /**
  * Context that can be set during CLI execution.
  */
 export interface ErrorContext {
+  sessionId?: string;
   user?: {
     email: string;
     name?: string;
@@ -119,23 +120,14 @@ export class ErrorReporter {
   }
 
   /**
-   * Display error details for debugging and support.
-   * Shows session ID, error code, app ID, command, CLI version, and timestamp.
+   * Get error context for display purposes.
+   * Returns session ID and current error context.
    */
-  displayErrorInfo(error?: Error): void {
-    const errorCode = error && isCLIError(error) ? error.code : "N/A";
-
-    const info = [
-      "",
-      "[Error Details]",
-      `Session:     ${this.sessionId}`,
-      `Code:        ${errorCode}`,
-      `App ID:      ${this.context.appId || "N/A"}`,
-      `Command:     ${this.context.command?.name || "N/A"}`,
-      `CLI Version: ${packageJson.version}`,
-      `Time:        ${new Date().toISOString()}`,
-    ];
-    console.error(info.join("\n"));
+  getErrorContext(): ErrorContext {
+    return {
+      sessionId: this.sessionId,
+      ...this.context,
+    };
   }
 
   /**
@@ -161,7 +153,6 @@ export class ErrorReporter {
    */
   registerProcessErrorHandlers(): void {
     const handleError = (error: Error): void => {
-      this.displayErrorInfo(error);
       this.captureException(error);
       console.error(error);
       process.exitCode = 1;

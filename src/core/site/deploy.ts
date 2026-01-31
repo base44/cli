@@ -26,6 +26,7 @@ export async function deploySite(
   if (filePaths.length === 0) {
     throw new ConfigInvalidError(
       `No files found in output directory: ${siteOutputDir}. Make sure to build your project first.`,
+      siteOutputDir,
       {
         hints: [
           { message: "Run your build command (e.g., 'npm run build') first" },

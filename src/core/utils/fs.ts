@@ -83,9 +83,11 @@ export async function readJsonFile(filePath: string): Promise<unknown> {
     return JSON5.parse(fileContent);
   } catch (error) {
     if (error instanceof SyntaxError) {
-      throw new ConfigInvalidError(`File contains invalid JSON: ${filePath} (${error.message})`, {
-        cause: error,
-      });
+      throw new ConfigInvalidError(
+        `File contains invalid JSON: ${filePath} (${error.message})`,
+        filePath,
+        { cause: error }
+      );
     }
     throw new FileReadError(
       `Failed to read file ${filePath}: ${

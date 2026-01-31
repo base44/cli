@@ -120,11 +120,12 @@ export class ConfigNotFoundError extends UserError {
 export class ConfigInvalidError extends UserError {
   readonly code = "CONFIG_INVALID";
 
-  constructor(message: string, options?: CLIErrorOptions) {
+  constructor(message: string, configFilePath?: string | null, options?: CLIErrorOptions) {
+    const defaultHint = configFilePath
+      ? `Check the file at ${configFilePath} for syntax errors`
+      : "Check the file for syntax errors";
     super(message, {
-      hints: options?.hints ?? [
-        { message: "Check config.jsonc syntax and fix any errors" },
-      ],
+      hints: options?.hints ?? [{ message: defaultHint }],
       cause: options?.cause,
     });
   }

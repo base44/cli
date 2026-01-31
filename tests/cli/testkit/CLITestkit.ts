@@ -15,7 +15,7 @@ const DIST_INDEX_PATH = join(__dirname, "../../../dist/index.js");
 interface CLIContext {
   errorReporter: {
     setContext: (context: Record<string, unknown>) => void;
-    displayErrorInfo: (error?: Error) => void;
+    getErrorContext: () => { sessionId?: string; appId?: string };
   };
 }
 
@@ -112,7 +112,7 @@ export class CLITestkit {
     const mockContext: CLIContext = {
       errorReporter: {
         setContext: () => {},
-        displayErrorInfo: () => {},
+        getErrorContext: () => ({ sessionId: "test-session" }),
       },
     };
     const program = createProgram(mockContext);
