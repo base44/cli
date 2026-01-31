@@ -488,34 +488,6 @@ if (!result.success) {
 
 **Important**: Do NOT manually call `z.prettifyError()` - the class does this internally.
 
-### Error Display
-
-When an error is thrown, the CLI displays:
-
-1. **Error message** - The main error text with stack trace
-2. **Next Steps** (if hints exist) - Actionable suggestions for fixing the issue
-3. **Error Details** - Session ID, error code, app ID, command, CLI version, timestamp
-
-Example output:
-```
-■  Error: No Base44 project found in this directory
-   at initAppConfig (...)
-
---- Next Steps ---
-  → Run 'base44 create' to create a new project
-  → Or run 'base44 link' to link an existing project
-------------------
-
---- Error Details ---
-Session:     abc123xyz
-Code:        CONFIG_NOT_FOUND
-App ID:      N/A
-Command:     deploy
-CLI Version: 0.0.25
-Time:        2026-01-29T12:00:00.000Z
----------------------
-```
-
 ### Error Code Reference
 
 | Code               | Class                   | When to use                           |
@@ -594,8 +566,8 @@ The CLI uses a split architecture for better development experience:
 
 **Error Handling Flow**:
 - Commands throw structured errors (`CLIError` subclasses) with hints
-- `runCommand()` catches errors, displays them with `log.error()`, shows hints if available, then re-throws
-- `runCLI()` catches errors, displays error details (session, code, etc.), reports to PostHog (if not CLIExitError), sets exit code
+- `runCommand()` catches errors, displays them with `log.error()`, then re-throws
+- `runCLI()` catches errors, displays error details, reports to PostHog (if not CLIExitError), sets exit code
 - Entry points (`bin/run.js`, `bin/dev.js`) simply call `createProgram()` and `runCLI(program)`
 - Telemetry can be disabled via `BASE44_DISABLE_TELEMETRY=1` environment variable
 - Telemetry includes `error_code` and `is_user_error` properties for all errors

@@ -1,32 +1,10 @@
 import { intro, log, outro } from "@clack/prompts";
 import { isLoggedIn } from "@/core/auth/index.js";
 import { initAppConfig } from "@/core/project/index.js";
-import type { CLIError } from "@/core/errors.js";
-import { isCLIError } from "@/core/errors.js";
 import { errorReporter } from "@/cli/telemetry/index.js";
 import { printBanner } from "@/cli/utils/banner.js";
 import { login } from "@/cli/commands/auth/login.js";
 import { theme } from "@/cli/utils/theme.js";
-
-function displayHints(error: CLIError): void {
-  if (error.hints.length === 0) {
-    return;
-  }
-
-  const hintLines = error.hints.map((hint) => {
-    if (hint.command) {
-      return `  Run: ${hint.command}`;
-    }
-    return `  ${hint.message}`;
-  });
-
-  const lines = [
-    "",
-    "[Agent Hints]",
-    ...hintLines,
-  ];
-  console.error(lines.join("\n"));
-}
 
 export interface RunCommandOptions {
   /**
@@ -116,22 +94,8 @@ export async function runCommand(
     const { outroMessage } = await commandFn();
     outro(outroMessage || "");
   } catch (error) {
-    // Display error message (stack trace only with --debug flag)
-    if (error instanceof Error) {
-      log.error(error.message);
-      if (process.env.DEBUG === "1" && error.stack) {
-        console.error(error.stack);
-      }
-    } else {
-      log.error(String(error));
-    }
-
-    // Display hints if this is a CLIError with hints
-    if (isCLIError(error)) {
-      displayHints(error);
-    }
-
-    // Re-throw for runCLI to handle (error reporting, exit code)
+    // Display error with nice formatting, then re-throw for runCLI to handle
+    log.error(error instanceof Error ? (error.stack ?? error.message) : String(error));
     throw error;
   }
 }
