@@ -2,7 +2,7 @@ import { release, type } from "node:os";
 import { nanoid } from "nanoid";
 import { determineAgent } from "@vercel/detect-agent";
 import { getPostHogClient, isTelemetryEnabled } from "./posthog.js";
-import { isCLIError } from "@/core/errors.js";
+import { isCLIError, isUserError } from "@/core/errors.js";
 import packageJson from "../../../package.json";
 
 /**
@@ -64,7 +64,7 @@ export class ErrorReporter {
 
     // Extract CLIError-specific properties if applicable
     const errorCode = error && isCLIError(error) ? error.code : undefined;
-    const isUserError = error && isCLIError(error) ? error.isUserError : undefined;
+    const userError = error ? isUserError(error) : undefined;
 
     return {
       // Session
@@ -86,7 +86,7 @@ export class ErrorReporter {
       // Error context (from CLIError)
       ...(errorCode !== undefined && {
         error_code: errorCode,
-        is_user_error: isUserError,
+        is_user_error: userError,
       }),
 
       // API error
