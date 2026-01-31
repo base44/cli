@@ -1,5 +1,5 @@
 import type { Command } from "commander";
-import { errorReporter } from "./error-reporter.js";
+import type { ErrorReporter } from "./error-reporter.js";
 
 /**
  * Get the full command name by traversing parent commands.
@@ -21,14 +21,16 @@ function getFullCommandName(command: Command): string {
   return parts.join(" ");
 }
 
-export function addCommandInfoToErrorReporter(program: Command): void {
+export function addCommandInfoToErrorReporter(program: Command, errorReporter: ErrorReporter): void {
   program.hook("preAction", (_, actionCommand) => {
     const fullCommandName = getFullCommandName(actionCommand);
 
-    errorReporter.setCommand({
-      name: fullCommandName,
-      args: actionCommand.args,
-      options: actionCommand.opts(),
+    errorReporter.setContext({
+      command: {
+        name: fullCommandName,
+        args: actionCommand.args,
+        options: actionCommand.opts(),
+      },
     });
   });
 }

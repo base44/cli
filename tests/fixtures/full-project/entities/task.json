@@ -1,7 +1,8 @@
 {
   "name": "Task",
-  "fields": [
-    { "name": "title", "type": "string" },
-    { "name": "description", "type": "string" }
-  ]
+  "type": "object",
+  "properties": {
+    "title": { "type": "string" },
+    "description": { "type": "string" }
+  }
 }

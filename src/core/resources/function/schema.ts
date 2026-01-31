@@ -1,17 +1,30 @@
 import { z } from "zod";
 
+const FunctionNameSchema = z
+  .string()
+  .trim()
+  .min(1, "Function name cannot be empty")
+  .regex(/^[^.]+$/, "Function name cannot contain dots");
+
+const FunctionFileSchema = z.object({
+  path: z.string().min(1),
+  content: z.string(),
+});
+
 export const FunctionConfigSchema = z.object({
-  name: z
-    .string()
-    .min(1, "Function name cannot be empty")
-    .refine((name) => !name.includes("."), "Function name cannot contain dots"),
+  name: FunctionNameSchema,
   entry: z.string().min(1, "Entry point cannot be empty"),
-  triggers: z.tuple([]).optional(),
 });
 
 export const FunctionSchema = FunctionConfigSchema.extend({
   entryPath: z.string().min(1, "Entry path cannot be empty"),
-  files: z.array(z.string()).min(1, "Files array cannot be empty"),
+  files: z.array(z.string()).min(1, "Function must have at least one file"),
+});
+
+export const FunctionDeploySchema = z.object({
+  name: FunctionNameSchema,
+  entry: z.string().min(1),
+  files: z.array(FunctionFileSchema).min(1, "Function must have at least one file"),
 });
 
 export const DeployFunctionsResponseSchema = z.object({
@@ -24,11 +37,11 @@ export const DeployFunctionsResponseSchema = z.object({
 
 export type FunctionConfig = z.infer<typeof FunctionConfigSchema>;
 export type Function = z.infer<typeof FunctionSchema>;
-export type FunctionFile = { path: string; content: string };
+export type FunctionFile = z.infer<typeof FunctionFileSchema>;
+export type FunctionDeploy = z.infer<typeof FunctionDeploySchema>;
+export type DeployFunctionsResponse = z.infer<typeof DeployFunctionsResponseSchema>;
+
 export type FunctionWithCode = Omit<Function, "files"> & {
   files: FunctionFile[];
 };
-export type DeployFunctionsResponse = z.infer<
-  typeof DeployFunctionsResponseSchema
->;
 

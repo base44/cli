@@ -1,5 +1,6 @@
 import { Command } from "commander";
 import open from "open";
+import type { CLIContext } from "@/cli/types.js";
 import { runCommand, getDashboardUrl } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 
@@ -13,8 +14,10 @@ async function openDashboard(): Promise<RunCommandResult> {
   return { outroMessage: `Dashboard opened at ${dashboardUrl}` };
 }
 
-export const dashboardCommand = new Command("dashboard")
-  .description("Open the app dashboard in your browser")
-  .action(async () => {
-    await runCommand(openDashboard, { requireAuth: true });
-  });
+export function getDashboardCommand(context: CLIContext): Command {
+  return new Command("dashboard")
+    .description("Open the app dashboard in your browser")
+    .action(async () => {
+      await runCommand(openDashboard, { requireAuth: true }, context);
+    });
+}
