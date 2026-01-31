@@ -99,7 +99,7 @@ export async function runCommand(
 
     // Show stack trace if DEBUG mode
     if (process.env.DEBUG === "1" && error instanceof Error && error.stack) {
-      console.error(theme.styles.dim(error.stack));
+      log.error(theme.styles.dim(error.stack));
     }
 
     // Display hints if this is a CLIError with hints

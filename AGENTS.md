@@ -251,6 +251,11 @@ theme.colors.links(url)                   // URLs and links
 // Styles  
 theme.styles.bold(email)                  // Bold emphasis
 theme.styles.header("Label")              // Dim text for labels
+theme.styles.dim(text)                    // Dimmed text
+
+// Formatters (for error display)
+theme.format.errorContext(ctx)            // Formats ErrorContext as dimmed pipe-separated string
+theme.format.agentHints(hints)            // Formats ErrorHint[] as "[Agent Hints]\n  Run: ..."
 ```
 
 When adding new theme properties, use semantic names (e.g., `links`, `header`) not color names.
@@ -515,26 +520,24 @@ if (!result.success) {
 
 When an error is thrown, the CLI displays:
 
-1. **Error message** - The main error text (stack trace only with `--debug` flag)
+1. **Error message** - The main error text via `log.error()` (stack trace only with `DEBUG=1` env var)
 2. **Agent Hints** (if hints exist) - Actionable suggestions for fixing the issue
-3. **Error Details** - Session ID, error code, app ID, command, CLI version, timestamp
+3. **Error Context** - Dimmed outro line with session ID, app ID (if available), and timestamp
 
 Example output:
 ```
-■  Error: No Base44 project found in this directory
+┌  Base 44
+│
+■  No Base44 project found in this directory
 
 [Agent Hints]
   Run: base44 create
   Or run 'base44 link' to link an existing project
 
-[Error Details]
-Session:     abc123xyz
-Code:        CONFIG_NOT_FOUND
-App ID:      N/A
-Command:     deploy
-CLI Version: 0.0.25
-Time:        2026-01-29T12:00:00.000Z
+└  Session: abc123xyz | App: my-app-id | 2026-01-29T12:00:00.000Z
 ```
+
+The error context line uses pipe separators and dimmed styling for a clean look.
 
 ### Error Code Reference
 
@@ -641,6 +644,14 @@ npm run dev        # runs ./bin/dev.js (tsx for direct TypeScript execution)
 npm run start      # runs ./bin/run.js (production, requires build first)
 npm test           # vitest
 npm run lint       # eslint
+```
+
+### Debugging
+
+To show full error stack traces, set the `DEBUG` environment variable:
+
+```bash
+DEBUG=1 base44 deploy    # Shows full stack trace on errors
 ```
 
 ### Entry Points Architecture
