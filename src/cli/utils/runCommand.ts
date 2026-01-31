@@ -1,9 +1,9 @@
 import { intro, log, outro } from "@clack/prompts";
+import type { CLIContext } from "@/cli/types.js";
 import { isLoggedIn } from "@/core/auth/index.js";
 import { initAppConfig } from "@/core/project/index.js";
-import { CLIExitError } from "@/cli/errors.js";
+import { login } from "@/cli/commands/auth/login-flow.js";
 import { printBanner } from "@/cli/utils/banner.js";
-import { login } from "@/cli/commands/auth/login.js";
 import { theme } from "@/cli/utils/theme.js";
 
 export interface RunCommandOptions {
@@ -29,7 +29,7 @@ export interface RunCommandOptions {
 
 export interface RunCommandResult {
   outroMessage?: string;
-};
+}
 
 /**
  * Wraps a command function with the Base44 intro/outro and error handling.
@@ -41,29 +41,27 @@ export interface RunCommandResult {
  *
  * @param commandFn - The async function to execute. Returns `RunCommandResult` with optional `outroMessage`.
  * @param options - Optional configuration for the command wrapper
+ * @param context - CLI context with dependencies (errorReporter, etc.)
  *
  * @example
- * // Standard command with outro message
- * async function myAction(): Promise<RunCommandResult> {
- *   // ... do work ...
- *   return { outroMessage: "Done!" };
+ * export function getMyCommand(context: CLIContext): Command {
+ *   return new Command("my-command")
+ *     .action(async () => {
+ *       await runCommand(
+ *         async () => {
+ *           // ... do work ...
+ *           return { outroMessage: "Done!" };
+ *         },
+ *         { requireAuth: true },
+ *         context
+ *       );
+ *     });
  * }
- *
- * export const myCommand = new Command("my-command")
- *   .action(async () => {
- *     await runCommand(myAction);
- *   });
- *
- * @example
- * // Command requiring authentication with full banner
- * export const myCommand = new Command("my-command")
- *   .action(async () => {
- *     await runCommand(myAction, { requireAuth: true, fullBanner: true });
- *   });
  */
 export async function runCommand(
   commandFn: () => Promise<RunCommandResult>,
-  options?: RunCommandOptions
+  options: RunCommandOptions | undefined,
+  context: CLIContext
 ): Promise<void> {
   console.log();
 
@@ -87,21 +85,15 @@ export async function runCommand(
 
     // Initialize app config unless explicitly disabled
     if (options?.requireAppConfig !== false) {
-      await initAppConfig();
+      const appConfig = await initAppConfig();
+      context.errorReporter.setContext({ appId: appConfig.id });
     }
 
     const { outroMessage } = await commandFn();
     outro(outroMessage || "");
-  } catch (e) {
-    // Pass through CLIExitError without logging (intentional exits, e.g., user cancellation)
-    if (e instanceof CLIExitError) {
-      throw e;
-    }
-    if (e instanceof Error) {
-      log.error(e.stack ?? e.message);
-    } else {
-      log.error(String(e));
-    }
-    throw new CLIExitError(1);
+  } catch (error) {
+    // Display error with nice formatting, then re-throw for runCLI to handle
+    log.error(error instanceof Error ? (error.stack ?? error.message) : String(error));
+    throw error;
   }
 }

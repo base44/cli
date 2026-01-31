@@ -4,6 +4,7 @@ import { Argument, Command } from "commander";
 import { log, group, text, select, confirm, isCancel } from "@clack/prompts";
 import type { Option } from "@clack/prompts";
 import kebabCase from "lodash.kebabcase";
+import type { CLIContext } from "@/cli/types.js";
 import { createProjectFiles, listTemplates, readProjectConfig, setAppConfig } from "@/core/project/index.js";
 import type { Template } from "@/core/project/index.js";
 import { deploySite, isDirEmpty, pushEntities } from "@/core/index.js";
@@ -41,16 +42,6 @@ function validateNonInteractiveFlags(command: Command): void {
 
   if (path && !command.args.length) {
     command.error("Non-interactive mode requires all flags: --name, --path");
-  }
-}
-
-async function chooseCreate(options: CreateOptions): Promise<void> {
-  const isNonInteractive = !!(options.name && options.path);
-
-  if (isNonInteractive) {
-    await runCommand(() => createNonInteractive(options), { requireAuth: true, requireAppConfig: false });
-  } else {
-    await runCommand(() => createInteractive(options), { fullBanner: true, requireAuth: true, requireAppConfig: false });
   }
 }
 
@@ -256,14 +247,30 @@ async function executeCreate({
   return { outroMessage: "Your project is set up and ready to use" };
 }
 
-export const createCommand = new Command("create")
-  .description("Create a new Base44 project")
-  .addArgument(new Argument('name', 'Project name').argOptional())
-  .option("-p, --path <path>", "Path where to create the project")
-  .option("-t, --template <id>", "Template ID (e.g., backend-only, backend-and-client)")
-  .option("--deploy", "Build and deploy the site")
-  .option("--no-skills", "Skip AI agent skills installation")
-  .hook("preAction", validateNonInteractiveFlags)
-  .action(async (name: string | undefined, options: CreateOptions) => {
-    await chooseCreate({ name, ...options });
-  });
+export function getCreateCommand(context: CLIContext): Command {
+  return new Command("create")
+    .description("Create a new Base44 project")
+    .addArgument(new Argument('name', 'Project name').argOptional())
+    .option("-p, --path <path>", "Path where to create the project")
+    .option("-t, --template <id>", "Template ID (e.g., backend-only, backend-and-client)")
+    .option("--deploy", "Build and deploy the site")
+    .option("--no-skills", "Skip AI agent skills installation")
+    .hook("preAction", validateNonInteractiveFlags)
+    .action(async (name: string | undefined, options: CreateOptions) => {
+      const isNonInteractive = !!(options.name ?? name) && !!options.path;
+
+      if (isNonInteractive) {
+        await runCommand(
+          () => createNonInteractive({ name: options.name ?? name, ...options }),
+          { requireAuth: true, requireAppConfig: false },
+          context
+        );
+      } else {
+        await runCommand(
+          () => createInteractive({ name, ...options }),
+          { fullBanner: true, requireAuth: true, requireAppConfig: false },
+          context
+        );
+      }
+    });
+}

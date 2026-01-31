@@ -11,9 +11,16 @@ import type { CLIResult } from "./CLIResultMatcher.js";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DIST_INDEX_PATH = join(__dirname, "../../../dist/index.js");
 
+/** Type for CLIContext */
+interface CLIContext {
+  errorReporter: {
+    setContext: (context: Record<string, unknown>) => void;
+  };
+}
+
 /** Type for the bundled program module */
 interface ProgramModule {
-  program: Command;
+  createProgram: (context: CLIContext) => Command;
   CLIExitError: new (code: number) => Error & { code: number };
 }
 
@@ -32,7 +39,8 @@ export class CLITestkit {
     this.api = new Base44APIMock(appId);
     // Set HOME to temp dir for auth file isolation
     // Set CI to prevent browser opens during tests
-    this.env = { HOME: tempDir, CI: "true" };
+    // Disable telemetry to prevent error reporting during tests
+    this.env = { HOME: tempDir, CI: "true", BASE44_DISABLE_TELEMETRY: "1" };
   }
 
   /** Factory method - creates isolated test environment */
@@ -97,7 +105,15 @@ export class CLITestkit {
     this.api.apply();
 
     // Dynamic import after vi.resetModules() to get fresh module instances
-    const { program, CLIExitError } = (await import(DIST_INDEX_PATH)) as ProgramModule;
+    const { createProgram, CLIExitError } = (await import(DIST_INDEX_PATH)) as ProgramModule;
+
+    // Create a mock context for tests (telemetry is disabled via env var anyway)
+    const mockContext: CLIContext = {
+      errorReporter: {
+        setContext: () => {},
+      },
+    };
+    const program = createProgram(mockContext);
 
     const buildResult = (exitCode: number): CLIResult => ({
       stdout: stdout.join(""),
@@ -112,10 +128,13 @@ export class CLITestkit {
       // process.exit() was called - our mock throws after capturing the code
       // This catches Commander's exits for --help, --version, unknown options
       if (exitState.code !== null) { return buildResult(exitState.code); }
-      // CLI's clean exit mechanism (thrown by runCommand on errors)
+      // CLI's clean exit mechanism (user cancellation, etc.)
       if (e instanceof CLIExitError) { return buildResult(e.code); }
-      // Unexpected error - let it bubble up
-      throw e;
+      // Any other error = command failed with exit code 1
+      // Capture error message in stderr for test assertions
+      const errorMessage = e instanceof Error ? (e.stack ?? e.message) : String(e);
+      stderr.push(errorMessage);
+      return buildResult(1);
     } finally {
       // Restore process.exit
       process.exit = originalExit;
@@ -145,17 +164,18 @@ export class CLITestkit {
   }
 
   /** Save original values of env vars we're about to modify */
-  private captureEnvSnapshot(): { HOME?: string; BASE44_CLI_TEST_OVERRIDES?: string; CI?: string } {
+  private captureEnvSnapshot(): { HOME?: string; BASE44_CLI_TEST_OVERRIDES?: string; CI?: string; BASE44_DISABLE_TELEMETRY?: string } {
     return {
       HOME: process.env.HOME,
       BASE44_CLI_TEST_OVERRIDES: process.env.BASE44_CLI_TEST_OVERRIDES,
       CI: process.env.CI,
+      BASE44_DISABLE_TELEMETRY: process.env.BASE44_DISABLE_TELEMETRY,
     };
   }
 
   /** Restore env vars to their original values (or delete if they didn't exist) */
-  private restoreEnvSnapshot(snapshot: { HOME?: string; BASE44_CLI_TEST_OVERRIDES?: string; CI?: string }): void {
-    for (const key of ["HOME", "BASE44_CLI_TEST_OVERRIDES", "CI"] as const) {
+  private restoreEnvSnapshot(snapshot: { HOME?: string; BASE44_CLI_TEST_OVERRIDES?: string; CI?: string; BASE44_DISABLE_TELEMETRY?: string }): void {
+    for (const key of ["HOME", "BASE44_CLI_TEST_OVERRIDES", "CI", "BASE44_DISABLE_TELEMETRY"] as const) {
       if (snapshot[key] === undefined) {
         delete process.env[key];
       } else {

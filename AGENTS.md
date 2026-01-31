@@ -91,10 +91,14 @@ cli/
 │   │   ├── errors.ts             # Error classes
 │   │   └── index.ts              # Barrel export for all core modules
 │   └── cli/
-│       ├── program.ts            # createProgram() factory + CLIExitError
+│       ├── program.ts            # createProgram(context) factory
+│       ├── index.ts              # runCLI() execution + barrel exports
+│       ├── types.ts              # CLIContext type for dependency injection
+│       ├── errors.ts             # CLI-specific errors (CLIExitError)
 │       ├── commands/
 │       │   ├── auth/
-│       │   │   ├── login.ts
+│       │   │   ├── login.ts      # getLoginCommand(context) factory
+│       │   │   ├── login-flow.ts # login() logic (separate to avoid circular deps)
 │       │   │   ├── logout.ts
 │       │   │   └── whoami.ts
 │       │   ├── project/
@@ -105,23 +109,27 @@ cli/
 │       │   ├── entities/
 │       │   │   └── push.ts
 │       │   ├── agents/
+│       │   │   ├── index.ts      # getAgentsCommand(context) - parent command
 │       │   │   ├── pull.ts
 │       │   │   └── push.ts
 │       │   ├── functions/
 │       │   │   └── deploy.ts
 │       │   └── site/
 │       │       └── deploy.ts
-│       ├── utils/
-│       │   ├── runCommand.ts     # Command wrapper with branding
-│       │   ├── runTask.ts        # Spinner wrapper
-│       │   ├── banner.ts         # ASCII art banner
-│       │   ├── prompts.ts        # Prompt utilities
-│       │   ├── theme.ts          # Centralized theme configuration (colors, styles)
-│       │   ├── urls.ts           # URL utilities (getDashboardUrl)
+│       ├── telemetry/            # Error reporting and telemetry
+│       │   ├── consts.ts         # PostHog API key, env var names
+│       │   ├── posthog.ts        # PostHog client singleton
+│       │   ├── error-reporter.ts # ErrorReporter class for capturing exceptions
+│       │   ├── commander-hooks.ts# Commander.js integration for command context
 │       │   └── index.ts
-│       ├── errors.ts             # CLI-specific errors (CLIExitError)
-│       ├── program.ts            # Commander program definition
-│       └── index.ts              # Barrel export (program, CLIExitError)
+│       └── utils/
+│           ├── runCommand.ts     # Command wrapper with branding
+│           ├── runTask.ts        # Spinner wrapper
+│           ├── banner.ts         # ASCII art banner
+│           ├── prompts.ts        # Prompt utilities
+│           ├── theme.ts          # Centralized theme configuration (colors, styles)
+│           ├── urls.ts           # URL utilities (getDashboardUrl)
+│           └── index.ts
 ├── templates/                    # Project templates
 ├── tests/
 ├── dist/                         # Build output (program.js + templates/)
@@ -131,7 +139,7 @@ cli/
 
 ## Adding a New Command
 
-Commands live in `src/cli/commands/`. Follow these steps:
+Commands live in `src/cli/commands/`. Commands use a **factory pattern** with dependency injection via `CLIContext`.
 
 ### 1. Create the command file
 
@@ -139,8 +147,9 @@ Commands live in `src/cli/commands/`. Follow these steps:
 // src/cli/commands/<domain>/<action>.ts
 import { Command } from "commander";
 import { log } from "@clack/prompts";
-import { runCommand, runTask, theme } from "../../utils/index.js";
-import type { RunCommandResult } from "../../utils/index.js";
+import type { CLIContext } from "@/cli/types.js";
+import { runCommand, runTask, theme } from "@/cli/utils/index.js";
+import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 
 async function myAction(): Promise<RunCommandResult> {
   // Use runTask for async operations with spinners
@@ -163,51 +172,70 @@ async function myAction(): Promise<RunCommandResult> {
   return { outroMessage: `Created ${theme.styles.bold(result.name)}` };
 }
 
-export const myCommand = new Command("<name>")
-  .description("<description>")
-  .option("-f, --flag", "Some flag")
-  .action(async (options) => {
-    await runCommand(myAction);
-  });
+// Export a factory function that receives CLIContext
+export function getMyCommand(context: CLIContext): Command {
+  return new Command("<name>")
+    .description("<description>")
+    .option("-f, --flag", "Some flag")
+    .action(async (options) => {
+      await runCommand(myAction, { requireAuth: true }, context);
+    });
+}
 ```
 
-**Important**: Commands should NOT call `intro()` or `outro()` directly - `runCommand()` handles both:
-- **Intro**: Displayed automatically (simple tag or full ASCII banner based on options)
-- **Outro**: Displayed from the `outroMessage` returned by the command function
+**Important**:
+- Commands export a **factory function** (`getMyCommand`), not a static command instance
+- The factory receives `CLIContext` which contains the `errorReporter`
+- Commands should NOT call `intro()` or `outro()` directly - `runCommand()` handles both
+- The `context` must be passed to `runCommand()` as the third argument
 
 ### 2. Register in program.ts
 
 ```typescript
 // src/cli/program.ts
-import { myCommand } from "./commands/<domain>/<action>.js";
+import { getMyCommand } from "@/cli/commands/<domain>/<action>.js";
 
-// Inside createProgram():
-program.addCommand(myCommand);
+// Inside createProgram(context):
+program.addCommand(getMyCommand(context));
 ```
 
 ### 3. Command wrapper options
 
 ```typescript
 // Standard command - loads app config by default
-await runCommand(myAction);
+await runCommand(myAction, undefined, context);
 
 // Command with full ASCII art banner (for special commands like create)
-await runCommand(myAction, { fullBanner: true });
+await runCommand(myAction, { fullBanner: true }, context);
 
-// Command requiring authentication
-await runCommand(myAction, { requireAuth: true });
+// Command requiring authentication (auto-login if needed)
+await runCommand(myAction, { requireAuth: true }, context);
 
 // Command that doesn't need app config (auth commands, create, link)
-await runCommand(myAction, { requireAppConfig: false });
+await runCommand(myAction, { requireAppConfig: false }, context);
 
 // Command with multiple options
-await runCommand(myAction, { fullBanner: true, requireAuth: true });
+await runCommand(myAction, { fullBanner: true, requireAuth: true }, context);
 ```
 
 **Options:**
 - `fullBanner`: Show ASCII art banner instead of simple tag
 - `requireAuth`: Check authentication before running (auto-login if needed)
 - `requireAppConfig`: Load `.app.jsonc` and cache for sync access (default: `true`)
+
+### 4. CLIContext and Dependency Injection
+
+The `CLIContext` type (`src/cli/types.ts`) provides dependencies to commands:
+
+```typescript
+export interface CLIContext {
+  errorReporter: ErrorReporter;
+}
+```
+
+- Created once in `runCLI()` at CLI startup
+- Passed to `createProgram(context)` which passes to each command factory
+- Commands pass it to `runCommand()` for error reporting integration
 
 ## Theming
 
@@ -388,6 +416,54 @@ import { entityResource } from "@/core/resources/entity/index.js";
 import { base44Client } from "@/core/api/index.js";
 ```
 
+## Telemetry & Error Reporting
+
+The CLI reports errors to PostHog for monitoring. This is handled by the `ErrorReporter` class.
+
+### Architecture
+
+```
+src/cli/telemetry/
+├── consts.ts           # PostHog API key, env var names
+├── posthog.ts          # PostHog client singleton
+├── error-reporter.ts   # ErrorReporter class
+├── commander-hooks.ts  # Adds command info to error context
+└── index.ts            # Barrel exports
+```
+
+### ErrorReporter Usage
+
+The `ErrorReporter` is created once in `runCLI()` and injected via `CLIContext`:
+
+```typescript
+// In runCLI() - creates and injects the reporter
+const errorReporter = new ErrorReporter();
+errorReporter.registerProcessErrorHandlers();
+const context: CLIContext = { errorReporter };
+const program = createProgram(context);
+
+// Context is set throughout execution
+errorReporter.setContext({ user: { email, name } });
+errorReporter.setContext({ appId: "..." });
+errorReporter.setContext({ command: { name, args, options } });
+
+// Errors are captured automatically in runCLI's catch block
+errorReporter.captureException(error);
+```
+
+### Disabling Telemetry
+
+Set the environment variable: `BASE44_DISABLE_TELEMETRY=1`
+
+### What's Captured
+
+- Session ID and duration
+- User email (if logged in)
+- Command name, args, and options
+- App ID (if in a project)
+- System info (Node version, OS, platform)
+- Error stack traces
+
 ## Important Rules
 
 1. **npm only** - Never use yarn
@@ -395,14 +471,16 @@ import { base44Client } from "@/core/api/index.js";
 3. **@clack/prompts** - For all user interaction (prompts, spinners, logs)
 4. **ES Modules** - Use `.js` extensions in imports
 5. **Cross-platform** - Use `path` module utilities, never hardcode separators
-6. **Command wrapper** - All commands use `runCommand()` utility
-7. **Task wrapper** - Use `runTask()` for async operations with spinners
-8. **consts.ts has no imports** - Keep `consts.ts` dependency-free to avoid circular deps
-9. **Keep AGENTS.md updated** - Update this file when architecture changes
-10. **Zero-dependency distribution** - All packages go in `devDependencies`; they get bundled at build time
-11. **Use theme for styling** - Never use `chalk` directly in commands; import `theme` from utils and use semantic color/style names
-12. **Use fs.ts utilities** - Always use `@/core/utils/fs.js` for file operations
-13. **No direct process.exit()** - Throw `CLIExitError` instead; entry points handle the actual exit 
+6. **Command factory pattern** - Commands export `getXCommand(context)` functions, not static instances
+7. **Command wrapper** - All commands use `runCommand(fn, options, context)` utility
+8. **Task wrapper** - Use `runTask()` for async operations with spinners
+9. **consts.ts has no imports** - Keep `consts.ts` dependency-free to avoid circular deps
+10. **Keep AGENTS.md updated** - Update this file when architecture changes
+11. **Zero-dependency distribution** - All packages go in `devDependencies`; they get bundled at build time
+12. **Use theme for styling** - Never use `chalk` directly in commands; import `theme` from utils and use semantic color/style names
+13. **Use fs.ts utilities** - Always use `@/core/utils/fs.js` for file operations
+14. **No direct process.exit()** - Throw `CLIExitError` instead; entry points handle the actual exit
+15. **No dynamic imports** - Avoid `await import()` inside functions; use static imports at top of file 
 
 ## Development
 
@@ -430,14 +508,19 @@ The CLI uses a split architecture for better development experience:
 - No build step required - changes are reflected immediately
 
 **CLI Module** (`src/cli/`):
-- `program.ts` - Defines the Commander program and registers all commands
+- `index.ts` - `runCLI()` execution, creates ErrorReporter and CLIContext
+- `program.ts` - `createProgram(context)` factory that registers all commands
+- `types.ts` - `CLIContext` type for dependency injection
+- `telemetry/` - Error reporting via PostHog (see folder structure above)
 - `errors.ts` - CLI-specific errors (CLIExitError)
-- `index.ts` - Barrel export for entry points (exports program, CLIExitError)
 
 **Error Handling Flow**:
-- Commands throw errors → `runCommand()` catches, logs, and throws `CLIExitError(1)`
-- Entry points (`bin/run.js`, `bin/dev.js`) catch `CLIExitError` and call `process.exit(code)`
-- This keeps `process.exit()` out of core code, making it testable
+1. `runCLI()` creates `ErrorReporter` and registers process error handlers
+2. `createProgram(context)` builds the command tree with injected context
+3. Commands throw errors → `runCommand()` catches, logs with `log.error()`, re-throws
+4. `runCLI()` catches errors, reports to PostHog (if not CLIExitError)
+5. Uses `process.exitCode = 1` (not `process.exit()`) to let event loop drain for telemetry
+6. Telemetry can be disabled via `BASE44_DISABLE_TELEMETRY=1` environment variable
 
 ### Node.js Version
 

@@ -8,4 +8,5 @@ export default defineConfig({
   clean: true,
   tsconfig: "tsconfig.json",
   copy: ["templates"],
+  sourcemap: "inline",  // Include inline sourcemaps for readable stack traces
 });

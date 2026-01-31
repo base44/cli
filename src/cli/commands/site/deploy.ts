@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { Command } from "commander";
 import { confirm, isCancel } from "@clack/prompts";
+import type { CLIContext } from "@/cli/types.js";
 import { readProjectConfig } from "@/core/project/index.js";
 import { deploySite } from "@/core/site/index.js";
 import { runCommand, runTask } from "@/cli/utils/index.js";
@@ -45,13 +46,15 @@ async function deployAction(options: DeployOptions): Promise<RunCommandResult> {
   return { outroMessage: `Visit your site at: ${result.appUrl}` };
 }
 
-export const siteDeployCommand = new Command("site")
-  .description("Manage site deployments")
-  .addCommand(
-    new Command("deploy")
-      .description("Deploy built site files to Base44 hosting")
-      .option("-y, --yes", "Skip confirmation prompt")
-      .action(async (options: DeployOptions) => {
-        await runCommand(() => deployAction(options), { requireAuth: true });
-      })
-  );
+export function getSiteDeployCommand(context: CLIContext): Command {
+  return new Command("site")
+    .description("Manage site deployments")
+    .addCommand(
+      new Command("deploy")
+        .description("Deploy built site files to Base44 hosting")
+        .option("-y, --yes", "Skip confirmation prompt")
+        .action(async (options: DeployOptions) => {
+          await runCommand(() => deployAction(options), { requireAuth: true }, context);
+        })
+    );
+}

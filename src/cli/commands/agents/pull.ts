@@ -1,6 +1,7 @@
 import { join, dirname } from "node:path";
 import { Command } from "commander";
 import { log } from "@clack/prompts";
+import type { CLIContext } from "@/cli/types.js";
 import { fetchAgents, writeAgents } from "@/core/resources/agent/index.js";
 import { readProjectConfig } from "@/core/index.js";
 import { runCommand, runTask } from "../../utils/index.js";
@@ -48,8 +49,10 @@ async function pullAgentsAction(): Promise<RunCommandResult> {
   return { outroMessage: `Pulled ${remoteAgents.total} agents to ${agentsDir}` };
 }
 
-export const agentsPullCommand = new Command("pull")
-  .description("Pull agents from Base44 to local files (replaces all local agent configs)")
-  .action(async () => {
-    await runCommand(pullAgentsAction, { requireAuth: true });
-  });
+export function getAgentsPullCommand(context: CLIContext): Command {
+  return new Command("pull")
+    .description("Pull agents from Base44 to local files (replaces all local agent configs)")
+    .action(async () => {
+      await runCommand(pullAgentsAction, { requireAuth: true }, context);
+    });
+}
