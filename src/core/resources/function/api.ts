@@ -1,4 +1,5 @@
-import { getAppClient } from "@/core/clients/index.js";
+import { HTTPError } from "ky";
+import { getAppClient, formatApiError } from "@/core/clients/index.js";
 import { DeployFunctionsResponseSchema } from "@/core/resources/function/schema.js";
 import type { FunctionWithCode, DeployFunctionsResponse } from "@/core/resources/function/schema.js";
 
@@ -18,11 +19,20 @@ export async function deployFunctions(
     functions: functions.map(toDeployPayloadItem),
   };
 
-  const response = await appClient.put("backend-functions", {
-    json: payload,
-    timeout: 120_000
-  });
+  try {
+    const response = await appClient.put("backend-functions", {
+      json: payload,
+      timeout: 120_000
+    });
 
-  const result = DeployFunctionsResponseSchema.parse(await response.json());
-  return result;
+    const result = DeployFunctionsResponseSchema.parse(await response.json());
+    return result;
+  } catch (error) {
+    if (error instanceof HTTPError) {
+      const errorBody = await error.response.json().catch(() => null);
+      const message = formatApiError(errorBody);
+      throw new Error(`Failed to deploy functions: ${message}`);
+    }
+    throw error;
+  }
 }
