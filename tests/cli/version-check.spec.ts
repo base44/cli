@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { execa } from "execa";
-import { checkForUpgrade } from "@/core/utils/version-check.js";
+import { checkForUpgrade } from "@/cli/utils/version-check.js";
 
 vi.mock("execa", () => ({
   execa: vi.fn(),

@@ -1,6 +1,6 @@
 import { log } from "@clack/prompts";
-import type { UpgradeInfo } from "@/core/utils/version-check.js";
-import { checkForUpgrade } from "@/core/utils/version-check.js";
+import type { UpgradeInfo } from "@/cli/utils/version-check.js";
+import { checkForUpgrade } from "@/cli/utils/version-check.js";
 import { theme } from "@/cli/utils/theme.js";
 
 function formatUpgradeMessage(info: UpgradeInfo): string {
