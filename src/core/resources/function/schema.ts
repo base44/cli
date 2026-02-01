@@ -92,7 +92,7 @@ export const FunctionPayloadSchema = z.object({
 export const DeployFunctionsResponseSchema = z.object({
   deployed: z.array(z.string()),
   deleted: z.array(z.string()),
-  skipped: z.array(z.string()),
+  skipped: z.array(z.string()).optional().nullable(),
   errors: z
     .array(z.object({ name: z.string(), message: z.string() }))
     .nullable(),
