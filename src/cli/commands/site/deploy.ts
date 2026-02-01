@@ -53,14 +53,10 @@ async function deployAction(options: DeployOptions): Promise<RunCommandResult> {
 }
 
 export function getSiteDeployCommand(context: CLIContext): Command {
-  return new Command("site")
-    .description("Manage site deployments")
-    .addCommand(
-      new Command("deploy")
-        .description("Deploy built site files to Base44 hosting")
-        .option("-y, --yes", "Skip confirmation prompt")
-        .action(async (options: DeployOptions) => {
-          await runCommand(() => deployAction(options), { requireAuth: true }, context);
-        })
-    );
+  return new Command("deploy")
+    .description("Deploy built site files to Base44 hosting")
+    .option("-y, --yes", "Skip confirmation prompt")
+    .action(async (options: DeployOptions) => {
+      await runCommand(() => deployAction(options), { requireAuth: true }, context);
+    });
 }
