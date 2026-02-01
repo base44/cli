@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { mkdir, writeFile, cp, readFile } from "node:fs/promises";
 import { vi } from "vitest";
 import { dir } from "tmp-promise";
-import type { Command } from "commander";
+import type { Command } from "@commander-js/extra-typings";
 import { CLIResultMatcher } from "./CLIResultMatcher.js";
 import { Base44APIMock } from "./Base44APIMock.js";
 import type { CLIResult } from "./CLIResultMatcher.js";

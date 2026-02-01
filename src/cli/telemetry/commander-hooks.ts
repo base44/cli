@@ -1,4 +1,4 @@
-import type { Command } from "commander";
+import type { Command } from "@commander-js/extra-typings";
 import type { ErrorReporter } from "./error-reporter.js";
 
 /**

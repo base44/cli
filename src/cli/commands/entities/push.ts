@@ -1,4 +1,4 @@
-import { Command } from "commander";
+import { Command } from "@commander-js/extra-typings";
 import { log } from "@clack/prompts";
 import type { CLIContext } from "@/cli/types.js";
 import { pushEntities } from "@/core/resources/entity/index.js";

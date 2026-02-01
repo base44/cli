@@ -1,4 +1,4 @@
-import { Command } from "commander";
+import { Command } from "@commander-js/extra-typings";
 import type { CLIContext } from "@/cli/types.js";
 import { readAuth } from "@/core/auth/index.js";
 import { runCommand, theme } from "@/cli/utils/index.js";

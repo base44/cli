@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import { Command } from "commander";
+import { Command } from "@commander-js/extra-typings";
 import { confirm, isCancel } from "@clack/prompts";
 import type { CLIContext } from "@/cli/types.js";
 import { readProjectConfig } from "@/core/project/index.js";

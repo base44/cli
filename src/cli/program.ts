@@ -1,4 +1,4 @@
-import { Command } from "commander";
+import { Command } from "@commander-js/extra-typings";
 import type { CLIContext } from "./types.js";
 import { getLoginCommand } from "@/cli/commands/auth/login.js";
 import { getWhoamiCommand } from "@/cli/commands/auth/whoami.js";

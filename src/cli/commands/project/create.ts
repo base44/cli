@@ -1,6 +1,6 @@
 import { resolve, join, basename } from "node:path";
 import { execa } from "execa";
-import { Argument, Command } from "commander";
+import { Argument, Command } from "@commander-js/extra-typings";
 import { log, group, text, select, confirm, isCancel } from "@clack/prompts";
 import type { Option } from "@clack/prompts";
 import kebabCase from "lodash.kebabcase";

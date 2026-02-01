@@ -1,4 +1,4 @@
-import { Command } from "commander";
+import { Command } from "@commander-js/extra-typings";
 import open from "open";
 import type { CLIContext } from "@/cli/types.js";
 import { runCommand, getDashboardUrl } from "@/cli/utils/index.js";

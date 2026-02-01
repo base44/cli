@@ -1,4 +1,4 @@
-import { Command } from "commander";
+import { Command } from "@commander-js/extra-typings";
 import type { Option } from "@clack/prompts";
 import { log, group, text, select, isCancel, cancel } from "@clack/prompts";
 import type { CLIContext } from "@/cli/types.js";
