@@ -1,13 +1,13 @@
-import type { Command } from "@commander-js/extra-typings";
+import type { Command, CommandUnknownOpts } from "@commander-js/extra-typings";
 import type { ErrorReporter } from "./error-reporter.js";
 
 /**
  * Get the full command name by traversing parent commands.
  * e.g., "base44 entities push" → "entities push"
  */
-function getFullCommandName(command: Command): string {
+function getFullCommandName(command: CommandUnknownOpts): string {
   const parts: string[] = [];
-  let current: Command | null = command;
+  let current: CommandUnknownOpts | null = command;
 
   while (current) {
     const name = current.name();
@@ -21,7 +21,7 @@ function getFullCommandName(command: Command): string {
   return parts.join(" ");
 }
 
-export function addCommandInfoToErrorReporter(program: Command, errorReporter: ErrorReporter): void {
+export function addCommandInfoToErrorReporter(program: Command<any, any>, errorReporter: ErrorReporter): void {
   program.hook("preAction", (_, actionCommand) => {
     const fullCommandName = getFullCommandName(actionCommand);
 
