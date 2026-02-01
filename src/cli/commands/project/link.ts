@@ -27,6 +27,7 @@ interface LinkOptions {
   name?: string;
   description?: string;
   projectId?: string;
+  [key: string]: unknown;
 }
 
 type LinkAction = "create" | "choose";

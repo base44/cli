@@ -26,6 +26,7 @@ interface CreateOptions {
   template?: string;
   deploy?: boolean;
   skills?: boolean;
+  [key: string]: unknown;
 }
 
 async function getTemplateById(templateId: string): Promise<Template> {
