@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { formatApiError } from "../../src/core/clients/index.js";
 import {
+  formatApiError,
   AuthRequiredError,
   AuthExpiredError,
   ConfigNotFoundError,

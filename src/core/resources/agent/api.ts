@@ -18,9 +18,7 @@ export async function pushAgents(
       json: agents,
     });
   } catch (error) {
-    throw new ApiError(
-      `Error occurred while syncing agents: ${error instanceof Error ? error.message : String(error)}`
-    );
+    throw await ApiError.fromHttpError(error, "syncing agents");
   }
 
   const result = SyncAgentsResponseSchema.safeParse(await response.json());
@@ -39,9 +37,7 @@ export async function fetchAgents(): Promise<ListAgentsResponse> {
   try {
     response = await appClient.get("agent-configs");
   } catch (error) {
-    throw new ApiError(
-      `Error occurred while fetching agents: ${error instanceof Error ? error.message : String(error)}`
-    );
+    throw await ApiError.fromHttpError(error, "fetching agents");
   }
 
   const result = ListAgentsResponseSchema.safeParse(await response.json());

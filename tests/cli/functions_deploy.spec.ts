@@ -40,6 +40,6 @@ describe("functions deploy command", () => {
     const result = await t.run("functions", "deploy");
 
     t.expectResult(result).toFail();
-    t.expectResult(result).toContain("400");
+    t.expectResult(result).toContain("Invalid function code");
   });
 });

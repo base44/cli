@@ -1,7 +1,7 @@
 import { getAppClient } from "@/core/clients/index.js";
 import { DeployFunctionsResponseSchema } from "@/core/resources/function/schema.js";
 import type { FunctionWithCode, DeployFunctionsResponse } from "@/core/resources/function/schema.js";
-import { SchemaValidationError } from "@/core/errors.js";
+import { ApiError, SchemaValidationError } from "@/core/errors.js";
 
 function toDeployPayloadItem(fn: FunctionWithCode) {
   return {
@@ -19,10 +19,15 @@ export async function deployFunctions(
     functions: functions.map(toDeployPayloadItem),
   };
 
-  const response = await appClient.put("backend-functions", {
-    json: payload,
-    timeout: 120_000
-  });
+  let response;
+  try {
+    response = await appClient.put("backend-functions", {
+      json: payload,
+      timeout: 120_000,
+    });
+  } catch (error) {
+    throw await ApiError.fromHttpError(error, "deploying functions");
+  }
 
   const result = DeployFunctionsResponseSchema.safeParse(await response.json());
 
