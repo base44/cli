@@ -2,7 +2,7 @@ import { dirname, join } from "node:path";
 import { globby } from "globby";
 import { FUNCTION_CONFIG_FILE } from "@/core/consts.js";
 import { readJsonFile, pathExists } from "@/core/utils/fs.js";
-import { FunctionConfigSchema, FunctionSchema } from "@/core/resources/function/schema.js";
+import { FunctionConfigSchema, FunctionLocalSchema } from "@/core/resources/function/schema.js";
 import type { FunctionConfig, Function } from "@/core/resources/function/schema.js";
 import { SchemaValidationError, FileNotFoundError } from "@/core/errors.js";
 
@@ -36,7 +36,7 @@ export async function readFunction(configPath: string): Promise<Function> {
   });
 
   const functionData = { ...config, entryPath, files };
-  const result = FunctionSchema.safeParse(functionData);
+  const result = FunctionLocalSchema.safeParse(functionData);
   if (!result.success) {
     throw new SchemaValidationError(`Invalid function in ${configPath}`, result.error);
   }

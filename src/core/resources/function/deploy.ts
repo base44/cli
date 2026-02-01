@@ -17,7 +17,7 @@ export async function pushFunctions(
   functions: Function[]
 ): Promise<DeployFunctionsResponse> {
   if (functions.length === 0) {
-    return { deployed: [], deleted: [], errors: null };
+    return { deployed: [], deleted: [], skipped: [], errors: null };
   }
 
   const functionsWithCode = await Promise.all(functions.map(loadFunctionCode));
