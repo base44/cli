@@ -94,7 +94,6 @@ export async function runCommand(
     const { outroMessage } = await commandFn();
     outro(outroMessage || "");
 
-    // Check for available upgrades (non-blocking)
     await printUpgradeNotificationIfAvailable();
   } catch (error) {
     // Display error message
