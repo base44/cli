@@ -11,6 +11,12 @@
       "name": "Create a basic project",
       "description": "Minimal Base44 backend for defining your data models and logic",
       "path": "backend-only"
+    },
+    {
+      "id": "chrome-extension",
+      "name": "Chrome Extension",
+      "description": "Chrome extension with WXT framework and Base44 backend for bookmarking with AI search",
+      "path": "chrome-extension"
     }
   ]
 }

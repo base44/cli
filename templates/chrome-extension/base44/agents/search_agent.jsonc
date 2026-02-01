@@ -1,0 +1,13 @@
+{
+  "name": "Bookmark Search Agent",
+  "description": "AI agent that helps users search through their bookmarks using natural language queries",
+  "instructions": "You are a helpful assistant that searches through a user's bookmarks. When a user asks a question or describes what they're looking for, search through their bookmarks and return the most relevant results. You can understand natural language queries like 'articles about React', 'bookmarks from last week', or 'tutorials I saved'.",
+  "tools": [
+    {
+      "type": "query",
+      "entity": "Bookmark",
+      "description": "Search and filter bookmarks"
+    }
+  ],
+  "model": "gpt-4-turbo-preview"
+}

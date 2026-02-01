@@ -1,0 +1,41 @@
+{
+  "name": "Bookmark",
+  "fields": {
+    "url": {
+      "type": "string",
+      "required": true,
+      "description": "The URL of the bookmarked page"
+    },
+    "title": {
+      "type": "string",
+      "required": true,
+      "description": "The title of the bookmarked page"
+    },
+    "description": {
+      "type": "string",
+      "description": "Optional description or notes about the bookmark"
+    },
+    "favicon": {
+      "type": "string",
+      "description": "URL to the site's favicon"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Tags for categorizing bookmarks"
+    },
+    "createdAt": {
+      "type": "timestamp",
+      "autoCreate": true,
+      "description": "Timestamp when the bookmark was created"
+    }
+  },
+  "indexes": [
+    {
+      "fields": ["createdAt"],
+      "direction": "desc"
+    }
+  ]
+}
