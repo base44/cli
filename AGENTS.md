@@ -2,7 +2,7 @@
 
 This document provides essential context and guidelines for AI agents working on the Base44 CLI project.
 
-**Important**: Keep this file updated when making significant architectural changes.
+Keep this file updated when making significant architectural changes.
 
 ## Project Overview
 
@@ -31,201 +31,124 @@ The CLI is distributed as a **zero-dependency package**. All runtime dependencie
 
 ```
 cli/
-├── bin/                          # Entry point scripts
-│   ├── run.js                    # Production entry (imports dist/index.js)
-│   └── dev.js                    # Development entry (uses tsx for TypeScript)
+├── bin/
+│   ├── run.js
+│   └── dev.js
 ├── src/
 │   ├── core/
-│   │   ├── api/                  # HTTP clients
-│   │   │   ├── oauth-client.ts   # Unauthenticated client for login flow
-│   │   │   ├── base44-client.ts  # Authenticated client with token refresh
+│   │   ├── api/
+│   │   │   ├── oauth-client.ts
+│   │   │   ├── base44-client.ts
 │   │   │   └── index.ts
-│   │   ├── auth/                 # User authentication
-│   │   │   ├── api.ts            # OAuth API calls
-│   │   │   ├── schema.ts         # Auth Zod schemas
-│   │   │   ├── config.ts         # Token storage/refresh
+│   │   ├── auth/
+│   │   │   ├── api.ts
+│   │   │   ├── schema.ts
+│   │   │   ├── config.ts
 │   │   │   └── index.ts
-│   │   ├── project/              # Project configuration
-│   │   │   ├── config.ts         # Project loading logic
-│   │   │   ├── schema.ts         # Project/template schemas
-│   │   │   ├── api.ts            # Project creation API
-│   │   │   ├── create.ts         # Project scaffolding
-│   │   │   ├── deploy.ts      
-│   │   │   ├── template.ts       # Template rendering
-│   │   │   ├── app-config.ts     # .app.jsonc read/write and caching
+│   │   ├── project/
+│   │   │   ├── config.ts
+│   │   │   ├── schema.ts
+│   │   │   ├── api.ts
+│   │   │   ├── create.ts
+│   │   │   ├── deploy.ts
+│   │   │   ├── template.ts
+│   │   │   ├── app-config.ts
 │   │   │   └── index.ts
-│   │   ├── resources/            # Project resources (entity, function, etc.)
-│   │   │   ├── types.ts          # Resource<T> interface
+│   │   ├── resources/
+│   │   │   ├── types.ts
 │   │   │   ├── entity/
-│   │   │   │   ├── schema.ts
-│   │   │   │   ├── config.ts
-│   │   │   │   ├── resource.ts
-│   │   │   │   ├── api.ts        
-│   │   │   │   ├── deploy.ts     
-│   │   │   │   └── index.ts
 │   │   │   ├── function/
-│   │   │   │   ├── schema.ts
-│   │   │   │   ├── config.ts
-│   │   │   │   ├── resource.ts
-│   │   │   │   ├── api.ts        
-│   │   │   │   ├── deploy.ts     
-│   │   │   │   └── index.ts
 │   │   │   ├── agent/
-│   │   │   │   ├── schema.ts
-│   │   │   │   ├── config.ts
-│   │   │   │   ├── resource.ts
-│   │   │   │   ├── api.ts
-│   │   │   │   └── index.ts
 │   │   │   └── index.ts
-│   │   ├── site/                 # Site deployment (NOT a Resource)
-│   │   │   ├── schema.ts         # DeployResponse Zod schema
-│   │   │   ├── config.ts         # getSiteFilePaths() - glob files for validation
-│   │   │   ├── api.ts            # uploadSite() - reads archive, sends to API
-│   │   │   ├── deploy.ts         # deploySite() - validates, creates tar.gz, uploads
+│   │   ├── site/
+│   │   │   ├── schema.ts
+│   │   │   ├── config.ts
+│   │   │   ├── api.ts
+│   │   │   ├── deploy.ts
 │   │   │   └── index.ts
 │   │   ├── utils/
-│   │   │   ├── fs.ts             # File system utilities
+│   │   │   ├── fs.ts
 │   │   │   └── index.ts
-│   │   ├── consts.ts             # Pure constants (NO imports from other core modules)
-│   │   ├── config.ts             # Path helpers (global dir, templates, API URL)
-│   │   ├── errors.ts             # CLIError hierarchy (UserError, SystemError, etc.)
-│   │   └── index.ts              # Barrel export for all core modules
+│   │   ├── consts.ts
+│   │   ├── config.ts
+│   │   ├── errors.ts
+│   │   └── index.ts
 │   └── cli/
-│       ├── program.ts            # createProgram(context) factory
-│       ├── index.ts              # runCLI() execution + barrel exports
-│       ├── types.ts              # CLIContext type for dependency injection
-│       ├── errors.ts             # CLI-specific errors (CLIExitError)
+│       ├── program.ts
+│       ├── index.ts
+│       ├── types.ts
+│       ├── errors.ts
 │       ├── commands/
 │       │   ├── auth/
-│       │   │   ├── login.ts      # getLoginCommand(context) factory
-│       │   │   ├── login-flow.ts # login() logic (separate to avoid circular deps)
-│       │   │   ├── logout.ts
-│       │   │   └── whoami.ts
 │       │   ├── project/
-│       │   │   ├── create.ts
-│       │   │   ├── dashboard.ts
-│       │   │   ├── deploy.ts     # Unified deploy command
-│       │   │   └── link.ts
 │       │   ├── entities/
-│       │   │   └── push.ts
 │       │   ├── agents/
-│       │   │   ├── index.ts      # getAgentsCommand(context) - parent command
-│       │   │   ├── pull.ts
-│       │   │   └── push.ts
 │       │   ├── functions/
-│       │   │   └── deploy.ts
 │       │   └── site/
-│       │       └── deploy.ts
-│       ├── telemetry/            # Error reporting and telemetry
-│       │   ├── consts.ts         # PostHog API key, env var names
-│       │   ├── posthog.ts        # PostHog client singleton
-│       │   ├── error-reporter.ts # ErrorReporter class for capturing exceptions
-│       │   ├── commander-hooks.ts# Commander.js integration for command context
+│       ├── telemetry/
+│       │   ├── consts.ts
+│       │   ├── posthog.ts
+│       │   ├── error-reporter.ts
+│       │   ├── commander-hooks.ts
 │       │   └── index.ts
 │       └── utils/
-│           ├── runCommand.ts     # Command wrapper with branding
-│           ├── runTask.ts        # Spinner wrapper
-│           ├── banner.ts         # ASCII art banner
-│           ├── prompts.ts        # Prompt utilities
-│           ├── theme.ts          # Centralized theme configuration (colors, styles)
-│           ├── urls.ts           # URL utilities (getDashboardUrl)
+│           ├── runCommand.ts
+│           ├── runTask.ts
+│           ├── banner.ts
+│           ├── prompts.ts
+│           ├── theme.ts
+│           ├── urls.ts
 │           └── index.ts
-├── templates/                    # Project templates
+├── templates/
 ├── tests/
-├── dist/                         # Build output (program.js + templates/)
+├── dist/
 ├── package.json
 └── tsconfig.json
 ```
 
 ## Adding a New Command
 
-Commands live in `src/cli/commands/`. Commands use a **factory pattern** with dependency injection via `CLIContext`.
+Commands live in `src/cli/commands/` and use a **factory pattern** with dependency injection via `CLIContext`.
 
-### 1. Create the command file
+### Steps
 
-```typescript
-// src/cli/commands/<domain>/<action>.ts
-import { Command } from "commander";
-import { log } from "@clack/prompts";
-import type { CLIContext } from "@/cli/types.js";
-import { runCommand, runTask, theme } from "@/cli/utils/index.js";
-import type { RunCommandResult } from "@/cli/utils/runCommand.js";
+1. Create command file in `src/cli/commands/<domain>/<action>.ts`
+2. Export factory function `getMyCommand(context: CLIContext)` that returns a `Command`
+3. Register in `program.ts` using `program.addCommand(getMyCommand(context))`
+4. Use `runCommand(actionFn, options, context)` wrapper in command action
+5. Use `runTask()` for async operations with spinners
 
-async function myAction(): Promise<RunCommandResult> {
-  // Use runTask for async operations with spinners
-  const result = await runTask(
-    "Doing something...",
-    async () => {
-      // Your async operation here
-      return someResult;
-    },
-    {
-      // Use theme colors for success messages
-      successMessage: theme.colors.base44Orange("Done!"),
-      errorMessage: "Failed to do something",
-    }
-  );
+### Key Patterns
 
-  log.success("Operation completed!");
+- Commands export factory functions, not static instances
+- Factory receives `CLIContext` which contains `errorReporter`
+- Commands should NOT call `intro()` or `outro()` - `runCommand()` handles both
+- Pass `context` to `runCommand()` as third argument
 
-  // Return an optional outro message (displayed at the end)
-  return { outroMessage: `Created ${theme.styles.bold(result.name)}` };
-}
-
-// Export a factory function that receives CLIContext
-export function getMyCommand(context: CLIContext): Command {
-  return new Command("<name>")
-    .description("<description>")
-    .option("-f, --flag", "Some flag")
-    .action(async (options) => {
-      await runCommand(myAction, { requireAuth: true }, context);
-    });
-}
-```
-
-**Important**:
-- Commands export a **factory function** (`getMyCommand`), not a static command instance
-- The factory receives `CLIContext` which contains the `errorReporter`
-- Commands should NOT call `intro()` or `outro()` directly - `runCommand()` handles both
-- The `context` must be passed to `runCommand()` as the third argument
-
-### 2. Register in program.ts
-
-```typescript
-// src/cli/program.ts
-import { getMyCommand } from "@/cli/commands/<domain>/<action>.js";
-
-// Inside createProgram(context):
-program.addCommand(getMyCommand(context));
-```
-
-### 3. Command wrapper options
+### runCommand Options
 
 ```typescript
 // Standard command - loads app config by default
 await runCommand(myAction, undefined, context);
 
-// Command with full ASCII art banner (for special commands like create)
+// With full ASCII art banner
 await runCommand(myAction, { fullBanner: true }, context);
 
-// Command requiring authentication (auto-login if needed)
+// Requiring authentication
 await runCommand(myAction, { requireAuth: true }, context);
 
-// Command that doesn't need app config (auth commands, create, link)
+// Without app config loading
 await runCommand(myAction, { requireAppConfig: false }, context);
-
-// Command with multiple options
-await runCommand(myAction, { fullBanner: true, requireAuth: true }, context);
 ```
 
-**Options:**
+Options:
 - `fullBanner`: Show ASCII art banner instead of simple tag
 - `requireAuth`: Check authentication before running (auto-login if needed)
 - `requireAppConfig`: Load `.app.jsonc` and cache for sync access (default: `true`)
 
-### 4. CLIContext and Dependency Injection
+### CLIContext
 
-The `CLIContext` type (`src/cli/types.ts`) provides dependencies to commands:
+The `CLIContext` type provides dependencies to commands:
 
 ```typescript
 export interface CLIContext {
@@ -233,80 +156,50 @@ export interface CLIContext {
 }
 ```
 
-- Created once in `runCLI()` at CLI startup
-- Passed to `createProgram(context)` which passes to each command factory
-- Commands pass it to `runCommand()` for error reporting integration
+Created once in `runCLI()`, passed to `createProgram(context)`, then to each command factory.
 
 ## Theming
 
-All CLI styling is centralized in `src/cli/utils/theme.ts`. **Never use `chalk` directly** - import `theme` from utils instead.
+All CLI styling is centralized in `src/cli/utils/theme.ts`. Never use `chalk` directly.
 
 ```typescript
-import { theme } from "../../utils/index.js";
+import { theme } from "@/cli/utils/index.js";
 
 // Colors
-theme.colors.base44Orange("Success!")     // Primary brand color
-theme.colors.links(url)                   // URLs and links
+theme.colors.base44Orange("Success!")
+theme.colors.links(url)
 
-// Styles  
-theme.styles.bold(email)                  // Bold emphasis
-theme.styles.header("Label")              // Dim text for labels
-theme.styles.dim(text)                    // Dimmed text
+// Styles
+theme.styles.bold(text)
+theme.styles.header("Label")
+theme.styles.dim(text)
 
-// Formatters (for error display)
-theme.format.errorContext(ctx)            // Formats ErrorContext as dimmed pipe-separated string
-theme.format.agentHints(hints)            // Formats ErrorHint[] as "[Agent Hints]\n  Run: ..."
+// Formatters
+theme.format.errorContext(ctx)
+theme.format.agentHints(hints)
 ```
-
-When adding new theme properties, use semantic names (e.g., `links`, `header`) not color names.
 
 ## Making API Calls
 
-Use the HTTP clients from `@/core/api/index.js`:
+Use HTTP clients from `@/core/api/index.js`:
 
-### Authenticated API calls (most common)
+### Authenticated Calls
 
-```typescript
-import { base44Client, getAppClient } from "@/core/api/index.js";
+Use `base44Client` for authenticated calls or `getAppClient()` for app-specific endpoints.
 
-// For general Base44 API calls
-const response = await base44Client.get("api/endpoint");
-const data = await response.json();
+### OAuth Endpoints
 
-// For app-specific API calls (requires .app.jsonc with id)
-const appClient = getAppClient();
-const response = await appClient.get("entities");
-const entities = await response.json();
+Use `oauthClient` only in `auth/api.ts` for device code flow.
 
-// POST with JSON body
-const response = await base44Client.post("api/endpoint", {
-  json: { key: "value" },
-});
-```
+### Token Refresh
 
-### OAuth endpoints (login flow only)
-
-```typescript
-import { oauthClient } from "@/core/api/index.js";
-
-// Used only in auth/api.ts for device code flow
-const response = await oauthClient.post("oauth/device/code", {
-  json: { client_id: AUTH_CLIENT_ID, scope: "apps:read apps:write" },
-});
-```
-
-### Token refresh
-
-The `base44Client` automatically handles token refresh:
-1. Before each request, checks if token is expired
-2. If expired, refreshes token and saves new tokens
-3. On 401 response, attempts refresh and retries once
+The `base44Client` automatically handles token refresh before requests and on 401 responses.
 
 ## Resource Pattern
 
 Resources are project-specific collections (entities, functions) that can be loaded from the filesystem.
 
-### Resource Interface (`resources/types.ts`)
+### Resource Interface
 
 ```typescript
 export interface Resource<T> {
@@ -315,16 +208,7 @@ export interface Resource<T> {
 }
 ```
 
-Note: The `push` method handles empty arrays gracefully (returns early without API call).
-
-### Resource Implementation (`resources/<name>/resource.ts`)
-
-```typescript
-export const entityResource: Resource<Entity> = {
-  readAll: readAllEntities,
-  push: pushEntities,
-};
-```
+The `push` method handles empty arrays gracefully (returns early without API call).
 
 ### Adding a New Resource
 
@@ -340,74 +224,31 @@ export const entityResource: Resource<Entity> = {
 
 ## Site Module
 
-The site module (`src/core/site/`) handles deploying built frontend files to Base44 hosting. Unlike Resources, the site module:
+The site module (`src/core/site/`) handles deploying built frontend files to Base44 hosting. Unlike Resources, the site module reads built artifacts from the output directory, creates a tar.gz archive, and uploads to the API.
 
-- Reads built artifacts (JS, CSS, HTML) from the output directory
-- Gets configuration from `site.outputDirectory` in project config
-- Creates a tar.gz archive and uploads it to the API
-
-### Architecture
-
-```
-site/
-├── schema.ts    # DeployResponse Zod schema
-├── config.ts    # getSiteFilePaths() - glob files for validation
-├── api.ts       # uploadSite() - reads archive, sends to API
-├── deploy.ts    # deploySite() - validates, creates archive, uploads
-└── index.ts     # Barrel exports
-```
-
-### Key Functions
+Key function:
 
 ```typescript
 import { deploySite } from "@/core/site/index.js";
-
-// Deploy site from output directory (returns deployment details)
 const { appUrl } = await deploySite("./dist");
-```
-
-### Deploy Flow
-
-1. Validate output directory exists and has files
-2. Create temporary tar.gz archive using `tar` package
-3. Upload archive to `POST /api/apps/{app_id}/deploy-dist`
-4. Parse response with Zod schema
-5. Clean up temporary archive file
-
-### CLI Command
-
-```bash
-base44 site deploy
 ```
 
 ## Unified Deploy Command
 
-The `base44 deploy` command deploys all project resources in one operation:
+The `base44 deploy` command deploys all project resources:
 
 1. Pushes entities (via `entityResource.push()`)
 2. Pushes functions (via `functionResource.push()`)
 3. Deploys site (if `site.outputDirectory` is configured)
 
-### Core Functions (`project/deploy.ts`)
-
 ```typescript
 import { deployAll, hasResourcesToDeploy } from "@/core/project/index.js";
 
-// Check if there's anything to deploy
 if (!hasResourcesToDeploy(projectData)) {
   return;
 }
 
-// Deploy all resources
 const { appUrl } = await deployAll(projectData);
-```
-
-### CLI Command
-
-```bash
-base44 deploy        # With confirmation prompt
-base44 deploy -y     # Skip confirmation
-base44 deploy --yes  # Skip confirmation
 ```
 
 ## Path Aliases
@@ -415,131 +256,85 @@ base44 deploy --yes  # Skip confirmation
 Single alias defined in `tsconfig.json`:
 - `@/*` → `./src/*`
 
-```typescript
-import { readProjectConfig } from "@/core/project/index.js";
-import { entityResource } from "@/core/resources/entity/index.js";
-import { base44Client } from "@/core/api/index.js";
-```
-
 ## Error Handling
 
-The CLI uses a structured error hierarchy to provide clear, actionable error messages with hints for users and AI agents.
+The CLI uses a structured error hierarchy for clear, actionable error messages.
 
 ### Error Hierarchy
 
 ```
 CLIError (abstract base class)
 ├── UserError (user did something wrong - fixable by user)
-│   ├── AuthRequiredError      # Not logged in
-│   ├── AuthExpiredError       # Token expired
-│   ├── ConfigNotFoundError    # No project found
-│   ├── ConfigInvalidError     # Invalid config syntax/structure
-│   ├── ConfigExistsError      # Project already exists
-│   ├── SchemaValidationError  # Zod validation failed
-│   └── InvalidInputError      # Bad user input (template not found, etc.)
+│   ├── AuthRequiredError
+│   ├── AuthExpiredError
+│   ├── ConfigNotFoundError
+│   ├── ConfigInvalidError
+│   ├── ConfigExistsError
+│   ├── SchemaValidationError
+│   └── InvalidInputError
 │
 └── SystemError (something broke - needs investigation)
-    ├── ApiError               # HTTP/network failures
-    ├── FileNotFoundError      # File doesn't exist
-    ├── FileReadError          # Can't read file
-    └── InternalError          # Unexpected errors
+    ├── ApiError
+    ├── FileNotFoundError
+    ├── FileReadError
+    └── InternalError
 ```
 
 ### Error Properties
 
-All errors extend `CLIError` and have these properties:
+All errors extend `CLIError`:
 
 ```typescript
 interface CLIError {
-  code: string;           // e.g., "AUTH_REQUIRED", "CONFIG_NOT_FOUND"
-  isUserError: boolean;   // true for UserError, false for SystemError
-  hints: ErrorHint[];     // Actionable suggestions
-  cause?: Error;          // Original error for stack traces
+  code: string;
+  isUserError: boolean;
+  hints: ErrorHint[];
+  cause?: Error;
 }
 
 interface ErrorHint {
-  message: string;        // Human-readable hint
-  command?: string;       // Optional command to run (for AI agents)
+  message: string;
+  command?: string;
 }
 ```
 
 ### Throwing Errors
 
-Import errors from `@/core/errors.js`:
+Import from `@/core/errors.js`:
 
 ```typescript
 import {
   ConfigNotFoundError,
-  ConfigExistsError,
-  SchemaValidationError,
-  ApiError,
   InvalidInputError,
+  ApiError,
 } from "@/core/errors.js";
 
-// User errors - provide helpful hints
-throw new ConfigNotFoundError();  // Has default hints for create/link
-
-throw new ConfigExistsError("Project already exists at /path/to/config.jsonc");
+throw new ConfigNotFoundError();
 
 throw new InvalidInputError(`Template "${templateId}" not found`, {
-  hints: [
-    { message: `Use one of: ${validIds}` },
-  ],
+  hints: [{ message: `Use one of: ${validIds}` }],
 });
 
-// API errors - include status code for automatic hint generation
 throw new ApiError("Failed to sync entities", { statusCode: response.status });
-// 401 → hints to run `base44 login`
-// 404 → hints about resource not found
-// Other → hints to check network
 ```
 
 ### API Error Handling Pattern
 
-When making HTTP requests with the ky client, use `ApiError.fromHttpError()` to convert HTTP errors to structured `ApiError` instances:
+Use `ApiError.fromHttpError()` to convert HTTP errors:
 
 ```typescript
-import { getAppClient } from "@/core/clients/index.js";
-import { ApiError, SchemaValidationError } from "@/core/errors.js";
-import { MyResponseSchema } from "./schema.js";
-
-export async function myApiFunction(data: MyData): Promise<MyResponse> {
-  const appClient = getAppClient();
-
-  let response;
-  try {
-    response = await appClient.put("endpoint", { json: data });
-  } catch (error) {
-    throw await ApiError.fromHttpError(error, "performing action");
-  }
-
-  const result = MyResponseSchema.safeParse(await response.json());
-  if (!result.success) {
-    throw new SchemaValidationError("Invalid response from server", result.error);
-  }
-
-  return result.data;
-}
-```
-
-For status-specific handling (e.g., 428 for delete conflicts):
-
-```typescript
-import { HTTPError } from "ky";
+import { ApiError } from "@/core/errors.js";
 
 try {
   response = await appClient.put("endpoint", { json: data });
 } catch (error) {
-  if (error instanceof HTTPError && error.response.status === 428) {
-    throw new ApiError("Cannot delete: resource has dependencies", { statusCode: 428, cause: error });
-  }
   throw await ApiError.fromHttpError(error, "performing action");
 }
 ```
 
 ### SchemaValidationError with Zod
 
-`SchemaValidationError` requires a context message and a `ZodError`. It formats the error automatically using `z.prettifyError()`:
+Pass context message and `ZodError`:
 
 ```typescript
 import { SchemaValidationError } from "@/core/errors.js";
@@ -547,41 +342,11 @@ import { SchemaValidationError } from "@/core/errors.js";
 const result = EntitySchema.safeParse(parsed);
 
 if (!result.success) {
-  // Pass context message + ZodError - formatting is handled automatically
   throw new SchemaValidationError("Invalid entity file at " + entityPath, result.error);
 }
-
-// Output:
-// Invalid entity file at /path/to/entity.jsonc:
-// ✖ Invalid input: expected string, received number
-//   → at name
 ```
 
-**Important**: Do NOT manually call `z.prettifyError()` - the class does this internally.
-
-### Error Display
-
-When an error is thrown, the CLI displays:
-
-1. **Error message** - The main error text via `log.error()` (stack trace only with `DEBUG=1` env var)
-2. **Agent Hints** (if hints exist) - Actionable suggestions for fixing the issue
-3. **Error Context** - Dimmed outro line with session ID, app ID (if available), and timestamp
-
-### Error Code Reference
-
-| Code               | Class                   | When to use                           |
-| ------------------ | ----------------------- | ------------------------------------- |
-| `AUTH_REQUIRED`    | `AuthRequiredError`     | User not logged in                    |
-| `AUTH_EXPIRED`     | `AuthExpiredError`      | Token expired, needs re-login         |
-| `CONFIG_NOT_FOUND` | `ConfigNotFoundError`   | No project/config file found          |
-| `CONFIG_INVALID`   | `ConfigInvalidError`    | Config file has invalid content       |
-| `CONFIG_EXISTS`    | `ConfigExistsError`     | Project already exists at location    |
-| `SCHEMA_INVALID`   | `SchemaValidationError` | Zod validation failed                 |
-| `INVALID_INPUT`    | `InvalidInputError`     | User provided invalid input           |
-| `API_ERROR`        | `ApiError`              | API request failed                    |
-| `FILE_NOT_FOUND`   | `FileNotFoundError`     | File doesn't exist                    |
-| `FILE_READ_ERROR`  | `FileReadError`         | Can't read/write file                 |
-| `INTERNAL_ERROR`   | `InternalError`         | Unexpected error                      |
+Do NOT manually call `z.prettifyError()` - the class does this internally.
 
 ### CLIExitError (Special Case)
 
@@ -590,48 +355,24 @@ When an error is thrown, the CLI displays:
 ```typescript
 import { CLIExitError } from "@/cli/errors.js";
 
-// User cancelled a prompt
-throw new CLIExitError(0);  // Exit code 0 = success (user chose to cancel)
+throw new CLIExitError(0);
 ```
 
 ## Telemetry & Error Reporting
 
-The CLI reports errors to PostHog for monitoring. This is handled by the `ErrorReporter` class.
+The CLI reports errors to PostHog via the `ErrorReporter` class.
 
-### Architecture
-
-```
-src/cli/telemetry/
-├── consts.ts           # PostHog API key, env var names
-├── posthog.ts          # PostHog client singleton
-├── error-reporter.ts   # ErrorReporter class
-├── commander-hooks.ts  # Adds command info to error context
-└── index.ts            # Barrel exports
-```
-
-### ErrorReporter Usage
-
-The `ErrorReporter` is created once in `runCLI()` and injected via `CLIContext`:
+Created once in `runCLI()`, injected via `CLIContext`:
 
 ```typescript
-// In runCLI() - creates and injects the reporter
 const errorReporter = new ErrorReporter();
 errorReporter.registerProcessErrorHandlers();
 const context: CLIContext = { errorReporter };
-const program = createProgram(context);
-
-// Context is set throughout execution
-errorReporter.setContext({ user: { email, name } });
-errorReporter.setContext({ appId: "..." });
-errorReporter.setContext({ command: { name, args, options } });
-
-// Errors are captured automatically in runCLI's catch block
-errorReporter.captureException(error);
 ```
 
 ### Disabling Telemetry
 
-Set the environment variable: `BASE44_DISABLE_TELEMETRY=1`
+Set environment variable: `BASE44_DISABLE_TELEMETRY=1`
 
 ### What's Captured
 
@@ -656,194 +397,73 @@ Set the environment variable: `BASE44_DISABLE_TELEMETRY=1`
 9. **consts.ts has no imports** - Keep `consts.ts` dependency-free to avoid circular deps
 10. **Keep AGENTS.md updated** - Update this file when architecture changes
 11. **Zero-dependency distribution** - All packages go in `devDependencies`; they get bundled at build time
-12. **Use theme for styling** - Never use `chalk` directly in commands; import `theme` from utils and use semantic color/style names
+12. **Use theme for styling** - Never use `chalk` directly; import `theme` from utils
 13. **Use fs.ts utilities** - Always use `@/core/utils/fs.js` for file operations
-14. **No direct process.exit()** - Throw `CLIExitError` instead; entry points handle the actual exit
-15. **Use structured errors** - Never `throw new Error()`; use specific error classes from `@/core/errors.js` with appropriate hints
-16. **SchemaValidationError requires ZodError** - Always pass `ZodError`: `new SchemaValidationError("context", result.error)` - don't call `z.prettifyError()` manually
-17. **No dynamic imports** - Avoid `await import()` inside functions; use static imports at top of file
+14. **No direct process.exit()** - Throw `CLIExitError` instead
+15. **Use structured errors** - Never `throw new Error()`; use specific error classes from `@/core/errors.js`
+16. **SchemaValidationError requires ZodError** - Always pass `ZodError`, don't call `z.prettifyError()` manually
+17. **No dynamic imports** - Avoid `await import()`; use static imports at top of file
 
 ## Development
 
 ```bash
 npm run build      # tsdown - bundles to dist/index.js
-npm run typecheck  # tsc --noEmit - type checking only
-npm run dev        # runs ./bin/dev.js (tsx for direct TypeScript execution)
-npm run start      # runs ./bin/run.js (production, requires build first)
+npm run typecheck  # tsc --noEmit
+npm run dev        # runs ./bin/dev.js (tsx for TypeScript)
+npm run start      # runs ./bin/run.js (requires build first)
 npm test           # vitest
 npm run lint       # eslint
 ```
 
 ### Debugging
 
-To show full error stack traces, set the `DEBUG` environment variable:
+Show full error stack traces:
 
 ```bash
-DEBUG=1 base44 deploy    # Shows full stack trace on errors
+DEBUG=1 base44 deploy
 ```
 
-### Entry Points Architecture
-
-The CLI uses a split architecture for better development experience:
+### Entry Points
 
 **Production** (`./bin/run.js`):
-- Used when installed via npm (`base44` command)
-- Imports from bundled `dist/index.js`
+- Used when installed via npm
+- Imports bundled `dist/index.js`
 - Requires `npm run build` first
 
 **Development** (`./bin/dev.js`):
 - Used during development (`npm run dev`)
-- Uses `tsx` shebang to run TypeScript directly from `src/cli/index.ts`
-- No build step required - changes are reflected immediately
-
-**CLI Module** (`src/cli/`):
-- `index.ts` - `runCLI()` execution, creates ErrorReporter and CLIContext
-- `program.ts` - `createProgram(context)` factory that registers all commands
-- `types.ts` - `CLIContext` type for dependency injection
-- `telemetry/` - Error reporting via PostHog (see folder structure above)
-- `errors.ts` - CLI-specific errors (CLIExitError)
+- Uses `tsx` to run TypeScript directly from `src/cli/index.ts`
+- No build step required
 
 **Error Handling Flow**:
 1. `runCLI()` creates `ErrorReporter` and registers process error handlers
-2. `createProgram(context)` builds the command tree with injected context
-3. Commands throw errors → `runCommand()` catches, logs with `log.error()`, displays hints, re-throws
-4. `runCLI()` catches errors, displays error details, reports to PostHog (if not CLIExitError)
-5. Uses `process.exitCode = 1` (not `process.exit()`) to let event loop drain for telemetry
-6. Telemetry can be disabled via `BASE44_DISABLE_TELEMETRY=1` environment variable
-7. Telemetry includes `error_code` and `is_user_error` properties for all errors
+2. `createProgram(context)` builds command tree with injected context
+3. Commands throw errors → `runCommand()` catches, logs, displays hints, re-throws
+4. `runCLI()` catches errors, displays details, reports to PostHog (if not CLIExitError)
+5. Uses `process.exitCode = 1` (not `process.exit()`) to let event loop drain
+6. Telemetry includes `error_code` and `is_user_error` properties
 
 ### Node.js Version
 
-This project requires Node.js >= 20.19.0. A `.node-version` file is provided for fnm/nodenv.
+Requires Node.js >= 20.19.0. A `.node-version` file is provided for fnm/nodenv.
 
 ### CLI Utilities
 
-When adding async operations to CLI commands:
-- Use `runTask()` from `src/cli/utils/runTask.ts` for operations with progress feedback
-- Provides automatic spinner, success/error messages
-- Follows existing patterns in `create.ts` (entity push, site deploy, skills install)
-- Avoid manual try/catch with `log.message` for async operations
+Use `runTask()` from `src/cli/utils/runTask.ts` for async operations with progress feedback.
 
-### Subprocess Logging in runTask
+### Subprocess Logging
 
-When running subprocesses with `execa` inside `runTask()`, use `{ shell: true }` without `stdio: "inherit"` to suppress subprocess output. The spinner provides user feedback, and subprocess logs would interfere with the UI.
+When running subprocesses with `execa` inside `runTask()`, use `{ shell: true }` without `stdio: "inherit"` to suppress subprocess output:
 
 ```typescript
 await runTask("Installing...", async () => {
   await execa("npx", ["-y", "some-package"], {
     cwd: targetPath,
-    shell: true  // Suppresses subprocess output
+    shell: true
   });
 });
 ```
 
 ## Testing
 
-**Build before testing**: Tests import the bundled `dist/index.js`, so run `npm run build && npm test`.
-
-### Test Structure
-
-```
-tests/
-├── cli/                           # CLI integration tests
-│   ├── testkit/                   # Test utilities (CLITestkit, Base44APIMock)
-│   ├── <command>.spec.ts          # e.g., login.spec.ts, deploy.spec.ts
-│   └── <parent>_<sub>.spec.ts     # e.g., entities_push.spec.ts
-├── core/                          # Core module unit tests
-│   ├── agents.spec.ts
-│   ├── errors.spec.ts
-│   └── project.spec.ts
-└── fixtures/                      # Test project directories
-    ├── basic/                     # Minimal linked project
-    ├── with-entities/             # Project with entities
-    ├── with-agents/               # Project with agents
-    ├── with-functions-and-entities/
-    ├── with-site/                 # Project with site config
-    ├── full-project/              # All resources combined
-    ├── no-app-config/             # Unlinked project (no .app.jsonc)
-    └── invalid-*/                 # Error case fixtures
-```
-
-### Writing Tests
-
-```typescript
-import { describe, it } from "vitest";
-import { setupCLITests, fixture } from "./testkit/index.js";
-
-describe("<command> command", () => {
-  const t = setupCLITests();
-
-  it("succeeds when <scenario>", async () => {
-    // Given
-    await t.givenLoggedInWithProject(fixture("with-entities"));
-    t.api.mockEntitiesPush({ created: ["User"], updated: [], deleted: [] });
-
-    // When
-    const result = await t.run("entities", "push");
-
-    // Then
-    t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain("Entities pushed");
-  });
-
-  it("fails when API returns error", async () => {
-    await t.givenLoggedInWithProject(fixture("with-entities"));
-    t.api.mockEntitiesPushError({ status: 500, body: { error: "Server error" } });
-
-    const result = await t.run("entities", "push");
-
-    t.expectResult(result).toFail();
-  });
-});
-```
-
-### Testkit API
-
-**Setup:**
-- `setupCLITests()` - Call inside `describe()`, returns test context `t`
-
-**Given (setup):**
-- `t.givenLoggedIn({ email, name })` - Create auth file
-- `t.givenProject(fixturePath)` - Set project directory
-- `t.givenLoggedInWithProject(fixturePath)` - Combined (most common)
-
-**When (actions):**
-- `t.run(...args)` - Execute CLI command
-
-**Then (assertions):**
-- `t.expectResult(result).toSucceed()` - Exit code 0
-- `t.expectResult(result).toFail()` - Exit code non-zero
-- `t.expectResult(result).toContain(text)` - Output contains text
-
-**Utilities:**
-- `fixture(name)` - Resolve fixture path
-- `t.getTempDir()` - Get temp directory
-- `t.readAuthFile()` - Read saved auth data
-
-### API Mocks
-
-```typescript
-// Success responses
-t.api.mockEntitiesPush({ created: [], updated: [], deleted: [] });
-t.api.mockFunctionsPush({ deployed: [], deleted: [], errors: null });
-t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
-t.api.mockAgentsFetch({ items: [], total: 0 });
-t.api.mockSiteDeploy({ app_url: "https://app.base44.app" });
-t.api.mockCreateApp({ id: "app-id", name: "App" });
-t.api.mockDeviceCode({ device_code: "...", user_code: "...", ... });
-t.api.mockToken({ access_token: "...", refresh_token: "...", ... });
-t.api.mockUserInfo({ email: "...", name: "..." });
-
-// Error responses
-t.api.mockEntitiesPushError({ status: 500, body: { error: "..." } });
-t.api.mockFunctionsPushError({ status: 400, body: { error: "..." } });
-t.api.mockAgentsPushError({ status: 401, body: { error: "..." } });
-t.api.mockSiteDeployError({ status: 413, body: { error: "..." } });
-```
-
-### Testing Rules
-
-1. **Build first** - Run `npm run build` before `npm test`
-2. **Use fixtures** - Don't create project structures in tests
-3. **Fixtures need `.app.jsonc`** - Add `base44/.app.jsonc` with `{ "id": "test-app-id" }`
-4. **Interactive prompts can't be tested** - Only test via non-interactive flags
+Tests require `npm run build` first. See [TESTING.md](./TESTING.md) for details.
