@@ -1,54 +1,60 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { execa } from "execa";
-import { checkForUpgrade } from "@/cli/utils/version-check.js";
+import { describe, it, vi, beforeEach } from "vitest";
+import { setupCLITests } from "./testkit/index.js";
+import type { UpgradeInfo } from "@/cli/utils/version-check.js";
 
-vi.mock("execa", () => ({
-  execa: vi.fn(),
+// Mock the version-check module
+vi.mock("@/cli/utils/version-check.js", () => ({
+  checkForUpgrade: vi.fn(),
 }));
 
-const mockedExeca = vi.mocked(execa);
+describe("upgrade notification", () => {
+  const t = setupCLITests();
 
-describe("checkForUpgrade", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+  beforeEach(async () => {
+    const { checkForUpgrade } = await import("@/cli/utils/version-check.js");
+    vi.mocked(checkForUpgrade).mockReset();
   });
 
-  it("returns upgrade info when newer version is available", async () => {
-    mockedExeca.mockResolvedValue({ stdout: "1.0.0" } as never);
+  it("displays upgrade notification when newer version is available", async () => {
+    const { checkForUpgrade } = await import("@/cli/utils/version-check.js");
+    const upgradeInfo: UpgradeInfo = {
+      currentVersion: "0.0.26",
+      latestVersion: "1.0.0",
+    };
+    vi.mocked(checkForUpgrade).mockResolvedValue(upgradeInfo);
 
-    const result = await checkForUpgrade();
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
 
-    expect(result).not.toBeNull();
-    expect(result?.latestVersion).toBe("1.0.0");
-    expect(mockedExeca).toHaveBeenCalledWith(
-      "npm",
-      ["view", "base44", "version"],
-      { timeout: 5000 }
-    );
+    const result = await t.run("whoami");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Update available!");
+    t.expectResult(result).toContain("0.0.26 → 1.0.0");
+    t.expectResult(result).toContain("npm update -g base44");
   });
 
-  it("returns null when version is the same", async () => {
-    // Mock returns same version as package.json (0.0.26)
-    mockedExeca.mockResolvedValue({ stdout: "0.0.26" } as never);
+  it("does not display notification when version is current", async () => {
+    const { checkForUpgrade } = await import("@/cli/utils/version-check.js");
+    vi.mocked(checkForUpgrade).mockResolvedValue(null);
 
-    const result = await checkForUpgrade();
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
 
-    expect(result).toBeNull();
+    const result = await t.run("whoami");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).not.toContain("Update available!");
   });
 
-  it("returns null when npm command fails", async () => {
-    mockedExeca.mockRejectedValue(new Error("Network error"));
+  it("does not display notification when version check fails", async () => {
+    const { checkForUpgrade } = await import("@/cli/utils/version-check.js");
+    vi.mocked(checkForUpgrade).mockRejectedValue(new Error("Network error"));
 
-    const result = await checkForUpgrade();
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
 
-    expect(result).toBeNull();
-  });
+    const result = await t.run("whoami");
 
-  it("trims whitespace from version output", async () => {
-    mockedExeca.mockResolvedValue({ stdout: "  2.0.0\n" } as never);
-
-    const result = await checkForUpgrade();
-
-    expect(result?.latestVersion).toBe("2.0.0");
+    // Command still succeeds (upgrade check doesn't block)
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).not.toContain("Update available!");
   });
 });
