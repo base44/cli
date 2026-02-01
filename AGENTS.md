@@ -494,6 +494,49 @@ throw new ApiError("Failed to sync entities", { statusCode: response.status });
 // Other → hints to check network
 ```
 
+### API Error Handling Pattern
+
+When making HTTP requests with the ky client, use `ApiError.fromHttpError()` to convert HTTP errors to structured `ApiError` instances:
+
+```typescript
+import { getAppClient } from "@/core/clients/index.js";
+import { ApiError, SchemaValidationError } from "@/core/errors.js";
+import { MyResponseSchema } from "./schema.js";
+
+export async function myApiFunction(data: MyData): Promise<MyResponse> {
+  const appClient = getAppClient();
+
+  let response;
+  try {
+    response = await appClient.put("endpoint", { json: data });
+  } catch (error) {
+    throw await ApiError.fromHttpError(error, "performing action");
+  }
+
+  const result = MyResponseSchema.safeParse(await response.json());
+  if (!result.success) {
+    throw new SchemaValidationError("Invalid response from server", result.error);
+  }
+
+  return result.data;
+}
+```
+
+For status-specific handling (e.g., 428 for delete conflicts):
+
+```typescript
+import { HTTPError } from "ky";
+
+try {
+  response = await appClient.put("endpoint", { json: data });
+} catch (error) {
+  if (error instanceof HTTPError && error.response.status === 428) {
+    throw new ApiError("Cannot delete: resource has dependencies", { statusCode: 428, cause: error });
+  }
+  throw await ApiError.fromHttpError(error, "performing action");
+}
+```
+
 ### SchemaValidationError with Zod
 
 `SchemaValidationError` requires a context message and a `ZodError`. It formats the error automatically using `z.prettifyError()`:

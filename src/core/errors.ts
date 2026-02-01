@@ -10,6 +10,7 @@
  */
 
 import { z } from "zod";
+import { HTTPError } from "ky";
 import { ApiErrorResponseSchema } from "@/core/clients/schemas.js";
 
 // ============================================================================
@@ -217,35 +218,6 @@ export class InvalidInputError extends UserError {
 // ============================================================================
 
 /**
- * HTTP error-like interface for parsing errors from HTTP clients.
- * Compatible with ky's HTTPError without requiring a direct dependency.
- */
-interface HttpErrorLike {
-  name: string;
-  message: string;
-  response: {
-    status: number;
-    clone: () => { json: () => Promise<unknown> };
-  };
-}
-
-/**
- * Type guard to check if an error looks like an HTTP error (e.g., from ky).
- */
-function isHttpError(error: unknown): error is HttpErrorLike {
-  return (
-    error !== null &&
-    typeof error === "object" &&
-    "name" in error &&
-    error.name === "HTTPError" &&
-    "response" in error &&
-    typeof error.response === "object" &&
-    error.response !== null &&
-    "status" in error.response
-  );
-}
-
-/**
  * Thrown when an API request fails.
  */
 export class ApiError extends SystemError {
@@ -274,7 +246,7 @@ export class ApiError extends SystemError {
    * }
    */
   static async fromHttpError(error: unknown, context: string): Promise<ApiError> {
-    if (isHttpError(error)) {
+    if (error instanceof HTTPError) {
       let message: string;
       try {
         const body: unknown = await error.response.clone().json();
@@ -285,7 +257,7 @@ export class ApiError extends SystemError {
 
       return new ApiError(`Error ${context}: ${message}`, {
         statusCode: error.response.status,
-        cause: error as Error,
+        cause: error,
       });
     }
 

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { HTTPError } from "ky";
 import type { AgentConfig } from "../../src/core/resources/agent/index.js";
 import { pushAgents } from "../../src/core/resources/agent/api.js";
 
@@ -15,23 +16,16 @@ vi.mock("../../src/core/clients/index.js", async (importOriginal) => {
 });
 
 /**
- * Creates a mock HTTP error object for testing error handling.
- * Simulates ky's HTTPError structure without requiring exact type match.
+ * Creates a ky HTTPError for testing error handling.
  */
-function createMockHTTPError(status: number, body: unknown) {
+function createHTTPError(status: number, body: unknown): HTTPError {
   const response = new Response(JSON.stringify(body), {
     status,
     headers: { "Content-Type": "application/json" },
   });
-
-  const error = new Error(`Request failed with status code ${status}`) as Error & {
-    name: string;
-    response: Response;
-  };
-  error.name = "HTTPError";
-  error.response = response;
-
-  return error;
+  const request = new Request("https://api.base44.com/test");
+  // Use type assertion to satisfy ky's NormalizedOptions requirement
+  return new HTTPError(response, request, {} as never);
 }
 
 describe("pushAgents", () => {
@@ -120,7 +114,7 @@ describe("pushAgents", () => {
     ];
 
     mockPut.mockRejectedValue(
-      createMockHTTPError(401, {
+      createHTTPError(401, {
         error_type: "HTTPException",
         message: "Unauthorized access",
         detail: "Token expired",
@@ -140,7 +134,7 @@ describe("pushAgents", () => {
       },
     ];
 
-    mockPut.mockRejectedValue(createMockHTTPError(400, { detail: "Some error detail" }));
+    mockPut.mockRejectedValue(createHTTPError(400, { detail: "Some error detail" }));
 
     await expect(pushAgents(agents)).rejects.toThrow("Error syncing agents: Some error detail");
   });
@@ -156,7 +150,7 @@ describe("pushAgents", () => {
     ];
 
     mockPut.mockRejectedValue(
-      createMockHTTPError(422, {
+      createHTTPError(422, {
         error_type: "ValidationError",
         message: { field: "name", error: "required" },
         detail: [{ loc: ["name"], msg: "field required" }],
