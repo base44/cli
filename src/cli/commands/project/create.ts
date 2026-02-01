@@ -229,14 +229,14 @@ async function executeCreate({
       await runTask(
         "Installing AI agent skills...",
         async () => {
-          await execa("npx", ["-y", "add-skill", "base44/skills", "-y"], {
+          await execa("npx", ["-y", "skills", "add", "base44/skills", "-y"], {
             cwd: resolvedPath,
             shell: true
           });
         },
         {
           successMessage: theme.colors.base44Orange("AI agent skills added successfully"),
-          errorMessage: "Failed to add AI agent skills - you can add them later with: npx add-skill base44/skills",
+          errorMessage: "Failed to add AI agent skills - you can add them later with: npx skills add base44/skills",
         }
       );
     } catch {
