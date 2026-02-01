@@ -1,7 +1,7 @@
 import { resolve } from "node:path";
-import { entityResource } from "@/core/resources/entity/index.js";
-import { functionResource } from "@/core/resources/function/index.js";
-import { agentResource } from "@/core/resources/agent/index.js";
+import { pushEntities } from "@/core/resources/entity/index.js";
+import { pushFunctions } from "@/core/resources/function/index.js";
+import { pushAgents } from "@/core/resources/agent/index.js";
 import { deploySite } from "@/core/site/index.js";
 import type { ProjectData } from "@/core/project/types.js";
 
@@ -42,9 +42,9 @@ export async function deployAll(
 ): Promise<DeployAllResult> {
   const { project, entities, functions, agents } = projectData;
 
-  await entityResource.push(entities);
-  await functionResource.push(functions);
-  await agentResource.push(agents);
+  await pushEntities(entities);
+  await pushFunctions(functions);
+  await pushAgents(agents);
 
   if (project.site?.outputDirectory) {
     const outputDir = resolve(project.root, project.site.outputDirectory);

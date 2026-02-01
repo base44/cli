@@ -16,11 +16,17 @@ export interface CachedAppConfig {
   projectRoot: string;
 }
 
+// ============================================================================
+// DEPRECATED: Global cache - kept for backwards compatibility
+// New code should use Base44LocalProjectSDK instead
+// ============================================================================
+
 let cache: CachedAppConfig | null = null;
 
 /**
  * Load app config from BASE44_CLI_TEST_OVERRIDES env var.
  * @returns true if override was applied, false otherwise
+ * @deprecated Use Base44LocalProjectSDK instead
  */
 function loadFromTestOverrides(): boolean {
   const overrides = process.env.BASE44_CLI_TEST_OVERRIDES;
@@ -45,6 +51,7 @@ function loadFromTestOverrides(): boolean {
  * Returns the cached config, reading from disk only on first call.
  * @returns The app config with id and projectRoot
  * @throws Error if no project found or .app.jsonc missing
+ * @deprecated Use Base44LocalProjectSDK.fromCurrentDirectory() instead
  */
 export async function initAppConfig(): Promise<CachedAppConfig> {
   // Check for test overrides first
@@ -82,6 +89,7 @@ export async function initAppConfig(): Promise<CachedAppConfig> {
 /**
  * Get the cached app config.
  * @throws ConfigInvalidError if not initialized - call initAppConfig() or setAppConfig() first
+ * @deprecated Use sdk.config instead
  */
 export function getAppConfig(): CachedAppConfig {
   if (!cache) {
@@ -92,8 +100,18 @@ export function getAppConfig(): CachedAppConfig {
   return cache;
 }
 
+/**
+ * @deprecated Use Base44LocalProjectSDK.fromConfig() instead
+ */
 export function setAppConfig(config: CachedAppConfig): void {
   cache = config;
+}
+
+/**
+ * Clear the cache. Useful for testing.
+ */
+export function clearAppConfigCache(): void {
+  cache = null;
 }
 
 export function generateAppConfigContent(id: string): string {

@@ -1,16 +1,18 @@
+import type { KyInstance } from "ky";
 import { getAppClient, formatApiError } from "@/core/clients/index.js";
 import { SyncAgentsResponseSchema, ListAgentsResponseSchema } from "./schema.js";
 import type { SyncAgentsResponse, AgentConfig, ListAgentsResponse } from "./schema.js";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";
 
 export async function pushAgents(
-  agents: AgentConfig[]
+  agents: AgentConfig[],
+  client?: KyInstance
 ): Promise<SyncAgentsResponse> {
   if (agents.length === 0) {
     return { created: [], updated: [], deleted: [] };
   }
 
-  const appClient = getAppClient();
+  const appClient = client ?? getAppClient();
 
   const response = await appClient.put("agent-configs", {
     json: agents,
@@ -33,8 +35,8 @@ export async function pushAgents(
   return result.data;
 }
 
-export async function fetchAgents(): Promise<ListAgentsResponse> {
-  const appClient = getAppClient();
+export async function fetchAgents(client?: KyInstance): Promise<ListAgentsResponse> {
+  const appClient = client ?? getAppClient();
   const response = await appClient.get("agent-configs", {
     throwHttpErrors: false,
   });

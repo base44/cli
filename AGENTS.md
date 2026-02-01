@@ -23,9 +23,31 @@ The CLI is distributed as a **zero-dependency package**. All runtime dependencie
 
 ### Project Structure
 - **Package**: `base44` - Single package published to npm
-- **Core Module**: `src/core/` - Resources, utilities, errors, and config
+- **Core Module**: `src/core/` - SDK, resources, utilities, errors, and config
 - **CLI Module**: `src/cli/` - CLI commands and program definition
 - **Bin Scripts**: `bin/` - Entry point scripts for dev and production
+
+### SDK Architecture
+
+The CLI uses an **SDK facade pattern** to decouple the CLI layer from the core module. The `Base44LocalProjectSDK` class provides a unified interface for all project operations:
+
+```typescript
+// Create SDK from current directory
+const sdk = await Base44LocalProjectSDK.fromCurrentDirectory();
+
+// Use namespaced APIs
+const entities = await sdk.entities.readAll();
+await sdk.entities.push(entities);
+await sdk.deployAll();
+
+// Static methods for auth (no project needed)
+await Base44LocalProjectSDK.auth.login();
+await Base44LocalProjectSDK.auth.requireAuth();
+
+// Static methods for project operations
+await Base44LocalProjectSDK.project.create({ name, path, template });
+await Base44LocalProjectSDK.project.link(projectRoot, appId);
+```
 
 ## Folder Structure
 
@@ -36,7 +58,7 @@ cli/
 │   └── dev.js                    # Development entry (uses tsx for TypeScript)
 ├── src/
 │   ├── core/
-│   │   ├── api/                  # HTTP clients
+│   │   ├── clients/              # HTTP clients
 │   │   │   ├── oauth-client.ts   # Unauthenticated client for login flow
 │   │   │   ├── base44-client.ts  # Authenticated client with token refresh
 │   │   │   └── index.ts
@@ -52,32 +74,38 @@ cli/
 │   │   │   ├── create.ts         # Project scaffolding
 │   │   │   ├── deploy.ts      
 │   │   │   ├── template.ts       # Template rendering
-│   │   │   ├── app-config.ts     # .app.jsonc read/write and caching
+│   │   │   ├── app-config.ts     # .app.jsonc read/write (deprecated caching)
 │   │   │   └── index.ts
 │   │   ├── resources/            # Project resources (entity, function, etc.)
-│   │   │   ├── types.ts          # Resource<T> interface
 │   │   │   ├── entity/
 │   │   │   │   ├── schema.ts
-│   │   │   │   ├── config.ts
-│   │   │   │   ├── resource.ts
-│   │   │   │   ├── api.ts        
-│   │   │   │   ├── deploy.ts     
+│   │   │   │   ├── config.ts     # readAllEntities()
+│   │   │   │   ├── api.ts        # syncEntities()
+│   │   │   │   ├── deploy.ts     # pushEntities()
 │   │   │   │   └── index.ts
 │   │   │   ├── function/
 │   │   │   │   ├── schema.ts
-│   │   │   │   ├── config.ts
-│   │   │   │   ├── resource.ts
-│   │   │   │   ├── api.ts        
-│   │   │   │   ├── deploy.ts     
+│   │   │   │   ├── config.ts     # readAllFunctions()
+│   │   │   │   ├── api.ts        # deployFunctions()
+│   │   │   │   ├── deploy.ts     # pushFunctions()
 │   │   │   │   └── index.ts
 │   │   │   ├── agent/
 │   │   │   │   ├── schema.ts
-│   │   │   │   ├── config.ts
-│   │   │   │   ├── resource.ts
-│   │   │   │   ├── api.ts
+│   │   │   │   ├── config.ts     # readAllAgents(), writeAgents()
+│   │   │   │   ├── api.ts        # pushAgents(), fetchAgents()
 │   │   │   │   └── index.ts
 │   │   │   └── index.ts
-│   │   ├── site/                 # Site deployment (NOT a Resource)
+│   │   ├── sdk/                  # SDK facade (NEW)
+│   │   │   ├── sdk.ts            # Base44LocalProjectSDK class
+│   │   │   ├── types.ts          # SDKConfig, AppClient types
+│   │   │   ├── auth-namespace.ts # AuthNamespace (static methods)
+│   │   │   ├── project-namespace.ts
+│   │   │   ├── entities-namespace.ts
+│   │   │   ├── functions-namespace.ts
+│   │   │   ├── agents-namespace.ts
+│   │   │   ├── site-namespace.ts
+│   │   │   └── index.ts
+│   │   ├── site/                 # Site deployment
 │   │   │   ├── schema.ts         # DeployResponse Zod schema
 │   │   │   ├── config.ts         # getSiteFilePaths() - glob files for validation
 │   │   │   ├── api.ts            # uploadSite() - reads archive, sends to API
@@ -89,33 +117,33 @@ cli/
 │   │   ├── consts.ts             # Pure constants (NO imports from other core modules)
 │   │   ├── config.ts             # Path helpers (global dir, templates, API URL)
 │   │   ├── errors.ts             # CLIError hierarchy (UserError, SystemError, etc.)
-│   │   └── index.ts              # Barrel export for all core modules
+│   │   └── index.ts              # Barrel export (includes SDK)
 │   └── cli/
 │       ├── program.ts            # createProgram(context) factory
 │       ├── index.ts              # runCLI() execution + barrel exports
-│       ├── types.ts              # CLIContext type for dependency injection
+│       ├── types.ts              # CLIContext type (includes sdk property)
 │       ├── errors.ts             # CLI-specific errors (CLIExitError)
 │       ├── commands/
 │       │   ├── auth/
 │       │   │   ├── login.ts      # getLoginCommand(context) factory
-│       │   │   ├── login-flow.ts # login() logic (separate to avoid circular deps)
+│       │   │   ├── login-flow.ts # login() logic (uses SDK.auth)
 │       │   │   ├── logout.ts
 │       │   │   └── whoami.ts
 │       │   ├── project/
-│       │   │   ├── create.ts
+│       │   │   ├── create.ts     # Uses SDK.project.create
 │       │   │   ├── dashboard.ts
-│       │   │   ├── deploy.ts     # Unified deploy command
-│       │   │   └── link.ts
+│       │   │   ├── deploy.ts     # Uses sdk.deployAll()
+│       │   │   └── link.ts       # Uses SDK.project.link
 │       │   ├── entities/
-│       │   │   └── push.ts
+│       │   │   └── push.ts       # Uses sdk.entities
 │       │   ├── agents/
 │       │   │   ├── index.ts      # getAgentsCommand(context) - parent command
-│       │   │   ├── pull.ts
-│       │   │   └── push.ts
+│       │   │   ├── pull.ts       # Uses sdk.agents.pull()
+│       │   │   └── push.ts       # Uses sdk.agents.push()
 │       │   ├── functions/
-│       │   │   └── deploy.ts
+│       │   │   └── deploy.ts     # Uses sdk.functions.deploy()
 │       │   └── site/
-│       │       └── deploy.ts
+│       │       └── deploy.ts     # Uses sdk.site.deploy()
 │       ├── telemetry/            # Error reporting and telemetry
 │       │   ├── consts.ts         # PostHog API key, env var names
 │       │   ├── posthog.ts        # PostHog client singleton
@@ -123,7 +151,7 @@ cli/
 │       │   ├── commander-hooks.ts# Commander.js integration for command context
 │       │   └── index.ts
 │       └── utils/
-│           ├── runCommand.ts     # Command wrapper with branding
+│           ├── runCommand.ts     # Command wrapper (creates SDK, passes to commands)
 │           ├── runTask.ts        # Spinner wrapper
 │           ├── banner.ts         # ASCII art banner
 │           ├── prompts.ts        # Prompt utilities
@@ -139,7 +167,7 @@ cli/
 
 ## Adding a New Command
 
-Commands live in `src/cli/commands/`. Commands use a **factory pattern** with dependency injection via `CLIContext`.
+Commands live in `src/cli/commands/`. Commands use a **factory pattern** with dependency injection via `CLIContext`, and receive the SDK instance via `runCommand()`.
 
 ### 1. Create the command file
 
@@ -148,28 +176,30 @@ Commands live in `src/cli/commands/`. Commands use a **factory pattern** with de
 import { Command } from "commander";
 import { log } from "@clack/prompts";
 import type { CLIContext } from "@/cli/types.js";
+import type { Base44LocalProjectSDK } from "@/core/index.js";
 import { runCommand, runTask, theme } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 
-async function myAction(): Promise<RunCommandResult> {
+// Commands receive the SDK as first parameter
+async function myAction(sdk: Base44LocalProjectSDK): Promise<RunCommandResult> {
+  // Use SDK for all project operations
+  const entities = await sdk.entities.readAll();
+
   // Use runTask for async operations with spinners
   const result = await runTask(
-    "Doing something...",
+    "Pushing entities...",
     async () => {
-      // Your async operation here
-      return someResult;
+      return await sdk.entities.push(entities);
     },
     {
-      // Use theme colors for success messages
       successMessage: theme.colors.base44Orange("Done!"),
-      errorMessage: "Failed to do something",
+      errorMessage: "Failed to push entities",
     }
   );
 
   log.success("Operation completed!");
 
-  // Return an optional outro message (displayed at the end)
-  return { outroMessage: `Created ${theme.styles.bold(result.name)}` };
+  return { outroMessage: `Pushed ${result.created.length} entities` };
 }
 
 // Export a factory function that receives CLIContext
@@ -178,16 +208,17 @@ export function getMyCommand(context: CLIContext): Command {
     .description("<description>")
     .option("-f, --flag", "Some flag")
     .action(async (options) => {
+      // SDK is automatically created and passed to myAction
       await runCommand(myAction, { requireAuth: true }, context);
     });
 }
 ```
 
 **Important**:
-- Commands export a **factory function** (`getMyCommand`), not a static command instance
-- The factory receives `CLIContext` which contains the `errorReporter`
+- Commands receive `sdk: Base44LocalProjectSDK` as first parameter
+- The SDK is automatically created by `runCommand()` based on options
 - Commands should NOT call `intro()` or `outro()` directly - `runCommand()` handles both
-- The `context` must be passed to `runCommand()` as the third argument
+- Use `sdk.*` for all project operations (no direct imports from core)
 
 ### 2. Register in program.ts
 
@@ -202,7 +233,7 @@ program.addCommand(getMyCommand(context));
 ### 3. Command wrapper options
 
 ```typescript
-// Standard command - loads app config by default
+// Standard command - creates SDK from current directory
 await runCommand(myAction, undefined, context);
 
 // Command with full ASCII art banner (for special commands like create)
@@ -211,7 +242,8 @@ await runCommand(myAction, { fullBanner: true }, context);
 // Command requiring authentication (auto-login if needed)
 await runCommand(myAction, { requireAuth: true }, context);
 
-// Command that doesn't need app config (auth commands, create, link)
+// Command that doesn't need SDK (auth commands, create, link)
+// These commands can use Base44LocalProjectSDK.auth.* or SDK.project.* static methods
 await runCommand(myAction, { requireAppConfig: false }, context);
 
 // Command with multiple options
@@ -220,8 +252,8 @@ await runCommand(myAction, { fullBanner: true, requireAuth: true }, context);
 
 **Options:**
 - `fullBanner`: Show ASCII art banner instead of simple tag
-- `requireAuth`: Check authentication before running (auto-login if needed)
-- `requireAppConfig`: Load `.app.jsonc` and cache for sync access (default: `true`)
+- `requireAuth`: Check authentication before running (uses SDK.auth.isLoggedIn())
+- `requireAppConfig`: Create SDK from current directory (default: `true`)
 
 ### 4. CLIContext and Dependency Injection
 
@@ -230,12 +262,13 @@ The `CLIContext` type (`src/cli/types.ts`) provides dependencies to commands:
 ```typescript
 export interface CLIContext {
   errorReporter: ErrorReporter;
+  sdk: Base44LocalProjectSDK | null;  // Set by runCommand when requireAppConfig is true
 }
 ```
 
-- Created once in `runCLI()` at CLI startup
-- Passed to `createProgram(context)` which passes to each command factory
-- Commands pass it to `runCommand()` for error reporting integration
+- Created once in `runCLI()` at CLI startup with `sdk: null`
+- `runCommand()` creates the SDK and sets `context.sdk`
+- The SDK is passed to command action functions
 
 ## Theming
 
@@ -255,83 +288,120 @@ theme.styles.header("Label")              // Dim text for labels
 
 When adding new theme properties, use semantic names (e.g., `links`, `header`) not color names.
 
-## Making API Calls
+## Using the SDK
 
-Use the HTTP clients from `@/core/api/index.js`:
+Commands should use the SDK for all project operations. The SDK provides a clean, namespaced API.
 
-### Authenticated API calls (most common)
-
-```typescript
-import { base44Client, getAppClient } from "@/core/api/index.js";
-
-// For general Base44 API calls
-const response = await base44Client.get("api/endpoint");
-const data = await response.json();
-
-// For app-specific API calls (requires .app.jsonc with id)
-const appClient = getAppClient();
-const response = await appClient.get("entities");
-const entities = await response.json();
-
-// POST with JSON body
-const response = await base44Client.post("api/endpoint", {
-  json: { key: "value" },
-});
-```
-
-### OAuth endpoints (login flow only)
+### SDK in Commands
 
 ```typescript
-import { oauthClient } from "@/core/api/index.js";
+// Commands receive sdk as first parameter (from runCommand)
+async function myAction(sdk: Base44LocalProjectSDK): Promise<RunCommandResult> {
+  // Entities
+  const entities = await sdk.entities.readAll();
+  await sdk.entities.push(entities);
 
-// Used only in auth/api.ts for device code flow
-const response = await oauthClient.post("oauth/device/code", {
-  json: { client_id: AUTH_CLIENT_ID, scope: "apps:read apps:write" },
-});
-```
+  // Functions
+  const functions = await sdk.functions.readAll();
+  await sdk.functions.deploy(functions);
 
-### Token refresh
+  // Agents
+  const agents = await sdk.agents.readAll();
+  await sdk.agents.push(agents);
+  await sdk.agents.pull();  // Pull from remote
 
-The `base44Client` automatically handles token refresh:
-1. Before each request, checks if token is expired
-2. If expired, refreshes token and saves new tokens
-3. On 401 response, attempts refresh and retries once
+  // Site
+  await sdk.site.deploy("dist");
 
-## Resource Pattern
+  // Deploy all at once
+  const result = await sdk.deployAll();
+  console.log(result.appUrl);
 
-Resources are project-specific collections (entities, functions) that can be loaded from the filesystem.
-
-### Resource Interface (`resources/types.ts`)
-
-```typescript
-export interface Resource<T> {
-  readAll: (dir: string) => Promise<T[]>;
-  push: (items: T[]) => Promise<unknown>;
+  // Project config
+  const { project, entities, functions, agents } = await sdk.project.readConfig();
 }
 ```
 
-Note: The `push` method handles empty arrays gracefully (returns early without API call).
+### Static SDK Methods (No Project Needed)
 
-### Resource Implementation (`resources/<name>/resource.ts`)
+For commands that don't need an existing project:
 
 ```typescript
-export const entityResource: Resource<Entity> = {
-  readAll: readAllEntities,
-  push: pushEntities,
-};
+// Authentication (always static)
+await Base44LocalProjectSDK.auth.isLoggedIn();
+await Base44LocalProjectSDK.auth.requireAuth();
+await Base44LocalProjectSDK.auth.login();  // Returns device code info
+await Base44LocalProjectSDK.auth.logout();
+await Base44LocalProjectSDK.auth.getUser();
+
+// Project creation and linking
+const { projectId } = await Base44LocalProjectSDK.project.create({
+  name: "my-app",
+  path: "./my-app",
+  template: template,
+});
+await Base44LocalProjectSDK.project.link(projectRoot, appId);
+const root = await Base44LocalProjectSDK.project.findRoot();
 ```
 
-### Adding a New Resource
+### Direct API Calls (Advanced)
 
-1. Create folder in `src/core/resources/<name>/`
-2. Add `schema.ts` with Zod schemas
-3. Add `config.ts` with file reading logic
-4. Add `resource.ts` implementing `Resource<T>`
-5. Add `api.ts` for API calls (if needed)
-6. Add `index.ts` barrel exports
-7. Update `resources/index.ts` to export the new resource
-8. Register in `project/config.ts` (add to `readProjectConfig`)
-9. Add typed field to `ProjectData` interface
+For operations not covered by SDK namespaces:
+
+```typescript
+import { base44Client } from "@/core/clients/index.js";
+
+// For general Base44 API calls (authenticated)
+const response = await base44Client.get("api/endpoint");
+const data = await response.json();
+```
+
+## Adding a New Resource Type
+
+Resources (entities, functions, agents) are managed via SDK namespaces. To add a new resource type:
+
+### 1. Create resource folder
+
+```
+src/core/resources/<name>/
+├── schema.ts    # Zod schemas for validation
+├── config.ts    # readAll<Name>() - filesystem operations
+├── api.ts       # API calls (accepts optional client param)
+└── index.ts     # Barrel exports
+```
+
+### 2. Create SDK namespace
+
+```typescript
+// src/core/sdk/<name>-namespace.ts
+export class <Name>Namespace {
+  constructor(
+    private config: SDKConfig,
+    private client: AppClient
+  ) {}
+
+  async readAll(): Promise<T[]> { /* ... */ }
+  async push(items: T[]): Promise<Response> { /* ... */ }
+}
+```
+
+### 3. Add to SDK class
+
+```typescript
+// src/core/sdk/sdk.ts
+private _<name>?: <Name>Namespace;
+
+get <name>(): <Name>Namespace {
+  if (!this._<name>) {
+    this._<name> = new <Name>Namespace(this.config, this.getClient());
+  }
+  return this._<name>;
+}
+```
+
+### 4. Update ProjectData type
+
+Add the new resource array to `ProjectData` in `project/types.ts`.
 
 ## Site Module
 
@@ -377,24 +447,40 @@ base44 site deploy
 
 ## Unified Deploy Command
 
-The `base44 deploy` command deploys all project resources in one operation:
+The `base44 deploy` command deploys all project resources in one operation using the SDK:
 
-1. Pushes entities (via `entityResource.push()`)
-2. Pushes functions (via `functionResource.push()`)
-3. Deploys site (if `site.outputDirectory` is configured)
+1. Pushes entities (via `sdk.entities.push()`)
+2. Pushes functions (via `sdk.functions.deploy()`)
+3. Pushes agents (via `sdk.agents.push()`)
+4. Deploys site (if `site.outputDirectory` is configured)
 
-### Core Functions (`project/deploy.ts`)
+### Using SDK.deployAll()
 
 ```typescript
-import { deployAll, hasResourcesToDeploy } from "@/core/project/index.js";
+async function deployAction(sdk: Base44LocalProjectSDK): Promise<RunCommandResult> {
+  // Check if there's anything to deploy
+  if (!await sdk.hasResourcesToDeploy()) {
+    return { outroMessage: "No resources found to deploy" };
+  }
 
-// Check if there's anything to deploy
-if (!hasResourcesToDeploy(projectData)) {
-  return;
+  // Deploy all resources
+  const result = await sdk.deployAll();
+  // result.entities, result.functions, result.agents, result.site, result.appUrl
+
+  return { outroMessage: `Deployed to ${result.appUrl}` };
 }
+```
 
-// Deploy all resources
-const { appUrl } = await deployAll(projectData);
+### Selective Deployment
+
+```typescript
+// Deploy only specific resource types
+const result = await sdk.deployAll({
+  entities: true,    // default: true
+  functions: true,   // default: true
+  agents: false,     // skip agents
+  site: true,        // default: true if site config exists
+});
 ```
 
 ### CLI Command
@@ -411,9 +497,13 @@ Single alias defined in `tsconfig.json`:
 - `@/*` → `./src/*`
 
 ```typescript
-import { readProjectConfig } from "@/core/project/index.js";
-import { entityResource } from "@/core/resources/entity/index.js";
-import { base44Client } from "@/core/api/index.js";
+// SDK (primary import for commands)
+import { Base44LocalProjectSDK } from "@/core/index.js";
+import type { Base44LocalProjectSDK } from "@/core/index.js";
+
+// Low-level imports (for SDK internals or advanced use)
+import { base44Client } from "@/core/clients/index.js";
+import { readAllEntities } from "@/core/resources/entity/index.js";
 ```
 
 ## Error Handling
@@ -606,6 +696,8 @@ Set the environment variable: `BASE44_DISABLE_TELEMETRY=1`
 15. **Use structured errors** - Never `throw new Error()`; use specific error classes from `@/core/errors.js` with appropriate hints
 16. **SchemaValidationError requires ZodError** - Always pass `ZodError`: `new SchemaValidationError("context", result.error)` - don't call `z.prettifyError()` manually
 17. **No dynamic imports** - Avoid `await import()` inside functions; use static imports at top of file
+18. **Use SDK in commands** - Commands should use `sdk.*` for all project operations, not direct imports from core
+19. **SDK for new features** - When adding new functionality, add it to the SDK namespace classes, not as standalone exports
 
 ## Development
 

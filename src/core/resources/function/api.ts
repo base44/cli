@@ -1,3 +1,4 @@
+import type { KyInstance } from "ky";
 import { getAppClient } from "@/core/clients/index.js";
 import { DeployFunctionsResponseSchema } from "@/core/resources/function/schema.js";
 import type { FunctionWithCode, DeployFunctionsResponse } from "@/core/resources/function/schema.js";
@@ -12,9 +13,10 @@ function toDeployPayloadItem(fn: FunctionWithCode) {
 }
 
 export async function deployFunctions(
-  functions: FunctionWithCode[]
+  functions: FunctionWithCode[],
+  client?: KyInstance
 ): Promise<DeployFunctionsResponse> {
-  const appClient = getAppClient();
+  const appClient = client ?? getAppClient();
   const payload = {
     functions: functions.map(toDeployPayloadItem),
   };

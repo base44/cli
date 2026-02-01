@@ -4,15 +4,12 @@ import { log, group, text, select, isCancel, cancel } from "@clack/prompts";
 import type { CLIContext } from "@/cli/types.js";
 import { CLIExitError } from "@/cli/errors.js";
 import {
-  findProjectRoot,
   createProject,
-  writeAppConfig,
   appConfigExists,
-  setAppConfig,
   listProjects,
 } from "@/core/project/index.js";
 import type { Project } from "@/core/project/index.js";
-import { ConfigNotFoundError, ConfigExistsError, InvalidInputError } from "@/core/errors.js";
+import { Base44LocalProjectSDK, ConfigNotFoundError, ConfigExistsError, InvalidInputError } from "@/core/index.js";
 import {
   runCommand,
   runTask,
@@ -121,8 +118,8 @@ async function promptForExistingProject(linkableProjects: Project[]): Promise<Pr
   return selectedProject;
 }
 
-async function link(options: LinkOptions): Promise<RunCommandResult> {
-  const projectRoot = await findProjectRoot();
+async function link(options: LinkOptions, context: CLIContext): Promise<RunCommandResult> {
+  const projectRoot = await Base44LocalProjectSDK.project.findRoot();
 
   if (!projectRoot) {
     throw new ConfigNotFoundError(
@@ -185,8 +182,7 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
     await runTask(
       "Linking project...",
       async () => {
-        await writeAppConfig(projectRoot.root, projectId);
-        setAppConfig({ id: projectId, projectRoot: projectRoot.root });
+        await Base44LocalProjectSDK.project.link(projectRoot.root, projectId);
       },
       {
         successMessage: "Project linked successfully",
@@ -194,6 +190,8 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
       }
     );
 
+    // Set SDK in context
+    context.sdk = Base44LocalProjectSDK.fromConfig(projectRoot.root, projectId);
     finalProjectId = projectId;
   }
 
@@ -213,16 +211,16 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
       }
     );
 
+    await Base44LocalProjectSDK.project.link(projectRoot.root, projectId);
 
-    await writeAppConfig(projectRoot.root, projectId);
-
-    // Set app config in cache for sync access to getDashboardUrl
-    setAppConfig({ id: projectId, projectRoot: projectRoot.root });
-
+    // Set SDK in context
+    context.sdk = Base44LocalProjectSDK.fromConfig(projectRoot.root, projectId);
     finalProjectId = projectId;
   }
 
-  log.message(`${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(finalProjectId))}`);
+  if (finalProjectId) {
+    log.message(`${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(finalProjectId))}`);
+  }
   return { outroMessage: "Project linked" };
 }
 
@@ -235,6 +233,6 @@ export function getLinkCommand(context: CLIContext): Command {
     .option("-p, --projectId <id>", "Project ID to link to an existing project (skips selection prompt)")
     .hook("preAction", validateNonInteractiveFlags)
     .action(async (options: LinkOptions) => {
-      await runCommand(() => link(options), { requireAuth: true, requireAppConfig: false }, context);
+      await runCommand(() => link(options, context), { requireAuth: true, requireAppConfig: false }, context);
     });
 }

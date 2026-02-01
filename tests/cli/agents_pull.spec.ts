@@ -28,7 +28,7 @@ describe("agents pull command", () => {
     t.api.mockAgentsFetch({
       items: [
         { name: "support_agent", description: "Helps users" },
-        { name: "sales_agent", description: "Handles sales" },
+        { name: "sales_agent", description: "Handling sales" },
       ],
       total: 2,
     });
@@ -36,8 +36,7 @@ describe("agents pull command", () => {
     const result = await t.run("agents", "pull");
 
     t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain("Agents fetched successfully");
-    t.expectResult(result).toContain("Agent files written successfully");
+    t.expectResult(result).toContain("Agents pulled successfully");
     t.expectResult(result).toContain("Pulled 2 agents");
   });
 

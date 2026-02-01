@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
 import { create as tarCreate } from "tar";
+import type { KyInstance } from "ky";
 import type { DeployResponse } from "@/core/site/schema.js";
 import { getSiteFilePaths } from "@/core/site/config.js";
 import { uploadSite } from "@/core/site/api.js";
@@ -9,7 +10,8 @@ import { pathExists, deleteFile } from "@/core/utils/fs.js";
 import { FileNotFoundError, ConfigInvalidError } from "@/core/errors.js";
 
 export async function deploySite(
-  siteOutputDir: string
+  siteOutputDir: string,
+  client?: KyInstance
 ): Promise<DeployResponse> {
   if (!(await pathExists(siteOutputDir))) {
     throw new FileNotFoundError(
@@ -42,7 +44,7 @@ export async function deploySite(
 
   try {
     await createArchive(siteOutputDir, archivePath);
-    return await uploadSite(archivePath);
+    return await uploadSite(archivePath, client);
   } finally {
     await deleteFile(archivePath);
   }

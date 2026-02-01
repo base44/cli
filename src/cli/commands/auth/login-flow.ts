@@ -1,11 +1,7 @@
 import { log } from "@clack/prompts";
 import pWaitFor from "p-wait-for";
-import {
-  writeAuth,
-  generateDeviceCode,
-  getTokenFromDeviceCode,
-  getUserInfo,
-} from "@/core/auth/index.js";
+import { Base44LocalProjectSDK } from "@/core/index.js";
+import { getUserInfo } from "@/core/auth/index.js";
 import type {
   DeviceCodeResponse,
   TokenResponse,
@@ -19,7 +15,7 @@ async function generateAndDisplayDeviceCode(): Promise<DeviceCodeResponse> {
   const deviceCodeResponse = await runTask(
     "Generating device code...",
     async () => {
-      return await generateDeviceCode();
+      return await Base44LocalProjectSDK.auth.startDeviceCodeFlow();
     },
     {
       successMessage: "Device code generated",
@@ -48,7 +44,7 @@ async function waitForAuthentication(
       async () => {
         await pWaitFor(
           async () => {
-            const result = await getTokenFromDeviceCode(deviceCode);
+            const result = await Base44LocalProjectSDK.auth.pollForToken(deviceCode);
             if (result !== null) {
               tokenResponse = result;
               return true;
@@ -86,7 +82,7 @@ async function saveAuthData(
 ): Promise<void> {
   const expiresAt = Date.now() + response.expiresIn * 1000;
 
-  await writeAuth({
+  await Base44LocalProjectSDK.auth.saveAuth({
     accessToken: response.accessToken,
     refreshToken: response.refreshToken,
     expiresAt,

@@ -1,12 +1,14 @@
+import type { KyInstance } from "ky";
 import { getAppClient, formatApiError } from "@/core/clients/index.js";
 import { SyncEntitiesResponseSchema } from "@/core/resources/entity/schema.js";
 import type { SyncEntitiesResponse, Entity } from "@/core/resources/entity/schema.js";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";
 
 export async function syncEntities(
-  entities: Entity[]
+  entities: Entity[],
+  client?: KyInstance
 ): Promise<SyncEntitiesResponse> {
-  const appClient = getAppClient();
+  const appClient = client ?? getAppClient();
   const schemaSyncPayload = Object.fromEntries(
     entities.map((entity) => [entity.name, entity])
   );
