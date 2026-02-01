@@ -74,6 +74,8 @@ export async function runCommand(
     intro(theme.colors.base44OrangeBackground(" Base 44 "));
   }
 
+  await printUpgradeNotificationIfAvailable();
+
   try {
     // Check authentication if required
     if (options?.requireAuth) {
@@ -93,8 +95,6 @@ export async function runCommand(
 
     const { outroMessage } = await commandFn();
     outro(outroMessage || "");
-
-    await printUpgradeNotificationIfAvailable();
   } catch (error) {
     // Display error message
     const errorMessage = error instanceof Error ? error.message : String(error);
