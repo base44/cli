@@ -14,8 +14,8 @@ async function openDashboard(): Promise<RunCommandResult> {
   return { outroMessage: `Dashboard opened at ${dashboardUrl}` };
 }
 
-export function getDashboardCommand(context: CLIContext): Command {
-  return new Command("dashboard")
+export function getDashboardOpenCommand(context: CLIContext): Command {
+  return new Command("open")
     .description("Open the app dashboard in your browser")
     .action(async () => {
       await runCommand(openDashboard, { requireAuth: true }, context);
