@@ -6,11 +6,13 @@ import {
   deployAll,
   hasResourcesToDeploy,
 } from "@/core/project/index.js";
+import { buildSite } from "@/core/site/index.js";
 import { runCommand, runTask, theme, getDashboardUrl } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 
 interface DeployOptions {
   yes?: boolean;
+  skipBuild?: boolean;
 }
 
 async function deployAction(options: DeployOptions): Promise<RunCommandResult> {
@@ -23,6 +25,20 @@ async function deployAction(options: DeployOptions): Promise<RunCommandResult> {
   }
 
   const { project, entities, functions, agents } = projectData;
+
+  // Build the site if configured and not skipped
+  if (!options.skipBuild && project.site?.buildCommand) {
+    await runTask(
+      "Building project...",
+      async () => {
+        await buildSite({ site: project.site!, cwd: project.root });
+      },
+      {
+        successMessage: "Build completed",
+        errorMessage: "Build failed",
+      }
+    );
+  }
 
   // Build summary of what will be deployed
   const summaryLines: string[] = [];
@@ -79,6 +95,7 @@ export function getDeployCommand(context: CLIContext): Command {
   return new Command("deploy")
     .description("Deploy all project resources (entities, functions, agents, and site)")
     .option("-y, --yes", "Skip confirmation prompt")
+    .option("--skip-build", "Skip building the project before deployment")
     .action(async (options: DeployOptions) => {
       await runCommand(() => deployAction(options), { requireAuth: true }, context);
     });
