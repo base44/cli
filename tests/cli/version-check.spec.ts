@@ -23,7 +23,7 @@ describe("upgrade notification", () => {
     const result = await t.run("whoami");
 
     t.expectResult(result).toSucceed();
-    t.expectResult(result).not.toContain("Update available!");
+    t.expectResult(result).toNotContain("Update available!");
   });
 
   it("does not display notification when check is not overridden", async () => {
