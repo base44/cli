@@ -1,7 +1,7 @@
 import { describe, it } from "vitest";
 import { setupCLITests, fixture } from "./testkit/index.js";
 
-describe("dashboard command", () => {
+describe("dashboard open command", () => {
   const t = setupCLITests();
 
   it("opens dashboard URL when in a project", async () => {
@@ -11,7 +11,7 @@ describe("dashboard command", () => {
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Dashboard opened");
-    t.expectResult(result).toContain("test-app-id"); // App ID from fixture
+    t.expectResult(result).toContain("test-app-id");
   });
 
   it("fails when not in a project directory", async () => {

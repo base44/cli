@@ -42,6 +42,10 @@ export interface SiteDeployResponse {
   app_url: string;
 }
 
+export interface SiteUrlResponse {
+  url: string;
+}
+
 export interface AgentsPushResponse {
   created: string[];
   updated: string[];
@@ -145,6 +149,16 @@ export class Base44APIMock {
     return this;
   }
 
+  /** Mock GET /api/apps/platform/{appId}/published-url - Get site URL */
+  mockSiteUrl(response: SiteUrlResponse): this {
+    this.handlers.push(
+      http.get(`${BASE_URL}/api/apps/platform/${this.appId}/published-url`, () =>
+        HttpResponse.json(response)
+      )
+    );
+    return this;
+  }
+
   /** Mock PUT /api/apps/{appId}/agent-configs - Push agents */
   mockAgentsPush(response: AgentsPushResponse): this {
     this.handlers.push(
@@ -199,6 +213,11 @@ export class Base44APIMock {
   /** Mock site deploy to return an error */
   mockSiteDeployError(error: ErrorResponse): this {
     return this.mockError("post", `/api/apps/${this.appId}/deploy-dist`, error);
+  }
+
+  /** Mock site URL to return an error */
+  mockSiteUrlError(error: ErrorResponse): this {
+    return this.mockError("get", `/api/apps/platform/${this.appId}/published-url`, error);
   }
 
   /** Mock agents push to return an error */
