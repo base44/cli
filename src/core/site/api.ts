@@ -39,7 +39,19 @@ export async function uploadSite(archivePath: string): Promise<DeployResponse> {
 
 export async function getSiteUrl(projectId?: string): Promise<string> {
   const id = projectId ?? getAppConfig().id;
-  const response = await base44Client.get(`api/apps/platform/${id}/published-url`);
-  const data = PublishedUrlResponseSchema.parse(await response.json());
-  return data.url;
+
+  let response;
+  try {
+    response = await base44Client.get(`api/apps/platform/${id}/published-url`);
+  } catch (error) {
+    throw await ApiError.fromHttpError(error, "fetching site URL");
+  }
+
+  const result = PublishedUrlResponseSchema.safeParse(await response.json());
+
+  if (!result.success) {
+    throw new SchemaValidationError("Invalid response from server", result.error);
+  }
+
+  return result.data.url;
 }
