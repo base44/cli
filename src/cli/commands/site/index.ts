@@ -5,7 +5,7 @@ import { getSiteOpenCommand } from "./open.js";
 
 export function getSiteCommand(context: CLIContext): Command {
   return new Command("site")
-    .description("Manage site")
+    .description("Manage site (frontend app)")
     .addCommand(getSiteDeployCommand(context))
     .addCommand(getSiteOpenCommand(context));
 }
