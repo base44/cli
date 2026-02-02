@@ -1,12 +1,12 @@
 import { resolve } from "node:path";
+import { confirm, isCancel } from "@clack/prompts";
+import { Command } from "commander";
 import type { CLIContext } from "@/cli/types.js";
 import { runCommand, runTask } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 import { ConfigNotFoundError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/project/index.js";
 import { deploySite } from "@/core/site/index.js";
-import { confirm, isCancel } from "@clack/prompts";
-import { Command } from "commander";
 
 interface DeployOptions {
   yes?: boolean;

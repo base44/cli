@@ -1,3 +1,4 @@
+import { intro, log, outro } from "@clack/prompts";
 import { login } from "@/cli/commands/auth/login-flow.js";
 import type { CLIContext } from "@/cli/types.js";
 import { printBanner } from "@/cli/utils/banner.js";
@@ -5,7 +6,6 @@ import { theme } from "@/cli/utils/theme.js";
 import { isLoggedIn } from "@/core/auth/index.js";
 import { isCLIError } from "@/core/errors.js";
 import { initAppConfig } from "@/core/project/index.js";
-import { intro, log, outro } from "@clack/prompts";
 
 export interface RunCommandOptions {
   /**

@@ -1,6 +1,6 @@
 import { renewAccessToken } from "@/core/auth/api.js";
-import { AuthDataSchema } from "@/core/auth/schema.js";
 import type { AuthData } from "@/core/auth/schema.js";
+import { AuthDataSchema } from "@/core/auth/schema.js";
 import { getAuthFilePath } from "@/core/config.js";
 import { AuthRequiredError, FileReadError, SchemaValidationError } from "@/core/errors.js";
 import { deleteFile, readJsonFile, writeJsonFile } from "@/core/utils/fs.js";

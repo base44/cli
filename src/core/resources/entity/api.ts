@@ -1,9 +1,9 @@
-import { getAppClient } from "@/core/clients/index.js";
-import { ApiError, SchemaValidationError } from "@/core/errors.js";
-import { SyncEntitiesResponseSchema } from "@/core/resources/entity/schema.js";
-import type { Entity, SyncEntitiesResponse } from "@/core/resources/entity/schema.js";
 import type { KyResponse } from "ky";
 import { HTTPError } from "ky";
+import { getAppClient } from "@/core/clients/index.js";
+import { ApiError, SchemaValidationError } from "@/core/errors.js";
+import type { Entity, SyncEntitiesResponse } from "@/core/resources/entity/schema.js";
+import { SyncEntitiesResponseSchema } from "@/core/resources/entity/schema.js";
 
 export async function syncEntities(entities: Entity[]): Promise<SyncEntitiesResponse> {
   const appClient = getAppClient();

@@ -8,13 +8,13 @@ import {
   ConfigNotFoundError,
   FileNotFoundError,
   FileReadError,
+  formatApiError,
   InternalError,
   InvalidInputError,
-  SchemaValidationError,
-  formatApiError,
   isCLIError,
   isSystemError,
   isUserError,
+  SchemaValidationError,
 } from "../../src/core/errors.js";
 
 describe("CLIError base class", () => {

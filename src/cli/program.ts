@@ -1,3 +1,4 @@
+import { Command } from "commander";
 import { getAgentsCommand } from "@/cli/commands/agents/index.js";
 import { getLoginCommand } from "@/cli/commands/auth/login.js";
 import { getLogoutCommand } from "@/cli/commands/auth/logout.js";
@@ -9,7 +10,6 @@ import { getDashboardCommand } from "@/cli/commands/project/dashboard.js";
 import { getDeployCommand } from "@/cli/commands/project/deploy.js";
 import { getLinkCommand } from "@/cli/commands/project/link.js";
 import { getSiteDeployCommand } from "@/cli/commands/site/deploy.js";
-import { Command } from "commander";
 import packageJson from "../../package.json";
 import type { CLIContext } from "./types.js";
 

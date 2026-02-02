@@ -1,10 +1,10 @@
 import { join } from "node:path";
-import { SchemaValidationError } from "@/core/errors.js";
 import { globby } from "globby";
+import { SchemaValidationError } from "@/core/errors.js";
 import { CONFIG_FILE_EXTENSION, CONFIG_FILE_EXTENSION_GLOB } from "../../consts.js";
 import { deleteFile, pathExists, readJsonFile, writeJsonFile } from "../../utils/fs.js";
-import { AgentConfigSchema } from "./schema.js";
 import type { AgentConfig, AgentConfigApiResponse } from "./schema.js";
+import { AgentConfigSchema } from "./schema.js";
 
 export function generateAgentConfigContent(name: string): string {
   return `// Base44 Agent Configuration

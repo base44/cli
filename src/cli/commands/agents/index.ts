@@ -1,5 +1,5 @@
-import type { CLIContext } from "@/cli/types.js";
 import { Command } from "commander";
+import type { CLIContext } from "@/cli/types.js";
 import { getAgentsPullCommand } from "./pull.js";
 import { getAgentsPushCommand } from "./push.js";
 

@@ -1,7 +1,7 @@
 import { release, type } from "node:os";
-import { isCLIError, isUserError } from "@/core/errors.js";
 import { determineAgent } from "@vercel/detect-agent";
 import { nanoid } from "nanoid";
+import { isCLIError, isUserError } from "@/core/errors.js";
 import packageJson from "../../../package.json";
 import { getPostHogClient, isTelemetryEnabled } from "./posthog.js";
 

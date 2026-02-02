@@ -1,11 +1,11 @@
+import type { KyResponse } from "ky";
 import { getAppClient } from "@/core/clients/index.js";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";
-import { DeployFunctionsResponseSchema } from "@/core/resources/function/schema.js";
 import type {
   DeployFunctionsResponse,
   FunctionWithCode,
 } from "@/core/resources/function/schema.js";
-import type { KyResponse } from "ky";
+import { DeployFunctionsResponseSchema } from "@/core/resources/function/schema.js";
 
 function toDeployPayloadItem(fn: FunctionWithCode) {
   return {

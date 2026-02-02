@@ -8,8 +8,8 @@ import {
   unlink,
 } from "node:fs/promises";
 import { dirname } from "node:path";
-import { ConfigInvalidError, FileNotFoundError, FileReadError } from "@/core/errors.js";
 import JSON5 from "json5";
+import { ConfigInvalidError, FileNotFoundError, FileReadError } from "@/core/errors.js";
 
 export async function pathExists(path: string): Promise<boolean> {
   try {

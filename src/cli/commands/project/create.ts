@@ -1,21 +1,21 @@
 import { basename, join, resolve } from "node:path";
+import type { Option } from "@clack/prompts";
+import { confirm, group, isCancel, log, select, text } from "@clack/prompts";
+import { Argument, Command } from "commander";
+import { execa } from "execa";
+import kebabCase from "lodash.kebabcase";
 import type { CLIContext } from "@/cli/types.js";
 import { getDashboardUrl, onPromptCancel, runCommand, runTask, theme } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 import { InvalidInputError } from "@/core/errors.js";
 import { deploySite, isDirEmpty, pushEntities } from "@/core/index.js";
+import type { Template } from "@/core/project/index.js";
 import {
   createProjectFiles,
   listTemplates,
   readProjectConfig,
   setAppConfig,
 } from "@/core/project/index.js";
-import type { Template } from "@/core/project/index.js";
-import { confirm, group, isCancel, log, select, text } from "@clack/prompts";
-import type { Option } from "@clack/prompts";
-import { Argument, Command } from "commander";
-import { execa } from "execa";
-import kebabCase from "lodash.kebabcase";
 
 const DEFAULT_TEMPLATE_ID = "backend-only";
 

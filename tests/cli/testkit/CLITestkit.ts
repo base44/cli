@@ -5,8 +5,8 @@ import type { Command } from "commander";
 import { dir } from "tmp-promise";
 import { vi } from "vitest";
 import { Base44APIMock } from "./Base44APIMock.js";
-import { CLIResultMatcher } from "./CLIResultMatcher.js";
 import type { CLIResult } from "./CLIResultMatcher.js";
+import { CLIResultMatcher } from "./CLIResultMatcher.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DIST_INDEX_PATH = join(__dirname, "../../../dist/index.js");

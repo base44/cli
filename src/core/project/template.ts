@@ -1,12 +1,12 @@
 import { dirname, join } from "node:path";
-import { getTemplatesDir, getTemplatesIndexPath } from "@/core/config.js";
-import { SchemaValidationError } from "@/core/errors.js";
-import { TemplatesConfigSchema } from "@/core/project/schema.js";
-import type { Template } from "@/core/project/schema.js";
-import { copyFile, readJsonFile, writeFile } from "@/core/utils/fs.js";
 import ejs from "ejs";
 import frontmatter from "front-matter";
 import { globby } from "globby";
+import { getTemplatesDir, getTemplatesIndexPath } from "@/core/config.js";
+import { SchemaValidationError } from "@/core/errors.js";
+import type { Template } from "@/core/project/schema.js";
+import { TemplatesConfigSchema } from "@/core/project/schema.js";
+import { copyFile, readJsonFile, writeFile } from "@/core/utils/fs.js";
 
 export interface TemplateData {
   name: string;

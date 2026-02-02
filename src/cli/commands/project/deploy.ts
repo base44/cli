@@ -1,9 +1,9 @@
+import { confirm, isCancel, log } from "@clack/prompts";
+import { Command } from "commander";
 import type { CLIContext } from "@/cli/types.js";
 import { getDashboardUrl, runCommand, runTask, theme } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 import { deployAll, hasResourcesToDeploy, readProjectConfig } from "@/core/project/index.js";
-import { confirm, isCancel, log } from "@clack/prompts";
-import { Command } from "commander";
 
 interface DeployOptions {
   yes?: boolean;

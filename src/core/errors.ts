@@ -9,9 +9,9 @@
  * All errors support hints for actionable next steps.
  */
 
-import { ApiErrorResponseSchema } from "@/core/clients/schemas.js";
 import { HTTPError } from "ky";
 import { z } from "zod";
+import { ApiErrorResponseSchema } from "@/core/clients/schemas.js";
 
 // ============================================================================
 // API Error Response Parsing

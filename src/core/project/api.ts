@@ -1,8 +1,8 @@
+import type { KyResponse } from "ky";
 import { base44Client } from "@/core/clients/index.js";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";
-import { CreateProjectResponseSchema, ProjectsResponseSchema } from "@/core/project/schema.js";
 import type { ProjectsResponse } from "@/core/project/schema.js";
-import type { KyResponse } from "ky";
+import { CreateProjectResponseSchema, ProjectsResponseSchema } from "@/core/project/schema.js";
 
 export async function createProject(projectName: string, description?: string) {
   let response: KyResponse;

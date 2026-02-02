@@ -1,9 +1,9 @@
+import { globby } from "globby";
 import { PROJECT_CONFIG_PATTERNS } from "@/core/consts.js";
 import { ConfigExistsError } from "@/core/errors.js";
 import { createProject } from "@/core/project/api.js";
 import type { Template } from "@/core/project/schema.js";
 import { renderTemplate } from "@/core/project/template.js";
-import { globby } from "globby";
 
 export interface CreateProjectOptions {
   name: string;

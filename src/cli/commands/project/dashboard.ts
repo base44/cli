@@ -1,8 +1,8 @@
+import { Command } from "commander";
+import open from "open";
 import type { CLIContext } from "@/cli/types.js";
 import { getDashboardUrl, runCommand } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
-import { Command } from "commander";
-import open from "open";
 
 async function openDashboard(): Promise<RunCommandResult> {
   const dashboardUrl = getDashboardUrl();

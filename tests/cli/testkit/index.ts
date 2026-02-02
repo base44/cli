@@ -135,8 +135,8 @@ export function setupCLITests(): TestContext {
   };
 }
 
+export { Base44APIMock } from "./Base44APIMock.js";
+export type { CLIResult } from "./CLIResultMatcher.js";
+export { CLIResultMatcher } from "./CLIResultMatcher.js";
 // Re-export types and classes that tests might need
 export { CLITestkit } from "./CLITestkit.js";
-export { CLIResultMatcher } from "./CLIResultMatcher.js";
-export type { CLIResult } from "./CLIResultMatcher.js";
-export { Base44APIMock } from "./Base44APIMock.js";

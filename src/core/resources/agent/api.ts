@@ -1,8 +1,8 @@
+import type { KyResponse } from "ky";
 import { getAppClient } from "@/core/clients/index.js";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";
-import type { KyResponse } from "ky";
-import { ListAgentsResponseSchema, SyncAgentsResponseSchema } from "./schema.js";
 import type { AgentConfig, ListAgentsResponse, SyncAgentsResponse } from "./schema.js";
+import { ListAgentsResponseSchema, SyncAgentsResponseSchema } from "./schema.js";
 
 export async function pushAgents(agents: AgentConfig[]): Promise<SyncAgentsResponse> {
   if (agents.length === 0) {

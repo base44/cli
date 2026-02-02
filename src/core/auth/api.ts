@@ -1,10 +1,10 @@
+import type { DeviceCodeResponse, TokenResponse, UserInfoResponse } from "@/core/auth/schema.js";
 import {
   DeviceCodeResponseSchema,
   OAuthErrorSchema,
   TokenResponseSchema,
   UserInfoSchema,
 } from "@/core/auth/schema.js";
-import type { DeviceCodeResponse, TokenResponse, UserInfoResponse } from "@/core/auth/schema.js";
 import { oauthClient } from "@/core/clients/index.js";
 import { AUTH_CLIENT_ID } from "@/core/consts.js";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";

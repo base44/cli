@@ -1,5 +1,5 @@
 import type { RequestHandler } from "msw";
-import { http, HttpResponse } from "msw";
+import { HttpResponse, http } from "msw";
 import { mswServer } from "./index.js";
 
 const BASE_URL = "https://app.base44.com";

@@ -1,10 +1,19 @@
 {
-  "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
-  "organizeImports": {
-    "enabled": true
+  "$schema": "https://biomejs.dev/schemas/2.3.13/schema.json",
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": {
+          "level": "on",
+          "options": {
+            "groups": [":NODE:", ":PACKAGE:", ":ALIAS:", ":PATH:"]
+          }
+        }
+      }
+    }
   },
   "files": {
-    "ignore": ["dist/**", "node_modules/**", "tests/fixtures/**", "*.d.ts"]
+    "includes": ["**", "!**/dist/**", "!**/node_modules/**", "!**/tests/fixtures/**", "!**/*.d.ts"]
   },
   "formatter": {
     "enabled": true,
@@ -19,34 +28,33 @@
       "complexity": {
         "noUselessUndefinedInitialization": "error",
         "useLiteralKeys": "error",
-        "useOptionalChain": "error"
+        "useOptionalChain": "error",
+        "noUselessStringRaw": "error"
       },
       "correctness": {
         "noUnusedImports": "error",
-        "noUnusedVariables": "warn",
-        "useArrayLiterals": "error"
+        "noUnusedVariables": "warn"
       },
       "style": {
-        "noVar": "error",
         "useConst": "error",
         "useTemplate": "error",
         "useShorthandAssign": "error",
-        "useShorthandArrayType": "error",
         "useImportType": "error",
         "useExportType": "error",
         "useSingleVarDeclarator": "error",
         "noUselessElse": "error",
         "useNodejsImportProtocol": "error",
-        "noNonNullAssertion": "off"
+        "noNonNullAssertion": "off",
+        "useArrayLiterals": "error",
+        "useConsistentArrayType": { "level": "error", "options": { "syntax": "shorthand" } }
       },
       "suspicious": {
         "noExplicitAny": "warn",
-        "noConsoleLog": "off"
-      },
-      "nursery": {
-        "noUselessStringRaw": "error",
+        "noVar": "error",
+        "noConsole": { "level": "off", "options": { "allow": ["log"] } },
         "noIrregularWhitespace": "error"
-      }
+      },
+      "nursery": {}
     }
   },
   "javascript": {

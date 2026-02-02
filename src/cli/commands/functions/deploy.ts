@@ -1,11 +1,11 @@
+import { log } from "@clack/prompts";
+import { Command } from "commander";
 import type { CLIContext } from "@/cli/types.js";
 import { runCommand, runTask } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 import { ApiError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/index.js";
 import { pushFunctions } from "@/core/resources/function/index.js";
-import { log } from "@clack/prompts";
-import { Command } from "commander";
 
 async function deployFunctionsAction(): Promise<RunCommandResult> {
   const { functions } = await readProjectConfig();
