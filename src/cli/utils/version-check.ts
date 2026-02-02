@@ -27,7 +27,6 @@ function getTestLatestVersion(): string | null | undefined {
  * Checks if a newer version of the CLI is available.
  */
 export async function checkForUpgrade(): Promise<UpgradeInfo | null> {
-  // Check for test override
   const testLatestVersion = getTestLatestVersion();
   if (testLatestVersion !== undefined) {
     if (testLatestVersion === null) {

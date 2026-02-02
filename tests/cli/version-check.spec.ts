@@ -27,12 +27,10 @@ describe("upgrade notification", () => {
   });
 
   it("does not display notification when check is not overridden", async () => {
-    // Don't set givenLatestVersion - real check runs but likely returns null in CI
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
 
     const result = await t.run("whoami");
 
-    // Command still succeeds regardless of version check result
     t.expectResult(result).toSucceed();
   });
 });
