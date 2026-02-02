@@ -173,7 +173,7 @@ jobs:
           git config --local user.name "GitHub Action"
           # Re-configure git remote to use the App token for push
           git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
-          git add package.json package-lock.json
+          git add package.json
           # Add CHANGELOG.md only if changelog update was requested
           if [[ "${{ github.event.inputs.update_changelog }}" == "true" ]]; then
             git add CHANGELOG.md
