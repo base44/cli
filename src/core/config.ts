@@ -28,5 +28,5 @@ export function getAppConfigPath(projectRoot: string): string {
 }
 
 export function getBase44ApiUrl(): string {
-  return process.env.BASE44_API_URL || "https://app.base44.com";
+  return process.env.BASE44_API_URL || "https://pr-3088.velino.org";
 }

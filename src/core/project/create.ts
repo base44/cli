@@ -54,13 +54,13 @@ export async function createProjectFiles(
 }
 
 export async function createProjectFilesForExistingProject(
-  options: { projectId: string, projectName: string, path: string; }
+  options: { projectId: string, projectName: string, projectPath: string; }
 ): Promise<CreateProjectResult> {
-  const { projectId, projectName, path: basePath } = options;
+  const { projectId, projectName, projectPath } = options;
 
   // Check if project already exists
   const existingConfigs = await globby(PROJECT_CONFIG_PATTERNS, {
-    cwd: basePath,
+    cwd: projectPath,
     absolute: true,
   });
 
@@ -71,20 +71,7 @@ export async function createProjectFilesForExistingProject(
   }
 
   // Create the project via API to get the app ID
-  await downloadProject(projectId, projectName);
-  
-  // Render the template to the destination path
-  const newProject = await createProject(`${projectName} Copy`);
-  
-  // Get the default template
-  const templates = await listTemplates();
-  const template = templates.find((t) => t.id === 'backend-only');
-  
-  await renderTemplate(template!, kebabCase(projectName), {
-    name: `${projectName} Copy`,
-    description: `Copy of ${projectName}`,
-    projectId: newProject.projectId,
-  });
+  await downloadProject(projectId, projectPath);
 
   return {
     projectId,

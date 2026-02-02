@@ -12,7 +12,7 @@ interface DeployOptions {
   yes?: boolean;
 }
 
-async function deployAction(options: DeployOptions): Promise<RunCommandResult> {
+export async function deployAction(options: DeployOptions): Promise<RunCommandResult> {
   const projectData = await readProjectConfig();
 
   if (!hasResourcesToDeploy(projectData)) {

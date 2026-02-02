@@ -1,18 +1,21 @@
-import { join, resolve } from "node:path";
+import { resolve } from "node:path";
 import { Command } from "commander";
-import { select, isCancel, cancel } from "@clack/prompts";
+import { select, isCancel, cancel, text, confirm } from "@clack/prompts";
 import type { Option } from "@clack/prompts";
-import chalk from "chalk";
-import { createProjectFilesForExistingProject, listProjects, setAppConfig } from "@core/project/index.js";
+import { createProject, createProjectFilesForExistingProject, listProjects, setAppConfig, writeAppConfig } from "@core/project/index.js";
 import type { Project } from "@core/project/index.js";
-import { runCommand, runTask } from "../../utils/index.js";
+import { runCommand, runTask, theme } from "../../utils/index.js";
 import type { RunCommandResult } from "../../utils/runCommand.js";
-import { getFunctions, pullEntities, pullFunctions, pushEntities, pushFunctions } from "@core/resources/index.js";
+import { isDirEmpty, writeFile, writeJsonFile } from "@core/utils/fs.js";
+import kebabCase from "lodash.kebabcase";
+import { execa } from "execa";
+import { deployAction } from "./deploy.js";
 
-const orange = chalk.hex("#E86B3C");
-const cyan = chalk.hex("#00D4FF");
+interface EjectOptions {
+  path?: string;
+}
 
-async function eject(): Promise<RunCommandResult> {
+async function eject(options: EjectOptions): Promise<RunCommandResult> {
   const projects = await listProjects();
   const ejectableProjects = projects.filter((p) => p.isManagedSourceCode !== false);
   const projectOptions: Array<Option<Project>> = ejectableProjects.map((p) => ({
@@ -21,7 +24,7 @@ async function eject(): Promise<RunCommandResult> {
     hint: p.userDescription,
   }));
 
-  const selectedProject = await select({
+  const selectedProject = false ? { id: '697e53fdb9fbf6eb3c4b8b8d', name: 'Home', isManagedSourceCode: true, userDescription: 'desc' } : await select({
     message: "Choose a project to download",
     options: projectOptions,
   });
@@ -32,67 +35,88 @@ async function eject(): Promise<RunCommandResult> {
   };
 
   const projectId = selectedProject.id;
-  const resolvedPath = resolve('./');
+  const suggestedPath = await isDirEmpty() ? `./` : `./${kebabCase(selectedProject.name)}`;
 
-  const { projectId: newProjectId, projectDir } = await runTask(
+  const selectedPath = options.path ?? await text({
+    message: "Where should we create your project?",
+    placeholder: suggestedPath,
+    initialValue: suggestedPath,
+  });
+
+  if (isCancel(selectedPath)) {
+    cancel("Operation cancelled.");
+    process.exit(0);
+  }
+
+  const resolvedPath = resolve(selectedPath);
+
+  await runTask(
     "Downloading your project's code...",
-    async () => {
-      return await createProjectFilesForExistingProject({
+    async (updateMessage) => {
+      await createProjectFilesForExistingProject({
         projectId,
         projectName: selectedProject.name,
-        path: resolvedPath,
+        projectPath: resolvedPath,
       });
+
+      updateMessage('Creating a new project...');
+
+      const newProjectName = `${selectedProject.name} Copy`;
+      const { projectId: newProjectId } = await createProject(newProjectName, selectedProject.userDescription)
+
+      updateMessage('Linking the project...');
+
+      await writeAppConfig(resolvedPath, newProjectId);
+      await writeFile(`${resolvedPath}/.env.local`, `VITE_BASE44_APP_ID=${newProjectId}`);
+      await writeJsonFile(`${resolvedPath}/base44/config.json`, {
+        name: newProjectName,
+        description: selectedProject.userDescription,
+        site: {
+          installCommand: "npm install",
+          buildCommand: "npm run build",
+          serveCommand: "npm run dev",
+          outputDirectory: "./dist"
+        }
+      });
+
+      setAppConfig({ id: newProjectId, projectRoot: resolvedPath });
     },
     {
-      successMessage: orange("Project pulled successfully"),
+      successMessage: theme.colors.base44Orange("Project pulled successfully"),
       errorMessage: "Failed to link project",
     }
   );
 
-  // Push in behalf of the existing project
-  setAppConfig({ id: projectId, projectRoot: resolvedPath });
+  const shouldDeploy = await confirm({
+    message: 'Would you like to deploy your project now?'
+  });
 
-  const entities = await pullEntities(projectDir);
-  const functions = await pullFunctions(projectDir);
-
-  // Push in behalf of the new project
-  setAppConfig({ id: newProjectId, projectRoot: resolvedPath });
-
-  if (entities.length > 0) {
+  if (!isCancel(shouldDeploy) && shouldDeploy) {
     try {
       await runTask(
-        "Syncing your project's entities...",
-        async () => {
-          // Pull the entities from the original project
+        "Installing dependencies...",
+        async (updateMessage) => {
+          await execa({ cwd: resolvedPath, shell: true })`npm install`;
 
-          await pushEntities(entities);
+          updateMessage("Building project...");
+          await execa({ cwd: resolvedPath, shell: true })`npm run build`;
         },
         {
-          successMessage: orange("Project entities synced successfully"),
-          errorMessage: "Failed to sync project entities",
+          successMessage: theme.colors.base44Orange("Project built successfully"),
+          errorMessage: "Failed to build project",
         }
       );
+
+      await deployAction({ yes: true });
     } catch (error) { console.error(error); }
-  }
+  };
 
-  try {
-    await runTask(
-      "Syncing your project's backend functions...",
-      async () => {
-        await pushFunctions(functions);
-      },
-      {
-        successMessage: orange("Project functions synced successfully"),
-        errorMessage: "Failed to sync project functions",
-      }
-    );
-  } catch (error) { console.error(error); }
-
-  return { outroMessage: "Your project is set and ready to use" };
+  return { outroMessage: "Your new project is set and ready to use" };
 }
 
 export const ejectCommand = new Command("eject")
   .description("Download the code for an existing Base44 project")
-  .action(async () => {
-    await runCommand(eject, { requireAuth: true, requireAppConfig: false });
+  .option("-p, --path <path>", "Path where to write the project")
+  .action(async (options: EjectOptions) => {
+    await runCommand(() => eject(options), { requireAuth: true, requireAppConfig: false });
   });

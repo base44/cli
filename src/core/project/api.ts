@@ -1,12 +1,9 @@
-import { createWriteStream } from "node:fs";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import { join, dirname } from "node:path";
-import { tmpdir } from "node:os";
-import unzipper from "unzipper";
-import kebabCase from "lodash.kebabcase";
+import { dirname, join } from "node:path";
+import { Parser } from "tar";
 import { base44Client } from "@core/clients/index.js";
-import { deleteFile, makeDirectory } from "@core/utils/fs.js";
+import { makeDirectory, writeFile } from "@core/utils/fs.js";
 import { CreateProjectResponseSchema, ProjectsResponseSchema } from "./schema.js";
 import type { ProjectsResponse } from "./schema.js";
 
@@ -40,26 +37,79 @@ export async function listProjects(): Promise<ProjectsResponse> {
   return projects;
 }
 
-export async function downloadProject(projectId: string, projectName: string) {
-  const response = await base44Client.get(`api/apps/${projectId}/coding/export-to-zip`);
+interface FunctionConfig {
+  name: string;
+  entry: string;
+  files: Array<{ path: string; content: string }>;
+}
+
+export async function downloadProject(projectId: string, projectPath: string) {
+  const response = await base44Client.get(`api/apps/${projectId}/eject`, { timeout: false });
   const nodeStream = Readable.fromWeb(response.body as import("node:stream/web").ReadableStream);
 
-  // Save zip to temp file first (unzipper.Extract has issues with some files)
-  const zipPath = join(tmpdir(), `base44-${projectId}-${Date.now()}.zip`);
-  await pipeline(nodeStream, createWriteStream(zipPath));
+  await makeDirectory(projectPath);
 
-  // Extract manually for reliable extraction of all files
-  const outputDir = join(process.cwd(), kebabCase(projectName));
-  const directory = await unzipper.Open.file(zipPath);
+  // Patterns for special handling
+  const functionConfigPattern = /^base44\/functions\/[^/]+\/config\.jsonc$/;
+  const agentOrEntityPattern = /^base44\/(agents|entities)\/[^/]+\.jsonc$/;
 
-  for (const file of directory.files) {
-    if (file.type === 'Directory') continue;
+  const parser = new Parser({
+    onReadEntry: async (entry) => {
+      const entryPath = entry.path;
+      const fullPath = join(projectPath, entryPath);
 
-    const filePath = join(outputDir, file.path);
-    await makeDirectory(dirname(filePath));
-    await pipeline(file.stream(), createWriteStream(filePath));
-  }
+      // Skip root-level functions/ directory (we generate from base44/functions/)
+      if (entryPath.startsWith("functions/")) {
+        entry.resume();
+        return;
+      }
 
-  // Clean up temp zip file
-  await deleteFile(zipPath);
-};
+      if (entry.type === "Directory") {
+        await makeDirectory(fullPath);
+        entry.resume();
+        return;
+      }
+
+      // Read file content
+      const chunks: Buffer[] = [];
+      for await (const chunk of entry) {
+        chunks.push(chunk);
+      }
+      const content = Buffer.concat(chunks).toString("utf-8");
+
+      // Handle function config files
+      if (functionConfigPattern.test(entryPath)) {
+        const config: FunctionConfig = JSON.parse(content);
+        const funcDir = dirname(fullPath);
+
+        // Write function.jsonc with only name and entry
+        const funcConfig = { name: config.name, entry: config.entry };
+        await writeFile(
+          join(funcDir, "function.jsonc"),
+          JSON.stringify(funcConfig, null, 2)
+        );
+
+        // Write each file from the files array
+        for (const file of config.files) {
+          await writeFile(join(funcDir, file.path), file.content);
+        }
+      }
+      // Handle agent and entity files - remove .jsonc suffix from name
+      else if (agentOrEntityPattern.test(entryPath)) {
+        const config = JSON.parse(content);
+        if (config.name && config.name.endsWith(".json")) {
+          config.name = config.name.replace(/\.json$/, "");
+        }
+        await makeDirectory(dirname(fullPath));
+        await writeFile(fullPath, JSON.stringify(config, null, 2));
+      }
+      // Regular file - write as-is
+      else {
+        await makeDirectory(dirname(fullPath));
+        await writeFile(fullPath, content);
+      }
+    },
+  });
+
+  await pipeline(nodeStream, parser);
+}

@@ -72,8 +72,7 @@ async function createInteractive(options: CreateOptions): Promise<RunCommandResu
       name: () => {
         return options.name ? Promise.resolve(options.name) : text({
           message: "What is the name of your project?",
-          placeholder: basename(process.cwd()),
-          initialValue: basename(process.cwd()),
+          placeholder: "my-app",
           validate: (value) => {
             if (!value || value.trim().length === 0) {
               return "Every project deserves a name";
@@ -230,7 +229,7 @@ async function executeCreate({
       await runTask(
         "Installing AI agent skills...",
         async () => {
-          await execa("npx", ["-y", "add-skill", "base44/skills", "-y"], {
+          await execa("npx", ["-y", "skills", "add", "base44/skills", "-a", "claude-code", "-y"], {
             cwd: resolvedPath,
             shell: true
           });
