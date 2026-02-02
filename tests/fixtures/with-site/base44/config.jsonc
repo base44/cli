@@ -1,0 +1,6 @@
+{
+  "name": "Site Test Project",
+  "site": {
+    "outputDirectory": "site-output"
+  }
+}

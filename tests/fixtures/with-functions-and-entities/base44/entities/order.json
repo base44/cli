@@ -1,0 +1,19 @@
+{
+  "name": "Order",
+  "type": "object",
+  "properties": {
+    "orderId": {
+      "type": "string",
+      "description": "Order ID"
+    },
+    "status": {
+      "type": "string",
+      "description": "Order status"
+    },
+    "total": {
+      "type": "number",
+      "description": "Order total"
+    }
+  },
+  "required": ["orderId"]
+}

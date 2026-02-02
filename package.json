@@ -47,6 +47,7 @@
     "execa": "^9.6.1",
     "front-matter": "^4.0.2",
     "globby": "^16.1.0",
+    "json-schema-to-typescript": "^15.0.4",
     "json5": "^2.2.3",
     "ky": "^1.14.2",
     "lodash.kebabcase": "^4.1.1",
