@@ -26,7 +26,7 @@ describe("site open command", () => {
 
   it("fails when API returns error", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
-    t.api.mockSiteUrlError({ status: 404, body: { error: "Site not published" } });
+    t.api.mockSiteUrlError({ status: 404, body: { detail: "App not found" } });
 
     const result = await t.run("site", "open");
 
