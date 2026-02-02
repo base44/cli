@@ -30,7 +30,9 @@ async function findConfigInDir(dir: string): Promise<string | null> {
  *   console.log(`Project found at: ${found.root}`);
  * }
  */
-export async function findProjectRoot(startPath?: string): Promise<ProjectRoot | null> {
+export async function findProjectRoot(
+  startPath?: string
+): Promise<ProjectRoot | null> {
   let current = startPath || process.cwd();
 
   while (current !== dirname(current)) {
@@ -55,7 +57,9 @@ export async function findProjectRoot(startPath?: string): Promise<ProjectRoot |
  * @example
  * const { project, entities, functions } = await readProjectConfig();
  */
-export async function readProjectConfig(projectRoot?: string): Promise<ProjectData> {
+export async function readProjectConfig(
+  projectRoot?: string
+): Promise<ProjectData> {
   let found: ProjectRoot | null;
 
   if (projectRoot) {
@@ -77,7 +81,11 @@ export async function readProjectConfig(projectRoot?: string): Promise<ProjectDa
   const result = ProjectConfigSchema.safeParse(parsed);
 
   if (!result.success) {
-    throw new SchemaValidationError("Invalid project configuration", result.error, configPath);
+    throw new SchemaValidationError(
+      "Invalid project configuration",
+      result.error,
+      configPath
+    );
   }
 
   const project = result.data;

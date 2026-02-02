@@ -22,7 +22,13 @@ describe("create command", () => {
 
     const projectPath = join(t.getTempDir(), "my-new-project");
 
-    const result = await t.run("create", "My New Project", "--path", projectPath, "--no-skills");
+    const result = await t.run(
+      "create",
+      "My New Project",
+      "--path",
+      projectPath,
+      "--no-skills"
+    );
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Project created successfully");
@@ -32,7 +38,10 @@ describe("create command", () => {
 
   it("creates project with custom template", async () => {
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
-    t.api.mockCreateApp({ id: "templated-project-id", name: "Templated Project" });
+    t.api.mockCreateApp({
+      id: "templated-project-id",
+      name: "Templated Project",
+    });
 
     const projectPath = join(t.getTempDir(), "templated-project");
 

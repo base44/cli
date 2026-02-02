@@ -142,7 +142,11 @@ export class ErrorReporter {
 
     try {
       const client = getPostHogClient();
-      client?.captureException(error, this.getDistinctId(), this.buildProperties(error));
+      client?.captureException(
+        error,
+        this.getDistinctId(),
+        this.buildProperties(error)
+      );
     } catch {
       // Silent - don't let error reporting break the CLI
     }

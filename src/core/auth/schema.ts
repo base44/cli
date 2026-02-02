@@ -15,8 +15,14 @@ export const DeviceCodeResponseSchema = z
     device_code: z.string().min(1, "Device code cannot be empty"),
     user_code: z.string().min(1, "User code cannot be empty"),
     verification_uri: z.url("Invalid verification URL"),
-    expires_in: z.number().int().positive("Expires in must be a positive integer"),
-    interval: z.number().int().positive("Interval in must be a positive integer"),
+    expires_in: z
+      .number()
+      .int()
+      .positive("Expires in must be a positive integer"),
+    interval: z
+      .number()
+      .int()
+      .positive("Interval in must be a positive integer"),
   })
   .transform((data) => ({
     deviceCode: data.device_code,
@@ -32,7 +38,10 @@ export const TokenResponseSchema = z
   .object({
     access_token: z.string().min(1, "Token cannot be empty"),
     token_type: z.string().min(1, "Token type cannot be empty"),
-    expires_in: z.number().int().positive("Expires in must be a positive integer"),
+    expires_in: z
+      .number()
+      .int()
+      .positive("Expires in must be a positive integer"),
     refresh_token: z.string().min(1, "Refresh token cannot be empty"),
     scope: z.string().optional(),
   })

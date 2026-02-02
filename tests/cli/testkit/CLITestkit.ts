@@ -34,7 +34,11 @@ export class CLITestkit {
   /** Typed API mock for Base44 endpoints */
   readonly api: Base44APIMock;
 
-  private constructor(tempDir: string, cleanupFn: () => Promise<void>, appId: string) {
+  private constructor(
+    tempDir: string,
+    cleanupFn: () => Promise<void>,
+    appId: string
+  ) {
     this.tempDir = tempDir;
     this.cleanupFn = cleanupFn;
     this.api = new Base44APIMock(appId);
@@ -106,7 +110,9 @@ export class CLITestkit {
     this.api.apply();
 
     // Dynamic import after vi.resetModules() to get fresh module instances
-    const { createProgram, CLIExitError } = (await import(DIST_INDEX_PATH)) as ProgramModule;
+    const { createProgram, CLIExitError } = (await import(
+      DIST_INDEX_PATH
+    )) as ProgramModule;
 
     // Create a mock context for tests (telemetry is disabled via env var anyway)
     const mockContext: CLIContext = {
@@ -138,7 +144,8 @@ export class CLITestkit {
       }
       // Any other error = command failed with exit code 1
       // Capture error message in stderr for test assertions
-      const errorMessage = e instanceof Error ? (e.stack ?? e.message) : String(e);
+      const errorMessage =
+        e instanceof Error ? (e.stack ?? e.message) : String(e);
       stderr.push(errorMessage);
       return buildResult(1);
     } finally {
@@ -209,14 +216,18 @@ export class CLITestkit {
     const stdout: string[] = [];
     const stderr: string[] = [];
 
-    const stdoutSpy = vi.spyOn(process.stdout, "write").mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
-    const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation((chunk) => {
-      stderr.push(String(chunk));
-      return true;
-    });
+    const stdoutSpy = vi
+      .spyOn(process.stdout, "write")
+      .mockImplementation((chunk) => {
+        stdout.push(String(chunk));
+        return true;
+      });
+    const stderrSpy = vi
+      .spyOn(process.stderr, "write")
+      .mockImplementation((chunk) => {
+        stderr.push(String(chunk));
+        return true;
+      });
 
     return { stdout, stderr, stdoutSpy, stderrSpy };
   }

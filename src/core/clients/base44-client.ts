@@ -5,7 +5,11 @@
 
 import type { KyRequest, KyResponse, NormalizedOptions } from "ky";
 import ky from "ky";
-import { isTokenExpired, readAuth, refreshAndSaveTokens } from "@/core/auth/config.js";
+import {
+  isTokenExpired,
+  readAuth,
+  refreshAndSaveTokens,
+} from "@/core/auth/config.js";
 import { getBase44ApiUrl } from "@/core/config.js";
 import { getAppConfig } from "@/core/project/index.js";
 

@@ -8,7 +8,9 @@ import type {
 } from "@/core/resources/function/schema.js";
 import { readTextFile } from "@/core/utils/fs.js";
 
-async function loadFunctionCode(fn: BackendFunction): Promise<FunctionWithCode> {
+async function loadFunctionCode(
+  fn: BackendFunction
+): Promise<FunctionWithCode> {
   const loadedFiles: FunctionFile[] = await Promise.all(
     fn.files.map(async (filePath) => {
       const content = await readTextFile(filePath);

@@ -92,20 +92,26 @@ export class Base44APIMock {
   /** Mock POST /oauth/device/code - Start device authorization flow */
   mockDeviceCode(response: DeviceCodeResponse): this {
     this.handlers.push(
-      http.post(`${BASE_URL}/oauth/device/code`, () => HttpResponse.json(response))
+      http.post(`${BASE_URL}/oauth/device/code`, () =>
+        HttpResponse.json(response)
+      )
     );
     return this;
   }
 
   /** Mock POST /oauth/token - Exchange code for tokens or refresh */
   mockToken(response: TokenResponse): this {
-    this.handlers.push(http.post(`${BASE_URL}/oauth/token`, () => HttpResponse.json(response)));
+    this.handlers.push(
+      http.post(`${BASE_URL}/oauth/token`, () => HttpResponse.json(response))
+    );
     return this;
   }
 
   /** Mock GET /oauth/userinfo - Get authenticated user info */
   mockUserInfo(response: UserInfoResponse): this {
-    this.handlers.push(http.get(`${BASE_URL}/oauth/userinfo`, () => HttpResponse.json(response)));
+    this.handlers.push(
+      http.get(`${BASE_URL}/oauth/userinfo`, () => HttpResponse.json(response))
+    );
     return this;
   }
 
@@ -134,7 +140,9 @@ export class Base44APIMock {
   /** Mock POST /api/apps/{appId}/deploy-dist - Deploy site */
   mockSiteDeploy(response: SiteDeployResponse): this {
     this.handlers.push(
-      http.post(`${BASE_URL}/api/apps/${this.appId}/deploy-dist`, () => HttpResponse.json(response))
+      http.post(`${BASE_URL}/api/apps/${this.appId}/deploy-dist`, () =>
+        HttpResponse.json(response)
+      )
     );
     return this;
   }
@@ -163,18 +171,28 @@ export class Base44APIMock {
 
   /** Mock POST /api/apps - Create new app */
   mockCreateApp(response: CreateAppResponse): this {
-    this.handlers.push(http.post(`${BASE_URL}/api/apps`, () => HttpResponse.json(response)));
+    this.handlers.push(
+      http.post(`${BASE_URL}/api/apps`, () => HttpResponse.json(response))
+    );
     return this;
   }
 
   // ─── ERROR RESPONSES ────────────────────────────────────────
 
   /** Mock any endpoint to return an error */
-  mockError(method: "get" | "post" | "put" | "delete", path: string, error: ErrorResponse): this {
-    const url = path.startsWith("/") ? `${BASE_URL}${path}` : `${BASE_URL}/${path}`;
+  mockError(
+    method: "get" | "post" | "put" | "delete",
+    path: string,
+    error: ErrorResponse
+  ): this {
+    const url = path.startsWith("/")
+      ? `${BASE_URL}${path}`
+      : `${BASE_URL}/${path}`;
     this.handlers.push(
       http[method](url, () =>
-        HttpResponse.json(error.body ?? { error: "Error" }, { status: error.status })
+        HttpResponse.json(error.body ?? { error: "Error" }, {
+          status: error.status,
+        })
       )
     );
     return this;
@@ -182,12 +200,20 @@ export class Base44APIMock {
 
   /** Mock entities push to return an error */
   mockEntitiesPushError(error: ErrorResponse): this {
-    return this.mockError("put", `/api/apps/${this.appId}/entity-schemas`, error);
+    return this.mockError(
+      "put",
+      `/api/apps/${this.appId}/entity-schemas`,
+      error
+    );
   }
 
   /** Mock functions push to return an error */
   mockFunctionsPushError(error: ErrorResponse): this {
-    return this.mockError("put", `/api/apps/${this.appId}/backend-functions`, error);
+    return this.mockError(
+      "put",
+      `/api/apps/${this.appId}/backend-functions`,
+      error
+    );
   }
 
   /** Mock site deploy to return an error */
@@ -197,12 +223,20 @@ export class Base44APIMock {
 
   /** Mock agents push to return an error */
   mockAgentsPushError(error: ErrorResponse): this {
-    return this.mockError("put", `/api/apps/${this.appId}/agent-configs`, error);
+    return this.mockError(
+      "put",
+      `/api/apps/${this.appId}/agent-configs`,
+      error
+    );
   }
 
   /** Mock agents fetch to return an error */
   mockAgentsFetchError(error: ErrorResponse): this {
-    return this.mockError("get", `/api/apps/${this.appId}/agent-configs`, error);
+    return this.mockError(
+      "get",
+      `/api/apps/${this.appId}/agent-configs`,
+      error
+    );
   }
 
   /** Mock token endpoint to return an error (for auth failure testing) */

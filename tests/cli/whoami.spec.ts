@@ -15,7 +15,10 @@ describe("whoami command", () => {
   });
 
   it("displays different user email correctly", async () => {
-    await t.givenLoggedIn({ email: "another-user@company.org", name: "Another User" });
+    await t.givenLoggedIn({
+      email: "another-user@company.org",
+      name: "Another User",
+    });
 
     const result = await t.run("whoami");
 

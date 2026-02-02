@@ -31,7 +31,10 @@ export async function uploadSite(archivePath: string): Promise<DeployResponse> {
   const result = DeployResponseSchema.safeParse(await response.json());
 
   if (!result.success) {
-    throw new SchemaValidationError("There was an issue deploying your site", result.error);
+    throw new SchemaValidationError(
+      "There was an issue deploying your site",
+      result.error
+    );
   }
 
   return result.data;

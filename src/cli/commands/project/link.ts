@@ -3,9 +3,19 @@ import { cancel, group, isCancel, log, select, text } from "@clack/prompts";
 import { Command } from "commander";
 import { CLIExitError } from "@/cli/errors.js";
 import type { CLIContext } from "@/cli/types.js";
-import { getDashboardUrl, onPromptCancel, runCommand, runTask, theme } from "@/cli/utils/index.js";
+import {
+  getDashboardUrl,
+  onPromptCancel,
+  runCommand,
+  runTask,
+  theme,
+} from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
-import { ConfigExistsError, ConfigNotFoundError, InvalidInputError } from "@/core/errors.js";
+import {
+  ConfigExistsError,
+  ConfigNotFoundError,
+  InvalidInputError,
+} from "@/core/errors.js";
 import type { Project } from "@/core/project/index.js";
 import {
   appConfigExists,
@@ -96,7 +106,9 @@ async function promptForNewProjectDetails() {
   };
 }
 
-async function promptForExistingProject(linkableProjects: Project[]): Promise<Project> {
+async function promptForExistingProject(
+  linkableProjects: Project[]
+): Promise<Project> {
   const projectOptions: Option<Project>[] = linkableProjects.map((project) => ({
     value: project,
     label: project.name,
@@ -128,7 +140,12 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
     throw new ConfigExistsError(
       "Project is already linked. An .app.jsonc file with the appId already exists.",
       {
-        hints: [{ message: "If you want to re-link, delete the existing .app.jsonc file first" }],
+        hints: [
+          {
+            message:
+              "If you want to re-link, delete the existing .app.jsonc file first",
+          },
+        ],
       }
     );
   }
@@ -141,12 +158,18 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
       : await promptForLinkAction();
 
   if (action === "choose") {
-    const projects = await runTask("Fetching projects...", async () => listProjects(), {
-      successMessage: "Projects fetched",
-      errorMessage: "Failed to fetch projects",
-    });
+    const projects = await runTask(
+      "Fetching projects...",
+      async () => listProjects(),
+      {
+        successMessage: "Projects fetched",
+        errorMessage: "Failed to fetch projects",
+      }
+    );
 
-    const linkableProjects = projects.filter((p) => p.isManagedSourceCode !== true);
+    const linkableProjects = projects.filter(
+      (p) => p.isManagedSourceCode !== true
+    );
 
     if (!linkableProjects.length) {
       return { outroMessage: "No projects available for linking" };
@@ -163,7 +186,10 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
           {
             hints: [
               { message: "Check the project ID is correct" },
-              { message: "Use 'base44 link' without --projectId to see available projects" },
+              {
+                message:
+                  "Use 'base44 link' without --projectId to see available projects",
+              },
             ],
           }
         );
@@ -221,9 +247,14 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
 
 export function getLinkCommand(context: CLIContext): Command {
   return new Command("link")
-    .description("Link a local project to a Base44 project (create new or link existing)")
+    .description(
+      "Link a local project to a Base44 project (create new or link existing)"
+    )
     .option("-c, --create", "Create a new project (skip selection prompt)")
-    .option("-n, --name <name>", "Project name (required when --create is used)")
+    .option(
+      "-n, --name <name>",
+      "Project name (required when --create is used)"
+    )
     .option("-d, --description <description>", "Project description")
     .option(
       "-p, --projectId <id>",

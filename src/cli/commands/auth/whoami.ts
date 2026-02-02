@@ -13,6 +13,10 @@ export function getWhoamiCommand(context: CLIContext): Command {
   return new Command("whoami")
     .description("Display current authenticated user")
     .action(async () => {
-      await runCommand(whoami, { requireAuth: true, requireAppConfig: false }, context);
+      await runCommand(
+        whoami,
+        { requireAuth: true, requireAppConfig: false },
+        context
+      );
     });
 }

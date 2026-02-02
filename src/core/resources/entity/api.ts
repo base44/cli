@@ -2,12 +2,19 @@ import type { KyResponse } from "ky";
 import { HTTPError } from "ky";
 import { getAppClient } from "@/core/clients/index.js";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";
-import type { Entity, SyncEntitiesResponse } from "@/core/resources/entity/schema.js";
+import type {
+  Entity,
+  SyncEntitiesResponse,
+} from "@/core/resources/entity/schema.js";
 import { SyncEntitiesResponseSchema } from "@/core/resources/entity/schema.js";
 
-export async function syncEntities(entities: Entity[]): Promise<SyncEntitiesResponse> {
+export async function syncEntities(
+  entities: Entity[]
+): Promise<SyncEntitiesResponse> {
   const appClient = getAppClient();
-  const schemaSyncPayload = Object.fromEntries(entities.map((entity) => [entity.name, entity]));
+  const schemaSyncPayload = Object.fromEntries(
+    entities.map((entity) => [entity.name, entity])
+  );
 
   let response: KyResponse;
   try {
@@ -31,7 +38,10 @@ export async function syncEntities(entities: Entity[]): Promise<SyncEntitiesResp
   const result = SyncEntitiesResponseSchema.safeParse(await response.json());
 
   if (!result.success) {
-    throw new SchemaValidationError("Invalid response from server", result.error);
+    throw new SchemaValidationError(
+      "Invalid response from server",
+      result.error
+    );
   }
 
   return result.data;

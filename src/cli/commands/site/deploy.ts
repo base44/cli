@@ -58,7 +58,11 @@ export function getSiteDeployCommand(context: CLIContext): Command {
       .description("Deploy built site files to Base44 hosting")
       .option("-y, --yes", "Skip confirmation prompt")
       .action(async (options: DeployOptions) => {
-        await runCommand(() => deployAction(options), { requireAuth: true }, context);
+        await runCommand(
+          () => deployAction(options),
+          { requireAuth: true },
+          context
+        );
       })
   );
 }

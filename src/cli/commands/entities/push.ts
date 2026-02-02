@@ -42,9 +42,13 @@ async function pushEntitiesAction(): Promise<RunCommandResult> {
 }
 
 export function getEntitiesPushCommand(context: CLIContext): Command {
-  return new Command("entities").description("Manage project entities").addCommand(
-    new Command("push").description("Push local entities to Base44").action(async () => {
-      await runCommand(pushEntitiesAction, { requireAuth: true }, context);
-    })
-  );
+  return new Command("entities")
+    .description("Manage project entities")
+    .addCommand(
+      new Command("push")
+        .description("Push local entities to Base44")
+        .action(async () => {
+          await runCommand(pushEntitiesAction, { requireAuth: true }, context);
+        })
+    );
 }

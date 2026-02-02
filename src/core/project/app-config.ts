@@ -1,7 +1,11 @@
 import { globby } from "globby";
 import { getAppConfigPath } from "@/core/config.js";
 import { APP_CONFIG_PATTERN } from "@/core/consts.js";
-import { ConfigInvalidError, ConfigNotFoundError, SchemaValidationError } from "@/core/errors.js";
+import {
+  ConfigInvalidError,
+  ConfigNotFoundError,
+  SchemaValidationError,
+} from "@/core/errors.js";
 import { findProjectRoot } from "@/core/project/config.js";
 import type { AppConfig } from "@/core/project/schema.js";
 import { AppConfigSchema } from "@/core/project/schema.js";
@@ -27,7 +31,10 @@ function loadFromTestOverrides(): boolean {
   try {
     const data = JSON.parse(overrides);
     if (data.appConfig?.id && data.appConfig?.projectRoot) {
-      cache = { id: data.appConfig.id, projectRoot: data.appConfig.projectRoot };
+      cache = {
+        id: data.appConfig.id,
+        projectRoot: data.appConfig.projectRoot,
+      };
       return true;
     }
   } catch {
@@ -108,14 +115,19 @@ export function generateAppConfigContent(id: string): string {
 `;
 }
 
-export async function writeAppConfig(projectRoot: string, appId: string): Promise<string> {
+export async function writeAppConfig(
+  projectRoot: string,
+  appId: string
+): Promise<string> {
   const configPath = getAppConfigPath(projectRoot);
   const content = generateAppConfigContent(appId);
   await writeFile(configPath, content);
   return configPath;
 }
 
-export async function findAppConfigPath(projectRoot: string): Promise<string | null> {
+export async function findAppConfigPath(
+  projectRoot: string
+): Promise<string | null> {
   const files = await globby(APP_CONFIG_PATTERN, {
     cwd: projectRoot,
     absolute: true,
@@ -139,7 +151,11 @@ async function readAppConfig(projectRoot: string): Promise<AppConfig | null> {
   const result = AppConfigSchema.safeParse(parsed);
 
   if (!result.success) {
-    throw new SchemaValidationError("Invalid app configuration", result.error, configPath);
+    throw new SchemaValidationError(
+      "Invalid app configuration",
+      result.error,
+      configPath
+    );
   }
 
   return result.data;

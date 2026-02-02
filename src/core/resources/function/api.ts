@@ -36,7 +36,10 @@ export async function deployFunctions(
   const result = DeployFunctionsResponseSchema.safeParse(await response.json());
 
   if (!result.success) {
-    throw new SchemaValidationError("Invalid response from server", result.error);
+    throw new SchemaValidationError(
+      "Invalid response from server",
+      result.error
+    );
   }
 
   return result.data;

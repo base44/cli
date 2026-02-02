@@ -35,7 +35,10 @@ describe("site deploy command", () => {
 
   it("fails when API returns error", async () => {
     await t.givenLoggedInWithProject(fixture("with-site"));
-    t.api.mockSiteDeployError({ status: 413, body: { error: "Site too large" } });
+    t.api.mockSiteDeployError({
+      status: 413,
+      body: { error: "Site too large" },
+    });
 
     const result = await t.run("site", "deploy", "-y");
 

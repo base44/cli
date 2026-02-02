@@ -37,7 +37,9 @@ export interface DeployAllResult {
  * @param projectData - The project configuration and resources to deploy
  * @returns The deployment result including app URL if site was deployed
  */
-export async function deployAll(projectData: ProjectData): Promise<DeployAllResult> {
+export async function deployAll(
+  projectData: ProjectData
+): Promise<DeployAllResult> {
   const { project, entities, functions, agents } = projectData;
 
   await entityResource.push(entities);

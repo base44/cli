@@ -12,12 +12,18 @@ const BackendFunctionToolConfigSchema = z.object({
   description: z.string().default("agent backend function"),
 });
 
-const ToolConfigSchema = z.union([EntityToolConfigSchema, BackendFunctionToolConfigSchema]);
+const ToolConfigSchema = z.union([
+  EntityToolConfigSchema,
+  BackendFunctionToolConfigSchema,
+]);
 
 export const AgentConfigSchema = z.looseObject({
   name: z
     .string()
-    .regex(/^[a-z0-9_]+$/, "Agent name must be lowercase alphanumeric with underscores")
+    .regex(
+      /^[a-z0-9_]+$/,
+      "Agent name must be lowercase alphanumeric with underscores"
+    )
     .min(1)
     .max(100),
   description: z.string().trim().min(1, "Description is required"),
@@ -45,5 +51,7 @@ export const ListAgentsResponseSchema = z.object({
   total: z.number(),
 });
 
-export type AgentConfigApiResponse = z.infer<typeof AgentConfigApiResponseSchema>;
+export type AgentConfigApiResponse = z.infer<
+  typeof AgentConfigApiResponseSchema
+>;
 export type ListAgentsResponse = z.infer<typeof ListAgentsResponseSchema>;

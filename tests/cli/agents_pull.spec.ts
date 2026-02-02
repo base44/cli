@@ -43,7 +43,10 @@ describe("agents pull command", () => {
 
   it("fails when API returns error", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
-    t.api.mockAgentsFetchError({ status: 500, body: { error: "Server error" } });
+    t.api.mockAgentsFetchError({
+      status: 500,
+      body: { error: "Server error" },
+    });
 
     const result = await t.run("agents", "pull");
 

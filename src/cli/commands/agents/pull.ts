@@ -46,12 +46,16 @@ async function pullAgentsAction(): Promise<RunCommandResult> {
     log.warn(`Deleted: ${deleted.join(", ")}`);
   }
 
-  return { outroMessage: `Pulled ${remoteAgents.total} agents to ${agentsDir}` };
+  return {
+    outroMessage: `Pulled ${remoteAgents.total} agents to ${agentsDir}`,
+  };
 }
 
 export function getAgentsPullCommand(context: CLIContext): Command {
   return new Command("pull")
-    .description("Pull agents from Base44 to local files (replaces all local agent configs)")
+    .description(
+      "Pull agents from Base44 to local files (replaces all local agent configs)"
+    )
     .action(async () => {
       await runCommand(pullAgentsAction, { requireAuth: true }, context);
     });

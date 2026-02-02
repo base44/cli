@@ -10,7 +10,9 @@ async function logout(): Promise<RunCommandResult> {
 }
 
 export function getLogoutCommand(context: CLIContext): Command {
-  return new Command("logout").description("Logout from current device").action(async () => {
-    await runCommand(logout, { requireAppConfig: false }, context);
-  });
+  return new Command("logout")
+    .description("Logout from current device")
+    .action(async () => {
+      await runCommand(logout, { requireAppConfig: false }, context);
+    });
 }

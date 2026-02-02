@@ -2,7 +2,11 @@ import { renewAccessToken } from "@/core/auth/api.js";
 import type { AuthData } from "@/core/auth/schema.js";
 import { AuthDataSchema } from "@/core/auth/schema.js";
 import { getAuthFilePath } from "@/core/config.js";
-import { AuthRequiredError, FileReadError, SchemaValidationError } from "@/core/errors.js";
+import {
+  AuthRequiredError,
+  FileReadError,
+  SchemaValidationError,
+} from "@/core/errors.js";
 import { deleteFile, readJsonFile, writeJsonFile } from "@/core/utils/fs.js";
 
 // Buffer time before expiration to trigger proactive refresh (60 seconds)
@@ -52,7 +56,11 @@ export async function writeAuth(authData: AuthData): Promise<void> {
   const result = AuthDataSchema.safeParse(authData);
 
   if (!result.success) {
-    throw new SchemaValidationError("Invalid authentication data", result.error, getAuthFilePath());
+    throw new SchemaValidationError(
+      "Invalid authentication data",
+      result.error,
+      getAuthFilePath()
+    );
   }
 
   try {
@@ -147,6 +155,8 @@ export async function isLoggedIn(): Promise<boolean> {
  */
 export async function requireAuth(): Promise<void> {
   if (!(await isLoggedIn())) {
-    throw new AuthRequiredError("Not logged in. Please run 'base44 login' first.");
+    throw new AuthRequiredError(
+      "Not logged in. Please run 'base44 login' first."
+    );
   }
 }

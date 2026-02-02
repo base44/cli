@@ -20,7 +20,9 @@ async function runCLI(): Promise<void> {
 
   try {
     const userInfo = await readAuth();
-    errorReporter.setContext({ user: { email: userInfo.email, name: userInfo.name } });
+    errorReporter.setContext({
+      user: { email: userInfo.email, name: userInfo.name },
+    });
   } catch {
     // User info is optional context
   }
@@ -32,7 +34,8 @@ async function runCLI(): Promise<void> {
   } catch (error) {
     // CLIExitError = controlled exit (e.g., user cancellation), don't report
     if (!(error instanceof CLIExitError)) {
-      const errorObj = error instanceof Error ? error : new Error(String(error));
+      const errorObj =
+        error instanceof Error ? error : new Error(String(error));
       errorReporter.captureException(errorObj);
     }
 

@@ -42,7 +42,9 @@ describe("CLIError base class", () => {
 
   it("allows custom hints", () => {
     const customHints = [{ message: "Custom hint", command: "base44 help" }];
-    const error = new InvalidInputError("Invalid input", { hints: customHints });
+    const error = new InvalidInputError("Invalid input", {
+      hints: customHints,
+    });
     expect(error.hints).toEqual(customHints);
   });
 });
@@ -111,7 +113,9 @@ describe("UserError subclasses", () => {
         "/path/to/entity.jsonc"
       );
       expect(error.code).toBe("SCHEMA_INVALID");
-      expect(error.message).toContain("Invalid entity file in /path/to/entity.jsonc");
+      expect(error.message).toContain(
+        "Invalid entity file in /path/to/entity.jsonc"
+      );
       expect(error.message).toContain("expected string");
       expect(error.filePath).toBe("/path/to/entity.jsonc");
       expect(error.hints[0].message).toContain("/path/to/entity.jsonc");
@@ -133,13 +137,19 @@ describe("SystemError subclasses", () => {
     expect(error401.hints.some((h) => h.command === "base44 login")).toBe(true);
 
     const error403 = new ApiError("Forbidden", { statusCode: 403 });
-    expect(error403.hints.some((h) => h.message.includes("permission"))).toBe(true);
+    expect(error403.hints.some((h) => h.message.includes("permission"))).toBe(
+      true
+    );
 
     const error404 = new ApiError("Not found", { statusCode: 404 });
-    expect(error404.hints.some((h) => h.message.includes("not found"))).toBe(true);
+    expect(error404.hints.some((h) => h.message.includes("not found"))).toBe(
+      true
+    );
 
     const error500 = new ApiError("Server error", { statusCode: 500 });
-    expect(error500.hints.some((h) => h.message.includes("network"))).toBe(true);
+    expect(error500.hints.some((h) => h.message.includes("network"))).toBe(
+      true
+    );
   });
 
   it("FileNotFoundError has correct defaults", () => {
@@ -213,7 +223,9 @@ describe("formatApiError", () => {
       detail: "some detail",
     };
 
-    expect(formatApiError(error)).toBe('{\n  "field": "name",\n  "error": "required"\n}');
+    expect(formatApiError(error)).toBe(
+      '{\n  "field": "name",\n  "error": "required"\n}'
+    );
   });
 
   it("stringifies detail when it is an array", () => {

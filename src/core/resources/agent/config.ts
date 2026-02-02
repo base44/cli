@@ -1,8 +1,16 @@
 import { join } from "node:path";
 import { globby } from "globby";
 import { SchemaValidationError } from "@/core/errors.js";
-import { CONFIG_FILE_EXTENSION, CONFIG_FILE_EXTENSION_GLOB } from "../../consts.js";
-import { deleteFile, pathExists, readJsonFile, writeJsonFile } from "../../utils/fs.js";
+import {
+  CONFIG_FILE_EXTENSION,
+  CONFIG_FILE_EXTENSION_GLOB,
+} from "../../consts.js";
+import {
+  deleteFile,
+  pathExists,
+  readJsonFile,
+  writeJsonFile,
+} from "../../utils/fs.js";
 import type { AgentConfig, AgentConfigApiResponse } from "./schema.js";
 import { AgentConfigSchema } from "./schema.js";
 
@@ -30,7 +38,11 @@ async function readAgentFile(agentPath: string): Promise<AgentConfig> {
   const result = AgentConfigSchema.safeParse(parsed);
 
   if (!result.success) {
-    throw new SchemaValidationError("Invalid agent file", result.error, agentPath);
+    throw new SchemaValidationError(
+      "Invalid agent file",
+      result.error,
+      agentPath
+    );
   }
 
   return result.data;
@@ -46,7 +58,9 @@ export async function readAllAgents(agentsDir: string): Promise<AgentConfig[]> {
     absolute: true,
   });
 
-  const agents = await Promise.all(files.map((filePath) => readAgentFile(filePath)));
+  const agents = await Promise.all(
+    files.map((filePath) => readAgentFile(filePath))
+  );
 
   const names = new Set<string>();
   for (const agent of agents) {

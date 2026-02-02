@@ -3,7 +3,11 @@ import pWaitFor from "p-wait-for";
 import { runTask } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 import { theme } from "@/cli/utils/theme.js";
-import type { DeviceCodeResponse, TokenResponse, UserInfoResponse } from "@/core/auth/index.js";
+import type {
+  DeviceCodeResponse,
+  TokenResponse,
+  UserInfoResponse,
+} from "@/core/auth/index.js";
 import {
   generateDeviceCode,
   getTokenFromDeviceCode,
@@ -76,7 +80,10 @@ async function waitForAuthentication(
   return tokenResponse;
 }
 
-async function saveAuthData(response: TokenResponse, userInfo: UserInfoResponse): Promise<void> {
+async function saveAuthData(
+  response: TokenResponse,
+  userInfo: UserInfoResponse
+): Promise<void> {
   const expiresAt = Date.now() + response.expiresIn * 1000;
 
   await writeAuth({
@@ -105,5 +112,7 @@ export async function login(): Promise<RunCommandResult> {
 
   await saveAuthData(token, userInfo);
 
-  return { outroMessage: `Successfully logged in as ${theme.styles.bold(userInfo.email)}` };
+  return {
+    outroMessage: `Successfully logged in as ${theme.styles.bold(userInfo.email)}`,
+  };
 }

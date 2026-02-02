@@ -5,7 +5,13 @@ import { Argument, Command } from "commander";
 import { execa } from "execa";
 import kebabCase from "lodash.kebabcase";
 import type { CLIContext } from "@/cli/types.js";
-import { getDashboardUrl, onPromptCancel, runCommand, runTask, theme } from "@/cli/utils/index.js";
+import {
+  getDashboardUrl,
+  onPromptCancel,
+  runCommand,
+  runTask,
+  theme,
+} from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 import { InvalidInputError } from "@/core/errors.js";
 import { deploySite, isDirEmpty, pushEntities } from "@/core/index.js";
@@ -47,7 +53,9 @@ function validateNonInteractiveFlags(command: Command): void {
   }
 }
 
-async function createInteractive(options: CreateOptions): Promise<RunCommandResult> {
+async function createInteractive(
+  options: CreateOptions
+): Promise<RunCommandResult> {
   const templates = await listTemplates();
   const templateOptions: Option<Template>[] = templates.map((t) => ({
     value: t,
@@ -77,7 +85,9 @@ async function createInteractive(options: CreateOptions): Promise<RunCommandResu
             });
       },
       projectPath: async ({ results }) => {
-        const suggestedPath = (await isDirEmpty()) ? "./" : `./${kebabCase(results.name)}`;
+        const suggestedPath = (await isDirEmpty())
+          ? "./"
+          : `./${kebabCase(results.name)}`;
         return text({
           message: "Where should we create your project?",
           placeholder: suggestedPath,
@@ -100,8 +110,12 @@ async function createInteractive(options: CreateOptions): Promise<RunCommandResu
   });
 }
 
-async function createNonInteractive(options: CreateOptions): Promise<RunCommandResult> {
-  const template = await getTemplateById(options.template ?? DEFAULT_TEMPLATE_ID);
+async function createNonInteractive(
+  options: CreateOptions
+): Promise<RunCommandResult> {
+  const template = await getTemplateById(
+    options.template ?? DEFAULT_TEMPLATE_ID
+  );
 
   return await executeCreate({
     template,
@@ -175,7 +189,9 @@ async function executeCreate({
           await pushEntities(entities);
         },
         {
-          successMessage: theme.colors.base44Orange("Data models pushed successfully"),
+          successMessage: theme.colors.base44Orange(
+            "Data models pushed successfully"
+          ),
           errorMessage: "Failed to push data models",
         }
       );
@@ -209,7 +225,9 @@ async function executeCreate({
           return await deploySite(join(resolvedPath, outputDirectory));
         },
         {
-          successMessage: theme.colors.base44Orange("Site deployed successfully"),
+          successMessage: theme.colors.base44Orange(
+            "Site deployed successfully"
+          ),
           errorMessage: "Failed to deploy site",
         }
       );
@@ -232,7 +250,9 @@ async function executeCreate({
           });
         },
         {
-          successMessage: theme.colors.base44Orange("AI agent skills added successfully"),
+          successMessage: theme.colors.base44Orange(
+            "AI agent skills added successfully"
+          ),
           errorMessage:
             "Failed to add AI agent skills - you can add them later with: npx skills add base44/skills",
         }
@@ -243,13 +263,17 @@ async function executeCreate({
     }
   }
 
-  log.message(`${theme.styles.header("Project")}: ${theme.colors.base44Orange(name)}`);
+  log.message(
+    `${theme.styles.header("Project")}: ${theme.colors.base44Orange(name)}`
+  );
   log.message(
     `${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(projectId))}`
   );
 
   if (finalAppUrl) {
-    log.message(`${theme.styles.header("Site")}: ${theme.colors.links(finalAppUrl)}`);
+    log.message(
+      `${theme.styles.header("Site")}: ${theme.colors.links(finalAppUrl)}`
+    );
   }
 
   return { outroMessage: "Your project is set up and ready to use" };
@@ -260,7 +284,10 @@ export function getCreateCommand(context: CLIContext): Command {
     .description("Create a new Base44 project")
     .addArgument(new Argument("name", "Project name").argOptional())
     .option("-p, --path <path>", "Path where to create the project")
-    .option("-t, --template <id>", "Template ID (e.g., backend-only, backend-and-client)")
+    .option(
+      "-t, --template <id>",
+      "Template ID (e.g., backend-only, backend-and-client)"
+    )
     .option("--deploy", "Build and deploy the site")
     .option("--no-skills", "Skip AI agent skills installation")
     .hook("preAction", validateNonInteractiveFlags)
@@ -269,7 +296,8 @@ export function getCreateCommand(context: CLIContext): Command {
 
       if (isNonInteractive) {
         await runCommand(
-          () => createNonInteractive({ name: options.name ?? name, ...options }),
+          () =>
+            createNonInteractive({ name: options.name ?? name, ...options }),
           { requireAuth: true, requireAppConfig: false },
           context
         );

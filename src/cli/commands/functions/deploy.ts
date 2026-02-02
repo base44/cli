@@ -12,7 +12,8 @@ async function deployFunctionsAction(): Promise<RunCommandResult> {
 
   if (functions.length === 0) {
     return {
-      outroMessage: "No functions found. Create functions in the 'functions' directory.",
+      outroMessage:
+        "No functions found. Create functions in the 'functions' directory.",
     };
   }
 
@@ -38,7 +39,9 @@ async function deployFunctionsAction(): Promise<RunCommandResult> {
     log.warn(`Deleted: ${result.deleted.join(", ")}`);
   }
   if (result.errors && result.errors.length > 0) {
-    const errorMessages = result.errors.map((e) => `'${e.name}' function: ${e.message}`).join("\n");
+    const errorMessages = result.errors
+      .map((e) => `'${e.name}' function: ${e.message}`)
+      .join("\n");
     throw new ApiError(`Function deployment errors:\n${errorMessages}`, {
       hints: [
         { message: "Check the function code for syntax errors" },
@@ -51,9 +54,17 @@ async function deployFunctionsAction(): Promise<RunCommandResult> {
 }
 
 export function getFunctionsDeployCommand(context: CLIContext): Command {
-  return new Command("functions").description("Manage project functions").addCommand(
-    new Command("deploy").description("Deploy local functions to Base44").action(async () => {
-      await runCommand(deployFunctionsAction, { requireAuth: true }, context);
-    })
-  );
+  return new Command("functions")
+    .description("Manage project functions")
+    .addCommand(
+      new Command("deploy")
+        .description("Deploy local functions to Base44")
+        .action(async () => {
+          await runCommand(
+            deployFunctionsAction,
+            { requireAuth: true },
+            context
+          );
+        })
+    );
 }

@@ -20,7 +20,9 @@ const UserConditionSchema = z
   })
   .refine(
     (val) =>
-      Object.keys(val).every((key) => userConditionAllowedKeys.has(key) || key.startsWith("data.")),
+      Object.keys(val).every(
+        (key) => userConditionAllowedKeys.has(key) || key.startsWith("data.")
+      ),
     "Keys must be role, email, id, or match data.* pattern"
   );
 
@@ -148,7 +150,9 @@ const PropertyDefinitionSchema = z.object({
 
 export const EntitySchema = z.object({
   type: z.literal("object"),
-  name: z.string().regex(/^[a-zA-Z0-9]+$/, "Entity name must be alphanumeric only"),
+  name: z
+    .string()
+    .regex(/^[a-zA-Z0-9]+$/, "Entity name must be alphanumeric only"),
   title: z.string().optional(),
   description: z.string().optional(),
   properties: z.record(z.string(), PropertyDefinitionSchema),
