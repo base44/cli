@@ -847,9 +847,53 @@ t.api.mockAgentsPushError({ status: 401, body: { error: "..." } });
 t.api.mockSiteDeployError({ status: 413, body: { error: "..." } });
 ```
 
+### Test Overrides (`BASE44_CLI_TEST_OVERRIDES`)
+
+The CLI uses a centralized JSON-based override mechanism for tests. When adding new testable behaviors that need mocking, **extend this existing mechanism** rather than creating new environment variables.
+
+**Current overrides:**
+- `appConfig` - Mock app configuration (id, projectRoot)
+- `latestVersion` - Mock version check response (string for newer version, null for no update)
+
+**Adding new overrides:**
+
+1. Add the field to `TestOverrides` interface in `CLITestkit.ts`:
+```typescript
+interface TestOverrides {
+  appConfig?: { id: string; projectRoot: string };
+  latestVersion?: string | null;
+  myNewOverride?: MyType;  // Add here
+}
+```
+
+2. Add a `given*` method to `CLITestkit`:
+```typescript
+givenMyOverride(value: MyType): void {
+  this.testOverrides.myNewOverride = value;
+}
+```
+
+3. Expose it in `testkit/index.ts` `TestContext` interface and implementation.
+
+4. Read the override in your source code:
+```typescript
+function getTestOverride(): MyType | undefined {
+  const overrides = process.env.BASE44_CLI_TEST_OVERRIDES;
+  if (!overrides) return undefined;
+  try {
+    return JSON.parse(overrides).myNewOverride;
+  } catch {
+    return undefined;
+  }
+}
+```
+
+**Why not vi.mock()?** Tests run against the bundled `dist/index.js` where path aliases are resolved. `vi.mock("@/some/path.js")` won't match the bundled code.
+
 ### Testing Rules
 
 1. **Build first** - Run `bun run build` before `bun test`
 2. **Use fixtures** - Don't create project structures in tests
 3. **Fixtures need `.app.jsonc`** - Add `base44/.app.jsonc` with `{ "id": "test-app-id" }`
 4. **Interactive prompts can't be tested** - Only test via non-interactive flags
+5. **Use test overrides** - Extend `BASE44_CLI_TEST_OVERRIDES` for new testable behaviors; don't create new env vars
