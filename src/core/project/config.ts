@@ -5,6 +5,7 @@ import { ConfigNotFoundError, SchemaValidationError } from "@/core/errors.js";
 import { ProjectConfigSchema } from "@/core/project/schema.js";
 import type { ProjectData, ProjectRoot } from "@/core/project/types.js";
 import { agentResource } from "@/core/resources/agent/index.js";
+import { connectorResource } from "@/core/resources/connector/index.js";
 import { entityResource } from "@/core/resources/entity/index.js";
 import { functionResource } from "@/core/resources/function/index.js";
 import { readJsonFile } from "@/core/utils/fs.js";
@@ -91,10 +92,11 @@ export async function readProjectConfig(
   const project = result.data;
   const configDir = dirname(configPath);
 
-  const [entities, functions, agents] = await Promise.all([
+  const [entities, functions, agents, connectors] = await Promise.all([
     entityResource.readAll(join(configDir, project.entitiesDir)),
     functionResource.readAll(join(configDir, project.functionsDir)),
     agentResource.readAll(join(configDir, project.agentsDir)),
+    connectorResource.readAll(join(configDir, project.connectorsDir)),
   ]);
 
   return {
@@ -102,5 +104,6 @@ export async function readProjectConfig(
     entities,
     functions,
     agents,
+    connectors,
   };
 }

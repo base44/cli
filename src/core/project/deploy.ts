@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import type { ProjectData } from "@/core/project/types.js";
 import { agentResource } from "@/core/resources/agent/index.js";
+import { connectorResource } from "@/core/resources/connector/index.js";
 import { entityResource } from "@/core/resources/entity/index.js";
 import { functionResource } from "@/core/resources/function/index.js";
 import { deploySite } from "@/core/site/index.js";
@@ -12,13 +13,14 @@ import { deploySite } from "@/core/site/index.js";
  * @returns true if there are entities, functions, agents, or a configured site to deploy
  */
 export function hasResourcesToDeploy(projectData: ProjectData): boolean {
-  const { project, entities, functions, agents } = projectData;
+  const { project, entities, functions, agents, connectors } = projectData;
   const hasSite = Boolean(project.site?.outputDirectory);
   const hasEntities = entities.length > 0;
   const hasFunctions = functions.length > 0;
   const hasAgents = agents.length > 0;
+  const hasConnectors = connectors.length > 0;
 
-  return hasEntities || hasFunctions || hasAgents || hasSite;
+  return hasEntities || hasFunctions || hasAgents || hasConnectors || hasSite;
 }
 
 /**
@@ -40,11 +42,12 @@ export interface DeployAllResult {
 export async function deployAll(
   projectData: ProjectData
 ): Promise<DeployAllResult> {
-  const { project, entities, functions, agents } = projectData;
+  const { project, entities, functions, agents, connectors } = projectData;
 
   await entityResource.push(entities);
   await functionResource.push(functions);
   await agentResource.push(agents);
+  await connectorResource.push(connectors);
 
   if (project.site?.outputDirectory) {
     const outputDir = resolve(project.root, project.site.outputDirectory);
