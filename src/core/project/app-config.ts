@@ -1,5 +1,5 @@
 import { globby } from "globby";
-import { getAppConfigPath } from "@/core/config.js";
+import { getAppConfigPath, getTestOverrides } from "@/core/config.js";
 import { APP_CONFIG_PATTERN } from "@/core/consts.js";
 import {
   ConfigInvalidError,
@@ -18,27 +18,11 @@ export interface CachedAppConfig {
 
 let cache: CachedAppConfig | null = null;
 
-/**
- * Load app config from BASE44_CLI_TEST_OVERRIDES env var.
- * @returns true if override was applied, false otherwise
- */
 function loadFromTestOverrides(): boolean {
-  const overrides = process.env.BASE44_CLI_TEST_OVERRIDES;
-  if (!overrides) {
-    return false;
-  }
-
-  try {
-    const data = JSON.parse(overrides);
-    if (data.appConfig?.id && data.appConfig?.projectRoot) {
-      cache = {
-        id: data.appConfig.id,
-        projectRoot: data.appConfig.projectRoot,
-      };
-      return true;
-    }
-  } catch {
-    // Invalid JSON, ignore
+  const appConfig = getTestOverrides()?.appConfig;
+  if (appConfig?.id && appConfig.projectRoot) {
+    cache = { id: appConfig.id, projectRoot: appConfig.projectRoot };
+    return true;
   }
   return false;
 }

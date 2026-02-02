@@ -30,3 +30,20 @@ export function getAppConfigPath(projectRoot: string): string {
 export function getBase44ApiUrl(): string {
   return process.env.BASE44_API_URL || "https://app.base44.com";
 }
+
+export interface TestOverrides {
+  appConfig?: { id: string; projectRoot: string };
+  latestVersion?: string | null;
+}
+
+export function getTestOverrides(): TestOverrides | null {
+  const raw = process.env.BASE44_CLI_TEST_OVERRIDES;
+  if (!raw) {
+    return null;
+  }
+  try {
+    return JSON.parse(raw) as TestOverrides;
+  } catch {
+    return null;
+  }
+}

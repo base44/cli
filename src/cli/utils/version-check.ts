@@ -1,33 +1,14 @@
 import { execa } from "execa";
 import packageJson from "../../../package.json";
+import { getTestOverrides } from "@/core/config.js";
 
 export interface UpgradeInfo {
   currentVersion: string;
   latestVersion: string;
 }
 
-/**
- * Load test override for latest version from BASE44_CLI_TEST_OVERRIDES.
- * Returns undefined if no override, or the override value (which may be null to simulate "no update").
- */
-function getTestLatestVersion(): string | null | undefined {
-  const overrides = process.env.BASE44_CLI_TEST_OVERRIDES;
-  if (!overrides) {
-    return undefined;
-  }
-  try {
-    const data = JSON.parse(overrides);
-    return data.latestVersion;
-  } catch {
-    return undefined;
-  }
-}
-
-/**
- * Checks if a newer version of the CLI is available.
- */
 export async function checkForUpgrade(): Promise<UpgradeInfo | null> {
-  const testLatestVersion = getTestLatestVersion();
+  const testLatestVersion = getTestOverrides()?.latestVersion;
   if (testLatestVersion !== undefined) {
     if (testLatestVersion === null) {
       return null;
