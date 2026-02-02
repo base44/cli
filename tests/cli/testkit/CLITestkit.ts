@@ -90,7 +90,6 @@ export class CLITestkit {
     await cp(fixturePath, this.projectDir, { recursive: true });
   }
 
-  /** Set the "latest version" for upgrade check tests. Use null to simulate no update available. */
   givenLatestVersion(version: string | null): void {
     this.testOverrides.latestVersion = version;
   }

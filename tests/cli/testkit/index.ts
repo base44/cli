@@ -35,7 +35,6 @@ export interface TestContext {
     user?: { email: string; name: string }
   ) => Promise<void>;
 
-  /** Set the "latest version" for upgrade check tests. Use null to simulate no update available. */
   givenLatestVersion: (version: string | null) => void;
 
   // ─── WHEN METHODS ──────────────────────────────────────────
