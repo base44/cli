@@ -99,17 +99,13 @@ export class Base44APIMock {
 
   /** Mock POST /oauth/token - Exchange code for tokens or refresh */
   mockToken(response: TokenResponse): this {
-    this.handlers.push(
-      http.post(`${BASE_URL}/oauth/token`, () => HttpResponse.json(response))
-    );
+    this.handlers.push(http.post(`${BASE_URL}/oauth/token`, () => HttpResponse.json(response)));
     return this;
   }
 
   /** Mock GET /oauth/userinfo - Get authenticated user info */
   mockUserInfo(response: UserInfoResponse): this {
-    this.handlers.push(
-      http.get(`${BASE_URL}/oauth/userinfo`, () => HttpResponse.json(response))
-    );
+    this.handlers.push(http.get(`${BASE_URL}/oauth/userinfo`, () => HttpResponse.json(response)));
     return this;
   }
 
@@ -138,9 +134,7 @@ export class Base44APIMock {
   /** Mock POST /api/apps/{appId}/deploy-dist - Deploy site */
   mockSiteDeploy(response: SiteDeployResponse): this {
     this.handlers.push(
-      http.post(`${BASE_URL}/api/apps/${this.appId}/deploy-dist`, () =>
-        HttpResponse.json(response)
-      )
+      http.post(`${BASE_URL}/api/apps/${this.appId}/deploy-dist`, () => HttpResponse.json(response))
     );
     return this;
   }
@@ -169,9 +163,7 @@ export class Base44APIMock {
 
   /** Mock POST /api/apps - Create new app */
   mockCreateApp(response: CreateAppResponse): this {
-    this.handlers.push(
-      http.post(`${BASE_URL}/api/apps`, () => HttpResponse.json(response))
-    );
+    this.handlers.push(http.post(`${BASE_URL}/api/apps`, () => HttpResponse.json(response)));
     return this;
   }
 
@@ -181,7 +173,9 @@ export class Base44APIMock {
   mockError(method: "get" | "post" | "put" | "delete", path: string, error: ErrorResponse): this {
     const url = path.startsWith("/") ? `${BASE_URL}${path}` : `${BASE_URL}/${path}`;
     this.handlers.push(
-      http[method](url, () => HttpResponse.json(error.body ?? { error: "Error" }, { status: error.status }))
+      http[method](url, () =>
+        HttpResponse.json(error.body ?? { error: "Error" }, { status: error.status })
+      )
     );
     return this;
   }

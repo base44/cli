@@ -30,18 +30,15 @@ export const FunctionDeploySchema = z.object({
 export const DeployFunctionsResponseSchema = z.object({
   deployed: z.array(z.string()),
   deleted: z.array(z.string()),
-  errors: z
-    .array(z.object({ name: z.string(), message: z.string() }))
-    .nullable(),
+  errors: z.array(z.object({ name: z.string(), message: z.string() })).nullable(),
 });
 
 export type FunctionConfig = z.infer<typeof FunctionConfigSchema>;
-export type Function = z.infer<typeof FunctionSchema>;
+export type BackendFunction = z.infer<typeof FunctionSchema>;
 export type FunctionFile = z.infer<typeof FunctionFileSchema>;
 export type FunctionDeploy = z.infer<typeof FunctionDeploySchema>;
 export type DeployFunctionsResponse = z.infer<typeof DeployFunctionsResponseSchema>;
 
-export type FunctionWithCode = Omit<Function, "files"> & {
+export type FunctionWithCode = Omit<BackendFunction, "files"> & {
   files: FunctionFile[];
 };
-

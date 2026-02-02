@@ -12,8 +12,10 @@ The Base44 CLI is a TypeScript-based command-line tool built with:
 - **Zod** - Schema validation for API responses, config files, and user inputs
 - **JSON5** - Parsing JSONC/JSON5 config files (supports comments and trailing commas)
 - **TypeScript** - Primary language
-- **tsdown** - Bundler for production builds (powered by Rolldown)
 - **Bun** - Runtime for local development (runs TypeScript directly)
+- **tsdown** - Bundler for production builds (powered by Rolldown)
+- **Biome** - Linting and formatting (fast, replaces ESLint)
+- **Vitest** - Test runner
 
 ### Distribution Strategy
 The CLI is distributed as a **zero-dependency npm package**. All runtime dependencies are bundled into JavaScript files. This means:
@@ -669,11 +671,14 @@ Set the environment variable: `BASE44_DISABLE_TELEMETRY=1`
 ```bash
 bun install        # Install dependencies
 bun run build      # tsdown - bundles to dist/index.js + copies templates
+bun run build:watch # tsdown in watch mode - rebuilds on file changes
 bun run typecheck  # tsc --noEmit - type checking only
 bun run dev        # runs ./bin/dev.ts (Bun runs TypeScript directly)
 bun run start      # runs ./bin/run.js (production, requires build first)
-bun test           # Run tests with vitest
-bun run lint       # eslint
+bun run test       # Run tests with vitest (note: use `bun run test`, not `bun test`)
+bun run lint       # Biome - linting and import organization
+bun run lint:fix   # Biome - auto-fix lint issues
+bun run format     # Biome - format code
 ```
 
 ### Debugging
@@ -743,7 +748,7 @@ await runTask("Installing...", async () => {
 
 ## Testing
 
-**Build before testing**: Tests import the bundled `dist/index.js`, so run `bun run build && bun test`.
+**Build before testing**: Tests import the bundled `dist/index.js`, so run `bun run build && bun run test`.
 
 ### Test Structure
 

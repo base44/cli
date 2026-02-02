@@ -1,9 +1,9 @@
-import { join, dirname } from "node:path";
-import { Command } from "commander";
-import { log } from "@clack/prompts";
+import { dirname, join } from "node:path";
 import type { CLIContext } from "@/cli/types.js";
-import { fetchAgents, writeAgents } from "@/core/resources/agent/index.js";
 import { readProjectConfig } from "@/core/index.js";
+import { fetchAgents, writeAgents } from "@/core/resources/agent/index.js";
+import { log } from "@clack/prompts";
+import { Command } from "commander";
 import { runCommand, runTask } from "../../utils/index.js";
 import type { RunCommandResult } from "../../utils/runCommand.js";
 

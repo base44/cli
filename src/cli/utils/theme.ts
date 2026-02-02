@@ -1,6 +1,6 @@
-import chalk from "chalk";
 import type { ErrorContext } from "@/cli/telemetry/error-reporter.js";
 import type { ErrorHint } from "@/core/errors.js";
+import chalk from "chalk";
 
 /**
  * Base44 CLI theme configuration
@@ -11,12 +11,12 @@ export const theme = {
     base44OrangeBackground: chalk.bgHex("#E86B3C"),
     shinyOrange: chalk.hex("#FFD700"),
     links: chalk.hex("#00D4FF"),
-    white: chalk.white
+    white: chalk.white,
   },
   styles: {
     header: chalk.dim,
     bold: chalk.bold,
-    dim: chalk.dim
+    dim: chalk.dim,
   },
   format: {
     errorContext(ctx: ErrorContext): string {
@@ -40,6 +40,6 @@ export const theme = {
       });
 
       return ["[Agent Hints]", ...hintLines].join("\n");
-    }
-  }
+    },
+  },
 };

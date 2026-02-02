@@ -22,9 +22,11 @@ const SiteConfigSchema = z.object({
 });
 
 export const ProjectConfigSchema = z.object({
-  name: z.string({
-    error: "App name cannot be empty"
-  }).min(1, "App name cannot be empty"),
+  name: z
+    .string({
+      error: "App name cannot be empty",
+    })
+    .min(1, "App name cannot be empty"),
   description: z.string().optional(),
   site: SiteConfigSchema.optional(),
   entitiesDir: z.string().optional().default("entities"),

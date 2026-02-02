@@ -54,11 +54,13 @@ jobs:
           cache: "npm"
           registry-url: "https://registry.npmjs.org"
 
-      - name: Update npm
-        run: npm install -g npm@latest
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
 
       - name: Install dependencies
-        run: npm ci
+        run: bun install --frozen-lockfile
 
       - name: Check if version needs to be bumped
         id: check-version
@@ -143,7 +145,7 @@ jobs:
             --allowedTools Bash(git log:*),Bash(gh pr:*),Read(*),Edit(CHANGELOG.md)
 
       - name: Build package
-        run: npm run build
+        run: bun run build
 
       - name: Show package info
         run: |

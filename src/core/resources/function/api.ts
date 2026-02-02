@@ -1,7 +1,11 @@
 import { getAppClient } from "@/core/clients/index.js";
-import { DeployFunctionsResponseSchema } from "@/core/resources/function/schema.js";
-import type { FunctionWithCode, DeployFunctionsResponse } from "@/core/resources/function/schema.js";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";
+import { DeployFunctionsResponseSchema } from "@/core/resources/function/schema.js";
+import type {
+  DeployFunctionsResponse,
+  FunctionWithCode,
+} from "@/core/resources/function/schema.js";
+import type { KyResponse } from "ky";
 
 function toDeployPayloadItem(fn: FunctionWithCode) {
   return {
@@ -19,7 +23,7 @@ export async function deployFunctions(
     functions: functions.map(toDeployPayloadItem),
   };
 
-  let response;
+  let response: KyResponse;
   try {
     response = await appClient.put("backend-functions", {
       json: payload,

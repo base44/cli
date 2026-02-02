@@ -1,15 +1,15 @@
 import {
+  access,
+  copyFile as fsCopyFile,
   readFile as fsReadFile,
   writeFile as fsWriteFile,
-  copyFile as fsCopyFile,
   mkdir,
-  unlink,
-  access,
   readdir,
+  unlink,
 } from "node:fs/promises";
 import { dirname } from "node:path";
+import { ConfigInvalidError, FileNotFoundError, FileReadError } from "@/core/errors.js";
 import JSON5 from "json5";
-import { FileNotFoundError, FileReadError, ConfigInvalidError } from "@/core/errors.js";
 
 export async function pathExists(path: string): Promise<boolean> {
   try {
@@ -20,10 +20,7 @@ export async function pathExists(path: string): Promise<boolean> {
   }
 }
 
-export async function writeFile(
-  filePath: string,
-  content: string
-): Promise<void> {
+export async function writeFile(filePath: string, content: string): Promise<void> {
   const dir = dirname(filePath);
   if (!(await pathExists(dir))) {
     await mkdir(dir, { recursive: true });
@@ -98,10 +95,7 @@ export async function readJsonFile(filePath: string): Promise<unknown> {
   }
 }
 
-export async function writeJsonFile(
-  filePath: string,
-  data: unknown
-): Promise<void> {
+export async function writeJsonFile(filePath: string, data: unknown): Promise<void> {
   const dir = dirname(filePath);
   if (!(await pathExists(dir))) {
     await mkdir(dir, { recursive: true });

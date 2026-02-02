@@ -1,10 +1,11 @@
 import { base44Client } from "@/core/clients/index.js";
+import { ApiError, SchemaValidationError } from "@/core/errors.js";
 import { CreateProjectResponseSchema, ProjectsResponseSchema } from "@/core/project/schema.js";
 import type { ProjectsResponse } from "@/core/project/schema.js";
-import { ApiError, SchemaValidationError } from "@/core/errors.js";
+import type { KyResponse } from "ky";
 
 export async function createProject(projectName: string, description?: string) {
-  let response;
+  let response: KyResponse;
   try {
     response = await base44Client.post("api/apps", {
       json: {
@@ -30,7 +31,7 @@ export async function createProject(projectName: string, description?: string) {
 }
 
 export async function listProjects(): Promise<ProjectsResponse> {
-  let response;
+  let response: KyResponse;
   try {
     response = await base44Client.get("api/apps", {
       searchParams: {

@@ -1,13 +1,9 @@
-import { Command } from "commander";
-import { confirm, isCancel, log } from "@clack/prompts";
 import type { CLIContext } from "@/cli/types.js";
-import {
-  readProjectConfig,
-  deployAll,
-  hasResourcesToDeploy,
-} from "@/core/project/index.js";
-import { runCommand, runTask, theme, getDashboardUrl } from "@/cli/utils/index.js";
+import { getDashboardUrl, runCommand, runTask, theme } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
+import { deployAll, hasResourcesToDeploy, readProjectConfig } from "@/core/project/index.js";
+import { confirm, isCancel, log } from "@clack/prompts";
+import { Command } from "commander";
 
 interface DeployOptions {
   yes?: boolean;
@@ -30,7 +26,9 @@ async function deployAction(options: DeployOptions): Promise<RunCommandResult> {
     summaryLines.push(`  - ${entities.length} ${entities.length === 1 ? "entity" : "entities"}`);
   }
   if (functions.length > 0) {
-    summaryLines.push(`  - ${functions.length} ${functions.length === 1 ? "function" : "functions"}`);
+    summaryLines.push(
+      `  - ${functions.length} ${functions.length === 1 ? "function" : "functions"}`
+    );
   }
   if (agents.length > 0) {
     summaryLines.push(`  - ${agents.length} ${agents.length === 1 ? "agent" : "agents"}`);
@@ -41,9 +39,7 @@ async function deployAction(options: DeployOptions): Promise<RunCommandResult> {
 
   // Confirmation prompt
   if (!options.yes) {
-    log.warn(
-      `This will update your Base44 app with:\n${summaryLines.join("\n")}`
-    );
+    log.warn(`This will update your Base44 app with:\n${summaryLines.join("\n")}`);
 
     const shouldDeploy = await confirm({
       message: "Are you sure you want to continue?",

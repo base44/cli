@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import { HTTPError } from "ky";
-import type { AgentConfig } from "../../src/core/resources/agent/index.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { pushAgents } from "../../src/core/resources/agent/api.js";
+import type { AgentConfig } from "../../src/core/resources/agent/index.js";
 
 // Mock the HTTP client
 const mockPut = vi.fn();

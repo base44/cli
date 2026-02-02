@@ -20,11 +20,9 @@ const UserConditionSchema = z
   })
   .refine(
     (val) =>
-      Object.keys(val).every(
-        (key) => userConditionAllowedKeys.has(key) || key.startsWith("data.")
-      ),
+      Object.keys(val).every((key) => userConditionAllowedKeys.has(key) || key.startsWith("data.")),
     "Keys must be role, email, id, or match data.* pattern"
-  )
+  );
 
 const rlsConditionAllowedKeys = new Set([
   "user_condition",
@@ -35,21 +33,20 @@ const rlsConditionAllowedKeys = new Set([
   "$nor",
 ]);
 
-const RLSConditionSchema = z
-  .looseObject({
-    user_condition: UserConditionSchema.optional(),
-    created_by: FieldConditionSchema.optional(),
-    created_by_id: FieldConditionSchema.optional(),
-    get $or(): z.ZodOptional<z.ZodArray<typeof RLSConditionSchema>> {
-      return z.array(RefineRLSConditionSchema).optional();
-    },
-    get $and(): z.ZodOptional<z.ZodArray<typeof RLSConditionSchema>> {
-      return z.array(RefineRLSConditionSchema).optional();
-    },
-    get $nor(): z.ZodOptional<z.ZodArray<typeof RLSConditionSchema>> {
-      return z.array(RefineRLSConditionSchema).optional();
-    },
-  });
+const RLSConditionSchema = z.looseObject({
+  user_condition: UserConditionSchema.optional(),
+  created_by: FieldConditionSchema.optional(),
+  created_by_id: FieldConditionSchema.optional(),
+  get $or(): z.ZodOptional<z.ZodArray<typeof RLSConditionSchema>> {
+    return z.array(RefineRLSConditionSchema).optional();
+  },
+  get $and(): z.ZodOptional<z.ZodArray<typeof RLSConditionSchema>> {
+    return z.array(RefineRLSConditionSchema).optional();
+  },
+  get $nor(): z.ZodOptional<z.ZodArray<typeof RLSConditionSchema>> {
+    return z.array(RefineRLSConditionSchema).optional();
+  },
+});
 
 const fieldConditionOperators = new Set(["$in", "$nin", "$ne", "$all"]);
 
@@ -72,8 +69,12 @@ const isValidFieldCondition = (value: unknown): boolean => {
 const RefineRLSConditionSchema = RLSConditionSchema.refine(
   (val) =>
     Object.entries(val).every(([key, value]) => {
-      if (rlsConditionAllowedKeys.has(key)) {return true;}
-      if (!key.startsWith("data.")) {return false;}
+      if (rlsConditionAllowedKeys.has(key)) {
+        return true;
+      }
+      if (!key.startsWith("data.")) {
+        return false;
+      }
       return isValidFieldCondition(value);
     }),
   "Keys must be known RLS keys or match data.* pattern with valid value"
@@ -147,9 +148,7 @@ const PropertyDefinitionSchema = z.object({
 
 export const EntitySchema = z.object({
   type: z.literal("object"),
-  name: z
-    .string()
-    .regex(/^[a-zA-Z0-9]+$/, "Entity name must be alphanumeric only"),
+  name: z.string().regex(/^[a-zA-Z0-9]+$/, "Entity name must be alphanumeric only"),
   title: z.string().optional(),
   description: z.string().optional(),
   properties: z.record(z.string(), PropertyDefinitionSchema),

@@ -1,17 +1,13 @@
-import { ApiError, SchemaValidationError } from "@/core/errors.js";
 import {
   DeviceCodeResponseSchema,
-  TokenResponseSchema,
   OAuthErrorSchema,
+  TokenResponseSchema,
   UserInfoSchema,
 } from "@/core/auth/schema.js";
-import type {
-  DeviceCodeResponse,
-  TokenResponse,
-  UserInfoResponse,
-} from "@/core/auth/schema.js";
-import { AUTH_CLIENT_ID } from "@/core/consts.js";
+import type { DeviceCodeResponse, TokenResponse, UserInfoResponse } from "@/core/auth/schema.js";
 import { oauthClient } from "@/core/clients/index.js";
+import { AUTH_CLIENT_ID } from "@/core/consts.js";
+import { ApiError, SchemaValidationError } from "@/core/errors.js";
 
 export async function generateDeviceCode(): Promise<DeviceCodeResponse> {
   const response = await oauthClient.post("oauth/device/code", {
@@ -38,14 +34,9 @@ export async function generateDeviceCode(): Promise<DeviceCodeResponse> {
   return result.data;
 }
 
-export async function getTokenFromDeviceCode(
-  deviceCode: string
-): Promise<TokenResponse | null> {
+export async function getTokenFromDeviceCode(deviceCode: string): Promise<TokenResponse | null> {
   const searchParams = new URLSearchParams();
-  searchParams.set(
-    "grant_type",
-    "urn:ietf:params:oauth:grant-type:device_code"
-  );
+  searchParams.set("grant_type", "urn:ietf:params:oauth:grant-type:device_code");
   searchParams.set("device_code", deviceCode);
   searchParams.set("client_id", AUTH_CLIENT_ID);
 
@@ -88,9 +79,7 @@ export async function getTokenFromDeviceCode(
   return result.data;
 }
 
-export async function renewAccessToken(
-  refreshToken: string
-): Promise<TokenResponse> {
+export async function renewAccessToken(refreshToken: string): Promise<TokenResponse> {
   const searchParams = new URLSearchParams();
   searchParams.set("grant_type", "refresh_token");
   searchParams.set("refresh_token", refreshToken);
@@ -130,9 +119,7 @@ export async function renewAccessToken(
   return result.data;
 }
 
-export async function getUserInfo(
-  accessToken: string
-): Promise<UserInfoResponse> {
+export async function getUserInfo(accessToken: string): Promise<UserInfoResponse> {
   const response = await oauthClient.get("oauth/userinfo", {
     headers: { Authorization: `Bearer ${accessToken}` },
   });

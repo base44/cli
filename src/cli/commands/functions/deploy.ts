@@ -1,19 +1,18 @@
-import { Command } from "commander";
-import { log } from "@clack/prompts";
 import type { CLIContext } from "@/cli/types.js";
-import { pushFunctions } from "@/core/resources/function/index.js";
-import { readProjectConfig } from "@/core/index.js";
-import { ApiError } from "@/core/errors.js";
 import { runCommand, runTask } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
+import { ApiError } from "@/core/errors.js";
+import { readProjectConfig } from "@/core/index.js";
+import { pushFunctions } from "@/core/resources/function/index.js";
+import { log } from "@clack/prompts";
+import { Command } from "commander";
 
 async function deployFunctionsAction(): Promise<RunCommandResult> {
   const { functions } = await readProjectConfig();
 
   if (functions.length === 0) {
     return {
-      outroMessage:
-        "No functions found. Create functions in the 'functions' directory.",
+      outroMessage: "No functions found. Create functions in the 'functions' directory.",
     };
   }
 
@@ -39,9 +38,7 @@ async function deployFunctionsAction(): Promise<RunCommandResult> {
     log.warn(`Deleted: ${result.deleted.join(", ")}`);
   }
   if (result.errors && result.errors.length > 0) {
-    const errorMessages = result.errors
-      .map((e) => `'${e.name}' function: ${e.message}`)
-      .join("\n");
+    const errorMessages = result.errors.map((e) => `'${e.name}' function: ${e.message}`).join("\n");
     throw new ApiError(`Function deployment errors:\n${errorMessages}`, {
       hints: [
         { message: "Check the function code for syntax errors" },
@@ -54,13 +51,9 @@ async function deployFunctionsAction(): Promise<RunCommandResult> {
 }
 
 export function getFunctionsDeployCommand(context: CLIContext): Command {
-  return new Command("functions")
-    .description("Manage project functions")
-    .addCommand(
-      new Command("deploy")
-        .description("Deploy local functions to Base44")
-        .action(async () => {
-          await runCommand(deployFunctionsAction, { requireAuth: true }, context);
-        })
-    );
+  return new Command("functions").description("Manage project functions").addCommand(
+    new Command("deploy").description("Deploy local functions to Base44").action(async () => {
+      await runCommand(deployFunctionsAction, { requireAuth: true }, context);
+    })
+  );
 }

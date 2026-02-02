@@ -1,5 +1,5 @@
 import { describe, it } from "vitest";
-import { setupCLITests, fixture } from "./testkit/index.js";
+import { fixture, setupCLITests } from "./testkit/index.js";
 
 describe("deploy command (unified)", () => {
   const t = setupCLITests();
@@ -75,7 +75,11 @@ describe("deploy command (unified)", () => {
     await t.givenLoggedInWithProject(fixture("with-agents"));
     t.api.mockEntitiesPush({ created: [], updated: [], deleted: [] });
     t.api.mockFunctionsPush({ deployed: [], deleted: [], errors: null });
-    t.api.mockAgentsPush({ created: ["customer_support", "order_assistant", "data_analyst"], updated: [], deleted: [] });
+    t.api.mockAgentsPush({
+      created: ["customer_support", "order_assistant", "data_analyst"],
+      updated: [],
+      deleted: [],
+    });
 
     const result = await t.run("deploy", "-y");
 
@@ -88,7 +92,11 @@ describe("deploy command (unified)", () => {
     await t.givenLoggedInWithProject(fixture("with-agents"));
     t.api.mockEntitiesPush({ created: [], updated: [], deleted: [] });
     t.api.mockFunctionsPush({ deployed: [], deleted: [], errors: null });
-    t.api.mockAgentsPush({ created: ["customer_support"], updated: ["order_assistant"], deleted: [] });
+    t.api.mockAgentsPush({
+      created: ["customer_support"],
+      updated: ["order_assistant"],
+      deleted: [],
+    });
 
     const result = await t.run("deploy", "-y");
 

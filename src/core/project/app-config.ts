@@ -1,15 +1,11 @@
-import { globby } from "globby";
 import { getAppConfigPath } from "@/core/config.js";
-import { writeFile, readJsonFile } from "@/core/utils/fs.js";
 import { APP_CONFIG_PATTERN } from "@/core/consts.js";
+import { ConfigInvalidError, ConfigNotFoundError, SchemaValidationError } from "@/core/errors.js";
+import { findProjectRoot } from "@/core/project/config.js";
 import { AppConfigSchema } from "@/core/project/schema.js";
 import type { AppConfig } from "@/core/project/schema.js";
-import { findProjectRoot } from "@/core/project/config.js";
-import {
-  ConfigNotFoundError,
-  ConfigInvalidError,
-  SchemaValidationError,
-} from "@/core/errors.js";
+import { readJsonFile, writeFile } from "@/core/utils/fs.js";
+import { globby } from "globby";
 
 export interface CachedAppConfig {
   id: string;
@@ -72,7 +68,10 @@ export async function initAppConfig(): Promise<CachedAppConfig> {
       appConfigPath,
       {
         hints: [
-          { message: "Run 'base44 link' to link this project to a Base44 app", command: "base44 link" },
+          {
+            message: "Run 'base44 link' to link this project to a Base44 app",
+            command: "base44 link",
+          },
         ],
       }
     );
@@ -109,19 +108,14 @@ export function generateAppConfigContent(id: string): string {
 `;
 }
 
-export async function writeAppConfig(
-  projectRoot: string,
-  appId: string
-): Promise<string> {
+export async function writeAppConfig(projectRoot: string, appId: string): Promise<string> {
   const configPath = getAppConfigPath(projectRoot);
   const content = generateAppConfigContent(appId);
   await writeFile(configPath, content);
   return configPath;
 }
 
-export async function findAppConfigPath(
-  projectRoot: string
-): Promise<string | null> {
+export async function findAppConfigPath(projectRoot: string): Promise<string | null> {
   const files = await globby(APP_CONFIG_PATTERN, {
     cwd: projectRoot,
     absolute: true,
@@ -134,9 +128,7 @@ export async function appConfigExists(projectRoot: string): Promise<boolean> {
   return configPath !== null;
 }
 
-async function readAppConfig(
-  projectRoot: string
-): Promise<AppConfig | null> {
+async function readAppConfig(projectRoot: string): Promise<AppConfig | null> {
   const configPath = await findAppConfigPath(projectRoot);
 
   if (!configPath) {

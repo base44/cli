@@ -26,9 +26,7 @@ export class CLIResultMatcher {
 
   toHaveExitCode(code: number): void {
     if (this.result.exitCode !== code) {
-      throw new Error(
-        `Expected exit code ${code} but got ${this.result.exitCode}`
-      );
+      throw new Error(`Expected exit code ${code} but got ${this.result.exitCode}`);
     }
   }
 
@@ -46,8 +44,7 @@ export class CLIResultMatcher {
   toContainInStdout(text: string): void {
     if (!this.result.stdout.includes(text)) {
       throw new Error(
-        `Expected stdout to contain "${text}"\n` +
-          `stdout: ${stripAnsi(this.result.stdout)}`
+        `Expected stdout to contain "${text}"\n` + `stdout: ${stripAnsi(this.result.stdout)}`
       );
     }
   }
@@ -55,8 +52,7 @@ export class CLIResultMatcher {
   toContainInStderr(text: string): void {
     if (!this.result.stderr.includes(text)) {
       throw new Error(
-        `Expected stderr to contain "${text}"\n` +
-          `stderr: ${stripAnsi(this.result.stderr)}`
+        `Expected stderr to contain "${text}"\n` + `stderr: ${stripAnsi(this.result.stderr)}`
       );
     }
   }

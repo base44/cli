@@ -1,20 +1,20 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
-  formatApiError,
-  AuthRequiredError,
-  AuthExpiredError,
-  ConfigNotFoundError,
-  ConfigInvalidError,
-  ConfigExistsError,
-  SchemaValidationError,
-  InvalidInputError,
   ApiError,
+  AuthExpiredError,
+  AuthRequiredError,
+  ConfigExistsError,
+  ConfigInvalidError,
+  ConfigNotFoundError,
   FileNotFoundError,
   FileReadError,
   InternalError,
+  InvalidInputError,
+  SchemaValidationError,
+  formatApiError,
   isCLIError,
-  isUserError,
   isSystemError,
+  isUserError,
 } from "../../src/core/errors.js";
 
 describe("CLIError base class", () => {
@@ -52,7 +52,7 @@ describe("UserError subclasses", () => {
     const error = new AuthRequiredError();
     expect(error.code).toBe("AUTH_REQUIRED");
     expect(isUserError(error)).toBe(true);
-    expect(error.hints.some(h => h.command === "base44 login")).toBe(true);
+    expect(error.hints.some((h) => h.command === "base44 login")).toBe(true);
   });
 
   it("AuthExpiredError has correct defaults", () => {
@@ -65,8 +65,8 @@ describe("UserError subclasses", () => {
     const error = new ConfigNotFoundError();
     expect(error.code).toBe("CONFIG_NOT_FOUND");
     expect(isUserError(error)).toBe(true);
-    expect(error.hints.some(h => h.command === "base44 create")).toBe(true);
-    expect(error.hints.some(h => h.command === "base44 link")).toBe(true);
+    expect(error.hints.some((h) => h.command === "base44 create")).toBe(true);
+    expect(error.hints.some((h) => h.command === "base44 link")).toBe(true);
   });
 
   it("ConfigInvalidError accepts custom message", () => {
@@ -105,7 +105,11 @@ describe("UserError subclasses", () => {
     const result = schema.safeParse({ name: 123 });
 
     if (!result.success) {
-      const error = new SchemaValidationError("Invalid entity file", result.error, "/path/to/entity.jsonc");
+      const error = new SchemaValidationError(
+        "Invalid entity file",
+        result.error,
+        "/path/to/entity.jsonc"
+      );
       expect(error.code).toBe("SCHEMA_INVALID");
       expect(error.message).toContain("Invalid entity file in /path/to/entity.jsonc");
       expect(error.message).toContain("expected string");
@@ -126,16 +130,16 @@ describe("UserError subclasses", () => {
 describe("SystemError subclasses", () => {
   it("ApiError provides default hints based on status code", () => {
     const error401 = new ApiError("Unauthorized", { statusCode: 401 });
-    expect(error401.hints.some(h => h.command === "base44 login")).toBe(true);
+    expect(error401.hints.some((h) => h.command === "base44 login")).toBe(true);
 
     const error403 = new ApiError("Forbidden", { statusCode: 403 });
-    expect(error403.hints.some(h => h.message.includes("permission"))).toBe(true);
+    expect(error403.hints.some((h) => h.message.includes("permission"))).toBe(true);
 
     const error404 = new ApiError("Not found", { statusCode: 404 });
-    expect(error404.hints.some(h => h.message.includes("not found"))).toBe(true);
+    expect(error404.hints.some((h) => h.message.includes("not found"))).toBe(true);
 
     const error500 = new ApiError("Server error", { statusCode: 500 });
-    expect(error500.hints.some(h => h.message.includes("network"))).toBe(true);
+    expect(error500.hints.some((h) => h.message.includes("network"))).toBe(true);
   });
 
   it("FileNotFoundError has correct defaults", () => {

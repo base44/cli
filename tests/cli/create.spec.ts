@@ -39,8 +39,10 @@ describe("create command", () => {
     const result = await t.run(
       "create",
       "Templated Project",
-      "--path", projectPath,
-      "--template", "backend-only",
+      "--path",
+      projectPath,
+      "--template",
+      "backend-only",
       "--no-skills"
     );
 

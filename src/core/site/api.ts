@@ -1,8 +1,9 @@
 import { getAppClient } from "@/core/clients/index.js";
-import { readFile } from "@/core/utils/fs.js";
+import { ApiError, SchemaValidationError } from "@/core/errors.js";
 import { DeployResponseSchema } from "@/core/site/schema.js";
 import type { DeployResponse } from "@/core/site/schema.js";
-import { ApiError, SchemaValidationError } from "@/core/errors.js";
+import { readFile } from "@/core/utils/fs.js";
+import type { KyResponse } from "ky";
 
 /**
  * Uploads a tar.gz archive file to the Base44 hosting API.
@@ -18,7 +19,7 @@ export async function uploadSite(archivePath: string): Promise<DeployResponse> {
 
   const appClient = getAppClient();
 
-  let response;
+  let response: KyResponse;
   try {
     response = await appClient.post("deploy-dist", {
       body: formData,

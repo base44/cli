@@ -1,14 +1,12 @@
 import { dirname, join } from "node:path";
-import { globby } from "globby";
 import { FUNCTION_CONFIG_FILE } from "@/core/consts.js";
-import { readJsonFile, pathExists } from "@/core/utils/fs.js";
+import { FileNotFoundError, SchemaValidationError } from "@/core/errors.js";
 import { FunctionConfigSchema, FunctionSchema } from "@/core/resources/function/schema.js";
-import type { FunctionConfig, Function } from "@/core/resources/function/schema.js";
-import { SchemaValidationError, FileNotFoundError } from "@/core/errors.js";
+import type { BackendFunction, FunctionConfig } from "@/core/resources/function/schema.js";
+import { pathExists, readJsonFile } from "@/core/utils/fs.js";
+import { globby } from "globby";
 
-export async function readFunctionConfig(
-  configPath: string
-): Promise<FunctionConfig> {
+export async function readFunctionConfig(configPath: string): Promise<FunctionConfig> {
   const parsed = await readJsonFile(configPath);
   const result = FunctionConfigSchema.safeParse(parsed);
 
@@ -19,7 +17,7 @@ export async function readFunctionConfig(
   return result.data;
 }
 
-export async function readFunction(configPath: string): Promise<Function> {
+export async function readFunction(configPath: string): Promise<BackendFunction> {
   const config = await readFunctionConfig(configPath);
   const functionDir = dirname(configPath);
   const entryPath = join(functionDir, config.entry);
@@ -44,9 +42,7 @@ export async function readFunction(configPath: string): Promise<Function> {
   return result.data;
 }
 
-export async function readAllFunctions(
-  functionsDir: string
-): Promise<Function[]> {
+export async function readAllFunctions(functionsDir: string): Promise<BackendFunction[]> {
   if (!(await pathExists(functionsDir))) {
     return [];
   }
@@ -56,9 +52,7 @@ export async function readAllFunctions(
     absolute: true,
   });
 
-  const functions = await Promise.all(
-    configFiles.map((configPath) => readFunction(configPath))
-  );
+  const functions = await Promise.all(configFiles.map((configPath) => readFunction(configPath)));
 
   const names = new Set<string>();
   for (const fn of functions) {
@@ -70,4 +64,3 @@ export async function readAllFunctions(
 
   return functions;
 }
-

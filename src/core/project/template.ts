@@ -1,12 +1,12 @@
-import { join, dirname } from "node:path";
-import { globby } from "globby";
-import ejs from "ejs";
-import frontmatter from 'front-matter';
+import { dirname, join } from "node:path";
 import { getTemplatesDir, getTemplatesIndexPath } from "@/core/config.js";
-import { readJsonFile, writeFile, copyFile } from "@/core/utils/fs.js";
+import { SchemaValidationError } from "@/core/errors.js";
 import { TemplatesConfigSchema } from "@/core/project/schema.js";
 import type { Template } from "@/core/project/schema.js";
-import { SchemaValidationError } from "@/core/errors.js";
+import { copyFile, readJsonFile, writeFile } from "@/core/utils/fs.js";
+import ejs from "ejs";
+import frontmatter from "front-matter";
+import { globby } from "globby";
 
 export interface TemplateData {
   name: string;
@@ -23,7 +23,11 @@ export async function listTemplates(): Promise<Template[]> {
   const result = TemplatesConfigSchema.safeParse(parsed);
 
   if (!result.success) {
-    throw new SchemaValidationError("Invalid templates configuration", result.error, getTemplatesIndexPath());
+    throw new SchemaValidationError(
+      "Invalid templates configuration",
+      result.error,
+      getTemplatesIndexPath()
+    );
   }
 
   return result.data.templates;
@@ -57,7 +61,9 @@ export async function renderTemplate(
         // Render EJS template and write to outputFileName or filename without .ejs extension
         const rendered = await ejs.renderFile(srcPath, data);
         const { attributes, body } = frontmatter<TemplateFrontmatter>(rendered);
-        const destFile = attributes.outputFileName ? join(dirname(file), attributes.outputFileName) : file.replace(/\.ejs$/, "");
+        const destFile = attributes.outputFileName
+          ? join(dirname(file), attributes.outputFileName)
+          : file.replace(/\.ejs$/, "");
         const destFilePath = join(destPath, destFile);
 
         await writeFile(destFilePath, body);

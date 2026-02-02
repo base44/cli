@@ -1,10 +1,10 @@
-import { Command } from "commander";
-import { log } from "@clack/prompts";
 import type { CLIContext } from "@/cli/types.js";
-import { pushEntities } from "@/core/resources/entity/index.js";
-import { readProjectConfig } from "@/core/index.js";
 import { runCommand, runTask } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
+import { readProjectConfig } from "@/core/index.js";
+import { pushEntities } from "@/core/resources/entity/index.js";
+import { log } from "@clack/prompts";
+import { Command } from "commander";
 
 async function pushEntitiesAction(): Promise<RunCommandResult> {
   const { entities } = await readProjectConfig();
@@ -42,13 +42,9 @@ async function pushEntitiesAction(): Promise<RunCommandResult> {
 }
 
 export function getEntitiesPushCommand(context: CLIContext): Command {
-  return new Command("entities")
-    .description("Manage project entities")
-    .addCommand(
-      new Command("push")
-        .description("Push local entities to Base44")
-        .action(async () => {
-          await runCommand(pushEntitiesAction, { requireAuth: true }, context);
-        })
-    );
+  return new Command("entities").description("Manage project entities").addCommand(
+    new Command("push").description("Push local entities to Base44").action(async () => {
+      await runCommand(pushEntitiesAction, { requireAuth: true }, context);
+    })
+  );
 }

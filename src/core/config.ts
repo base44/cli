@@ -1,5 +1,5 @@
-import { dirname, join } from "node:path";
 import { homedir } from "node:os";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PROJECT_SUBDIR } from "@/core/consts.js";
 

@@ -1,10 +1,10 @@
 import { join } from "node:path";
+import { SchemaValidationError } from "@/core/errors.js";
 import { globby } from "globby";
-import { readJsonFile, pathExists, writeJsonFile, deleteFile } from "../../utils/fs.js";
+import { CONFIG_FILE_EXTENSION, CONFIG_FILE_EXTENSION_GLOB } from "../../consts.js";
+import { deleteFile, pathExists, readJsonFile, writeJsonFile } from "../../utils/fs.js";
 import { AgentConfigSchema } from "./schema.js";
 import type { AgentConfig, AgentConfigApiResponse } from "./schema.js";
-import { CONFIG_FILE_EXTENSION_GLOB, CONFIG_FILE_EXTENSION } from "../../consts.js";
-import { SchemaValidationError } from "@/core/errors.js";
 
 export function generateAgentConfigContent(name: string): string {
   return `// Base44 Agent Configuration
@@ -46,9 +46,7 @@ export async function readAllAgents(agentsDir: string): Promise<AgentConfig[]> {
     absolute: true,
   });
 
-  const agents = await Promise.all(
-    files.map((filePath) => readAgentFile(filePath))
-  );
+  const agents = await Promise.all(files.map((filePath) => readAgentFile(filePath)));
 
   const names = new Set<string>();
   for (const agent of agents) {

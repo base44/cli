@@ -1,11 +1,11 @@
-import { join, dirname } from "node:path";
+import { cp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { mkdir, writeFile, cp, readFile } from "node:fs/promises";
-import { vi } from "vitest";
-import { dir } from "tmp-promise";
 import type { Command } from "commander";
-import { CLIResultMatcher } from "./CLIResultMatcher.js";
+import { dir } from "tmp-promise";
+import { vi } from "vitest";
 import { Base44APIMock } from "./Base44APIMock.js";
+import { CLIResultMatcher } from "./CLIResultMatcher.js";
 import type { CLIResult } from "./CLIResultMatcher.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -45,7 +45,7 @@ export class CLITestkit {
   }
 
   /** Factory method - creates isolated test environment */
-  static async create(appId: string = "test-app-id"): Promise<CLITestkit> {
+  static async create(appId = "test-app-id"): Promise<CLITestkit> {
     const { path, cleanup } = await dir({ unsafeCleanup: true });
     return new CLITestkit(path, cleanup, appId);
   }
@@ -129,9 +129,13 @@ export class CLITestkit {
     } catch (e) {
       // process.exit() was called - our mock throws after capturing the code
       // This catches Commander's exits for --help, --version, unknown options
-      if (exitState.code !== null) { return buildResult(exitState.code); }
+      if (exitState.code !== null) {
+        return buildResult(exitState.code);
+      }
       // CLI's clean exit mechanism (user cancellation, etc.)
-      if (e instanceof CLIExitError) { return buildResult(e.code); }
+      if (e instanceof CLIExitError) {
+        return buildResult(e.code);
+      }
       // Any other error = command failed with exit code 1
       // Capture error message in stderr for test assertions
       const errorMessage = e instanceof Error ? (e.stack ?? e.message) : String(e);
@@ -166,7 +170,12 @@ export class CLITestkit {
   }
 
   /** Save original values of env vars we're about to modify */
-  private captureEnvSnapshot(): { HOME?: string; BASE44_CLI_TEST_OVERRIDES?: string; CI?: string; BASE44_DISABLE_TELEMETRY?: string } {
+  private captureEnvSnapshot(): {
+    HOME?: string;
+    BASE44_CLI_TEST_OVERRIDES?: string;
+    CI?: string;
+    BASE44_DISABLE_TELEMETRY?: string;
+  } {
     return {
       HOME: process.env.HOME,
       BASE44_CLI_TEST_OVERRIDES: process.env.BASE44_CLI_TEST_OVERRIDES,
@@ -176,8 +185,18 @@ export class CLITestkit {
   }
 
   /** Restore env vars to their original values (or delete if they didn't exist) */
-  private restoreEnvSnapshot(snapshot: { HOME?: string; BASE44_CLI_TEST_OVERRIDES?: string; CI?: string; BASE44_DISABLE_TELEMETRY?: string }): void {
-    for (const key of ["HOME", "BASE44_CLI_TEST_OVERRIDES", "CI", "BASE44_DISABLE_TELEMETRY"] as const) {
+  private restoreEnvSnapshot(snapshot: {
+    HOME?: string;
+    BASE44_CLI_TEST_OVERRIDES?: string;
+    CI?: string;
+    BASE44_DISABLE_TELEMETRY?: string;
+  }): void {
+    for (const key of [
+      "HOME",
+      "BASE44_CLI_TEST_OVERRIDES",
+      "CI",
+      "BASE44_DISABLE_TELEMETRY",
+    ] as const) {
       if (snapshot[key] === undefined) {
         delete process.env[key];
       } else {

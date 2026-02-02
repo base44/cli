@@ -1,13 +1,9 @@
-import { getAuthFilePath } from "@/core/config.js";
-import { readJsonFile, writeJsonFile, deleteFile } from "@/core/utils/fs.js";
 import { renewAccessToken } from "@/core/auth/api.js";
 import { AuthDataSchema } from "@/core/auth/schema.js";
 import type { AuthData } from "@/core/auth/schema.js";
-import {
-  AuthRequiredError,
-  SchemaValidationError,
-  FileReadError,
-} from "@/core/errors.js";
+import { getAuthFilePath } from "@/core/config.js";
+import { AuthRequiredError, FileReadError, SchemaValidationError } from "@/core/errors.js";
+import { deleteFile, readJsonFile, writeJsonFile } from "@/core/utils/fs.js";
 
 // Buffer time before expiration to trigger proactive refresh (60 seconds)
 const TOKEN_REFRESH_BUFFER_MS = 60 * 1000;
@@ -31,7 +27,11 @@ export async function readAuth(): Promise<AuthData> {
     const result = AuthDataSchema.safeParse(parsed);
 
     if (!result.success) {
-      throw new SchemaValidationError("Invalid authentication data", result.error, getAuthFilePath());
+      throw new SchemaValidationError(
+        "Invalid authentication data",
+        result.error,
+        getAuthFilePath()
+      );
     }
 
     return result.data;

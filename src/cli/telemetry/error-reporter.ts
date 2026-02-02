@@ -1,9 +1,9 @@
 import { release, type } from "node:os";
-import { nanoid } from "nanoid";
+import { isCLIError, isUserError } from "@/core/errors.js";
 import { determineAgent } from "@vercel/detect-agent";
-import { getPostHogClient, isTelemetryEnabled } from "./posthog.js";
-import { isUserError, isCLIError } from "@/core/errors.js";
+import { nanoid } from "nanoid";
 import packageJson from "../../../package.json";
+import { getPostHogClient, isTelemetryEnabled } from "./posthog.js";
 
 /**
  * Context that can be set during CLI execution.

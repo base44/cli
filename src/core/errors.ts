@@ -9,9 +9,9 @@
  * All errors support hints for actionable next steps.
  */
 
-import { z } from "zod";
-import { HTTPError } from "ky";
 import { ApiErrorResponseSchema } from "@/core/clients/schemas.js";
+import { HTTPError } from "ky";
+import { z } from "zod";
 
 // ============================================================================
 // API Error Response Parsing
@@ -215,10 +215,6 @@ export class SchemaValidationError extends UserError {
  */
 export class InvalidInputError extends UserError {
   readonly code = "INVALID_INPUT";
-
-  constructor(message: string, options?: CLIErrorOptions) {
-    super(message, options);
-  }
 }
 
 // ============================================================================

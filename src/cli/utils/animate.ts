@@ -45,7 +45,7 @@ async function shimmerPass(lines: string[], duration: number): Promise<void> {
   const moveUp = `\x1b[${lines.length}A`;
   const steps = 12;
   const stepDuration = duration / steps;
-  const maxWidth = Math.max(...lines.map(l => l.length));
+  const maxWidth = Math.max(...lines.map((l) => l.length));
 
   for (let step = 0; step <= steps; step++) {
     const shimmerPos = Math.floor((step / steps) * (maxWidth + 6));
@@ -100,4 +100,3 @@ export async function printAnimatedLines(lines: string[]): Promise<void> {
   // Final shimmer pass
   await shimmerPass(lines, 200);
 }
-
