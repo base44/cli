@@ -32,22 +32,12 @@ export class CLIResultMatcher {
     }
   }
 
-  toContain(text: string): void {
+  toContain(text: string, expected: boolean = true): void {
     const output = this.result.stdout + this.result.stderr;
-    if (!output.includes(text)) {
+    const contains = output.includes(text);
+    if (contains !== expected) {
       throw new Error(
-        `Expected output to contain "${text}"\n` +
-          `stdout: ${stripAnsi(this.result.stdout)}\n` +
-          `stderr: ${stripAnsi(this.result.stderr)}`
-      );
-    }
-  }
-
-  toNotContain(text: string): void {
-    const output = this.result.stdout + this.result.stderr;
-    if (output.includes(text)) {
-      throw new Error(
-        `Expected output NOT to contain "${text}"\n` +
+        `Expected output ${expected ? "" : "NOT "}to contain "${text}"\n` +
           `stdout: ${stripAnsi(this.result.stdout)}\n` +
           `stderr: ${stripAnsi(this.result.stderr)}`
       );
