@@ -35,6 +35,9 @@ export interface TestContext {
     user?: { email: string; name: string }
   ) => Promise<void>;
 
+  /** Set the "latest version" for upgrade check tests. Use null to simulate no update available. */
+  givenLatestVersion: (version: string | null) => void;
+
   // ─── WHEN METHODS ──────────────────────────────────────────
 
   /** Execute CLI command */
@@ -119,6 +122,7 @@ export function setupCLITests(): TestContext {
       await getKit().givenLoggedIn(user);
       await getKit().givenProject(fixturePath);
     },
+    givenLatestVersion: (version) => getKit().givenLatestVersion(version),
 
     // When methods
     run: (...args) => getKit().run(...args),

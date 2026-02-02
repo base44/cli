@@ -25,11 +25,18 @@ interface ProgramModule {
   CLIExitError: new (code: number) => Error & { code: number };
 }
 
+/** Test overrides that get serialized to BASE44_CLI_TEST_OVERRIDES */
+interface TestOverrides {
+  appConfig?: { id: string; projectRoot: string };
+  latestVersion?: string | null;
+}
+
 export class CLITestkit {
   private tempDir: string;
   private cleanupFn: () => Promise<void>;
   private env: Record<string, string> = {};
   private projectDir?: string;
+  private testOverrides: TestOverrides = {};
 
   /** Typed API mock for Base44 endpoints */
   readonly api: Base44APIMock;
@@ -81,6 +88,11 @@ export class CLITestkit {
   async givenProject(fixturePath: string): Promise<void> {
     this.projectDir = join(this.tempDir, "project");
     await cp(fixturePath, this.projectDir, { recursive: true });
+  }
+
+  /** Set the "latest version" for upgrade check tests. Use null to simulate no update available. */
+  givenLatestVersion(version: string | null): void {
+    this.testOverrides.latestVersion = version;
   }
 
   // ─── WHEN METHODS ─────────────────────────────────────────────
@@ -170,40 +182,23 @@ export class CLITestkit {
 
   private setupEnvOverrides(): void {
     if (this.projectDir) {
-      this.env.BASE44_CLI_TEST_OVERRIDES = JSON.stringify({
-        appConfig: { id: this.api.appId, projectRoot: this.projectDir },
-      });
+      this.testOverrides.appConfig = { id: this.api.appId, projectRoot: this.projectDir };
+    }
+    if (Object.keys(this.testOverrides).length > 0) {
+      this.env.BASE44_CLI_TEST_OVERRIDES = JSON.stringify(this.testOverrides);
     }
   }
 
-  /** Save original values of env vars we're about to modify */
-  private captureEnvSnapshot(): {
-    HOME?: string;
-    BASE44_CLI_TEST_OVERRIDES?: string;
-    CI?: string;
-    BASE44_DISABLE_TELEMETRY?: string;
-  } {
-    return {
-      HOME: process.env.HOME,
-      BASE44_CLI_TEST_OVERRIDES: process.env.BASE44_CLI_TEST_OVERRIDES,
-      CI: process.env.CI,
-      BASE44_DISABLE_TELEMETRY: process.env.BASE44_DISABLE_TELEMETRY,
-    };
+  private captureEnvSnapshot(): Record<string, string | undefined> {
+    const snapshot: Record<string, string | undefined> = {};
+    for (const key of Object.keys(this.env)) {
+      snapshot[key] = process.env[key];
+    }
+    return snapshot;
   }
 
-  /** Restore env vars to their original values (or delete if they didn't exist) */
-  private restoreEnvSnapshot(snapshot: {
-    HOME?: string;
-    BASE44_CLI_TEST_OVERRIDES?: string;
-    CI?: string;
-    BASE44_DISABLE_TELEMETRY?: string;
-  }): void {
-    for (const key of [
-      "HOME",
-      "BASE44_CLI_TEST_OVERRIDES",
-      "CI",
-      "BASE44_DISABLE_TELEMETRY",
-    ] as const) {
+  private restoreEnvSnapshot(snapshot: Record<string, string | undefined>): void {
+    for (const key of Object.keys(snapshot)) {
       if (snapshot[key] === undefined) {
         delete process.env[key];
       } else {

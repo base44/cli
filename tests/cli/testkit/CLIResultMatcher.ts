@@ -6,8 +6,27 @@ export interface CLIResult {
   exitCode: number;
 }
 
-export class CLIResultMatcher {
+class NegatedCLIResultMatcher {
   constructor(private result: CLIResult) {}
+
+  toContain(text: string): void {
+    const output = this.result.stdout + this.result.stderr;
+    if (output.includes(text)) {
+      throw new Error(
+        `Expected output NOT to contain "${text}"\n` +
+          `stdout: ${stripAnsi(this.result.stdout)}\n` +
+          `stderr: ${stripAnsi(this.result.stderr)}`
+      );
+    }
+  }
+}
+
+export class CLIResultMatcher {
+  readonly not: NegatedCLIResultMatcher;
+
+  constructor(private result: CLIResult) {
+    this.not = new NegatedCLIResultMatcher(result);
+  }
 
   toSucceed(): void {
     if (this.result.exitCode !== 0) {
