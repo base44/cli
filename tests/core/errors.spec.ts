@@ -81,7 +81,7 @@ describe("UserError subclasses", () => {
     expect(error.message).toBe("Project already exists");
   });
 
-  it("SchemaValidationError formats ZodError automatically", async () => {
+  it("SchemaValidationError formats ZodError without filePath", async () => {
     const { z } = await import("zod");
     const schema = z.object({ name: z.string() });
     const result = schema.safeParse({ name: 123 });
@@ -93,6 +93,24 @@ describe("UserError subclasses", () => {
       // Zod prettifyError uses lowercase
       expect(error.message).toContain("expected string");
       expect(error.message).toContain("name");
+      expect(error.filePath).toBeUndefined();
+    } else {
+      throw new Error("Expected parse to fail");
+    }
+  });
+
+  it("SchemaValidationError includes filePath in message and hints when provided", async () => {
+    const { z } = await import("zod");
+    const schema = z.object({ name: z.string() });
+    const result = schema.safeParse({ name: 123 });
+
+    if (!result.success) {
+      const error = new SchemaValidationError("Invalid entity file", result.error, "/path/to/entity.jsonc");
+      expect(error.code).toBe("SCHEMA_INVALID");
+      expect(error.message).toContain("Invalid entity file in /path/to/entity.jsonc");
+      expect(error.message).toContain("expected string");
+      expect(error.filePath).toBe("/path/to/entity.jsonc");
+      expect(error.hints[0].message).toContain("/path/to/entity.jsonc");
     } else {
       throw new Error("Expected parse to fail");
     }

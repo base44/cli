@@ -23,7 +23,7 @@ export async function listTemplates(): Promise<Template[]> {
   const result = TemplatesConfigSchema.safeParse(parsed);
 
   if (!result.success) {
-    throw new SchemaValidationError("Invalid templates configuration", result.error);
+    throw new SchemaValidationError("Invalid templates configuration", result.error, getTemplatesIndexPath());
   }
 
   return result.data.templates;

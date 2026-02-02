@@ -30,7 +30,7 @@ async function readAgentFile(agentPath: string): Promise<AgentConfig> {
   const result = AgentConfigSchema.safeParse(parsed);
 
   if (!result.success) {
-    throw new SchemaValidationError(`Invalid agent file at ${agentPath}`, result.error);
+    throw new SchemaValidationError("Invalid agent file", result.error, agentPath);
   }
 
   return result.data;

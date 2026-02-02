@@ -189,16 +189,24 @@ export class ConfigExistsError extends UserError {
  * @example
  * const result = schema.safeParse(data);
  * if (!result.success) {
- *   throw new SchemaValidationError("Invalid entity file", result.error);
+ *   throw new SchemaValidationError("Invalid entity file", result.error, entityPath);
  * }
  */
 export class SchemaValidationError extends UserError {
   readonly code = "SCHEMA_INVALID";
+  readonly filePath?: string;
 
-  constructor(context: string, zodError: z.ZodError) {
-    super(`${context}:\n${z.prettifyError(zodError)}`, {
-      hints: [{ message: "Fix the schema/data structure errors above" }],
-    });
+  constructor(context: string, zodError: z.ZodError, filePath?: string) {
+    const message = filePath
+      ? `${context} in ${filePath}:\n${z.prettifyError(zodError)}`
+      : `${context}:\n${z.prettifyError(zodError)}`;
+
+    const hints: ErrorHint[] = filePath
+      ? [{ message: `Fix the schema/data structure errors in ${filePath}` }]
+      : [{ message: "Fix the schema/data structure errors above" }];
+
+    super(message, { hints });
+    this.filePath = filePath;
   }
 }
 

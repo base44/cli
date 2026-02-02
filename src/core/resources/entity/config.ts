@@ -10,7 +10,7 @@ async function readEntityFile(entityPath: string): Promise<Entity> {
   const result = EntitySchema.safeParse(parsed);
 
   if (!result.success) {
-    throw new SchemaValidationError(`Invalid entity file at ${entityPath}`, result.error);
+    throw new SchemaValidationError("Invalid entity file", result.error, entityPath);
   }
 
   return result.data;

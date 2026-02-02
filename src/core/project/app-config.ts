@@ -147,7 +147,7 @@ async function readAppConfig(
   const result = AppConfigSchema.safeParse(parsed);
 
   if (!result.success) {
-    throw new SchemaValidationError(`Invalid app configuration in ${configPath}`, result.error);
+    throw new SchemaValidationError("Invalid app configuration", result.error, configPath);
   }
 
   return result.data;

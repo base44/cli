@@ -13,7 +13,7 @@ export async function readFunctionConfig(
   const result = FunctionConfigSchema.safeParse(parsed);
 
   if (!result.success) {
-    throw new SchemaValidationError(`Invalid function configuration in ${configPath}`, result.error);
+    throw new SchemaValidationError("Invalid function configuration", result.error, configPath);
   }
 
   return result.data;
@@ -38,7 +38,7 @@ export async function readFunction(configPath: string): Promise<Function> {
   const functionData = { ...config, entryPath, files };
   const result = FunctionSchema.safeParse(functionData);
   if (!result.success) {
-    throw new SchemaValidationError(`Invalid function in ${configPath}`, result.error);
+    throw new SchemaValidationError("Invalid function", result.error, configPath);
   }
 
   return result.data;

@@ -31,7 +31,7 @@ export async function readAuth(): Promise<AuthData> {
     const result = AuthDataSchema.safeParse(parsed);
 
     if (!result.success) {
-      throw new SchemaValidationError("Invalid authentication data", result.error);
+      throw new SchemaValidationError("Invalid authentication data", result.error, getAuthFilePath());
     }
 
     return result.data;
@@ -52,7 +52,7 @@ export async function writeAuth(authData: AuthData): Promise<void> {
   const result = AuthDataSchema.safeParse(authData);
 
   if (!result.success) {
-    throw new SchemaValidationError("Invalid authentication data", result.error);
+    throw new SchemaValidationError("Invalid authentication data", result.error, getAuthFilePath());
   }
 
   try {

@@ -81,7 +81,7 @@ export async function readProjectConfig(
   const result = ProjectConfigSchema.safeParse(parsed);
 
   if (!result.success) {
-    throw new SchemaValidationError("Invalid project configuration", result.error);
+    throw new SchemaValidationError("Invalid project configuration", result.error, configPath);
   }
 
   const project = result.data;
