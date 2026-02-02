@@ -11,7 +11,10 @@ export interface UpgradeInfo {
  */
 export async function checkForUpgrade(): Promise<UpgradeInfo | null> {
   try {
-    const { stdout } = await execa("npm", ["view", "base44", "version"], { timeout: 5000 });
+    const { stdout } = await execa("npm", ["view", "base44", "version"], {
+      timeout: 5000,
+      shell: true,
+    });
     const latestVersion = stdout.trim();
     const currentVersion = packageJson.version;
 
