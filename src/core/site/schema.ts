@@ -10,3 +10,7 @@ export const DeployResponseSchema = z.object({
 }));
 
 export type DeployResponse = z.infer<typeof DeployResponseSchema>;
+
+export const PublishedUrlResponseSchema = z.object({
+  url: z.string(),
+});

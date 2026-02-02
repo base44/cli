@@ -1,6 +1,7 @@
-import { getAppClient } from "@/core/clients/index.js";
+import { getAppClient, base44Client } from "@/core/clients/index.js";
+import { getAppConfig } from "@/core/project/index.js";
 import { readFile } from "@/core/utils/fs.js";
-import { DeployResponseSchema } from "@/core/site/schema.js";
+import { DeployResponseSchema, PublishedUrlResponseSchema } from "@/core/site/schema.js";
 import type { DeployResponse } from "@/core/site/schema.js";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";
 
@@ -34,4 +35,11 @@ export async function uploadSite(archivePath: string): Promise<DeployResponse> {
   }
 
   return result.data;
+}
+
+export async function getSiteUrl(projectId?: string): Promise<string> {
+  const id = projectId ?? getAppConfig().id;
+  const response = await base44Client.get(`api/apps/platform/${id}/published-url`);
+  const data = PublishedUrlResponseSchema.parse(await response.json());
+  return data.url;
 }
