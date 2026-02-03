@@ -10,9 +10,6 @@ function formatUpgradeMessage(info: UpgradeInfo): string {
   return `${shinyOrange("Update available!")} ${shinyOrange(`${info.currentVersion} → ${info.latestVersion}`)}  ${shinyOrange("Run:")} ${bold(shinyOrange("npm update -g base44"))}`;
 }
 
-/**
- * Checks for available upgrades and prints a notification if one exists.
- */
 export async function printUpgradeNotificationIfAvailable(): Promise<void> {
   try {
     const upgradeInfo = await checkForUpgrade();
