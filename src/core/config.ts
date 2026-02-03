@@ -2,6 +2,7 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PROJECT_SUBDIR } from "@/core/consts.js";
+import { TestOverridesSchema, type TestOverrides } from "@/core/project/schema.js";
 
 // After bundling, import.meta.url points to dist/cli/index.js
 // Templates are copied to dist/cli/templates/
@@ -31,18 +32,15 @@ export function getBase44ApiUrl(): string {
   return process.env.BASE44_API_URL || "https://app.base44.com";
 }
 
-export interface TestOverrides {
-  appConfig?: { id: string; projectRoot: string };
-  latestVersion?: string | null;
-}
-
 export function getTestOverrides(): TestOverrides | null {
   const raw = process.env.BASE44_CLI_TEST_OVERRIDES;
   if (!raw) {
     return null;
   }
   try {
-    return JSON.parse(raw) as TestOverrides;
+    const parsed = JSON.parse(raw);
+    const result = TestOverridesSchema.safeParse(parsed);
+    return result.success ? result.data : null;
   } catch {
     return null;
   }
