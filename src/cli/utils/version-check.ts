@@ -22,8 +22,9 @@ export async function checkForUpgrade(): Promise<UpgradeInfo | null> {
 
   try {
     const { stdout } = await execa("npm", ["view", "base44", "version"], {
-      timeout: 5000,
+      timeout: 500,
       shell: true,
+      env: { CI: "1" },
     });
     const latestVersion = stdout.trim();
     const currentVersion = packageJson.version;
