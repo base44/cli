@@ -181,7 +181,10 @@ export class CLITestkit {
 
   private setupEnvOverrides(): void {
     if (this.projectDir) {
-      this.testOverrides.appConfig = { id: this.api.appId, projectRoot: this.projectDir };
+      this.testOverrides.appConfig = {
+        id: this.api.appId,
+        projectRoot: this.projectDir,
+      };
     }
     if (Object.keys(this.testOverrides).length > 0) {
       this.env.BASE44_CLI_TEST_OVERRIDES = JSON.stringify(this.testOverrides);
@@ -196,7 +199,9 @@ export class CLITestkit {
     return snapshot;
   }
 
-  private restoreEnvSnapshot(snapshot: Record<string, string | undefined>): void {
+  private restoreEnvSnapshot(
+    snapshot: Record<string, string | undefined>
+  ): void {
     for (const key of Object.keys(snapshot)) {
       if (snapshot[key] === undefined) {
         delete process.env[key];

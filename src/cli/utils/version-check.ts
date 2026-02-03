@@ -1,6 +1,6 @@
 import { execa } from "execa";
-import packageJson from "../../../package.json";
 import { getTestOverrides } from "@/core/config.js";
+import packageJson from "../../../package.json";
 
 export interface UpgradeInfo {
   currentVersion: string;

@@ -1,7 +1,7 @@
 import { log } from "@clack/prompts";
+import { theme } from "@/cli/utils/theme.js";
 import type { UpgradeInfo } from "@/cli/utils/version-check.js";
 import { checkForUpgrade } from "@/cli/utils/version-check.js";
-import { theme } from "@/cli/utils/theme.js";
 
 function formatUpgradeMessage(info: UpgradeInfo): string {
   const { shinyOrange } = theme.colors;
