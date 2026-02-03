@@ -63,10 +63,12 @@ export const ProjectsResponseSchema = z.array(ProjectSchema);
 export type ProjectsResponse = z.infer<typeof ProjectsResponseSchema>;
 
 export const TestOverridesSchema = z.object({
-  appConfig: z.object({
-    id: z.string(),
-    projectRoot: z.string(),
-  }).optional(),
+  appConfig: z
+    .object({
+      id: z.string(),
+      projectRoot: z.string(),
+    })
+    .optional(),
   latestVersion: z.string().nullable().optional(),
 });
 

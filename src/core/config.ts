@@ -2,7 +2,10 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PROJECT_SUBDIR } from "@/core/consts.js";
-import { TestOverridesSchema, type TestOverrides } from "@/core/project/schema.js";
+import {
+  type TestOverrides,
+  TestOverridesSchema,
+} from "@/core/project/schema.js";
 
 // After bundling, import.meta.url points to dist/cli/index.js
 // Templates are copied to dist/cli/templates/
