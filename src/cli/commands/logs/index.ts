@@ -102,8 +102,8 @@ function formatEvent(event: AuditLogsResponse["events"][0]): string {
   const user = event.user_email || "-";
   const status =
     event.status === "success"
-      ? theme.colors.base44Orange(event.status)
-      : theme.colors.white(event.status);
+      ? theme.styles.dim(event.status)
+      : theme.colors.base44Orange(event.status);
 
   return `${theme.styles.dim(timestamp)}  ${eventType.padEnd(24)}  ${user.padEnd(28)}  ${status}`;
 }
