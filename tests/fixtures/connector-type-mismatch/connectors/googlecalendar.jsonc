@@ -1,0 +1,5 @@
+// Type mismatch - filename is googlecalendar but type is slack
+{
+  "type": "slack",
+  "scopes": []
+}
