@@ -142,12 +142,12 @@ export const SyncConnectorResponseSchema = z.object({
 
 export type SyncConnectorResponse = z.infer<typeof SyncConnectorResponseSchema>;
 
-export const OAuthPollingStatusSchema = z.enum(["ACTIVE", "FAILED", "PENDING"]);
+export const ConnectorOAuthStatusSchema = z.enum(["ACTIVE", "FAILED", "PENDING"]);
 
-export type OAuthPollingStatus = z.infer<typeof OAuthPollingStatusSchema>;
+export type ConnectorOAuthStatus = z.infer<typeof ConnectorOAuthStatusSchema>;
 
 export const OAuthStatusResponseSchema = z.object({
-  status: OAuthPollingStatusSchema,
+  status: ConnectorOAuthStatusSchema,
 });
 
 export type OAuthStatusResponse = z.infer<typeof OAuthStatusResponseSchema>;

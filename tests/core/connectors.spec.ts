@@ -2,6 +2,10 @@ import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as api from "../../src/core/resources/connector/api.js";
 import { readAllConnectors } from "../../src/core/resources/connector/config.js";
+import {
+  runOAuthFlow,
+  type OAuthFlowParams,
+} from "../../src/core/resources/connector/oauth.js";
 import { pushConnectors } from "../../src/core/resources/connector/push.js";
 import {
   ConnectorResourceSchema,
@@ -10,6 +14,7 @@ import {
 } from "../../src/core/resources/connector/schema.js";
 
 vi.mock("../../src/core/resources/connector/api.js");
+vi.mock("open", () => ({ default: vi.fn() }));
 
 const FIXTURES_DIR = resolve(__dirname, "../fixtures");
 
@@ -351,5 +356,57 @@ describe("pushConnectors", () => {
       { type: "gmail", action: "synced" },
       { type: "slack", action: "synced" },
     ]);
+  });
+});
+
+const mockGetOAuthStatus = vi.mocked(api.getOAuthStatus);
+
+describe("runOAuthFlow", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it("returns ACTIVE when OAuth completes successfully", async () => {
+    const params: OAuthFlowParams = {
+      type: "gmail",
+      redirectUrl: "https://accounts.google.com/oauth",
+      connectionId: "conn_123",
+    };
+    mockGetOAuthStatus.mockResolvedValue({ status: "ACTIVE" });
+
+    const result = await runOAuthFlow(params);
+
+    expect(result).toEqual({ type: "gmail", status: "ACTIVE" });
+    expect(mockGetOAuthStatus).toHaveBeenCalledWith("gmail", "conn_123");
+  });
+
+  it("returns FAILED when OAuth fails", async () => {
+    const params: OAuthFlowParams = {
+      type: "gmail",
+      redirectUrl: "https://accounts.google.com/oauth",
+      connectionId: "conn_123",
+    };
+    mockGetOAuthStatus.mockResolvedValue({ status: "FAILED" });
+
+    const result = await runOAuthFlow(params);
+
+    expect(result).toEqual({ type: "gmail", status: "FAILED" });
+  });
+
+  it("polls until status changes from PENDING", async () => {
+    const params: OAuthFlowParams = {
+      type: "gmail",
+      redirectUrl: "https://accounts.google.com/oauth",
+      connectionId: "conn_123",
+    };
+    mockGetOAuthStatus
+      .mockResolvedValueOnce({ status: "PENDING" })
+      .mockResolvedValueOnce({ status: "PENDING" })
+      .mockResolvedValueOnce({ status: "ACTIVE" });
+
+    const result = await runOAuthFlow(params);
+
+    expect(result).toEqual({ type: "gmail", status: "ACTIVE" });
+    expect(mockGetOAuthStatus).toHaveBeenCalledTimes(3);
   });
 });
