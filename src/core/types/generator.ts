@@ -1,32 +1,31 @@
 import { compile } from "json-schema-to-typescript";
-import type { Entity } from "@/core/resources/entity/index.js";
-import type { Function } from "@/core/resources/function/index.js";
+import { getTypesOutputPath } from "@/core/config.js";
+import { getAppConfig } from "@/core/project/app-config.js";
 import type { AgentConfig } from "@/core/resources/agent/index.js";
+import type { Entity } from "@/core/resources/entity/index.js";
+import type { BackendFunction } from "@/core/resources/function/index.js";
+import { writeFile } from "@/core/utils/fs.js";
+import { generateTypesFileContent } from "./template.js";
 
 /**
- * Input for type generation containing all project resources.
+ * Input for generating the Base44 types file.
  */
-export interface TypesInput {
+export interface GenerateBase44TypesInput {
   entities: Entity[];
-  functions: Function[];
+  functions: BackendFunction[];
   agents: AgentConfig[];
 }
 
 /**
- * Options for type generation.
+ * Generate and write the types.d.ts file to <projectRoot>/base44/.types/types.d.ts.
  */
-export interface TypesOptions {
-  outputDir: string;
-}
-
-/**
- * Result of type generation.
- */
-export interface TypesResult {
-  files: string[];
-  entityCount: number;
-  functionCount: number;
-  agentCount: number;
+export async function generateBase44TypesFile(
+  input: GenerateBase44TypesInput
+): Promise<void> {
+  const { projectRoot } = getAppConfig();
+  const content = await generateTypesFileContent(input);
+  const filePath = getTypesOutputPath(projectRoot);
+  await writeFile(filePath, content);
 }
 
 /**
@@ -104,13 +103,17 @@ function propertyToJsonSchema(prop: Record<string, unknown>): object {
 export async function generateEntityInterface(entity: Entity): Promise<string> {
   const jsonSchema = entityToJsonSchema(entity);
 
-  const ts = await compile(jsonSchema as Parameters<typeof compile>[0], entity.name, {
-    bannerComment: "",
-    additionalProperties: false,
-    strictIndexSignatures: true,
-    enableConstEnums: false,
-    declareExternallyReferenced: false,
-  });
+  const ts = await compile(
+    jsonSchema as Parameters<typeof compile>[0],
+    entity.name,
+    {
+      bannerComment: "",
+      additionalProperties: false,
+      strictIndexSignatures: true,
+      enableConstEnums: false,
+      declareExternallyReferenced: false,
+    }
+  );
 
   // Remove the export statement and clean up the output
   // json-schema-to-typescript outputs "export interface Name {...}"
@@ -121,7 +124,9 @@ export async function generateEntityInterface(entity: Entity): Promise<string> {
 /**
  * Generate all entity interfaces.
  */
-export async function generateAllEntityInterfaces(entities: Entity[]): Promise<string> {
+export async function generateAllEntityInterfaces(
+  entities: Entity[]
+): Promise<string> {
   if (entities.length === 0) {
     return "";
   }
@@ -149,7 +154,9 @@ export function generateEntityRegistryEntries(entities: Entity[]): string {
 /**
  * Generate registry entries for function names.
  */
-export function generateFunctionRegistryEntries(functions: Function[]): string {
+export function generateFunctionRegistryEntries(
+  functions: BackendFunction[]
+): string {
   if (functions.length === 0) {
     return "";
   }

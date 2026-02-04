@@ -22,7 +22,7 @@ export async function checkForUpgrade(): Promise<UpgradeInfo | null> {
 
   try {
     const { stdout } = await execa("npm", ["view", "base44", "version"], {
-      timeout: 500,
+      timeout: 1000,
       shell: true,
       env: { CI: "1" },
     });
@@ -33,7 +33,8 @@ export async function checkForUpgrade(): Promise<UpgradeInfo | null> {
       return { currentVersion, latestVersion };
     }
     return null;
-  } catch {
+  } catch (error) {
+    console.log(error)
     return null;
   }
 }
