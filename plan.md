@@ -1,392 +1,313 @@
-# CLI Implementation Plan
+# OAuth Connectors CLI Implementation Plan
+
+Reference issue: https://github.com/base44/cli/issues/184
 
 ## Overview
-Generate a comprehensive CLI tool that provides a unified interface for managing Base44 applications, entities, functions, deployments, and related services.
 
-## Core Architecture
+Add OAuth connectors as a CLI resource, allowing users to define connector configurations in `connectors/*.jsonc` files and push them to Base44 apps.
 
-### Project Structure
-- **Package**: `base44` - Single package published to npm
-- **Core Module**: `src/core/` - Shared utilities, API clients, schemas, and configuration management
-- **CLI Module**: `src/cli/` - CLI commands and entry point
-- **Build System**: TypeScript compiler (`tsc`) for production builds
-- **Package Manager**: npm for dependency management
+---
 
-### CLI Framework
-- **Technology**: TypeScript with Commander.js for CLI framework
-- **Structure**: Command-based architecture with subcommands
-- **CLI Name**: `base44`
-- **User Prompts**: Use `@clack/prompts` for interactive user prompts
-- **Package Distribution**: Support for multiple package managers
-  - Homebrew (brew) - macOS/Linux
-  - Scoop - Windows
-  - npm - Node.js ecosystem (package published to npm as `base44`)
+## Task 1: Resource File Parsing
 
-## Feature Implementation Plan
+### Objective
+Read and validate connector JSONC files from the `connectors/` directory.
 
-### 1. Authentication & Identity
-- **`base44 login`**
-  - Device-based authentication
-  - OAuth flow implementation
-  - Token storage and management
-  - Session persistence
-  
-- **`base44 whoami`**
-  - Display current authenticated user
-  - Show account information
-  - Display active session details
+### Subtasks
 
-- **`base44 logout`**
-  - Clear authentication tokens
-  - Remove session data
-  - Logout from current device
-
-### 2. Entities Management
-- **`base44 entities`**
-  - List all entities in the project
-  - Display entity hierarchy (e.g., entities → auth.group)
-  
-- **`base44 entities pull`**
-  - Read schemas from remote
-  - Sync entity definitions
-  - Download entity configurations
-  - **Validate downloaded schemas using Zod** - Ensure schema integrity
-  
-- **`base44 entities push`**
-  - Write schemas to remote
-  - Upload entity definitions
-  - **Validate before pushing using Zod schemas** - Local validation before upload
-  - Schema structure verification
-
-### 3. Functions Management
-- **`base44 functions`**
-  - List all functions
-  - Display function hierarchy (e.g., functions → hello.IT)
-  - Show function metadata
-  
-- **`base44 functions [function-name]`**
-  - View specific function details
-  - Show function code, triggers, and configuration
-
-- **Cron Jobs Support**
-  - Schedule management
-  - **Zod validation for cron expressions** - Validate cron syntax
-  - Job listing and status
-
-### 4. Development Environment
-- **`base44 dev`**
-  - Start local development server
-  - Hot reload for functions
-  - Local testing environment
-  
-- **`base44 dev --functions`**
-  - Development mode with function support
-  - Function hot-reloading
-
-### 5. Deployment
-- **`base44 deploy`**
-  - Deploy entire application
-  - Environment selection (staging/production)
-  
-- **`base44 deploy --client`**
-  - Deploy client-side application only
-  - Frontend build and deployment
-  
-- **`base44 deploy --fullstack`**
-  - Deploy full-stack application
-  - Backend + Frontend deployment
-  - Database migrations
-
-### 6. Project Initialization
-- **`base44 new`** / **`base44 init`** / **`base44 create`**
-  - Initialize new Base44 project
-  - Project scaffolding
-  
-- **`base44 new --blank`**
-  - Create blank project template
-  - Minimal project structure
-  
-- **`base44 new --example`**
-  - Create project from example template
-  - Pre-configured starter project
-
-### 7. Linking & Integration
-- **`base44 link`**
-  - Link local project to remote Base44 project
-  - Establish connection between local and cloud
-  - Configure project association
-
-### 8. AI Features
-- **`base44 ai`**
-  - AI-powered assistance
-  - Code generation and suggestions
-  
-- **`base44 ai does [prompt]`**
-  - Execute AI commands
-  - Natural language to CLI actions
-  - Intelligent task automation
-
-### 9. Secrets Management
-- **`base44 secrets`**
-  - List all secrets
-  - Display secret metadata (not values)
-  
-- **`base44 secrets get [key]`**
-  - Retrieve specific secret value
-  - Secure secret retrieval
-  - Environment variable export option
-  
-- **`base44 secrets set [key] [value]`**
-  - Set or update secret value
-  - Secure secret storage
-  - **Zod validation for secret keys and values** - Ensure proper format
-  - Encryption
-  - Interactive prompts for secret input using `@clack/prompts`
-
-### 10. Domains Management
-- **`base44 domains`**
-  - List configured domains
-  - Show domain status and configuration
-  - Display SSL certificate information
-  
-- **`base44 domains add [domain]`**
-  - Add new domain
-  - **Zod validation for domain format** - Ensure valid domain structure
-  - DNS configuration assistance
-  - Interactive domain setup using `@clack/prompts`
-  
-- **`base44 domains remove [domain]`**
-  - Remove domain configuration
-
-## Implementation Phases
-
-### Phase 0: Skeleton
-**Goal**: Set up the basic project structure and create placeholder commands for authentication.
-
-1. **Project Structure Setup**
-   - Create project folder structure:
+1.1. **Define Zod schemas**
+   - `IntegrationTypeSchema` - enum of supported integration types:
      ```
-     cli/
-     ├── src/
-     │   ├── core/                    # Core module
-     │   │   ├── api/                # API client code
-     │   │   ├── config/             # Configuration management
-     │   │   ├── schemas/            # Zod schemas
-     │   │   ├── utils/              # Utility functions
-     │   │   ├── types/              # TypeScript type definitions
-     │   │   └── index.ts            # Core module exports
-     │   └── cli/                     # CLI module (main CLI)
-     │       ├── commands/
-     │       │   └── auth/
-     │       │       ├── login.ts
-     │       │       ├── whoami.ts
-     │       │       └── logout.ts
-     │       ├── utils/              # CLI-specific utilities
-     │       │   ├── index.ts
-     │       │   ├── packageVersion.ts
-     │       │   └── runCommand.ts
-     │       └── index.ts            # Main CLI entry point (with shebang)
-     ├── dist/                        # Build output
-     ├── package.json                 # Package configuration
-     ├── tsconfig.json                # TypeScript configuration
-     ├── .gitignore
-     └── README.md
+     googlecalendar, googledrive, gmail, googlesheets, googledocs, googleslides,
+     slack, notion, salesforce, hubspot, linkedin, tiktok
      ```
+   - `ConnectorResourceSchema` - object with `type` and `scopes` array
 
-2. **Build Process & Configuration**
-   - Set up TypeScript configuration (`tsconfig.json`)
-   - Configure output directory structure (`dist/cli/`)
-   - **ES Modules**: Package uses `"type": "module"` for ES module support
-   - **Development**: Use `tsx` for development/watch mode
-   - **Production**: Use `tsdown` to bundle all code and dependencies into single file
-   - **Zero Dependencies**: All packages bundled
+1.2. **File structure**
+   ```
+   connectors/
+   ├── googlecalendar.jsonc
+   ├── slack.jsonc
+   └── notion.jsonc
+   ```
 
-3. **Package.json Setup**
-   - **Package** (`base44`):
-     - All dependencies in `devDependencies` (bundled at build time):
-       - `zod` - Schema validation
-       - `commander` - CLI framework
-       - `@clack/prompts` - User prompts and UI components
-       - `chalk` - Terminal colors (Base44 brand color: #E86B3C)
-       - `json5` - JSONC/JSON5 config parsing
-       - `ky` - HTTP client
-       - `ejs` - Template rendering
-       - `globby` - File globbing
-       - `dotenv` - Environment variables
-     - Zero runtime `dependencies` - everything bundled
-     - Set up bin entry point for CLI executable (`./dist/cli/index.js`)
-     - Set up build and dev scripts
-     - **Shebang**: Main entry point (`src/cli/index.ts`) includes `#!/usr/bin/env node`
+1.3. **Resource schema**
+   ```jsonc
+   // connectors/googlecalendar.jsonc
+   {
+     "type": "googlecalendar",
+     "scopes": [
+       "https://www.googleapis.com/auth/calendar.readonly",
+       "https://www.googleapis.com/auth/calendar.events"
+     ]
+   }
+   ```
 
-4. **Authentication Commands (Implemented)**
-   - Create `base44 login` command
-     - Use Commander.js to register command
-     - Use `@clack/prompts` tasks for async operations
-     - Store auth data using `writeAuth` from `src/core/config/auth.js`
-     - Wrap with `runCommand` utility for consistent branding
-   - Create `base44 whoami` command
-     - Use Commander.js to register command
-     - Read auth data using `readAuth` from `src/core/config/auth.js`
-     - Display user information using `@clack/prompts` log
-     - Wrap with `runCommand` utility for consistent branding
-   - Create `base44 logout` command
-     - Use Commander.js to register command
-     - Delete auth data using `deleteAuth` from `src/core/config/auth.js`
-     - Wrap with `runCommand` utility for consistent branding
-   - Ensure all commands are properly registered in main CLI entry point
-   - Test that commands are accessible and show help text
+1.4. **Validation behavior**
+   | Scenario | Behavior |
+   |----------|----------|
+   | Unknown integration type | Error: reject file |
+   | Unknown scope for integration | Warning only (OAuth provider validates) |
+   | Empty scopes array | Warning (except Notion) |
+   | Missing `type` field | Error: reject file |
 
-5. **Import Structure**
-   - Set up proper ES module imports/exports (`.js` extensions in imports)
-   - Create barrel exports for command modules if needed
-   - Ensure TypeScript path resolution works correctly
-   - Use ES module syntax throughout (`import`/`export`)
+1.5. **Implementation location**
+   - Create `src/resources/connectors/` directory
+   - Add `schema.ts` for Zod schemas
+   - Add `reader.ts` for file reading logic
 
-**Deliverables**:
-- ✅ Complete folder structure
-- ✅ Working build process (tsc for production, tsx for development)
-- ✅ Package.json with all scripts
-- ✅ Three auth commands (login, whoami, logout) fully implemented
-- ✅ CLI can be run and commands respond with help text
-- ✅ Base44 branding via `runCommand` utility wrapper
+---
 
-### Phase 1: Foundation
-1. ✅ Implement Commander.js command framework
-2. ✅ Integrate `@clack/prompts` for user interactions
-3. ✅ Set up Zod schema validation infrastructure
-   - ✅ Create base schemas for auth data (`AuthDataSchema`)
-   - ✅ Create config file schemas
-   - ✅ Set up validation utilities
-4. ✅ Create authentication system (`base44 login`, `base44 whoami`, `base44 logout`)
-   - ✅ Auth data stored in `~/.base44/auth/auth.json`
-   - ✅ Zod validation for auth data
-   - ✅ Cross-platform file system utilities
-   - ✅ Error handling with user-friendly messages
-5. Package manager distribution setup (npm, brew, scoop)
+## Task 2: API Client
 
-### Phase 2: Core Features
-1. Entities management (`base44 entities`, `pull`, `push`)
-2. Functions listing and management
-3. Project initialization (`base44 new`, `base44 init`, `base44 create`)
-4. Linking functionality (`base44 link`)
+### Objective
+Add methods to communicate with apper backend endpoints.
 
-### Phase 3: Development & Deployment
-1. Development server (`base44 dev`)
-2. Deployment commands (`base44 deploy --client`, `base44 deploy --fullstack`)
-3. Cron job management integration
+### Endpoints
 
-### Phase 4: Advanced Features
-1. Secrets management (`base44 secrets get`, `base44 secrets set`)
-2. Domains management (`base44 domains`)
-3. AI integration (`base44 ai`, `base44 ai does`)
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/external-auth/auto-added-scopes` | GET | Get auto-added scopes mapping |
+| `/api/apps/{app_id}/external-auth/list` | GET | List all connectors |
+| `/api/apps/{app_id}/external-auth/initiate` | POST | Start OAuth flow |
+| `/api/apps/{app_id}/external-auth/status` | GET | Poll for OAuth completion |
+| `/api/apps/{app_id}/external-auth/integrations/{type}/remove` | DELETE | Hard delete connector |
 
-### Phase 5: Polish & Distribution
-1. Error handling and validation
-2. Help documentation and examples
-3. Package distribution (brew, scoop, npm via GitHub Actions)
-4. Testing and quality assurance
+### Subtasks
 
-## Technical Considerations
+2.1. **Auto-added scopes endpoint** (no auth required)
+   ```typescript
+   async getAutoAddedScopes(): Promise<Record<IntegrationType, string[]>>
+   ```
+   - Response is highly cacheable (data rarely changes)
+   - Consider caching in CLI session
 
-### Configuration
-- **Global Auth Config**: Stored in `~/.base44/auth/auth.json` (managed by `src/core/config/auth.ts`)
-- Local config file (`.base44/config.json` or similar) - for project-specific settings
-- Global config for user preferences
-- Environment-specific settings
-- **Zod schema validation for all configuration files** - Validate config structure and values
-- Type-safe config access using Zod-inferred types
-- **File System Utilities**: Cross-platform file operations in `src/core/utils/fs.ts`
+2.2. **List connectors**
+   ```typescript
+   async listConnectors(appId: string): Promise<Connector[]>
+   ```
 
-### API Integration
-- REST API client for Base44 services (using `fetch` or `axios`)
-- Authentication token management
-- Rate limiting and retry logic
-- Error handling and user feedback
-- **Zod schema validation for all API responses** - Validate and type-check API responses at runtime
-- TypeScript types generated from Zod schemas for type safety
+2.3. **Initiate OAuth**
+   ```typescript
+   async initiateOAuth(appId: string, request: {
+     integration_type: string;
+     scopes: string[];
+     force_reconnect: boolean;
+   }): Promise<{
+     redirect_url: string;
+     connection_id: string;
+     already_authorized: boolean;
+   }>
+   ```
 
-### Build & Distribution
-- **Project Structure** - Single package with `core` and `cli` modules
-- **ES Modules** - Package uses `"type": "module"` for native ES module support
-- **Zero-Dependency Distribution** - All runtime dependencies bundled into single JS file
-- **Build Tools**:
-  - Production: `tsdown` bundles all code and dependencies into `dist/cli/index.js`
-  - Development: `tsx` for fast watch mode and direct TypeScript execution
-  - Type checking: `tsc --noEmit` for validation without emitting files
-- **CLI Entry Point**: `src/cli/index.ts` includes shebang (`#!/usr/bin/env node`)
-- GitHub Actions for automated builds and npm releases
+2.4. **Poll status**
+   ```typescript
+   async getOAuthStatus(appId: string, params: {
+     integration_type: string;
+     connection_id: string;
+   }): Promise<{ status: 'ACTIVE' | 'FAILED' | 'PENDING' }>
+   ```
 
-### Security
-- Secure credential storage
-- Encrypted secret management
-- Token refresh mechanisms
-- **Zod-based input validation and sanitization** - Validate all user inputs and CLI arguments
-- Schema validation for secrets and sensitive data
+2.5. **Hard delete**
+   ```typescript
+   async removeConnector(appId: string, type: string): Promise<void>
+   ```
 
-### User Experience
-- **Base44 Branding**: All commands wrapped with `runCommand` utility showing Base44 intro banner (color: #E86B3C)
-- Clear error messages with try-catch error handling
-- Progress indicators for long operations using `@clack/prompts` tasks
-- Interactive prompts using `@clack/prompts` for better UX
-- Comprehensive help system via Commander.js
-- Spinners and loading states for async operations
-- **Command Wrapper Pattern**: All commands use `runCommand()` utility for consistent branding and error handling
+### Implementation location
+- Add to existing API client or create `src/api/external-auth.ts`
 
-## Schema Validation with Zod
+---
 
-### API Response Validation
-- Define Zod schemas for all API endpoints
-- Validate API responses before processing
-- Type-safe API client with inferred types from Zod schemas
-- Clear error messages when API responses don't match expected schema
-- Examples:
-  - `UserSchema` for authentication responses
-  - `EntitySchema` for entity definitions
-  - `FunctionSchema` for function metadata
-  - `DeploymentSchema` for deployment status
-  - `SecretSchema` for secrets management
-  - `DomainSchema` for domain configurations
+## Task 3: Push Comparison Logic
 
-### Configuration File Validation
-- Zod schemas for all configuration files:
-  - `.base44/config.json` - Project configuration
-  - Global config files
-  - Entity schema files
-  - Function configuration files
-- Validate on read to catch configuration errors early
-- Type-safe config access throughout the application
+### Objective
+Compare local connector definitions with upstream state and determine required actions.
 
-### File Schema Validation
-- Validate entity schema files before push operations
-- Validate function definitions and configurations
-- Validate project structure files
-- Ensure data integrity before syncing with remote
+### Scope Comparison Logic
 
-### Input Validation
-- Validate CLI command arguments using Zod
-- Validate user input from prompts
-- Validate environment variables
-- Validate secrets before storage
+```typescript
+function scopesMatch(
+  localScopes: string[],
+  upstreamScopes: string[],
+  autoAddedScopes: string[]
+): boolean {
+  const expected = new Set([...localScopes, ...autoAddedScopes]);
+  const upstream = new Set(upstreamScopes);
+
+  if (expected.size !== upstream.size) return false;
+  for (const scope of expected) {
+    if (!upstream.has(scope)) return false;
+  }
+  return true;
+}
+```
+
+### Comparison Matrix
+
+| Local File | Upstream State | Scopes Match? | Action |
+|------------|----------------|---------------|--------|
+| Exists | Not exists | N/A | Prompt auth URL + poll |
+| Exists | `DISCONNECTED` | N/A | Hard delete + prompt auth URL + poll |
+| Exists | `EXPIRED` | N/A | Hard delete + prompt auth URL + poll |
+| Exists | `ACTIVE` | Yes | No-op |
+| Exists | `ACTIVE` | No | Hard delete + prompt auth URL + poll |
+| Not exists | Exists (any) | N/A | Hard delete upstream |
+
+### Subtasks
+
+3.1. **Fetch auto-added scopes**
+   - Call `/api/external-auth/auto-added-scopes`
+   - Cache for session duration
+
+3.2. **Calculate expected scopes**
+   ```typescript
+   expectedScopes = localScopes ∪ autoAddedScopes
+   ```
+
+3.3. **Compare and determine actions**
+   - For each local connector: determine if auth needed
+   - For each upstream-only connector: mark for deletion
+
+3.4. **Implementation location**
+   - Create `src/resources/connectors/push.ts`
+
+---
+
+## Task 4: OAuth Flow Handling
+
+### Objective
+Handle interactive OAuth authentication with URL display and polling.
+
+### Flow
+
+1. Display auth URL to user (open in browser or show URL)
+2. Poll `/status` endpoint every 2 seconds
+3. Use same timeout as device login auth
+4. Verify approved scopes after completion
+
+### Post-Auth Verification
+
+```typescript
+function verifyApprovedScopes(
+  localScopes: string[],
+  approvedScopes: string[],
+  autoAddedScopes: string[]
+): boolean {
+  const expected = new Set([...localScopes, ...autoAddedScopes]);
+  const approved = new Set(approvedScopes);
+
+  if (expected.size !== approved.size) return false;
+  for (const scope of expected) {
+    if (!approved.has(scope)) return false;
+  }
+  return true;
+}
+```
+
+### Subtasks
+
+4.1. **Auth URL display**
+   - Show URL to user
+   - Optionally auto-open in browser
+
+4.2. **Polling loop**
+   - 2 second interval
+   - Timeout matching device auth
+   - Handle ACTIVE, FAILED, PENDING states
+
+4.3. **Sequential auth**
+   - If multiple connectors need auth, process one at a time
+   - Interactive state machine
+
+4.4. **Edge cases**
+   | Case | Handling |
+   |------|----------|
+   | Partial consent | Show `SCOPE_MISMATCH` status |
+   | Different user | Show `DIFFERENT_USER` status with email |
+   | Auth timeout | Show `PENDING_AUTH` status |
+   | Auth failed | Show `AUTH_FAILED` status |
+
+4.5. **Why always delete first?**
+   - Apper's `/initiate` merges new scopes with existing (for AI use case)
+   - CLI needs declarative state (JSONC = desired scopes)
+   - Delete first ensures exact scopes, not union of old + new
+
+---
+
+## Task 5: Push Command Integration
+
+### Objective
+Wire connectors into the existing push command with summary output.
+
+### Summary Output Format
+
+```
+Connectors push summary:
+  - googlecalendar: active (3 scopes)
+  - slack: active (4 scopes, re-authed)
+  - linkedin: scope mismatch (requested 5, approved 3)
+  - notion: auth not completed
+  - hubspot: deleted (no local definition)
+
+Some connectors need attention:
+  - linkedin: Approved scopes differ from requested. Update connectors/linkedin.jsonc or run push again.
+  - notion: Authentication not completed. Run push to retry.
+```
+
+### Status States
+
+| Status | Color | Description |
+|--------|-------|-------------|
+| `ACTIVE` | green | Connector active, scopes match |
+| `SCOPE_MISMATCH` | yellow | Active but approved ≠ requested |
+| `PENDING_AUTH` | red | Auth URL shown but not completed |
+| `AUTH_FAILED` | red | OAuth flow failed |
+| `DELETED` | dim | Removed from upstream |
+| `DIFFERENT_USER` | red | Another user already authorized |
+
+### Subtasks
+
+5.1. **Integrate with push command**
+   - Add connectors to resource types handled by push
+   - No pull support (push-only resource)
+
+5.2. **Summary output**
+   - Use `@clack/prompts` for logging
+   - Color statuses with chalk
+
+5.3. **Attention section**
+   - Show actionable messages for non-success states
+
+---
+
+## File Structure (Proposed)
+
+```
+src/
+├── resources/
+│   └── connectors/
+│       ├── schema.ts        # Zod schemas
+│       ├── reader.ts        # File reading
+│       ├── push.ts          # Push logic
+│       └── index.ts         # Exports
+├── api/
+│   └── external-auth.ts     # API client methods
+└── commands/
+    └── push.ts              # Updated to include connectors
+```
+
+---
 
 ## Dependencies
 
-### Core CLI (bundled - zero runtime dependencies)
-All dependencies are bundled into a single file at build time using tsdown.
+- Existing: `zod`, `@clack/prompts`, `chalk`
+- Backend: Issue #3325 for `/api/external-auth/auto-added-scopes` endpoint
 
-- **commander** - CLI framework for command parsing and help generation
-- **@clack/prompts** - Beautiful, accessible prompts and UI components
-- **chalk** - Terminal colors (Base44 brand color: #E86B3C)
-- **json5** - JSONC/JSON5 config file parsing (supports comments and trailing commas)
-- **zod** - Schema validation for API responses, config files, and inputs
-- **ky** - HTTP client for API communication
-- **ejs** - Template rendering for project scaffolding
-- **globby** - File globbing for resource discovery
-- **dotenv** - Environment variable loading
+---
 
-### Development
-- **typescript** - TypeScript compiler and type system
-- **tsx** - TypeScript execution for development/watch mode
-- **tsdown** - Bundler (powered by Rolldown) for zero-dependency distribution
-- **vitest** - Testing framework
-- **@types/node** - TypeScript definitions for Node.js
+## Testing Considerations
 
+- Unit tests for scope comparison logic
+- Unit tests for Zod schema validation
+- Integration tests for push flow (mock API)
+- Manual testing of OAuth flow (requires real OAuth providers)
