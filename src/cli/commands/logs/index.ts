@@ -96,15 +96,16 @@ function parseOptions(options: LogsOptions): AuditLogFilters {
  * Format a single log event for human-readable output.
  */
 function formatEvent(event: AuditLogsResponse["events"][0]): string {
-  const timestamp = event.timestamp.padEnd(24);
-  const eventType = event.event_type.padEnd(28);
-  const user = (event.user_email ?? "-").padEnd(30);
+  // Shorten timestamp to readable format (remove microseconds)
+  const timestamp = event.timestamp.substring(0, 19).replace("T", " ");
+  const eventType = event.event_type;
+  const user = event.user_email || "-";
   const status =
     event.status === "success"
       ? theme.colors.base44Orange(event.status)
       : theme.colors.white(event.status);
 
-  return `${timestamp}  ${eventType}  ${user}  ${status}`;
+  return `${theme.styles.dim(timestamp)}  ${eventType.padEnd(24)}  ${user.padEnd(28)}  ${status}`;
 }
 
 /**
@@ -123,7 +124,7 @@ function displayLogs(response: AuditLogsResponse): void {
     theme.styles.dim(`Showing ${events.length} of ${pagination.total} events\n`)
   );
 
-  const header = `${"TIMESTAMP".padEnd(24)}  ${"EVENT TYPE".padEnd(28)}  ${"USER".padEnd(30)}  STATUS`;
+  const header = `${"TIME".padEnd(19)}  ${"EVENT TYPE".padEnd(24)}  ${"USER".padEnd(28)}  STATUS`;
   log.message(theme.styles.header(header));
 
   // Events
