@@ -57,6 +57,29 @@ export interface AgentsFetchResponse {
   total: number;
 }
 
+export interface AppInfoResponse {
+  organization_id: string;
+  [key: string]: unknown;
+}
+
+export interface AuditLogsResponse {
+  events: Array<{
+    timestamp: string;
+    user_email: string | null;
+    workspace_id: string;
+    app_id: string;
+    event_type: string;
+    status: "success" | "failure";
+    [key: string]: unknown;
+  }>;
+  pagination: {
+    total: number;
+    limit: number;
+    has_more: boolean;
+    next_cursor: { timestamp: string; user_email: string } | null;
+  };
+}
+
 export interface CreateAppResponse {
   id: string;
   name: string;
@@ -182,6 +205,33 @@ export class Base44APIMock {
     return this;
   }
 
+  /** Mock GET /api/apps/{appId} - Get app info (for workspace ID) */
+  mockAppInfo(response: AppInfoResponse): this {
+    this.handlers.push(
+      http.get(`${BASE_URL}/api/apps/${this.appId}`, () =>
+        HttpResponse.json(response)
+      )
+    );
+    return this;
+  }
+
+  /** Mock POST /api/workspace/audit-logs/list - Fetch audit logs */
+  mockAuditLogs(workspaceId: string, response: AuditLogsResponse): this {
+    this.handlers.push(
+      http.post(`${BASE_URL}/api/workspace/audit-logs/list`, ({ request }) => {
+        const url = new URL(request.url);
+        if (url.searchParams.get("workspaceId") === workspaceId) {
+          return HttpResponse.json(response);
+        }
+        return HttpResponse.json(
+          { error: "Workspace not found" },
+          { status: 404 }
+        );
+      })
+    );
+    return this;
+  }
+
   // ─── GENERAL ENDPOINTS ─────────────────────────────────────
 
   /** Mock POST /api/apps - Create new app */
@@ -261,6 +311,16 @@ export class Base44APIMock {
       `/api/apps/${this.appId}/agent-configs`,
       error
     );
+  }
+
+  /** Mock app info to return an error */
+  mockAppInfoError(error: ErrorResponse): this {
+    return this.mockError("get", `/api/apps/${this.appId}`, error);
+  }
+
+  /** Mock audit logs to return an error */
+  mockAuditLogsError(error: ErrorResponse): this {
+    return this.mockError("post", "/api/workspace/audit-logs/list", error);
   }
 
   /** Mock token endpoint to return an error (for auth failure testing) */
