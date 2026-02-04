@@ -1,10 +1,15 @@
 import { resolve } from "node:path";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import * as api from "../../src/core/resources/connector/api.js";
 import { readAllConnectors } from "../../src/core/resources/connector/config.js";
+import { pushConnectors } from "../../src/core/resources/connector/push.js";
 import {
   ConnectorResourceSchema,
   IntegrationTypeSchema,
+  type ConnectorResource,
 } from "../../src/core/resources/connector/schema.js";
+
+vi.mock("../../src/core/resources/connector/api.js");
 
 const FIXTURES_DIR = resolve(__dirname, "../fixtures");
 
@@ -144,5 +149,207 @@ describe("readAllConnectors", () => {
     await expect(readAllConnectors(connectorsDir)).rejects.toThrow(
       /does not match type/
     );
+  });
+});
+
+const mockListConnectors = vi.mocked(api.listConnectors);
+const mockSyncConnector = vi.mocked(api.syncConnector);
+const mockRemoveConnector = vi.mocked(api.removeConnector);
+
+describe("pushConnectors", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    mockListConnectors.mockResolvedValue({ integrations: [] });
+  });
+
+  it("returns empty results when no local or upstream connectors", async () => {
+    const result = await pushConnectors([]);
+    expect(result.results).toEqual([]);
+    expect(mockListConnectors).toHaveBeenCalledOnce();
+  });
+
+  it("syncs local connectors", async () => {
+    const local: ConnectorResource[] = [
+      { type: "gmail", scopes: ["https://mail.google.com/"] },
+    ];
+    mockSyncConnector.mockResolvedValue({
+      redirect_url: null,
+      connection_id: null,
+      already_authorized: true,
+    });
+
+    const result = await pushConnectors(local);
+
+    expect(mockSyncConnector).toHaveBeenCalledWith("gmail", [
+      "https://mail.google.com/",
+    ]);
+    expect(result.results).toEqual([{ type: "gmail", action: "synced" }]);
+  });
+
+  it("removes upstream-only connectors", async () => {
+    mockListConnectors.mockResolvedValue({
+      integrations: [
+        { integration_type: "slack", status: "ACTIVE", scopes: ["chat:write"] },
+      ],
+    });
+    mockRemoveConnector.mockResolvedValue({
+      status: "removed",
+      integration_type: "slack",
+    });
+
+    const result = await pushConnectors([]);
+
+    expect(mockRemoveConnector).toHaveBeenCalledWith("slack");
+    expect(result.results).toEqual([{ type: "slack", action: "removed" }]);
+  });
+
+  it("syncs local and removes upstream-only", async () => {
+    const local: ConnectorResource[] = [
+      { type: "gmail", scopes: ["https://mail.google.com/"] },
+    ];
+    mockListConnectors.mockResolvedValue({
+      integrations: [
+        { integration_type: "slack", status: "ACTIVE", scopes: ["chat:write"] },
+      ],
+    });
+    mockSyncConnector.mockResolvedValue({
+      redirect_url: null,
+      connection_id: null,
+      already_authorized: true,
+    });
+    mockRemoveConnector.mockResolvedValue({
+      status: "removed",
+      integration_type: "slack",
+    });
+
+    const result = await pushConnectors(local);
+
+    expect(mockSyncConnector).toHaveBeenCalledWith("gmail", [
+      "https://mail.google.com/",
+    ]);
+    expect(mockRemoveConnector).toHaveBeenCalledWith("slack");
+    expect(result.results).toEqual([
+      { type: "gmail", action: "synced" },
+      { type: "slack", action: "removed" },
+    ]);
+  });
+
+  it("does not remove connectors that exist locally", async () => {
+    const local: ConnectorResource[] = [
+      { type: "gmail", scopes: ["https://mail.google.com/"] },
+    ];
+    mockListConnectors.mockResolvedValue({
+      integrations: [
+        {
+          integration_type: "gmail",
+          status: "ACTIVE",
+          scopes: ["https://mail.google.com/"],
+        },
+      ],
+    });
+    mockSyncConnector.mockResolvedValue({
+      redirect_url: null,
+      connection_id: null,
+      already_authorized: true,
+    });
+
+    const result = await pushConnectors(local);
+
+    expect(mockRemoveConnector).not.toHaveBeenCalled();
+    expect(result.results).toEqual([{ type: "gmail", action: "synced" }]);
+  });
+
+  it("returns needs_oauth when redirect_url is present", async () => {
+    const local: ConnectorResource[] = [
+      { type: "gmail", scopes: ["https://mail.google.com/"] },
+    ];
+    mockSyncConnector.mockResolvedValue({
+      redirect_url: "https://accounts.google.com/oauth",
+      connection_id: "conn_123",
+      already_authorized: false,
+    });
+
+    const result = await pushConnectors(local);
+
+    expect(result.results).toEqual([
+      {
+        type: "gmail",
+        action: "needs_oauth",
+        redirectUrl: "https://accounts.google.com/oauth",
+        connectionId: "conn_123",
+      },
+    ]);
+  });
+
+  it("returns error for different_user response", async () => {
+    const local: ConnectorResource[] = [
+      { type: "gmail", scopes: ["https://mail.google.com/"] },
+    ];
+    mockSyncConnector.mockResolvedValue({
+      redirect_url: null,
+      connection_id: null,
+      already_authorized: false,
+      error: "different_user",
+      error_message: "Already connected by another user",
+      other_user_email: "other@example.com",
+    });
+
+    const result = await pushConnectors(local);
+
+    expect(result.results).toEqual([
+      {
+        type: "gmail",
+        action: "error",
+        error: "Already connected by another user",
+      },
+    ]);
+  });
+
+  it("handles sync errors gracefully", async () => {
+    const local: ConnectorResource[] = [
+      { type: "gmail", scopes: ["https://mail.google.com/"] },
+    ];
+    mockSyncConnector.mockRejectedValue(new Error("Network error"));
+
+    const result = await pushConnectors(local);
+
+    expect(result.results).toEqual([
+      { type: "gmail", action: "error", error: "Network error" },
+    ]);
+  });
+
+  it("handles remove errors gracefully", async () => {
+    mockListConnectors.mockResolvedValue({
+      integrations: [
+        { integration_type: "slack", status: "ACTIVE", scopes: ["chat:write"] },
+      ],
+    });
+    mockRemoveConnector.mockRejectedValue(new Error("Remove failed"));
+
+    const result = await pushConnectors([]);
+
+    expect(result.results).toEqual([
+      { type: "slack", action: "error", error: "Remove failed" },
+    ]);
+  });
+
+  it("processes multiple local connectors", async () => {
+    const local: ConnectorResource[] = [
+      { type: "gmail", scopes: ["https://mail.google.com/"] },
+      { type: "slack", scopes: ["chat:write"] },
+    ];
+    mockSyncConnector.mockResolvedValue({
+      redirect_url: null,
+      connection_id: null,
+      already_authorized: true,
+    });
+
+    const result = await pushConnectors(local);
+
+    expect(mockSyncConnector).toHaveBeenCalledTimes(2);
+    expect(result.results).toEqual([
+      { type: "gmail", action: "synced" },
+      { type: "slack", action: "synced" },
+    ]);
   });
 });
