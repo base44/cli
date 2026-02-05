@@ -54,17 +54,9 @@ async function deployFunctionsAction(): Promise<RunCommandResult> {
 }
 
 export function getFunctionsDeployCommand(context: CLIContext): Command {
-  return new Command("functions")
-    .description("Manage project functions")
-    .addCommand(
-      new Command("deploy")
-        .description("Deploy local functions to Base44")
-        .action(async () => {
-          await runCommand(
-            deployFunctionsAction,
-            { requireAuth: true },
-            context
-          );
-        })
-    );
+  return new Command("deploy")
+    .description("Deploy local functions to Base44")
+    .action(async () => {
+      await runCommand(deployFunctionsAction, { requireAuth: true }, context);
+    });
 }

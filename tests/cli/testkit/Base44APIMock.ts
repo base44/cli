@@ -80,6 +80,14 @@ export interface AuditLogsResponse {
   };
 }
 
+export interface FunctionLogEntry {
+  time: string;
+  level: "log" | "info" | "warn" | "error" | "debug";
+  message: string;
+}
+
+export type FunctionLogsResponse = FunctionLogEntry[];
+
 export interface CreateAppResponse {
   id: string;
   name: string;
@@ -232,6 +240,17 @@ export class Base44APIMock {
     return this;
   }
 
+  /** Mock GET /api/apps/{appId}/functions-mgmt/{functionName}/logs - Fetch function logs */
+  mockFunctionLogs(functionName: string, response: FunctionLogsResponse): this {
+    this.handlers.push(
+      http.get(
+        `${BASE_URL}/api/apps/${this.appId}/functions-mgmt/${functionName}/logs`,
+        () => HttpResponse.json(response)
+      )
+    );
+    return this;
+  }
+
   // ─── GENERAL ENDPOINTS ─────────────────────────────────────
 
   /** Mock POST /api/apps - Create new app */
@@ -321,6 +340,15 @@ export class Base44APIMock {
   /** Mock audit logs to return an error */
   mockAuditLogsError(error: ErrorResponse): this {
     return this.mockError("post", "/api/workspace/audit-logs/list", error);
+  }
+
+  /** Mock function logs to return an error */
+  mockFunctionLogsError(functionName: string, error: ErrorResponse): this {
+    return this.mockError(
+      "get",
+      `/api/apps/${this.appId}/functions-mgmt/${functionName}/logs`,
+      error
+    );
   }
 
   /** Mock token endpoint to return an error (for auth failure testing) */
