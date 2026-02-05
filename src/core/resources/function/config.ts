@@ -8,7 +8,7 @@ import type {
 } from "@/core/resources/function/schema.js";
 import {
   FunctionConfigSchema,
-  FunctionSchema,
+  BackendFunctionSchema,
 } from "@/core/resources/function/schema.js";
 import { pathExists, readJsonFile } from "@/core/utils/fs.js";
 
@@ -42,22 +42,13 @@ export async function readFunction(
     );
   }
 
-  const files = await globby("*.{js,ts,json}", {
+  const filePaths = await globby("*.{js,ts,json}", {
     cwd: functionDir,
     absolute: true,
   });
 
-  const functionData = { ...config, entryPath, files };
-  const result = FunctionSchema.safeParse(functionData);
-  if (!result.success) {
-    throw new SchemaValidationError(
-      "Invalid function",
-      result.error,
-      configPath
-    );
-  }
-
-  return result.data;
+  const functionData: BackendFunction = { ...config, entryPath, filePaths };
+  return functionData;
 }
 
 export async function readAllFunctions(
