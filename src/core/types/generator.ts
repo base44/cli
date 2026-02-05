@@ -1,6 +1,6 @@
 import { source, stripIndent } from "common-tags";
-import { compile } from "json-schema-to-typescript";
 import type { JSONSchema4 } from "json-schema";
+import { compile } from "json-schema-to-typescript";
 import { getTypesOutputPath } from "@/core/config.js";
 import { TypeGenerationError } from "@/core/errors.js";
 import { getAppConfig } from "@/core/project/app-config.js";
