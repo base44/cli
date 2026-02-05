@@ -9,7 +9,7 @@ import type { CLIResult } from "./CLIResultMatcher.js";
 import { CLIResultMatcher } from "./CLIResultMatcher.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const DIST_INDEX_PATH = join(__dirname, "../../../dist/index.js");
+const DIST_INDEX_PATH = join(__dirname, "../../../dist/cli/index.js");
 
 /** Type for CLIContext */
 interface CLIContext {
