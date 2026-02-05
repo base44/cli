@@ -370,6 +370,28 @@ export class InternalError extends SystemError {
   }
 }
 
+/**
+ * Thrown when type generation fails for an entity.
+ */
+export class TypeGenerationError extends SystemError {
+  readonly code = "TYPE_GENERATION_ERROR";
+  readonly entityName?: string;
+
+  constructor(message: string, entityName?: string, cause?: unknown) {
+    super(message, {
+      hints: [
+        {
+          message: entityName
+            ? `Check the schema for entity "${entityName}"`
+            : "Check your entity schemas for errors",
+        },
+      ],
+      cause: cause instanceof Error ? cause : undefined,
+    });
+    this.entityName = entityName;
+  }
+}
+
 // ============================================================================
 // Type Guards
 // ============================================================================

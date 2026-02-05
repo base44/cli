@@ -129,4 +129,19 @@ describe("types generate command", () => {
     const typesFileExists = await t.fileExists("base44/.types/types.d.ts");
     expect(typesFileExists).toBe(true);
   });
+
+  it("fails with TypeGenerationError for invalid entity schema", async () => {
+    // Given a project with an invalid entity schema
+    await t.givenLoggedInWithProject(fixture("invalid-entity-schema"));
+
+    // When running types generate
+    const result = await t.run("types", "generate");
+
+    // Then the command fails
+    t.expectResult(result).toFail();
+
+    // And the error message mentions the entity name
+    t.expectResult(result).toContain("Broken");
+    t.expectResult(result).toContain("Failed to generate types");
+  });
 });
