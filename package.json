@@ -11,12 +11,12 @@
     "bin"
   ],
   "scripts": {
-    "build": "rm -rf dist && bun run build.ts",
-    "build:watch": "rm -rf dist && bun run build.ts --watch",
+    "build": "npm run clean && cp -r templates dist/ && bun run infra/build.ts",
+    "build:watch": "npm run clean && cp -r templates dist/ && bun run infra/build.ts --watch",
     "typecheck": "tsc --noEmit",
     "dev": "./bin/dev.ts",
     "start": "./bin/run.js",
-    "clean": "rm -rf dist",
+    "clean": "rm -rf dist && mkdir -p dist",
     "lint": "biome check src tests",
     "lint:fix": "biome check --write src tests",
     "test": "vitest run",
