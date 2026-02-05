@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const FunctionNameSchema = z
+const FunctionNameSchema = z
   .string()
   .trim()
   .min(1, "Function name cannot be empty")
@@ -66,7 +66,7 @@ const EntityAutomationSchema = AutomationBaseSchema.extend({
 });
 
 // Union of all automation types
-export const AutomationSchema = z.union([
+const AutomationSchema = z.union([
   ScheduledOneTimeSchema,
   ScheduledCronSchema,
   ScheduledSimpleSchema,
@@ -79,20 +79,9 @@ export const FunctionConfigSchema = z.object({
   automations: z.array(AutomationSchema).optional(),
 });
 
-// Function with local file paths (used when reading from filesystem)
-export const FunctionLocalSchema = FunctionConfigSchema.extend({
+const BackendFunctionSchema = FunctionConfigSchema.extend({
   entryPath: z.string().min(1, "Entry path cannot be empty"),
-  files: z.array(z.string()).min(1, "Function must have at least one file"),
-});
-
-// Function with file contents (used for API payload)
-export const FunctionPayloadSchema = z.object({
-  name: FunctionNameSchema,
-  entry: z.string().min(1),
-  files: z
-    .array(FunctionFileSchema)
-    .min(1, "Function must have at least one file"),
-  automations: z.array(AutomationSchema).optional(),
+  filePaths: z.array(z.string()).min(1, "Function must have at least one file"),
 });
 
 export const DeployFunctionsResponseSchema = z.object({
@@ -104,19 +93,13 @@ export const DeployFunctionsResponseSchema = z.object({
     .nullable(),
 });
 
-export type Automation = z.infer<typeof AutomationSchema>;
 export type FunctionConfig = z.infer<typeof FunctionConfigSchema>;
-export type FunctionLocal = z.infer<typeof FunctionLocalSchema>;
+export type BackendFunction = z.infer<typeof BackendFunctionSchema>;
 export type FunctionFile = z.infer<typeof FunctionFileSchema>;
-export type FunctionPayload = z.infer<typeof FunctionPayloadSchema>;
 export type DeployFunctionsResponse = z.infer<
   typeof DeployFunctionsResponseSchema
 >;
 
-// Alias for backward compatibility
-export type BackendFunction = FunctionLocal;
-export type FunctionDeploy = FunctionPayload;
-
-export type FunctionWithCode = Omit<FunctionLocal, "files"> & {
+export type FunctionWithCode = Omit<BackendFunction, "filePaths"> & {
   files: FunctionFile[];
 };
