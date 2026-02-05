@@ -13,7 +13,7 @@ async function runCLI(): Promise<void> {
   errorReporter.registerProcessErrorHandlers();
 
   // Create context for dependency injection
-  const context: CLIContext = { errorReporter, sdk: null };
+  const context: CLIContext = { errorReporter };
 
   // Create program with injected context
   const program = createProgram(context);

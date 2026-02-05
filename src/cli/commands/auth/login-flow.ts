@@ -3,19 +3,23 @@ import pWaitFor from "p-wait-for";
 import { runTask } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 import { theme } from "@/cli/utils/theme.js";
-import { Base44LocalProjectSDK } from "@/core/index.js";
-import { getUserInfo } from "@/core/auth/index.js";
 import type {
   DeviceCodeResponse,
   TokenResponse,
   UserInfoResponse,
+} from "@/core/auth/index.js";
+import {
+  generateDeviceCode,
+  getTokenFromDeviceCode,
+  getUserInfo,
+  writeAuth,
 } from "@/core/auth/index.js";
 
 async function generateAndDisplayDeviceCode(): Promise<DeviceCodeResponse> {
   const deviceCodeResponse = await runTask(
     "Generating device code...",
     async () => {
-      return await Base44LocalProjectSDK.auth.startDeviceCodeFlow();
+      return await generateDeviceCode();
     },
     {
       successMessage: "Device code generated",
@@ -44,7 +48,7 @@ async function waitForAuthentication(
       async () => {
         await pWaitFor(
           async () => {
-            const result = await Base44LocalProjectSDK.auth.pollForToken(deviceCode);
+            const result = await getTokenFromDeviceCode(deviceCode);
             if (result !== null) {
               tokenResponse = result;
               return true;
@@ -82,7 +86,7 @@ async function saveAuthData(
 ): Promise<void> {
   const expiresAt = Date.now() + response.expiresIn * 1000;
 
-  await Base44LocalProjectSDK.auth.saveAuth({
+  await writeAuth({
     accessToken: response.accessToken,
     refreshToken: response.refreshToken,
     expiresAt,

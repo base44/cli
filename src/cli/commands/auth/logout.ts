@@ -1,11 +1,11 @@
 import { Command } from "commander";
 import type { CLIContext } from "@/cli/types.js";
-import { Base44LocalProjectSDK } from "@/core/index.js";
 import { runCommand } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
+import { deleteAuth } from "@/core/auth/index.js";
 
 async function logout(): Promise<RunCommandResult> {
-  await Base44LocalProjectSDK.auth.logout();
+  await deleteAuth();
   return { outroMessage: "Logged out successfully" };
 }
 

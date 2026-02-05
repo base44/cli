@@ -1,0 +1,79 @@
+import { dirname, join } from "node:path";
+import { globby } from "globby";
+import { FUNCTION_CONFIG_FILE } from "@/core/internal/consts.js";
+import {
+  FileNotFoundError,
+  SchemaValidationError,
+} from "@/core/internal/errors.js";
+import type {
+  BackendFunction,
+  FunctionConfig,
+} from "@/core/internal/resources/function/schema.js";
+import { FunctionConfigSchema } from "@/core/internal/resources/function/schema.js";
+import { pathExists, readJsonFile } from "@/core/internal/utils/fs.js";
+
+export async function readFunctionConfig(
+  configPath: string
+): Promise<FunctionConfig> {
+  const parsed = await readJsonFile(configPath);
+  const result = FunctionConfigSchema.safeParse(parsed);
+
+  if (!result.success) {
+    throw new SchemaValidationError(
+      "Invalid function configuration",
+      result.error,
+      configPath
+    );
+  }
+
+  return result.data;
+}
+
+export async function readFunction(
+  configPath: string
+): Promise<BackendFunction> {
+  const config = await readFunctionConfig(configPath);
+  const functionDir = dirname(configPath);
+  const entryPath = join(functionDir, config.entry);
+
+  if (!(await pathExists(entryPath))) {
+    throw new FileNotFoundError(
+      `Function entry file not found: ${entryPath} (referenced in ${configPath})`
+    );
+  }
+
+  const filePaths = await globby("*.{js,ts,json}", {
+    cwd: functionDir,
+    absolute: true,
+  });
+
+  const functionData: BackendFunction = { ...config, entryPath, filePaths };
+  return functionData;
+}
+
+export async function readAllFunctions(
+  functionsDir: string
+): Promise<BackendFunction[]> {
+  if (!(await pathExists(functionsDir))) {
+    return [];
+  }
+
+  const configFiles = await globby(`*/${FUNCTION_CONFIG_FILE}`, {
+    cwd: functionsDir,
+    absolute: true,
+  });
+
+  const functions = await Promise.all(
+    configFiles.map((configPath) => readFunction(configPath))
+  );
+
+  const names = new Set<string>();
+  for (const fn of functions) {
+    if (names.has(fn.name)) {
+      throw new Error(`Duplicate function name "${fn.name}"`);
+    }
+    names.add(fn.name);
+  }
+
+  return functions;
+}

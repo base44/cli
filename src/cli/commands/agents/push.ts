@@ -1,12 +1,13 @@
 import { log } from "@clack/prompts";
 import { Command } from "commander";
 import type { CLIContext } from "@/cli/types.js";
-import type { Base44LocalProjectSDK } from "@/core/index.js";
+import { readProjectConfig } from "@/core/index.js";
+import { pushAgents } from "@/core/resources/agent/index.js";
 import { runCommand, runTask } from "../../utils/index.js";
 import type { RunCommandResult } from "../../utils/runCommand.js";
 
-async function pushAgentsAction(sdk: Base44LocalProjectSDK): Promise<RunCommandResult> {
-  const agents = await sdk.agents.readAll();
+async function pushAgentsAction(): Promise<RunCommandResult> {
+  const { agents } = await readProjectConfig();
 
   log.info(
     agents.length === 0
@@ -17,7 +18,7 @@ async function pushAgentsAction(sdk: Base44LocalProjectSDK): Promise<RunCommandR
   const result = await runTask(
     "Pushing agents to Base44",
     async () => {
-      return await sdk.agents.push(agents);
+      return await pushAgents(agents);
     },
     {
       successMessage: "Agents pushed successfully",

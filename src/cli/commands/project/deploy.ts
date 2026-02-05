@@ -1,22 +1,32 @@
 import { confirm, isCancel, log } from "@clack/prompts";
 import { Command } from "commander";
 import type { CLIContext } from "@/cli/types.js";
-import type { Base44LocalProjectSDK } from "@/core/index.js";
-import { runCommand, runTask, theme, getDashboardUrl } from "@/cli/utils/index.js";
+import {
+  getDashboardUrl,
+  runCommand,
+  runTask,
+  theme,
+} from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
+import {
+  deployAll,
+  hasResourcesToDeploy,
+  readProjectConfig,
+} from "@/core/project/index.js";
 
 interface DeployOptions {
   yes?: boolean;
 }
 
-async function deployAction(sdk: Base44LocalProjectSDK, options: DeployOptions): Promise<RunCommandResult> {
-  if (!await sdk.hasResourcesToDeploy()) {
+async function deployAction(options: DeployOptions): Promise<RunCommandResult> {
+  const projectData = await readProjectConfig();
+
+  if (!hasResourcesToDeploy(projectData)) {
     return {
       outroMessage: "No resources found to deploy",
     };
   }
 
-  const projectData = await sdk.project.readConfig();
   const { project, entities, functions, agents } = projectData;
 
   // Build summary of what will be deployed
@@ -60,7 +70,7 @@ async function deployAction(sdk: Base44LocalProjectSDK, options: DeployOptions):
   const result = await runTask(
     "Deploying your app...",
     async () => {
-      return await sdk.deployAll();
+      return await deployAll(projectData);
     },
     {
       successMessage: theme.colors.base44Orange("Deployment completed"),
@@ -68,8 +78,9 @@ async function deployAction(sdk: Base44LocalProjectSDK, options: DeployOptions):
     }
   );
 
-  log.message(`${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(sdk.config.appId))}`);
-
+  log.message(
+    `${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl())}`
+  );
   if (result.appUrl) {
     log.message(
       `${theme.styles.header("App URL")}: ${theme.colors.links(result.appUrl)}`
@@ -86,6 +97,10 @@ export function getDeployCommand(context: CLIContext): Command {
     )
     .option("-y, --yes", "Skip confirmation prompt")
     .action(async (options: DeployOptions) => {
-      await runCommand((sdk) => deployAction(sdk, options), { requireAuth: true }, context);
+      await runCommand(
+        () => deployAction(options),
+        { requireAuth: true },
+        context
+      );
     });
 }

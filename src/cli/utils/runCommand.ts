@@ -4,8 +4,9 @@ import type { CLIContext } from "@/cli/types.js";
 import { printBanner } from "@/cli/utils/banner.js";
 import { theme } from "@/cli/utils/theme.js";
 import { printUpgradeNotificationIfAvailable } from "@/cli/utils/upgradeNotification.js";
-import { Base44LocalProjectSDK } from "@/core/index.js";
+import { isLoggedIn } from "@/core/auth/index.js";
 import { isCLIError } from "@/core/errors.js";
+import { initAppConfig } from "@/core/project/index.js";
 
 export interface RunCommandOptions {
   /**
@@ -22,7 +23,7 @@ export interface RunCommandOptions {
   requireAuth?: boolean;
   /**
    * Initialize app config before running this command.
-   * Creates SDK instance and makes it available via context.sdk.
+   * Reads .app.jsonc and caches the appId for sync access via getAppConfig().
    * @default true
    */
   requireAppConfig?: boolean;
@@ -40,18 +41,17 @@ export interface RunCommandResult {
  * This function handles both. Commands can return an optional `outroMessage`
  * which will be displayed at the end.
  *
- * @param commandFn - The async function to execute. Receives the SDK instance (if requireAppConfig is true).
+ * @param commandFn - The async function to execute. Returns `RunCommandResult` with optional `outroMessage`.
  * @param options - Optional configuration for the command wrapper
- * @param context - CLI context with dependencies (errorReporter, sdk, etc.)
+ * @param context - CLI context with dependencies (errorReporter, etc.)
  *
  * @example
  * export function getMyCommand(context: CLIContext): Command {
  *   return new Command("my-command")
  *     .action(async () => {
  *       await runCommand(
- *         async (sdk) => {
- *           const entities = await sdk.entities.readAll();
- *           await sdk.entities.push(entities);
+ *         async () => {
+ *           // ... do work ...
  *           return { outroMessage: "Done!" };
  *         },
  *         { requireAuth: true },
@@ -61,7 +61,7 @@ export interface RunCommandResult {
  * }
  */
 export async function runCommand(
-  commandFn: (sdk: Base44LocalProjectSDK) => Promise<RunCommandResult>,
+  commandFn: () => Promise<RunCommandResult>,
   options: RunCommandOptions | undefined,
   context: CLIContext
 ): Promise<void> {
@@ -79,7 +79,7 @@ export async function runCommand(
   try {
     // Check authentication if required
     if (options?.requireAuth) {
-      const loggedIn = await Base44LocalProjectSDK.auth.isLoggedIn();
+      const loggedIn = await isLoggedIn();
 
       if (!loggedIn) {
         log.info("You need to login first to continue.");
@@ -87,17 +87,13 @@ export async function runCommand(
       }
     }
 
-    // Initialize SDK unless explicitly disabled
-    let sdk = context.sdk;
-    if (options?.requireAppConfig !== false && !sdk) {
-      sdk = await Base44LocalProjectSDK.fromCurrentDirectory();
-      context.sdk = sdk;
-      context.errorReporter.setContext({ appId: sdk.config.appId });
+    // Initialize app config unless explicitly disabled
+    if (options?.requireAppConfig !== false) {
+      const appConfig = await initAppConfig();
+      context.errorReporter.setContext({ appId: appConfig.id });
     }
 
-    // For commands that don't need app config, sdk may be null
-    // The command function signature accepts sdk but may not use it
-    const { outroMessage } = await commandFn(sdk as Base44LocalProjectSDK);
+    const { outroMessage } = await commandFn();
     outro(outroMessage || "");
   } catch (error) {
     // Display error message

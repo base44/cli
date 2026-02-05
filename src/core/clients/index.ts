@@ -1,2 +1,5 @@
-export { base44Client, getAppClient } from "./base44-client.js";
-export { oauthClient } from "./oauth-client.js";
+/**
+ * @deprecated Import from Base44LocalProjectSDK instead.
+ * This re-export exists for backward compatibility.
+ */
+export * from "../internal/clients/index.js";

@@ -16,12 +16,14 @@ import {
   ConfigNotFoundError,
   InvalidInputError,
 } from "@/core/errors.js";
-import { Base44LocalProjectSDK } from "@/core/index.js";
 import type { Project } from "@/core/project/index.js";
 import {
   appConfigExists,
   createProject,
+  findProjectRoot,
   listProjects,
+  setAppConfig,
+  writeAppConfig,
 } from "@/core/project/index.js";
 
 interface LinkOptions {
@@ -125,8 +127,8 @@ async function promptForExistingProject(
   return selectedProject;
 }
 
-async function link(options: LinkOptions, context: CLIContext): Promise<RunCommandResult> {
-  const projectRoot = await Base44LocalProjectSDK.project.findRoot();
+async function link(options: LinkOptions): Promise<RunCommandResult> {
+  const projectRoot = await findProjectRoot();
 
   if (!projectRoot) {
     throw new ConfigNotFoundError(
@@ -201,7 +203,8 @@ async function link(options: LinkOptions, context: CLIContext): Promise<RunComma
     await runTask(
       "Linking project...",
       async () => {
-        await Base44LocalProjectSDK.project.link(projectRoot.root, projectId);
+        await writeAppConfig(projectRoot.root, projectId);
+        setAppConfig({ id: projectId, projectRoot: projectRoot.root });
       },
       {
         successMessage: "Project linked successfully",
@@ -209,8 +212,6 @@ async function link(options: LinkOptions, context: CLIContext): Promise<RunComma
       }
     );
 
-    // Set SDK in context
-    context.sdk = Base44LocalProjectSDK.fromConfig(projectRoot.root, projectId);
     finalProjectId = projectId;
   }
 
@@ -230,16 +231,17 @@ async function link(options: LinkOptions, context: CLIContext): Promise<RunComma
       }
     );
 
-    await Base44LocalProjectSDK.project.link(projectRoot.root, projectId);
+    await writeAppConfig(projectRoot.root, projectId);
 
-    // Set SDK in context
-    context.sdk = Base44LocalProjectSDK.fromConfig(projectRoot.root, projectId);
+    // Set app config in cache for sync access to getDashboardUrl
+    setAppConfig({ id: projectId, projectRoot: projectRoot.root });
+
     finalProjectId = projectId;
   }
 
-  if (finalProjectId) {
-    log.message(`${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(finalProjectId))}`);
-  }
+  log.message(
+    `${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(finalProjectId))}`
+  );
   return { outroMessage: "Project linked" };
 }
 
@@ -260,6 +262,10 @@ export function getLinkCommand(context: CLIContext): Command {
     )
     .hook("preAction", validateNonInteractiveFlags)
     .action(async (options: LinkOptions) => {
-      await runCommand(() => link(options, context), { requireAuth: true, requireAppConfig: false }, context);
+      await runCommand(
+        () => link(options),
+        { requireAuth: true, requireAppConfig: false },
+        context
+      );
     });
 }

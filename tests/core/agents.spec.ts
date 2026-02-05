@@ -1,13 +1,15 @@
 import { HTTPError } from "ky";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { pushAgents } from "../../src/core/resources/agent/api.js";
+import { pushAgents } from "../../src/core/internal/resources/agent/api.js";
 import type { AgentConfig } from "../../src/core/resources/agent/index.js";
 
 // Mock the HTTP client
 const mockPut = vi.fn();
-vi.mock("../../src/core/clients/index.js", async (importOriginal) => {
+vi.mock("../../src/core/internal/clients/index.js", async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import("../../src/core/clients/index.js")>();
+    await importOriginal<
+      typeof import("../../src/core/internal/clients/index.js")
+    >();
   return {
     ...actual,
     getAppClient: () => ({

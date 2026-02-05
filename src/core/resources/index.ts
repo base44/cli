@@ -1,3 +1,5 @@
-export * from "./agent/index.js";
-export * from "./entity/index.js";
-export * from "./function/index.js";
+/**
+ * @deprecated Import from Base44LocalProjectSDK instead.
+ * This re-export exists for backward compatibility.
+ */
+export * from "../internal/resources/index.js";

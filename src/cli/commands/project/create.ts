@@ -1,4 +1,4 @@
-import { basename, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import type { Option } from "@clack/prompts";
 import { confirm, group, isCancel, log, select, text } from "@clack/prompts";
 import { Argument, Command } from "commander";
@@ -14,9 +14,14 @@ import {
 } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 import { InvalidInputError } from "@/core/errors.js";
-import { Base44LocalProjectSDK, isDirEmpty } from "@/core/index.js";
+import { deploySite, isDirEmpty, pushEntities } from "@/core/index.js";
 import type { Template } from "@/core/project/index.js";
-import { listTemplates } from "@/core/project/index.js";
+import {
+  createProjectFiles,
+  listTemplates,
+  readProjectConfig,
+  setAppConfig,
+} from "@/core/project/index.js";
 
 const DEFAULT_TEMPLATE_ID = "backend-only";
 
@@ -48,7 +53,9 @@ function validateNonInteractiveFlags(command: Command): void {
   }
 }
 
-async function createInteractive(options: CreateOptions, context: CLIContext): Promise<RunCommandResult> {
+async function createInteractive(
+  options: CreateOptions
+): Promise<RunCommandResult> {
   const templates = await listTemplates();
   const templateOptions: Option<Template>[] = templates.map((t) => ({
     value: t,
@@ -100,12 +107,15 @@ async function createInteractive(options: CreateOptions, context: CLIContext): P
     deploy: options.deploy,
     skills: options.skills,
     isInteractive: true,
-    context,
   });
 }
 
-async function createNonInteractive(options: CreateOptions, context: CLIContext): Promise<RunCommandResult> {
-  const template = await getTemplateById(options.template ?? DEFAULT_TEMPLATE_ID);
+async function createNonInteractive(
+  options: CreateOptions
+): Promise<RunCommandResult> {
+  const template = await getTemplateById(
+    options.template ?? DEFAULT_TEMPLATE_ID
+  );
 
   return await executeCreate({
     template,
@@ -114,7 +124,6 @@ async function createNonInteractive(options: CreateOptions, context: CLIContext)
     deploy: options.deploy,
     skills: options.skills,
     isInteractive: false,
-    context,
   });
 }
 
@@ -126,7 +135,6 @@ async function executeCreate({
   deploy,
   skills,
   isInteractive,
-  context,
 }: {
   template: Template;
   name: string;
@@ -135,7 +143,6 @@ async function executeCreate({
   deploy?: boolean;
   skills?: boolean;
   isInteractive: boolean;
-  context: CLIContext;
 }): Promise<RunCommandResult> {
   const name = rawName.trim();
   const resolvedPath = resolve(projectPath);
@@ -143,7 +150,7 @@ async function executeCreate({
   const { projectId } = await runTask(
     "Setting up your project...",
     async () => {
-      return await Base44LocalProjectSDK.project.create({
+      return await createProjectFiles({
         name,
         description: description?.trim(),
         path: resolvedPath,
@@ -156,11 +163,10 @@ async function executeCreate({
     }
   );
 
-  // Create SDK instance for the new project
-  const sdk = Base44LocalProjectSDK.fromConfig(resolvedPath, projectId);
-  context.sdk = sdk;
+  // Set app config in cache for sync access to getDashboardUrl and getAppClient
+  setAppConfig({ id: projectId, projectRoot: resolvedPath });
 
-  const { project, entities } = await sdk.project.readConfig();
+  const { project, entities } = await readProjectConfig(resolvedPath);
   let finalAppUrl: string | undefined;
 
   if (entities.length > 0) {
@@ -180,7 +186,7 @@ async function executeCreate({
       await runTask(
         `Pushing ${entities.length} data models to Base44...`,
         async () => {
-          await sdk.entities.push(entities);
+          await pushEntities(entities);
         },
         {
           successMessage: theme.colors.base44Orange(
@@ -216,7 +222,7 @@ async function executeCreate({
           await execa({ cwd: resolvedPath, shell: true })`${buildCommand}`;
 
           updateMessage("Deploying site...");
-          return await sdk.site.deploy(outputDirectory);
+          return await deploySite(join(resolvedPath, outputDirectory));
         },
         {
           successMessage: theme.colors.base44Orange(
@@ -290,13 +296,14 @@ export function getCreateCommand(context: CLIContext): Command {
 
       if (isNonInteractive) {
         await runCommand(
-          () => createNonInteractive({ name: options.name ?? name, ...options }, context),
+          () =>
+            createNonInteractive({ name: options.name ?? name, ...options }),
           { requireAuth: true, requireAppConfig: false },
           context
         );
       } else {
         await runCommand(
-          () => createInteractive({ name, ...options }, context),
+          () => createInteractive({ name, ...options }),
           { fullBanner: true, requireAuth: true, requireAppConfig: false },
           context
         );

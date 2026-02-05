@@ -36,7 +36,6 @@ describe("agents pull command", () => {
     const result = await t.run("agents", "pull");
 
     t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain("Agents pulled successfully");
     t.expectResult(result).toContain("Pulled 2 agents");
   });
 

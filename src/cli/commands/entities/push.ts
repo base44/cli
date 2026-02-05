@@ -1,12 +1,13 @@
 import { log } from "@clack/prompts";
 import { Command } from "commander";
 import type { CLIContext } from "@/cli/types.js";
-import type { Base44LocalProjectSDK } from "@/core/index.js";
 import { runCommand, runTask } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
+import { readProjectConfig } from "@/core/index.js";
+import { pushEntities } from "@/core/resources/entity/index.js";
 
-async function pushEntitiesAction(sdk: Base44LocalProjectSDK): Promise<RunCommandResult> {
-  const entities = await sdk.entities.readAll();
+async function pushEntitiesAction(): Promise<RunCommandResult> {
+  const { entities } = await readProjectConfig();
 
   if (entities.length === 0) {
     return { outroMessage: "No entities found in project" };
@@ -18,7 +19,7 @@ async function pushEntitiesAction(sdk: Base44LocalProjectSDK): Promise<RunComman
   const result = await runTask(
     "Pushing entities to Base44",
     async () => {
-      return await sdk.entities.push(entities);
+      return await pushEntities(entities);
     },
     {
       successMessage: "Entities pushed successfully",

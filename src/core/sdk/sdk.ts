@@ -5,27 +5,38 @@
  * Provides access to all project operations through namespaced APIs.
  */
 
-import ky from "ky";
 import type { KyInstance } from "ky";
-import { getBase44ApiUrl } from "@/core/config.js";
-import { readAuth, refreshAndSaveTokens, isTokenExpired } from "@/core/auth/config.js";
-import { findProjectRoot } from "@/core/project/config.js";
-import { findAppConfigPath } from "@/core/project/app-config.js";
-import { readJsonFile } from "@/core/utils/fs.js";
-import { AppConfigSchema } from "@/core/project/schema.js";
-import { ConfigNotFoundError, ConfigInvalidError, SchemaValidationError } from "@/core/errors.js";
+import ky from "ky";
+import {
+  isTokenExpired,
+  readAuth,
+  refreshAndSaveTokens,
+} from "@/core/internal/auth/config.js";
+import { getBase44ApiUrl } from "@/core/internal/config.js";
+import {
+  ConfigInvalidError,
+  ConfigNotFoundError,
+  SchemaValidationError,
+} from "@/core/internal/errors.js";
+import { findAppConfigPath } from "@/core/internal/project/app-config.js";
+import { findProjectRoot } from "@/core/internal/project/config.js";
+import { AppConfigSchema } from "@/core/internal/project/schema.js";
+import type { SyncAgentsResponse } from "@/core/internal/resources/agent/schema.js";
+import type { SyncEntitiesResponse } from "@/core/internal/resources/entity/schema.js";
+import type { DeployFunctionsResponse } from "@/core/internal/resources/function/schema.js";
+import type { DeployResponse } from "@/core/internal/site/schema.js";
+import { readJsonFile } from "@/core/internal/utils/fs.js";
+import {
+  AgentsNamespace,
+  AuthNamespace,
+  type CreateProjectOptions,
+  type CreateProjectResult,
+  EntitiesNamespace,
+  FunctionsNamespace,
+  ProjectNamespace,
+  SiteNamespace,
+} from "./namespaces/index.js";
 import type { SDKConfig } from "./types.js";
-import { AuthNamespace } from "./auth-namespace.js";
-import { ProjectNamespace   } from "./project-namespace.js";
-import type {CreateProjectOptions, CreateProjectResult} from "./project-namespace.js";
-import { EntitiesNamespace } from "./entities-namespace.js";
-import { FunctionsNamespace } from "./functions-namespace.js";
-import { AgentsNamespace } from "./agents-namespace.js";
-import { SiteNamespace } from "./site-namespace.js";
-import type { SyncEntitiesResponse } from "@/core/resources/entity/schema.js";
-import type { DeployFunctionsResponse } from "@/core/resources/function/schema.js";
-import type { SyncAgentsResponse } from "@/core/resources/agent/schema.js";
-import type { DeployResponse } from "@/core/site/schema.js";
 
 /**
  * Options for deployAll method.
@@ -103,7 +114,8 @@ export class Base44LocalProjectSDK {
    */
   private createAppClient(): KyInstance {
     const baseClient = ky.create({
-      prefixUrl: new URL(`/api/apps/${this.config.appId}/`, getBase44ApiUrl()).href,
+      prefixUrl: new URL(`/api/apps/${this.config.appId}/`, getBase44ApiUrl())
+        .href,
       headers: {
         "User-Agent": "Base44 CLI",
       },
@@ -117,12 +129,18 @@ export class Base44LocalProjectSDK {
               if (isTokenExpired(auth)) {
                 const newAccessToken = await refreshAndSaveTokens();
                 if (newAccessToken) {
-                  request.headers.set("Authorization", `Bearer ${newAccessToken}`);
+                  request.headers.set(
+                    "Authorization",
+                    `Bearer ${newAccessToken}`
+                  );
                   return;
                 }
               }
 
-              request.headers.set("Authorization", `Bearer ${auth.accessToken}`);
+              request.headers.set(
+                "Authorization",
+                `Bearer ${auth.accessToken}`
+              );
             } catch {
               // No auth available, continue without header
             }
@@ -202,7 +220,9 @@ export class Base44LocalProjectSDK {
       result.agents = await this.agents.push(projectData.agents);
     }
     if (options?.site !== false && projectData.project.site?.outputDirectory) {
-      const siteResult = await this.site.deploy(projectData.project.site.outputDirectory);
+      const siteResult = await this.site.deploy(
+        projectData.project.site.outputDirectory
+      );
       result.site = siteResult;
       result.appUrl = siteResult.appUrl;
     }
@@ -242,7 +262,9 @@ export class Base44LocalProjectSDK {
     /**
      * Create a new project from a template.
      */
-    create: ProjectNamespace.create as (options: CreateProjectOptions) => Promise<CreateProjectResult>,
+    create: ProjectNamespace.create as (
+      options: CreateProjectOptions
+    ) => Promise<CreateProjectResult>,
 
     /**
      * Link a local project to a Base44 app.
@@ -272,7 +294,10 @@ export class Base44LocalProjectSDK {
         null,
         {
           hints: [
-            { message: "Run 'base44 link' to link this project to a Base44 app", command: "base44 link" },
+            {
+              message: "Run 'base44 link' to link this project to a Base44 app",
+              command: "base44 link",
+            },
           ],
         }
       );
@@ -281,7 +306,11 @@ export class Base44LocalProjectSDK {
     const parsed = await readJsonFile(appConfigPath);
     const result = AppConfigSchema.safeParse(parsed);
     if (!result.success) {
-      throw new SchemaValidationError("Invalid app configuration", result.error, appConfigPath);
+      throw new SchemaValidationError(
+        "Invalid app configuration",
+        result.error,
+        appConfigPath
+      );
     }
 
     if (!result.data.id) {
@@ -290,7 +319,10 @@ export class Base44LocalProjectSDK {
         appConfigPath,
         {
           hints: [
-            { message: "Run 'base44 link' to link this project to a Base44 app", command: "base44 link" },
+            {
+              message: "Run 'base44 link' to link this project to a Base44 app",
+              command: "base44 link",
+            },
           ],
         }
       );

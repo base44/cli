@@ -1,17 +1,19 @@
-import { Command } from "commander";
+import { resolve } from "node:path";
 import { confirm, isCancel } from "@clack/prompts";
+import { Command } from "commander";
 import type { CLIContext } from "@/cli/types.js";
-import type { Base44LocalProjectSDK } from "@/core/index.js";
-import { ConfigNotFoundError } from "@/core/errors.js";
 import { runCommand, runTask } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
+import { ConfigNotFoundError } from "@/core/errors.js";
+import { readProjectConfig } from "@/core/project/index.js";
+import { deploySite } from "@/core/site/index.js";
 
 interface DeployOptions {
   yes?: boolean;
 }
 
-async function deployAction(sdk: Base44LocalProjectSDK, options: DeployOptions): Promise<RunCommandResult> {
-  const { project } = await sdk.project.readConfig();
+async function deployAction(options: DeployOptions): Promise<RunCommandResult> {
+  const { project } = await readProjectConfig();
 
   if (!project.site?.outputDirectory) {
     throw new ConfigNotFoundError("No site configuration found.", {
@@ -23,6 +25,8 @@ async function deployAction(sdk: Base44LocalProjectSDK, options: DeployOptions):
       ],
     });
   }
+
+  const outputDir = resolve(project.root, project.site.outputDirectory);
 
   if (!options.yes) {
     const shouldDeploy = await confirm({
@@ -37,7 +41,7 @@ async function deployAction(sdk: Base44LocalProjectSDK, options: DeployOptions):
   const result = await runTask(
     "Creating archive and deploying site...",
     async () => {
-      return await sdk.site.deploy(project.site!.outputDirectory!);
+      return await deploySite(outputDir);
     },
     {
       successMessage: "Site deployed successfully",
@@ -53,6 +57,10 @@ export function getSiteDeployCommand(context: CLIContext): Command {
     .description("Deploy built site files to Base44 hosting")
     .option("-y, --yes", "Skip confirmation prompt")
     .action(async (options: DeployOptions) => {
-      await runCommand((sdk) => deployAction(sdk, options), { requireAuth: true }, context);
+      await runCommand(
+        () => deployAction(options),
+        { requireAuth: true },
+        context
+      );
     });
 }
