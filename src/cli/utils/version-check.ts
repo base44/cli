@@ -34,7 +34,7 @@ export async function checkForUpgrade(): Promise<UpgradeInfo | null> {
     }
     return null;
   } catch (error) {
-    console.log(error)
+    console.log(error);
     return null;
   }
 }

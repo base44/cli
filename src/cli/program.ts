@@ -10,7 +10,7 @@ import { getCreateCommand } from "@/cli/commands/project/create.js";
 import { getDeployCommand } from "@/cli/commands/project/deploy.js";
 import { getLinkCommand } from "@/cli/commands/project/link.js";
 import { getSiteCommand } from "@/cli/commands/site/index.js";
-import { getTypesCommand } from "@/cli/commands/types/generate.js";
+import { getTypesCommand } from "@/cli/commands/types/index.js";
 import packageJson from "../../package.json";
 import type { CLIContext } from "./types.js";
 
@@ -52,7 +52,7 @@ export function createProgram(context: CLIContext): Command {
   program.addCommand(getSiteCommand(context));
 
   // Register types command
-  program.addCommand(getTypesCommand(context));
+  program.addCommand(getTypesCommand(context), { hidden: true });
 
   return program;
 }

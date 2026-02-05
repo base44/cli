@@ -8,6 +8,17 @@ import { writeFile } from "@/core/utils/fs.js";
 import { generateTypesFileContent } from "./template.js";
 
 /**
+ * Convert entity name to PascalCase (matching json-schema-to-typescript behavior).
+ * Examples: "orders" -> "Orders", "user_profile" -> "UserProfile"
+ */
+function toPascalCase(name: string): string {
+  return name
+    .split(/[-_\s]+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join("");
+}
+
+/**
  * Input for generating the Base44 types file.
  */
 export interface GenerateBase44TypesInput {
@@ -148,7 +159,9 @@ export function generateEntityRegistryEntries(entities: Entity[]): string {
     return "";
   }
 
-  return entities.map((e) => `    ${e.name}: ${e.name};`).join("\n");
+  return entities
+    .map((e) => `    ${e.name}: ${toPascalCase(e.name)};`)
+    .join("\n");
 }
 
 /**
