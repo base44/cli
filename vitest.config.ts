@@ -6,7 +6,9 @@ export default defineConfig({
     environment: "node",
     globals: true,
     include: ["tests/**/*.spec.ts"],
-    testTimeout: 10000,
+    // 30s timeout to account for slow CI environments where module loading
+    // of the 25MB bundled CLI can take significant time
+    testTimeout: 30000,
     mockReset: true,
     silent: true, // Suppress stdout/stderr from tests (CLI output is very noisy)
   },

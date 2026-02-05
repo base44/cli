@@ -105,9 +105,6 @@ export class CLITestkit {
 
   /** Execute CLI command */
   async run(...args: string[]): Promise<CLIResult> {
-    // Reset modules to clear any cached state (e.g., refreshPromise)
-    vi.resetModules();
-
     // Setup mocks
     this.setupCwdMock();
     this.setupEnvOverrides();
@@ -127,7 +124,10 @@ export class CLITestkit {
     // Apply all API mocks before running
     this.api.apply();
 
-    // Dynamic import after vi.resetModules() to get fresh module instances
+    // Reset module state to ensure test isolation
+    vi.resetModules();
+
+    // Import CLI module fresh after reset
     const { createProgram, CLIExitError } = (await import(
       DIST_INDEX_PATH
     )) as ProgramModule;
