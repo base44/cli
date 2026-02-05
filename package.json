@@ -11,8 +11,8 @@
     "bin"
   ],
   "scripts": {
-    "build": "npm run clean && cp -r templates dist/ && bun run infra/build.ts",
-    "build:watch": "npm run clean && cp -r templates dist/ && bun run infra/build.ts --watch",
+    "build": "bun run clean && cp -r templates dist/ && bun run infra/build.ts",
+    "build:watch": "bun run clean && cp -r templates dist/ && bun run infra/build.ts --watch",
     "typecheck": "tsc --noEmit",
     "dev": "./bin/dev.ts",
     "start": "./bin/run.js",
