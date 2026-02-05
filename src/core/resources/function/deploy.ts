@@ -12,7 +12,7 @@ async function loadFunctionCode(
   fn: BackendFunction
 ): Promise<FunctionWithCode> {
   const loadedFiles: FunctionFile[] = await Promise.all(
-    fn.files.map(async (filePath) => {
+    fn.filePaths.map(async (filePath) => {
       const content = await readTextFile(filePath);
       return { path: basename(filePath), content };
     })
