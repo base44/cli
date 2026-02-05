@@ -11,7 +11,8 @@
     "bin"
   ],
   "scripts": {
-    "build": "rm -rf dist && bun build src/cli/index.ts --outdir dist --target node --format esm --sourcemap=inline && cp -r templates dist/",
+    "build": "rm -rf dist && bun run build.ts",
+    "build:watch": "rm -rf dist && bun run build.ts --watch",
     "typecheck": "tsc --noEmit",
     "dev": "./bin/dev.ts",
     "start": "./bin/run.js",
