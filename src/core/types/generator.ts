@@ -111,7 +111,7 @@ async function compileEntity(entity: Entity): Promise<string> {
 function registry(name: string, entries: string[]): string {
   return source`
     interface ${name} {
-      ${entries.join("\n      ")}
+      ${entries.join("\n")}
     }
   `;
 }
