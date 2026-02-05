@@ -4,61 +4,247 @@ import type { CLIContext } from "@/cli/types.js";
 import { runCommand, runTask, theme } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 import { InvalidInputError } from "@/core/errors.js";
-import type { AuditLogFilters, AuditLogsResponse } from "@/core/logs/index.js";
+import { readProjectConfig } from "@/core/index.js";
+import type {
+  AuditLogEvent,
+  AuditLogFilters,
+  AuditLogsResponse,
+} from "@/core/logs/index.js";
 import { fetchAuditLogs } from "@/core/logs/index.js";
+import type {
+  FunctionLogFilters,
+  LogLevel,
+} from "@/core/resources/function/index.js";
+import { fetchFunctionLogs } from "@/core/resources/function/index.js";
+
+// ─── TYPES ──────────────────────────────────────────────────
 
 interface LogsOptions {
-  status?: string;
-  eventTypes?: string;
-  userEmail?: string;
-  startDate?: string;
-  endDate?: string;
+  function?: string;
+  since?: string;
+  until?: string;
+  level?: string;
   limit?: string;
   order?: string;
-  cursorTimestamp?: string;
-  cursorUserEmail?: string;
   json?: boolean;
+}
+
+/**
+ * Unified log entry for display (normalized from both sources).
+ */
+interface UnifiedLogEntry {
+  time: string;
+  level: string;
+  message: string;
+  source: string; // "App" for audit logs, function name for function logs
+}
+
+// ─── CONSTANTS ──────────────────────────────────────────────
+
+const VALID_LEVELS = ["log", "info", "warn", "error", "debug"];
+
+// ─── AUDIT LOG MESSAGE FORMATTING ───────────────────────────
+
+/**
+ * Format an audit log event into a human-readable message.
+ */
+function formatAuditMessage(event: AuditLogEvent): string {
+  const m = (event.metadata ?? {}) as Record<string, unknown>;
+  const isFailure = event.status === "failure";
+
+  switch (event.event_type) {
+    // Function calls
+    case "api.function.call": {
+      const fnName = m.function_name ?? "unknown";
+      const statusCode = m.status_code ?? "";
+      return isFailure
+        ? `function ${fnName} failed (status ${statusCode})`
+        : `function ${fnName} called (status ${statusCode})`;
+    }
+
+    // Entity operations
+    case "app.entity.created": {
+      const entity = m.entity_name ?? "unknown";
+      const id = m.entity_id ?? "";
+      return isFailure
+        ? `failed to create entity ${entity}`
+        : `entity ${entity} created (id: ${id})`;
+    }
+    case "app.entity.updated": {
+      const entity = m.entity_name ?? "unknown";
+      const id = m.entity_id ?? "";
+      return isFailure
+        ? `failed to update entity ${entity}`
+        : `entity ${entity} updated (id: ${id})`;
+    }
+    case "app.entity.deleted": {
+      const entity = m.entity_name ?? "unknown";
+      const id = m.entity_id ?? "";
+      return isFailure
+        ? `failed to delete entity ${entity}`
+        : `entity ${entity} deleted (id: ${id})`;
+    }
+    case "app.entity.bulk_created": {
+      const entity = m.entity_name ?? "unknown";
+      const count = m.count ?? 0;
+      const method = m.method ?? "";
+      return isFailure
+        ? `bulk create failed for ${entity}`
+        : `${count} ${entity} entities created via ${method}`;
+    }
+    case "app.entity.bulk_deleted": {
+      const entity = m.entity_name ?? "unknown";
+      const count = m.count ?? 0;
+      const method = m.method ?? "";
+      return isFailure
+        ? `bulk delete failed for ${entity}`
+        : `${count} ${entity} entities deleted via ${method}`;
+    }
+    case "app.entity.query": {
+      const entity = m.entity_name ?? "unknown";
+      return isFailure ? `query failed for ${entity}` : `queried ${entity}`;
+    }
+
+    // User operations (always success)
+    case "app.user.registered": {
+      const email = m.target_email ?? "unknown";
+      const role = m.role ?? "";
+      return `user ${email} registered as ${role}`;
+    }
+    case "app.user.updated": {
+      const email = m.target_email ?? "unknown";
+      return `user ${email} updated`;
+    }
+    case "app.user.deleted": {
+      const email = m.target_email ?? "unknown";
+      return `user ${email} deleted`;
+    }
+    case "app.user.role_changed": {
+      const email = m.target_email ?? "unknown";
+      const oldRole = m.old_role ?? "";
+      const newRole = m.new_role ?? "";
+      return `user ${email} role changed: ${oldRole} → ${newRole}`;
+    }
+    case "app.user.invited": {
+      const email = m.invitee_email ?? "unknown";
+      const role = m.role ?? "";
+      return `invited ${email} as ${role}`;
+    }
+    case "app.user.page_visit": {
+      const page = m.page_name ?? "unknown";
+      return `page visit: ${page}`;
+    }
+
+    // Auth operations (always success)
+    case "app.auth.login": {
+      const method = m.auth_method ?? "unknown";
+      return `login via ${method}`;
+    }
+
+    // Access operations (always success)
+    case "app.access.requested": {
+      const email = m.requester_email ?? "unknown";
+      return `access requested by ${email}`;
+    }
+    case "app.access.approved": {
+      const email = m.target_email ?? "unknown";
+      return `access approved for ${email}`;
+    }
+    case "app.access.denied": {
+      const email = m.target_email ?? "unknown";
+      return `access denied for ${email}`;
+    }
+
+    // Automation & Integration (can fail)
+    case "app.automation.executed": {
+      const name = m.automation_name ?? "unknown";
+      return isFailure
+        ? `automation ${name} failed`
+        : `automation ${name} executed`;
+    }
+    case "app.integration.executed": {
+      const name = m.integration_name ?? "unknown";
+      const action = m.action ?? "";
+      const duration = m.duration_ms ?? "";
+      return isFailure
+        ? `integration ${name} failed: ${action}`
+        : `integration ${name}: ${action} (${duration}ms)`;
+    }
+
+    // Agent conversation (always success)
+    case "app.agent.conversation": {
+      const name = m.agent_name ?? "unknown";
+      const model = m.model ?? "";
+      return `agent ${name} conversation (${model})`;
+    }
+
+    // Fallback for unknown event types
+    default:
+      return isFailure ? `${event.event_type} failed` : event.event_type;
+  }
+}
+
+/**
+ * Normalize an audit log event to unified format.
+ */
+function normalizeAuditLog(event: AuditLogEvent): UnifiedLogEntry {
+  const level = event.status === "failure" ? "error" : "info";
+  const message = formatAuditMessage(event);
+  return { time: event.timestamp, level, message, source: "App" };
+}
+
+/**
+ * Normalize a function log entry to unified format.
+ */
+function normalizeFunctionLog(
+  entry: { time: string; level: string; message: string },
+  functionName: string
+): UnifiedLogEntry {
+  return {
+    time: entry.time,
+    level: entry.level,
+    message: `[${functionName}] ${entry.message}`,
+    source: functionName,
+  };
+}
+
+// ─── OPTION PARSING ─────────────────────────────────────────
+
+/**
+ * Map --level to audit log status filter.
+ * - log/info → success
+ * - error → failure
+ * - debug → skip audit logs (returns null)
+ * - warn → no filter (show all)
+ */
+function mapLevelToStatus(
+  level: string | undefined
+): "success" | "failure" | null | undefined {
+  if (!level) return undefined; // No filter
+  if (level === "debug") return null; // Skip audit logs
+  if (level === "log" || level === "info") return "success";
+  if (level === "error") return "failure";
+  return undefined; // warn - show all
 }
 
 /**
  * Parse CLI options into AuditLogFilters.
  */
-function parseOptions(options: LogsOptions): AuditLogFilters {
+function parseAuditFilters(options: LogsOptions): AuditLogFilters {
   const filters: AuditLogFilters = {};
 
-  if (options.status) {
-    if (options.status !== "success" && options.status !== "failure") {
-      throw new InvalidInputError(
-        `Invalid status: "${options.status}". Must be "success" or "failure".`
-      );
-    }
-    filters.status = options.status;
+  // Map level to status
+  const status = mapLevelToStatus(options.level);
+  if (status) {
+    filters.status = status;
   }
 
-  if (options.eventTypes) {
-    try {
-      const parsed = JSON.parse(options.eventTypes);
-      if (!Array.isArray(parsed)) {
-        throw new Error("Not an array");
-      }
-      filters.eventTypes = parsed;
-    } catch {
-      throw new InvalidInputError(
-        `Invalid event-types: "${options.eventTypes}". Must be a JSON array (e.g., '["api.function.call"]').`
-      );
-    }
+  if (options.since) {
+    filters.since = options.since;
   }
 
-  if (options.userEmail) {
-    filters.userEmail = options.userEmail;
-  }
-
-  if (options.startDate) {
-    filters.startDate = options.startDate;
-  }
-
-  if (options.endDate) {
-    filters.endDate = options.endDate;
+  if (options.until) {
+    filters.until = options.until;
   }
 
   if (options.limit) {
@@ -81,106 +267,297 @@ function parseOptions(options: LogsOptions): AuditLogFilters {
     filters.order = order as "ASC" | "DESC";
   }
 
-  if (options.cursorTimestamp) {
-    filters.cursorTimestamp = options.cursorTimestamp;
+  return filters;
+}
+
+/**
+ * Check if audit logs should be fetched based on level filter.
+ */
+function shouldFetchAuditLogs(level: string | undefined): boolean {
+  return mapLevelToStatus(level) !== null;
+}
+
+/**
+ * Parse CLI options into FunctionLogFilters.
+ */
+function parseFunctionFilters(options: LogsOptions): FunctionLogFilters {
+  const filters: FunctionLogFilters = {};
+
+  if (options.since) {
+    filters.since = options.since;
   }
 
-  if (options.cursorUserEmail) {
-    filters.cursorUserEmail = options.cursorUserEmail;
+  if (options.until) {
+    filters.until = options.until;
+  }
+
+  if (options.level) {
+    if (!VALID_LEVELS.includes(options.level)) {
+      throw new InvalidInputError(
+        `Invalid level: "${options.level}". Must be one of: ${VALID_LEVELS.join(", ")}.`
+      );
+    }
+    filters.level = options.level as LogLevel;
   }
 
   return filters;
 }
 
 /**
- * Format a single log event for human-readable output.
+ * Parse --function option into array of function names.
  */
-function formatEvent(event: AuditLogsResponse["events"][0]): string {
-  // Shorten timestamp to readable format (remove microseconds)
-  const timestamp = event.timestamp.substring(0, 19).replace("T", " ");
-  const eventType = event.event_type;
-  const user = event.user_email || "-";
-  const status =
-    event.status === "success"
-      ? theme.styles.dim(event.status)
-      : theme.colors.base44Orange(event.status);
+function parseFunctionNames(option: string | undefined): string[] {
+  if (!option) return [];
+  return option
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+}
 
-  return `${theme.styles.dim(timestamp)}  ${eventType.padEnd(24)}  ${user.padEnd(28)}  ${status}`;
+// ─── DISPLAY ────────────────────────────────────────────────
+
+/**
+ * Get color/style for a log level.
+ */
+function formatLevel(level: string): string {
+  switch (level) {
+    case "error":
+      return theme.colors.base44Orange(level.padEnd(5));
+    case "warn":
+      return theme.colors.shinyOrange(level.padEnd(5));
+    case "info":
+      return theme.colors.links(level.padEnd(5));
+    case "debug":
+      return theme.styles.dim(level.padEnd(5));
+    default:
+      return level.padEnd(5);
+  }
 }
 
 /**
- * Display logs in human-readable format.
+ * Wrap text at specified width, returning array of lines.
  */
-function displayLogs(response: AuditLogsResponse): void {
-  const { events, pagination } = response;
+function wrapText(text: string, width: number): string[] {
+  if (text.length <= width) return [text];
 
-  if (events.length === 0) {
-    log.info("No events found matching the filters.");
+  const lines: string[] = [];
+  let remaining = text;
+
+  while (remaining.length > width) {
+    // Find last space within width, or break at width if no space
+    let breakPoint = remaining.lastIndexOf(" ", width);
+    if (breakPoint <= 0) breakPoint = width;
+
+    lines.push(remaining.substring(0, breakPoint));
+    remaining = remaining.substring(breakPoint).trimStart();
+  }
+
+  if (remaining.length > 0) {
+    lines.push(remaining);
+  }
+
+  return lines;
+}
+
+// Column widths: TIME(19) + 2 spaces + LEVEL(5) + 2 spaces = 28 chars before message
+const MESSAGE_INDENT = " ".repeat(28);
+const MESSAGE_WIDTH = 80;
+
+/**
+ * Format a unified log entry for display.
+ */
+function formatEntry(entry: UnifiedLogEntry): string {
+  const time = entry.time.substring(0, 19).replace("T", " ");
+  const level = formatLevel(entry.level);
+
+  // Wrap message at 80 characters
+  const messageLines = wrapText(entry.message, MESSAGE_WIDTH);
+  const firstLine = `${theme.styles.dim(time)}  ${level}  ${messageLines[0]}`;
+
+  if (messageLines.length === 1) {
+    return firstLine;
+  }
+
+  // Join continuation lines with proper indentation
+  const continuationLines = messageLines
+    .slice(1)
+    .map((line) => `${MESSAGE_INDENT}${line}`)
+    .join("\n");
+
+  return `${firstLine}\n${continuationLines}`;
+}
+
+/**
+ * Display unified logs.
+ */
+function displayLogs(
+  entries: UnifiedLogEntry[],
+  pagination?: AuditLogsResponse["pagination"]
+): void {
+  if (entries.length === 0) {
+    log.info("No logs found matching the filters.");
     return;
   }
 
   // Header
-  log.info(
-    theme.styles.dim(`Showing ${events.length} of ${pagination.total} events\n`)
-  );
+  const countInfo = pagination
+    ? `Showing ${entries.length} of ${pagination.total} events`
+    : `Showing ${entries.length} log entries`;
+  log.info(theme.styles.dim(`${countInfo}\n`));
 
-  const header = `${"TIME".padEnd(19)}  ${"EVENT TYPE".padEnd(24)}  ${"USER".padEnd(28)}  STATUS`;
+  const header = `${"TIME".padEnd(19)}  ${"LEVEL".padEnd(5)}  MESSAGE`;
   log.message(theme.styles.header(header));
 
-  // Events
-  for (const event of events) {
-    log.message(formatEvent(event));
+  // Entries
+  for (const entry of entries) {
+    log.message(formatEntry(entry));
   }
 
-  // Pagination hint
-  if (pagination.has_more && pagination.next_cursor) {
+  // Pagination hint (only for audit logs)
+  if (pagination?.has_more) {
     log.info(
-      theme.styles.dim(
-        `\nMore results available. Use --cursor-timestamp="${pagination.next_cursor.timestamp}" --cursor-user-email="${pagination.next_cursor.user_email}" for next page.`
-      )
+      theme.styles.dim("\nMore results available. Use --limit to fetch more.")
     );
   }
 }
 
-async function logsAction(options: LogsOptions): Promise<RunCommandResult> {
-  const filters = parseOptions(options);
+// ─── ACTIONS ────────────────────────────────────────────────
+
+/**
+ * Fetch and display audit logs.
+ */
+async function fetchAuditLogsAction(options: LogsOptions): Promise<{
+  entries: UnifiedLogEntry[];
+  pagination: AuditLogsResponse["pagination"];
+}> {
+  const filters = parseAuditFilters(options);
 
   const response = await runTask(
-    "Fetching audit logs...",
+    "Fetching app logs...",
     async () => {
       return await fetchAuditLogs(filters);
     },
     {
       successMessage: "Logs fetched successfully",
-      errorMessage: "Failed to fetch audit logs",
+      errorMessage: "Failed to fetch app logs",
     }
   );
 
-  if (options.json) {
-    // Output raw JSON for scripting - use process.stdout for proper capture
-    process.stdout.write(`${JSON.stringify(response, null, 2)}\n`);
+  const entries = response.events.map(normalizeAuditLog);
+  return { entries, pagination: response.pagination };
+}
+
+/**
+ * Fetch and display function logs.
+ */
+async function fetchFunctionLogsAction(
+  functionNames: string[],
+  options: LogsOptions
+): Promise<UnifiedLogEntry[]> {
+  const filters = parseFunctionFilters(options);
+  const allEntries: UnifiedLogEntry[] = [];
+
+  for (const functionName of functionNames) {
+    const logs = await runTask(
+      `Fetching logs for "${functionName}"...`,
+      async () => {
+        return await fetchFunctionLogs(functionName, filters);
+      },
+      {
+        successMessage: `Logs for "${functionName}" fetched`,
+        errorMessage: `Failed to fetch logs for "${functionName}"`,
+      }
+    );
+
+    // Filter by level if specified (API doesn't support level filtering)
+    const filteredLogs = filters.level
+      ? logs.filter((entry) => entry.level === filters.level)
+      : logs;
+
+    const entries = filteredLogs.map((entry) =>
+      normalizeFunctionLog(entry, functionName)
+    );
+    allEntries.push(...entries);
+  }
+
+  // Sort by time (respecting order option)
+  const order = options.order?.toUpperCase() === "ASC" ? 1 : -1;
+  allEntries.sort((a, b) => order * a.time.localeCompare(b.time));
+
+  return allEntries;
+}
+
+/**
+ * Get all function names from project config.
+ */
+async function getAllFunctionNames(): Promise<string[]> {
+  const { functions } = await readProjectConfig();
+  return functions.map((fn) => fn.name);
+}
+
+/**
+ * Main logs action.
+ */
+async function logsAction(options: LogsOptions): Promise<RunCommandResult> {
+  const specifiedFunctions = parseFunctionNames(options.function);
+  const allEntries: UnifiedLogEntry[] = [];
+  let pagination: AuditLogsResponse["pagination"] | undefined;
+
+  if (specifiedFunctions.length > 0) {
+    // --function specified: fetch only those function logs (no audit logs)
+    const entries = await fetchFunctionLogsAction(specifiedFunctions, options);
+    allEntries.push(...entries);
   } else {
-    displayLogs(response);
+    // No --function: fetch both audit logs and all project function logs
+
+    // Fetch audit logs (unless --level=debug)
+    if (shouldFetchAuditLogs(options.level)) {
+      const result = await fetchAuditLogsAction(options);
+      allEntries.push(...result.entries);
+      pagination = result.pagination;
+    }
+
+    // Fetch all project function logs
+    const functionNames = await getAllFunctionNames();
+    if (functionNames.length > 0) {
+      const functionEntries = await fetchFunctionLogsAction(
+        functionNames,
+        options
+      );
+      allEntries.push(...functionEntries);
+    }
+
+    // Sort combined entries by time
+    const order = options.order?.toUpperCase() === "ASC" ? 1 : -1;
+    allEntries.sort((a, b) => order * a.time.localeCompare(b.time));
+  }
+
+  if (options.json) {
+    process.stdout.write(`${JSON.stringify(allEntries, null, 2)}\n`);
+  } else {
+    displayLogs(allEntries, pagination);
   }
 
   return {};
 }
 
+// ─── COMMAND ────────────────────────────────────────────────
+
 export function getLogsCommand(context: CLIContext): Command {
   return new Command("logs")
-    .description("Fetch audit logs for this app")
-    .option("--status <status>", "Filter by outcome: success|failure")
+    .description("Fetch logs for this app (app logs + all function logs)")
     .option(
-      "--event-types <types>",
-      "Filter by event types (JSON array, e.g., '[\"api.function.call\"]')"
+      "--function <names>",
+      "Filter by function name(s), comma-separated. If provided, fetches only those function logs"
     )
-    .option("--user-email <email>", "Filter by user email")
-    .option("--start-date <date>", "Filter events from this date (ISO format)")
-    .option("--end-date <date>", "Filter events until this date (ISO format)")
+    .option("--since <datetime>", "Show logs from this time (ISO format)")
+    .option("--until <datetime>", "Show logs until this time (ISO format)")
+    .option(
+      "--level <level>",
+      "Filter by log level: log, info, warn, error, debug"
+    )
     .option("-n, --limit <n>", "Results per page (1-1000, default: 50)")
     .option("--order <order>", "Sort order: ASC|DESC (default: DESC)")
-    .option("--cursor-timestamp <ts>", "Pagination cursor timestamp")
-    .option("--cursor-user-email <email>", "Pagination cursor user email")
     .option("--json", "Output raw JSON")
     .action(async (options: LogsOptions) => {
       await runCommand(

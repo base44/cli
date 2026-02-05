@@ -59,11 +59,11 @@ function buildRequestBody(
   if (filters.userEmail) {
     body.user_email = filters.userEmail;
   }
-  if (filters.startDate) {
-    body.start_date = filters.startDate;
+  if (filters.since) {
+    body.start_date = filters.since;
   }
-  if (filters.endDate) {
-    body.end_date = filters.endDate;
+  if (filters.until) {
+    body.end_date = filters.until;
   }
   if (filters.cursorTimestamp) {
     body.cursor_timestamp = filters.cursorTimestamp;

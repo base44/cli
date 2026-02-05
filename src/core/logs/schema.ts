@@ -86,8 +86,8 @@ export interface AuditLogFilters {
   status?: "success" | "failure";
   eventTypes?: string[];
   userEmail?: string;
-  startDate?: string;
-  endDate?: string;
+  since?: string;
+  until?: string;
   limit?: number;
   order?: "ASC" | "DESC";
   cursorTimestamp?: string;
