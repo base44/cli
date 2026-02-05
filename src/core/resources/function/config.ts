@@ -1,14 +1,12 @@
-import { globby } from "globby";
 import { dirname, join } from "node:path";
+import { globby } from "globby";
 import { FUNCTION_CONFIG_FILE } from "@/core/consts.js";
 import { FileNotFoundError, SchemaValidationError } from "@/core/errors.js";
 import type {
   BackendFunction,
   FunctionConfig,
 } from "@/core/resources/function/schema.js";
-import {
-  FunctionConfigSchema,
-} from "@/core/resources/function/schema.js";
+import { FunctionConfigSchema } from "@/core/resources/function/schema.js";
 import { pathExists, readJsonFile } from "@/core/utils/fs.js";
 
 export async function readFunctionConfig(
