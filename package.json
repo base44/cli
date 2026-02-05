@@ -37,6 +37,7 @@
     "@biomejs/biome": "^2.0.0",
     "@clack/prompts": "^0.11.0",
     "@types/bun": "^1.2.15",
+    "@types/common-tags": "^1.8.4",
     "@types/ejs": "^3.1.5",
     "@types/lodash.kebabcase": "^4.1.9",
     "@types/node": "^22.10.5",
