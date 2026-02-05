@@ -36,7 +36,7 @@ if (process.argv.includes("--watch")) {
     console.log(
       chalk.green(`  ✓ Rebuilt`),
       chalk.dim(`→`),
-      chalk.cyan(result.outputs[0]?.path ?? "")
+      formatOutput(result.outputs)
     );
   };
 
