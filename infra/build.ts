@@ -2,7 +2,6 @@ import { watch } from "node:fs";
 import chalk from "chalk";
 
 const runBuild = async () => {
-  const start = performance.now();
   const result = await Bun.build({
     entrypoints: ["./src/cli/index.ts"],
     outdir: "./dist/cli",
@@ -10,7 +9,6 @@ const runBuild = async () => {
     format: "esm",
     sourcemap: "inline",
   });
-  const duration = (performance.now() - start).toFixed(0);
 
   if (!result.success) {
     console.error(chalk.red.bold("\n✗ Build failed\n"));
@@ -20,7 +18,7 @@ const runBuild = async () => {
     process.exit(1);
   }
 
-  return { result, duration };
+  return result;
 };
 
 const formatOutput = (outputs: { path: string }[]) => {
@@ -34,9 +32,9 @@ if (process.argv.includes("--watch")) {
     const time = new Date().toLocaleTimeString();
     console.log(chalk.dim(`[${time}]`), chalk.gray(`${filename} ${event}d`));
 
-    const { result, duration } = await runBuild();
+    const result = await runBuild();
     console.log(
-      chalk.green(`  ✓ Rebuilt in ${chalk.bold(duration + "ms")}`),
+      chalk.green(`  ✓ Rebuilt`),
       chalk.dim(`→`),
       chalk.cyan(result.outputs[0]?.path ?? "")
     );
@@ -51,8 +49,8 @@ if (process.argv.includes("--watch")) {
   // Keep process alive
   await new Promise(() => {});
 } else {
-  const { result, duration } = await runBuild();
-  console.log(chalk.green.bold(`\n✓ Build complete`), chalk.dim(`in ${duration}ms\n`));
+  const result = await runBuild();
+  console.log(chalk.green.bold(`\n✓ Build complete\n`));
   console.log(chalk.dim("  Output:"));
   console.log(`  ${formatOutput(result.outputs)}\n`);
 }
