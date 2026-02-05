@@ -9,8 +9,8 @@ import { readAllFunctions } from "@/core/resources/function/config.js";
 import { deployFunctions } from "@/core/resources/function/api.js";
 import { readTextFile, readJsonFile } from "@/core/utils/fs.js";
 import type {
-  Function,
-  FunctionWithCode,
+  BackendFunction,
+  FunctionDeploy,
   DeployFunctionsResponse,
   FunctionFile,
 } from "@/core/resources/function/schema.js";
@@ -27,7 +27,7 @@ export class FunctionsNamespace {
   /**
    * Read all functions from the project's functions directory.
    */
-  async readAll(): Promise<Function[]> {
+  async readAll(): Promise<BackendFunction[]> {
     const functionsDir = await this.getFunctionsDir();
     return readAllFunctions(functionsDir);
   }
@@ -36,7 +36,7 @@ export class FunctionsNamespace {
    * Deploy functions to Base44.
    * Reads file contents and uploads to the API.
    */
-  async deploy(functions: Function[]): Promise<DeployFunctionsResponse> {
+  async deploy(functions: BackendFunction[]): Promise<DeployFunctionsResponse> {
     if (functions.length === 0) {
       return { deployed: [], deleted: [], errors: null };
     }
@@ -44,17 +44,19 @@ export class FunctionsNamespace {
     const functionsWithCode = await Promise.all(
       functions.map((fn) => this.loadFunctionCode(fn))
     );
-    return deployFunctions(functionsWithCode, this.client);
+    // Cast to FunctionWithCode[] as the API function expects that type
+    // but only uses the fields we provide (name, entry, files)
+    return deployFunctions(functionsWithCode as any, this.client);
   }
 
-  private async loadFunctionCode(fn: Function): Promise<FunctionWithCode> {
+  private async loadFunctionCode(fn: BackendFunction): Promise<FunctionDeploy> {
     const loadedFiles: FunctionFile[] = await Promise.all(
-      fn.files.map(async (filePath) => {
+      fn.filePaths.map(async (filePath: string) => {
         const content = await readTextFile(filePath);
         return { path: basename(filePath), content };
       })
     );
-    return { ...fn, files: loadedFiles };
+    return { name: fn.name, entry: fn.entry, files: loadedFiles };
   }
 
   private async getFunctionsDir(): Promise<string> {

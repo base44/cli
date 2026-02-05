@@ -269,6 +269,7 @@ export class Base44LocalProjectSDK {
     if (!appConfigPath) {
       throw new ConfigInvalidError(
         "App not configured. Create a .app.jsonc file or run 'base44 link' to link this project.",
+        null,
         {
           hints: [
             { message: "Run 'base44 link' to link this project to a Base44 app", command: "base44 link" },
@@ -280,12 +281,13 @@ export class Base44LocalProjectSDK {
     const parsed = await readJsonFile(appConfigPath);
     const result = AppConfigSchema.safeParse(parsed);
     if (!result.success) {
-      throw new SchemaValidationError("Invalid app configuration", result.error);
+      throw new SchemaValidationError("Invalid app configuration", result.error, appConfigPath);
     }
 
     if (!result.data.id) {
       throw new ConfigInvalidError(
         "App ID missing in .app.jsonc. Run 'base44 link' to link this project.",
+        appConfigPath,
         {
           hints: [
             { message: "Run 'base44 link' to link this project to a Base44 app", command: "base44 link" },
