@@ -1,4 +1,4 @@
-import { cp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, cp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Command } from "commander";
@@ -264,6 +264,31 @@ export class CLITestkit {
       return JSON.parse(content);
     } catch {
       return null;
+    }
+  }
+
+  /** Read a file from the project directory */
+  async readProjectFile(relativePath: string): Promise<string | null> {
+    if (!this.projectDir) {
+      throw new Error("No project set up. Call givenProject() first.");
+    }
+    try {
+      return await readFile(join(this.projectDir, relativePath), "utf-8");
+    } catch {
+      return null;
+    }
+  }
+
+  /** Check if a file exists in the project directory */
+  async fileExists(relativePath: string): Promise<boolean> {
+    if (!this.projectDir) {
+      throw new Error("No project set up. Call givenProject() first.");
+    }
+    try {
+      await access(join(this.projectDir, relativePath));
+      return true;
+    } catch {
+      return false;
     }
   }
 
