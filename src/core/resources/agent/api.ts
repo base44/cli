@@ -1,8 +1,15 @@
-import type { KyInstance } from "ky";
-import { getAppClient, formatApiError } from "@/core/clients/index.js";
-import { SyncAgentsResponseSchema, ListAgentsResponseSchema } from "./schema.js";
-import type { SyncAgentsResponse, AgentConfig, ListAgentsResponse } from "./schema.js";
+import type { KyInstance, KyResponse } from "ky";
+import { getAppClient } from "@/core/clients/index.js";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";
+import type {
+  AgentConfig,
+  ListAgentsResponse,
+  SyncAgentsResponse,
+} from "./schema.js";
+import {
+  ListAgentsResponseSchema,
+  SyncAgentsResponseSchema,
+} from "./schema.js";
 
 export async function pushAgents(
   agents: AgentConfig[],
@@ -14,22 +21,22 @@ export async function pushAgents(
 
   const appClient = client ?? getAppClient();
 
-  const response = await appClient.put("agent-configs", {
-    json: agents,
-    throwHttpErrors: false,
-  });
-
-  if (!response.ok) {
-    const errorJson: unknown = await response.json();
-    throw new ApiError(`Error occurred while syncing agents: ${formatApiError(errorJson)}`, {
-      statusCode: response.status,
+  let response: KyResponse;
+  try {
+    response = await appClient.put("agent-configs", {
+      json: agents,
     });
+  } catch (error) {
+    throw await ApiError.fromHttpError(error, "syncing agents");
   }
 
   const result = SyncAgentsResponseSchema.safeParse(await response.json());
 
   if (!result.success) {
-    throw new SchemaValidationError("Invalid response from server", result.error);
+    throw new SchemaValidationError(
+      "Invalid response from server",
+      result.error
+    );
   }
 
   return result.data;
@@ -37,21 +44,21 @@ export async function pushAgents(
 
 export async function fetchAgents(client?: KyInstance): Promise<ListAgentsResponse> {
   const appClient = client ?? getAppClient();
-  const response = await appClient.get("agent-configs", {
-    throwHttpErrors: false,
-  });
 
-  if (!response.ok) {
-    const errorJson: unknown = await response.json();
-    throw new ApiError(`Error occurred while fetching agents: ${formatApiError(errorJson)}`, {
-      statusCode: response.status,
-    });
+  let response: KyResponse;
+  try {
+    response = await appClient.get("agent-configs");
+  } catch (error) {
+    throw await ApiError.fromHttpError(error, "fetching agents");
   }
 
   const result = ListAgentsResponseSchema.safeParse(await response.json());
 
   if (!result.success) {
-    throw new SchemaValidationError("Invalid response from server", result.error);
+    throw new SchemaValidationError(
+      "Invalid response from server",
+      result.error
+    );
   }
 
   return result.data;

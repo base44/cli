@@ -10,7 +10,10 @@ function sleep(ms: number): Promise<void> {
 /**
  * Animate a single line with a left-to-right color reveal.
  */
-async function animateLineReveal(line: string, duration: number): Promise<void> {
+async function animateLineReveal(
+  line: string,
+  duration: number
+): Promise<void> {
   const steps = 8;
   const stepDuration = duration / steps;
 
@@ -45,7 +48,7 @@ async function shimmerPass(lines: string[], duration: number): Promise<void> {
   const moveUp = `\x1b[${lines.length}A`;
   const steps = 12;
   const stepDuration = duration / steps;
-  const maxWidth = Math.max(...lines.map(l => l.length));
+  const maxWidth = Math.max(...lines.map((l) => l.length));
 
   for (let step = 0; step <= steps; step++) {
     const shimmerPos = Math.floor((step / steps) * (maxWidth + 6));
@@ -57,7 +60,10 @@ async function shimmerPass(lines: string[], duration: number): Promise<void> {
       for (let i = 0; i < line.length; i++) {
         const dist = Math.abs(i - shimmerPos);
         if (dist < 3) {
-          output += dist === 0 ? theme.colors.white(line[i]) : theme.colors.shinyOrange(line[i]);
+          output +=
+            dist === 0
+              ? theme.colors.white(line[i])
+              : theme.colors.shinyOrange(line[i]);
         } else {
           output += theme.colors.base44Orange(line[i]);
         }
@@ -100,4 +106,3 @@ export async function printAnimatedLines(lines: string[]): Promise<void> {
   // Final shimmer pass
   await shimmerPass(lines, 200);
 }
-

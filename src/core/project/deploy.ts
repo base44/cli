@@ -1,9 +1,9 @@
 import { resolve } from "node:path";
+import type { ProjectData } from "@/core/project/types.js";
 import { pushEntities } from "@/core/resources/entity/index.js";
 import { pushFunctions } from "@/core/resources/function/index.js";
 import { pushAgents } from "@/core/resources/agent/index.js";
 import { deploySite } from "@/core/site/index.js";
-import type { ProjectData } from "@/core/project/types.js";
 
 /**
  * Checks if there are any resources to deploy in the project.

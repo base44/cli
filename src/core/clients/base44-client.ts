@@ -3,22 +3,15 @@
  * Automatically handles token refresh and retry on 401 responses.
  */
 
-import ky from "ky";
 import type { KyRequest, KyResponse, NormalizedOptions } from "ky";
-import { getBase44ApiUrl } from "@/core/config.js";
+import ky from "ky";
 import {
+  isTokenExpired,
   readAuth,
   refreshAndSaveTokens,
-  isTokenExpired,
 } from "@/core/auth/config.js";
+import { getBase44ApiUrl } from "@/core/config.js";
 import { getAppConfig } from "@/core/project/index.js";
-import type { ApiErrorResponse } from "./schemas.js";
-
-export function formatApiError(errorJson: unknown): string {
-  const error = errorJson as Partial<ApiErrorResponse> | null;
-  const content = error?.message ?? error?.detail ?? errorJson;
-  return typeof content === "string" ? content : JSON.stringify(content, null, 2);
-}
 
 // Track requests that have already been retried to prevent infinite loops
 const retriedRequests = new WeakSet<KyRequest>();
@@ -31,7 +24,7 @@ async function handleUnauthorized(
   request: KyRequest,
   _options: NormalizedOptions,
   response: KyResponse
-): Promise<Response | void> {
+): Promise<Response | undefined> {
   if (response.status !== 401) {
     return;
   }
@@ -56,8 +49,11 @@ async function handleUnauthorized(
 }
 
 /**
- * Base44 API client with automatic authentication.
+ * Base44 API client with automatic authentication and error handling.
  * Use this for general API calls that require authentication.
+ *
+ * Note: HTTP errors are thrown as ky's HTTPError. Use ApiError.fromHttpError()
+ * in API functions to convert them to structured ApiError instances.
  */
 export const base44Client = ky.create({
   prefixUrl: getBase44ApiUrl(),

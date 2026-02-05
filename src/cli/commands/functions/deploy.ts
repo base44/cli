@@ -1,5 +1,5 @@
-import { Command } from "commander";
 import { log } from "@clack/prompts";
+import { Command } from "commander";
 import type { CLIContext } from "@/cli/types.js";
 import type { Base44LocalProjectSDK } from "@/core/index.js";
 import { ApiError } from "@/core/errors.js";
@@ -59,7 +59,11 @@ export function getFunctionsDeployCommand(context: CLIContext): Command {
       new Command("deploy")
         .description("Deploy local functions to Base44")
         .action(async () => {
-          await runCommand(deployFunctionsAction, { requireAuth: true }, context);
+          await runCommand(
+            deployFunctionsAction,
+            { requireAuth: true },
+            context
+          );
         })
     );
 }

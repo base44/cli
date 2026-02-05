@@ -12,10 +12,12 @@ The Base44 CLI is a TypeScript-based command-line tool built with:
 - **Zod** - Schema validation for API responses, config files, and user inputs
 - **JSON5** - Parsing JSONC/JSON5 config files (supports comments and trailing commas)
 - **TypeScript** - Primary language
-- **tsdown** - Bundler (powered by Rolldown, the Rust-based Rollup successor)
+- **Bun** - Runtime, bundler, and package manager
+- **Biome** - Linting and formatting (fast, replaces ESLint)
+- **Vitest** - Test runner
 
 ### Distribution Strategy
-The CLI is distributed as a **zero-dependency package**. All runtime dependencies are bundled into JavaScript files. This means:
+The CLI is distributed as a **zero-dependency npm package**. All runtime dependencies are bundled into JavaScript files. This means:
 - Users only download the bundled code (`dist/` and `bin/` directories)
 - No dependency resolution or node_modules installation
 - Faster install times and no version conflicts
@@ -55,7 +57,7 @@ await Base44LocalProjectSDK.project.link(projectRoot, appId);
 cli/
 ├── bin/                          # Entry point scripts
 │   ├── run.js                    # Production entry (imports dist/index.js)
-│   └── dev.js                    # Development entry (uses tsx for TypeScript)
+│   └── dev.ts                    # Development entry (Bun runs TypeScript directly)
 ├── src/
 │   ├── core/
 │   │   ├── clients/              # HTTP clients
@@ -284,6 +286,11 @@ theme.colors.links(url)                   // URLs and links
 // Styles  
 theme.styles.bold(email)                  // Bold emphasis
 theme.styles.header("Label")              // Dim text for labels
+theme.styles.dim(text)                    // Dimmed text
+
+// Formatters (for error display)
+theme.format.errorContext(ctx)            // Formats ErrorContext as dimmed pipe-separated string
+theme.format.agentHints(hints)            // Formats ErrorHint[] as "[Agent Hints]\n  Run: ..."
 ```
 
 When adding new theme properties, use semantic names (e.g., `links`, `header`) not color names.
@@ -579,6 +586,49 @@ throw new ApiError("Failed to sync entities", { statusCode: response.status });
 // Other → hints to check network
 ```
 
+### API Error Handling Pattern
+
+When making HTTP requests with the ky client, use `ApiError.fromHttpError()` to convert HTTP errors to structured `ApiError` instances:
+
+```typescript
+import { getAppClient } from "@/core/clients/index.js";
+import { ApiError, SchemaValidationError } from "@/core/errors.js";
+import { MyResponseSchema } from "./schema.js";
+
+export async function myApiFunction(data: MyData): Promise<MyResponse> {
+  const appClient = getAppClient();
+
+  let response;
+  try {
+    response = await appClient.put("endpoint", { json: data });
+  } catch (error) {
+    throw await ApiError.fromHttpError(error, "performing action");
+  }
+
+  const result = MyResponseSchema.safeParse(await response.json());
+  if (!result.success) {
+    throw new SchemaValidationError("Invalid response from server", result.error);
+  }
+
+  return result.data;
+}
+```
+
+For status-specific handling (e.g., 428 for delete conflicts):
+
+```typescript
+import { HTTPError } from "ky";
+
+try {
+  response = await appClient.put("endpoint", { json: data });
+} catch (error) {
+  if (error instanceof HTTPError && error.response.status === 428) {
+    throw new ApiError("Cannot delete: resource has dependencies", { statusCode: 428, cause: error });
+  }
+  throw await ApiError.fromHttpError(error, "performing action");
+}
+```
+
 ### SchemaValidationError with Zod
 
 `SchemaValidationError` requires a context message and a `ZodError`. It formats the error automatically using `z.prettifyError()`:
@@ -600,6 +650,14 @@ if (!result.success) {
 ```
 
 **Important**: Do NOT manually call `z.prettifyError()` - the class does this internally.
+
+### Error Display
+
+When an error is thrown, the CLI displays:
+
+1. **Error message** - The main error text via `log.error()` (stack trace only with `DEBUG=1` env var)
+2. **Agent Hints** (if hints exist) - Actionable suggestions for fixing the issue
+3. **Error Context** - Dimmed outro line with session ID, app ID (if available), and timestamp
 
 ### Error Code Reference
 
@@ -679,7 +737,7 @@ Set the environment variable: `BASE44_DISABLE_TELEMETRY=1`
 
 ## Important Rules
 
-1. **npm only** - Never use yarn
+1. **Bun for development** - Use `bun` commands (not npm/yarn) for install, test, build during development
 2. **Zod validation** - Required for all external data (API responses, config files)
 3. **@clack/prompts** - For all user interaction (prompts, spinners, logs)
 4. **ES Modules** - Use `.js` extensions in imports
@@ -702,12 +760,22 @@ Set the environment variable: `BASE44_DISABLE_TELEMETRY=1`
 ## Development
 
 ```bash
-npm run build      # tsdown - bundles to dist/index.js
-npm run typecheck  # tsc --noEmit - type checking only
-npm run dev        # runs ./bin/dev.js (tsx for direct TypeScript execution)
-npm run start      # runs ./bin/run.js (production, requires build first)
-npm test           # vitest
-npm run lint       # eslint
+bun install        # Install dependencies
+bun run build      # bun build - bundles to dist/index.js + copies templates
+bun run typecheck  # tsc --noEmit - type checking only
+bun run dev        # runs ./bin/dev.ts (Bun runs TypeScript directly)
+bun run start      # runs ./bin/run.js (production, requires build first)
+bun run test       # Run tests with vitest (note: use `bun run test`, not `bun test`)
+bun run lint       # Biome - linting, formatting, and import organization
+bun run lint:fix   # Biome - auto-fix lint and format issues
+```
+
+### Debugging
+
+To show full error stack traces, set the `DEBUG` environment variable:
+
+```bash
+DEBUG=1 base44 deploy    # Shows full stack trace on errors
 ```
 
 ### Entry Points Architecture
@@ -716,12 +784,13 @@ The CLI uses a split architecture for better development experience:
 
 **Production** (`./bin/run.js`):
 - Used when installed via npm (`base44` command)
+- Uses `#!/usr/bin/env node` shebang for Node.js compatibility
 - Imports from bundled `dist/index.js`
-- Requires `npm run build` first
+- Requires `bun run build` first
 
-**Development** (`./bin/dev.js`):
-- Used during development (`npm run dev`)
-- Uses `tsx` shebang to run TypeScript directly from `src/cli/index.ts`
+**Development** (`./bin/dev.ts`):
+- Used during development (`bun run dev`)
+- Uses `#!/usr/bin/env bun` shebang to run TypeScript directly
 - No build step required - changes are reflected immediately
 
 **CLI Module** (`src/cli/`):
@@ -734,14 +803,16 @@ The CLI uses a split architecture for better development experience:
 **Error Handling Flow**:
 1. `runCLI()` creates `ErrorReporter` and registers process error handlers
 2. `createProgram(context)` builds the command tree with injected context
-3. Commands throw errors → `runCommand()` catches, logs with `log.error()`, re-throws
-4. `runCLI()` catches errors, reports to PostHog (if not CLIExitError)
+3. Commands throw errors → `runCommand()` catches, logs with `log.error()`, displays hints, re-throws
+4. `runCLI()` catches errors, displays error details, reports to PostHog (if not CLIExitError)
 5. Uses `process.exitCode = 1` (not `process.exit()`) to let event loop drain for telemetry
 6. Telemetry can be disabled via `BASE44_DISABLE_TELEMETRY=1` environment variable
+7. Telemetry includes `error_code` and `is_user_error` properties for all errors
 
-### Node.js Version
+### Prerequisites
 
-This project requires Node.js >= 20.19.0. A `.node-version` file is provided for fnm/nodenv.
+- **Bun**: Install via `curl -fsSL https://bun.sh/install | bash`
+- **Node.js >= 20.19.0**: Still needed for npm publishing (`.node-version` file provided)
 
 ### CLI Utilities
 
@@ -766,7 +837,7 @@ await runTask("Installing...", async () => {
 
 ## Testing
 
-**Build before testing**: Tests import the bundled `dist/index.js`, so run `npm run build && npm test`.
+**Build before testing**: Tests import the bundled `dist/index.js`, so run `bun run build && bun run test`.
 
 ### Test Structure
 
@@ -868,9 +939,53 @@ t.api.mockAgentsPushError({ status: 401, body: { error: "..." } });
 t.api.mockSiteDeployError({ status: 413, body: { error: "..." } });
 ```
 
+### Test Overrides (`BASE44_CLI_TEST_OVERRIDES`)
+
+The CLI uses a centralized JSON-based override mechanism for tests. When adding new testable behaviors that need mocking, **extend this existing mechanism** rather than creating new environment variables.
+
+**Current overrides:**
+- `appConfig` - Mock app configuration (id, projectRoot)
+- `latestVersion` - Mock version check response (string for newer version, null for no update)
+
+**Adding new overrides:**
+
+1. Add the field to `TestOverrides` interface in `CLITestkit.ts`:
+```typescript
+interface TestOverrides {
+  appConfig?: { id: string; projectRoot: string };
+  latestVersion?: string | null;
+  myNewOverride?: MyType;  // Add here
+}
+```
+
+2. Add a `given*` method to `CLITestkit`:
+```typescript
+givenMyOverride(value: MyType): void {
+  this.testOverrides.myNewOverride = value;
+}
+```
+
+3. Expose it in `testkit/index.ts` `TestContext` interface and implementation.
+
+4. Read the override in your source code:
+```typescript
+function getTestOverride(): MyType | undefined {
+  const overrides = process.env.BASE44_CLI_TEST_OVERRIDES;
+  if (!overrides) return undefined;
+  try {
+    return JSON.parse(overrides).myNewOverride;
+  } catch {
+    return undefined;
+  }
+}
+```
+
+**Why not vi.mock()?** Tests run against the bundled `dist/index.js` where path aliases are resolved. `vi.mock("@/some/path.js")` won't match the bundled code.
+
 ### Testing Rules
 
-1. **Build first** - Run `npm run build` before `npm test`
+1. **Build first** - Run `bun run build` before `bun test`
 2. **Use fixtures** - Don't create project structures in tests
 3. **Fixtures need `.app.jsonc`** - Add `base44/.app.jsonc` with `{ "id": "test-app-id" }`
 4. **Interactive prompts can't be tested** - Only test via non-interactive flags
+5. **Use test overrides** - Extend `BASE44_CLI_TEST_OVERRIDES` for new testable behaviors; don't create new env vars

@@ -1,16 +1,20 @@
 import { globby } from "globby";
-import { readJsonFile, pathExists } from "@/core/utils/fs.js";
-import { EntitySchema } from "@/core/resources/entity/schema.js";
-import type { Entity } from "@/core/resources/entity/schema.js";
 import { CONFIG_FILE_EXTENSION_GLOB } from "@/core/consts.js";
 import { SchemaValidationError } from "@/core/errors.js";
+import type { Entity } from "@/core/resources/entity/schema.js";
+import { EntitySchema } from "@/core/resources/entity/schema.js";
+import { pathExists, readJsonFile } from "@/core/utils/fs.js";
 
 async function readEntityFile(entityPath: string): Promise<Entity> {
   const parsed = await readJsonFile(entityPath);
   const result = EntitySchema.safeParse(parsed);
 
   if (!result.success) {
-    throw new SchemaValidationError(`Invalid entity file at ${entityPath}`, result.error);
+    throw new SchemaValidationError(
+      "Invalid entity file",
+      result.error,
+      entityPath
+    );
   }
 
   return result.data;

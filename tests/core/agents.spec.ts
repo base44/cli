@@ -1,11 +1,13 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import type { AgentConfig } from "../../src/core/resources/agent/index.js";
+import { HTTPError } from "ky";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { pushAgents } from "../../src/core/resources/agent/api.js";
+import type { AgentConfig } from "../../src/core/resources/agent/index.js";
 
 // Mock the HTTP client
 const mockPut = vi.fn();
 vi.mock("../../src/core/clients/index.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../src/core/clients/index.js")>();
+  const actual =
+    await importOriginal<typeof import("../../src/core/clients/index.js")>();
   return {
     ...actual,
     getAppClient: () => ({
@@ -14,6 +16,18 @@ vi.mock("../../src/core/clients/index.js", async (importOriginal) => {
   };
 });
 
+/**
+ * Creates a ky HTTPError for testing error handling.
+ */
+function createHTTPError(status: number, body: unknown): HTTPError {
+  const response = new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+  const request = new Request("https://api.base44.com/test");
+  // Use type assertion to satisfy ky's NormalizedOptions requirement
+  return new HTTPError(response, request, {} as never);
+}
 
 describe("pushAgents", () => {
   beforeEach(() => {
@@ -33,13 +47,17 @@ describe("pushAgents", () => {
         name: "test_agent",
         description: "Test",
         instructions: "Do stuff",
-        tool_configs: [{ allowed_operations: ["read", "create", "update", "delete"], entity_name: "User" }],
+        tool_configs: [
+          {
+            allowed_operations: ["read", "create", "update", "delete"],
+            entity_name: "User",
+          },
+        ],
         whatsapp_greeting: "Hello!",
       },
     ];
 
     mockPut.mockResolvedValue({
-      ok: true,
       json: () =>
         Promise.resolve({ created: ["test_agent"], updated: [], deleted: [] }),
     });
@@ -52,11 +70,15 @@ describe("pushAgents", () => {
           name: "test_agent",
           description: "Test",
           instructions: "Do stuff",
-          tool_configs: [{ allowed_operations: ["read", "create", "update", "delete"], entity_name: "User" }],
+          tool_configs: [
+            {
+              allowed_operations: ["read", "create", "update", "delete"],
+              entity_name: "User",
+            },
+          ],
           whatsapp_greeting: "Hello!",
         },
       ],
-      throwHttpErrors: false,
     });
     expect(result.created).toEqual(["test_agent"]);
   });
@@ -72,9 +94,12 @@ describe("pushAgents", () => {
     ];
 
     mockPut.mockResolvedValue({
-      ok: true,
       json: () =>
-        Promise.resolve({ created: ["agent_no_greeting"], updated: [], deleted: [] }),
+        Promise.resolve({
+          created: ["agent_no_greeting"],
+          updated: [],
+          deleted: [],
+        }),
     });
 
     await pushAgents(agents);
@@ -88,11 +113,10 @@ describe("pushAgents", () => {
           tool_configs: [],
         },
       ],
-      throwHttpErrors: false,
     });
   });
 
-  it("throws error with message when API returns error", async () => {
+  it("throws ApiError with message when API returns error", async () => {
     const agents: AgentConfig[] = [
       {
         name: "test_agent",
@@ -102,17 +126,16 @@ describe("pushAgents", () => {
       },
     ];
 
-    mockPut.mockResolvedValue({
-      ok: false,
-      json: () => Promise.resolve({
+    mockPut.mockRejectedValue(
+      createHTTPError(401, {
         error_type: "HTTPException",
         message: "Unauthorized access",
         detail: "Token expired",
-      }),
-    });
+      })
+    );
 
     await expect(pushAgents(agents)).rejects.toThrow(
-      "Error occurred while syncing agents: Unauthorized access"
+      "Error syncing agents: Unauthorized access"
     );
   });
 
@@ -126,13 +149,12 @@ describe("pushAgents", () => {
       },
     ];
 
-    mockPut.mockResolvedValue({
-      ok: false,
-      json: () => Promise.resolve({ detail: "Some error detail" }),
-    });
+    mockPut.mockRejectedValue(
+      createHTTPError(400, { detail: "Some error detail" })
+    );
 
     await expect(pushAgents(agents)).rejects.toThrow(
-      "Error occurred while syncing agents: Some error detail"
+      "Error syncing agents: Some error detail"
     );
   });
 
@@ -146,17 +168,16 @@ describe("pushAgents", () => {
       },
     ];
 
-    mockPut.mockResolvedValue({
-      ok: false,
-      json: () => Promise.resolve({
+    mockPut.mockRejectedValue(
+      createHTTPError(422, {
         error_type: "ValidationError",
         message: { field: "name", error: "required" },
         detail: [{ loc: ["name"], msg: "field required" }],
-      }),
-    });
+      })
+    );
 
     await expect(pushAgents(agents)).rejects.toThrow(
-      'Error occurred while syncing agents: {\n  "field": "name",\n  "error": "required"\n}'
+      'Error syncing agents: {\n  "field": "name",\n  "error": "required"\n}'
     );
   });
 });

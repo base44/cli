@@ -1,5 +1,5 @@
-import { Command } from "commander";
 import { log } from "@clack/prompts";
+import { Command } from "commander";
 import type { CLIContext } from "@/cli/types.js";
 import type { Base44LocalProjectSDK } from "@/core/index.js";
 import { runCommand, runTask } from "../../utils/index.js";
@@ -40,7 +40,9 @@ async function pushAgentsAction(sdk: Base44LocalProjectSDK): Promise<RunCommandR
 
 export function getAgentsPushCommand(context: CLIContext): Command {
   return new Command("push")
-    .description("Push local agents to Base44 (replaces all remote agent configs)")
+    .description(
+      "Push local agents to Base44 (replaces all remote agent configs)"
+    )
     .action(async () => {
       await runCommand(pushAgentsAction, { requireAuth: true }, context);
     });

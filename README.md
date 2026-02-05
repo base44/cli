@@ -64,7 +64,7 @@ When creating a project, [base44/skills](https://github.com/base44/skills) are a
 If you need to install skills manually, use the following command:
 
 ```bash
-npx add-skill base44/skills
+npx skills add base44/skills
 ```
 
 ## Help

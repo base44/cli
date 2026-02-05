@@ -1,5 +1,5 @@
-import { Command } from "commander";
 import { log } from "@clack/prompts";
+import { Command } from "commander";
 import type { CLIContext } from "@/cli/types.js";
 import type { Base44LocalProjectSDK } from "@/core/index.js";
 import { runCommand, runTask } from "@/cli/utils/index.js";

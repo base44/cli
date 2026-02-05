@@ -14,14 +14,14 @@ async function deployAction(sdk: Base44LocalProjectSDK, options: DeployOptions):
   const { project } = await sdk.project.readConfig();
 
   if (!project.site?.outputDirectory) {
-    throw new ConfigNotFoundError(
-      "No site configuration found.",
-      {
-        hints: [
-          { message: "Add 'site.outputDirectory' to your config.jsonc (e.g., \"site\": { \"outputDirectory\": \"dist\" })" },
-        ],
-      }
-    );
+    throw new ConfigNotFoundError("No site configuration found.", {
+      hints: [
+        {
+          message:
+            'Add \'site.outputDirectory\' to your config.jsonc (e.g., "site": { "outputDirectory": "dist" })',
+        },
+      ],
+    });
   }
 
   if (!options.yes) {

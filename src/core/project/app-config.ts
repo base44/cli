@@ -1,15 +1,15 @@
 import { globby } from "globby";
-import { getAppConfigPath } from "@/core/config.js";
-import { writeFile, readJsonFile } from "@/core/utils/fs.js";
+import { getAppConfigPath, getTestOverrides } from "@/core/config.js";
 import { APP_CONFIG_PATTERN } from "@/core/consts.js";
-import { AppConfigSchema } from "@/core/project/schema.js";
-import type { AppConfig } from "@/core/project/schema.js";
-import { findProjectRoot } from "@/core/project/config.js";
 import {
-  ConfigNotFoundError,
   ConfigInvalidError,
+  ConfigNotFoundError,
   SchemaValidationError,
 } from "@/core/errors.js";
+import { findProjectRoot } from "@/core/project/config.js";
+import type { AppConfig } from "@/core/project/schema.js";
+import { AppConfigSchema } from "@/core/project/schema.js";
+import { readJsonFile, writeFile } from "@/core/utils/fs.js";
 
 export interface CachedAppConfig {
   id: string;
@@ -29,19 +29,10 @@ let cache: CachedAppConfig | null = null;
  * @deprecated Use Base44LocalProjectSDK instead
  */
 function loadFromTestOverrides(): boolean {
-  const overrides = process.env.BASE44_CLI_TEST_OVERRIDES;
-  if (!overrides) {
-    return false;
-  }
-
-  try {
-    const data = JSON.parse(overrides);
-    if (data.appConfig?.id && data.appConfig?.projectRoot) {
-      cache = { id: data.appConfig.id, projectRoot: data.appConfig.projectRoot };
-      return true;
-    }
-  } catch {
-    // Invalid JSON, ignore
+  const appConfig = getTestOverrides()?.appConfig;
+  if (appConfig?.id && appConfig.projectRoot) {
+    cache = { id: appConfig.id, projectRoot: appConfig.projectRoot };
+    return true;
   }
   return false;
 }
@@ -71,12 +62,18 @@ export async function initAppConfig(): Promise<CachedAppConfig> {
   }
 
   const config = await readAppConfig(projectRoot.root);
+  const appConfigPath = await findAppConfigPath(projectRoot.root);
+
   if (!config?.id) {
     throw new ConfigInvalidError(
       "App not configured. Create a .app.jsonc file or run 'base44 link' to link this project.",
+      appConfigPath,
       {
         hints: [
-          { message: "Run 'base44 link' to link this project to a Base44 app", command: "base44 link" },
+          {
+            message: "Run 'base44 link' to link this project to a Base44 app",
+            command: "base44 link",
+          },
         ],
       }
     );
@@ -149,9 +146,7 @@ export async function appConfigExists(projectRoot: string): Promise<boolean> {
   return configPath !== null;
 }
 
-async function readAppConfig(
-  projectRoot: string
-): Promise<AppConfig | null> {
+async function readAppConfig(projectRoot: string): Promise<AppConfig | null> {
   const configPath = await findAppConfigPath(projectRoot);
 
   if (!configPath) {
@@ -162,7 +157,11 @@ async function readAppConfig(
   const result = AppConfigSchema.safeParse(parsed);
 
   if (!result.success) {
-    throw new SchemaValidationError("Invalid app configuration", result.error);
+    throw new SchemaValidationError(
+      "Invalid app configuration",
+      result.error,
+      configPath
+    );
   }
 
   return result.data;

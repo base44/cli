@@ -16,15 +16,17 @@ export const FunctionConfigSchema = z.object({
   entry: z.string().min(1, "Entry point cannot be empty"),
 });
 
-export const FunctionSchema = FunctionConfigSchema.extend({
+export const BackendFunctionSchema = FunctionConfigSchema.extend({
   entryPath: z.string().min(1, "Entry path cannot be empty"),
-  files: z.array(z.string()).min(1, "Function must have at least one file"),
+  filePaths: z.array(z.string()).min(1, "Function must have at least one file"),
 });
 
 export const FunctionDeploySchema = z.object({
   name: FunctionNameSchema,
   entry: z.string().min(1),
-  files: z.array(FunctionFileSchema).min(1, "Function must have at least one file"),
+  files: z
+    .array(FunctionFileSchema)
+    .min(1, "Function must have at least one file"),
 });
 
 export const DeployFunctionsResponseSchema = z.object({
@@ -36,12 +38,13 @@ export const DeployFunctionsResponseSchema = z.object({
 });
 
 export type FunctionConfig = z.infer<typeof FunctionConfigSchema>;
-export type Function = z.infer<typeof FunctionSchema>;
+export type BackendFunction = z.infer<typeof BackendFunctionSchema>;
 export type FunctionFile = z.infer<typeof FunctionFileSchema>;
 export type FunctionDeploy = z.infer<typeof FunctionDeploySchema>;
-export type DeployFunctionsResponse = z.infer<typeof DeployFunctionsResponseSchema>;
+export type DeployFunctionsResponse = z.infer<
+  typeof DeployFunctionsResponseSchema
+>;
 
-export type FunctionWithCode = Omit<Function, "files"> & {
+export type FunctionWithCode = Omit<BackendFunction, "files"> & {
   files: FunctionFile[];
 };
-

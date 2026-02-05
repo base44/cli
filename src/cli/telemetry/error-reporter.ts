@@ -1,14 +1,15 @@
 import { release, type } from "node:os";
-import { nanoid } from "nanoid";
 import { determineAgent } from "@vercel/detect-agent";
-import { getPostHogClient, isTelemetryEnabled } from "./posthog.js";
+import { nanoid } from "nanoid";
 import { isCLIError, isUserError } from "@/core/errors.js";
 import packageJson from "../../../package.json";
+import { getPostHogClient, isTelemetryEnabled } from "./posthog.js";
 
 /**
  * Context that can be set during CLI execution.
  */
 export interface ErrorContext {
+  sessionId?: string;
   user?: {
     email: string;
     name?: string;
@@ -46,6 +47,13 @@ export class ErrorReporter {
       .catch(() => {
         // Agent detection is optional
       });
+  }
+
+  /**
+   * Get the session ID for this CLI execution.
+   */
+  getSessionId(): string {
+    return this.sessionId;
   }
 
   /**
@@ -112,6 +120,17 @@ export class ErrorReporter {
   }
 
   /**
+   * Get error context for display purposes.
+   * Returns session ID and current error context.
+   */
+  getErrorContext(): ErrorContext {
+    return {
+      sessionId: this.sessionId,
+      ...this.context,
+    };
+  }
+
+  /**
    * Capture an exception and report it to PostHog.
    * Includes error code and isUserError for CLIError instances.
    * Safe to call - never throws, logs errors to console.
@@ -123,7 +142,11 @@ export class ErrorReporter {
 
     try {
       const client = getPostHogClient();
-      client?.captureException(error, this.getDistinctId(), this.buildProperties(error));
+      client?.captureException(
+        error,
+        this.getDistinctId(),
+        this.buildProperties(error)
+      );
     } catch {
       // Silent - don't let error reporting break the CLI
     }

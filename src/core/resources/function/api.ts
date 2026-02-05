@@ -1,8 +1,11 @@
-import type { KyInstance } from "ky";
+import type { KyInstance, KyResponse } from "ky";
 import { getAppClient } from "@/core/clients/index.js";
+import { ApiError, SchemaValidationError } from "@/core/errors.js";
+import type {
+  DeployFunctionsResponse,
+  FunctionWithCode,
+} from "@/core/resources/function/schema.js";
 import { DeployFunctionsResponseSchema } from "@/core/resources/function/schema.js";
-import type { FunctionWithCode, DeployFunctionsResponse } from "@/core/resources/function/schema.js";
-import { SchemaValidationError } from "@/core/errors.js";
 
 function toDeployPayloadItem(fn: FunctionWithCode) {
   return {
@@ -21,15 +24,23 @@ export async function deployFunctions(
     functions: functions.map(toDeployPayloadItem),
   };
 
-  const response = await appClient.put("backend-functions", {
-    json: payload,
-    timeout: 120_000
-  });
+  let response: KyResponse;
+  try {
+    response = await appClient.put("backend-functions", {
+      json: payload,
+      timeout: 120_000,
+    });
+  } catch (error) {
+    throw await ApiError.fromHttpError(error, "deploying functions");
+  }
 
   const result = DeployFunctionsResponseSchema.safeParse(await response.json());
 
   if (!result.success) {
-    throw new SchemaValidationError("Invalid response from server", result.error);
+    throw new SchemaValidationError(
+      "Invalid response from server",
+      result.error
+    );
   }
 
   return result.data;

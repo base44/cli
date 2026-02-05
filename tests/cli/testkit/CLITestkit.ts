@@ -1,20 +1,21 @@
-import { join, dirname } from "node:path";
+import { cp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { mkdir, writeFile, cp, readFile } from "node:fs/promises";
-import { vi } from "vitest";
-import { dir } from "tmp-promise";
 import type { Command } from "commander";
-import { CLIResultMatcher } from "./CLIResultMatcher.js";
+import { dir } from "tmp-promise";
+import { vi } from "vitest";
 import { Base44APIMock } from "./Base44APIMock.js";
 import type { CLIResult } from "./CLIResultMatcher.js";
+import { CLIResultMatcher } from "./CLIResultMatcher.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const DIST_INDEX_PATH = join(__dirname, "../../../dist/index.js");
+const DIST_INDEX_PATH = join(__dirname, "../../../dist/cli/index.js");
 
 /** Type for CLIContext */
 interface CLIContext {
   errorReporter: {
     setContext: (context: Record<string, unknown>) => void;
+    getErrorContext: () => { sessionId?: string; appId?: string };
   };
 }
 
@@ -24,16 +25,27 @@ interface ProgramModule {
   CLIExitError: new (code: number) => Error & { code: number };
 }
 
+/** Test overrides that get serialized to BASE44_CLI_TEST_OVERRIDES */
+interface TestOverrides {
+  appConfig?: { id: string; projectRoot: string };
+  latestVersion?: string | null;
+}
+
 export class CLITestkit {
   private tempDir: string;
   private cleanupFn: () => Promise<void>;
   private env: Record<string, string> = {};
   private projectDir?: string;
+  private testOverrides: TestOverrides = {};
 
   /** Typed API mock for Base44 endpoints */
   readonly api: Base44APIMock;
 
-  private constructor(tempDir: string, cleanupFn: () => Promise<void>, appId: string) {
+  private constructor(
+    tempDir: string,
+    cleanupFn: () => Promise<void>,
+    appId: string
+  ) {
     this.tempDir = tempDir;
     this.cleanupFn = cleanupFn;
     this.api = new Base44APIMock(appId);
@@ -44,7 +56,7 @@ export class CLITestkit {
   }
 
   /** Factory method - creates isolated test environment */
-  static async create(appId: string = "test-app-id"): Promise<CLITestkit> {
+  static async create(appId = "test-app-id"): Promise<CLITestkit> {
     const { path, cleanup } = await dir({ unsafeCleanup: true });
     return new CLITestkit(path, cleanup, appId);
   }
@@ -78,6 +90,10 @@ export class CLITestkit {
     await cp(fixturePath, this.projectDir, { recursive: true });
   }
 
+  givenLatestVersion(version: string | null): void {
+    this.testOverrides.latestVersion = version;
+  }
+
   // ─── WHEN METHODS ─────────────────────────────────────────────
 
   /** Execute CLI command */
@@ -105,12 +121,15 @@ export class CLITestkit {
     this.api.apply();
 
     // Dynamic import after vi.resetModules() to get fresh module instances
-    const { createProgram, CLIExitError } = (await import(DIST_INDEX_PATH)) as ProgramModule;
+    const { createProgram, CLIExitError } = (await import(
+      DIST_INDEX_PATH
+    )) as ProgramModule;
 
     // Create a mock context for tests (telemetry is disabled via env var anyway)
     const mockContext: CLIContext = {
       errorReporter: {
         setContext: () => {},
+        getErrorContext: () => ({ sessionId: "test-session" }),
       },
     };
     const program = createProgram(mockContext);
@@ -127,12 +146,17 @@ export class CLITestkit {
     } catch (e) {
       // process.exit() was called - our mock throws after capturing the code
       // This catches Commander's exits for --help, --version, unknown options
-      if (exitState.code !== null) { return buildResult(exitState.code); }
+      if (exitState.code !== null) {
+        return buildResult(exitState.code);
+      }
       // CLI's clean exit mechanism (user cancellation, etc.)
-      if (e instanceof CLIExitError) { return buildResult(e.code); }
+      if (e instanceof CLIExitError) {
+        return buildResult(e.code);
+      }
       // Any other error = command failed with exit code 1
       // Capture error message in stderr for test assertions
-      const errorMessage = e instanceof Error ? (e.stack ?? e.message) : String(e);
+      const errorMessage =
+        e instanceof Error ? (e.stack ?? e.message) : String(e);
       stderr.push(errorMessage);
       return buildResult(1);
     } finally {
@@ -157,25 +181,28 @@ export class CLITestkit {
 
   private setupEnvOverrides(): void {
     if (this.projectDir) {
-      this.env.BASE44_CLI_TEST_OVERRIDES = JSON.stringify({
-        appConfig: { id: this.api.appId, projectRoot: this.projectDir },
-      });
+      this.testOverrides.appConfig = {
+        id: this.api.appId,
+        projectRoot: this.projectDir,
+      };
+    }
+    if (Object.keys(this.testOverrides).length > 0) {
+      this.env.BASE44_CLI_TEST_OVERRIDES = JSON.stringify(this.testOverrides);
     }
   }
 
-  /** Save original values of env vars we're about to modify */
-  private captureEnvSnapshot(): { HOME?: string; BASE44_CLI_TEST_OVERRIDES?: string; CI?: string; BASE44_DISABLE_TELEMETRY?: string } {
-    return {
-      HOME: process.env.HOME,
-      BASE44_CLI_TEST_OVERRIDES: process.env.BASE44_CLI_TEST_OVERRIDES,
-      CI: process.env.CI,
-      BASE44_DISABLE_TELEMETRY: process.env.BASE44_DISABLE_TELEMETRY,
-    };
+  private captureEnvSnapshot(): Record<string, string | undefined> {
+    const snapshot: Record<string, string | undefined> = {};
+    for (const key of Object.keys(this.env)) {
+      snapshot[key] = process.env[key];
+    }
+    return snapshot;
   }
 
-  /** Restore env vars to their original values (or delete if they didn't exist) */
-  private restoreEnvSnapshot(snapshot: { HOME?: string; BASE44_CLI_TEST_OVERRIDES?: string; CI?: string; BASE44_DISABLE_TELEMETRY?: string }): void {
-    for (const key of ["HOME", "BASE44_CLI_TEST_OVERRIDES", "CI", "BASE44_DISABLE_TELEMETRY"] as const) {
+  private restoreEnvSnapshot(
+    snapshot: Record<string, string | undefined>
+  ): void {
+    for (const key of Object.keys(snapshot)) {
       if (snapshot[key] === undefined) {
         delete process.env[key];
       } else {
@@ -188,14 +215,18 @@ export class CLITestkit {
     const stdout: string[] = [];
     const stderr: string[] = [];
 
-    const stdoutSpy = vi.spyOn(process.stdout, "write").mockImplementation((chunk) => {
-      stdout.push(String(chunk));
-      return true;
-    });
-    const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation((chunk) => {
-      stderr.push(String(chunk));
-      return true;
-    });
+    const stdoutSpy = vi
+      .spyOn(process.stdout, "write")
+      .mockImplementation((chunk) => {
+        stdout.push(String(chunk));
+        return true;
+      });
+    const stderrSpy = vi
+      .spyOn(process.stderr, "write")
+      .mockImplementation((chunk) => {
+        stderr.push(String(chunk));
+        return true;
+      });
 
     return { stdout, stderr, stdoutSpy, stderrSpy };
   }

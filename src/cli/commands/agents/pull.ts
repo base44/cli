@@ -33,7 +33,9 @@ async function pullAgentsAction(sdk: Base44LocalProjectSDK): Promise<RunCommandR
 
 export function getAgentsPullCommand(context: CLIContext): Command {
   return new Command("pull")
-    .description("Pull agents from Base44 to local files (replaces all local agent configs)")
+    .description(
+      "Pull agents from Base44 to local files (replaces all local agent configs)"
+    )
     .action(async () => {
       await runCommand(pullAgentsAction, { requireAuth: true }, context);
     });

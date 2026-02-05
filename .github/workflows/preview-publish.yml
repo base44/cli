@@ -16,17 +16,21 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version-file: ".node-version"
-          cache: "npm"
           registry-url: "https://registry.npmjs.org"
 
       - name: Update npm
         run: npm install -g npm@latest
 
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
       - name: Install dependencies
-        run: npm install
+        run: bun install --frozen-lockfile
 
       - name: Build package
-        run: npm run build
+        run: bun run build
 
       - name: Generate preview package name and version
         id: preview_info
@@ -100,6 +104,8 @@ jobs:
           echo "✅ Safety check passed. Package name is safe to publish."
 
       - name: Publish preview package
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           if npm publish --tag preview; then
             echo "✅ Package published successfully"

@@ -1,5 +1,5 @@
 import { describe, it } from "vitest";
-import { setupCLITests, fixture } from "./testkit/index.js";
+import { fixture, setupCLITests } from "./testkit/index.js";
 
 describe("functions deploy command", () => {
   const t = setupCLITests();
@@ -24,7 +24,11 @@ describe("functions deploy command", () => {
 
   it("deploys functions successfully", async () => {
     await t.givenLoggedInWithProject(fixture("with-functions-and-entities"));
-    t.api.mockFunctionsPush({ deployed: ["process-order"], deleted: [], errors: null });
+    t.api.mockFunctionsPush({
+      deployed: ["process-order"],
+      deleted: [],
+      errors: null,
+    });
 
     const result = await t.run("functions", "deploy");
 
@@ -35,11 +39,14 @@ describe("functions deploy command", () => {
 
   it("fails when API returns error", async () => {
     await t.givenLoggedInWithProject(fixture("with-functions-and-entities"));
-    t.api.mockFunctionsPushError({ status: 400, body: { error: "Invalid function code" } });
+    t.api.mockFunctionsPushError({
+      status: 400,
+      body: { error: "Invalid function code" },
+    });
 
     const result = await t.run("functions", "deploy");
 
     t.expectResult(result).toFail();
-    t.expectResult(result).toContain("400");
+    t.expectResult(result).toContain("Invalid function code");
   });
 });
