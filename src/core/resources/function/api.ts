@@ -12,7 +12,7 @@ function toDeployPayloadItem(fn: FunctionWithCode) {
     name: fn.name,
     entry: fn.entry,
     files: fn.files,
-    automations: fn.automations
+    automations: fn.automations,
   };
 }
 
