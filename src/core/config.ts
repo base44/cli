@@ -8,7 +8,7 @@ import {
 } from "@/core/project/schema.js";
 
 // After bundling, import.meta.url points to dist/cli/index.js
-// Templates are copied to dist/cli/templates/
+// Templates are copied to dist/templates/
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export function getBase44GlobalDir(): string {
@@ -20,7 +20,7 @@ export function getAuthFilePath(): string {
 }
 
 export function getTemplatesDir(): string {
-  return join(__dirname, "templates");
+  return join(__dirname, "../templates");
 }
 
 export function getTemplatesIndexPath(): string {
