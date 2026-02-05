@@ -35,7 +35,7 @@ export interface TestContext {
     user?: { email: string; name: string }
   ) => Promise<void>;
 
-  givenLatestVersion: (version: string | null) => void;
+  givenLatestVersion: (version: string | null | undefined) => void;
 
   // ─── WHEN METHODS ──────────────────────────────────────────
 

@@ -36,7 +36,8 @@ export class CLITestkit {
   private cleanupFn: () => Promise<void>;
   private env: Record<string, string> = {};
   private projectDir?: string;
-  private testOverrides: TestOverrides = {};
+  // Default latestVersion to null to skip npm version check in tests
+  private testOverrides: TestOverrides = { latestVersion: null };
 
   /** Typed API mock for Base44 endpoints */
   readonly api: Base44APIMock;
@@ -90,7 +91,13 @@ export class CLITestkit {
     await cp(fixturePath, this.projectDir, { recursive: true });
   }
 
-  givenLatestVersion(version: string | null): void {
+  /**
+   * Set the latest version for upgrade check.
+   * - Pass a version string (e.g., "1.0.0") to simulate an upgrade available
+   * - Pass null to simulate no upgrade available (default)
+   * - Pass undefined to test the real npm version check (not recommended, makes network call)
+   */
+  givenLatestVersion(version: string | null | undefined): void {
     this.testOverrides.latestVersion = version;
   }
 
