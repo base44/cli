@@ -1,5 +1,5 @@
-import { dirname, join } from "node:path";
 import { globby } from "globby";
+import { dirname, join } from "node:path";
 import { FUNCTION_CONFIG_FILE } from "@/core/consts.js";
 import { FileNotFoundError, SchemaValidationError } from "@/core/errors.js";
 import type {
@@ -8,7 +8,6 @@ import type {
 } from "@/core/resources/function/schema.js";
 import {
   FunctionConfigSchema,
-  BackendFunctionSchema,
 } from "@/core/resources/function/schema.js";
 import { pathExists, readJsonFile } from "@/core/utils/fs.js";
 
