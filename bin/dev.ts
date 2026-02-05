@@ -1,4 +1,4 @@
-#!/usr/bin/env tsx
+#!/usr/bin/env bun
 import { runCLI } from "../src/cli/index.ts";
 
 // Disable Clack spinners and animations in non-interactive environments.

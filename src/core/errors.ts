@@ -9,8 +9,8 @@
  * All errors support hints for actionable next steps.
  */
 
-import { z } from "zod";
 import { HTTPError } from "ky";
+import { z } from "zod";
 import { ApiErrorResponseSchema } from "@/core/clients/schemas.js";
 
 // ============================================================================
@@ -110,7 +110,10 @@ export class AuthRequiredError extends UserError {
   constructor(message = "Authentication required", options?: CLIErrorOptions) {
     super(message, {
       hints: options?.hints ?? [
-        { message: "Run 'base44 login' to authenticate", command: "base44 login" },
+        {
+          message: "Run 'base44 login' to authenticate",
+          command: "base44 login",
+        },
       ],
       cause: options?.cause,
     });
@@ -123,10 +126,16 @@ export class AuthRequiredError extends UserError {
 export class AuthExpiredError extends UserError {
   readonly code = "AUTH_EXPIRED";
 
-  constructor(message = "Authentication has expired", options?: CLIErrorOptions) {
+  constructor(
+    message = "Authentication has expired",
+    options?: CLIErrorOptions
+  ) {
     super(message, {
       hints: options?.hints ?? [
-        { message: "Run 'base44 login' to re-authenticate", command: "base44 login" },
+        {
+          message: "Run 'base44 login' to re-authenticate",
+          command: "base44 login",
+        },
       ],
       cause: options?.cause,
     });
@@ -139,11 +148,20 @@ export class AuthExpiredError extends UserError {
 export class ConfigNotFoundError extends UserError {
   readonly code = "CONFIG_NOT_FOUND";
 
-  constructor(message = "No Base44 project found in this directory", options?: CLIErrorOptions) {
+  constructor(
+    message = "No Base44 project found in this directory",
+    options?: CLIErrorOptions
+  ) {
     super(message, {
       hints: options?.hints ?? [
-        { message: "Run 'base44 create' to create a new project", command: "base44 create" },
-        { message: "Or run 'base44 link' to link an existing project", command: "base44 link" },
+        {
+          message: "Run 'base44 create' to create a new project",
+          command: "base44 create",
+        },
+        {
+          message: "Or run 'base44 link' to link an existing project",
+          command: "base44 link",
+        },
       ],
       cause: options?.cause,
     });
@@ -156,7 +174,11 @@ export class ConfigNotFoundError extends UserError {
 export class ConfigInvalidError extends UserError {
   readonly code = "CONFIG_INVALID";
 
-  constructor(message: string, configFilePath?: string | null, options?: CLIErrorOptions) {
+  constructor(
+    message: string,
+    configFilePath?: string | null,
+    options?: CLIErrorOptions
+  ) {
     const defaultHint = configFilePath
       ? `Check the file at ${configFilePath} for syntax errors`
       : "Check the file for syntax errors";
@@ -176,7 +198,9 @@ export class ConfigExistsError extends UserError {
   constructor(message: string, options?: CLIErrorOptions) {
     super(message, {
       hints: options?.hints ?? [
-        { message: "Choose a different location or remove the existing project" },
+        {
+          message: "Choose a different location or remove the existing project",
+        },
       ],
       cause: options?.cause,
     });
@@ -189,16 +213,24 @@ export class ConfigExistsError extends UserError {
  * @example
  * const result = schema.safeParse(data);
  * if (!result.success) {
- *   throw new SchemaValidationError("Invalid entity file", result.error);
+ *   throw new SchemaValidationError("Invalid entity file", result.error, entityPath);
  * }
  */
 export class SchemaValidationError extends UserError {
   readonly code = "SCHEMA_INVALID";
+  readonly filePath?: string;
 
-  constructor(context: string, zodError: z.ZodError) {
-    super(`${context}:\n${z.prettifyError(zodError)}`, {
-      hints: [{ message: "Fix the schema/data structure errors above" }],
-    });
+  constructor(context: string, zodError: z.ZodError, filePath?: string) {
+    const message = filePath
+      ? `${context} in ${filePath}:\n${z.prettifyError(zodError)}`
+      : `${context}:\n${z.prettifyError(zodError)}`;
+
+    const hints: ErrorHint[] = filePath
+      ? [{ message: `Fix the schema/data structure errors in ${filePath}` }]
+      : [{ message: "Fix the schema/data structure errors above" }];
+
+    super(message, { hints });
+    this.filePath = filePath;
   }
 }
 
@@ -207,10 +239,6 @@ export class SchemaValidationError extends UserError {
  */
 export class InvalidInputError extends UserError {
   readonly code = "INVALID_INPUT";
-
-  constructor(message: string, options?: CLIErrorOptions) {
-    super(message, options);
-  }
 }
 
 // ============================================================================
@@ -224,8 +252,12 @@ export class ApiError extends SystemError {
   readonly code = "API_ERROR";
   readonly statusCode?: number;
 
-  constructor(message: string, options?: CLIErrorOptions & { statusCode?: number }) {
-    const hints = options?.hints ?? ApiError.getDefaultHints(options?.statusCode);
+  constructor(
+    message: string,
+    options?: CLIErrorOptions & { statusCode?: number }
+  ) {
+    const hints =
+      options?.hints ?? ApiError.getDefaultHints(options?.statusCode);
     super(message, { hints, cause: options?.cause });
     this.statusCode = options?.statusCode;
   }
@@ -245,7 +277,10 @@ export class ApiError extends SystemError {
    *   throw await ApiError.fromHttpError(error, "fetching data");
    * }
    */
-  static async fromHttpError(error: unknown, context: string): Promise<ApiError> {
+  static async fromHttpError(
+    error: unknown,
+    context: string
+  ): Promise<ApiError> {
     if (error instanceof HTTPError) {
       let message: string;
       try {
@@ -262,7 +297,9 @@ export class ApiError extends SystemError {
     }
 
     if (error instanceof Error) {
-      return new ApiError(`Error ${context}: ${error.message}`, { cause: error });
+      return new ApiError(`Error ${context}: ${error.message}`, {
+        cause: error,
+      });
     }
 
     return new ApiError(`Error ${context}: ${String(error)}`);
@@ -290,7 +327,9 @@ export class FileNotFoundError extends SystemError {
 
   constructor(message: string, options?: CLIErrorOptions) {
     super(message, {
-      hints: options?.hints ?? [{ message: "Check the file path and try again" }],
+      hints: options?.hints ?? [
+        { message: "Check the file path and try again" },
+      ],
       cause: options?.cause,
     });
   }
@@ -304,7 +343,9 @@ export class FileReadError extends SystemError {
 
   constructor(message: string, options?: CLIErrorOptions) {
     super(message, {
-      hints: options?.hints ?? [{ message: "Check file permissions and try again" }],
+      hints: options?.hints ?? [
+        { message: "Check file permissions and try again" },
+      ],
       cause: options?.cause,
     });
   }
@@ -319,7 +360,10 @@ export class InternalError extends SystemError {
   constructor(message: string, options?: CLIErrorOptions) {
     super(message, {
       hints: options?.hints ?? [
-        { message: "This is an unexpected error. Please report it if it persists." },
+        {
+          message:
+            "This is an unexpected error. Please report it if it persists.",
+        },
       ],
       cause: options?.cause,
     });

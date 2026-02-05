@@ -1,0 +1,67 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.3.13/schema.json",
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": {
+          "level": "on",
+          "options": {
+            "groups": [":NODE:", ":PACKAGE:", ":ALIAS:", ":PATH:"]
+          }
+        }
+      }
+    }
+  },
+  "files": {
+    "includes": ["**", "!**/dist/**", "!**/node_modules/**", "!**/tests/fixtures/**", "!**/*.d.ts"]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 80
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "complexity": {
+        "noUselessUndefinedInitialization": "error",
+        "useLiteralKeys": "error",
+        "useOptionalChain": "error",
+        "noUselessStringRaw": "error"
+      },
+      "correctness": {
+        "noUnusedImports": "error",
+        "noUnusedVariables": "warn"
+      },
+      "style": {
+        "useConst": "error",
+        "useTemplate": "error",
+        "useShorthandAssign": "error",
+        "useImportType": "error",
+        "useExportType": "error",
+        "useSingleVarDeclarator": "error",
+        "noUselessElse": "error",
+        "useNodejsImportProtocol": "error",
+        "noNonNullAssertion": "off",
+        "useArrayLiterals": "error",
+        "useConsistentArrayType": { "level": "error", "options": { "syntax": "shorthand" } }
+      },
+      "suspicious": {
+        "noExplicitAny": "warn",
+        "noVar": "error",
+        "noConsole": { "level": "off", "options": { "allow": ["log"] } },
+        "noIrregularWhitespace": "error"
+      },
+      "nursery": {}
+    }
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double",
+      "trailingCommas": "es5",
+      "semicolons": "always"
+    }
+  }
+}

@@ -23,7 +23,9 @@ const AutomationBaseSchema = z.object({
 const ScheduledOneTimeSchema = AutomationBaseSchema.extend({
   type: z.literal("scheduled"),
   schedule_mode: z.literal("one-time"),
-  one_time_date: z.string().min(1, "One-time date is required for one-time schedules"),
+  one_time_date: z
+    .string()
+    .min(1, "One-time date is required for one-time schedules"),
 });
 
 // Recurring cron scheduled automation
@@ -31,7 +33,9 @@ const ScheduledCronSchema = AutomationBaseSchema.extend({
   type: z.literal("scheduled"),
   schedule_mode: z.literal("recurring"),
   schedule_type: z.literal("cron"),
-  cron_expression: z.string().min(1, "Cron expression is required for cron schedules"),
+  cron_expression: z
+    .string()
+    .min(1, "Cron expression is required for cron schedules"),
   ends_type: z.enum(["never", "on", "after"]).optional().default("never"),
   ends_on_date: z.string().nullable().optional(),
   ends_after_count: z.number().int().positive().nullable().optional(),
@@ -85,7 +89,9 @@ export const FunctionLocalSchema = FunctionConfigSchema.extend({
 export const FunctionPayloadSchema = z.object({
   name: FunctionNameSchema,
   entry: z.string().min(1),
-  files: z.array(FunctionFileSchema).min(1, "Function must have at least one file"),
+  files: z
+    .array(FunctionFileSchema)
+    .min(1, "Function must have at least one file"),
   automations: z.array(AutomationSchema).optional(),
 });
 
@@ -103,13 +109,14 @@ export type FunctionConfig = z.infer<typeof FunctionConfigSchema>;
 export type FunctionLocal = z.infer<typeof FunctionLocalSchema>;
 export type FunctionFile = z.infer<typeof FunctionFileSchema>;
 export type FunctionPayload = z.infer<typeof FunctionPayloadSchema>;
-export type DeployFunctionsResponse = z.infer<typeof DeployFunctionsResponseSchema>;
+export type DeployFunctionsResponse = z.infer<
+  typeof DeployFunctionsResponseSchema
+>;
 
 // Alias for backward compatibility
-export type Function = FunctionLocal;
+export type BackendFunction = FunctionLocal;
 export type FunctionDeploy = FunctionPayload;
 
 export type FunctionWithCode = Omit<FunctionLocal, "files"> & {
   files: FunctionFile[];
 };
-

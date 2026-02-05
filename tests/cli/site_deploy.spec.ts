@@ -1,5 +1,5 @@
 import { describe, it } from "vitest";
-import { setupCLITests, fixture } from "./testkit/index.js";
+import { fixture, setupCLITests } from "./testkit/index.js";
 
 describe("site deploy command", () => {
   const t = setupCLITests();
@@ -35,7 +35,10 @@ describe("site deploy command", () => {
 
   it("fails when API returns error", async () => {
     await t.givenLoggedInWithProject(fixture("with-site"));
-    t.api.mockSiteDeployError({ status: 413, body: { error: "Site too large" } });
+    t.api.mockSiteDeployError({
+      status: 413,
+      body: { error: "Site too large" },
+    });
 
     const result = await t.run("site", "deploy", "-y");
 

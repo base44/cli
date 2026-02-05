@@ -1,7 +1,15 @@
+import type { KyResponse } from "ky";
 import { getAppClient } from "@/core/clients/index.js";
-import { SyncAgentsResponseSchema, ListAgentsResponseSchema } from "./schema.js";
-import type { SyncAgentsResponse, AgentConfig, ListAgentsResponse } from "./schema.js";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";
+import type {
+  AgentConfig,
+  ListAgentsResponse,
+  SyncAgentsResponse,
+} from "./schema.js";
+import {
+  ListAgentsResponseSchema,
+  SyncAgentsResponseSchema,
+} from "./schema.js";
 
 export async function pushAgents(
   agents: AgentConfig[]
@@ -12,7 +20,7 @@ export async function pushAgents(
 
   const appClient = getAppClient();
 
-  let response;
+  let response: KyResponse;
   try {
     response = await appClient.put("agent-configs", {
       json: agents,
@@ -24,7 +32,10 @@ export async function pushAgents(
   const result = SyncAgentsResponseSchema.safeParse(await response.json());
 
   if (!result.success) {
-    throw new SchemaValidationError("Invalid response from server", result.error);
+    throw new SchemaValidationError(
+      "Invalid response from server",
+      result.error
+    );
   }
 
   return result.data;
@@ -33,7 +44,7 @@ export async function pushAgents(
 export async function fetchAgents(): Promise<ListAgentsResponse> {
   const appClient = getAppClient();
 
-  let response;
+  let response: KyResponse;
   try {
     response = await appClient.get("agent-configs");
   } catch (error) {
@@ -43,7 +54,10 @@ export async function fetchAgents(): Promise<ListAgentsResponse> {
   const result = ListAgentsResponseSchema.safeParse(await response.json());
 
   if (!result.success) {
-    throw new SchemaValidationError("Invalid response from server", result.error);
+    throw new SchemaValidationError(
+      "Invalid response from server",
+      result.error
+    );
   }
 
   return result.data;

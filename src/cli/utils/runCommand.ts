@@ -1,11 +1,12 @@
 import { intro, log, outro } from "@clack/prompts";
-import type { CLIContext } from "@/cli/types.js";
-import { isLoggedIn } from "@/core/auth/index.js";
-import { initAppConfig } from "@/core/project/index.js";
-import { isCLIError } from "@/core/errors.js";
 import { login } from "@/cli/commands/auth/login-flow.js";
+import type { CLIContext } from "@/cli/types.js";
 import { printBanner } from "@/cli/utils/banner.js";
 import { theme } from "@/cli/utils/theme.js";
+import { printUpgradeNotificationIfAvailable } from "@/cli/utils/upgradeNotification.js";
+import { isLoggedIn } from "@/core/auth/index.js";
+import { isCLIError } from "@/core/errors.js";
+import { initAppConfig } from "@/core/project/index.js";
 
 export interface RunCommandOptions {
   /**
@@ -72,6 +73,8 @@ export async function runCommand(
   } else {
     intro(theme.colors.base44OrangeBackground(" Base 44 "));
   }
+
+  await printUpgradeNotificationIfAvailable();
 
   try {
     // Check authentication if required

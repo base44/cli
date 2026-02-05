@@ -1,15 +1,19 @@
 import {
+  access,
+  copyFile as fsCopyFile,
   readFile as fsReadFile,
   writeFile as fsWriteFile,
-  copyFile as fsCopyFile,
   mkdir,
-  unlink,
-  access,
   readdir,
+  unlink,
 } from "node:fs/promises";
 import { dirname } from "node:path";
 import JSON5 from "json5";
-import { FileNotFoundError, FileReadError, ConfigInvalidError } from "@/core/errors.js";
+import {
+  ConfigInvalidError,
+  FileNotFoundError,
+  FileReadError,
+} from "@/core/errors.js";
 
 export async function pathExists(path: string): Promise<boolean> {
   try {

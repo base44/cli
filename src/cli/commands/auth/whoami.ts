@@ -1,8 +1,8 @@
 import { Command } from "commander";
 import type { CLIContext } from "@/cli/types.js";
-import { readAuth } from "@/core/auth/index.js";
 import { runCommand, theme } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
+import { readAuth } from "@/core/auth/index.js";
 
 async function whoami(): Promise<RunCommandResult> {
   const auth = await readAuth();
@@ -13,6 +13,10 @@ export function getWhoamiCommand(context: CLIContext): Command {
   return new Command("whoami")
     .description("Display current authenticated user")
     .action(async () => {
-      await runCommand(whoami, { requireAuth: true, requireAppConfig: false }, context);
+      await runCommand(
+        whoami,
+        { requireAuth: true, requireAppConfig: false },
+        context
+      );
     });
 }

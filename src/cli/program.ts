@@ -1,17 +1,17 @@
 import { Command } from "commander";
-import type { CLIContext } from "./types.js";
-import { getLoginCommand } from "@/cli/commands/auth/login.js";
-import { getWhoamiCommand } from "@/cli/commands/auth/whoami.js";
-import { getLogoutCommand } from "@/cli/commands/auth/logout.js";
-import { getEntitiesPushCommand } from "@/cli/commands/entities/push.js";
 import { getAgentsCommand } from "@/cli/commands/agents/index.js";
+import { getLoginCommand } from "@/cli/commands/auth/login.js";
+import { getLogoutCommand } from "@/cli/commands/auth/logout.js";
+import { getWhoamiCommand } from "@/cli/commands/auth/whoami.js";
+import { getDashboardCommand } from "@/cli/commands/dashboard/index.js";
+import { getEntitiesPushCommand } from "@/cli/commands/entities/push.js";
 import { getFunctionsDeployCommand } from "@/cli/commands/functions/deploy.js";
 import { getCreateCommand } from "@/cli/commands/project/create.js";
-import { getDashboardCommand } from "@/cli/commands/project/dashboard.js";
 import { getDeployCommand } from "@/cli/commands/project/deploy.js";
 import { getLinkCommand } from "@/cli/commands/project/link.js";
-import { getSiteDeployCommand } from "@/cli/commands/site/deploy.js";
+import { getSiteCommand } from "@/cli/commands/site/index.js";
 import packageJson from "../../package.json";
+import type { CLIContext } from "./types.js";
 
 export function createProgram(context: CLIContext): Command {
   const program = new Command();
@@ -48,7 +48,7 @@ export function createProgram(context: CLIContext): Command {
   program.addCommand(getFunctionsDeployCommand(context));
 
   // Register site commands
-  program.addCommand(getSiteDeployCommand(context));
+  program.addCommand(getSiteCommand(context));
 
   return program;
 }
