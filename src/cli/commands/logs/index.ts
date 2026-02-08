@@ -429,10 +429,7 @@ function formatEntry(entry: UnifiedLogEntry): string {
 /**
  * Display unified logs with count breakdown.
  */
-function displayLogs(
-  entries: UnifiedLogEntry[],
-  counts: LogCounts
-): void {
+function displayLogs(entries: UnifiedLogEntry[], counts: LogCounts): void {
   if (entries.length === 0) {
     log.info("No logs found matching the filters.");
     return;
