@@ -1,4 +1,4 @@
-import { cp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, cp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Command } from "commander";
@@ -36,7 +36,8 @@ export class CLITestkit {
   private cleanupFn: () => Promise<void>;
   private env: Record<string, string> = {};
   private projectDir?: string;
-  private testOverrides: TestOverrides = {};
+  // Default latestVersion to null to skip npm version check in tests
+  private testOverrides: TestOverrides = { latestVersion: null };
 
   /** Typed API mock for Base44 endpoints */
   readonly api: Base44APIMock;
@@ -90,7 +91,13 @@ export class CLITestkit {
     await cp(fixturePath, this.projectDir, { recursive: true });
   }
 
-  givenLatestVersion(version: string | null): void {
+  /**
+   * Set the latest version for upgrade check.
+   * - Pass a version string (e.g., "1.0.0") to simulate an upgrade available
+   * - Pass null to simulate no upgrade available (default)
+   * - Pass undefined to test the real npm version check (not recommended, makes network call)
+   */
+  givenLatestVersion(version: string | null | undefined): void {
     this.testOverrides.latestVersion = version;
   }
 
@@ -98,9 +105,6 @@ export class CLITestkit {
 
   /** Execute CLI command */
   async run(...args: string[]): Promise<CLIResult> {
-    // Reset modules to clear any cached state (e.g., refreshPromise)
-    vi.resetModules();
-
     // Setup mocks
     this.setupCwdMock();
     this.setupEnvOverrides();
@@ -120,7 +124,10 @@ export class CLITestkit {
     // Apply all API mocks before running
     this.api.apply();
 
-    // Dynamic import after vi.resetModules() to get fresh module instances
+    // Reset module state to ensure test isolation
+    vi.resetModules();
+
+    // Import CLI module fresh after reset
     const { createProgram, CLIExitError } = (await import(
       DIST_INDEX_PATH
     )) as ProgramModule;
@@ -257,6 +264,31 @@ export class CLITestkit {
       return JSON.parse(content);
     } catch {
       return null;
+    }
+  }
+
+  /** Read a file from the project directory */
+  async readProjectFile(relativePath: string): Promise<string | null> {
+    if (!this.projectDir) {
+      throw new Error("No project set up. Call givenProject() first.");
+    }
+    try {
+      return await readFile(join(this.projectDir, relativePath), "utf-8");
+    } catch {
+      return null;
+    }
+  }
+
+  /** Check if a file exists in the project directory */
+  async fileExists(relativePath: string): Promise<boolean> {
+    if (!this.projectDir) {
+      throw new Error("No project set up. Call givenProject() first.");
+    }
+    try {
+      await access(join(this.projectDir, relativePath));
+      return true;
+    } catch {
+      return false;
     }
   }
 

@@ -1,7 +1,11 @@
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { PROJECT_SUBDIR } from "@/core/consts.js";
+import {
+  PROJECT_SUBDIR,
+  TYPES_FILENAME,
+  TYPES_OUTPUT_SUBDIR,
+} from "@/core/consts.js";
 import {
   type TestOverrides,
   TestOverridesSchema,
@@ -29,6 +33,10 @@ export function getTemplatesIndexPath(): string {
 
 export function getAppConfigPath(projectRoot: string): string {
   return join(projectRoot, PROJECT_SUBDIR, ".app.jsonc");
+}
+
+export function getTypesOutputPath(projectRoot: string): string {
+  return join(projectRoot, PROJECT_SUBDIR, TYPES_OUTPUT_SUBDIR, TYPES_FILENAME);
 }
 
 export function getBase44ApiUrl(): string {

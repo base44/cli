@@ -35,7 +35,7 @@ export interface TestContext {
     user?: { email: string; name: string }
   ) => Promise<void>;
 
-  givenLatestVersion: (version: string | null) => void;
+  givenLatestVersion: (version: string | null | undefined) => void;
 
   // ─── WHEN METHODS ──────────────────────────────────────────
 
@@ -49,6 +49,12 @@ export interface TestContext {
 
   /** Read the auth file (for login tests) */
   readAuthFile: () => Promise<Record<string, unknown> | null>;
+
+  /** Read a file from the project directory */
+  readProjectFile: (relativePath: string) => Promise<string | null>;
+
+  /** Check if a file exists in the project directory */
+  fileExists: (relativePath: string) => Promise<boolean>;
 
   /** Get the temp directory path */
   getTempDir: () => string;
@@ -129,6 +135,8 @@ export function setupCLITests(): TestContext {
     // Then methods
     expectResult: (result) => getKit().expect(result),
     readAuthFile: () => getKit().readAuthFile(),
+    readProjectFile: (relativePath) => getKit().readProjectFile(relativePath),
+    fileExists: (relativePath) => getKit().fileExists(relativePath),
     getTempDir: () => getKit().getTempDir(),
 
     // API mocks

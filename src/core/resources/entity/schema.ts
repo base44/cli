@@ -107,7 +107,6 @@ const PropertyTypeSchema = z.enum([
   "boolean",
   "array",
   "object",
-  "binary",
 ]);
 
 const StringFormatSchema = z.enum([
@@ -120,8 +119,6 @@ const StringFormatSchema = z.enum([
   "ipv4",
   "ipv6",
   "uuid",
-  "file",
-  "regex",
 ]);
 
 const PropertyDefinitionSchema = z.object({
