@@ -4,11 +4,12 @@ import type { CLIContext } from "@/cli/types.js";
 import { runCommand, runTask } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 import { ApiError } from "@/core/errors.js";
-import { readProjectConfig } from "@/core/index.js";
-import { pushFunctions } from "@/core/resources/function/index.js";
+import type { ProjectSDK } from "@/core/sdk.js";
 
-async function deployFunctionsAction(): Promise<RunCommandResult> {
-  const { functions } = await readProjectConfig();
+async function deployFunctionsAction(
+  sdk: ProjectSDK
+): Promise<RunCommandResult> {
+  const { functions } = await sdk.project.readConfig();
 
   if (functions.length === 0) {
     return {
@@ -24,7 +25,7 @@ async function deployFunctionsAction(): Promise<RunCommandResult> {
   const result = await runTask(
     "Deploying functions to Base44",
     async () => {
-      return await pushFunctions(functions);
+      return await sdk.functions.push(functions);
     },
     {
       successMessage: "Functions deployed successfully",

@@ -16,15 +16,7 @@ import {
   ConfigNotFoundError,
   InvalidInputError,
 } from "@/core/errors.js";
-import type { Project } from "@/core/project/index.js";
-import {
-  appConfigExists,
-  createProject,
-  findProjectRoot,
-  listProjects,
-  setAppConfig,
-  writeAppConfig,
-} from "@/core/project/index.js";
+import type { Project, ProjectSDK } from "@/core/sdk.js";
 
 interface LinkOptions {
   create?: boolean;
@@ -127,8 +119,11 @@ async function promptForExistingProject(
   return selectedProject;
 }
 
-async function link(options: LinkOptions): Promise<RunCommandResult> {
-  const projectRoot = await findProjectRoot();
+async function link(
+  sdk: ProjectSDK,
+  options: LinkOptions
+): Promise<RunCommandResult> {
+  const projectRoot = await sdk.project.findRoot();
 
   if (!projectRoot) {
     throw new ConfigNotFoundError(
@@ -136,7 +131,7 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
     );
   }
 
-  if (await appConfigExists(projectRoot.root)) {
+  if (await sdk.project.appConfigExists(projectRoot.root)) {
     throw new ConfigExistsError(
       "Project is already linked. An .app.jsonc file with the appId already exists.",
       {
@@ -160,7 +155,7 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
   if (action === "choose") {
     const projects = await runTask(
       "Fetching projects...",
-      async () => listProjects(),
+      async () => sdk.project.list(),
       {
         successMessage: "Projects fetched",
         errorMessage: "Failed to fetch projects",
@@ -203,8 +198,11 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
     await runTask(
       "Linking project...",
       async () => {
-        await writeAppConfig(projectRoot.root, projectId);
-        setAppConfig({ id: projectId, projectRoot: projectRoot.root });
+        await sdk.project.writeAppConfig(projectRoot.root, projectId);
+        sdk.project.setAppConfig({
+          id: projectId,
+          projectRoot: projectRoot.root,
+        });
       },
       {
         successMessage: "Project linked successfully",
@@ -223,7 +221,7 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
     const { projectId } = await runTask(
       "Creating project on Base44...",
       async () => {
-        return await createProject(name, description);
+        return await sdk.project.create(name, description);
       },
       {
         successMessage: "Project created successfully",
@@ -231,16 +229,16 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
       }
     );
 
-    await writeAppConfig(projectRoot.root, projectId);
+    await sdk.project.writeAppConfig(projectRoot.root, projectId);
 
     // Set app config in cache for sync access to getDashboardUrl
-    setAppConfig({ id: projectId, projectRoot: projectRoot.root });
+    sdk.project.setAppConfig({ id: projectId, projectRoot: projectRoot.root });
 
     finalProjectId = projectId;
   }
 
   log.message(
-    `${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(finalProjectId))}`
+    `${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(finalProjectId!))}`
   );
   return { outroMessage: "Project linked" };
 }
@@ -263,7 +261,7 @@ export function getLinkCommand(context: CLIContext): Command {
     .hook("preAction", validateNonInteractiveFlags)
     .action(async (options: LinkOptions) => {
       await runCommand(
-        () => link(options),
+        (sdk) => link(sdk, options),
         { requireAuth: true, requireAppConfig: false },
         context
       );

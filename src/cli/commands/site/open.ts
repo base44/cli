@@ -3,10 +3,10 @@ import open from "open";
 import type { CLIContext } from "@/cli/types.js";
 import { runCommand } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
-import { getSiteUrl } from "@/core/site/index.js";
+import type { ProjectSDK } from "@/core/sdk.js";
 
-async function openAction(): Promise<RunCommandResult> {
-  const siteUrl = await getSiteUrl();
+async function openAction(sdk: ProjectSDK): Promise<RunCommandResult> {
+  const siteUrl = await sdk.site.getUrl();
 
   if (!process.env.CI) {
     await open(siteUrl);

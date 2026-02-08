@@ -2,19 +2,19 @@ import { Command } from "commander";
 import type { CLIContext } from "@/cli/types.js";
 import { runCommand, runTask } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
-import { readProjectConfig } from "@/core/index.js";
-import { generateTypesFile, updateProjectConfig } from "@/core/types/index.js";
+import type { ProjectSDK } from "@/core/sdk.js";
 
 const TYPES_FILE_PATH = "base44/.types/types.d.ts";
 
-async function generateTypesAction(): Promise<RunCommandResult> {
-  const { entities, functions, agents, project } = await readProjectConfig();
+async function generateTypesAction(sdk: ProjectSDK): Promise<RunCommandResult> {
+  const { entities, functions, agents, project } =
+    await sdk.project.readConfig();
 
   await runTask("Generating types", async () => {
-    await generateTypesFile({ entities, functions, agents });
+    await sdk.types.generate({ entities, functions, agents });
   });
 
-  const tsconfigUpdated = await updateProjectConfig(project.root);
+  const tsconfigUpdated = await sdk.types.updateProjectConfig(project.root);
 
   return {
     outroMessage: tsconfigUpdated
@@ -29,10 +29,6 @@ export function getTypesGenerateCommand(context: CLIContext): Command {
       "Generate TypeScript declaration file (types.d.ts) from project resources"
     )
     .action(async () => {
-      await runCommand(
-        () => generateTypesAction(),
-        { requireAuth: false },
-        context
-      );
+      await runCommand(generateTypesAction, { requireAuth: false }, context);
     });
 }

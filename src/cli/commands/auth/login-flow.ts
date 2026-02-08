@@ -5,21 +5,18 @@ import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 import { theme } from "@/cli/utils/theme.js";
 import type {
   DeviceCodeResponse,
+  ProjectSDK,
   TokenResponse,
   UserInfoResponse,
-} from "@/core/auth/index.js";
-import {
-  generateDeviceCode,
-  getTokenFromDeviceCode,
-  getUserInfo,
-  writeAuth,
-} from "@/core/auth/index.js";
+} from "@/core/sdk.js";
 
-async function generateAndDisplayDeviceCode(): Promise<DeviceCodeResponse> {
+async function generateAndDisplayDeviceCode(
+  sdk: ProjectSDK
+): Promise<DeviceCodeResponse> {
   const deviceCodeResponse = await runTask(
     "Generating device code...",
     async () => {
-      return await generateDeviceCode();
+      return await sdk.auth.generateDeviceCode();
     },
     {
       successMessage: "Device code generated",
@@ -36,6 +33,7 @@ async function generateAndDisplayDeviceCode(): Promise<DeviceCodeResponse> {
 }
 
 async function waitForAuthentication(
+  sdk: ProjectSDK,
   deviceCode: string,
   expiresIn: number,
   interval: number
@@ -48,7 +46,7 @@ async function waitForAuthentication(
       async () => {
         await pWaitFor(
           async () => {
-            const result = await getTokenFromDeviceCode(deviceCode);
+            const result = await sdk.auth.getTokenFromDeviceCode(deviceCode);
             if (result !== null) {
               tokenResponse = result;
               return true;
@@ -81,12 +79,13 @@ async function waitForAuthentication(
 }
 
 async function saveAuthData(
+  sdk: ProjectSDK,
   response: TokenResponse,
   userInfo: UserInfoResponse
 ): Promise<void> {
   const expiresAt = Date.now() + response.expiresIn * 1000;
 
-  await writeAuth({
+  await sdk.auth.write({
     accessToken: response.accessToken,
     refreshToken: response.refreshToken,
     expiresAt,
@@ -99,18 +98,19 @@ async function saveAuthData(
  * Execute the login flow (device code authentication).
  * This function is separate from the command to avoid circular dependencies.
  */
-export async function login(): Promise<RunCommandResult> {
-  const deviceCodeResponse = await generateAndDisplayDeviceCode();
+export async function login(sdk: ProjectSDK): Promise<RunCommandResult> {
+  const deviceCodeResponse = await generateAndDisplayDeviceCode(sdk);
 
   const token = await waitForAuthentication(
+    sdk,
     deviceCodeResponse.deviceCode,
     deviceCodeResponse.expiresIn,
     deviceCodeResponse.interval
   );
 
-  const userInfo = await getUserInfo(token.accessToken);
+  const userInfo = await sdk.auth.getUserInfo(token.accessToken);
 
-  await saveAuthData(token, userInfo);
+  await saveAuthData(sdk, token, userInfo);
 
   return {
     outroMessage: `Successfully logged in as ${theme.styles.bold(userInfo.email)}`,

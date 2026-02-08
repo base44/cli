@@ -14,14 +14,7 @@ import {
 } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 import { InvalidInputError } from "@/core/errors.js";
-import { deploySite, isDirEmpty, pushEntities } from "@/core/index.js";
-import type { Template } from "@/core/project/index.js";
-import {
-  createProjectFiles,
-  listTemplates,
-  readProjectConfig,
-  setAppConfig,
-} from "@/core/project/index.js";
+import type { ProjectSDK, Template } from "@/core/sdk.js";
 
 const DEFAULT_TEMPLATE_ID = "backend-only";
 
@@ -33,8 +26,11 @@ interface CreateOptions {
   skills?: boolean;
 }
 
-async function getTemplateById(templateId: string): Promise<Template> {
-  const templates = await listTemplates();
+async function getTemplateById(
+  sdk: ProjectSDK,
+  templateId: string
+): Promise<Template> {
+  const templates = await sdk.project.listTemplates();
   const template = templates.find((t) => t.id === templateId);
   if (!template) {
     const validIds = templates.map((t) => t.id).join(", ");
@@ -54,9 +50,10 @@ function validateNonInteractiveFlags(command: Command): void {
 }
 
 async function createInteractive(
+  sdk: ProjectSDK,
   options: CreateOptions
 ): Promise<RunCommandResult> {
-  const templates = await listTemplates();
+  const templates = await sdk.project.listTemplates();
   const templateOptions: Option<Template>[] = templates.map((t) => ({
     value: t,
     label: t.name,
@@ -85,7 +82,7 @@ async function createInteractive(
             });
       },
       projectPath: async ({ results }) => {
-        const suggestedPath = (await isDirEmpty())
+        const suggestedPath = (await sdk.project.isDirEmpty())
           ? "./"
           : `./${kebabCase(results.name)}`;
         return text({
@@ -100,7 +97,7 @@ async function createInteractive(
     }
   );
 
-  return await executeCreate({
+  return await executeCreate(sdk, {
     template: result.template,
     name: result.name,
     projectPath: result.projectPath as string,
@@ -111,13 +108,15 @@ async function createInteractive(
 }
 
 async function createNonInteractive(
+  sdk: ProjectSDK,
   options: CreateOptions
 ): Promise<RunCommandResult> {
   const template = await getTemplateById(
+    sdk,
     options.template ?? DEFAULT_TEMPLATE_ID
   );
 
-  return await executeCreate({
+  return await executeCreate(sdk, {
     template,
     name: options.name!,
     projectPath: options.path!,
@@ -127,30 +126,33 @@ async function createNonInteractive(
   });
 }
 
-async function executeCreate({
-  template,
-  name: rawName,
-  description,
-  projectPath,
-  deploy,
-  skills,
-  isInteractive,
-}: {
-  template: Template;
-  name: string;
-  description?: string;
-  projectPath: string;
-  deploy?: boolean;
-  skills?: boolean;
-  isInteractive: boolean;
-}): Promise<RunCommandResult> {
+async function executeCreate(
+  sdk: ProjectSDK,
+  {
+    template,
+    name: rawName,
+    description,
+    projectPath,
+    deploy,
+    skills,
+    isInteractive,
+  }: {
+    template: Template;
+    name: string;
+    description?: string;
+    projectPath: string;
+    deploy?: boolean;
+    skills?: boolean;
+    isInteractive: boolean;
+  }
+): Promise<RunCommandResult> {
   const name = rawName.trim();
   const resolvedPath = resolve(projectPath);
 
   const { projectId } = await runTask(
     "Setting up your project...",
     async () => {
-      return await createProjectFiles({
+      return await sdk.project.createFiles({
         name,
         description: description?.trim(),
         path: resolvedPath,
@@ -163,10 +165,10 @@ async function executeCreate({
     }
   );
 
-  // Set app config in cache for sync access to getDashboardUrl and getAppClient
-  setAppConfig({ id: projectId, projectRoot: resolvedPath });
+  // Set app config in cache for sync access to getAppClient
+  sdk.project.setAppConfig({ id: projectId, projectRoot: resolvedPath });
 
-  const { project, entities } = await readProjectConfig(resolvedPath);
+  const { project, entities } = await sdk.project.readConfig(resolvedPath);
   let finalAppUrl: string | undefined;
 
   if (entities.length > 0) {
@@ -186,7 +188,7 @@ async function executeCreate({
       await runTask(
         `Pushing ${entities.length} data models to Base44...`,
         async () => {
-          await pushEntities(entities);
+          await sdk.entities.push(entities);
         },
         {
           successMessage: theme.colors.base44Orange(
@@ -222,7 +224,7 @@ async function executeCreate({
           await execa({ cwd: resolvedPath, shell: true })`${buildCommand}`;
 
           updateMessage("Deploying site...");
-          return await deploySite(join(resolvedPath, outputDirectory));
+          return await sdk.site.deploy(join(resolvedPath, outputDirectory));
         },
         {
           successMessage: theme.colors.base44Orange(
@@ -296,14 +298,17 @@ export function getCreateCommand(context: CLIContext): Command {
 
       if (isNonInteractive) {
         await runCommand(
-          () =>
-            createNonInteractive({ name: options.name ?? name, ...options }),
+          (sdk) =>
+            createNonInteractive(sdk, {
+              name: options.name ?? name,
+              ...options,
+            }),
           { requireAuth: true, requireAppConfig: false },
           context
         );
       } else {
         await runCommand(
-          () => createInteractive({ name, ...options }),
+          (sdk) => createInteractive(sdk, { name, ...options }),
           { fullBanner: true, requireAuth: true, requireAppConfig: false },
           context
         );

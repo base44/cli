@@ -3,9 +3,11 @@ import open from "open";
 import type { CLIContext } from "@/cli/types.js";
 import { getDashboardUrl, runCommand } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
+import type { ProjectSDK } from "@/core/sdk.js";
 
-async function openDashboard(): Promise<RunCommandResult> {
-  const dashboardUrl = getDashboardUrl();
+async function openDashboard(sdk: ProjectSDK): Promise<RunCommandResult> {
+  const appId = sdk.project.getAppConfig().id;
+  const dashboardUrl = getDashboardUrl(appId);
 
   if (!process.env.CI) {
     await open(dashboardUrl);

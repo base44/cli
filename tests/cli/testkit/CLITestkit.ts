@@ -17,11 +17,13 @@ interface CLIContext {
     setContext: (context: Record<string, unknown>) => void;
     getErrorContext: () => { sessionId?: string; appId?: string };
   };
+  sdk: unknown;
 }
 
 /** Type for the bundled program module */
 interface ProgramModule {
   createProgram: (context: CLIContext) => Command;
+  createProjectSDK: () => unknown;
   CLIExitError: new (code: number) => Error & { code: number };
 }
 
@@ -128,7 +130,7 @@ export class CLITestkit {
     vi.resetModules();
 
     // Import CLI module fresh after reset
-    const { createProgram, CLIExitError } = (await import(
+    const { createProgram, createProjectSDK, CLIExitError } = (await import(
       DIST_INDEX_PATH
     )) as ProgramModule;
 
@@ -138,6 +140,7 @@ export class CLITestkit {
         setContext: () => {},
         getErrorContext: () => ({ sessionId: "test-session" }),
       },
+      sdk: createProjectSDK(),
     };
     const program = createProgram(mockContext);
 

@@ -3,11 +3,10 @@ import { Command } from "commander";
 import type { CLIContext } from "@/cli/types.js";
 import { runCommand, runTask } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
-import { readProjectConfig } from "@/core/index.js";
-import { pushEntities } from "@/core/resources/entity/index.js";
+import type { ProjectSDK } from "@/core/sdk.js";
 
-async function pushEntitiesAction(): Promise<RunCommandResult> {
-  const { entities } = await readProjectConfig();
+async function pushEntitiesAction(sdk: ProjectSDK): Promise<RunCommandResult> {
+  const { entities } = await sdk.project.readConfig();
 
   if (entities.length === 0) {
     return { outroMessage: "No entities found in project" };
@@ -19,7 +18,7 @@ async function pushEntitiesAction(): Promise<RunCommandResult> {
   const result = await runTask(
     "Pushing entities to Base44",
     async () => {
-      return await pushEntities(entities);
+      return await sdk.entities.push(entities);
     },
     {
       successMessage: "Entities pushed successfully",

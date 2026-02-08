@@ -4,9 +4,8 @@ import type { CLIContext } from "@/cli/types.js";
 import { printBanner } from "@/cli/utils/banner.js";
 import { theme } from "@/cli/utils/theme.js";
 import { printUpgradeNotificationIfAvailable } from "@/cli/utils/upgradeNotification.js";
-import { isLoggedIn } from "@/core/auth/index.js";
 import { isCLIError } from "@/core/errors.js";
-import { initAppConfig } from "@/core/project/index.js";
+import type { ProjectSDK } from "@/core/sdk.js";
 
 export interface RunCommandOptions {
   /**
@@ -41,17 +40,17 @@ export interface RunCommandResult {
  * This function handles both. Commands can return an optional `outroMessage`
  * which will be displayed at the end.
  *
- * @param commandFn - The async function to execute. Returns `RunCommandResult` with optional `outroMessage`.
+ * @param commandFn - The async function to execute. Receives the SDK instance and returns `RunCommandResult`.
  * @param options - Optional configuration for the command wrapper
- * @param context - CLI context with dependencies (errorReporter, etc.)
+ * @param context - CLI context with dependencies (errorReporter, sdk, etc.)
  *
  * @example
  * export function getMyCommand(context: CLIContext): Command {
  *   return new Command("my-command")
  *     .action(async () => {
  *       await runCommand(
- *         async () => {
- *           // ... do work ...
+ *         async (sdk) => {
+ *           // ... do work using sdk ...
  *           return { outroMessage: "Done!" };
  *         },
  *         { requireAuth: true },
@@ -61,10 +60,12 @@ export interface RunCommandResult {
  * }
  */
 export async function runCommand(
-  commandFn: () => Promise<RunCommandResult>,
+  commandFn: (sdk: ProjectSDK) => Promise<RunCommandResult>,
   options: RunCommandOptions | undefined,
   context: CLIContext
 ): Promise<void> {
+  const { sdk } = context;
+
   console.log();
 
   if (options?.fullBanner) {
@@ -79,21 +80,21 @@ export async function runCommand(
   try {
     // Check authentication if required
     if (options?.requireAuth) {
-      const loggedIn = await isLoggedIn();
+      const loggedIn = await sdk.auth.isLoggedIn();
 
       if (!loggedIn) {
         log.info("You need to login first to continue.");
-        await login();
+        await login(sdk);
       }
     }
 
     // Initialize app config unless explicitly disabled
     if (options?.requireAppConfig !== false) {
-      const appConfig = await initAppConfig();
+      const appConfig = await sdk.project.initAppConfig();
       context.errorReporter.setContext({ appId: appConfig.id });
     }
 
-    const { outroMessage } = await commandFn();
+    const { outroMessage } = await commandFn(sdk);
     outro(outroMessage || "");
   } catch (error) {
     // Display error message

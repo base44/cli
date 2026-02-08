@@ -8,20 +8,19 @@ import {
   theme,
 } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
-import {
-  deployAll,
-  hasResourcesToDeploy,
-  readProjectConfig,
-} from "@/core/project/index.js";
+import type { ProjectSDK } from "@/core/sdk.js";
 
 interface DeployOptions {
   yes?: boolean;
 }
 
-async function deployAction(options: DeployOptions): Promise<RunCommandResult> {
-  const projectData = await readProjectConfig();
+async function deployAction(
+  sdk: ProjectSDK,
+  options: DeployOptions
+): Promise<RunCommandResult> {
+  const projectData = await sdk.project.readConfig();
 
-  if (!hasResourcesToDeploy(projectData)) {
+  if (!sdk.project.hasResourcesToDeploy(projectData)) {
     return {
       outroMessage: "No resources found to deploy",
     };
@@ -70,7 +69,7 @@ async function deployAction(options: DeployOptions): Promise<RunCommandResult> {
   const result = await runTask(
     "Deploying your app...",
     async () => {
-      return await deployAll(projectData);
+      return await sdk.project.deployAll(projectData);
     },
     {
       successMessage: theme.colors.base44Orange("Deployment completed"),
@@ -78,8 +77,9 @@ async function deployAction(options: DeployOptions): Promise<RunCommandResult> {
     }
   );
 
+  const appId = sdk.project.getAppConfig().id;
   log.message(
-    `${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl())}`
+    `${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(appId))}`
   );
   if (result.appUrl) {
     log.message(
@@ -98,7 +98,7 @@ export function getDeployCommand(context: CLIContext): Command {
     .option("-y, --yes", "Skip confirmation prompt")
     .action(async (options: DeployOptions) => {
       await runCommand(
-        () => deployAction(options),
+        (sdk) => deployAction(sdk, options),
         { requireAuth: true },
         context
       );

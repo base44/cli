@@ -1,5 +1,5 @@
 import { createProgram } from "@/cli/program.js";
-import { readAuth } from "@/core/auth/index.js";
+import { createProjectSDK } from "@/core/sdk.js";
 import { CLIExitError } from "./errors.js";
 import { ErrorReporter } from "./telemetry/error-reporter.js";
 import { addCommandInfoToErrorReporter } from "./telemetry/index.js";
@@ -12,14 +12,17 @@ async function runCLI(): Promise<void> {
   // Register process error handlers FIRST
   errorReporter.registerProcessErrorHandlers();
 
+  // Create SDK instance
+  const sdk = createProjectSDK();
+
   // Create context for dependency injection
-  const context: CLIContext = { errorReporter };
+  const context: CLIContext = { errorReporter, sdk };
 
   // Create program with injected context
   const program = createProgram(context);
 
   try {
-    const userInfo = await readAuth();
+    const userInfo = await sdk.auth.read();
     errorReporter.setContext({
       user: { email: userInfo.email, name: userInfo.name },
     });
@@ -44,4 +47,4 @@ async function runCLI(): Promise<void> {
   }
 }
 
-export { runCLI, createProgram, CLIExitError };
+export { runCLI, createProgram, createProjectSDK, CLIExitError };

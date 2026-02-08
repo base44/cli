@@ -2,10 +2,10 @@ import { Command } from "commander";
 import type { CLIContext } from "@/cli/types.js";
 import { runCommand, theme } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
-import { readAuth } from "@/core/auth/index.js";
+import type { ProjectSDK } from "@/core/sdk.js";
 
-async function whoami(): Promise<RunCommandResult> {
-  const auth = await readAuth();
+async function whoami(sdk: ProjectSDK): Promise<RunCommandResult> {
+  const auth = await sdk.auth.read();
   return { outroMessage: `Logged in as: ${theme.styles.bold(auth.email)}` };
 }
 

@@ -2,13 +2,12 @@ import { dirname, join } from "node:path";
 import { log } from "@clack/prompts";
 import { Command } from "commander";
 import type { CLIContext } from "@/cli/types.js";
-import { readProjectConfig } from "@/core/index.js";
-import { fetchAgents, writeAgents } from "@/core/resources/agent/index.js";
+import type { ProjectSDK } from "@/core/sdk.js";
 import { runCommand, runTask } from "../../utils/index.js";
 import type { RunCommandResult } from "../../utils/runCommand.js";
 
-async function pullAgentsAction(): Promise<RunCommandResult> {
-  const { project } = await readProjectConfig();
+async function pullAgentsAction(sdk: ProjectSDK): Promise<RunCommandResult> {
+  const { project } = await sdk.project.readConfig();
 
   const configDir = dirname(project.configPath);
   const agentsDir = join(configDir, project.agentsDir);
@@ -16,7 +15,7 @@ async function pullAgentsAction(): Promise<RunCommandResult> {
   const remoteAgents = await runTask(
     "Fetching agents from Base44",
     async () => {
-      return await fetchAgents();
+      return await sdk.agents.fetch();
     },
     {
       successMessage: "Agents fetched successfully",
@@ -31,7 +30,7 @@ async function pullAgentsAction(): Promise<RunCommandResult> {
   const { written, deleted } = await runTask(
     "Writing agent files",
     async () => {
-      return await writeAgents(agentsDir, remoteAgents.items);
+      return await sdk.agents.writeLocal(agentsDir, remoteAgents.items);
     },
     {
       successMessage: "Agent files written successfully",
