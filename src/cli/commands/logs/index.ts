@@ -39,6 +39,16 @@ interface UnifiedLogEntry {
   source: string; // "App" for audit logs, function name for function logs
 }
 
+/**
+ * Counts for display header (audit vs function breakdown and pagination).
+ */
+interface LogCounts {
+  auditCount: number;
+  functionCount: number;
+  auditTotal?: number;
+  hasMore?: boolean;
+}
+
 // ─── CONSTANTS ──────────────────────────────────────────────
 
 const VALID_LEVELS = ["log", "info", "warn", "error", "debug"];
@@ -214,17 +224,16 @@ function normalizeFunctionLog(
  * Map --level to audit log status filter.
  * - log/info → success
  * - error → failure
- * - debug → skip audit logs (returns null)
- * - warn → no filter (show all)
+ * - debug/warn → skip audit logs (returns null; audit has no warn level)
  */
 function mapLevelToStatus(
   level: string | undefined
 ): "success" | "failure" | null | undefined {
   if (!level) return undefined; // No filter
-  if (level === "debug") return null; // Skip audit logs
+  if (level === "debug" || level === "warn") return null; // Skip audit logs
   if (level === "log" || level === "info") return "success";
   if (level === "error") return "failure";
-  return undefined; // warn - show all
+  return undefined;
 }
 
 /**
@@ -248,23 +257,11 @@ function parseAuditFilters(options: LogsOptions): AuditLogFilters {
   }
 
   if (options.limit) {
-    const limit = Number.parseInt(options.limit, 10);
-    if (Number.isNaN(limit) || limit < 1 || limit > 1000) {
-      throw new InvalidInputError(
-        `Invalid limit: "${options.limit}". Must be a number between 1 and 1000.`
-      );
-    }
-    filters.limit = limit;
+    filters.limit = Number.parseInt(options.limit, 10);
   }
 
   if (options.order) {
-    const order = options.order.toUpperCase();
-    if (order !== "ASC" && order !== "DESC") {
-      throw new InvalidInputError(
-        `Invalid order: "${options.order}". Must be "ASC" or "DESC".`
-      );
-    }
-    filters.order = order as "ASC" | "DESC";
+    filters.order = options.order.toUpperCase() as "ASC" | "DESC";
   }
 
   return filters;
@@ -292,12 +289,11 @@ function parseFunctionFilters(options: LogsOptions): FunctionLogFilters {
   }
 
   if (options.level) {
-    if (!VALID_LEVELS.includes(options.level)) {
-      throw new InvalidInputError(
-        `Invalid level: "${options.level}". Must be one of: ${VALID_LEVELS.join(", ")}.`
-      );
-    }
     filters.level = options.level as LogLevel;
+  }
+
+  if (options.limit) {
+    filters.limit = Number.parseInt(options.limit, 10);
   }
 
   return filters;
@@ -312,6 +308,41 @@ function parseFunctionNames(option: string | undefined): string[] {
     .split(",")
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
+}
+
+/**
+ * Ensure datetime has a timezone (append Z if missing) for APIs that require it.
+ */
+function normalizeDatetime(value: string): string {
+  if (/Z|[+-]\d{2}:\d{2}$/.test(value)) return value;
+  return `${value}Z`;
+}
+
+/**
+ * Validate CLI options upfront before any API calls.
+ */
+function validateOptions(options: LogsOptions): void {
+  if (options.level && !VALID_LEVELS.includes(options.level)) {
+    throw new InvalidInputError(
+      `Invalid level: "${options.level}". Must be one of: ${VALID_LEVELS.join(", ")}.`
+    );
+  }
+  if (options.limit) {
+    const limit = Number.parseInt(options.limit, 10);
+    if (Number.isNaN(limit) || limit < 1 || limit > 1000) {
+      throw new InvalidInputError(
+        `Invalid limit: "${options.limit}". Must be a number between 1 and 1000.`
+      );
+    }
+  }
+  if (options.order) {
+    const order = options.order.toUpperCase();
+    if (order !== "ASC" && order !== "DESC") {
+      throw new InvalidInputError(
+        `Invalid order: "${options.order}". Must be "ASC" or "DESC".`
+      );
+    }
+  }
 }
 
 // ─── DISPLAY ────────────────────────────────────────────────
@@ -396,21 +427,28 @@ function formatEntry(entry: UnifiedLogEntry): string {
 }
 
 /**
- * Display unified logs.
+ * Display unified logs with count breakdown.
  */
 function displayLogs(
   entries: UnifiedLogEntry[],
-  pagination?: AuditLogsResponse["pagination"]
+  counts: LogCounts
 ): void {
   if (entries.length === 0) {
     log.info("No logs found matching the filters.");
     return;
   }
 
-  // Header
-  const countInfo = pagination
-    ? `Showing ${entries.length} of ${pagination.total} events`
-    : `Showing ${entries.length} log entries`;
+  const { auditCount, functionCount, auditTotal, hasMore } = counts;
+  let countInfo: string;
+  if (auditCount > 0 && functionCount > 0) {
+    countInfo = `Showing ${entries.length} log entries (${auditCount} app events, ${functionCount} function logs)`;
+  } else if (auditCount > 0 && auditTotal !== undefined) {
+    countInfo = `Showing ${entries.length} of ${auditTotal} app events`;
+  } else if (functionCount > 0) {
+    countInfo = `Showing ${entries.length} function log entries`;
+  } else {
+    countInfo = `Showing ${entries.length} log entries`;
+  }
   log.info(theme.styles.dim(`${countInfo}\n`));
 
   const header = `${"TIME".padEnd(19)}  ${"LEVEL".padEnd(5)}  MESSAGE`;
@@ -421,8 +459,7 @@ function displayLogs(
     log.message(formatEntry(entry));
   }
 
-  // Pagination hint (only for audit logs)
-  if (pagination?.has_more) {
+  if (hasMore) {
     log.info(
       theme.styles.dim("\nMore results available. Use --limit to fetch more.")
     );
@@ -507,6 +544,10 @@ async function getAllFunctionNames(): Promise<string[]> {
  * Main logs action.
  */
 async function logsAction(options: LogsOptions): Promise<RunCommandResult> {
+  if (options.since) options.since = normalizeDatetime(options.since);
+  if (options.until) options.until = normalizeDatetime(options.until);
+  validateOptions(options);
+
   const specifiedFunctions = parseFunctionNames(options.function);
   const allEntries: UnifiedLogEntry[] = [];
   let pagination: AuditLogsResponse["pagination"] | undefined;
@@ -540,10 +581,23 @@ async function logsAction(options: LogsOptions): Promise<RunCommandResult> {
     allEntries.sort((a, b) => order * a.time.localeCompare(b.time));
   }
 
+  const limit = options.limit ? Number.parseInt(options.limit, 10) : undefined;
+  if (limit !== undefined && allEntries.length > limit) {
+    allEntries.length = limit;
+  }
+
   if (options.json) {
     process.stdout.write(`${JSON.stringify(allEntries, null, 2)}\n`);
   } else {
-    displayLogs(allEntries, pagination);
+    const auditCount = allEntries.filter((e) => e.source === "App").length;
+    const functionCount = allEntries.length - auditCount;
+    const counts: LogCounts = {
+      auditCount,
+      functionCount,
+      auditTotal: functionCount === 0 ? pagination?.total : undefined,
+      hasMore: functionCount === 0 ? pagination?.has_more : undefined,
+    };
+    displayLogs(allEntries, counts);
   }
 
   return {};

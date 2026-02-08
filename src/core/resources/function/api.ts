@@ -1,4 +1,5 @@
 import type { KyResponse } from "ky";
+import { HTTPError } from "ky";
 import { getAppClient } from "@/core/clients/index.js";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";
 import type {
@@ -64,6 +65,9 @@ function buildLogsQueryString(filters: FunctionLogFilters): string {
   if (filters.until) {
     params.set("until", filters.until);
   }
+  if (filters.limit !== undefined) {
+    params.set("limit", String(filters.limit));
+  }
 
   const queryString = params.toString();
   return queryString ? `?${queryString}` : "";
@@ -85,6 +89,13 @@ export async function fetchFunctionLogs(
       `functions-mgmt/${functionName}/logs${queryString}`
     );
   } catch (error) {
+    if (error instanceof HTTPError && error.response.status === 404) {
+      throw new ApiError(`Function "${functionName}" not found`, {
+        statusCode: 404,
+        cause: error,
+        hints: [{ message: "Check the function name and try again" }],
+      });
+    }
     throw await ApiError.fromHttpError(error, "fetching function logs");
   }
 

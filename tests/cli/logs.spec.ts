@@ -48,7 +48,7 @@ describe("logs command", () => {
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Logs fetched successfully");
-    t.expectResult(result).toContain("Showing 2 of 2 events");
+    t.expectResult(result).toContain("Showing 2 of 2 app events");
     t.expectResult(result).toContain("function unknown called");
     t.expectResult(result).toContain("failed to create entity Task");
   });
@@ -162,7 +162,7 @@ describe("logs command", () => {
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain('Logs for "my-function" fetched');
-    t.expectResult(result).toContain("Showing 2 log entries");
+    t.expectResult(result).toContain("Showing 2 function log entries");
     t.expectResult(result).toContain("Processing request");
     t.expectResult(result).toContain("Something went wrong");
   });

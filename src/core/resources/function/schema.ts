@@ -83,4 +83,5 @@ export interface FunctionLogFilters {
   since?: string;
   until?: string;
   level?: LogLevel;
+  limit?: number;
 }
