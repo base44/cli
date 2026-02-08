@@ -85,6 +85,10 @@ cli/
 │   │   │   ├── api.ts            # uploadSite() - reads archive, sends to API
 │   │   │   ├── deploy.ts         # deploySite() - validates, creates tar.gz, uploads
 │   │   │   └── index.ts
+│   │   ├── types/                # TypeScript type generation
+│   │   │   ├── generator.ts      # generateTypesFile() - creates types.d.ts
+│   │   │   ├── update-project.ts # updateProjectConfig() - updates tsconfig.json
+│   │   │   └── index.ts
 │   │   ├── utils/
 │   │   │   ├── fs.ts             # File system utilities
 │   │   │   └── index.ts
@@ -116,8 +120,11 @@ cli/
 │       │   │   └── push.ts
 │       │   ├── functions/
 │       │   │   └── deploy.ts
-│       │   └── site/
-│       │       └── deploy.ts
+│       │   ├── site/
+│       │   │   └── deploy.ts
+│       │   └── types/
+│       │       ├── index.ts      # getTypesCommand(context) - parent command
+│       │       └── generate.ts   # getTypesGenerateCommand(context) factory
 │       ├── telemetry/            # Error reporting and telemetry
 │       │   ├── consts.ts         # PostHog API key, env var names
 │       │   ├── posthog.ts        # PostHog client singleton
@@ -584,6 +591,7 @@ When an error is thrown, the CLI displays:
 | `FILE_NOT_FOUND`   | `FileNotFoundError`     | File doesn't exist                    |
 | `FILE_READ_ERROR`  | `FileReadError`         | Can't read/write file                 |
 | `INTERNAL_ERROR`   | `InternalError`         | Unexpected error                      |
+| `TYPE_GENERATION_ERROR` | `TypeGenerationError` | Type generation failed for entity |
 
 ### CLIExitError (Special Case)
 

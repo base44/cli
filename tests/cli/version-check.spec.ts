@@ -17,7 +17,7 @@ describe("upgrade notification", () => {
   });
 
   it("does not display notification when version is current", async () => {
-    t.givenLatestVersion(null);
+    // latestVersion defaults to null (no upgrade available)
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
 
     const result = await t.run("whoami");
@@ -27,6 +27,8 @@ describe("upgrade notification", () => {
   });
 
   it("does not display notification when check is not overridden", async () => {
+    // Opt into real npm version check (default is null which skips it)
+    t.givenLatestVersion(undefined);
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
 
     const result = await t.run("whoami");
