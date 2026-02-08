@@ -42,7 +42,7 @@ export const SlackConnectorSchema = z.object({
   scopes: z.array(z.string()).default([]),
 });
 
-/** Notion - Scopes: https://developers.notion.com/docs/authorization (page-based access model) */
+/** Notion - Scopes are preauthorized, no need to request them explicitly (values will be ignored) */
 export const NotionConnectorSchema = z.object({
   type: z.literal("notion"),
   scopes: z.array(z.string()).default([]),
@@ -60,13 +60,13 @@ export const HubspotConnectorSchema = z.object({
   scopes: z.array(z.string()).default([]),
 });
 
-/** LinkedIn - Scopes: https://learn.microsoft.com/en-us/linkedin/marketing/increasing-access */
+/** LinkedIn - Scopes: https://learn.microsoft.com/en-us/linkedin/shared/authentication/authorization-code-flow */
 export const LinkedInConnectorSchema = z.object({
   type: z.literal("linkedin"),
   scopes: z.array(z.string()).default([]),
 });
 
-/** TikTok - Scopes: https://developers.tiktok.com/doc/scopes-overview */
+/** TikTok - Scopes: https://developers.tiktok.com/doc/tiktok-api-scopes */
 export const TikTokConnectorSchema = z.object({
   type: z.literal("tiktok"),
   scopes: z.array(z.string()).default([]),
