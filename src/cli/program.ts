@@ -54,7 +54,7 @@ export function createProgram(context: CLIContext): Command {
 
   // Register types command
   program.addCommand(getTypesCommand(context), { hidden: true });
-  
+
   // Register logs command
   program.addCommand(getLogsCommand(context));
 
