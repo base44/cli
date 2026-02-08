@@ -1,12 +1,8 @@
-import {
-  listConnectors,
-  removeConnector,
-  syncConnector,
-} from "./api.js";
+import { listConnectors, removeConnector, setConnector } from "./api.js";
 import type {
   ConnectorResource,
   IntegrationType,
-  SyncConnectorResponse,
+  SetConnectorResponse,
 } from "./schema.js";
 
 export interface ConnectorSyncResult {
@@ -30,8 +26,8 @@ export async function pushConnectors(
 
   for (const connector of connectors) {
     try {
-      const response = await syncConnector(connector.type, connector.scopes);
-      results.push(syncResponseToResult(connector.type, response));
+      const response = await setConnector(connector.type, connector.scopes);
+      results.push(setResponseToResult(connector.type, response));
     } catch (err) {
       results.push({
         type: connector.type,
@@ -62,15 +58,17 @@ export async function pushConnectors(
   return { results };
 }
 
-function syncResponseToResult(
+function setResponseToResult(
   type: IntegrationType,
-  response: SyncConnectorResponse
+  response: SetConnectorResponse
 ): ConnectorSyncResult {
   if (response.error === "different_user") {
     return {
       type,
       action: "error",
-      error: response.error_message || `Already connected by ${response.other_user_email}`,
+      error:
+        response.error_message ||
+        `Already connected by ${response.other_user_email}`,
     };
   }
 
