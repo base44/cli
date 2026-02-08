@@ -6,7 +6,7 @@ const TEST_WORKSPACE_ID = "test-workspace-id";
 describe("logs command", () => {
   const t = setupCLITests();
 
-  it("fetches and displays logs successfully", async () => {
+  it("fetches and displays audit logs successfully", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
     t.api.mockAppInfo({ organization_id: TEST_WORKSPACE_ID });
     t.api.mockAuditLogs(TEST_WORKSPACE_ID, {
@@ -49,11 +49,11 @@ describe("logs command", () => {
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Logs fetched successfully");
     t.expectResult(result).toContain("Showing 2 of 2 events");
-    t.expectResult(result).toContain("api.function.call");
-    t.expectResult(result).toContain("app.entity.created");
+    t.expectResult(result).toContain("function unknown called");
+    t.expectResult(result).toContain("failed to create entity Task");
   });
 
-  it("shows no events message when empty", async () => {
+  it("shows no logs message when empty", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
     t.api.mockAppInfo({ organization_id: TEST_WORKSPACE_ID });
     t.api.mockAuditLogs(TEST_WORKSPACE_ID, {
@@ -69,10 +69,10 @@ describe("logs command", () => {
     const result = await t.run("logs");
 
     t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain("No events found");
+    t.expectResult(result).toContain("No logs found matching the filters.");
   });
 
-  it("outputs raw JSON with --json flag", async () => {
+  it("outputs unified JSON with --json flag", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
     t.api.mockAppInfo({ organization_id: TEST_WORKSPACE_ID });
     t.api.mockAuditLogs(TEST_WORKSPACE_ID, {
@@ -101,8 +101,10 @@ describe("logs command", () => {
     const result = await t.run("logs", "--json");
 
     t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain('"events"');
-    t.expectResult(result).toContain('"pagination"');
+    t.expectResult(result).toContain('"time"');
+    t.expectResult(result).toContain('"level"');
+    t.expectResult(result).toContain('"message"');
+    t.expectResult(result).toContain('"source"');
   });
 
   it("shows pagination hint when more results available", async () => {
@@ -138,7 +140,98 @@ describe("logs command", () => {
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("More results available");
-    t.expectResult(result).toContain("--cursor-timestamp");
+    t.expectResult(result).toContain("--limit");
+  });
+
+  it("fetches only function logs when --function is specified", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+    t.api.mockFunctionLogs("my-function", [
+      {
+        time: "2024-01-15T10:30:00.000Z",
+        level: "info",
+        message: "Processing request",
+      },
+      {
+        time: "2024-01-15T10:30:00.050Z",
+        level: "error",
+        message: "Something went wrong",
+      },
+    ]);
+
+    const result = await t.run("logs", "--function", "my-function");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Logs for \"my-function\" fetched");
+    t.expectResult(result).toContain("Showing 2 log entries");
+    t.expectResult(result).toContain("Processing request");
+    t.expectResult(result).toContain("Something went wrong");
+  });
+
+  it("fetches logs for multiple functions with --function comma-separated", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+    t.api.mockFunctionLogs("fn1", [
+      { time: "2024-01-15T10:30:00Z", level: "info", message: "From fn1" },
+    ]);
+    t.api.mockFunctionLogs("fn2", [
+      { time: "2024-01-15T10:29:00Z", level: "info", message: "From fn2" },
+    ]);
+
+    const result = await t.run("logs", "--function", "fn1,fn2");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("From fn1");
+    t.expectResult(result).toContain("From fn2");
+  });
+
+  it("filters function logs by --level", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+    t.api.mockFunctionLogs("my-function", [
+      { time: "2024-01-15T10:30:00.000Z", level: "info", message: "Info message" },
+      { time: "2024-01-15T10:30:00.050Z", level: "error", message: "Error message" },
+    ]);
+
+    const result = await t.run("logs", "--function", "my-function", "--level", "error");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Error message");
+    t.expectResult(result).toNotContain("Info message");
+  });
+
+  it("fetches both audit and function logs when no --function specified", async () => {
+    await t.givenLoggedInWithProject(fixture("full-project"));
+    t.api.mockAppInfo({ organization_id: TEST_WORKSPACE_ID });
+    t.api.mockAuditLogs(TEST_WORKSPACE_ID, {
+      events: [
+        {
+          timestamp: "2024-01-15T10:30:00Z",
+          user_email: "user@example.com",
+          workspace_id: TEST_WORKSPACE_ID,
+          app_id: "test-app-id",
+          event_type: "app.entity.created",
+          status: "success",
+          ip: null,
+          user_agent: null,
+          error_code: null,
+          metadata: { entity_name: "Task", entity_id: "1" },
+        },
+      ],
+      pagination: {
+        total: 1,
+        limit: 50,
+        has_more: false,
+        next_cursor: null,
+      },
+    });
+    t.api.mockFunctionLogs("hello", [
+      { time: "2024-01-15T10:29:00Z", level: "log", message: "Hello world" },
+    ]);
+
+    const result = await t.run("logs");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Logs fetched successfully");
+    t.expectResult(result).toContain("entity Task created");
+    t.expectResult(result).toContain("Hello world");
   });
 
   it("fails when not in a project directory", async () => {
@@ -163,22 +256,15 @@ describe("logs command", () => {
     t.expectResult(result).toFail();
   });
 
-  it("fails with invalid status option", async () => {
+  it("fails with invalid level option", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
+    // --level is validated when fetching function logs; use --function so level is parsed
+    t.api.mockFunctionLogs("dummy", []);
 
-    const result = await t.run("logs", "--status", "invalid");
+    const result = await t.run("logs", "--function", "dummy", "--level", "invalid");
 
     t.expectResult(result).toFail();
-    t.expectResult(result).toContain("Invalid status");
-  });
-
-  it("fails with invalid event-types option", async () => {
-    await t.givenLoggedInWithProject(fixture("basic"));
-
-    const result = await t.run("logs", "--event-types", "not-json");
-
-    t.expectResult(result).toFail();
-    t.expectResult(result).toContain("Invalid event-types");
+    t.expectResult(result).toContain("Invalid level");
   });
 
   it("fails with invalid limit option", async () => {
@@ -212,15 +298,7 @@ describe("logs command", () => {
       },
     });
 
-    const result = await t.run(
-      "logs",
-      "--status",
-      "failure",
-      "--limit",
-      "10",
-      "--order",
-      "ASC"
-    );
+    const result = await t.run("logs", "--limit", "10", "--order", "ASC");
 
     t.expectResult(result).toSucceed();
   });

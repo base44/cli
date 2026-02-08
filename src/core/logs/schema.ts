@@ -1,25 +1,6 @@
 import { z } from "zod";
 
 /**
- * Request body schema for the audit logs API.
- * Uses snake_case to match API expectations.
- */
-export const AuditLogRequestSchema = z.object({
-  app_id: z.string(),
-  event_types: z.array(z.string()).optional(),
-  user_email: z.string().optional(),
-  status: z.enum(["success", "failure"]).optional(),
-  start_date: z.string().optional(),
-  end_date: z.string().optional(),
-  limit: z.number().min(1).max(1000).default(50),
-  order: z.enum(["ASC", "DESC"]).default("DESC"),
-  cursor_timestamp: z.string().optional(),
-  cursor_user_email: z.string().optional(),
-});
-
-export type AuditLogRequest = z.infer<typeof AuditLogRequestSchema>;
-
-/**
  * Single audit log event from the API response.
  */
 export const AuditLogEventSchema = z.looseObject({
@@ -44,8 +25,6 @@ export const PaginationCursorSchema = z.object({
   timestamp: z.string(),
   user_email: z.string(),
 });
-
-export type PaginationCursor = z.infer<typeof PaginationCursorSchema>;
 
 /**
  * Pagination info from the API response.
