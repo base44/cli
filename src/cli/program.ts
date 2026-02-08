@@ -3,6 +3,7 @@ import { getAgentsCommand } from "@/cli/commands/agents/index.js";
 import { getLoginCommand } from "@/cli/commands/auth/login.js";
 import { getLogoutCommand } from "@/cli/commands/auth/logout.js";
 import { getWhoamiCommand } from "@/cli/commands/auth/whoami.js";
+import { getConnectorsCommand } from "@/cli/commands/connectors/index.js";
 import { getDashboardCommand } from "@/cli/commands/dashboard/index.js";
 import { getEntitiesPushCommand } from "@/cli/commands/entities/push.js";
 import { getFunctionsDeployCommand } from "@/cli/commands/functions/deploy.js";
@@ -47,6 +48,9 @@ export function createProgram(context: CLIContext): Command {
 
   // Register agents commands
   program.addCommand(getAgentsCommand(context));
+
+  // Register connectors commands
+  program.addCommand(getConnectorsCommand(context));
 
   // Register functions commands
   program.addCommand(getFunctionsDeployCommand(context));

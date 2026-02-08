@@ -6,13 +6,13 @@ import type {
   ListConnectorsResponse,
   OAuthStatusResponse,
   RemoveConnectorResponse,
-  SyncConnectorResponse,
+  SetConnectorResponse,
 } from "./schema.js";
 import {
   ListConnectorsResponseSchema,
   OAuthStatusResponseSchema,
   RemoveConnectorResponseSchema,
-  SyncConnectorResponseSchema,
+  SetConnectorResponseSchema,
 } from "./schema.js";
 
 /**
@@ -41,25 +41,27 @@ export async function listConnectors(): Promise<ListConnectorsResponse> {
   return result.data;
 }
 
-export async function syncConnector(
+export async function setConnector(
   integrationType: IntegrationType,
   scopes: string[]
-): Promise<SyncConnectorResponse> {
+): Promise<SetConnectorResponse> {
   const appClient = getAppClient();
 
   let response: KyResponse;
   try {
-    response = await appClient.post("external-auth/sync", {
-      json: {
-        integration_type: integrationType,
-        scopes,
-      },
-    });
+    response = await appClient.put(
+      `external-auth/integrations/${integrationType}`,
+      {
+        json: {
+          scopes,
+        },
+      }
+    );
   } catch (error) {
-    throw await ApiError.fromHttpError(error, "syncing connector");
+    throw await ApiError.fromHttpError(error, "setting connector");
   }
 
-  const result = SyncConnectorResponseSchema.safeParse(await response.json());
+  const result = SetConnectorResponseSchema.safeParse(await response.json());
 
   if (!result.success) {
     throw new SchemaValidationError(

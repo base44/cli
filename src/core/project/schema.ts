@@ -30,6 +30,7 @@ export const ProjectConfigSchema = z.object({
   entitiesDir: z.string().optional().default("entities"),
   functionsDir: z.string().optional().default("functions"),
   agentsDir: z.string().optional().default("agents"),
+  connectorsDir: z.string().optional().default("connectors"),
 });
 
 export type ProjectConfig = z.infer<typeof ProjectConfigSchema>;
