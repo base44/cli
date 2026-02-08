@@ -1,9 +1,5 @@
 import { z } from "zod";
 
-// ─── CONNECTOR SCHEMAS PER INTEGRATION ────────────────────────────────────────
-// Each integration has a literal type discriminator.
-// Scopes are provider-specific - see official docs for available scopes.
-
 /** Google Calendar - Scopes: https://developers.google.com/identity/protocols/oauth2/scopes#calendar */
 export const GoogleCalendarConnectorSchema = z.object({
   type: z.literal("googlecalendar"),
@@ -76,12 +72,6 @@ export const TikTokConnectorSchema = z.object({
   scopes: z.array(z.string()).default([]),
 });
 
-// ─── DISCRIMINATED UNION ──────────────────────────────────────────────────────
-
-/**
- * Local connector resource schema using discriminated union.
- * Each integration type has its own schema with a literal type discriminator.
- */
 export const ConnectorResourceSchema = z.discriminatedUnion("type", [
   GoogleCalendarConnectorSchema,
   GoogleDriveConnectorSchema,
@@ -99,9 +89,6 @@ export const ConnectorResourceSchema = z.discriminatedUnion("type", [
 
 export type ConnectorResource = z.infer<typeof ConnectorResourceSchema>;
 
-/**
- * Supported OAuth integration types.
- */
 export const IntegrationTypeSchema = z.enum([
   "googlecalendar",
   "googledrive",
@@ -119,11 +106,6 @@ export const IntegrationTypeSchema = z.enum([
 
 export type IntegrationType = z.infer<typeof IntegrationTypeSchema>;
 
-// ─── API RESPONSE SCHEMAS ─────────────────────────────────────────────────────
-
-/**
- * Connector status from upstream API.
- */
 export const ConnectorStatusSchema = z.enum([
   "ACTIVE",
   "DISCONNECTED",
@@ -132,9 +114,6 @@ export const ConnectorStatusSchema = z.enum([
 
 export type ConnectorStatus = z.infer<typeof ConnectorStatusSchema>;
 
-/**
- * Upstream connector from the list API.
- */
 export const UpstreamConnectorSchema = z.object({
   integration_type: IntegrationTypeSchema,
   status: ConnectorStatusSchema,
@@ -144,9 +123,6 @@ export const UpstreamConnectorSchema = z.object({
 
 export type UpstreamConnector = z.infer<typeof UpstreamConnectorSchema>;
 
-/**
- * Response from GET /api/apps/{app_id}/external-auth/list
- */
 export const ListConnectorsResponseSchema = z.object({
   integrations: z.array(UpstreamConnectorSchema),
 });
@@ -155,14 +131,32 @@ export type ListConnectorsResponse = z.infer<
   typeof ListConnectorsResponseSchema
 >;
 
-/**
- * Response from GET /api/external-auth/auto-added-scopes
- */
-export const AutoAddedScopesResponseSchema = z.record(
-  IntegrationTypeSchema,
-  z.array(z.string())
-);
+export const SyncConnectorResponseSchema = z.object({
+  redirect_url: z.string().nullable(),
+  connection_id: z.string().nullable(),
+  already_authorized: z.boolean(),
+  error: z.literal("different_user").optional(),
+  error_message: z.string().optional(),
+  other_user_email: z.string().optional(),
+});
 
-export type AutoAddedScopesResponse = z.infer<
-  typeof AutoAddedScopesResponseSchema
+export type SyncConnectorResponse = z.infer<typeof SyncConnectorResponseSchema>;
+
+export const OAuthPollingStatusSchema = z.enum(["ACTIVE", "FAILED", "PENDING"]);
+
+export type OAuthPollingStatus = z.infer<typeof OAuthPollingStatusSchema>;
+
+export const OAuthStatusResponseSchema = z.object({
+  status: OAuthPollingStatusSchema,
+});
+
+export type OAuthStatusResponse = z.infer<typeof OAuthStatusResponseSchema>;
+
+export const RemoveConnectorResponseSchema = z.object({
+  status: z.literal("removed"),
+  integration_type: IntegrationTypeSchema,
+});
+
+export type RemoveConnectorResponse = z.infer<
+  typeof RemoveConnectorResponseSchema
 >;
