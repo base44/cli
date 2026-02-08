@@ -218,7 +218,10 @@ describe("SystemError subclasses", () => {
     } as never;
 
     const httpError = new HTTPError(response, request, options);
-    const apiError = await ApiError.fromHttpError(httpError, "pushing entities");
+    const apiError = await ApiError.fromHttpError(
+      httpError,
+      "pushing entities"
+    );
 
     expect(apiError.requestBody).toBe('{"entities":[]}');
   });
