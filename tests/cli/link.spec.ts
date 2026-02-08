@@ -1,5 +1,5 @@
 import { describe, it } from "vitest";
-import { setupCLITests, fixture } from "./testkit/index.js";
+import { fixture, setupCLITests } from "./testkit/index.js";
 
 describe("link command", () => {
   const t = setupCLITests();
@@ -50,8 +50,10 @@ describe("link command", () => {
     const result = await t.run(
       "link",
       "--create",
-      "--name", "App With Description",
-      "--description", "A test application"
+      "--name",
+      "App With Description",
+      "--description",
+      "A test application"
     );
 
     t.expectResult(result).toSucceed();
@@ -75,8 +77,10 @@ describe("link command", () => {
     const result = await t.run(
       "link",
       "-c",
-      "-n", "All Short Flags",
-      "-d", "Description with short flag"
+      "-n",
+      "All Short Flags",
+      "-d",
+      "Description with short flag"
     );
 
     t.expectResult(result).toSucceed();

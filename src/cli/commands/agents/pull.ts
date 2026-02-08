@@ -1,9 +1,9 @@
-import { join, dirname } from "node:path";
-import { Command } from "commander";
+import { dirname, join } from "node:path";
 import { log } from "@clack/prompts";
+import { Command } from "commander";
 import type { CLIContext } from "@/cli/types.js";
-import { fetchAgents, writeAgents } from "@/core/resources/agent/index.js";
 import { readProjectConfig } from "@/core/index.js";
+import { fetchAgents, writeAgents } from "@/core/resources/agent/index.js";
 import { runCommand, runTask } from "../../utils/index.js";
 import type { RunCommandResult } from "../../utils/runCommand.js";
 
@@ -46,12 +46,16 @@ async function pullAgentsAction(): Promise<RunCommandResult> {
     log.warn(`Deleted: ${deleted.join(", ")}`);
   }
 
-  return { outroMessage: `Pulled ${remoteAgents.total} agents to ${agentsDir}` };
+  return {
+    outroMessage: `Pulled ${remoteAgents.total} agents to ${agentsDir}`,
+  };
 }
 
 export function getAgentsPullCommand(context: CLIContext): Command {
   return new Command("pull")
-    .description("Pull agents from Base44 to local files (replaces all local agent configs)")
+    .description(
+      "Pull agents from Base44 to local files (replaces all local agent configs)"
+    )
     .action(async () => {
       await runCommand(pullAgentsAction, { requireAuth: true }, context);
     });

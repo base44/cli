@@ -1,10 +1,18 @@
 import { join } from "node:path";
 import { globby } from "globby";
-import { readJsonFile, pathExists, writeJsonFile, deleteFile } from "../../utils/fs.js";
-import { AgentConfigSchema } from "./schema.js";
-import type { AgentConfig, AgentConfigApiResponse } from "./schema.js";
-import { CONFIG_FILE_EXTENSION_GLOB, CONFIG_FILE_EXTENSION } from "../../consts.js";
 import { SchemaValidationError } from "@/core/errors.js";
+import {
+  CONFIG_FILE_EXTENSION,
+  CONFIG_FILE_EXTENSION_GLOB,
+} from "../../consts.js";
+import {
+  deleteFile,
+  pathExists,
+  readJsonFile,
+  writeJsonFile,
+} from "../../utils/fs.js";
+import type { AgentConfig, AgentConfigApiResponse } from "./schema.js";
+import { AgentConfigSchema } from "./schema.js";
 
 export function generateAgentConfigContent(name: string): string {
   return `// Base44 Agent Configuration
@@ -30,7 +38,11 @@ async function readAgentFile(agentPath: string): Promise<AgentConfig> {
   const result = AgentConfigSchema.safeParse(parsed);
 
   if (!result.success) {
-    throw new SchemaValidationError(`Invalid agent file at ${agentPath}`, result.error);
+    throw new SchemaValidationError(
+      "Invalid agent file",
+      result.error,
+      agentPath
+    );
   }
 
   return result.data;

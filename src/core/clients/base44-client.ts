@@ -3,14 +3,14 @@
  * Automatically handles token refresh and retry on 401 responses.
  */
 
-import ky from "ky";
 import type { KyRequest, KyResponse, NormalizedOptions } from "ky";
-import { getBase44ApiUrl } from "@/core/config.js";
+import ky from "ky";
 import {
+  isTokenExpired,
   readAuth,
   refreshAndSaveTokens,
-  isTokenExpired,
 } from "@/core/auth/config.js";
+import { getBase44ApiUrl } from "@/core/config.js";
 import { getAppConfig } from "@/core/project/index.js";
 
 // Track requests that have already been retried to prevent infinite loops
@@ -24,7 +24,7 @@ async function handleUnauthorized(
   request: KyRequest,
   _options: NormalizedOptions,
   response: KyResponse
-): Promise<Response | void> {
+): Promise<Response | undefined> {
   if (response.status !== 401) {
     return;
   }

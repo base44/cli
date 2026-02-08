@@ -1,6 +1,6 @@
 {
   "name": "base44",
-  "version": "0.0.26",
+  "version": "0.0.28",
   "description": "Base44 CLI - Unified interface for managing Base44 applications",
   "type": "module",
   "bin": {
@@ -11,12 +11,14 @@
     "bin"
   ],
   "scripts": {
-    "build": "tsdown",
+    "build": "bun run clean && cp -r templates dist/ && bun run infra/build.ts",
+    "build:watch": "bun run clean && cp -r templates dist/ && bun run infra/build.ts --watch",
     "typecheck": "tsc --noEmit",
-    "dev": "./bin/dev.js",
+    "dev": "./bin/dev.ts",
     "start": "./bin/run.js",
-    "clean": "rm -rf dist",
-    "lint": "eslint src tests",
+    "clean": "rm -rf dist && mkdir -p dist",
+    "lint": "biome check src tests",
+    "lint:fix": "biome check --write src tests",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -32,21 +34,17 @@
     "url": "https://github.com/base44/cli"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.0.0",
     "@clack/prompts": "^0.11.0",
-    "@stylistic/eslint-plugin": "^5.6.1",
+    "@types/bun": "^1.2.15",
     "@types/ejs": "^3.1.5",
     "@types/lodash.kebabcase": "^4.1.9",
     "@types/node": "^22.10.5",
     "@types/tar": "^6.1.13",
-    "@typescript-eslint/eslint-plugin": "^8.51.0",
-    "@typescript-eslint/parser": "^8.51.0",
     "@vercel/detect-agent": "^1.1.0",
     "chalk": "^5.6.2",
     "commander": "^12.1.0",
     "ejs": "^3.1.10",
-    "eslint": "^9.39.2",
-    "eslint-plugin-import": "^2.32.0",
-    "eslint-plugin-unicorn": "^62.0.0",
     "execa": "^9.6.1",
     "front-matter": "^4.0.2",
     "globby": "^16.1.0",
@@ -61,17 +59,11 @@
     "strip-ansi": "^7.1.2",
     "tar": "^7.5.4",
     "tmp-promise": "^3.0.3",
-    "tsdown": "^0.12.4",
-    "tsx": "^4.19.2",
     "typescript": "^5.7.2",
-    "typescript-eslint": "^8.52.0",
     "vitest": "^4.0.16",
     "zod": "^4.3.5"
   },
   "engines": {
     "node": ">=20.19.0"
-  },
-  "optionalDependencies": {
-    "@rollup/rollup-linux-x64-gnu": "^4.56.0"
   }
 }

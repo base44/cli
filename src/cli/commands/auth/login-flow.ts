@@ -1,19 +1,19 @@
 import { log } from "@clack/prompts";
 import pWaitFor from "p-wait-for";
-import {
-  writeAuth,
-  generateDeviceCode,
-  getTokenFromDeviceCode,
-  getUserInfo,
-} from "@/core/auth/index.js";
+import { runTask } from "@/cli/utils/index.js";
+import type { RunCommandResult } from "@/cli/utils/runCommand.js";
+import { theme } from "@/cli/utils/theme.js";
 import type {
   DeviceCodeResponse,
   TokenResponse,
   UserInfoResponse,
 } from "@/core/auth/index.js";
-import { runTask } from "@/cli/utils/index.js";
-import type { RunCommandResult } from "@/cli/utils/runCommand.js";
-import { theme } from "@/cli/utils/theme.js";
+import {
+  generateDeviceCode,
+  getTokenFromDeviceCode,
+  getUserInfo,
+  writeAuth,
+} from "@/core/auth/index.js";
 
 async function generateAndDisplayDeviceCode(): Promise<DeviceCodeResponse> {
   const deviceCodeResponse = await runTask(
@@ -29,7 +29,7 @@ async function generateAndDisplayDeviceCode(): Promise<DeviceCodeResponse> {
 
   log.info(
     `Verification code: ${theme.styles.bold(deviceCodeResponse.userCode)}` +
-    `\nPlease confirm this code at: ${deviceCodeResponse.verificationUri}`
+      `\nPlease confirm this code at: ${deviceCodeResponse.verificationUri}`
   );
 
   return deviceCodeResponse;
@@ -112,5 +112,7 @@ export async function login(): Promise<RunCommandResult> {
 
   await saveAuthData(token, userInfo);
 
-  return { outroMessage: `Successfully logged in as ${theme.styles.bold(userInfo.email)}` };
+  return {
+    outroMessage: `Successfully logged in as ${theme.styles.bold(userInfo.email)}`,
+  };
 }

@@ -1,9 +1,9 @@
 import { release, type } from "node:os";
-import { nanoid } from "nanoid";
 import { determineAgent } from "@vercel/detect-agent";
-import { getPostHogClient, isTelemetryEnabled } from "./posthog.js";
-import { isUserError, isCLIError } from "@/core/errors.js";
+import { nanoid } from "nanoid";
+import { isCLIError, isUserError } from "@/core/errors.js";
 import packageJson from "../../../package.json";
+import { getPostHogClient, isTelemetryEnabled } from "./posthog.js";
 
 /**
  * Context that can be set during CLI execution.
@@ -142,7 +142,11 @@ export class ErrorReporter {
 
     try {
       const client = getPostHogClient();
-      client?.captureException(error, this.getDistinctId(), this.buildProperties(error));
+      client?.captureException(
+        error,
+        this.getDistinctId(),
+        this.buildProperties(error)
+      );
     } catch {
       // Silent - don't let error reporting break the CLI
     }

@@ -1,5 +1,5 @@
 import { describe, it } from "vitest";
-import { setupCLITests, fixture } from "./testkit/index.js";
+import { fixture, setupCLITests } from "./testkit/index.js";
 
 describe("entities push command", () => {
   const t = setupCLITests();
@@ -24,7 +24,11 @@ describe("entities push command", () => {
 
   it("finds and lists entities in project", async () => {
     await t.givenLoggedInWithProject(fixture("with-entities"));
-    t.api.mockEntitiesPush({ created: ["Customer", "Product"], updated: [], deleted: [] });
+    t.api.mockEntitiesPush({
+      created: ["Customer", "Product"],
+      updated: [],
+      deleted: [],
+    });
 
     const result = await t.run("entities", "push");
 
@@ -35,7 +39,11 @@ describe("entities push command", () => {
 
   it("pushes entities successfully and shows results", async () => {
     await t.givenLoggedInWithProject(fixture("with-entities"));
-    t.api.mockEntitiesPush({ created: ["Customer"], updated: ["Product"], deleted: [] });
+    t.api.mockEntitiesPush({
+      created: ["Customer"],
+      updated: ["Product"],
+      deleted: [],
+    });
 
     const result = await t.run("entities", "push");
 
@@ -65,7 +73,10 @@ describe("entities push command", () => {
 
   it("fails when API returns error", async () => {
     await t.givenLoggedInWithProject(fixture("with-entities"));
-    t.api.mockEntitiesPushError({ status: 500, body: { error: "Internal server error" } });
+    t.api.mockEntitiesPushError({
+      status: 500,
+      body: { error: "Internal server error" },
+    });
 
     const result = await t.run("entities", "push");
 

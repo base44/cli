@@ -21,7 +21,10 @@ function getFullCommandName(command: Command): string {
   return parts.join(" ");
 }
 
-export function addCommandInfoToErrorReporter(program: Command, errorReporter: ErrorReporter): void {
+export function addCommandInfoToErrorReporter(
+  program: Command,
+  errorReporter: ErrorReporter
+): void {
   program.hook("preAction", (_, actionCommand) => {
     const fullCommandName = getFullCommandName(actionCommand);
 
