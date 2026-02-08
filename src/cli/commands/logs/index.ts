@@ -335,9 +335,9 @@ function formatLevel(level: string): string {
 }
 
 /**
- * Wrap text at specified width, returning array of lines.
+ * Wrap a single line at specified width, returning array of lines.
  */
-function wrapText(text: string, width: number): string[] {
+function wrapLine(text: string, width: number): string[] {
   if (text.length <= width) return [text];
 
   const lines: string[] = [];
@@ -365,21 +365,29 @@ const MESSAGE_WIDTH = 80;
 
 /**
  * Format a unified log entry for display.
+ * Preserves original newlines in the message and wraps long lines.
  */
 function formatEntry(entry: UnifiedLogEntry): string {
   const time = entry.time.substring(0, 19).replace("T", " ");
   const level = formatLevel(entry.level);
 
-  // Wrap message at 80 characters
-  const messageLines = wrapText(entry.message, MESSAGE_WIDTH);
-  const firstLine = `${theme.styles.dim(time)}  ${level}  ${messageLines[0]}`;
+  // Split by original newlines first, then wrap each line
+  const originalLines = entry.message.split("\n");
+  const allLines: string[] = [];
 
-  if (messageLines.length === 1) {
+  for (const line of originalLines) {
+    const wrappedLines = wrapLine(line, MESSAGE_WIDTH);
+    allLines.push(...wrappedLines);
+  }
+
+  const firstLine = `${theme.styles.dim(time)}  ${level}  ${allLines[0] ?? ""}`;
+
+  if (allLines.length <= 1) {
     return firstLine;
   }
 
   // Join continuation lines with proper indentation
-  const continuationLines = messageLines
+  const continuationLines = allLines
     .slice(1)
     .map((line) => `${MESSAGE_INDENT}${line}`)
     .join("\n");
