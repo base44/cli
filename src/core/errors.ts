@@ -249,6 +249,7 @@ export interface ApiErrorOptions extends CLIErrorOptions {
   statusCode?: number;
   requestUrl?: string;
   requestMethod?: string;
+  requestBody?: unknown;
   responseBody?: unknown;
 }
 
@@ -260,6 +261,7 @@ export class ApiError extends SystemError {
   readonly statusCode?: number;
   readonly requestUrl?: string;
   readonly requestMethod?: string;
+  readonly requestBody?: unknown;
   readonly responseBody?: unknown;
 
   constructor(message: string, options?: ApiErrorOptions) {
@@ -269,6 +271,7 @@ export class ApiError extends SystemError {
     this.statusCode = options?.statusCode;
     this.requestUrl = options?.requestUrl;
     this.requestMethod = options?.requestMethod;
+    this.requestBody = options?.requestBody;
     this.responseBody = options?.responseBody;
   }
 
@@ -301,10 +304,13 @@ export class ApiError extends SystemError {
         message = error.message;
       }
 
+      const requestBody = error.options.context?.__requestBody;
+
       return new ApiError(`Error ${context}: ${message}`, {
         statusCode: error.response.status,
         requestUrl: error.request.url,
         requestMethod: error.request.method,
+        requestBody,
         responseBody,
         cause: error,
       });

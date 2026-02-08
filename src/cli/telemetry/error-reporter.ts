@@ -77,6 +77,7 @@ export class ErrorReporter {
             api_status_code: error.statusCode,
             api_request_url: error.requestUrl,
             api_request_method: error.requestMethod,
+            api_request_body: error.requestBody,
             api_response_body: error.responseBody,
           }
         : {};

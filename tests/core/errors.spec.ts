@@ -154,16 +154,19 @@ describe("SystemError subclasses", () => {
 
   it("ApiError stores request and response data", () => {
     const responseBody = { error: "Bad Request", detail: "Invalid field" };
+    const requestBody = '{"name":"test"}';
     const error = new ApiError("API failed", {
       statusCode: 400,
       requestUrl: "https://api.base44.com/v1/entities",
       requestMethod: "POST",
+      requestBody,
       responseBody,
     });
 
     expect(error.statusCode).toBe(400);
     expect(error.requestUrl).toBe("https://api.base44.com/v1/entities");
     expect(error.requestMethod).toBe("POST");
+    expect(error.requestBody).toBe(requestBody);
     expect(error.responseBody).toEqual(responseBody);
   });
 
@@ -173,6 +176,7 @@ describe("SystemError subclasses", () => {
     expect(error.statusCode).toBe(500);
     expect(error.requestUrl).toBeUndefined();
     expect(error.requestMethod).toBeUndefined();
+    expect(error.requestBody).toBeUndefined();
     expect(error.responseBody).toBeUndefined();
   });
 
@@ -193,9 +197,30 @@ describe("SystemError subclasses", () => {
     expect(apiError.statusCode).toBe(404);
     expect(apiError.requestUrl).toBe("https://api.base44.com/v1/apps/123");
     expect(apiError.requestMethod).toBe("GET");
+    expect(apiError.requestBody).toBeUndefined();
     expect(apiError.responseBody).toEqual(responseBody);
     expect(apiError.message).toContain("fetching app");
     expect(apiError.message).toContain("Not Found");
+  });
+
+  it("ApiError.fromHttpError includes request body from options.context.__requestBody when present", async () => {
+    const { HTTPError } = await import("ky");
+    const responseBody = { message: "Bad Request" };
+    const response = new Response(JSON.stringify(responseBody), {
+      status: 400,
+      statusText: "Bad Request",
+    });
+    const request = new Request("https://api.base44.com/v1/entities", {
+      method: "POST",
+    });
+    const options = {
+      context: { __requestBody: '{"entities":[]}' },
+    } as never;
+
+    const httpError = new HTTPError(response, request, options);
+    const apiError = await ApiError.fromHttpError(httpError, "pushing entities");
+
+    expect(apiError.requestBody).toBe('{"entities":[]}');
   });
 
   it("ApiError.fromHttpError handles non-JSON response body", async () => {
@@ -224,6 +249,7 @@ describe("SystemError subclasses", () => {
     expect(apiError.statusCode).toBeUndefined();
     expect(apiError.requestUrl).toBeUndefined();
     expect(apiError.requestMethod).toBeUndefined();
+    expect(apiError.requestBody).toBeUndefined();
     expect(apiError.responseBody).toBeUndefined();
     expect(apiError.message).toContain("connecting");
     expect(apiError.message).toContain("Network timeout");
