@@ -152,6 +152,112 @@ describe("SystemError subclasses", () => {
     );
   });
 
+  it("ApiError stores request and response data", () => {
+    const responseBody = { error: "Bad Request", detail: "Invalid field" };
+    const requestBody = '{"name":"test"}';
+    const error = new ApiError("API failed", {
+      statusCode: 400,
+      requestUrl: "https://api.base44.com/v1/entities",
+      requestMethod: "POST",
+      requestBody,
+      responseBody,
+    });
+
+    expect(error.statusCode).toBe(400);
+    expect(error.requestUrl).toBe("https://api.base44.com/v1/entities");
+    expect(error.requestMethod).toBe("POST");
+    expect(error.requestBody).toBe(requestBody);
+    expect(error.responseBody).toEqual(responseBody);
+  });
+
+  it("ApiError has undefined request/response fields when not provided", () => {
+    const error = new ApiError("API failed", { statusCode: 500 });
+
+    expect(error.statusCode).toBe(500);
+    expect(error.requestUrl).toBeUndefined();
+    expect(error.requestMethod).toBeUndefined();
+    expect(error.requestBody).toBeUndefined();
+    expect(error.responseBody).toBeUndefined();
+  });
+
+  it("ApiError.fromHttpError extracts request and response data from HTTPError", async () => {
+    const { HTTPError } = await import("ky");
+    const responseBody = { message: "Not Found" };
+    const response = new Response(JSON.stringify(responseBody), {
+      status: 404,
+      statusText: "Not Found",
+    });
+    const request = new Request("https://api.base44.com/v1/apps/123", {
+      method: "GET",
+    });
+
+    const httpError = new HTTPError(response, request, {} as never);
+    const apiError = await ApiError.fromHttpError(httpError, "fetching app");
+
+    expect(apiError.statusCode).toBe(404);
+    expect(apiError.requestUrl).toBe("https://api.base44.com/v1/apps/123");
+    expect(apiError.requestMethod).toBe("GET");
+    expect(apiError.requestBody).toBeUndefined();
+    expect(apiError.responseBody).toEqual(responseBody);
+    expect(apiError.message).toContain("fetching app");
+    expect(apiError.message).toContain("Not Found");
+  });
+
+  it("ApiError.fromHttpError includes request body from options.context.__requestBody when present", async () => {
+    const { HTTPError } = await import("ky");
+    const responseBody = { message: "Bad Request" };
+    const response = new Response(JSON.stringify(responseBody), {
+      status: 400,
+      statusText: "Bad Request",
+    });
+    const request = new Request("https://api.base44.com/v1/entities", {
+      method: "POST",
+    });
+    const options = {
+      context: { __requestBody: '{"entities":[]}' },
+    } as never;
+
+    const httpError = new HTTPError(response, request, options);
+    const apiError = await ApiError.fromHttpError(
+      httpError,
+      "pushing entities"
+    );
+
+    expect(apiError.requestBody).toBe('{"entities":[]}');
+  });
+
+  it("ApiError.fromHttpError handles non-JSON response body", async () => {
+    const { HTTPError } = await import("ky");
+    const response = new Response("Internal Server Error", {
+      status: 500,
+      statusText: "Internal Server Error",
+    });
+    const request = new Request("https://api.base44.com/v1/deploy", {
+      method: "POST",
+    });
+
+    const httpError = new HTTPError(response, request, {} as never);
+    const apiError = await ApiError.fromHttpError(httpError, "deploying");
+
+    expect(apiError.statusCode).toBe(500);
+    expect(apiError.requestUrl).toBe("https://api.base44.com/v1/deploy");
+    expect(apiError.requestMethod).toBe("POST");
+    expect(apiError.responseBody).toBeUndefined();
+  });
+
+  it("ApiError.fromHttpError handles plain Error", async () => {
+    const error = new Error("Network timeout");
+    const apiError = await ApiError.fromHttpError(error, "connecting");
+
+    expect(apiError.statusCode).toBeUndefined();
+    expect(apiError.requestUrl).toBeUndefined();
+    expect(apiError.requestMethod).toBeUndefined();
+    expect(apiError.requestBody).toBeUndefined();
+    expect(apiError.responseBody).toBeUndefined();
+    expect(apiError.message).toContain("connecting");
+    expect(apiError.message).toContain("Network timeout");
+  });
+
   it("FileNotFoundError has correct defaults", () => {
     const error = new FileNotFoundError("File not found: /path/to/file");
     expect(error.code).toBe("FILE_NOT_FOUND");

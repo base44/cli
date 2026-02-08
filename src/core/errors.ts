@@ -245,30 +245,43 @@ export class InvalidInputError extends UserError {
 // System Errors
 // ============================================================================
 
+export interface ApiErrorOptions extends CLIErrorOptions {
+  statusCode?: number;
+  requestUrl?: string;
+  requestMethod?: string;
+  requestBody?: unknown;
+  responseBody?: unknown;
+}
+
 /**
  * Thrown when an API request fails.
  */
 export class ApiError extends SystemError {
   readonly code = "API_ERROR";
   readonly statusCode?: number;
+  readonly requestUrl?: string;
+  readonly requestMethod?: string;
+  readonly requestBody?: unknown;
+  readonly responseBody?: unknown;
 
-  constructor(
-    message: string,
-    options?: CLIErrorOptions & { statusCode?: number }
-  ) {
+  constructor(message: string, options?: ApiErrorOptions) {
     const hints =
       options?.hints ?? ApiError.getDefaultHints(options?.statusCode);
     super(message, { hints, cause: options?.cause });
     this.statusCode = options?.statusCode;
+    this.requestUrl = options?.requestUrl;
+    this.requestMethod = options?.requestMethod;
+    this.requestBody = options?.requestBody;
+    this.responseBody = options?.responseBody;
   }
 
   /**
    * Creates an ApiError from a caught error (typically HTTPError from ky).
-   * Extracts status code and formats the error message from the response body.
+   * Extracts status code, request info, and response body for error reporting.
    *
    * @param error - The caught error (HTTPError, Error, or unknown)
    * @param context - Description of what operation failed (e.g., "syncing agents")
-   * @returns ApiError with formatted message and status code (if available)
+   * @returns ApiError with formatted message, status code, and request/response data
    *
    * @example
    * try {
@@ -283,15 +296,22 @@ export class ApiError extends SystemError {
   ): Promise<ApiError> {
     if (error instanceof HTTPError) {
       let message: string;
+      let responseBody: unknown;
       try {
-        const body: unknown = await error.response.clone().json();
-        message = formatApiError(body);
+        responseBody = await error.response.clone().json();
+        message = formatApiError(responseBody);
       } catch {
         message = error.message;
       }
 
+      const requestBody = error.options.context?.__requestBody;
+
       return new ApiError(`Error ${context}: ${message}`, {
         statusCode: error.response.status,
+        requestUrl: error.request.url,
+        requestMethod: error.request.method,
+        requestBody,
+        responseBody,
         cause: error,
       });
     }
