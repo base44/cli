@@ -161,7 +161,7 @@ describe("logs command", () => {
     const result = await t.run("logs", "--function", "my-function");
 
     t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain("Logs for \"my-function\" fetched");
+    t.expectResult(result).toContain('Logs for "my-function" fetched');
     t.expectResult(result).toContain("Showing 2 log entries");
     t.expectResult(result).toContain("Processing request");
     t.expectResult(result).toContain("Something went wrong");
@@ -186,11 +186,25 @@ describe("logs command", () => {
   it("filters function logs by --level", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
     t.api.mockFunctionLogs("my-function", [
-      { time: "2024-01-15T10:30:00.000Z", level: "info", message: "Info message" },
-      { time: "2024-01-15T10:30:00.050Z", level: "error", message: "Error message" },
+      {
+        time: "2024-01-15T10:30:00.000Z",
+        level: "info",
+        message: "Info message",
+      },
+      {
+        time: "2024-01-15T10:30:00.050Z",
+        level: "error",
+        message: "Error message",
+      },
     ]);
 
-    const result = await t.run("logs", "--function", "my-function", "--level", "error");
+    const result = await t.run(
+      "logs",
+      "--function",
+      "my-function",
+      "--level",
+      "error"
+    );
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Error message");
@@ -261,7 +275,13 @@ describe("logs command", () => {
     // --level is validated when fetching function logs; use --function so level is parsed
     t.api.mockFunctionLogs("dummy", []);
 
-    const result = await t.run("logs", "--function", "dummy", "--level", "invalid");
+    const result = await t.run(
+      "logs",
+      "--function",
+      "dummy",
+      "--level",
+      "invalid"
+    );
 
     t.expectResult(result).toFail();
     t.expectResult(result).toContain("Invalid level");
