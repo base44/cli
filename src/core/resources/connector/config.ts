@@ -1,14 +1,10 @@
-import { basename } from "node:path";
 import { globby } from "globby";
 import { SchemaValidationError } from "@/core/errors.js";
 import { CONFIG_FILE_EXTENSION_GLOB } from "../../consts.js";
 import { pathExists, readJsonFile } from "../../utils/fs.js";
 import type { ConnectorResource } from "./schema.js";
-import { ConnectorResourceSchema, IntegrationTypeSchema } from "./schema.js";
+import { ConnectorResourceSchema } from "./schema.js";
 
-/**
- * Read and validate a single connector file.
- */
 async function readConnectorFile(
   connectorPath: string
 ): Promise<ConnectorResource> {
@@ -20,24 +16,6 @@ async function readConnectorFile(
       "Invalid connector file",
       result.error,
       connectorPath
-    );
-  }
-
-  // Validate that filename matches the type
-  const filename = basename(connectorPath).replace(/\.(json|jsonc)$/, "");
-  const typeResult = IntegrationTypeSchema.safeParse(filename);
-
-  if (!typeResult.success) {
-    throw new SchemaValidationError(
-      `Connector filename "${filename}" is not a valid integration type`,
-      typeResult.error,
-      connectorPath
-    );
-  }
-
-  if (filename !== result.data.type) {
-    throw new Error(
-      `Connector filename "${filename}" does not match type "${result.data.type}" in ${connectorPath}`
     );
   }
 
@@ -64,7 +42,6 @@ export async function readAllConnectors(
     files.map((filePath) => readConnectorFile(filePath))
   );
 
-  // Check for duplicate types
   const types = new Set<string>();
   for (const connector of connectors) {
     if (types.has(connector.type)) {

@@ -3,14 +3,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as api from "../../src/core/resources/connector/api.js";
 import { readAllConnectors } from "../../src/core/resources/connector/config.js";
 import {
-  runOAuthFlow,
   type OAuthFlowParams,
+  runOAuthFlow,
 } from "../../src/core/resources/connector/oauth.js";
 import { pushConnectors } from "../../src/core/resources/connector/push.js";
 import {
+  type ConnectorResource,
   ConnectorResourceSchema,
   IntegrationTypeSchema,
-  type ConnectorResource,
 } from "../../src/core/resources/connector/schema.js";
 
 vi.mock("../../src/core/resources/connector/api.js");
@@ -144,21 +144,10 @@ describe("readAllConnectors", () => {
       "Invalid connector file"
     );
   });
-
-  it("throws error when filename does not match type", async () => {
-    const connectorsDir = resolve(
-      FIXTURES_DIR,
-      "connector-type-mismatch/connectors"
-    );
-
-    await expect(readAllConnectors(connectorsDir)).rejects.toThrow(
-      /does not match type/
-    );
-  });
 });
 
 const mockListConnectors = vi.mocked(api.listConnectors);
-const mockSyncConnector = vi.mocked(api.syncConnector);
+const mockSetConnector = vi.mocked(api.setConnector);
 const mockRemoveConnector = vi.mocked(api.removeConnector);
 
 describe("pushConnectors", () => {
@@ -177,7 +166,7 @@ describe("pushConnectors", () => {
     const local: ConnectorResource[] = [
       { type: "gmail", scopes: ["https://mail.google.com/"] },
     ];
-    mockSyncConnector.mockResolvedValue({
+    mockSetConnector.mockResolvedValue({
       redirect_url: null,
       connection_id: null,
       already_authorized: true,
@@ -185,7 +174,7 @@ describe("pushConnectors", () => {
 
     const result = await pushConnectors(local);
 
-    expect(mockSyncConnector).toHaveBeenCalledWith("gmail", [
+    expect(mockSetConnector).toHaveBeenCalledWith("gmail", [
       "https://mail.google.com/",
     ]);
     expect(result.results).toEqual([{ type: "gmail", action: "synced" }]);
@@ -217,7 +206,7 @@ describe("pushConnectors", () => {
         { integration_type: "slack", status: "ACTIVE", scopes: ["chat:write"] },
       ],
     });
-    mockSyncConnector.mockResolvedValue({
+    mockSetConnector.mockResolvedValue({
       redirect_url: null,
       connection_id: null,
       already_authorized: true,
@@ -229,7 +218,7 @@ describe("pushConnectors", () => {
 
     const result = await pushConnectors(local);
 
-    expect(mockSyncConnector).toHaveBeenCalledWith("gmail", [
+    expect(mockSetConnector).toHaveBeenCalledWith("gmail", [
       "https://mail.google.com/",
     ]);
     expect(mockRemoveConnector).toHaveBeenCalledWith("slack");
@@ -252,7 +241,7 @@ describe("pushConnectors", () => {
         },
       ],
     });
-    mockSyncConnector.mockResolvedValue({
+    mockSetConnector.mockResolvedValue({
       redirect_url: null,
       connection_id: null,
       already_authorized: true,
@@ -268,7 +257,7 @@ describe("pushConnectors", () => {
     const local: ConnectorResource[] = [
       { type: "gmail", scopes: ["https://mail.google.com/"] },
     ];
-    mockSyncConnector.mockResolvedValue({
+    mockSetConnector.mockResolvedValue({
       redirect_url: "https://accounts.google.com/oauth",
       connection_id: "conn_123",
       already_authorized: false,
@@ -290,7 +279,7 @@ describe("pushConnectors", () => {
     const local: ConnectorResource[] = [
       { type: "gmail", scopes: ["https://mail.google.com/"] },
     ];
-    mockSyncConnector.mockResolvedValue({
+    mockSetConnector.mockResolvedValue({
       redirect_url: null,
       connection_id: null,
       already_authorized: false,
@@ -314,7 +303,7 @@ describe("pushConnectors", () => {
     const local: ConnectorResource[] = [
       { type: "gmail", scopes: ["https://mail.google.com/"] },
     ];
-    mockSyncConnector.mockRejectedValue(new Error("Network error"));
+    mockSetConnector.mockRejectedValue(new Error("Network error"));
 
     const result = await pushConnectors(local);
 
@@ -343,7 +332,7 @@ describe("pushConnectors", () => {
       { type: "gmail", scopes: ["https://mail.google.com/"] },
       { type: "slack", scopes: ["chat:write"] },
     ];
-    mockSyncConnector.mockResolvedValue({
+    mockSetConnector.mockResolvedValue({
       redirect_url: null,
       connection_id: null,
       already_authorized: true,
@@ -351,7 +340,7 @@ describe("pushConnectors", () => {
 
     const result = await pushConnectors(local);
 
-    expect(mockSyncConnector).toHaveBeenCalledTimes(2);
+    expect(mockSetConnector).toHaveBeenCalledTimes(2);
     expect(result.results).toEqual([
       { type: "gmail", action: "synced" },
       { type: "slack", action: "synced" },

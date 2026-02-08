@@ -1,10 +1,10 @@
 import open from "open";
 import pWaitFor, { TimeoutError } from "p-wait-for";
 import { getOAuthStatus } from "./api.js";
-import type { IntegrationType, ConnectorOAuthStatus } from "./schema.js";
+import type { ConnectorOAuthStatus, IntegrationType } from "./schema.js";
 
 const POLL_INTERVAL_MS = 2000;
-const POLL_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+const POLL_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
 
 export interface OAuthFlowParams {
   type: IntegrationType;

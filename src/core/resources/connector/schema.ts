@@ -42,7 +42,7 @@ export const SlackConnectorSchema = z.object({
   scopes: z.array(z.string()).default([]),
 });
 
-/** Notion - Scopes: https://developers.notion.com/docs/authorization (page-based access model) */
+/** Notion - Scopes are preauthorized, no need to request them explicitly (values will be ignored) */
 export const NotionConnectorSchema = z.object({
   type: z.literal("notion"),
   scopes: z.array(z.string()).default([]),
@@ -60,13 +60,13 @@ export const HubspotConnectorSchema = z.object({
   scopes: z.array(z.string()).default([]),
 });
 
-/** LinkedIn - Scopes: https://learn.microsoft.com/en-us/linkedin/marketing/increasing-access */
+/** LinkedIn - Scopes: https://learn.microsoft.com/en-us/linkedin/shared/authentication/authorization-code-flow */
 export const LinkedInConnectorSchema = z.object({
   type: z.literal("linkedin"),
   scopes: z.array(z.string()).default([]),
 });
 
-/** TikTok - Scopes: https://developers.tiktok.com/doc/scopes-overview */
+/** TikTok - Scopes: https://developers.tiktok.com/doc/tiktok-api-scopes */
 export const TikTokConnectorSchema = z.object({
   type: z.literal("tiktok"),
   scopes: z.array(z.string()).default([]),
@@ -107,9 +107,9 @@ export const IntegrationTypeSchema = z.enum([
 export type IntegrationType = z.infer<typeof IntegrationTypeSchema>;
 
 export const ConnectorStatusSchema = z.enum([
-  "ACTIVE",
-  "DISCONNECTED",
-  "EXPIRED",
+  "active",
+  "disconnected",
+  "expired",
 ]);
 
 export type ConnectorStatus = z.infer<typeof ConnectorStatusSchema>;
@@ -131,18 +131,22 @@ export type ListConnectorsResponse = z.infer<
   typeof ListConnectorsResponseSchema
 >;
 
-export const SyncConnectorResponseSchema = z.object({
+export const SetConnectorResponseSchema = z.object({
   redirect_url: z.string().nullable(),
   connection_id: z.string().nullable(),
   already_authorized: z.boolean(),
-  error: z.literal("different_user").optional(),
-  error_message: z.string().optional(),
-  other_user_email: z.string().optional(),
+  error: z.string().nullable().optional(),
+  error_message: z.string().nullable().optional(),
+  other_user_email: z.string().nullable().optional(),
 });
 
-export type SyncConnectorResponse = z.infer<typeof SyncConnectorResponseSchema>;
+export type SetConnectorResponse = z.infer<typeof SetConnectorResponseSchema>;
 
-export const ConnectorOAuthStatusSchema = z.enum(["ACTIVE", "FAILED", "PENDING"]);
+export const ConnectorOAuthStatusSchema = z.enum([
+  "ACTIVE",
+  "FAILED",
+  "PENDING",
+]);
 
 export type ConnectorOAuthStatus = z.infer<typeof ConnectorOAuthStatusSchema>;
 

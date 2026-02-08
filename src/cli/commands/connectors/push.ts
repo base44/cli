@@ -1,0 +1,161 @@
+import { confirm, isCancel, log } from "@clack/prompts";
+import chalk from "chalk";
+import { Command } from "commander";
+import type { CLIContext } from "@/cli/types.js";
+import { runCommand, runTask } from "@/cli/utils/index.js";
+import type { RunCommandResult } from "@/cli/utils/runCommand.js";
+import { readProjectConfig } from "@/core/index.js";
+import {
+  type ConnectorOAuthStatus,
+  type ConnectorSyncResult,
+  type IntegrationType,
+  pushConnectors,
+  runOAuthFlow,
+} from "@/core/resources/connector/index.js";
+
+type PendingOAuthResult = ConnectorSyncResult & {
+  redirectUrl: string;
+  connectionId: string;
+};
+
+function isPendingOAuth(r: ConnectorSyncResult): r is PendingOAuthResult {
+  return r.action === "needs_oauth" && !!r.redirectUrl && !!r.connectionId;
+}
+
+function printSummary(
+  results: ConnectorSyncResult[],
+  oauthOutcomes: Map<IntegrationType, ConnectorOAuthStatus>
+): void {
+  const synced: IntegrationType[] = [];
+  const added: IntegrationType[] = [];
+  const removed: IntegrationType[] = [];
+  const failed: { type: IntegrationType; error?: string }[] = [];
+
+  for (const r of results) {
+    const oauthStatus = oauthOutcomes.get(r.type);
+
+    if (r.action === "synced") {
+      synced.push(r.type);
+    } else if (r.action === "removed") {
+      removed.push(r.type);
+    } else if (r.action === "error") {
+      failed.push({ type: r.type, error: r.error });
+    } else if (r.action === "needs_oauth") {
+      if (oauthStatus === "ACTIVE") {
+        added.push(r.type);
+      } else if (oauthStatus === "PENDING") {
+        failed.push({ type: r.type, error: "authorization timed out" });
+      } else if (oauthStatus === "FAILED") {
+        failed.push({ type: r.type, error: "authorization failed" });
+      } else {
+        failed.push({ type: r.type, error: "needs authorization" });
+      }
+    }
+  }
+
+  log.info("");
+  log.info(chalk.bold("Summary:"));
+
+  if (synced.length > 0) {
+    log.info(chalk.green(`  Synced: ${synced.join(", ")}`));
+  }
+  if (added.length > 0) {
+    log.info(chalk.green(`  Added: ${added.join(", ")}`));
+  }
+  if (removed.length > 0) {
+    log.info(chalk.dim(`  Removed: ${removed.join(", ")}`));
+  }
+  for (const r of failed) {
+    log.info(chalk.red(`  Failed: ${r.type}${r.error ? ` - ${r.error}` : ""}`));
+  }
+}
+
+async function pushConnectorsAction(): Promise<RunCommandResult> {
+  const { connectors } = await readProjectConfig();
+
+  if (connectors.length === 0) {
+    log.info(
+      "No local connectors found - checking for remote connectors to remove"
+    );
+  } else {
+    const connectorNames = connectors.map((c) => c.type).join(", ");
+    log.info(
+      `Found ${connectors.length} connectors to push: ${connectorNames}`
+    );
+  }
+
+  const { results } = await runTask(
+    "Pushing connectors to Base44",
+    async () => {
+      return await pushConnectors(connectors);
+    },
+    {
+      successMessage: "Connectors pushed",
+      errorMessage: "Failed to push connectors",
+    }
+  );
+
+  const oauthOutcomes = new Map<IntegrationType, ConnectorOAuthStatus>();
+  const needsOAuth = results.filter(isPendingOAuth);
+  let outroMessage = "Connectors pushed to Base44";
+
+  if (needsOAuth.length > 0) {
+    log.info("");
+    log.info(
+      chalk.yellow(
+        `${needsOAuth.length} connector(s) require authorization in your browser:`
+      )
+    );
+    for (const connector of needsOAuth) {
+      log.info(`  ${connector.type}: ${chalk.dim(connector.redirectUrl)}`);
+    }
+
+    const pending = needsOAuth.map((c) => c.type).join(", ");
+
+    if (process.env.CI) {
+      outroMessage = `Skipped OAuth in CI. Pending: ${pending}. Run 'base44 connectors push' locally to authorize.`;
+    } else {
+      const shouldAuth = await confirm({
+        message: "Open browser to authorize now?",
+      });
+
+      if (isCancel(shouldAuth) || !shouldAuth) {
+        outroMessage = `Authorization skipped. Pending: ${pending}. Run 'base44 connectors push' again to complete.`;
+      } else {
+        for (const connector of needsOAuth) {
+          log.info(`\nOpening browser for ${connector.type}...`);
+
+          const oauthResult = await runTask(
+            `Waiting for ${connector.type} authorization...`,
+            async () => {
+              return await runOAuthFlow({
+                type: connector.type,
+                redirectUrl: connector.redirectUrl,
+                connectionId: connector.connectionId,
+              });
+            },
+            {
+              successMessage: `${connector.type} authorization complete`,
+              errorMessage: `${connector.type} authorization failed`,
+            }
+          );
+
+          oauthOutcomes.set(connector.type, oauthResult.status);
+        }
+      }
+    }
+  }
+
+  printSummary(results, oauthOutcomes);
+  return { outroMessage };
+}
+
+export function getConnectorsPushCommand(context: CLIContext): Command {
+  return new Command("push")
+    .description(
+      "Push local connectors to Base44 (syncs scopes and removes unlisted)"
+    )
+    .action(async () => {
+      await runCommand(pushConnectorsAction, { requireAuth: true }, context);
+    });
+}
