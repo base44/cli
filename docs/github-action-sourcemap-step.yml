@@ -1,0 +1,28 @@
+# GitHub Action Step for Uploading Sourcemaps to PostHog
+#
+# Add this step to .github/workflows/manual-publish.yml after the "Build package" step
+# (after line 150 in the current workflow)
+#
+# Prerequisites:
+# 1. Add POSTHOG_PROJECT_API_KEY secret to GitHub repository secrets
+#    - Go to PostHog Settings → Project → Project API Key
+#    - Copy the Project API Key (not the public API key)
+#    - In GitHub: Settings → Secrets and variables → Actions → New secret
+#
+# 2. Ensure the build step has completed successfully before this step
+
+- name: Upload sourcemaps to PostHog
+  if: github.event.inputs.dry_run == 'false'
+  uses: PostHog/posthog-js-sourcemaps-upload-action@v1
+  with:
+    # PostHog Project API Key (stored as a GitHub secret)
+    api_key: ${{ secrets.POSTHOG_PROJECT_API_KEY }}
+
+    # PostHog public project token (from src/cli/telemetry/consts.ts)
+    project_id: phc_VsHW5HxTzpORanESQh9A08tmZLQkKbtIBTYoQvRpPOp
+
+    # Version being published (set by the workflow)
+    version: ${{ env.NEW_VERSION }}
+
+    # Directory containing the built JS files and sourcemaps
+    source_map_dir: ./dist/cli

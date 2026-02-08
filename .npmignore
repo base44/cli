@@ -1,0 +1,4 @@
+# Exclude sourcemaps from npm package
+# (They are uploaded to PostHog separately via GitHub Actions)
+*.map
+dist/**/*.map

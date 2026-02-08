@@ -7,7 +7,7 @@ const runBuild = async () => {
     outdir: "./dist/cli",
     target: "node",
     format: "esm",
-    sourcemap: "inline",
+    sourcemap: "external",
   });
 
   if (!result.success) {
