@@ -276,7 +276,15 @@ async function executeCreate({
     );
   }
 
-  return { outroMessage: "Your project is set up and ready to use" };
+  // Determine if user needs to cd into the project directory
+  const isCurrentDir = projectPath === "." || projectPath === "./";
+  const cdCommand = isCurrentDir ? null : `cd ${projectPath}`;
+
+  const outroMessage = cdCommand
+    ? `Your project is set up and ready to use\n\nNext step: ${theme.styles.bold(cdCommand)}`
+    : "Your project is set up and ready to use";
+
+  return { outroMessage };
 }
 
 export function getCreateCommand(context: CLIContext): Command {
