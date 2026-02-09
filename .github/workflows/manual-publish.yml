@@ -149,6 +149,15 @@ jobs:
       - name: Build package
         run: bun run build
 
+      - name: Upload sourcemaps to PostHog
+        if: github.event.inputs.dry_run == 'false'
+        uses: PostHog/upload-source-maps@v0.4.6
+        with:
+          directory: ./dist/cli
+          env-id: ${{ vars.POSTHOG_PROJECT_ID }}
+          cli-token: ${{ secrets.POSTHOG_CLI_API_KEY }}
+          version: ${{ env.NEW_VERSION }}
+
       - name: Show package info
         run: |
           echo "Package name: $(node -p "require('./package.json').name")"
