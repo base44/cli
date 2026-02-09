@@ -81,6 +81,7 @@ const GenericConnectorSchema = z.object({
   scopes: z.array(z.string()).default([]),
 });
 
+
 export const ConnectorResourceSchema = z.union([
   GoogleCalendarConnectorSchema,
   GoogleDriveConnectorSchema,
