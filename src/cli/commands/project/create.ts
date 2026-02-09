@@ -244,7 +244,7 @@ async function executeCreate({
       await runTask(
         "Installing AI agent skills...",
         async () => {
-          await execa("npx", ["-y", "skills", "add", "base44/skills", "-a", "claude-code", "-y"], {
+          await execa("npx", ["-y", "skills", "add", "base44/skills", "-y"], {
             cwd: resolvedPath,
             shell: true,
           });

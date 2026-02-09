@@ -1,9 +1,12 @@
-import type { SyncEntitiesResponse, Entity, GetEntitiesResponse } from "./schema.js";
 import type { KyResponse } from "ky";
 import { HTTPError } from "ky";
+import { getAppClient } from "@/core/clients/index.js";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";
-import { GetEntitiesResponseSchema, SyncEntitiesResponseSchema } from "@/core/resources/entity/schema.js";
-import { getAppClient } from "@/core/clients/base44-client.js";
+import type {
+  Entity,
+  SyncEntitiesResponse,
+} from "@/core/resources/entity/schema.js";
+import { SyncEntitiesResponseSchema } from "@/core/resources/entity/schema.js";
 
 export async function syncEntities(
   entities: Entity[]
@@ -43,13 +46,3 @@ export async function syncEntities(
 
   return result.data;
 }
-
-export async function getEntities(): Promise<GetEntitiesResponse> {
-  const appClient = getAppClient();
-  const response = await appClient.get("entity-schemas");
-  const data = await response.json();
-  
-  const result = GetEntitiesResponseSchema.parse(data);
-
-  return result;
-};

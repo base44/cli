@@ -54,7 +54,6 @@ async function eject(options: EjectOptions): Promise<RunCommandResult> {
     async (updateMessage) => {
       await createProjectFilesForExistingProject({
         projectId,
-        projectName: selectedProject.name,
         projectPath: resolvedPath,
       });
 

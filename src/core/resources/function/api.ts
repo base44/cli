@@ -1,8 +1,11 @@
-import type { FunctionWithCode, DeployFunctionsResponse, GetFunctionsResponse } from "./schema.js";
 import type { KyResponse } from "ky";
+import { getAppClient } from "@/core/clients/index.js";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";
-import { DeployFunctionsResponseSchema, GetFunctionsResponseSchema } from "@/core/resources/function/schema.js";
-import { getAppClient } from "@/core/clients/base44-client.js";
+import type {
+  DeployFunctionsResponse,
+  FunctionWithCode,
+} from "@/core/resources/function/schema.js";
+import { DeployFunctionsResponseSchema } from "@/core/resources/function/schema.js";
 
 function toDeployPayloadItem(fn: FunctionWithCode) {
   return {
@@ -41,12 +44,4 @@ export async function deployFunctions(
   }
 
   return result.data;
-}
-
-export async function getFunctions(): Promise<GetFunctionsResponse> {
-  const appClient = getAppClient();
-  const response = await appClient.get("backend-functions");
-  const result = GetFunctionsResponseSchema.parse(await response.json());
-  
-  return result;
 }

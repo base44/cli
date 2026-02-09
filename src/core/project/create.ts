@@ -1,10 +1,10 @@
 import { globby } from "globby";
-import { PROJECT_CONFIG_PATTERNS } from "../consts.js";
-import { createProject, downloadProject } from "./api.js";
-import { renderTemplate } from "./template.js";
-import type { Template } from "./schema.js";
 import kebabCase from "lodash.kebabcase";
+import { PROJECT_CONFIG_PATTERNS } from "@/core/consts.js";
 import { ConfigExistsError } from "@/core/errors.js";
+import { createProject, downloadProject } from "@/core/project/api";
+import type { Template } from "@/core/project/schema.js";
+import { renderTemplate } from "@/core/project/template.js";
 
 export interface CreateProjectOptions {
   name: string;
@@ -52,9 +52,9 @@ export async function createProjectFiles(
 }
 
 export async function createProjectFilesForExistingProject(
-  options: { projectId: string, projectName: string, projectPath: string; }
+  options: { projectId: string, projectPath: string; }
 ): Promise<CreateProjectResult> {
-  const { projectId, projectName, projectPath } = options;
+  const { projectId, projectPath } = options;
 
   // Check if project already exists
   const existingConfigs = await globby(PROJECT_CONFIG_PATTERNS, {
@@ -68,11 +68,11 @@ export async function createProjectFilesForExistingProject(
     );
   }
 
-  // Create the project via API to get the app ID
+  // Download the project's ZIP and extract the files
   await downloadProject(projectId, projectPath);
 
   return {
     projectId,
-    projectDir: kebabCase(projectName),
+    projectDir: projectPath,
   };
 }

@@ -1,27 +1,15 @@
-// Base44 Project Configuration
-// JSONC enables inline documentation and discoverability directly in config files.
 // Commented-out properties show available options you can enable.
 
 {
-  "name": "<%= name %>"
+  "name": "<%= name %>"<% if (description) { %>,
+  "description": "<%= description %>"<% } %>
+
   // Site/hosting configuration
   // Docs: https://docs.base44.com/configuration/hosting
-  <% if (hosting) { %>
-  "site": {
-    "installCommand": "npm install",
-    "buildCommand": "npm run build",
-    "serveCommand": "npm run dev",
-    "outputDirectory": "./dist"
-  }
-  <% } else { %>
   // "site": {
-  //   "installCommand": "npm install",
   //   "buildCommand": "npm run build",
   //   "serveCommand": "npm run dev",
-  //   "outputDirectory": "./dist"
+  //   "outputDirectory": "./dist",
+  //   "installCommand": "npm ci"
   // }
-  <% } %>
-  <% if (description) { %>,
-    "description": "<%= description %>"<% }
-  %>
 }

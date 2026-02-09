@@ -12,7 +12,6 @@ export interface TemplateData {
   name: string;
   description?: string;
   projectId: string;
-  hosting?: boolean;
 }
 
 interface TemplateFrontmatter {

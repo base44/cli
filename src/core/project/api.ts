@@ -9,7 +9,7 @@ import {
   CreateProjectResponseSchema,
   ProjectsResponseSchema,
 } from "@/core/project/schema.js";
-import { makeDirectory } from "../utils";
+import { makeDirectory } from "@/core/utils";
 
 export async function createProject(projectName: string, description?: string) {
   let response: KyResponse;
@@ -63,12 +63,6 @@ export async function listProjects(): Promise<ProjectsResponse> {
   }
 
   return result.data;
-}
-
-interface FunctionConfig {
-  name: string;
-  entry: string;
-  files: Array<{ path: string; content: string }>;
 }
 
 export async function downloadProject(projectId: string, projectPath: string) {

@@ -100,14 +100,6 @@ export type DeployFunctionsResponse = z.infer<
   typeof DeployFunctionsResponseSchema
 >;
 
-export const GetFunctionsResponseSchema = z.object({
-  functions: z.array(z.object({
-    name: z.string(),
-    code: z.string(),
-  })),
-});
-
-export type GetFunctionsResponse = z.infer<typeof GetFunctionsResponseSchema>;
 export type FunctionWithCode = Omit<BackendFunction, "filePaths"> & {
   files: FunctionFile[];
 };
