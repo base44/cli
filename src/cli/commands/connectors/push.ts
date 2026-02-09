@@ -1,17 +1,16 @@
 import { confirm, isCancel, log } from "@clack/prompts";
 import { Command } from "commander";
 import open from "open";
-import pWaitFor, { TimeoutError } from "p-wait-for";
 import type { CLIContext } from "@/cli/types.js";
 import { runCommand, runTask, theme } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 import { readProjectConfig } from "@/core/index.js";
 import {
-  type ConnectorOAuthStatus,
   type ConnectorSyncResult,
-  getOAuthStatus,
   type IntegrationType,
+  type OAuthFlowStatus,
   pushConnectors,
+  runOAuthFlowWithSkip,
 } from "@/core/resources/connector/index.js";
 
 type PendingOAuthResult = ConnectorSyncResult & {
@@ -25,11 +24,12 @@ function isPendingOAuth(r: ConnectorSyncResult): r is PendingOAuthResult {
 
 function printSummary(
   results: ConnectorSyncResult[],
-  oauthOutcomes: Map<IntegrationType, ConnectorOAuthStatus>,
+  oauthOutcomes: Map<IntegrationType, OAuthFlowStatus>,
 ): void {
   const synced: IntegrationType[] = [];
   const added: IntegrationType[] = [];
   const removed: IntegrationType[] = [];
+  const skipped: IntegrationType[] = [];
   const failed: { type: IntegrationType; error?: string }[] = [];
 
   for (const r of results) {
@@ -44,6 +44,8 @@ function printSummary(
     } else if (r.action === "needs_oauth") {
       if (oauthStatus === "ACTIVE") {
         added.push(r.type);
+      } else if (oauthStatus === "SKIPPED") {
+        skipped.push(r.type);
       } else if (oauthStatus === "PENDING") {
         failed.push({ type: r.type, error: "authorization timed out" });
       } else if (oauthStatus === "FAILED") {
@@ -65,6 +67,9 @@ function printSummary(
   }
   if (removed.length > 0) {
     log.info(theme.styles.dim(`Removed: ${removed.join(", ")}`));
+  }
+  if (skipped.length > 0) {
+    log.warn(`Skipped: ${skipped.join(", ")}`);
   }
   for (const r of failed) {
     log.error(`Failed: ${r.type}${r.error ? ` - ${r.error}` : ""}`);
@@ -92,7 +97,7 @@ async function pushConnectorsAction(): Promise<RunCommandResult> {
     },
   );
 
-  const oauthOutcomes = new Map<IntegrationType, ConnectorOAuthStatus>();
+  const oauthOutcomes = new Map<IntegrationType, OAuthFlowStatus>();
   const needsOAuth = results.filter(isPendingOAuth);
   let outroMessage = "Connectors pushed to Base44";
 
@@ -127,39 +132,13 @@ async function pushConnectorsAction(): Promise<RunCommandResult> {
           log.info(`\nOpening browser for '${connector.type}'...`);
           await open(connector.redirectUrl);
 
-          let finalStatus: ConnectorOAuthStatus = "PENDING";
-
-          await runTask(
-            `Waiting for '${connector.type}' authorization...`,
-            async () => {
-              await pWaitFor(
-                async () => {
-                  const response = await getOAuthStatus(
-                    connector.type,
-                    connector.connectionId,
-                  );
-                  finalStatus = response.status;
-                  return response.status !== "PENDING";
-                },
-                {
-                  interval: 2000,
-                  timeout: 2 * 60 * 1000,
-                },
-              );
-            },
-            {
-              successMessage: `'${connector.type}' authorization complete`,
-              errorMessage: `'${connector.type}' authorization failed`,
-            },
-          ).catch((err) => {
-            if (err instanceof TimeoutError) {
-              finalStatus = "PENDING";
-            } else {
-              throw err;
-            }
+          const oauthResult = await runOAuthFlowWithSkip({
+            type: connector.type,
+            redirectUrl: connector.redirectUrl,
+            connectionId: connector.connectionId,
           });
 
-          oauthOutcomes.set(connector.type, finalStatus);
+          oauthOutcomes.set(connector.type, oauthResult.status);
         } catch (err) {
           log.error(
             `Failed to authorize '${connector.type}': ${err instanceof Error ? err.message : String(err)}`,
