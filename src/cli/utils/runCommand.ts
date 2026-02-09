@@ -4,7 +4,7 @@ import type { CLIContext } from "@/cli/types.js";
 import { printBanner } from "@/cli/utils/banner.js";
 import { theme } from "@/cli/utils/theme.js";
 import { printUpgradeNotificationIfAvailable } from "@/cli/utils/upgradeNotification.js";
-import { isLoggedIn } from "@/core/auth/index.js";
+import { isLoggedIn, readAuth } from "@/core/auth/index.js";
 import { isCLIError } from "@/core/errors.js";
 import { initAppConfig } from "@/core/project/index.js";
 
@@ -84,6 +84,15 @@ export async function runCommand(
       if (!loggedIn) {
         log.info("You need to login first to continue.");
         await login();
+      }
+
+      try {
+        const userInfo = await readAuth();
+        context.errorReporter.setContext({
+          user: { email: userInfo.email, name: userInfo.name },
+        });
+      } catch {
+        // User info is optional context for error reporting
       }
     }
 
