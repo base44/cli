@@ -7,6 +7,7 @@ Base44's backend service provides a managed backend for your applications, inclu
 - **Create projects** from templates.
 - **Sync** resources defined in local code with your Base44 backend.
 - **Deploy sites** to Base44's hosting platform.
+- **Generate TypeScript types** from your project resources.
 
 To get started, see the full list of commands below or check out the [documentation](https://docs.base44.com/developers/references/cli/get-started/overview).
 
@@ -43,19 +44,20 @@ The CLI will guide you through project setup. For step-by-step tutorials, see th
 
 | Command | Description |
 | ------- | ----------- |
-| [`create`](https://docs.base44.com/developers/references/cli/commands/create) | Create a new Base44 project from a template |
-| [`deploy`](https://docs.base44.com/developers/references/cli/commands/deploy) | Deploy resources and site to Base44 |
-| [`link`](https://docs.base44.com/developers/references/cli/commands/link) | Link a local project to a project on Base44 |
-| [`dashboard open`](https://docs.base44.com/developers/references/cli/commands/dashboard) | Open the app dashboard in your browser |
-| [`login`](https://docs.base44.com/developers/references/cli/commands/login) | Authenticate with Base44 |
-| [`logout`](https://docs.base44.com/developers/references/cli/commands/logout) | Sign out and clear stored credentials |
-| [`whoami`](https://docs.base44.com/developers/references/cli/commands/whoami) | Display the current authenticated user |
 | [`agents pull`](https://docs.base44.com/developers/references/cli/commands/agents-pull) | Pull agents from Base44 to local files |
 | [`agents push`](https://docs.base44.com/developers/references/cli/commands/agents-push) | Push local agents to Base44 |
+| [`create`](https://docs.base44.com/developers/references/cli/commands/create) | Create a new Base44 project from a template |
+| [`dashboard open`](https://docs.base44.com/developers/references/cli/commands/dashboard) | Open the app dashboard in your browser |
+| [`deploy`](https://docs.base44.com/developers/references/cli/commands/deploy) | Deploy resources and site to Base44 |
 | [`entities push`](https://docs.base44.com/developers/references/cli/commands/entities-push) | Push local entity schemas to Base44 |
 | [`functions deploy`](https://docs.base44.com/developers/references/cli/commands/functions-deploy) | Deploy local functions to Base44 |
+| [`link`](https://docs.base44.com/developers/references/cli/commands/link) | Link a local project to a project on Base44 |
+| [`login`](https://docs.base44.com/developers/references/cli/commands/login) | Authenticate with Base44 |
+| [`logout`](https://docs.base44.com/developers/references/cli/commands/logout) | Sign out and clear stored credentials |
 | [`site deploy`](https://docs.base44.com/developers/references/cli/commands/site-deploy) | Deploy built site files to Base44 hosting |
 | [`site open`](https://docs.base44.com/developers/references/cli/commands/site-open) | Open the published site in your browser |
+| [`types generate`](https://docs.base44.com/developers/references/cli/commands/types-generate) | Generate TypeScript types from project resources |
+| [`whoami`](https://docs.base44.com/developers/references/cli/commands/whoami) | Display the current authenticated user |
 
 
 <!--| [`eject`](https://docs.base44.com/developers/references/cli/commands/eject) | Create a Base44 backend project from an existing Base44 app | -->
