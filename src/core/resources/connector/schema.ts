@@ -42,7 +42,7 @@ export const SlackConnectorSchema = z.object({
   scopes: z.array(z.string()).default([]),
 });
 
-/** Notion - Scopes are preauthorized, no need to request them explicitly (values will be ignored) */
+/** Notion - Scopes are preauthorized by Notion and don't need to be explicitly requested */
 export const NotionConnectorSchema = z.object({
   type: z.literal("notion"),
   scopes: z.array(z.string()).default([]),
