@@ -6,7 +6,10 @@ on:
 
 jobs:
   generate-description:
-    if: github.event.action != 'edited' || github.event.changes.base != null
+    if: >-
+      github.event.action != 'edited' ||
+      github.event.changes.base != null ||
+      !github.event.pull_request.body
     runs-on: ubuntu-latest
     permissions:
       contents: read
