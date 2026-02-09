@@ -3,7 +3,7 @@ import type { Option } from "@clack/prompts";
 import { confirm, group, isCancel, log, select, text } from "@clack/prompts";
 import { Argument, Command } from "commander";
 import { execa } from "execa";
-import kebabCase from "lodash.kebabcase";
+import kebabCase from "lodash/kebabCase";
 import type { CLIContext } from "@/cli/types.js";
 import {
   getDashboardUrl,

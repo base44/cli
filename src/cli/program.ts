@@ -12,6 +12,7 @@ import { getLinkCommand } from "@/cli/commands/project/link.js";
 import { getSiteCommand } from "@/cli/commands/site/index.js";
 import { getTypesCommand } from "@/cli/commands/types/index.js";
 import packageJson from "../../package.json";
+import { getDevCommand } from "./commands/dev.js";
 import type { CLIContext } from "./types.js";
 
 export function createProgram(context: CLIContext): Command {
@@ -53,6 +54,9 @@ export function createProgram(context: CLIContext): Command {
 
   // Register types command
   program.addCommand(getTypesCommand(context), { hidden: true });
+
+  // Register development commands
+  program.addCommand(getDevCommand(context));
 
   return program;
 }
