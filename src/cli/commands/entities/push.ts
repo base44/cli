@@ -1,9 +1,10 @@
-import { Command } from "commander";
 import { log } from "@clack/prompts";
-import { pushEntities } from "@core/resources/entity/index.js";
-import { readProjectConfig } from "@core/index.js";
-import { runCommand, runTask } from "../../utils/index.js";
-import type { RunCommandResult } from "../../utils/runCommand.js";
+import { Command } from "commander";
+import type { CLIContext } from "@/cli/types.js";
+import { runCommand, runTask } from "@/cli/utils/index.js";
+import type { RunCommandResult } from "@/cli/utils/runCommand.js";
+import { readProjectConfig } from "@/core/index.js";
+import { pushEntities } from "@/core/resources/entity/index.js";
 
 async function pushEntitiesAction(): Promise<RunCommandResult> {
   const { entities } = await readProjectConfig();
@@ -12,7 +13,8 @@ async function pushEntitiesAction(): Promise<RunCommandResult> {
     return { outroMessage: "No entities found in project" };
   }
 
-  log.info(`Found ${entities.length} entities to push`);
+  const entityNames = entities.map((e) => e.name).join(", ");
+  log.info(`Found ${entities.length} entities to push: ${entityNames}`);
 
   const result = await runTask(
     "Pushing entities to Base44",
@@ -36,15 +38,17 @@ async function pushEntitiesAction(): Promise<RunCommandResult> {
     log.warn(`Deleted: ${result.deleted.join(", ")}`);
   }
 
-  return {};
+  return { outroMessage: "Entities pushed to Base44" };
 }
 
-export const entitiesPushCommand = new Command("entities")
-  .description("Manage project entities")
-  .addCommand(
-    new Command("push")
-      .description("Push local entities to Base44")
-      .action(async () => {
-        await runCommand(pushEntitiesAction, { requireAuth: true });
-      })
-  );
+export function getEntitiesPushCommand(context: CLIContext): Command {
+  return new Command("entities")
+    .description("Manage project entities")
+    .addCommand(
+      new Command("push")
+        .description("Push local entities to Base44")
+        .action(async () => {
+          await runCommand(pushEntitiesAction, { requireAuth: true }, context);
+        })
+    );
+}

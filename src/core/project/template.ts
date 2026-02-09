@@ -1,11 +1,12 @@
-import { join, dirname } from "node:path";
-import { globby } from "globby";
+import { dirname, join } from "node:path";
 import ejs from "ejs";
-import frontmatter from 'front-matter';
-import { getTemplatesDir, getTemplatesIndexPath } from "../config.js";
-import { readJsonFile, writeFile, copyFile } from "../utils/fs.js";
-import { TemplatesConfigSchema } from "./schema.js";
-import type { Template } from "./schema.js";
+import frontmatter from "front-matter";
+import { globby } from "globby";
+import { getTemplatesDir, getTemplatesIndexPath } from "@/core/config.js";
+import { SchemaValidationError } from "@/core/errors.js";
+import type { Template } from "@/core/project/schema.js";
+import { TemplatesConfigSchema } from "@/core/project/schema.js";
+import { copyFile, readJsonFile, writeFile } from "@/core/utils/fs.js";
 
 export interface TemplateData {
   name: string;
@@ -20,8 +21,17 @@ interface TemplateFrontmatter {
 
 export async function listTemplates(): Promise<Template[]> {
   const parsed = await readJsonFile(getTemplatesIndexPath());
-  const result = TemplatesConfigSchema.parse(parsed);
-  return result.templates;
+  const result = TemplatesConfigSchema.safeParse(parsed);
+
+  if (!result.success) {
+    throw new SchemaValidationError(
+      "Invalid templates configuration",
+      result.error,
+      getTemplatesIndexPath()
+    );
+  }
+
+  return result.data.templates;
 }
 
 /**
@@ -52,7 +62,9 @@ export async function renderTemplate(
         // Render EJS template and write to outputFileName or filename without .ejs extension
         const rendered = await ejs.renderFile(srcPath, data);
         const { attributes, body } = frontmatter<TemplateFrontmatter>(rendered);
-        const destFile = attributes.outputFileName ? join(dirname(file), attributes.outputFileName) : file.replace(/\.ejs$/, "");
+        const destFile = attributes.outputFileName
+          ? join(dirname(file), attributes.outputFileName)
+          : file.replace(/\.ejs$/, "");
         const destFilePath = join(destPath, destFile);
 
         await writeFile(destFilePath, body);

@@ -1,16 +1,18 @@
 import { Command } from "commander";
-import { deleteAuth } from "@core/auth/index.js";
-import { runCommand } from "../../utils/index.js";
-import type { RunCommandResult } from "../../utils/runCommand.js";
+import type { CLIContext } from "@/cli/types.js";
+import { runCommand } from "@/cli/utils/index.js";
+import type { RunCommandResult } from "@/cli/utils/runCommand.js";
+import { deleteAuth } from "@/core/auth/index.js";
 
 async function logout(): Promise<RunCommandResult> {
   await deleteAuth();
   return { outroMessage: "Logged out successfully" };
 }
 
-export const logoutCommand = new Command("logout")
-  .description("Logout from current device")
-  .action(async () => {
-    await runCommand(logout, { requireAppConfig: false });
-  });
-
+export function getLogoutCommand(context: CLIContext): Command {
+  return new Command("logout")
+    .description("Logout from current device")
+    .action(async () => {
+      await runCommand(logout, { requireAppConfig: false }, context);
+    });
+}

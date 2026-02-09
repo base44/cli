@@ -1,8 +1,9 @@
-import { join } from "node:path";
-import { writeJsonFile } from "@core/utils/fs.js";
-import { getAppClient } from "@core/clients/index.js";
-import { GetEntitiesResponseSchema, SyncEntitiesResponseSchema } from "./schema.js";
 import type { SyncEntitiesResponse, Entity, GetEntitiesResponse } from "./schema.js";
+import type { KyResponse } from "ky";
+import { HTTPError } from "ky";
+import { ApiError, SchemaValidationError } from "@/core/errors.js";
+import { GetEntitiesResponseSchema, SyncEntitiesResponseSchema } from "@/core/resources/entity/schema.js";
+import { getAppClient } from "@/core/clients/base44-client.js";
 
 export async function syncEntities(
   entities: Entity[]
@@ -12,27 +13,35 @@ export async function syncEntities(
     entities.map((entity) => [entity.name, entity])
   );
 
-  const response = await appClient.put("entity-schemas", {
-    json: {
-      entityNameToSchema: schemaSyncPayload,
-    },
-    throwHttpErrors: false,
-  });
-
-  if (!response.ok) {
-    const errorJson: { message: string } = await response.json();
-    if (response.status === 428) {
-      throw new Error(`Failed to delete entity: ${errorJson.message}`);
+  let response: KyResponse;
+  try {
+    response = await appClient.put("entity-schemas", {
+      json: {
+        entityNameToSchema: schemaSyncPayload,
+      },
+    });
+  } catch (error) {
+    // Handle 428 status code specifically (entity has records, can't delete)
+    if (error instanceof HTTPError && error.response.status === 428) {
+      throw new ApiError("Cannot delete entity that has existing records", {
+        statusCode: 428,
+        cause: error,
+      });
     }
 
-    throw new Error(
-      `Error occurred while syncing entities ${errorJson.message}`
+    throw await ApiError.fromHttpError(error, "syncing entities");
+  }
+
+  const result = SyncEntitiesResponseSchema.safeParse(await response.json());
+
+  if (!result.success) {
+    throw new SchemaValidationError(
+      "Invalid response from server",
+      result.error
     );
   }
 
-  const result = SyncEntitiesResponseSchema.parse(await response.json());
-
-  return result;
+  return result.data;
 }
 
 export async function getEntities(): Promise<GetEntitiesResponse> {

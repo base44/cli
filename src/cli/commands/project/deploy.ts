@@ -1,12 +1,18 @@
-import { Command } from "commander";
 import { confirm, isCancel, log } from "@clack/prompts";
+import { Command } from "commander";
+import type { CLIContext } from "@/cli/types.js";
 import {
-  readProjectConfig,
+  getDashboardUrl,
+  runCommand,
+  runTask,
+  theme,
+} from "@/cli/utils/index.js";
+import type { RunCommandResult } from "@/cli/utils/runCommand.js";
+import {
   deployAll,
   hasResourcesToDeploy,
-} from "@core/project/index.js";
-import { runCommand, runTask, theme, getDashboardUrl } from "../../utils/index.js";
-import type { RunCommandResult } from "../../utils/runCommand.js";
+  readProjectConfig,
+} from "@/core/project/index.js";
 
 interface DeployOptions {
   yes?: boolean;
@@ -21,15 +27,24 @@ export async function deployAction(options: DeployOptions): Promise<RunCommandRe
     };
   }
 
-  const { project, entities, functions } = projectData;
+  const { project, entities, functions, agents } = projectData;
 
   // Build summary of what will be deployed
   const summaryLines: string[] = [];
   if (entities.length > 0) {
-    summaryLines.push(`  - ${entities.length} ${entities.length === 1 ? "entity" : "entities"}`);
+    summaryLines.push(
+      `  - ${entities.length} ${entities.length === 1 ? "entity" : "entities"}`
+    );
   }
   if (functions.length > 0) {
-    summaryLines.push(`  - ${functions.length} ${functions.length === 1 ? "function" : "functions"}`);
+    summaryLines.push(
+      `  - ${functions.length} ${functions.length === 1 ? "function" : "functions"}`
+    );
+  }
+  if (agents.length > 0) {
+    summaryLines.push(
+      `  - ${agents.length} ${agents.length === 1 ? "agent" : "agents"}`
+    );
   }
   if (project.site?.outputDirectory) {
     summaryLines.push(`  - Site from ${project.site.outputDirectory}`);
@@ -63,17 +78,29 @@ export async function deployAction(options: DeployOptions): Promise<RunCommandRe
     }
   );
 
-  log.message(`${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl())}`);
+  log.message(
+    `${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl())}`
+  );
   if (result.appUrl) {
-    log.message(`${theme.styles.header("App URL")}: ${theme.colors.links(result.appUrl)}`);
+    log.message(
+      `${theme.styles.header("App URL")}: ${theme.colors.links(result.appUrl)}`
+    );
   }
 
   return { outroMessage: "App deployed successfully" };
 }
 
-export const deployCommand = new Command("deploy")
-  .description("Deploy all project resources (entities, functions, and site)")
-  .option("-y, --yes", "Skip confirmation prompt")
-  .action(async (options: DeployOptions) => {
-    await runCommand(() => deployAction(options), { requireAuth: true });
-  });
+export function getDeployCommand(context: CLIContext): Command {
+  return new Command("deploy")
+    .description(
+      "Deploy all project resources (entities, functions, agents, and site)"
+    )
+    .option("-y, --yes", "Skip confirmation prompt")
+    .action(async (options: DeployOptions) => {
+      await runCommand(
+        () => deployAction(options),
+        { requireAuth: true },
+        context
+      );
+    });
+}

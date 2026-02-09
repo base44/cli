@@ -1,9 +1,13 @@
 import { dirname, join } from "node:path";
 import { globby } from "globby";
-import { FUNCTION_CONFIG_FILE } from "../../consts.js";
-import { readJsonFile, pathExists } from "../../utils/fs.js";
-import { FunctionConfigSchema, FunctionSchema } from "./schema.js";
-import type { FunctionConfig, Function } from "./schema.js";
+import { FUNCTION_CONFIG_FILE } from "@/core/consts.js";
+import { FileNotFoundError, SchemaValidationError } from "@/core/errors.js";
+import type {
+  BackendFunction,
+  FunctionConfig,
+} from "@/core/resources/function/schema.js";
+import { FunctionConfigSchema } from "@/core/resources/function/schema.js";
+import { pathExists, readJsonFile } from "@/core/utils/fs.js";
 
 export async function readFunctionConfig(
   configPath: string
@@ -12,39 +16,41 @@ export async function readFunctionConfig(
   const result = FunctionConfigSchema.safeParse(parsed);
 
   if (!result.success) {
-    throw new Error(
-      `Invalid function configuration in ${configPath}: ${result.error.message}`
+    throw new SchemaValidationError(
+      "Invalid function configuration",
+      result.error,
+      configPath
     );
   }
 
   return result.data;
 }
 
-export async function readFunction(configPath: string): Promise<Function> {
+export async function readFunction(
+  configPath: string
+): Promise<BackendFunction> {
   const config = await readFunctionConfig(configPath);
   const functionDir = dirname(configPath);
-  const codePath = join(functionDir, config.entry);
+  const entryPath = join(functionDir, config.entry);
 
-  if (!(await pathExists(codePath))) {
-    throw new Error(
-      `Function code file not found: ${codePath} (referenced in ${configPath})`
+  if (!(await pathExists(entryPath))) {
+    throw new FileNotFoundError(
+      `Function entry file not found: ${entryPath} (referenced in ${configPath})`
     );
   }
 
-  const functionData = { ...config, codePath };
-  const result = FunctionSchema.safeParse(functionData);
-  if (!result.success) {
-    throw new Error(
-      `Invalid function in ${configPath}: ${result.error.message}`
-    );
-  }
+  const filePaths = await globby("*.{js,ts,json}", {
+    cwd: functionDir,
+    absolute: true,
+  });
 
-  return result.data;
+  const functionData: BackendFunction = { ...config, entryPath, filePaths };
+  return functionData;
 }
 
 export async function readAllFunctions(
   functionsDir: string
-): Promise<Function[]> {
+): Promise<BackendFunction[]> {
   if (!(await pathExists(functionsDir))) {
     return [];
   }
@@ -68,4 +74,3 @@ export async function readAllFunctions(
 
   return functions;
 }
-

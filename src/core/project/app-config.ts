@@ -1,10 +1,15 @@
 import { globby } from "globby";
-import { getAppConfigPath } from "@core/config.js";
-import { writeFile, readJsonFile } from "../utils/fs.js";
-import { APP_CONFIG_PATTERN } from "../consts.js";
-import { AppConfigSchema } from "./schema.js";
-import type { AppConfig } from "./schema.js";
-import { findProjectRoot } from "./config.js";
+import { getAppConfigPath, getTestOverrides } from "@/core/config.js";
+import { APP_CONFIG_PATTERN } from "@/core/consts.js";
+import {
+  ConfigInvalidError,
+  ConfigNotFoundError,
+  SchemaValidationError,
+} from "@/core/errors.js";
+import { findProjectRoot } from "@/core/project/config.js";
+import type { AppConfig } from "@/core/project/schema.js";
+import { AppConfigSchema } from "@/core/project/schema.js";
+import { readJsonFile, writeFile } from "@/core/utils/fs.js";
 
 export interface CachedAppConfig {
   id: string;
@@ -13,47 +18,67 @@ export interface CachedAppConfig {
 
 let cache: CachedAppConfig | null = null;
 
+function loadFromTestOverrides(): boolean {
+  const appConfig = getTestOverrides()?.appConfig;
+  if (appConfig?.id && appConfig.projectRoot) {
+    cache = { id: appConfig.id, projectRoot: appConfig.projectRoot };
+    return true;
+  }
+  return false;
+}
+
 /**
  * Initialize app config by reading from .app.jsonc.
- * Must be called before using getAppConfig().
+ * Returns the cached config, reading from disk only on first call.
+ * @returns The app config with id and projectRoot
  * @throws Error if no project found or .app.jsonc missing
  */
-export async function initAppConfig(): Promise<void> {
+export async function initAppConfig(): Promise<CachedAppConfig> {
+  // Check for test overrides first
+  if (loadFromTestOverrides()) {
+    return cache!;
+  }
+
   if (cache) {
-    return;
+    return cache;
   }
 
   const projectRoot = await findProjectRoot();
   if (!projectRoot) {
-    throw new Error(
+    throw new ConfigNotFoundError(
       "No Base44 project found. Run this command from a project directory with a config.jsonc file."
     );
   }
 
   const config = await readAppConfig(projectRoot.root);
+  const appConfigPath = await findAppConfigPath(projectRoot.root);
+
   if (!config?.id) {
-    throw new Error(
-      "App not configured. Create a .app.jsonc file or run 'base44 link' to link this project."
+    throw new ConfigInvalidError(
+      "App not configured. Create a .app.jsonc file or run 'base44 link' to link this project.",
+      appConfigPath,
+      {
+        hints: [
+          {
+            message: "Run 'base44 link' to link this project to a Base44 app",
+            command: "base44 link",
+          },
+        ],
+      }
     );
   }
 
   cache = { projectRoot: projectRoot.root, id: config.id };
-}
-
-/**
- * Clear the cache. Useful for testing.
- */
-export function clearAppConfigCache(): void {
-  cache = null;
+  return cache;
 }
 
 /**
  * Get the cached app config.
- * @throws Error if not initialized - call initAppConfig() or setAppConfig() first
+ * @throws ConfigInvalidError if not initialized - call initAppConfig() or setAppConfig() first
  */
 export function getAppConfig(): CachedAppConfig {
   if (!cache) {
-    throw new Error(
+    throw new ConfigInvalidError(
       "App config not initialized. Ensure the command uses requireAppConfig option."
     );
   }
@@ -99,9 +124,7 @@ export async function appConfigExists(projectRoot: string): Promise<boolean> {
   return configPath !== null;
 }
 
-async function readAppConfig(
-  projectRoot: string
-): Promise<AppConfig | null> {
+async function readAppConfig(projectRoot: string): Promise<AppConfig | null> {
   const configPath = await findAppConfigPath(projectRoot);
 
   if (!configPath) {
@@ -112,7 +135,11 @@ async function readAppConfig(
   const result = AppConfigSchema.safeParse(parsed);
 
   if (!result.success) {
-    throw new Error(`Invalid app configuration: ${result.error.message}`);
+    throw new SchemaValidationError(
+      "Invalid app configuration",
+      result.error,
+      configPath
+    );
   }
 
   return result.data;

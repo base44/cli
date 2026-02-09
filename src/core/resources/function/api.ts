@@ -1,12 +1,15 @@
 import { getAppClient } from "@core/clients/index.js";
-import { DeployFunctionsResponseSchema, GetFunctionsResponseSchema } from "./schema.js";
 import type { FunctionWithCode, DeployFunctionsResponse, GetFunctionsResponse } from "./schema.js";
+import type { KyResponse } from "ky";
+import { ApiError, SchemaValidationError } from "@/core/errors.js";
+import { DeployFunctionsResponseSchema, GetFunctionsResponseSchema } from "@/core/resources/function/schema.js";
 
 function toDeployPayloadItem(fn: FunctionWithCode) {
   return {
     name: fn.name,
     entry: fn.entry,
-    files: [{ path: fn.entry, content: fn.code }],
+    files: fn.files,
+    automations: fn.automations,
   };
 }
 
@@ -18,13 +21,26 @@ export async function deployFunctions(
     functions: functions.map(toDeployPayloadItem),
   };
 
-  const response = await appClient.put("backend-functions", {
-    json: payload,
-    timeout: 120_000
-  });
+  let response: KyResponse;
+  try {
+    response = await appClient.put("backend-functions", {
+      json: payload,
+      timeout: 120_000,
+    });
+  } catch (error) {
+    throw await ApiError.fromHttpError(error, "deploying functions");
+  }
 
-  const result = DeployFunctionsResponseSchema.parse(await response.json());
-  return result;
+  const result = DeployFunctionsResponseSchema.safeParse(await response.json());
+
+  if (!result.success) {
+    throw new SchemaValidationError(
+      "Invalid response from server",
+      result.error
+    );
+  }
+
+  return result.data;
 }
 
 export async function getFunctions(): Promise<GetFunctionsResponse> {

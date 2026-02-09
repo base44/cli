@@ -1,0 +1,6 @@
+{
+  "name": "Full Project",
+  "site": {
+    "outputDirectory": "site-output"
+  }
+}

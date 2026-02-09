@@ -1,10 +1,12 @@
 import { resolve } from "node:path";
-import { Command } from "commander";
 import { confirm, isCancel } from "@clack/prompts";
-import { readProjectConfig } from "@core/project/index.js";
-import { deploySite } from "@core/site/index.js";
-import { runCommand, runTask } from "../../utils/index.js";
-import type { RunCommandResult } from "../../utils/runCommand.js";
+import { Command } from "commander";
+import type { CLIContext } from "@/cli/types.js";
+import { runCommand, runTask } from "@/cli/utils/index.js";
+import type { RunCommandResult } from "@/cli/utils/runCommand.js";
+import { ConfigNotFoundError } from "@/core/errors.js";
+import { readProjectConfig } from "@/core/project/index.js";
+import { deploySite } from "@/core/site/index.js";
 
 interface DeployOptions {
   yes?: boolean;
@@ -14,9 +16,14 @@ async function deployAction(options: DeployOptions): Promise<RunCommandResult> {
   const { project } = await readProjectConfig();
 
   if (!project.site?.outputDirectory) {
-    throw new Error(
-      "No site configuration found. Please add 'site.outputDirectory' to your config.jsonc"
-    );
+    throw new ConfigNotFoundError("No site configuration found.", {
+      hints: [
+        {
+          message:
+            'Add \'site.outputDirectory\' to your config.jsonc (e.g., "site": { "outputDirectory": "dist" })',
+        },
+      ],
+    });
   }
 
   const outputDir = resolve(project.root, project.site.outputDirectory);
@@ -45,13 +52,15 @@ async function deployAction(options: DeployOptions): Promise<RunCommandResult> {
   return { outroMessage: `Visit your site at: ${result.appUrl}` };
 }
 
-export const siteDeployCommand = new Command("site")
-  .description("Manage site deployments")
-  .addCommand(
-    new Command("deploy")
-      .description("Deploy built site files to Base44 hosting")
-      .option("-y, --yes", "Skip confirmation prompt")
-      .action(async (options: DeployOptions) => {
-        await runCommand(() => deployAction(options), { requireAuth: true });
-      })
-  );
+export function getSiteDeployCommand(context: CLIContext): Command {
+  return new Command("deploy")
+    .description("Deploy built site files to Base44 hosting")
+    .option("-y, --yes", "Skip confirmation prompt")
+    .action(async (options: DeployOptions) => {
+      await runCommand(
+        () => deployAction(options),
+        { requireAuth: true },
+        context
+      );
+    });
+}

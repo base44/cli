@@ -1,5 +1,5 @@
-import { getBase44ApiUrl } from "@core/config.js";
-import { getAppConfig } from "@core/project/index.js";
+import { getBase44ApiUrl } from "@/core/config.js";
+import { getAppConfig } from "@/core/project/index.js";
 
 /**
  * Gets the dashboard URL for a project.

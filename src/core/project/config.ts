@@ -1,11 +1,13 @@
-import { join, dirname } from "node:path";
+import { dirname, join } from "node:path";
 import { globby } from "globby";
-import { PROJECT_CONFIG_PATTERNS, PROJECT_SUBDIR } from "../consts.js";
-import { readJsonFile } from "../utils/fs.js";
-import { entityResource } from "../resources/entity/index.js";
-import { functionResource } from "../resources/function/index.js";
-import type { ProjectData, ProjectRoot } from "./types.js";
-import { ProjectConfigSchema } from "./schema.js";
+import { PROJECT_CONFIG_PATTERNS, PROJECT_SUBDIR } from "@/core/consts.js";
+import { ConfigNotFoundError, SchemaValidationError } from "@/core/errors.js";
+import { ProjectConfigSchema } from "@/core/project/schema.js";
+import type { ProjectData, ProjectRoot } from "@/core/project/types.js";
+import { agentResource } from "@/core/resources/agent/index.js";
+import { entityResource } from "@/core/resources/entity/index.js";
+import { functionResource } from "@/core/resources/function/index.js";
+import { readJsonFile } from "@/core/utils/fs.js";
 
 async function findConfigInDir(dir: string): Promise<string | null> {
   const files = await globby(PROJECT_CONFIG_PATTERNS, {
@@ -68,7 +70,7 @@ export async function readProjectConfig(
   }
 
   if (!found) {
-    throw new Error(
+    throw new ConfigNotFoundError(
       `Project root not found. Please ensure config.jsonc or config.json exists in the project directory or ${PROJECT_SUBDIR}/ subdirectory.`
     );
   }
@@ -79,20 +81,26 @@ export async function readProjectConfig(
   const result = ProjectConfigSchema.safeParse(parsed);
 
   if (!result.success) {
-    throw new Error(`Invalid project configuration: ${result.error.message}`);
+    throw new SchemaValidationError(
+      "Invalid project configuration",
+      result.error,
+      configPath
+    );
   }
 
   const project = result.data;
   const configDir = dirname(configPath);
 
-  const [entities, functions] = await Promise.all([
+  const [entities, functions, agents] = await Promise.all([
     entityResource.readAll(join(configDir, project.entitiesDir)),
     functionResource.readAll(join(configDir, project.functionsDir)),
+    agentResource.readAll(join(configDir, project.agentsDir)),
   ]);
 
   return {
     project: { ...project, root, configPath },
     entities,
     functions,
+    agents,
   };
 }

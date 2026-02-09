@@ -1,7 +1,10 @@
-import { writeJsonFile } from "@core/utils/fs.js";
-import { getEntities, syncEntities } from "./api.js";
-import type { Entity, SyncEntitiesResponse } from "./schema.js";
 import { join } from "node:path";
+import { getEntities, syncEntities } from "@/core/resources/entity/api.js";
+import type {
+  Entity,
+  SyncEntitiesResponse,
+} from "@/core/resources/entity/schema.js";
+import { writeJsonFile } from "@/core/utils";
 
 export async function pushEntities(
   entities: Entity[]

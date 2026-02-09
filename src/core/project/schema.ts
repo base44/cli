@@ -22,11 +22,16 @@ const SiteConfigSchema = z.object({
 });
 
 export const ProjectConfigSchema = z.object({
-  name: z.string().min(1, "App name cannot be empty"),
+  name: z
+    .string({
+      error: "App name cannot be empty",
+    })
+    .min(1, "App name cannot be empty"),
   description: z.string().optional(),
   site: SiteConfigSchema.optional(),
   entitiesDir: z.string().optional().default("entities"),
   functionsDir: z.string().optional().default("functions"),
+  agentsDir: z.string().optional().default("agents"),
 });
 
 export type SiteConfig = z.infer<typeof SiteConfigSchema>;
@@ -56,3 +61,15 @@ export type Project = z.infer<typeof ProjectSchema>;
 export const ProjectsResponseSchema = z.array(ProjectSchema);
 
 export type ProjectsResponse = z.infer<typeof ProjectsResponseSchema>;
+
+export const TestOverridesSchema = z.object({
+  appConfig: z
+    .object({
+      id: z.string(),
+      projectRoot: z.string(),
+    })
+    .optional(),
+  latestVersion: z.string().nullable().optional(),
+});
+
+export type TestOverrides = z.infer<typeof TestOverridesSchema>;

@@ -1,17 +1,17 @@
-import { AuthApiError, AuthValidationError } from "../errors.js";
-import {
-  DeviceCodeResponseSchema,
-  TokenResponseSchema,
-  OAuthErrorSchema,
-  UserInfoSchema,
-} from "./schema.js";
 import type {
   DeviceCodeResponse,
   TokenResponse,
   UserInfoResponse,
-} from "./schema.js";
-import { AUTH_CLIENT_ID } from "../consts.js";
-import { oauthClient } from "../clients/index.js";
+} from "@/core/auth/schema.js";
+import {
+  DeviceCodeResponseSchema,
+  OAuthErrorSchema,
+  TokenResponseSchema,
+  UserInfoSchema,
+} from "@/core/auth/schema.js";
+import { oauthClient } from "@/core/clients/index.js";
+import { AUTH_CLIENT_ID } from "@/core/consts.js";
+import { ApiError, SchemaValidationError } from "@/core/errors.js";
 
 export async function generateDeviceCode(): Promise<DeviceCodeResponse> {
   const response = await oauthClient.post("oauth/device/code", {
@@ -23,16 +23,18 @@ export async function generateDeviceCode(): Promise<DeviceCodeResponse> {
   });
 
   if (!response.ok) {
-    throw new AuthApiError(
-      `Failed to generate device code: ${response.status} ${response.statusText}`
+    throw new ApiError(
+      `Failed to generate device code: ${response.status} ${response.statusText}`,
+      { statusCode: response.status }
     );
   }
 
   const result = DeviceCodeResponseSchema.safeParse(await response.json());
 
   if (!result.success) {
-    throw new AuthValidationError(
-      `Invalid device code response from server: ${result.error.message}`
+    throw new SchemaValidationError(
+      "Invalid device code response from server",
+      result.error
     );
   }
 
@@ -64,8 +66,9 @@ export async function getTokenFromDeviceCode(
     const errorResult = OAuthErrorSchema.safeParse(json);
 
     if (!errorResult.success) {
-      throw new AuthValidationError(
-        `Token request failed: ${errorResult.error.message}`
+      throw new SchemaValidationError(
+        "Token request failed",
+        errorResult.error
       );
     }
 
@@ -77,14 +80,17 @@ export async function getTokenFromDeviceCode(
     }
 
     // Actual errors
-    throw new AuthApiError(error_description ?? `OAuth error: ${error}`);
+    throw new ApiError(error_description ?? `OAuth error: ${error}`, {
+      statusCode: response.status,
+    });
   }
 
   const result = TokenResponseSchema.safeParse(json);
 
   if (!result.success) {
-    throw new AuthValidationError(
-      `Invalid token response from server: ${result.error.message}`
+    throw new SchemaValidationError(
+      "Invalid token response from server",
+      result.error
     );
   }
 
@@ -113,18 +119,23 @@ export async function renewAccessToken(
     const errorResult = OAuthErrorSchema.safeParse(json);
 
     if (!errorResult.success) {
-      throw new AuthApiError(`Token refresh failed: ${response.statusText}`);
+      throw new ApiError(`Token refresh failed: ${response.statusText}`, {
+        statusCode: response.status,
+      });
     }
 
     const { error, error_description } = errorResult.data;
-    throw new AuthApiError(error_description ?? `OAuth error: ${error}`);
+    throw new ApiError(error_description ?? `OAuth error: ${error}`, {
+      statusCode: response.status,
+    });
   }
 
   const result = TokenResponseSchema.safeParse(json);
 
   if (!result.success) {
-    throw new AuthValidationError(
-      `Invalid token response from server: ${result.error.message}`
+    throw new SchemaValidationError(
+      "Invalid token response from server",
+      result.error
     );
   }
 
@@ -139,14 +150,17 @@ export async function getUserInfo(
   });
 
   if (!response.ok) {
-    throw new AuthApiError(`Failed to fetch user info: ${response.status}`);
+    throw new ApiError(`Failed to fetch user info: ${response.status}`, {
+      statusCode: response.status,
+    });
   }
 
   const result = UserInfoSchema.safeParse(await response.json());
 
   if (!result.success) {
-    throw new AuthValidationError(
-      `Invalid UserInfo response from server: ${result.error.message}`
+    throw new SchemaValidationError(
+      "Invalid UserInfo response from server",
+      result.error
     );
   }
 

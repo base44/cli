@@ -46,44 +46,28 @@ The CLI will guide you through project setup. For step-by-step tutorials, see th
 | [`create`](https://docs.base44.com/developers/references/cli/commands/create) | Create a new Base44 project from a template |
 | [`deploy`](https://docs.base44.com/developers/references/cli/commands/deploy) | Deploy resources and site to Base44 |
 | [`link`](https://docs.base44.com/developers/references/cli/commands/link) | Link a local project to a project on Base44 |
-| [`dashboard`](https://docs.base44.com/developers/references/cli/commands/dashboard) | Open the app dashboard in your browser |
+| [`dashboard open`](https://docs.base44.com/developers/references/cli/commands/dashboard) | Open the app dashboard in your browser |
 | [`login`](https://docs.base44.com/developers/references/cli/commands/login) | Authenticate with Base44 |
 | [`logout`](https://docs.base44.com/developers/references/cli/commands/logout) | Sign out and clear stored credentials |
 | [`whoami`](https://docs.base44.com/developers/references/cli/commands/whoami) | Display the current authenticated user |
+| [`agents pull`](https://docs.base44.com/developers/references/cli/commands/agents-pull) | Pull agents from Base44 to local files |
+| [`agents push`](https://docs.base44.com/developers/references/cli/commands/agents-push) | Push local agents to Base44 |
 | [`entities push`](https://docs.base44.com/developers/references/cli/commands/entities-push) | Push local entity schemas to Base44 |
 | [`functions deploy`](https://docs.base44.com/developers/references/cli/commands/functions-deploy) | Deploy local functions to Base44 |
 | [`site deploy`](https://docs.base44.com/developers/references/cli/commands/site-deploy) | Deploy built site files to Base44 hosting |
+| [`site open`](https://docs.base44.com/developers/references/cli/commands/site-open) | Open the published site in your browser |
 
 
 <!--| [`eject`](https://docs.base44.com/developers/references/cli/commands/eject) | Create a Base44 backend project from an existing Base44 app | -->
 
-## AI Agent Skills
+## AI agent skills
 
-When creating a project, you'll be prompted to install AI agent skills for your preferred coding assistants:
+When creating a project, [base44/skills](https://github.com/base44/skills) are automatically installed. These help AI agents understand how to work with Base44 projects.
 
-```
-◆  Add AI agent skills? (Select agents to configure)
-│  ◼ Cursor
-│  ◼ Claude Code
-└
-```
-
-This installs [base44/skills](https://github.com/base44/skills) which helps AI agents understand how to work with Base44 projects.
-
-**Non-interactive mode:**
+If you need to install skills manually, use the following command:
 
 ```bash
-# Install skills for all supported agents
-base44 create --name my-app --path ./my-app --skills
-
-# Skip skills installation
-base44 create --name my-app --path ./my-app
-```
-
-**Manual installation:**
-
-```bash
-npx add-skill base44/skills
+npx skills add base44/skills
 ```
 
 ## Help

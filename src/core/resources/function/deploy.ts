@@ -1,18 +1,31 @@
 import { join } from "node:path";
-import { readTextFile, writeFile, writeJsonFile } from "../../utils/fs.js";
-import { deployFunctions, getFunctions } from "./api.js";
-import type { Function, FunctionWithCode, DeployFunctionsResponse } from "./schema.js";
+import { basename } from "node:path";
+import { deployFunctions, getFunctions } from "@/core/resources/function/api.js";
+import type {
+  BackendFunction,
+  DeployFunctionsResponse,
+  FunctionFile,
+  FunctionWithCode,
+} from "@/core/resources/function/schema.js";
+import { readTextFile, writeFile, writeJsonFile } from "@/core/utils/fs.js";
 
-async function loadFunctionCode(fn: Function): Promise<FunctionWithCode> {
-  const code = await readTextFile(fn.codePath);
-  return { ...fn, code };
+async function loadFunctionCode(
+  fn: BackendFunction
+): Promise<FunctionWithCode> {
+  const loadedFiles: FunctionFile[] = await Promise.all(
+    fn.filePaths.map(async (filePath) => {
+      const content = await readTextFile(filePath);
+      return { path: basename(filePath), content };
+    })
+  );
+  return { ...fn, files: loadedFiles };
 }
 
 export async function pushFunctions(
-  functions: Function[]
+  functions: BackendFunction[]
 ): Promise<DeployFunctionsResponse> {
   if (functions.length === 0) {
-    return { deployed: [], deleted: [], errors: null };
+    return { deployed: [], deleted: [], skipped: [], errors: null };
   }
 
   const functionsWithCode = await Promise.all(functions.map(loadFunctionCode));

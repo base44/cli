@@ -5,7 +5,7 @@
  */
 
 import ky from "ky";
-import { getBase44ApiUrl } from "../config.js";
+import { getBase44ApiUrl } from "@/core/config.js";
 
 export const oauthClient = ky.create({
   prefixUrl: getBase44ApiUrl(),

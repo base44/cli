@@ -1,12 +1,10 @@
 import { globby } from "globby";
 import { PROJECT_CONFIG_PATTERNS } from "../consts.js";
 import { createProject, downloadProject } from "./api.js";
-import { listTemplates, renderTemplate } from "./template.js";
+import { renderTemplate } from "./template.js";
 import type { Template } from "./schema.js";
 import kebabCase from "lodash.kebabcase";
-import { pushEntities, pullEntities, getEntities } from "@core/resources/index.js";
-import { readProjectConfig } from "./config.js";
-import { setAppConfig } from "./app-config.js";
+import { ConfigExistsError } from "@/core/errors.js";
 
 export interface CreateProjectOptions {
   name: string;
@@ -32,7 +30,7 @@ export async function createProjectFiles(
   });
 
   if (existingConfigs.length > 0) {
-    throw new Error(
+    throw new ConfigExistsError(
       `A Base44 project already exists at ${existingConfigs[0]}. Please choose a different location.`
     );
   }

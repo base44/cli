@@ -1,10 +1,12 @@
 import { intro, log, outro } from "@clack/prompts";
-import { isLoggedIn } from "@core/auth/index.js";
-import { initAppConfig } from "@core/project/index.js";
-import { CLIExitError } from "../errors.js";
-import { printBanner } from "./banner.js";
-import { login } from "../commands/auth/login.js";
-import { theme } from "./theme.js";
+import { login } from "@/cli/commands/auth/login-flow.js";
+import type { CLIContext } from "@/cli/types.js";
+import { printBanner } from "@/cli/utils/banner.js";
+import { theme } from "@/cli/utils/theme.js";
+import { printUpgradeNotificationIfAvailable } from "@/cli/utils/upgradeNotification.js";
+import { isLoggedIn, readAuth } from "@/core/auth/index.js";
+import { isCLIError } from "@/core/errors.js";
+import { initAppConfig } from "@/core/project/index.js";
 
 export interface RunCommandOptions {
   /**
@@ -29,7 +31,7 @@ export interface RunCommandOptions {
 
 export interface RunCommandResult {
   outroMessage?: string;
-};
+}
 
 /**
  * Wraps a command function with the Base44 intro/outro and error handling.
@@ -41,29 +43,27 @@ export interface RunCommandResult {
  *
  * @param commandFn - The async function to execute. Returns `RunCommandResult` with optional `outroMessage`.
  * @param options - Optional configuration for the command wrapper
+ * @param context - CLI context with dependencies (errorReporter, etc.)
  *
  * @example
- * // Standard command with outro message
- * async function myAction(): Promise<RunCommandResult> {
- *   // ... do work ...
- *   return { outroMessage: "Done!" };
+ * export function getMyCommand(context: CLIContext): Command {
+ *   return new Command("my-command")
+ *     .action(async () => {
+ *       await runCommand(
+ *         async () => {
+ *           // ... do work ...
+ *           return { outroMessage: "Done!" };
+ *         },
+ *         { requireAuth: true },
+ *         context
+ *       );
+ *     });
  * }
- *
- * export const myCommand = new Command("my-command")
- *   .action(async () => {
- *     await runCommand(myAction);
- *   });
- *
- * @example
- * // Command requiring authentication with full banner
- * export const myCommand = new Command("my-command")
- *   .action(async () => {
- *     await runCommand(myAction, { requireAuth: true, fullBanner: true });
- *   });
  */
 export async function runCommand(
   commandFn: () => Promise<RunCommandResult>,
-  options?: RunCommandOptions
+  options: RunCommandOptions | undefined,
+  context: CLIContext
 ): Promise<void> {
   console.log();
 
@@ -74,6 +74,8 @@ export async function runCommand(
     intro(theme.colors.base44OrangeBackground(" Base 44 "));
   }
 
+  await printUpgradeNotificationIfAvailable();
+
   try {
     // Check authentication if required
     if (options?.requireAuth) {
@@ -83,21 +85,48 @@ export async function runCommand(
         log.info("You need to login first to continue.");
         await login();
       }
+
+      try {
+        const userInfo = await readAuth();
+        context.errorReporter.setContext({
+          user: { email: userInfo.email, name: userInfo.name },
+        });
+      } catch {
+        // User info is optional context for error reporting
+      }
     }
 
     // Initialize app config unless explicitly disabled
     if (options?.requireAppConfig !== false) {
-      await initAppConfig();
+      const appConfig = await initAppConfig();
+      context.errorReporter.setContext({ appId: appConfig.id });
     }
 
     const { outroMessage } = await commandFn();
     outro(outroMessage || "");
-  } catch (e) {
-    if (e instanceof Error) {
-      log.error(e.stack ?? e.message);
-    } else {
-      log.error(String(e));
+  } catch (error) {
+    // Display error message
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    log.error(errorMessage);
+
+    // Show stack trace if DEBUG mode
+    if (process.env.DEBUG === "1" && error instanceof Error && error.stack) {
+      log.error(theme.styles.dim(error.stack));
     }
-    throw new CLIExitError(1);
+
+    // Display hints if this is a CLIError with hints
+    if (isCLIError(error)) {
+      const hints = theme.format.agentHints(error.hints);
+      if (hints) {
+        log.error(hints);
+      }
+    }
+
+    // Get error context and display in outro
+    const errorContext = context.errorReporter.getErrorContext();
+    outro(theme.format.errorContext(errorContext));
+
+    // Re-throw for runCLI to handle (error reporting, exit code)
+    throw error;
   }
 }

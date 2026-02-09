@@ -1,12 +1,10 @@
 #!/usr/bin/env node
-import { program, CLIExitError } from "../dist/index.js";
+import { runCLI } from "../dist/cli/index.js";
 
-try {
-  await program.parseAsync();
-} catch (error) {
-  if (error instanceof CLIExitError) {
-    process.exit(error.code);
-  }
-  console.error(error);
-  process.exit(1);
+// Disable Clack spinners and animations in non-interactive environments.
+// Clack only checks the CI env var, so we set it when stdin/stdout aren't TTYs.
+if (!process.stdin.isTTY || !process.stdout.isTTY) {
+  process.env.CI = "true";
 }
+
+await runCLI();
