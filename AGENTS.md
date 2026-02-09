@@ -1,5 +1,7 @@
 # AI Agent Guidelines for Base44 CLI Development
 
+@.cursor/rules/use-bun-instead-of-node-vite-npm-pnpm.mdc
+
 This document provides essential context and guidelines for AI agents working on the Base44 CLI project.
 
 **Important**: Keep this file updated when making significant architectural changes.
