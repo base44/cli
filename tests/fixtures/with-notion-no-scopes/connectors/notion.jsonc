@@ -1,4 +1,0 @@
-// Notion connector without scopes field (scopes are preauthorized)
-{
-  "type": "notion"
-}
