@@ -1,8 +1,8 @@
-import { getAppClient } from "@core/clients/index.js";
 import type { FunctionWithCode, DeployFunctionsResponse, GetFunctionsResponse } from "./schema.js";
 import type { KyResponse } from "ky";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";
 import { DeployFunctionsResponseSchema, GetFunctionsResponseSchema } from "@/core/resources/function/schema.js";
+import { getAppClient } from "@/core/clients/base44-client.js";
 
 function toDeployPayloadItem(fn: FunctionWithCode) {
   return {

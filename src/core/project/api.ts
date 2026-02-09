@@ -1,7 +1,6 @@
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import { dirname, join } from "node:path";
-import { Parser } from "tar";
+import { extract } from "tar";
 import type { KyResponse } from "ky";
 import { base44Client } from "@/core/clients/index.js";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";
@@ -10,7 +9,7 @@ import {
   CreateProjectResponseSchema,
   ProjectsResponseSchema,
 } from "@/core/project/schema.js";
-import { makeDirectory, writeFile } from "../utils";
+import { makeDirectory } from "../utils";
 
 export async function createProject(projectName: string, description?: string) {
   let response: KyResponse;
@@ -77,68 +76,5 @@ export async function downloadProject(projectId: string, projectPath: string) {
   const nodeStream = Readable.fromWeb(response.body as import("node:stream/web").ReadableStream);
 
   await makeDirectory(projectPath);
-
-  // Patterns for special handling
-  const functionConfigPattern = /^base44\/functions\/[^/]+\/config\.jsonc$/;
-  const agentOrEntityPattern = /^base44\/(agents|entities)\/[^/]+\.jsonc$/;
-
-  const parser = new Parser({
-    onReadEntry: async (entry) => {
-      const entryPath = entry.path;
-      const fullPath = join(projectPath, entryPath);
-
-      // Skip root-level functions/ directory (we generate from base44/functions/)
-      if (entryPath.startsWith("functions/")) {
-        entry.resume();
-        return;
-      }
-
-      if (entry.type === "Directory") {
-        await makeDirectory(fullPath);
-        entry.resume();
-        return;
-      }
-
-      // Read file content
-      const chunks: Buffer[] = [];
-      for await (const chunk of entry) {
-        chunks.push(chunk);
-      }
-      const content = Buffer.concat(chunks).toString("utf-8");
-
-      // Handle function config files
-      if (functionConfigPattern.test(entryPath)) {
-        const config: FunctionConfig = JSON.parse(content);
-        const funcDir = dirname(fullPath);
-
-        // Write function.jsonc with only name and entry
-        const funcConfig = { name: config.name, entry: config.entry };
-        await writeFile(
-          join(funcDir, "function.jsonc"),
-          JSON.stringify(funcConfig, null, 2)
-        );
-
-        // Write each file from the files array
-        for (const file of config.files) {
-          await writeFile(join(funcDir, file.path), file.content);
-        }
-      }
-      // Handle agent and entity files - remove .jsonc suffix from name
-      else if (agentOrEntityPattern.test(entryPath)) {
-        const config = JSON.parse(content);
-        if (config.name && config.name.endsWith(".json")) {
-          config.name = config.name.replace(/\.json$/, "");
-        }
-        await makeDirectory(dirname(fullPath));
-        await writeFile(fullPath, JSON.stringify(config, null, 2));
-      }
-      // Regular file - write as-is
-      else {
-        await makeDirectory(dirname(fullPath));
-        await writeFile(fullPath, content);
-      }
-    },
-  });
-
-  await pipeline(nodeStream, parser);
+  await pipeline(nodeStream, extract({ cwd: projectPath }));
 }

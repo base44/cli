@@ -12,7 +12,7 @@ import { getLinkCommand } from "@/cli/commands/project/link.js";
 import { getSiteCommand } from "@/cli/commands/site/index.js";
 import { getTypesCommand } from "@/cli/commands/types/index.js";
 import packageJson from "../../package.json";
-import { ejectCommand } from "./commands/project/eject.js";
+import { getEjectCommand } from "./commands/project/eject.js";
 import type { CLIContext } from "./types.js";
 
 export function createProgram(context: CLIContext): Command {
@@ -39,6 +39,7 @@ export function createProgram(context: CLIContext): Command {
   program.addCommand(getDashboardCommand(context));
   program.addCommand(getDeployCommand(context));
   program.addCommand(getLinkCommand(context));
+  program.addCommand(getEjectCommand(context));
 
   // Register entities commands
   program.addCommand(getEntitiesPushCommand(context));

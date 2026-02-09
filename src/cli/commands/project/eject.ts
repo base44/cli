@@ -2,14 +2,13 @@ import { resolve } from "node:path";
 import { Command } from "commander";
 import { select, isCancel, cancel, text, confirm } from "@clack/prompts";
 import type { Option } from "@clack/prompts";
-import { createProject, createProjectFilesForExistingProject, listProjects, setAppConfig, writeAppConfig } from "@core/project/index.js";
-import type { Project } from "@core/project/index.js";
 import { runCommand, runTask, theme } from "../../utils/index.js";
 import type { RunCommandResult } from "../../utils/runCommand.js";
-import { isDirEmpty, writeFile, writeJsonFile } from "@core/utils/fs.js";
 import kebabCase from "lodash.kebabcase";
 import { execa } from "execa";
 import { deployAction } from "./deploy.js";
+import { createProject, createProjectFilesForExistingProject, isDirEmpty, listProjects, Project, writeAppConfig, writeJsonFile, writeFile, setAppConfig } from "@/core/index.js";
+import { CLIContext } from "@/cli/types.js";
 
 interface EjectOptions {
   path?: string;
@@ -68,16 +67,6 @@ async function eject(options: EjectOptions): Promise<RunCommandResult> {
 
       await writeAppConfig(resolvedPath, newProjectId);
       await writeFile(`${resolvedPath}/.env.local`, `VITE_BASE44_APP_ID=${newProjectId}`);
-      await writeJsonFile(`${resolvedPath}/base44/config.json`, {
-        name: newProjectName,
-        description: selectedProject.userDescription,
-        site: {
-          installCommand: "npm install",
-          buildCommand: "npm run build",
-          serveCommand: "npm run dev",
-          outputDirectory: "./dist"
-        }
-      });
 
       setAppConfig({ id: newProjectId, projectRoot: resolvedPath });
     },
@@ -114,9 +103,11 @@ async function eject(options: EjectOptions): Promise<RunCommandResult> {
   return { outroMessage: "Your new project is set and ready to use" };
 }
 
-export const ejectCommand = new Command("eject")
-  .description("Download the code for an existing Base44 project")
-  .option("-p, --path <path>", "Path where to write the project")
-  .action(async (options: EjectOptions) => {
-    await runCommand(() => eject(options), { requireAuth: true, requireAppConfig: false });
-  });
+export function getEjectCommand(context: CLIContext): Command {
+  return new Command("eject")
+    .description("Download the code for an existing Base44 project")
+    .option("-p, --path <path>", "Path where to write the project")
+    .action(async (options: EjectOptions) => {
+      await runCommand(() => eject(options), { requireAuth: true, requireAppConfig: false }, context);
+    });
+} 

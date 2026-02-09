@@ -68,7 +68,6 @@
     "tmp-promise": "^3.0.3",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.52.0",
-    "unzipper": "^0.12.3",
     "vitest": "^4.0.16",
     "zod": "^4.3.5"
   },
