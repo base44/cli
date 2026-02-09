@@ -4,20 +4,21 @@ import { cancel, confirm, isCancel, select, text } from "@clack/prompts";
 import { Command } from "commander";
 import { execa } from "execa";
 import kebabCase from "lodash.kebabcase";
+import { deployAction } from "@/cli/commands/project/deploy.js";
 import type { CLIContext } from "@/cli/types.js";
+import { runCommand, runTask, theme } from "@/cli/utils/index.js";
+import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 import {
   createProject,
   createProjectFilesForExistingProject,
   isDirEmpty,
   listProjects,
   type Project,
+  readProjectConfig,
   setAppConfig,
   writeAppConfig,
   writeFile,
 } from "@/core/index.js";
-import { runCommand, runTask, theme } from "../../utils/index.js";
-import type { RunCommandResult } from "../../utils/runCommand.js";
-import { deployAction } from "./deploy.js";
 
 interface EjectOptions {
   path?: string;
@@ -28,6 +29,7 @@ async function eject(options: EjectOptions): Promise<RunCommandResult> {
   const ejectableProjects = projects.filter(
     (p) => p.isManagedSourceCode !== false
   );
+
   const projectOptions: Option<Project>[] = ejectableProjects.map((p) => ({
     value: p,
     label: p.name,
@@ -35,7 +37,7 @@ async function eject(options: EjectOptions): Promise<RunCommandResult> {
   }));
 
   const selectedProject = await select({
-    message: "Choose a project to download",
+    message: `Choose a project to download ${theme.styles.dim("(Note: this will clone the selected project)")}`,
     options: projectOptions,
   });
 
@@ -100,15 +102,24 @@ async function eject(options: EjectOptions): Promise<RunCommandResult> {
     message: "Would you like to deploy your project now?",
   });
 
-  if (!isCancel(shouldDeploy) && shouldDeploy) {
+  const { project } = await readProjectConfig(resolvedPath);
+  const installCommand = project.site?.installCommand;
+  const buildCommand = project.site?.buildCommand;
+
+  if (
+    !isCancel(shouldDeploy) &&
+    shouldDeploy &&
+    installCommand &&
+    buildCommand
+  ) {
     try {
       await runTask(
         "Installing dependencies...",
         async (updateMessage) => {
-          await execa({ cwd: resolvedPath, shell: true })`npm install`;
+          await execa({ cwd: resolvedPath, shell: true })`${installCommand}`;
 
           updateMessage("Building project...");
-          await execa({ cwd: resolvedPath, shell: true })`npm run build`;
+          await execa({ cwd: resolvedPath, shell: true })`${buildCommand}`;
         },
         {
           successMessage: theme.colors.base44Orange(
