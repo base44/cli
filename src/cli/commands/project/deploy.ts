@@ -30,7 +30,7 @@ export async function deployAction(
     };
   }
 
-  const { project, entities, functions, agents } = projectData;
+  const { project, entities, functions, agents, connectors } = projectData;
 
   // Build summary of what will be deployed
   const summaryLines: string[] = [];
@@ -47,6 +47,11 @@ export async function deployAction(
   if (agents.length > 0) {
     summaryLines.push(
       `  - ${agents.length} ${agents.length === 1 ? "agent" : "agents"}`,
+    );
+  }
+  if (connectors.length > 0) {
+    summaryLines.push(
+      `  - ${connectors.length} ${connectors.length === 1 ? "connector" : "connectors"}`
     );
   }
   if (project.site?.outputDirectory) {
@@ -96,7 +101,7 @@ export async function deployAction(
 export function getDeployCommand(context: CLIContext): Command {
   return new Command("deploy")
     .description(
-      "Deploy all project resources (entities, functions, agents, and site)",
+"Deploy all project resources (entities, functions, agents, connectors, and site)"
     )
     .option("-y, --yes", "Skip confirmation prompt")
     .action(async (options: DeployOptions) => {
