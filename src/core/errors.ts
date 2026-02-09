@@ -11,7 +11,10 @@
 
 import { HTTPError } from "ky";
 import { z } from "zod";
-import { ApiErrorResponseSchema } from "@/core/clients/schemas.js";
+import {
+  type ApiErrorResponse,
+  ApiErrorResponseSchema,
+} from "@/core/clients/schemas.js";
 
 // ============================================================================
 // API Error Response Parsing
@@ -264,9 +267,15 @@ export class ApiError extends SystemError {
   readonly requestBody?: unknown;
   readonly responseBody?: unknown;
 
-  constructor(message: string, options?: ApiErrorOptions) {
+  constructor(
+    message: string,
+    options?: ApiErrorOptions,
+    parsedResponse?: ApiErrorResponse
+  ) {
     const hints =
-      options?.hints ?? ApiError.getDefaultHints(options?.statusCode);
+      options?.hints ??
+      ApiError.getReasonHints(parsedResponse) ??
+      ApiError.getDefaultHints(options?.statusCode);
     super(message, { hints, cause: options?.cause });
     this.statusCode = options?.statusCode;
     this.requestUrl = options?.requestUrl;
@@ -297,23 +306,32 @@ export class ApiError extends SystemError {
     if (error instanceof HTTPError) {
       let message: string;
       let responseBody: unknown;
+      let parsedErrorResponse: ApiErrorResponse | undefined;
       try {
         responseBody = await error.response.clone().json();
         message = formatApiError(responseBody);
+        const parsed = ApiErrorResponseSchema.safeParse(responseBody);
+        if (parsed.success) {
+          parsedErrorResponse = parsed.data;
+        }
       } catch {
         message = error.message;
       }
 
       const requestBody = error.options.context?.__requestBody;
 
-      return new ApiError(`Error ${context}: ${message}`, {
-        statusCode: error.response.status,
-        requestUrl: error.request.url,
-        requestMethod: error.request.method,
-        requestBody,
-        responseBody,
-        cause: error,
-      });
+      return new ApiError(
+        `Error ${context}: ${message}`,
+        {
+          statusCode: error.response.status,
+          requestUrl: error.request.url,
+          requestMethod: error.request.method,
+          requestBody,
+          responseBody,
+          cause: error,
+        },
+        parsedErrorResponse
+      );
     }
 
     if (error instanceof Error) {
@@ -335,7 +353,42 @@ export class ApiError extends SystemError {
     if (statusCode === 404) {
       return [{ message: "The requested resource was not found" }];
     }
+    if (statusCode === 428) {
+      return [
+        {
+          message:
+            "The server rejected the request due to a precondition failure. Check the error message above for details",
+        },
+      ];
+    }
     return [{ message: "Check your network connection and try again" }];
+  }
+
+  /**
+   * Returns targeted hints for known `extra_data.reason` values
+   * from a parsed API error response.
+   * Add new entries to the map when the backend introduces new reason codes.
+   */
+  private static getReasonHints(
+    parsedResponse?: ApiErrorResponse
+  ): ErrorHint[] | undefined {
+    const REASON_HINTS: Record<string, ErrorHint[]> = {
+      requires_backend_platform_app: [
+        {
+          message:
+            "This feature requires an app created with the Base44 CLI. Remove `base44/.app.jsonc` and run 'base44 link' to connect your project to a CLI-created app.",
+        },
+        {
+          message:
+            "Read more at https://docs.base44.com/developers/backend/overview/introduction",
+        },
+      ],
+    };
+
+    const reason = parsedResponse?.extra_data?.reason;
+    if (typeof reason !== "string") return undefined;
+
+    return REASON_HINTS[reason];
   }
 }
 
