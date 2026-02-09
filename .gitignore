@@ -79,3 +79,6 @@ coverage/
 *.seed
 *.pid.lock
 
+# Worktrees
+.worktrees/
+
