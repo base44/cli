@@ -59,7 +59,7 @@ describe("connectors push command", () => {
     await t.givenLoggedInWithProject(fixture("basic"));
     t.api.mockConnectorsList({
       integrations: [
-        { integration_type: "slack", status: "ACTIVE", scopes: ["chat:write"] },
+        { integration_type: "slack", status: "active", scopes: ["chat:write"] },
       ],
     });
     t.api.mockConnectorRemove({ status: "removed", integration_type: "slack" });

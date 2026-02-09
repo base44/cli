@@ -72,7 +72,17 @@ export const TikTokConnectorSchema = z.object({
   scopes: z.array(z.string()).default([]),
 });
 
-export const ConnectorResourceSchema = z.discriminatedUnion("type", [
+/** Generic connector schema for arbitrary providers */
+const GenericConnectorSchema = z.object({
+  type: z.string(),
+  scopes: z.array(z.string()).default([]),
+});
+
+/**
+ * Connector resource schema that accepts both known providers (with specific schemas)
+ * and arbitrary provider strings (with generic schema).
+ */
+export const ConnectorResourceSchema = z.union([
   GoogleCalendarConnectorSchema,
   GoogleDriveConnectorSchema,
   GmailConnectorSchema,
@@ -85,11 +95,13 @@ export const ConnectorResourceSchema = z.discriminatedUnion("type", [
   HubspotConnectorSchema,
   LinkedInConnectorSchema,
   TikTokConnectorSchema,
+  GenericConnectorSchema,
 ]);
 
 export type ConnectorResource = z.infer<typeof ConnectorResourceSchema>;
 
-export const IntegrationTypeSchema = z.enum([
+/** Known integration types with first-class support */
+export const KnownIntegrationTypes = [
   "googlecalendar",
   "googledrive",
   "gmail",
@@ -102,6 +114,15 @@ export const IntegrationTypeSchema = z.enum([
   "hubspot",
   "linkedin",
   "tiktok",
+] as const;
+
+/**
+ * Integration type schema that accepts both known providers and arbitrary strings.
+ * This allows users to use custom OAuth providers not yet supported by Base44.
+ */
+export const IntegrationTypeSchema = z.union([
+  z.enum(KnownIntegrationTypes),
+  z.string().min(1),
 ]);
 
 export type IntegrationType = z.infer<typeof IntegrationTypeSchema>;
