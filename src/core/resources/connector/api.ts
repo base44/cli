@@ -37,6 +37,14 @@ export async function listConnectors(): Promise<ListConnectorsResponse> {
   return result.data;
 }
 
+/**
+ * Fetch connectors from the server (alias for listConnectors).
+ * This provides consistent naming with other resources like agents.
+ */
+export async function fetchConnectors(): Promise<ListConnectorsResponse> {
+  return await listConnectors();
+}
+
 export async function setConnector(
   integrationType: IntegrationType,
   scopes: string[],

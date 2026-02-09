@@ -1,10 +1,24 @@
-import { resolve } from "node:path";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { InvalidInputError } from "../../src/core/errors.js";
 import * as api from "../../src/core/resources/connector/api.js";
-import { readAllConnectors } from "../../src/core/resources/connector/config.js";
+import {
+  readAllConnectors,
+  writeConnectors,
+} from "../../src/core/resources/connector/config.js";
+import {
+  type OAuthFlowParams,
+  runOAuthFlow,
+} from "../../src/core/resources/connector/oauth.js";
 import { pushConnectors } from "../../src/core/resources/connector/push.js";
-import type { ConnectorResource } from "../../src/core/resources/connector/schema.js";
+import {
+  type ConnectorResource,
+  ConnectorResourceSchema,
+  IntegrationTypeSchema,
+  type UpstreamConnector,
+} from "../../src/core/resources/connector/schema.js";
 
 vi.mock("../../src/core/resources/connector/api.js");
 
@@ -55,6 +69,147 @@ describe("readAllConnectors", () => {
     await expect(readAllConnectors(connectorsDir)).rejects.toThrow(
       'Duplicate connector type "slack"',
     );
+  });
+});
+
+describe("writeConnectors", () => {
+  it("writes remote connectors to files", async () => {
+    const tmpDir = await mkdtemp(join(tmpdir(), "connectors-test-"));
+
+    try {
+      const remoteConnectors: UpstreamConnector[] = [
+        {
+          integration_type: "gmail",
+          status: "active",
+          scopes: ["https://mail.google.com/"],
+          user_email: "test@example.com",
+        },
+        {
+          integration_type: "slack",
+          status: "active",
+          scopes: ["chat:write", "channels:read"],
+        },
+      ];
+
+      const { written, deleted } = await writeConnectors(
+        tmpDir,
+        remoteConnectors
+      );
+
+      expect(written).toEqual(["gmail", "slack"]);
+      expect(deleted).toEqual([]);
+
+      const connectors = await readAllConnectors(tmpDir);
+      expect(connectors).toHaveLength(2);
+
+      const gmail = connectors.find((c) => c.type === "gmail");
+      expect(gmail?.scopes).toEqual(["https://mail.google.com/"]);
+
+      const slack = connectors.find((c) => c.type === "slack");
+      expect(slack?.scopes).toEqual(["chat:write", "channels:read"]);
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("deletes local connectors not in remote list", async () => {
+    const tmpDir = await mkdtemp(join(tmpdir(), "connectors-test-"));
+
+    try {
+      // First, write some initial connectors
+      const initialConnectors: UpstreamConnector[] = [
+        {
+          integration_type: "gmail",
+          status: "active",
+          scopes: ["https://mail.google.com/"],
+        },
+        {
+          integration_type: "slack",
+          status: "active",
+          scopes: ["chat:write"],
+        },
+      ];
+      await writeConnectors(tmpDir, initialConnectors);
+
+      // Now write a new set that only includes gmail
+      const remoteConnectors: UpstreamConnector[] = [
+        {
+          integration_type: "gmail",
+          status: "active",
+          scopes: ["https://mail.google.com/"],
+        },
+      ];
+
+      const { written, deleted } = await writeConnectors(
+        tmpDir,
+        remoteConnectors
+      );
+
+      expect(written).toEqual(["gmail"]);
+      expect(deleted).toEqual(["slack"]);
+
+      const connectors = await readAllConnectors(tmpDir);
+      expect(connectors).toHaveLength(1);
+      expect(connectors[0].type).toBe("gmail");
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("handles empty remote list by deleting all local connectors", async () => {
+    const tmpDir = await mkdtemp(join(tmpdir(), "connectors-test-"));
+
+    try {
+      // First, write some connectors
+      const initialConnectors: UpstreamConnector[] = [
+        {
+          integration_type: "gmail",
+          status: "active",
+          scopes: ["https://mail.google.com/"],
+        },
+      ];
+      await writeConnectors(tmpDir, initialConnectors);
+
+      // Write empty list
+      const { written, deleted } = await writeConnectors(tmpDir, []);
+
+      expect(written).toEqual([]);
+      expect(deleted).toEqual(["gmail"]);
+
+      const connectors = await readAllConnectors(tmpDir);
+      expect(connectors).toEqual([]);
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("creates directory and writes files if directory doesn't exist", async () => {
+    const tmpDir = await mkdtemp(join(tmpdir(), "connectors-test-"));
+    const connectorsDir = join(tmpDir, "connectors");
+
+    try {
+      const remoteConnectors: UpstreamConnector[] = [
+        {
+          integration_type: "notion",
+          status: "active",
+          scopes: [],
+        },
+      ];
+
+      const { written, deleted } = await writeConnectors(
+        connectorsDir,
+        remoteConnectors
+      );
+
+      expect(written).toEqual(["notion"]);
+      expect(deleted).toEqual([]);
+
+      const connectors = await readAllConnectors(connectorsDir);
+      expect(connectors).toHaveLength(1);
+      expect(connectors[0].type).toBe("notion");
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
   });
 });
 
