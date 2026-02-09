@@ -1,5 +1,4 @@
 import { globby } from "globby";
-import kebabCase from "lodash.kebabcase";
 import { PROJECT_CONFIG_PATTERNS } from "@/core/consts.js";
 import { ConfigExistsError } from "@/core/errors.js";
 import { createProject, downloadProject } from "@/core/project/api";
@@ -51,9 +50,10 @@ export async function createProjectFiles(
   };
 }
 
-export async function createProjectFilesForExistingProject(
-  options: { projectId: string, projectPath: string; }
-): Promise<CreateProjectResult> {
+export async function createProjectFilesForExistingProject(options: {
+  projectId: string;
+  projectPath: string;
+}): Promise<CreateProjectResult> {
   const { projectId, projectPath } = options;
 
   // Check if project already exists

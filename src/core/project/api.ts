@@ -1,7 +1,7 @@
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import { extract } from "tar";
 import type { KyResponse } from "ky";
+import { extract } from "tar";
 import { base44Client } from "@/core/clients/index.js";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";
 import type { ProjectsResponse } from "@/core/project/schema.js";
@@ -66,8 +66,12 @@ export async function listProjects(): Promise<ProjectsResponse> {
 }
 
 export async function downloadProject(projectId: string, projectPath: string) {
-  const response = await base44Client.get(`api/apps/${projectId}/eject`, { timeout: false });
-  const nodeStream = Readable.fromWeb(response.body as import("node:stream/web").ReadableStream);
+  const response = await base44Client.get(`api/apps/${projectId}/eject`, {
+    timeout: false,
+  });
+  const nodeStream = Readable.fromWeb(
+    response.body as import("node:stream/web").ReadableStream
+  );
 
   await makeDirectory(projectPath);
   await pipeline(nodeStream, extract({ cwd: projectPath }));
