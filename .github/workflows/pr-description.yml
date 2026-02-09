@@ -2,10 +2,14 @@ name: Auto PR Description
 
 on:
   pull_request:
-    types: [opened, synchronize]
+    types: [opened, synchronize, edited]
 
 jobs:
   generate-description:
+    if: >-
+      github.event.action != 'edited' ||
+      github.event.changes.base != null ||
+      !github.event.pull_request.body
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -26,6 +30,11 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
             Analyze this pull request and generate a complete PR description.
+
+            IMPORTANT: The target branch for this PR is "${{ github.event.pull_request.base.ref }}".
+            When analyzing changes, always diff against the target branch using:
+              git diff origin/${{ github.event.pull_request.base.ref }}...HEAD
+            Do NOT assume the target branch is "main" - always use the target branch specified above.
 
             IMPORTANT INSTRUCTIONS:
             1. Analyze all the changes in this PR to understand what it does

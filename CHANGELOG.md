@@ -1,6 +1,16 @@
 # Changelog
 
 
+## [0.0.30] - 2026-02-09
+
+### Added
+
+- Function automation schemas for trigger-based function execution (#197)
+
+### Fixed
+
+- Handle 428 Precondition Required API error status codes in entity operations (#218)
+
 ## [0.0.29] - 2026-02-09
 
 ### Added
