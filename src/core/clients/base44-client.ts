@@ -17,6 +17,27 @@ import { getAppConfig } from "@/core/project/index.js";
 const retriedRequests = new WeakSet<KyRequest>();
 
 /**
+ * Captures request body for error reporting. Clones the request and reads the
+ * clone's body so the original is not consumed. Body is stored in options.context.__requestBody
+ * so it is available on HTTPError.options when ApiError.fromHttpError runs (for telemetry).
+ */
+async function captureRequestBody(
+  request: KyRequest,
+  options: NormalizedOptions
+): Promise<void> {
+  if (request.body == null) {
+    return;
+  }
+  try {
+    const cloned = request.clone();
+    const text = await cloned.text();
+    options.context.__requestBody = text;
+  } catch {
+    // Ignore capture failures; request will still succeed
+  }
+}
+
+/**
  * Handles 401 responses by refreshing the token and retrying the request.
  * Only retries once per request to prevent infinite loops.
  */
@@ -62,6 +83,7 @@ export const base44Client = ky.create({
   },
   hooks: {
     beforeRequest: [
+      captureRequestBody,
       async (request) => {
         try {
           const auth = await readAuth();

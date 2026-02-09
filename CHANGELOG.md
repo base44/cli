@@ -1,6 +1,93 @@
 # Changelog
 
 
+## [0.0.29] - 2026-02-09
+
+### Added
+
+- Upgrade notification when a newer CLI version is available (#157)
+- Collect API request/response data in error reporter for better debugging (#201)
+- Upload sourcemaps to PostHog for improved error tracking (#208)
+
+### Changed
+
+- Simplify function schemas (#196)
+- Add Bun build with watch mode for faster development (#198)
+
+### Fixed
+
+- Fix user ID collection in error reporter context (#206)
+
+### Docs
+
+- Add missing commands to README (#204)
+
+## [0.0.28] - 2026-02-02
+
+### Changed
+
+- Use Bun for local development and Biome for linting/formatting (#183)
+- Fix publish workflows for npm authentication
+
+## [0.0.27] - 2026-02-02
+
+### Added
+
+- `base44 site open` and `base44 dashboard open` commands to open URLs in browser (#169)
+
+### Changed
+
+- Improve schema validation error messages with nicer error message (#177)
+- Wrap PR description in NOTE callout block (#172)
+- Add CLAUDE.md symlink to AGENTS.md for code review plugin (#182)
+
+## [0.0.26] - 2026-02-01
+
+### Added
+
+- PostHog error monitoring and telemetry for CLI executions (#156)
+- Dependency injection for commands and program via `CLIContext` (#156)
+- Agent hints and error context display on errors (#161)
+- Agent deployment to unified `base44 deploy` command (#149)
+- AI agent to backend-and-client template (#153)
+- CLI integration tests (#19)
+
+### Changed
+
+- Better error messages with structured error hierarchy (`UserError` / `SystemError`) (#159)
+- Enhance resource schema validation with comprehensive Zod types (#151)
+- Centralize API error handling in ky client (#135)
+
+### Fixed
+
+- Update skill installation command in README and CLI create command (#162)
+
+## [0.0.25] - 2026-01-28
+
+### Added
+
+- Support multifile upload when deploying functions (#146)
+
+## [0.0.24] - 2026-01-28
+
+### Added
+
+- `--no-skills` flag to create command to skip skills installation (#142)
+
+## [0.0.23] - 2026-01-28
+
+### Added
+
+- Detect non-TTY environments and disable animations (#139)
+
+### Changed
+
+- Change 'Pick a template' to 'Pick an option' in create command (#137)
+
+### Fixed
+
+- Trigger skills repo notification directly from publish workflow (#134)
+
 ## [0.0.22] - 2026-01-27
 
 ### Added

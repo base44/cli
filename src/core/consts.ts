@@ -12,5 +12,9 @@ export const PROJECT_CONFIG_PATTERNS = [
   `config.${CONFIG_FILE_EXTENSION_GLOB}`,
 ];
 
+// Types generation
+export const TYPES_OUTPUT_SUBDIR = ".types";
+export const TYPES_FILENAME = "types.d.ts";
+
 // Auth
 export const AUTH_CLIENT_ID = "base44_cli";

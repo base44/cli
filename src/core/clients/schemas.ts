@@ -12,8 +12,10 @@ export const ApiErrorResponseSchema = z.object({
       z.record(z.string(), z.unknown()),
       z.array(z.unknown()),
     ])
+    .nullable()
     .optional(),
-  traceback: z.string().optional(),
+  traceback: z.string().nullable().optional(),
+  extra_data: z.string().optional().nullable(),
 });
 
 export type ApiErrorResponse = z.infer<typeof ApiErrorResponseSchema>;
