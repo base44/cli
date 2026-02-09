@@ -42,10 +42,10 @@ export const SlackConnectorSchema = z.object({
   scopes: z.array(z.string()).default([]),
 });
 
-/** Notion - Scopes are preauthorized, no need to request them explicitly (values will be ignored) */
+/** Notion - Scopes are preauthorized, no need to request them explicitly */
 export const NotionConnectorSchema = z.object({
   type: z.literal("notion"),
-  scopes: z.array(z.string()).default([]),
+  scopes: z.array(z.string()).optional(),
 });
 
 /** Salesforce - Scopes: https://developer.salesforce.com/docs/platform/mobile-sdk/guide/oauth-scope-parameter-values.html */

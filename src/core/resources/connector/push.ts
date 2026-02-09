@@ -26,7 +26,10 @@ export async function pushConnectors(
 
   for (const connector of connectors) {
     try {
-      const response = await setConnector(connector.type, connector.scopes);
+      const response = await setConnector(
+        connector.type,
+        connector.scopes ?? []
+      );
       results.push(setResponseToResult(connector.type, response));
     } catch (err) {
       results.push({

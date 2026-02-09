@@ -80,7 +80,7 @@ describe("ConnectorResourceSchema", () => {
     }
   });
 
-  it("defaults scopes to empty array if not provided", () => {
+  it("defaults scopes to empty array if not provided for Slack", () => {
     const connector = {
       type: "slack",
     };
@@ -88,6 +88,33 @@ describe("ConnectorResourceSchema", () => {
     const result = ConnectorResourceSchema.safeParse(connector);
     expect(result.success).toBe(true);
     if (result.success) {
+      expect(result.data.scopes).toEqual([]);
+    }
+  });
+
+  it("accepts Notion connector without scopes field", () => {
+    const connector = {
+      type: "notion",
+    };
+
+    const result = ConnectorResourceSchema.safeParse(connector);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.type).toBe("notion");
+      expect(result.data.scopes).toBeUndefined();
+    }
+  });
+
+  it("accepts Notion connector with empty scopes for backward compatibility", () => {
+    const connector = {
+      type: "notion",
+      scopes: [],
+    };
+
+    const result = ConnectorResourceSchema.safeParse(connector);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.type).toBe("notion");
       expect(result.data.scopes).toEqual([]);
     }
   });
@@ -135,6 +162,18 @@ describe("readAllConnectors", () => {
 
     const notion = connectors.find((c) => c.type === "notion");
     expect(notion?.scopes).toEqual([]);
+  });
+
+  it("reads Notion connector without scopes field", async () => {
+    const connectorsDir = resolve(
+      FIXTURES_DIR,
+      "with-notion-no-scopes/connectors"
+    );
+    const connectors = await readAllConnectors(connectorsDir);
+
+    expect(connectors).toHaveLength(1);
+    expect(connectors[0].type).toBe("notion");
+    expect(connectors[0].scopes).toBeUndefined();
   });
 
   it("throws error for invalid connector type", async () => {
@@ -345,6 +384,34 @@ describe("pushConnectors", () => {
       { type: "gmail", action: "synced" },
       { type: "slack", action: "synced" },
     ]);
+  });
+
+  it("syncs Notion connector without scopes field", async () => {
+    const local: ConnectorResource[] = [{ type: "notion" }];
+    mockSetConnector.mockResolvedValue({
+      redirect_url: null,
+      connection_id: null,
+      already_authorized: true,
+    });
+
+    const result = await pushConnectors(local);
+
+    expect(mockSetConnector).toHaveBeenCalledWith("notion", []);
+    expect(result.results).toEqual([{ type: "notion", action: "synced" }]);
+  });
+
+  it("syncs Notion connector with empty scopes for backward compatibility", async () => {
+    const local: ConnectorResource[] = [{ type: "notion", scopes: [] }];
+    mockSetConnector.mockResolvedValue({
+      redirect_url: null,
+      connection_id: null,
+      already_authorized: true,
+    });
+
+    const result = await pushConnectors(local);
+
+    expect(mockSetConnector).toHaveBeenCalledWith("notion", []);
+    expect(result.results).toEqual([{ type: "notion", action: "synced" }]);
   });
 });
 
