@@ -1,5 +1,5 @@
 import { describe, it } from "vitest";
-import { setupCLITests, fixture } from "./testkit/index.js";
+import { fixture, setupCLITests } from "./testkit/index.js";
 
 describe("agents push command", () => {
   const t = setupCLITests();
@@ -25,7 +25,11 @@ describe("agents push command", () => {
 
   it("finds and lists agents in project", async () => {
     await t.givenLoggedInWithProject(fixture("with-agents"));
-    t.api.mockAgentsPush({ created: ["customer_support", "data_analyst", "order_assistant"], updated: [], deleted: [] });
+    t.api.mockAgentsPush({
+      created: ["customer_support", "data_analyst", "order_assistant"],
+      updated: [],
+      deleted: [],
+    });
 
     const result = await t.run("agents", "push");
 
@@ -35,7 +39,11 @@ describe("agents push command", () => {
 
   it("pushes agents successfully and shows results", async () => {
     await t.givenLoggedInWithProject(fixture("with-agents"));
-    t.api.mockAgentsPush({ created: ["customer_support"], updated: ["data_analyst"], deleted: ["old_agent"] });
+    t.api.mockAgentsPush({
+      created: ["customer_support"],
+      updated: ["data_analyst"],
+      deleted: ["old_agent"],
+    });
 
     const result = await t.run("agents", "push");
 

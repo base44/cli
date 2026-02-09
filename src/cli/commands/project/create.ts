@@ -1,22 +1,27 @@
-import { resolve, join, basename } from "node:path";
-import { execa } from "execa";
-import { Argument, Command } from "commander";
-import { log, group, text, select, confirm, isCancel } from "@clack/prompts";
+import { basename, join, resolve } from "node:path";
 import type { Option } from "@clack/prompts";
+import { confirm, group, isCancel, log, select, text } from "@clack/prompts";
+import { Argument, Command } from "commander";
+import { execa } from "execa";
 import kebabCase from "lodash.kebabcase";
 import type { CLIContext } from "@/cli/types.js";
-import { createProjectFiles, listTemplates, readProjectConfig, setAppConfig } from "@/core/project/index.js";
-import type { Template } from "@/core/project/index.js";
-import { deploySite, isDirEmpty, pushEntities } from "@/core/index.js";
-import { InvalidInputError } from "@/core/errors.js";
 import {
+  getDashboardUrl,
+  onPromptCancel,
   runCommand,
   runTask,
-  onPromptCancel,
   theme,
-  getDashboardUrl,
 } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
+import { InvalidInputError } from "@/core/errors.js";
+import { deploySite, isDirEmpty, pushEntities } from "@/core/index.js";
+import type { Template } from "@/core/project/index.js";
+import {
+  createProjectFiles,
+  listTemplates,
+  readProjectConfig,
+  setAppConfig,
+} from "@/core/project/index.js";
 
 const DEFAULT_TEMPLATE_ID = "backend-only";
 
@@ -33,14 +38,9 @@ async function getTemplateById(templateId: string): Promise<Template> {
   const template = templates.find((t) => t.id === templateId);
   if (!template) {
     const validIds = templates.map((t) => t.id).join(", ");
-    throw new InvalidInputError(
-      `Template "${templateId}" not found.`,
-      {
-        hints: [
-          { message: `Use one of: ${validIds}` },
-        ],
-      }
-    );
+    throw new InvalidInputError(`Template "${templateId}" not found.`, {
+      hints: [{ message: `Use one of: ${validIds}` }],
+    });
   }
   return template;
 }
@@ -53,9 +53,11 @@ function validateNonInteractiveFlags(command: Command): void {
   }
 }
 
-async function createInteractive(options: CreateOptions): Promise<RunCommandResult> {
+async function createInteractive(
+  options: CreateOptions
+): Promise<RunCommandResult> {
   const templates = await listTemplates();
-  const templateOptions: Array<Option<Template>> = templates.map((t) => ({
+  const templateOptions: Option<Template>[] = templates.map((t) => ({
     value: t,
     label: t.name,
     hint: t.description,
@@ -69,19 +71,23 @@ async function createInteractive(options: CreateOptions): Promise<RunCommandResu
           options: templateOptions,
         }),
       name: () => {
-        return options.name ? Promise.resolve(options.name) : text({
-          message: "What is the name of your project?",
-          placeholder: basename(process.cwd()),
-          initialValue: basename(process.cwd()),
-          validate: (value) => {
-            if (!value || value.trim().length === 0) {
-              return "Every project deserves a name";
-            }
-          },
-        })
+        return options.name
+          ? Promise.resolve(options.name)
+          : text({
+              message: "What is the name of your project?",
+              placeholder: basename(process.cwd()),
+              initialValue: basename(process.cwd()),
+              validate: (value) => {
+                if (!value || value.trim().length === 0) {
+                  return "Every project deserves a name";
+                }
+              },
+            });
       },
       projectPath: async ({ results }) => {
-        const suggestedPath = await isDirEmpty() ? `./` : `./${kebabCase(results.name)}`;
+        const suggestedPath = (await isDirEmpty())
+          ? "./"
+          : `./${kebabCase(results.name)}`;
         return text({
           message: "Where should we create your project?",
           placeholder: suggestedPath,
@@ -104,8 +110,12 @@ async function createInteractive(options: CreateOptions): Promise<RunCommandResu
   });
 }
 
-async function createNonInteractive(options: CreateOptions): Promise<RunCommandResult> {
-  const template = await getTemplateById(options.template ?? DEFAULT_TEMPLATE_ID);
+async function createNonInteractive(
+  options: CreateOptions
+): Promise<RunCommandResult> {
+  const template = await getTemplateById(
+    options.template ?? DEFAULT_TEMPLATE_ID
+  );
 
   return await executeCreate({
     template,
@@ -164,7 +174,8 @@ async function executeCreate({
 
     if (isInteractive) {
       const result = await confirm({
-        message: "Set up the backend data now? (This pushes the data models used by the template to Base44)",
+        message:
+          "Set up the backend data now? (This pushes the data models used by the template to Base44)",
       });
       shouldPushEntities = !isCancel(result) && result;
     } else {
@@ -178,7 +189,9 @@ async function executeCreate({
           await pushEntities(entities);
         },
         {
-          successMessage: theme.colors.base44Orange("Data models pushed successfully"),
+          successMessage: theme.colors.base44Orange(
+            "Data models pushed successfully"
+          ),
           errorMessage: "Failed to push data models",
         }
       );
@@ -212,7 +225,9 @@ async function executeCreate({
           return await deploySite(join(resolvedPath, outputDirectory));
         },
         {
-          successMessage: theme.colors.base44Orange("Site deployed successfully"),
+          successMessage: theme.colors.base44Orange(
+            "Site deployed successfully"
+          ),
           errorMessage: "Failed to deploy site",
         }
       );
@@ -231,12 +246,15 @@ async function executeCreate({
         async () => {
           await execa("npx", ["-y", "skills", "add", "base44/skills", "-y"], {
             cwd: resolvedPath,
-            shell: true
+            shell: true,
           });
         },
         {
-          successMessage: theme.colors.base44Orange("AI agent skills added successfully"),
-          errorMessage: "Failed to add AI agent skills - you can add them later with: npx skills add base44/skills",
+          successMessage: theme.colors.base44Orange(
+            "AI agent skills added successfully"
+          ),
+          errorMessage:
+            "Failed to add AI agent skills - you can add them later with: npx skills add base44/skills",
         }
       );
     } catch {
@@ -245,11 +263,17 @@ async function executeCreate({
     }
   }
 
-  log.message(`${theme.styles.header("Project")}: ${theme.colors.base44Orange(name)}`);
-  log.message(`${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(projectId))}`);
+  log.message(
+    `${theme.styles.header("Project")}: ${theme.colors.base44Orange(name)}`
+  );
+  log.message(
+    `${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(projectId))}`
+  );
 
   if (finalAppUrl) {
-    log.message(`${theme.styles.header("Site")}: ${theme.colors.links(finalAppUrl)}`);
+    log.message(
+      `${theme.styles.header("Site")}: ${theme.colors.links(finalAppUrl)}`
+    );
   }
 
   return { outroMessage: "Your project is set up and ready to use" };
@@ -258,9 +282,12 @@ async function executeCreate({
 export function getCreateCommand(context: CLIContext): Command {
   return new Command("create")
     .description("Create a new Base44 project")
-    .addArgument(new Argument('name', 'Project name').argOptional())
+    .addArgument(new Argument("name", "Project name").argOptional())
     .option("-p, --path <path>", "Path where to create the project")
-    .option("-t, --template <id>", "Template ID (e.g., backend-only, backend-and-client)")
+    .option(
+      "-t, --template <id>",
+      "Template ID (e.g., backend-only, backend-and-client)"
+    )
     .option("--deploy", "Build and deploy the site")
     .option("--no-skills", "Skip AI agent skills installation")
     .hook("preAction", validateNonInteractiveFlags)
@@ -269,7 +296,8 @@ export function getCreateCommand(context: CLIContext): Command {
 
       if (isNonInteractive) {
         await runCommand(
-          () => createNonInteractive({ name: options.name ?? name, ...options }),
+          () =>
+            createNonInteractive({ name: options.name ?? name, ...options }),
           { requireAuth: true, requireAppConfig: false },
           context
         );

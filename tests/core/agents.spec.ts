@@ -1,12 +1,13 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import { HTTPError } from "ky";
-import type { AgentConfig } from "../../src/core/resources/agent/index.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { pushAgents } from "../../src/core/resources/agent/api.js";
+import type { AgentConfig } from "../../src/core/resources/agent/index.js";
 
 // Mock the HTTP client
 const mockPut = vi.fn();
 vi.mock("../../src/core/clients/index.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../src/core/clients/index.js")>();
+  const actual =
+    await importOriginal<typeof import("../../src/core/clients/index.js")>();
   return {
     ...actual,
     getAppClient: () => ({
@@ -47,14 +48,18 @@ describe("pushAgents", () => {
         description: "Test",
         instructions: "Do stuff",
         tool_configs: [
-          { allowed_operations: ["read", "create", "update", "delete"], entity_name: "User" },
+          {
+            allowed_operations: ["read", "create", "update", "delete"],
+            entity_name: "User",
+          },
         ],
         whatsapp_greeting: "Hello!",
       },
     ];
 
     mockPut.mockResolvedValue({
-      json: () => Promise.resolve({ created: ["test_agent"], updated: [], deleted: [] }),
+      json: () =>
+        Promise.resolve({ created: ["test_agent"], updated: [], deleted: [] }),
     });
 
     const result = await pushAgents(agents);
@@ -66,7 +71,10 @@ describe("pushAgents", () => {
           description: "Test",
           instructions: "Do stuff",
           tool_configs: [
-            { allowed_operations: ["read", "create", "update", "delete"], entity_name: "User" },
+            {
+              allowed_operations: ["read", "create", "update", "delete"],
+              entity_name: "User",
+            },
           ],
           whatsapp_greeting: "Hello!",
         },
@@ -86,7 +94,12 @@ describe("pushAgents", () => {
     ];
 
     mockPut.mockResolvedValue({
-      json: () => Promise.resolve({ created: ["agent_no_greeting"], updated: [], deleted: [] }),
+      json: () =>
+        Promise.resolve({
+          created: ["agent_no_greeting"],
+          updated: [],
+          deleted: [],
+        }),
     });
 
     await pushAgents(agents);
@@ -121,7 +134,9 @@ describe("pushAgents", () => {
       })
     );
 
-    await expect(pushAgents(agents)).rejects.toThrow("Error syncing agents: Unauthorized access");
+    await expect(pushAgents(agents)).rejects.toThrow(
+      "Error syncing agents: Unauthorized access"
+    );
   });
 
   it("falls back to detail when message is not present", async () => {
@@ -134,9 +149,13 @@ describe("pushAgents", () => {
       },
     ];
 
-    mockPut.mockRejectedValue(createHTTPError(400, { detail: "Some error detail" }));
+    mockPut.mockRejectedValue(
+      createHTTPError(400, { detail: "Some error detail" })
+    );
 
-    await expect(pushAgents(agents)).rejects.toThrow("Error syncing agents: Some error detail");
+    await expect(pushAgents(agents)).rejects.toThrow(
+      "Error syncing agents: Some error detail"
+    );
   });
 
   it("stringifies object errors", async () => {

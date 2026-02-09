@@ -6,8 +6,16 @@ import { z } from "zod";
 export const ApiErrorResponseSchema = z.object({
   error_type: z.string().optional(),
   message: z.union([z.string(), z.record(z.string(), z.unknown())]).optional(),
-  detail: z.union([z.string(), z.record(z.string(), z.unknown()), z.array(z.unknown())]).optional(),
-  traceback: z.string().optional(),
+  detail: z
+    .union([
+      z.string(),
+      z.record(z.string(), z.unknown()),
+      z.array(z.unknown()),
+    ])
+    .nullable()
+    .optional(),
+  traceback: z.string().nullable().optional(),
+  extra_data: z.record(z.string(), z.unknown()).optional().nullable(),
 });
 
 export type ApiErrorResponse = z.infer<typeof ApiErrorResponseSchema>;

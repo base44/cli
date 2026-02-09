@@ -1,10 +1,14 @@
+import type { KyResponse } from "ky";
 import { base44Client } from "@/core/clients/index.js";
-import { CreateProjectResponseSchema, ProjectsResponseSchema } from "@/core/project/schema.js";
-import type { ProjectsResponse } from "@/core/project/schema.js";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";
+import type { ProjectsResponse } from "@/core/project/schema.js";
+import {
+  CreateProjectResponseSchema,
+  ProjectsResponseSchema,
+} from "@/core/project/schema.js";
 
 export async function createProject(projectName: string, description?: string) {
-  let response;
+  let response: KyResponse;
   try {
     response = await base44Client.post("api/apps", {
       json: {
@@ -21,7 +25,10 @@ export async function createProject(projectName: string, description?: string) {
   const result = CreateProjectResponseSchema.safeParse(await response.json());
 
   if (!result.success) {
-    throw new SchemaValidationError("Invalid response from server", result.error);
+    throw new SchemaValidationError(
+      "Invalid response from server",
+      result.error
+    );
   }
 
   return {
@@ -30,7 +37,7 @@ export async function createProject(projectName: string, description?: string) {
 }
 
 export async function listProjects(): Promise<ProjectsResponse> {
-  let response;
+  let response: KyResponse;
   try {
     response = await base44Client.get("api/apps", {
       searchParams: {
@@ -45,7 +52,10 @@ export async function listProjects(): Promise<ProjectsResponse> {
   const result = ProjectsResponseSchema.safeParse(await response.json());
 
   if (!result.success) {
-    throw new SchemaValidationError("Invalid response from server", result.error);
+    throw new SchemaValidationError(
+      "Invalid response from server",
+      result.error
+    );
   }
 
   return result.data;

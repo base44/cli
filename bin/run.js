@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { runCLI } from "../dist/index.js";
+import { runCLI } from "../dist/cli/index.js";
 
 // Disable Clack spinners and animations in non-interactive environments.
 // Clack only checks the CI env var, so we set it when stdin/stdout aren't TTYs.

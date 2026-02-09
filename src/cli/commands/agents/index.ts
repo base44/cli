@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import type { CLIContext } from "@/cli/types.js";
-import { getAgentsPushCommand } from "./push.js";
 import { getAgentsPullCommand } from "./pull.js";
+import { getAgentsPushCommand } from "./push.js";
 
 export function getAgentsCommand(context: CLIContext): Command {
   return new Command("agents")

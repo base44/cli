@@ -1,0 +1,10 @@
+{
+  "name": "Broken",
+  "type": "object",
+  "properties": {
+    "circular": {
+      "type": "object",
+      "$ref": "#/definitions/invalid"
+    }
+  }
+}
