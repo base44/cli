@@ -40,12 +40,16 @@ describe("IntegrationTypeSchema", () => {
     }
   });
 
-  it("rejects invalid integration types", () => {
-    const invalidTypes = ["invalid", "google", "facebook", "twitter", ""];
+  it("accepts arbitrary integration types (including custom providers)", () => {
+    const arbitraryTypes = ["invalid", "google", "facebook", "twitter", "custom-oauth-provider"];
 
-    for (const type of invalidTypes) {
-      expect(IntegrationTypeSchema.safeParse(type).success).toBe(false);
+    for (const type of arbitraryTypes) {
+      expect(IntegrationTypeSchema.safeParse(type).success).toBe(true);
     }
+  });
+
+  it("rejects only empty strings", () => {
+    expect(IntegrationTypeSchema.safeParse("").success).toBe(false);
   });
 });
 
@@ -92,14 +96,18 @@ describe("ConnectorResourceSchema", () => {
     }
   });
 
-  it("rejects connector with invalid type", () => {
+  it("accepts connector with arbitrary provider type", () => {
     const connector = {
-      type: "invalid",
-      scopes: [],
+      type: "custom-oauth-provider",
+      scopes: ["scope1", "scope2"],
     };
 
     const result = ConnectorResourceSchema.safeParse(connector);
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.type).toBe("custom-oauth-provider");
+      expect(result.data.scopes).toEqual(["scope1", "scope2"]);
+    }
   });
 
   it("rejects connector without type", () => {
@@ -183,7 +191,7 @@ describe("pushConnectors", () => {
   it("removes upstream-only connectors", async () => {
     mockListConnectors.mockResolvedValue({
       integrations: [
-        { integration_type: "slack", status: "ACTIVE", scopes: ["chat:write"] },
+        { integration_type: "slack", status: "active", scopes: ["chat:write"] },
       ],
     });
     mockRemoveConnector.mockResolvedValue({
@@ -203,7 +211,7 @@ describe("pushConnectors", () => {
     ];
     mockListConnectors.mockResolvedValue({
       integrations: [
-        { integration_type: "slack", status: "ACTIVE", scopes: ["chat:write"] },
+        { integration_type: "slack", status: "active", scopes: ["chat:write"] },
       ],
     });
     mockSetConnector.mockResolvedValue({
@@ -236,7 +244,7 @@ describe("pushConnectors", () => {
       integrations: [
         {
           integration_type: "gmail",
-          status: "ACTIVE",
+          status: "active",
           scopes: ["https://mail.google.com/"],
         },
       ],
@@ -315,7 +323,7 @@ describe("pushConnectors", () => {
   it("handles remove errors gracefully", async () => {
     mockListConnectors.mockResolvedValue({
       integrations: [
-        { integration_type: "slack", status: "ACTIVE", scopes: ["chat:write"] },
+        { integration_type: "slack", status: "active", scopes: ["chat:write"] },
       ],
     });
     mockRemoveConnector.mockRejectedValue(new Error("Remove failed"));

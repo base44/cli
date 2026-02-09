@@ -1,5 +1,4 @@
-// Invalid connector - unknown integration type
+// Invalid connector - missing type field
 {
-  "type": "invalid",
   "scopes": []
 }
