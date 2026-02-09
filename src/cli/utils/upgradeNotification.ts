@@ -7,7 +7,7 @@ function formatUpgradeMessage(info: UpgradeInfo): string {
   const { shinyOrange } = theme.colors;
   const { bold } = theme.styles;
 
-  return `${shinyOrange("Update available!")} ${shinyOrange(`${info.currentVersion} → ${info.latestVersion}`)}  ${shinyOrange("Run:")} ${bold(shinyOrange("npm update -g base44"))}`;
+  return `${shinyOrange("Update available!")} ${shinyOrange(`${info.currentVersion} → ${info.latestVersion}`)}  ${shinyOrange("Run:")} ${bold(shinyOrange("npm install -g base44@latest"))}`;
 }
 
 export async function printUpgradeNotificationIfAvailable(): Promise<void> {
