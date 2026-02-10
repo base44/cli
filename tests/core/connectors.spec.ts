@@ -392,6 +392,48 @@ describe("pushConnectors", () => {
     ]);
   });
 
+  it("syncs a custom (unknown) integration type", async () => {
+    const local: ConnectorResource[] = [
+      { type: "custom-crm", scopes: ["read", "write"] },
+    ];
+    mockSetConnector.mockResolvedValue({
+      redirect_url: null,
+      connection_id: null,
+      already_authorized: true,
+    });
+
+    const result = await pushConnectors(local);
+
+    expect(mockSetConnector).toHaveBeenCalledWith("custom-crm", [
+      "read",
+      "write",
+    ]);
+    expect(result.results).toEqual([{ type: "custom-crm", action: "synced" }]);
+  });
+
+  it("removes an upstream custom (unknown) integration type not present locally", async () => {
+    mockListConnectors.mockResolvedValue({
+      integrations: [
+        {
+          integration_type: "custom-crm",
+          status: "active",
+          scopes: ["read"],
+        },
+      ],
+    });
+    mockRemoveConnector.mockResolvedValue({
+      status: "removed",
+      integration_type: "custom-crm",
+    });
+
+    const result = await pushConnectors([]);
+
+    expect(mockRemoveConnector).toHaveBeenCalledWith("custom-crm");
+    expect(result.results).toEqual([
+      { type: "custom-crm", action: "removed" },
+    ]);
+  });
+
   it("processes multiple local connectors", async () => {
     const local: ConnectorResource[] = [
       { type: "gmail", scopes: ["https://mail.google.com/"] },
