@@ -429,9 +429,7 @@ describe("pushConnectors", () => {
     const result = await pushConnectors([]);
 
     expect(mockRemoveConnector).toHaveBeenCalledWith("custom-crm");
-    expect(result.results).toEqual([
-      { type: "custom-crm", action: "removed" },
-    ]);
+    expect(result.results).toEqual([{ type: "custom-crm", action: "removed" }]);
   });
 
   it("processes multiple local connectors", async () => {
