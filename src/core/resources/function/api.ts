@@ -13,6 +13,30 @@ import {
   FunctionLogsResponseSchema,
 } from "@/core/resources/function/schema.js";
 
+/**
+ * Create a well-structured ApiError for "function not found" scenarios.
+ */
+class FunctionNotFoundError extends ApiError {
+  constructor(functionName: string, cause: Error) {
+    super(`Function "${functionName}" was not found in this app`, {
+      statusCode: 404,
+      cause,
+      hints: [
+        {
+          message:
+            "Make sure the function name is correct and has been deployed",
+          command: "base44 functions deploy",
+        },
+        {
+          message: "List project functions by checking the base44/functions/ directory",
+        },
+      ],
+    });
+  }
+}
+
+export { FunctionNotFoundError };
+
 function toDeployPayloadItem(fn: FunctionWithCode) {
   return {
     name: fn.name,
@@ -96,14 +120,28 @@ export async function fetchFunctionLogs(
       `functions-mgmt/${functionName}/logs${queryString}`
     );
   } catch (error) {
-    if (error instanceof HTTPError && error.response.status === 404) {
-      throw new ApiError(`Function "${functionName}" not found`, {
-        statusCode: 404,
-        cause: error,
-        hints: [{ message: "Check the function name and try again" }],
-      });
+    if (error instanceof HTTPError) {
+      if (error.response.status === 404) {
+        throw new FunctionNotFoundError(functionName, error);
+      }
+
+      // The server returns a 500 with a KeyError when the function doesn't
+      // exist: {"error_type":"KeyError","message":"'fn-name'", ...}
+      // Detect this and throw a clear "not found" error instead.
+      try {
+        const body = (await error.response.clone().json()) as Record<string, unknown>;
+        if (body.error_type === "KeyError") {
+          throw new FunctionNotFoundError(functionName, error);
+        }
+      } catch (parseError) {
+        if (parseError instanceof ApiError) throw parseError;
+        // JSON parse failed — fall through to generic handler
+      }
     }
-    throw await ApiError.fromHttpError(error, "fetching function logs");
+    throw await ApiError.fromHttpError(
+      error,
+      `fetching function logs: '${functionName}'`
+    );
   }
 
   const result = FunctionLogsResponseSchema.safeParse(await response.json());

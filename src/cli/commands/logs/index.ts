@@ -8,7 +8,10 @@ import type {
   FunctionLogFilters,
   LogLevel,
 } from "@/core/resources/function/index.js";
-import { fetchFunctionLogs } from "@/core/resources/function/index.js";
+import {
+  fetchFunctionLogs,
+  FunctionNotFoundError,
+} from "@/core/resources/function/index.js";
 
 // ─── TYPES ──────────────────────────────────────────────────
 
@@ -160,16 +163,41 @@ function normalizeLogEntry(
 
 /**
  * Fetch logs for specified functions.
+ * If a function is not found, re-throws with a hint listing available functions.
  */
 async function fetchLogsForFunctions(
   functionNames: string[],
-  options: LogsOptions
+  options: LogsOptions,
+  availableFunctionNames: string[]
 ): Promise<LogEntry[]> {
   const filters = parseFunctionFilters(options);
   const allEntries: LogEntry[] = [];
 
   for (const functionName of functionNames) {
-    const logs = await fetchFunctionLogs(functionName, filters);
+    let logs;
+    try {
+      logs = await fetchFunctionLogs(functionName, filters);
+    } catch (error) {
+      if (error instanceof FunctionNotFoundError && availableFunctionNames.length > 0) {
+        const available = availableFunctionNames.join(", ");
+        throw new InvalidInputError(
+          `Function "${functionName}" was not found in this app`,
+          {
+            hints: [
+              {
+                message: `Available functions in this project: ${available}`,
+              },
+              {
+                message:
+                  "Make sure the function has been deployed before fetching logs",
+                command: "base44 functions deploy",
+              },
+            ],
+          }
+        );
+      }
+      throw error;
+    }
 
     const entries = logs.map((entry) =>
       normalizeLogEntry(entry, functionName)
@@ -205,18 +233,25 @@ async function logsAction(options: LogsOptions): Promise<RunCommandResult> {
 
   const specifiedFunctions = parseFunctionNames(options.function);
 
+  // Always read project functions so we can list them in error messages
+  const allProjectFunctions = await getAllFunctionNames();
+
   // Determine which functions to fetch logs for
   const functionNames =
     specifiedFunctions.length > 0
       ? specifiedFunctions
-      : await getAllFunctionNames();
+      : allProjectFunctions;
 
   if (functionNames.length === 0) {
     process.stdout.write("No functions found in this project.\n");
     return {};
   }
 
-  let entries = await fetchLogsForFunctions(functionNames, options);
+  let entries = await fetchLogsForFunctions(
+    functionNames,
+    options,
+    allProjectFunctions
+  );
 
   // Apply limit after merging logs from all functions
   const limit = options.limit ? Number.parseInt(options.limit, 10) : undefined;
