@@ -678,7 +678,7 @@ Set the environment variable: `BASE44_DISABLE_TELEMETRY=1`
 4. **ES Modules** - Use `.js` extensions in imports
 5. **Cross-platform** - Use `path` module utilities, never hardcode separators
 6. **Command factory pattern** - Commands export `getXCommand(context)` functions, not static instances
-7. **Command wrapper** - All commands use `runCommand(fn, options, context)` utility
+7. **Command wrapper** - Majority of commands use `runCommand(fn, options, context)` utility
 8. **Task wrapper** - Use `runTask()` for async operations with spinners
 9. **consts.ts has no imports** - Keep `consts.ts` dependency-free to avoid circular deps
 10. **Keep AGENTS.md updated** - Update this file when architecture changes

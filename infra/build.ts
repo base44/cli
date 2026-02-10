@@ -1,13 +1,36 @@
 import { watch } from "node:fs";
+import { copyFile } from "node:fs/promises";
+import { join } from "node:path";
 import chalk from "chalk";
+import { BuildConfig } from "bun";
 
-const runBuild = async () => {
-  const result = await Bun.build({
-    entrypoints: ["./src/cli/index.ts"],
-    outdir: "./dist/cli",
+const runBuild = async (config: BuildConfig) => {
+  const defaultBuildOptions: Partial<BuildConfig> = {
     target: "node",
     format: "esm",
     sourcemap: "external",
+    external: [
+      // Optional deps of Ink. Needed for Dev mode only, which we don't support.
+      "react-devtools-core"
+    ],
+    plugins: [{
+      name: 'exclude-devtools',
+      setup(build) {
+        build.onResolve({ filter: /^react-devtools-core$/ }, () => ({
+          path: 'react-devtools-core',
+          namespace: 'empty-module',
+        }));
+        build.onLoad({ filter: /.*/, namespace: 'empty-module' }, () => ({
+          contents: 'module.exports = {};',
+          loader: 'js',
+        }));
+      },
+    }],
+  };
+
+  const result = await Bun.build({
+    ...defaultBuildOptions,
+    ...config,
   });
 
   if (!result.success) {
@@ -21,6 +44,26 @@ const runBuild = async () => {
   return result;
 };
 
+const runAllBuilds = async () => {
+  const outdir = "./dist/cli";
+  const cli = await runBuild({
+    entrypoints: ["./src/cli/index.ts"],
+    outdir,
+  });
+  /**
+   * This is a dep of Ink. This package imports the wasm file via (fs.readFile).
+   * We need to copy it to the build folder, so it will be available at runtime
+   * after the build. 'esbuild' doesn't handle this automatically.
+   */
+  await copyFile(
+    Bun.resolveSync("yoga-wasm-web/dist/yoga.wasm", process.cwd()),
+    join(outdir, "yoga.wasm"),
+  );
+  return {
+    cli,
+  };
+};
+
 const formatOutput = (outputs: { path: string }[]) => {
   return outputs.map((o) => chalk.cyan(o.path)).join("\n  ");
 };
@@ -28,19 +71,26 @@ const formatOutput = (outputs: { path: string }[]) => {
 if (process.argv.includes("--watch")) {
   console.log(chalk.yellow("Watching for changes..."));
 
-  const changeHandler = async (event: "rename" | "change", filename: string | null) => {
+  const changeHandler = async (
+    event: "rename" | "change",
+    filename: string | null
+  ) => {
     const time = new Date().toLocaleTimeString();
     console.log(chalk.dim(`[${time}]`), chalk.gray(`${filename} ${event}d`));
 
-    const result = await runBuild();
-    console.log(
-      chalk.green(`  ✓ Rebuilt`),
-      chalk.dim(`→`),
-      formatOutput(result.outputs)
-    );
+    const { cli } = await runAllBuilds();
+    for (const result of [cli]) {
+      if (result.success && result.outputs.length > 0) {
+        console.log(
+          chalk.green(`  ✓ Rebuilt`),
+          chalk.dim(`→`),
+          formatOutput(result.outputs)
+        );
+      }
+    }
   };
 
-  await runBuild();
+  await runAllBuilds();
 
   for (const dir of ["./src"]) {
     watch(dir, { recursive: true }, changeHandler);
@@ -49,8 +99,8 @@ if (process.argv.includes("--watch")) {
   // Keep process alive
   await new Promise(() => {});
 } else {
-  const result = await runBuild();
+  const { cli } = await runAllBuilds();
   console.log(chalk.green.bold(`\n✓ Build complete\n`));
   console.log(chalk.dim("  Output:"));
-  console.log(`  ${formatOutput(result.outputs)}\n`);
+  console.log(`  ${formatOutput(cli.outputs)}`);
 }
