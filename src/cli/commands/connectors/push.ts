@@ -87,10 +87,6 @@ async function pushConnectorsAction(): Promise<RunCommandResult> {
     "Pushing connectors to Base44",
     async () => {
       return await pushConnectors(connectors);
-    },
-    {
-      successMessage: "Connectors pushed",
-      errorMessage: "Failed to push connectors",
     }
   );
 
