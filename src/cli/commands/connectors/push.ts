@@ -104,7 +104,9 @@ async function pushConnectorsAction(): Promise<RunCommandResult> {
       `${needsOAuth.length} connector(s) require authorization in your browser:`
     );
     for (const connector of needsOAuth) {
-      log.info(`  ${connector.type}: ${theme.styles.dim(connector.redirectUrl)}`);
+      log.info(
+        `  ${connector.type}: ${theme.styles.dim(connector.redirectUrl)}`
+      );
     }
 
     const pending = needsOAuth.map((c) => c.type).join(", ");

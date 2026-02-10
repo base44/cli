@@ -42,7 +42,13 @@ describe("IntegrationTypeSchema", () => {
   });
 
   it("accepts arbitrary integration types (including custom providers)", () => {
-    const arbitraryTypes = ["invalid", "google", "facebook", "twitter", "custom-oauth-provider"];
+    const arbitraryTypes = [
+      "invalid",
+      "google",
+      "facebook",
+      "twitter",
+      "custom-oauth-provider",
+    ];
 
     for (const type of arbitraryTypes) {
       expect(IntegrationTypeSchema.safeParse(type).success).toBe(true);
@@ -54,7 +60,12 @@ describe("IntegrationTypeSchema", () => {
   });
 
   it("rejects path traversal strings", () => {
-    const malicious = ["../admin", "../../endpoint", "type/with/slashes", "type with spaces"];
+    const malicious = [
+      "../admin",
+      "../../endpoint",
+      "type/with/slashes",
+      "type with spaces",
+    ];
     for (const type of malicious) {
       expect(IntegrationTypeSchema.safeParse(type).success).toBe(false);
     }
@@ -162,7 +173,10 @@ describe("readAllConnectors", () => {
   });
 
   it("throws InvalidInputError for duplicate connector types", async () => {
-    const connectorsDir = resolve(FIXTURES_DIR, "duplicate-connectors/connectors");
+    const connectorsDir = resolve(
+      FIXTURES_DIR,
+      "duplicate-connectors/connectors"
+    );
 
     await expect(readAllConnectors(connectorsDir)).rejects.toThrow(
       InvalidInputError
