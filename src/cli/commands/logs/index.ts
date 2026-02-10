@@ -6,11 +6,12 @@ import { InvalidInputError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/index.js";
 import type {
   FunctionLogFilters,
+  FunctionLogsResponse,
   LogLevel,
 } from "@/core/resources/function/index.js";
 import {
-  fetchFunctionLogs,
   FunctionNotFoundError,
+  fetchFunctionLogs,
 } from "@/core/resources/function/index.js";
 
 // ─── TYPES ──────────────────────────────────────────────────
@@ -174,11 +175,14 @@ async function fetchLogsForFunctions(
   const allEntries: LogEntry[] = [];
 
   for (const functionName of functionNames) {
-    let logs;
+    let logs: FunctionLogsResponse;
     try {
       logs = await fetchFunctionLogs(functionName, filters);
     } catch (error) {
-      if (error instanceof FunctionNotFoundError && availableFunctionNames.length > 0) {
+      if (
+        error instanceof FunctionNotFoundError &&
+        availableFunctionNames.length > 0
+      ) {
         const available = availableFunctionNames.join(", ");
         throw new InvalidInputError(
           `Function "${functionName}" was not found in this app`,
@@ -199,9 +203,7 @@ async function fetchLogsForFunctions(
       throw error;
     }
 
-    const entries = logs.map((entry) =>
-      normalizeLogEntry(entry, functionName)
-    );
+    const entries = logs.map((entry) => normalizeLogEntry(entry, functionName));
     allEntries.push(...entries);
   }
 
@@ -238,9 +240,7 @@ async function logsAction(options: LogsOptions): Promise<RunCommandResult> {
 
   // Determine which functions to fetch logs for
   const functionNames =
-    specifiedFunctions.length > 0
-      ? specifiedFunctions
-      : allProjectFunctions;
+    specifiedFunctions.length > 0 ? specifiedFunctions : allProjectFunctions;
 
   if (functionNames.length === 0) {
     process.stdout.write("No functions found in this project.\n");

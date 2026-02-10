@@ -28,7 +28,8 @@ class FunctionNotFoundError extends ApiError {
           command: "base44 functions deploy",
         },
         {
-          message: "List project functions by checking the base44/functions/ directory",
+          message:
+            "List project functions by checking the base44/functions/ directory",
         },
       ],
     });
@@ -129,7 +130,10 @@ export async function fetchFunctionLogs(
       // exist: {"error_type":"KeyError","message":"'fn-name'", ...}
       // Detect this and throw a clear "not found" error instead.
       try {
-        const body = (await error.response.clone().json()) as Record<string, unknown>;
+        const body = (await error.response.clone().json()) as Record<
+          string,
+          unknown
+        >;
         if (body.error_type === "KeyError") {
           throw new FunctionNotFoundError(functionName, error);
         }
