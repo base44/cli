@@ -66,9 +66,15 @@ export async function listProjects(): Promise<ProjectsResponse> {
 }
 
 export async function downloadProject(projectId: string, projectPath: string) {
-  const response = await base44Client.get(`api/apps/${projectId}/eject`, {
-    timeout: false,
-  });
+  let response: KyResponse;
+  try {
+    response = await base44Client.get(`api/apps/${projectId}/eject`, {
+      timeout: false,
+    });
+  } catch (error) {
+    throw await ApiError.fromHttpError(error, "downloading project");
+  }
+
   const nodeStream = Readable.fromWeb(
     response.body as import("node:stream/web").ReadableStream
   );

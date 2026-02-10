@@ -1,19 +1,21 @@
 import { resolve } from "node:path";
 import type { Option } from "@clack/prompts";
-import { cancel, confirm, isCancel, select, text } from "@clack/prompts";
+import { cancel, confirm, isCancel, log, select, text } from "@clack/prompts";
 import { Command } from "commander";
 import { execa } from "execa";
 import kebabCase from "lodash.kebabcase";
 import { deployAction } from "@/cli/commands/project/deploy.js";
+import { CLIExitError } from "@/cli/errors.js";
 import type { CLIContext } from "@/cli/types.js";
 import { runCommand, runTask, theme } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
+import type { Project } from "@/core/index.js";
 import {
   createProject,
   createProjectFilesForExistingProject,
+  InvalidInputError,
   isDirEmpty,
   listProjects,
-  type Project,
   readProjectConfig,
   setAppConfig,
   writeAppConfig,
@@ -22,6 +24,7 @@ import {
 
 interface EjectOptions {
   path?: string;
+  projectId?: string;
 }
 
 async function eject(options: EjectOptions): Promise<RunCommandResult> {
@@ -30,20 +33,47 @@ async function eject(options: EjectOptions): Promise<RunCommandResult> {
     (p) => p.isManagedSourceCode !== false
   );
 
-  const projectOptions: Option<Project>[] = ejectableProjects.map((p) => ({
-    value: p,
-    label: p.name,
-    hint: p.userDescription,
-  }));
+  let selectedProject: Project;
 
-  const selectedProject = await select({
-    message: `Choose a project to download ${theme.styles.dim("(Note: this will clone the selected project)")}`,
-    options: projectOptions,
-  });
+  if (options.projectId) {
+    const foundProject = ejectableProjects.find(
+      (p) => p.id === options.projectId
+    );
+    
+    if (!foundProject) {
+      throw new InvalidInputError(
+        `Project with ID "${options.projectId}" not found or not ejectable`,
+        {
+          hints: [
+            {
+              message:
+                "Run 'base44 eject' without --project-id to see available projects",
+            },
+          ],
+        }
+      );
+    }
 
-  if (isCancel(selectedProject)) {
-    cancel("Operation cancelled.");
-    process.exit(0);
+    selectedProject = foundProject;
+    log.info(`Selected project: ${theme.styles.bold(selectedProject.name)}`);
+  } else {
+    // Interactive: show project selection prompt
+    const projectOptions: Option<Project>[] = ejectableProjects.map((p) => ({
+      value: p,
+      label: p.name,
+      hint: p.userDescription,
+    }));
+
+    const selected = await select({
+      message: `Choose a project to download ${theme.styles.dim("(Note: this will clone the selected project)")}`,
+      options: projectOptions,
+    });
+
+    if (isCancel(selected)) {
+      cancel("Operation cancelled.");
+      throw new CLIExitError(0);
+    }
+    selectedProject = selected;
   }
 
   const projectId = selectedProject.id;
@@ -61,7 +91,7 @@ async function eject(options: EjectOptions): Promise<RunCommandResult> {
 
   if (isCancel(selectedPath)) {
     cancel("Operation cancelled.");
-    process.exit(0);
+    throw new CLIExitError(0);
   }
 
   const resolvedPath = resolve(selectedPath);
@@ -142,6 +172,10 @@ export function getEjectCommand(context: CLIContext): Command {
   return new Command("eject")
     .description("Download the code for an existing Base44 project")
     .option("-p, --path <path>", "Path where to write the project")
+    .option(
+      "--project-id <id>",
+      "Project ID to eject (skips interactive selection)"
+    )
     .action(async (options: EjectOptions) => {
       await runCommand(
         () => eject(options),
