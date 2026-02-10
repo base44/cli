@@ -59,10 +59,10 @@ async function generateContent(input: GenerateTypesInput): Promise<string> {
   const registryEntries: [string, string[]][] = [
     [
       "EntityTypeRegistry",
-      entities.map((e) => `${e.name}: ${toPascalCase(e.name)};`),
+      entities.map((e) => `"${e.name}": ${toPascalCase(e.name)};`),
     ],
-    ["FunctionNameRegistry", functions.map((f) => `${f.name}: true;`)],
-    ["AgentNameRegistry", agents.map((a) => `${a.name}: true;`)],
+    ["FunctionNameRegistry", functions.map((f) => `"${f.name}": true;`)],
+    ["AgentNameRegistry", agents.map((a) => `"${a.name}": true;`)],
   ];
 
   // Generate registries (only for non-empty entries)

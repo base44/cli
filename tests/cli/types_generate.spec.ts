@@ -32,15 +32,15 @@ describe("types generate command", () => {
 
     // Contains the EntityTypeRegistry with the entity mapping
     expect(typesContent).toContain("EntityTypeRegistry");
-    expect(typesContent).toContain("User: User");
+    expect(typesContent).toContain(`"User": User`);
 
     // Contains the FunctionNameRegistry with the function name
     expect(typesContent).toContain("FunctionNameRegistry");
-    expect(typesContent).toContain("hello: true");
+    expect(typesContent).toContain(`"hello": true`);
 
     // Contains the AgentNameRegistry with the agent name
     expect(typesContent).toContain("AgentNameRegistry");
-    expect(typesContent).toContain("assistant: true");
+    expect(typesContent).toContain(`"assistant": true`);
   });
 
   it("updates tsconfig.json to include types path", async () => {
