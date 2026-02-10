@@ -1,5 +1,32 @@
-import { describe, it } from "vitest";
-import { setupCLITests } from "./testkit/index.js";
+import { readFile, unlink } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import JSON5 from "json5";
+import { create as tarCreate } from "tar";
+import { describe, expect, it } from "vitest";
+import { fixture, setupCLITests } from "./testkit/index.js";
+
+/**
+ * Creates a tar.gz buffer from a fixture directory.
+ * Uses the same pattern as src/core/site/deploy.ts - writes to temp file then reads it.
+ */
+async function createTarFromFixture(fixturePath: string): Promise<Buffer> {
+  const archivePath = join(tmpdir(), `test-fixture-${Date.now()}.tar.gz`);
+
+  try {
+    await tarCreate(
+      {
+        gzip: true,
+        file: archivePath,
+        cwd: fixturePath,
+      },
+      ["."]
+    );
+    return await readFile(archivePath);
+  } finally {
+    await unlink(archivePath).catch(() => {});
+  }
+}
 
 describe("eject command", () => {
   const t = setupCLITests();
@@ -49,5 +76,46 @@ describe("eject command", () => {
     );
     t.expectResult(result).toContain("--project-id");
     t.expectResult(result).toContain("-p, --path");
+  });
+
+  it("ejects project and creates files successfully", async () => {
+    // Given: logged in user, a project to eject, and tar content from fixture
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+
+    const tarContent = await createTarFromFixture(fixture("with-entities"));
+
+    t.api.mockListProjects([
+      {
+        id: "test-app-id",
+        name: "My Test Project",
+        userDescription: "A test project",
+        isManagedSourceCode: true,
+      },
+    ]);
+    t.api.mockProjectEject(new Uint8Array(tarContent));
+    t.api.mockCreateApp({ id: "new-project-id", name: "My Test Project Copy" });
+
+    // When: running eject with project-id, path, and -y to skip prompts
+    const outputPath = join(t.getTempDir(), "ejected-project");
+    const result = await t.run(
+      "eject",
+      "--project-id",
+      "test-app-id",
+      "-p",
+      outputPath,
+      "-y"
+    );
+
+    // Then: command succeeds and files are created
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Project pulled successfully");
+
+    // Verify the app config was created with the new project ID
+    const appConfigContent = await readFile(
+      join(outputPath, "base44/.app.jsonc"),
+      "utf-8"
+    );
+    const appConfig = JSON5.parse(appConfigContent);
+    expect(appConfig.id).toBe("new-project-id");
   });
 });

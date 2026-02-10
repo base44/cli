@@ -25,6 +25,7 @@ import {
 interface EjectOptions {
   path?: string;
   projectId?: string;
+  yes?: boolean;
 }
 
 async function eject(options: EjectOptions): Promise<RunCommandResult> {
@@ -39,7 +40,7 @@ async function eject(options: EjectOptions): Promise<RunCommandResult> {
     const foundProject = ejectableProjects.find(
       (p) => p.id === options.projectId
     );
-    
+
     if (!foundProject) {
       throw new InvalidInputError(
         `Project with ID "${options.projectId}" not found or not ejectable`,
@@ -124,25 +125,23 @@ async function eject(options: EjectOptions): Promise<RunCommandResult> {
     },
     {
       successMessage: theme.colors.base44Orange("Project pulled successfully"),
-      errorMessage: "Failed to link project",
+      errorMessage: "Failed to pull project",
     }
   );
-
-  const shouldDeploy = await confirm({
-    message: "Would you like to deploy your project now?",
-  });
 
   const { project } = await readProjectConfig(resolvedPath);
   const installCommand = project.site?.installCommand;
   const buildCommand = project.site?.buildCommand;
 
-  if (
-    !isCancel(shouldDeploy) &&
-    shouldDeploy &&
-    installCommand &&
-    buildCommand
-  ) {
-    try {
+  // Only offer deploy if the project has build commands configured
+  if (installCommand && buildCommand) {
+    const shouldDeploy = options.yes
+      ? true
+      : await confirm({
+          message: "Would you like to deploy your project now?",
+        });
+
+    if (!isCancel(shouldDeploy) && shouldDeploy) {
       await runTask(
         "Installing dependencies...",
         async (updateMessage) => {
@@ -160,8 +159,6 @@ async function eject(options: EjectOptions): Promise<RunCommandResult> {
       );
 
       await deployAction({ yes: true });
-    } catch (error) {
-      console.error(error);
     }
   }
 
@@ -176,6 +173,7 @@ export function getEjectCommand(context: CLIContext): Command {
       "--project-id <id>",
       "Project ID to eject (skips interactive selection)"
     )
+    .option("-y, --yes", "Skip confirmation prompts")
     .action(async (options: EjectOptions) => {
       await runCommand(
         () => eject(options),
