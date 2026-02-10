@@ -113,6 +113,7 @@ cli/
 │       │   │   ├── create.ts
 │       │   │   ├── dashboard.ts
 │       │   │   ├── deploy.ts     # Unified deploy command
+│       │   │   ├── eject.ts      # Download existing project code
 │       │   │   └── link.ts
 │       │   ├── entities/
 │       │   │   └── push.ts
@@ -312,6 +313,35 @@ The `base44Client` automatically handles token refresh:
 1. Before each request, checks if token is expired
 2. If expired, refreshes token and saves new tokens
 3. On 401 response, attempts refresh and retries once
+
+### API Response Transformation (snake_case → camelCase)
+
+The Base44 API returns snake_case keys (e.g., `user_description`, `is_managed_source_code`), but the CLI codebase uses camelCase. Use Zod's `.transform()` to convert API responses:
+
+```typescript
+// In schema.ts - define schema with snake_case, transform to camelCase
+export const ProjectSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    user_description: z.string().optional().nullable(),
+    is_managed_source_code: z.boolean().optional(),
+  })
+  .transform((data) => ({
+    id: data.id,
+    name: data.name,
+    userDescription: data.user_description,
+    isManagedSourceCode: data.is_managed_source_code,
+  }));
+
+export type Project = z.infer<typeof ProjectSchema>;
+```
+
+**Important**: 
+- The `z.infer<typeof Schema>` type will be the **transformed** type (camelCase)
+- Test mocks should use **snake_case** (matching the real API), and Zod handles the transformation
+
+See `src/core/auth/schema.ts` and `src/core/site/schema.ts` for more examples.
 
 ## Resource Pattern
 
@@ -831,6 +861,8 @@ t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
 t.api.mockAgentsFetch({ items: [], total: 0 });
 t.api.mockSiteDeploy({ app_url: "https://app.base44.app" });
 t.api.mockCreateApp({ id: "app-id", name: "App" });
+t.api.mockListProjects([{ id: "...", name: "...", is_managed_source_code: true }]);
+t.api.mockProjectEject(tarContentAsUint8Array);
 t.api.mockDeviceCode({ device_code: "...", user_code: "...", ... });
 t.api.mockToken({ access_token: "...", refresh_token: "...", ... });
 t.api.mockUserInfo({ email: "...", name: "..." });
@@ -841,6 +873,8 @@ t.api.mockFunctionsPushError({ status: 400, body: { error: "..." } });
 t.api.mockAgentsPushError({ status: 401, body: { error: "..." } });
 t.api.mockSiteDeployError({ status: 413, body: { error: "..." } });
 ```
+
+**Note**: API mocks use **snake_case** keys (e.g., `is_managed_source_code`) to match the real API. The CLI code uses camelCase after Zod transformation.
 
 ### Test Overrides (`BASE44_CLI_TEST_OVERRIDES`)
 
