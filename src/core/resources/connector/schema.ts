@@ -74,7 +74,7 @@ export const TikTokConnectorSchema = z.object({
 
 /** Generic connector schema for arbitrary providers */
 const GenericConnectorSchema = z.object({
-  type: z.string(),
+  type: z.string().min(1).regex(/^[a-z0-9_-]+$/i),
   scopes: z.array(z.string()).default([]),
 });
 
@@ -122,7 +122,7 @@ export const KnownIntegrationTypes = [
  */
 export const IntegrationTypeSchema = z.union([
   z.enum(KnownIntegrationTypes),
-  z.string().min(1),
+  z.string().min(1).regex(/^[a-z0-9_-]+$/i),
 ]);
 
 export type IntegrationType = z.infer<typeof IntegrationTypeSchema>;

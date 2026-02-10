@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { InvalidInputError } from "../../src/core/errors.js";
 import * as api from "../../src/core/resources/connector/api.js";
 import { readAllConnectors } from "../../src/core/resources/connector/config.js";
 import {
@@ -48,8 +49,15 @@ describe("IntegrationTypeSchema", () => {
     }
   });
 
-  it("rejects only empty strings", () => {
+  it("rejects empty strings", () => {
     expect(IntegrationTypeSchema.safeParse("").success).toBe(false);
+  });
+
+  it("rejects path traversal strings", () => {
+    const malicious = ["../admin", "../../endpoint", "type/with/slashes", "type with spaces"];
+    for (const type of malicious) {
+      expect(IntegrationTypeSchema.safeParse(type).success).toBe(false);
+    }
   });
 });
 
@@ -150,6 +158,17 @@ describe("readAllConnectors", () => {
 
     await expect(readAllConnectors(connectorsDir)).rejects.toThrow(
       "Invalid connector file"
+    );
+  });
+
+  it("throws InvalidInputError for duplicate connector types", async () => {
+    const connectorsDir = resolve(FIXTURES_DIR, "duplicate-connectors/connectors");
+
+    await expect(readAllConnectors(connectorsDir)).rejects.toThrow(
+      InvalidInputError
+    );
+    await expect(readAllConnectors(connectorsDir)).rejects.toThrow(
+      'Duplicate connector type "slack"'
     );
   });
 });
@@ -294,6 +313,30 @@ describe("pushConnectors", () => {
       error: "different_user",
       error_message: "Already connected by another user",
       other_user_email: "other@example.com",
+    });
+
+    const result = await pushConnectors(local);
+
+    expect(result.results).toEqual([
+      {
+        type: "gmail",
+        action: "error",
+        error: "Already connected by another user",
+      },
+    ]);
+  });
+
+  it("returns fallback message when different_user has no error_message or email", async () => {
+    const local: ConnectorResource[] = [
+      { type: "gmail", scopes: ["https://mail.google.com/"] },
+    ];
+    mockSetConnector.mockResolvedValue({
+      redirect_url: null,
+      connection_id: null,
+      already_authorized: false,
+      error: "different_user",
+      error_message: null,
+      other_user_email: null,
     });
 
     const result = await pushConnectors(local);

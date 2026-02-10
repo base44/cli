@@ -1,8 +1,7 @@
 import { confirm, isCancel, log } from "@clack/prompts";
-import chalk from "chalk";
 import { Command } from "commander";
 import type { CLIContext } from "@/cli/types.js";
-import { runCommand, runTask } from "@/cli/utils/index.js";
+import { runCommand, runTask, theme } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 import { readProjectConfig } from "@/core/index.js";
 import {
@@ -54,19 +53,19 @@ function printSummary(
   }
 
   log.info("");
-  log.info(chalk.bold("Summary:"));
+  log.info(theme.styles.bold("Summary:"));
 
   if (synced.length > 0) {
-    log.info(chalk.green(`  Synced: ${synced.join(", ")}`));
+    log.success(`Synced: ${synced.join(", ")}`);
   }
   if (added.length > 0) {
-    log.info(chalk.green(`  Added: ${added.join(", ")}`));
+    log.success(`Added: ${added.join(", ")}`);
   }
   if (removed.length > 0) {
-    log.info(chalk.dim(`  Removed: ${removed.join(", ")}`));
+    log.info(theme.styles.dim(`Removed: ${removed.join(", ")}`));
   }
   for (const r of failed) {
-    log.info(chalk.red(`  Failed: ${r.type}${r.error ? ` - ${r.error}` : ""}`));
+    log.error(`Failed: ${r.type}${r.error ? ` - ${r.error}` : ""}`);
   }
 }
 
@@ -101,13 +100,11 @@ async function pushConnectorsAction(): Promise<RunCommandResult> {
 
   if (needsOAuth.length > 0) {
     log.info("");
-    log.info(
-      chalk.yellow(
-        `${needsOAuth.length} connector(s) require authorization in your browser:`
-      )
+    log.warn(
+      `${needsOAuth.length} connector(s) require authorization in your browser:`
     );
     for (const connector of needsOAuth) {
-      log.info(`  ${connector.type}: ${chalk.dim(connector.redirectUrl)}`);
+      log.info(`  ${connector.type}: ${theme.styles.dim(connector.redirectUrl)}`);
     }
 
     const pending = needsOAuth.map((c) => c.type).join(", ");
