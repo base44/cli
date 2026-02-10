@@ -68,7 +68,7 @@ function setResponseToResult(
       action: "error",
       error:
         response.error_message ||
-        `Already connected by ${response.other_user_email}`,
+        `Already connected by ${response.other_user_email ?? "another user"}`,
     };
   }
 

@@ -1,0 +1,4 @@
+{
+  "type": "slack",
+  "scopes": ["chat:write"]
+}

@@ -1,5 +1,5 @@
 import { globby } from "globby";
-import { SchemaValidationError } from "@/core/errors.js";
+import { InvalidInputError, SchemaValidationError } from "@/core/errors.js";
 import { CONFIG_FILE_EXTENSION_GLOB } from "../../consts.js";
 import { pathExists, readJsonFile } from "../../utils/fs.js";
 import type { ConnectorResource } from "./schema.js";
@@ -45,7 +45,16 @@ export async function readAllConnectors(
   const types = new Set<string>();
   for (const connector of connectors) {
     if (types.has(connector.type)) {
-      throw new Error(`Duplicate connector type "${connector.type}"`);
+      throw new InvalidInputError(
+        `Duplicate connector type "${connector.type}"`,
+        {
+          hints: [
+            {
+              message: `Remove duplicate connectors with type "${connector.type}" - only one connector per type is allowed`,
+            },
+          ],
+        }
+      );
     }
     types.add(connector.type);
   }
