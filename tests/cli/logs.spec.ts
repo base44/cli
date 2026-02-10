@@ -22,7 +22,6 @@ describe("logs command", () => {
     const result = await t.run("logs", "--function", "my-function");
 
     t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain('Logs for "my-function" fetched');
     t.expectResult(result).toContain("Showing 2 function log entries");
     t.expectResult(result).toContain("Processing request");
     t.expectResult(result).toContain("Something went wrong");

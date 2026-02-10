@@ -27,6 +27,18 @@ export interface RunCommandOptions {
    * @default true
    */
   requireAppConfig?: boolean;
+  /**
+   * Skip intro and upgrade notification for pipe-friendly or log-file-style output.
+   * Use for commands that write raw content to stdout (e.g. logs).
+   * @default false
+   */
+  skipIntro?: boolean;
+  /**
+   * Skip outro for pipe-friendly or log-file-style output.
+   * Use for commands that write raw content to stdout (e.g. logs).
+   * @default false
+   */
+  skipOutro?: boolean;
 }
 
 export interface RunCommandResult {
@@ -65,16 +77,19 @@ export async function runCommand(
   options: RunCommandOptions | undefined,
   context: CLIContext
 ): Promise<void> {
-  console.log();
+  const skipIntro = options?.skipIntro === true;
+  const skipOutro = options?.skipOutro === true;
 
-  if (options?.fullBanner) {
-    await printBanner();
-    intro("");
-  } else {
-    intro(theme.colors.base44OrangeBackground(" Base 44 "));
+  if (!skipIntro) {
+    console.log();
+    if (options?.fullBanner) {
+      await printBanner();
+      intro("");
+    } else {
+      intro(theme.colors.base44OrangeBackground(" Base 44 "));
+    }
+    await printUpgradeNotificationIfAvailable();
   }
-
-  await printUpgradeNotificationIfAvailable();
 
   try {
     // Check authentication if required
@@ -103,7 +118,9 @@ export async function runCommand(
     }
 
     const { outroMessage } = await commandFn();
-    outro(outroMessage || "");
+    if (!skipOutro) {
+      outro(outroMessage || "");
+    }
   } catch (error) {
     // Display error message
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -124,7 +141,11 @@ export async function runCommand(
 
     // Get error context and display in outro
     const errorContext = context.errorReporter.getErrorContext();
-    outro(theme.format.errorContext(errorContext));
+    if (!skipOutro) {
+      outro(theme.format.errorContext(errorContext));
+    } else {
+      process.stderr.write(`${theme.format.errorContext(errorContext)}\n`);
+    }
 
     // Re-throw for runCLI to handle (error reporting, exit code)
     throw error;

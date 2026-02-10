@@ -1,7 +1,6 @@
-import { log } from "@clack/prompts";
 import { Command } from "commander";
 import type { CLIContext } from "@/cli/types.js";
-import { runCommand, runTask, theme } from "@/cli/utils/index.js";
+import { runCommand } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 import { InvalidInputError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/index.js";
@@ -117,102 +116,28 @@ function validateOptions(options: LogsOptions): void {
 // ─── DISPLAY ────────────────────────────────────────────────
 
 /**
- * Get color/style for a log level.
- */
-function formatLevel(level: string): string {
-  switch (level) {
-    case "error":
-      return theme.colors.base44Orange(level.padEnd(5));
-    case "warn":
-      return theme.colors.shinyOrange(level.padEnd(5));
-    case "info":
-      return theme.colors.links(level.padEnd(5));
-    case "debug":
-      return theme.styles.dim(level.padEnd(5));
-    default:
-      return level.padEnd(5);
-  }
-}
-
-/**
- * Wrap a single line at specified width, returning array of lines.
- */
-function wrapLine(text: string, width: number): string[] {
-  if (text.length <= width) return [text];
-
-  const lines: string[] = [];
-  let remaining = text;
-
-  while (remaining.length > width) {
-    // Find last space within width, or break at width if no space
-    let breakPoint = remaining.lastIndexOf(" ", width);
-    if (breakPoint <= 0) breakPoint = width;
-
-    lines.push(remaining.substring(0, breakPoint));
-    remaining = remaining.substring(breakPoint).trimStart();
-  }
-
-  if (remaining.length > 0) {
-    lines.push(remaining);
-  }
-
-  return lines;
-}
-
-// Column widths: TIME(19) + 2 spaces + LEVEL(5) + 2 spaces = 28 chars before message
-const MESSAGE_INDENT = " ".repeat(28);
-const MESSAGE_WIDTH = 80;
-
-/**
- * Format a log entry for display.
- * Preserves original newlines in the message and wraps long lines.
+ * Format a single log entry as a plain log-file line.
  */
 function formatEntry(entry: LogEntry): string {
   const time = entry.time.substring(0, 19).replace("T", " ");
-  const level = formatLevel(entry.level);
-
-  // Split by original newlines first, then wrap each line
-  const originalLines = entry.message.split("\n");
-  const allLines: string[] = [];
-
-  for (const line of originalLines) {
-    const wrappedLines = wrapLine(line, MESSAGE_WIDTH);
-    allLines.push(...wrappedLines);
-  }
-
-  const firstLine = `${theme.styles.dim(time)}  ${level}  ${allLines[0] ?? ""}`;
-
-  if (allLines.length <= 1) {
-    return firstLine;
-  }
-
-  // Join continuation lines with proper indentation
-  const continuationLines = allLines
-    .slice(1)
-    .map((line) => `${MESSAGE_INDENT}${line}`)
-    .join("\n");
-
-  return `${firstLine}\n${continuationLines}`;
+  const level = entry.level.toUpperCase().padEnd(5);
+  const message = entry.message.trim();
+  return `${time} ${level} ${message}\n`;
 }
 
 /**
- * Display function logs.
+ * Display function logs (log-file style, plain stdout).
  */
 function displayLogs(entries: LogEntry[]): void {
   if (entries.length === 0) {
-    log.info("No logs found matching the filters.");
+    process.stdout.write("No logs found matching the filters.\n");
     return;
   }
 
-  log.info(
-    theme.styles.dim(`Showing ${entries.length} function log entries\n`)
-  );
-
-  const header = `${"TIME".padEnd(19)}  ${"LEVEL".padEnd(5)}  MESSAGE`;
-  log.message(theme.styles.header(header));
+  process.stdout.write(`Showing ${entries.length} function log entries\n\n`);
 
   for (const entry of entries) {
-    log.message(formatEntry(entry));
+    process.stdout.write(formatEntry(entry));
   }
 }
 
@@ -244,16 +169,7 @@ async function fetchLogsForFunctions(
   const allEntries: LogEntry[] = [];
 
   for (const functionName of functionNames) {
-    const logs = await runTask(
-      `Fetching logs for "${functionName}"...`,
-      async () => {
-        return await fetchFunctionLogs(functionName, filters);
-      },
-      {
-        successMessage: `Logs for "${functionName}" fetched`,
-        errorMessage: `Failed to fetch logs for "${functionName}"`,
-      }
-    );
+    const logs = await fetchFunctionLogs(functionName, filters);
 
     const entries = logs.map((entry) =>
       normalizeLogEntry(entry, functionName)
@@ -296,7 +212,7 @@ async function logsAction(options: LogsOptions): Promise<RunCommandResult> {
       : await getAllFunctionNames();
 
   if (functionNames.length === 0) {
-    log.info("No functions found in this project.");
+    process.stdout.write("No functions found in this project.\n");
     return {};
   }
 
@@ -338,7 +254,7 @@ export function getLogsCommand(context: CLIContext): Command {
     .action(async (options: LogsOptions) => {
       await runCommand(
         () => logsAction(options),
-        { requireAuth: true },
+        { requireAuth: true, skipIntro: true, skipOutro: true },
         context
       );
     });
