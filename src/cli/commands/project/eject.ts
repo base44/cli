@@ -158,7 +158,7 @@ async function eject(options: EjectOptions): Promise<RunCommandResult> {
         }
       );
 
-      await deployAction({ yes: true });
+      await deployAction({ yes: true, projectRoot: resolvedPath });
     }
   }
 

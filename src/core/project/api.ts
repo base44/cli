@@ -9,7 +9,7 @@ import {
   CreateProjectResponseSchema,
   ProjectsResponseSchema,
 } from "@/core/project/schema.js";
-import { makeDirectory } from "@/core/utils";
+import { makeDirectory } from "@/core/utils/fs.js";
 
 export async function createProject(projectName: string, description?: string) {
   let response: KyResponse;

@@ -16,12 +16,13 @@ import {
 
 interface DeployOptions {
   yes?: boolean;
+  projectRoot?: string;
 }
 
 export async function deployAction(
   options: DeployOptions
 ): Promise<RunCommandResult> {
-  const projectData = await readProjectConfig();
+  const projectData = await readProjectConfig(options.projectRoot);
 
   if (!hasResourcesToDeploy(projectData)) {
     return {
