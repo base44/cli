@@ -49,12 +49,19 @@ export const CreateProjectResponseSchema = z.looseObject({
 
 export type CreateProjectResponse = z.infer<typeof CreateProjectResponseSchema>;
 
-export const ProjectSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  userDescription: z.string().optional(),
-  isManagedSourceCode: z.boolean().optional(),
-});
+export const ProjectSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    user_description: z.string().optional().nullable(),
+    is_managed_source_code: z.boolean().optional(),
+  })
+  .transform((data) => ({
+    id: data.id,
+    name: data.name,
+    userDescription: data.user_description,
+    isManagedSourceCode: data.is_managed_source_code,
+  }));
 
 export type Project = z.infer<typeof ProjectSchema>;
 

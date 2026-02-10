@@ -344,6 +344,14 @@ export class ApiError extends SystemError {
   }
 
   private static getDefaultHints(statusCode?: number): ErrorHint[] {
+    if (statusCode === 400) {
+      return [
+        {
+          message:
+            "The server rejected the request. Check the error message above for details.",
+        },
+      ];
+    }
     if (statusCode === 401) {
       return [{ message: "Try logging in again", command: "base44 login" }];
     }

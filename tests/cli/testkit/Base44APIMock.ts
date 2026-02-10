@@ -65,8 +65,8 @@ export interface CreateAppResponse {
 export interface ListProjectsResponse {
   id: string;
   name: string;
-  userDescription?: string;
-  isManagedSourceCode?: boolean;
+  user_description?: string | null;
+  is_managed_source_code?: boolean;
 }
 
 export interface ErrorResponse {

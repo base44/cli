@@ -34,7 +34,11 @@ describe("eject command", () => {
   it("fails when project ID not found", async () => {
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
     t.api.mockListProjects([
-      { id: "other-project", name: "Other Project", isManagedSourceCode: true },
+      {
+        id: "other-project",
+        name: "Other Project",
+        is_managed_source_code: true,
+      },
     ]);
 
     const result = await t.run(
@@ -49,10 +53,14 @@ describe("eject command", () => {
     t.expectResult(result).toContain("not found or not ejectable");
   });
 
-  it("fails when project is not ejectable (isManagedSourceCode=false)", async () => {
+  it("fails when project is not ejectable (is_managed_source_code=false)", async () => {
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
     t.api.mockListProjects([
-      { id: "test-app-id", name: "Test Project", isManagedSourceCode: false },
+      {
+        id: "test-app-id",
+        name: "Test Project",
+        is_managed_source_code: false,
+      },
     ]);
 
     const result = await t.run(
@@ -88,8 +96,8 @@ describe("eject command", () => {
       {
         id: "test-app-id",
         name: "My Test Project",
-        userDescription: "A test project",
-        isManagedSourceCode: true,
+        user_description: "A test project",
+        is_managed_source_code: true,
       },
     ]);
     t.api.mockProjectEject(new Uint8Array(tarContent));
