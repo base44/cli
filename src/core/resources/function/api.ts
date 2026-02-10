@@ -1,7 +1,11 @@
 import type { KyResponse } from "ky";
 import { HTTPError } from "ky";
 import { getAppClient } from "@/core/clients/index.js";
-import { ApiError, SchemaValidationError } from "@/core/errors.js";
+import {
+  ApiError,
+  FunctionNotFoundError,
+  SchemaValidationError,
+} from "@/core/errors.js";
 import type {
   DeployFunctionsResponse,
   FunctionLogFilters,
@@ -12,29 +16,6 @@ import {
   DeployFunctionsResponseSchema,
   FunctionLogsResponseSchema,
 } from "@/core/resources/function/schema.js";
-
-/**
- * Create a well-structured ApiError for "function not found" scenarios.
- */
-class FunctionNotFoundError extends ApiError {
-  constructor(functionName: string, cause: Error) {
-    super(`Function "${functionName}" was not found in this app`, {
-      statusCode: 404,
-      cause,
-      hints: [
-        {
-          message:
-            "Make sure the function name is correct and has been deployed",
-          command: "base44 functions deploy",
-        },
-        {
-          message:
-            "List project functions by checking the base44/functions/ directory",
-        },
-      ],
-    });
-  }
-}
 
 export { FunctionNotFoundError };
 

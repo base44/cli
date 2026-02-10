@@ -425,6 +425,29 @@ export class FileReadError extends SystemError {
 }
 
 /**
+ * Thrown when a specific function is not found in the app.
+ */
+export class FunctionNotFoundError extends ApiError {
+  constructor(functionName: string, cause: Error) {
+    super(`Function "${functionName}" was not found in this app`, {
+      statusCode: 404,
+      cause,
+      hints: [
+        {
+          message:
+            "Make sure the function name is correct and has been deployed",
+          command: "base44 functions deploy",
+        },
+        {
+          message:
+            "List project functions by checking the base44/functions/ directory",
+        },
+      ],
+    });
+  }
+}
+
+/**
  * Thrown for unexpected internal errors.
  */
 export class InternalError extends SystemError {
