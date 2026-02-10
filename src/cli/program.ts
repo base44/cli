@@ -6,6 +6,7 @@ import { getWhoamiCommand } from "@/cli/commands/auth/whoami.js";
 import { getDashboardCommand } from "@/cli/commands/dashboard/index.js";
 import { getEntitiesPushCommand } from "@/cli/commands/entities/push.js";
 import { getFunctionsDeployCommand } from "@/cli/commands/functions/deploy.js";
+import { getLogsCommand } from "@/cli/commands/logs/index.js";
 import { getCreateCommand } from "@/cli/commands/project/create.js";
 import { getDeployCommand } from "@/cli/commands/project/deploy.js";
 import { getLinkCommand } from "@/cli/commands/project/link.js";
@@ -53,6 +54,9 @@ export function createProgram(context: CLIContext): Command {
 
   // Register types command
   program.addCommand(getTypesCommand(context), { hidden: true });
+
+  // Register logs command
+  program.addCommand(getLogsCommand(context));
 
   return program;
 }
