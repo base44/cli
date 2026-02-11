@@ -46,9 +46,7 @@ export async function promptOAuthFlows(
     `${pending.length} connector(s) require authorization in your browser:`
   );
   for (const connector of pending) {
-    log.info(
-      `  ${connector.type}: ${theme.styles.dim(connector.redirectUrl)}`
-    );
+    log.info(`  ${connector.type}: ${theme.styles.dim(connector.redirectUrl)}`);
   }
 
   if (options?.skipPrompt) {

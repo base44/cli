@@ -1,5 +1,9 @@
 import { confirm, isCancel, log } from "@clack/prompts";
 import { Command } from "commander";
+import {
+  filterPendingOAuth,
+  promptOAuthFlows,
+} from "@/cli/commands/connectors/oauth-prompt.js";
 import type { CLIContext } from "@/cli/types.js";
 import {
   getDashboardUrl,
@@ -13,10 +17,6 @@ import {
   hasResourcesToDeploy,
   readProjectConfig,
 } from "@/core/project/index.js";
-import {
-  filterPendingOAuth,
-  promptOAuthFlows,
-} from "@/cli/commands/connectors/oauth-prompt.js";
 
 interface DeployOptions {
   yes?: boolean;
@@ -98,9 +98,8 @@ export async function deployAction(
     });
 
     if (oauthOutcomes.size === 0) {
-      const pending = needsOAuth.map((c) => c.type).join(", ");
       log.info(
-        `Pending: ${pending}. To authorize, run 'base44 connectors push' or open the links above in your browser.`
+        "To authorize, run 'base44 connectors push' or open the links above in your browser."
       );
     }
   }
