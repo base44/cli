@@ -23,10 +23,12 @@ export async function createDevServer(): Promise<DevServerResult> {
     changeOrigin: true,
   });
 
-  app.use(cors({
-    origin: /^http:\/\/localhost(:\d+)?$/,
-    credentials: true,
-  }));
+  app.use(
+    cors({
+      origin: /^http:\/\/localhost(:\d+)?$/,
+      credentials: true,
+    })
+  );
 
   // Redirect auth login requests directly to base44.app so the OAuth flow
   // (redirects + session cookies) works correctly. Proxying breaks OAuth
@@ -46,7 +48,7 @@ export async function createDevServer(): Promise<DevServerResult> {
   });
 
   return new Promise((resolve, reject) => {
-    const server = app.listen(port, '127.0.0.1', () => {
+    const server = app.listen(port, "127.0.0.1", () => {
       resolve({
         port,
         server,
