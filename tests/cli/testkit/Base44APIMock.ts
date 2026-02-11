@@ -62,6 +62,13 @@ export interface CreateAppResponse {
   name: string;
 }
 
+export interface ListProjectsResponse {
+  id: string;
+  name: string;
+  user_description?: string | null;
+  is_managed_source_code?: boolean;
+}
+
 export interface ErrorResponse {
   status: number;
   body?: unknown;
@@ -188,6 +195,28 @@ export class Base44APIMock {
   mockCreateApp(response: CreateAppResponse): this {
     this.handlers.push(
       http.post(`${BASE_URL}/api/apps`, () => HttpResponse.json(response))
+    );
+    return this;
+  }
+
+  /** Mock GET /api/apps - List projects */
+  mockListProjects(response: ListProjectsResponse[]): this {
+    this.handlers.push(
+      http.get(`${BASE_URL}/api/apps`, () => HttpResponse.json(response))
+    );
+    return this;
+  }
+
+  /** Mock GET /api/apps/{appId}/eject - Download project as tar */
+  mockProjectEject(tarContent: Uint8Array = new Uint8Array()): this {
+    this.handlers.push(
+      http.get(
+        `${BASE_URL}/api/apps/${this.appId}/eject`,
+        () =>
+          new HttpResponse(tarContent, {
+            headers: { "Content-Type": "application/gzip" },
+          })
+      )
     );
     return this;
   }

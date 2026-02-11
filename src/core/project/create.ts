@@ -1,7 +1,7 @@
 import { globby } from "globby";
 import { PROJECT_CONFIG_PATTERNS } from "@/core/consts.js";
 import { ConfigExistsError } from "@/core/errors.js";
-import { createProject } from "@/core/project/api.js";
+import { createProject, downloadProject } from "@/core/project/api.js";
 import type { Template } from "@/core/project/schema.js";
 import { renderTemplate } from "@/core/project/template.js";
 
@@ -17,14 +17,13 @@ export interface CreateProjectResult {
   projectDir: string;
 }
 
-export async function createProjectFiles(
-  options: CreateProjectOptions
-): Promise<CreateProjectResult> {
-  const { name, description, path: basePath, template } = options;
-
-  // Check if project already exists
+/**
+ * Asserts that no Base44 project config exists at the given path.
+ * Throws ConfigExistsError if a project is already configured there.
+ */
+async function assertProjectNotExists(dirPath: string): Promise<void> {
   const existingConfigs = await globby(PROJECT_CONFIG_PATTERNS, {
-    cwd: basePath,
+    cwd: dirPath,
     absolute: true,
   });
 
@@ -33,6 +32,14 @@ export async function createProjectFiles(
       `A Base44 project already exists at ${existingConfigs[0]}. Please choose a different location.`
     );
   }
+}
+
+export async function createProjectFiles(
+  options: CreateProjectOptions
+): Promise<CreateProjectResult> {
+  const { name, description, path: basePath, template } = options;
+
+  await assertProjectNotExists(basePath);
 
   // Create the project via API to get the app ID
   const { projectId } = await createProject(name, description);
@@ -47,5 +54,22 @@ export async function createProjectFiles(
   return {
     projectId,
     projectDir: basePath,
+  };
+}
+
+export async function createProjectFilesForExistingProject(options: {
+  projectId: string;
+  projectPath: string;
+}): Promise<CreateProjectResult> {
+  const { projectId, projectPath } = options;
+
+  await assertProjectNotExists(projectPath);
+
+  // Download the project's ZIP and extract the files
+  await downloadProject(projectId, projectPath);
+
+  return {
+    projectId,
+    projectDir: projectPath,
   };
 }

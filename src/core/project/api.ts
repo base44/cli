@@ -1,4 +1,7 @@
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import type { KyResponse } from "ky";
+import { extract } from "tar";
 import { base44Client } from "@/core/clients/index.js";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";
 import type { ProjectsResponse } from "@/core/project/schema.js";
@@ -6,6 +9,7 @@ import {
   CreateProjectResponseSchema,
   ProjectsResponseSchema,
 } from "@/core/project/schema.js";
+import { makeDirectory } from "@/core/utils/fs.js";
 
 export async function createProject(projectName: string, description?: string) {
   let response: KyResponse;
@@ -59,4 +63,22 @@ export async function listProjects(): Promise<ProjectsResponse> {
   }
 
   return result.data;
+}
+
+export async function downloadProject(projectId: string, projectPath: string) {
+  let response: KyResponse;
+  try {
+    response = await base44Client.get(`api/apps/${projectId}/eject`, {
+      timeout: false,
+    });
+  } catch (error) {
+    throw await ApiError.fromHttpError(error, "downloading project");
+  }
+
+  const nodeStream = Readable.fromWeb(
+    response.body as import("node:stream/web").ReadableStream
+  );
+
+  await makeDirectory(projectPath);
+  await pipeline(nodeStream, extract({ cwd: projectPath }));
 }

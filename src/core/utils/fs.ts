@@ -125,3 +125,9 @@ export async function isDirEmpty(dir = process.cwd()) {
   const files = await readdir(dir);
   return files.length === 0;
 }
+
+export async function makeDirectory(dirPath: string): Promise<void> {
+  if (!(await pathExists(dirPath))) {
+    await mkdir(dirPath, { recursive: true });
+  }
+}
