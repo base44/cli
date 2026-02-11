@@ -1,21 +1,25 @@
 import type { Server } from "node:http";
 import cors from "cors";
 import express from "express";
+import getPort from "get-port";
 import { createProxyMiddleware } from "http-proxy-middleware";
 
 const DEFAULT_PORT = 4400;
 const BASE44_APP_URL = "https://base44.app";
+
+interface DevServerOptions {
+  port?: number;
+}
 
 interface DevServerResult {
   port: number;
   server: Server;
 }
 
-export async function createDevServer(): Promise<DevServerResult> {
-  // After creating of the dev server we need to pass url to the base44 createClient() on the client side.
-  // It lives in a separate process, so it's a problem to communicate port and align build process when we're not in full control.
-  // So for now I will hard code the port.
-  const port = DEFAULT_PORT;
+export async function createDevServer(
+  options: DevServerOptions = {}
+): Promise<DevServerResult> {
+  const port = options.port ?? (await getPort({ port: DEFAULT_PORT }));
 
   const app = express();
 
