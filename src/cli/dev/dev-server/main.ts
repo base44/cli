@@ -3,7 +3,7 @@ import cors from "cors";
 import express from "express";
 import { createProxyMiddleware } from "http-proxy-middleware";
 
-const DEFAULT_PORT = 3000;
+const DEFAULT_PORT = 4400;
 const BASE44_APP_URL = "https://base44.app";
 
 interface DevServerResult {
