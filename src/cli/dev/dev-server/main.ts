@@ -4,6 +4,7 @@ import express from "express";
 import { createProxyMiddleware } from "http-proxy-middleware";
 
 const DEFAULT_PORT = 3000;
+const BASE44_APP_URL = "https://base44.app";
 
 interface DevServerResult {
   port: number;
@@ -19,7 +20,7 @@ export async function createDevServer(): Promise<DevServerResult> {
   const app = express();
 
   const remoteProxy = createProxyMiddleware({
-    target: "https://base44.app",
+    target: BASE44_APP_URL,
     changeOrigin: true,
   });
 
@@ -27,7 +28,7 @@ export async function createDevServer(): Promise<DevServerResult> {
     cors({
       origin: /^http:\/\/localhost(:\d+)?$/,
       credentials: true,
-    })
+    }),
   );
 
   // Redirect auth login requests directly to base44.app so the OAuth flow
@@ -37,7 +38,7 @@ export async function createDevServer(): Promise<DevServerResult> {
   const AUTH_LOGIN_PATTERN = /^\/api\/apps\/auth(\/\w+)?\/login/;
   app.use((req, res, next) => {
     if (AUTH_LOGIN_PATTERN.test(req.path)) {
-      const targetUrl = `https://base44.app${req.originalUrl}`;
+      const targetUrl = `${BASE44_APP_URL}${req.originalUrl}`;
       return res.redirect(targetUrl);
     }
     next();
