@@ -4,14 +4,14 @@ import { fixture, setupCLITests } from "./testkit/index.js";
 describe("connectors pull command", () => {
   const t = setupCLITests();
 
-  it("reports no connectors when remote has none", async () => {
+  it("syncs when remote has no connectors", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
     t.api.mockConnectorsList({ integrations: [] });
 
     const result = await t.run("connectors", "pull");
 
     t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain("No connectors found on Base44");
+    t.expectResult(result).toContain("All connectors are already up to date");
   });
 
   it("fails when not in a project directory", async () => {
@@ -45,7 +45,7 @@ describe("connectors pull command", () => {
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Connectors fetched successfully");
-    t.expectResult(result).toContain("Connector files written successfully");
+    t.expectResult(result).toContain("Connector files synced successfully");
     t.expectResult(result).toContain("Pulled 2 connectors");
   });
 

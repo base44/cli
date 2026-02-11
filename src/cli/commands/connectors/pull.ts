@@ -27,12 +27,8 @@ async function pullConnectorsAction(): Promise<RunCommandResult> {
     }
   );
 
-  if (remoteConnectors.integrations.length === 0) {
-    return { outroMessage: "No connectors found on Base44" };
-  }
-
   const { written, deleted } = await runTask(
-    "Writing connector files",
+    "Syncing connector files",
     async () => {
       return await writeConnectors(
         connectorsDir,
@@ -40,8 +36,8 @@ async function pullConnectorsAction(): Promise<RunCommandResult> {
       );
     },
     {
-      successMessage: "Connector files written successfully",
-      errorMessage: "Failed to write connector files",
+      successMessage: "Connector files synced successfully",
+      errorMessage: "Failed to sync connector files",
     }
   );
 
