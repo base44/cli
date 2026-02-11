@@ -1,8 +1,15 @@
 import type { Server } from "node:http";
+import { dirname, join } from "node:path";
+import { log as clackLog } from "@clack/prompts";
 import cors from "cors";
 import express from "express";
 import getPort from "get-port";
 import { createProxyMiddleware } from "http-proxy-middleware";
+import { createDevLogger } from "@/cli/dev/createDevLogger.js";
+import { FunctionManager } from "@/cli/dev/dev-server/function-manager.js";
+import { createFunctionRoutes } from "@/cli/dev/dev-server/routes/functions.js";
+import { readProjectConfig } from "@/core/project/config.js";
+import { functionResource } from "@/core/resources/function/resource.js";
 
 const DEFAULT_PORT = 4400;
 const BASE44_APP_URL = "https://base44.app";
@@ -17,9 +24,13 @@ interface DevServerResult {
 }
 
 export async function createDevServer(
-  options: DevServerOptions = {},
+  options: DevServerOptions,
 ): Promise<DevServerResult> {
-  const port = options.port ?? (await getPort({ port: DEFAULT_PORT }));
+  const { port: userPort } = options;
+  const port = userPort ?? (await getPort({ port: DEFAULT_PORT }));
+
+  const { project } = await readProjectConfig();
+  const configDir = dirname(project.configPath);
 
   const app = express();
 
@@ -46,6 +57,24 @@ export async function createDevServer(
     next();
   });
 
+  const functions = await functionResource.readAll(
+    join(configDir, project.functionsDir),
+  );
+
+  const devLogger = createDevLogger(false);
+
+  const functionManager = new FunctionManager(functions, devLogger);
+  functionManager.verifyDenoIsInstalled();
+
+  if (functionManager.functionNames().length > 0) {
+    clackLog.info(
+      `Loaded functions: ${functionManager.functionNames().join(", ")}`,
+    );
+  }
+
+  const functionRoutes = createFunctionRoutes(functionManager, devLogger);
+  app.use("/api/apps/:appId/functions", functionRoutes);
+
   app.use((req, res, next) => {
     return remoteProxy(req, res, next);
   });
@@ -63,6 +92,13 @@ export async function createDevServer(
           reject(err);
         }
       } else {
+        const shutdown = () => {
+          functionManager.stopAll();
+          server.close();
+        };
+        process.on("SIGINT", shutdown);
+        process.on("SIGTERM", shutdown);
+
         resolve({
           port,
           server,

@@ -41,6 +41,7 @@
     "@types/bun": "^1.2.15",
     "@types/common-tags": "^1.8.4",
     "@types/cors": "^2.8.19",
+    "@types/deno": "^2.5.0",
     "@types/ejs": "^3.1.5",
     "@types/express": "^5.0.6",
     "@types/json-schema": "^7.0.15",

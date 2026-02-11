@@ -244,6 +244,22 @@ export class InvalidInputError extends UserError {
   readonly code = "INVALID_INPUT";
 }
 
+/**
+ * Thrown when a required external dependency is not installed (e.g., Deno, Git).
+ */
+export class DependencyNotFoundError extends UserError {
+  readonly code = "DEPENDENCY_NOT_FOUND";
+
+  constructor(message: string, options?: CLIErrorOptions) {
+    super(message, {
+      hints: options?.hints ?? [
+        { message: "Install the required dependency and try again" },
+      ],
+      cause: options?.cause,
+    });
+  }
+}
+
 // ============================================================================
 // System Errors
 // ============================================================================
