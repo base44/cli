@@ -51,6 +51,9 @@ async function pullConnectorsAction(): Promise<RunCommandResult> {
   if (deleted.length > 0) {
     log.warn(`Deleted: ${deleted.join(", ")}`);
   }
+  if (written.length === 0 && deleted.length === 0) {
+    log.info("All connectors are already up to date");
+  }
 
   return {
     outroMessage: `Pulled ${remoteConnectors.integrations.length} connectors to ${connectorsDir}`,

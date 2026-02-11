@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { isDeepStrictEqual } from "node:util";
 import { globby } from "globby";
 import { InvalidInputError, SchemaValidationError } from "@/core/errors.js";
 import {
@@ -15,7 +16,7 @@ import type { ConnectorResource, UpstreamConnector } from "./schema.js";
 import { ConnectorResourceSchema } from "./schema.js";
 
 async function readConnectorFile(
-  connectorPath: string,
+  connectorPath: string
 ): Promise<ConnectorResource> {
   const parsed = await readJsonFile(connectorPath);
   const result = ConnectorResourceSchema.safeParse(parsed);
@@ -24,16 +25,21 @@ async function readConnectorFile(
     throw new SchemaValidationError(
       "Invalid connector file",
       result.error,
-      connectorPath,
+      connectorPath
     );
   }
 
   return result.data;
 }
 
-export async function readAllConnectors(
-  connectorsDir: string,
-): Promise<ConnectorResource[]> {
+interface ConnectorFileEntry {
+  data: ConnectorResource;
+  filePath: string;
+}
+
+async function readConnectorFiles(
+  connectorsDir: string
+): Promise<ConnectorFileEntry[]> {
   if (!(await pathExists(connectorsDir))) {
     return [];
   }
@@ -43,75 +49,93 @@ export async function readAllConnectors(
     absolute: true,
   });
 
-  const connectors = await Promise.all(
-    files.map((filePath) => readConnectorFile(filePath)),
+  return await Promise.all(
+    files.map(async (filePath) => ({
+      data: await readConnectorFile(filePath),
+      filePath,
+    }))
   );
-
-  assertNoDuplicateConnectors(connectors);
-
-  return connectors;
 }
 
-function assertNoDuplicateConnectors(connectors: ConnectorResource[]): void {
+export async function readAllConnectors(
+  connectorsDir: string
+): Promise<ConnectorResource[]> {
+  const entries = await readConnectorFiles(connectorsDir);
+
   const types = new Set<string>();
-  for (const connector of connectors) {
-    if (types.has(connector.type)) {
+  for (const { data } of entries) {
+    if (types.has(data.type)) {
       throw new InvalidInputError(
-        `Duplicate connector type "${connector.type}"`,
+        `Duplicate connector type "${data.type}"`,
         {
           hints: [
             {
-              message: `Remove duplicate connectors with type "${connector.type}" - only one connector per type is allowed`,
+              message: `Remove duplicate connectors with type "${data.type}" - only one connector per type is allowed`,
             },
           ],
-        },
+        }
       );
     }
-    types.add(connector.type);
+    types.add(data.type);
   }
+
+  return entries.map((e) => e.data);
 }
 
-/**
- * Write connectors to local files, removing any that aren't in the remote list.
- * Returns information about which files were written and deleted.
- */
 export async function writeConnectors(
   connectorsDir: string,
   remoteConnectors: UpstreamConnector[]
 ): Promise<{ written: string[]; deleted: string[] }> {
-  const existingConnectors = await readAllConnectors(connectorsDir);
+  const entries = await readConnectorFiles(connectorsDir);
+
+  const typeToEntry = new Map<string, ConnectorFileEntry>();
+  for (const entry of entries) {
+    if (typeToEntry.has(entry.data.type)) {
+      throw new InvalidInputError(
+        `Duplicate connector type "${entry.data.type}"`,
+        {
+          hints: [
+            {
+              message: `Remove duplicate connectors with type "${entry.data.type}" - only one connector per type is allowed`,
+            },
+          ],
+        }
+      );
+    }
+    typeToEntry.set(entry.data.type, entry);
+  }
+
   const newTypes = new Set(remoteConnectors.map((c) => c.integration_type));
 
-  // Delete local connectors that don't exist remotely
-  const toDelete = existingConnectors.filter((c) => !newTypes.has(c.type));
-  for (const connector of toDelete) {
-    const files = await globby(
-      `${connector.type}.${CONFIG_FILE_EXTENSION_GLOB}`,
-      {
-        cwd: connectorsDir,
-        absolute: true,
-      }
-    );
-    for (const filePath of files) {
-      await deleteFile(filePath);
+  const deleted: string[] = [];
+  for (const [type, entry] of typeToEntry) {
+    if (!newTypes.has(type)) {
+      await deleteFile(entry.filePath);
+      deleted.push(type);
     }
   }
 
-  // Write all remote connectors to files
+  const written: string[] = [];
   for (const connector of remoteConnectors) {
-    const filePath = join(
-      connectorsDir,
-      `${connector.integration_type}.${CONFIG_FILE_EXTENSION}`
-    );
+    const existing = typeToEntry.get(connector.integration_type);
     const localConnector: ConnectorResource = {
       type: connector.integration_type,
       scopes: connector.scopes,
     };
-    await writeJsonFile(filePath, localConnector);
-  }
 
-  const written = remoteConnectors.map((c) => c.integration_type);
-  const deleted = toDelete.map((c) => c.type);
+    if (existing && isDeepStrictEqual(existing.data, localConnector)) {
+      continue;
+    }
+
+    const filePath =
+      existing?.filePath ??
+      join(
+        connectorsDir,
+        `${connector.integration_type}.${CONFIG_FILE_EXTENSION}`
+      );
+    await writeJsonFile(filePath, localConnector);
+    written.push(connector.integration_type);
+  }
 
   return { written, deleted };
 }

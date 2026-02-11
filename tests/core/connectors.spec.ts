@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -116,7 +116,6 @@ describe("writeConnectors", () => {
     const tmpDir = await mkdtemp(join(tmpdir(), "connectors-test-"));
 
     try {
-      // First, write some initial connectors
       const initialConnectors: UpstreamConnector[] = [
         {
           integration_type: "gmail",
@@ -131,21 +130,15 @@ describe("writeConnectors", () => {
       ];
       await writeConnectors(tmpDir, initialConnectors);
 
-      // Now write a new set that only includes gmail
-      const remoteConnectors: UpstreamConnector[] = [
+      const { written, deleted } = await writeConnectors(tmpDir, [
         {
           integration_type: "gmail",
           status: "active",
           scopes: ["https://mail.google.com/"],
         },
-      ];
+      ]);
 
-      const { written, deleted } = await writeConnectors(
-        tmpDir,
-        remoteConnectors
-      );
-
-      expect(written).toEqual(["gmail"]);
+      expect(written).toEqual([]);
       expect(deleted).toEqual(["slack"]);
 
       const connectors = await readAllConnectors(tmpDir);
@@ -160,7 +153,6 @@ describe("writeConnectors", () => {
     const tmpDir = await mkdtemp(join(tmpdir(), "connectors-test-"));
 
     try {
-      // First, write some connectors
       const initialConnectors: UpstreamConnector[] = [
         {
           integration_type: "gmail",
@@ -170,7 +162,6 @@ describe("writeConnectors", () => {
       ];
       await writeConnectors(tmpDir, initialConnectors);
 
-      // Write empty list
       const { written, deleted } = await writeConnectors(tmpDir, []);
 
       expect(written).toEqual([]);
@@ -178,6 +169,109 @@ describe("writeConnectors", () => {
 
       const connectors = await readAllConnectors(tmpDir);
       expect(connectors).toEqual([]);
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("writes to existing file when type matches even if filename differs", async () => {
+    const tmpDir = await mkdtemp(join(tmpdir(), "connectors-test-"));
+
+    try {
+      await writeFile(
+        join(tmpDir, "my-custom-slack.jsonc"),
+        JSON.stringify({ type: "slack", scopes: ["chat:write"] })
+      );
+
+      const remoteConnectors: UpstreamConnector[] = [
+        {
+          integration_type: "slack",
+          status: "active",
+          scopes: ["chat:write", "channels:read"],
+        },
+      ];
+
+      const { written, deleted } = await writeConnectors(
+        tmpDir,
+        remoteConnectors
+      );
+
+      expect(written).toEqual(["slack"]);
+      expect(deleted).toEqual([]);
+
+      const files = await readdir(tmpDir);
+      expect(files).toEqual(["my-custom-slack.jsonc"]);
+
+      const content = JSON.parse(
+        await readFile(join(tmpDir, "my-custom-slack.jsonc"), "utf-8")
+      );
+      expect(content.scopes).toEqual(["chat:write", "channels:read"]);
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("deletes file with non-matching filename when type is not in remote", async () => {
+    const tmpDir = await mkdtemp(join(tmpdir(), "connectors-test-"));
+
+    try {
+      await writeFile(
+        join(tmpDir, "my-slack.jsonc"),
+        JSON.stringify({ type: "slack", scopes: ["chat:write"] })
+      );
+      await writeFile(
+        join(tmpDir, "email-connector.jsonc"),
+        JSON.stringify({ type: "gmail", scopes: ["https://mail.google.com/"] })
+      );
+
+      const remoteConnectors: UpstreamConnector[] = [
+        {
+          integration_type: "gmail",
+          status: "active",
+          scopes: ["https://mail.google.com/"],
+        },
+      ];
+
+      const { written, deleted } = await writeConnectors(
+        tmpDir,
+        remoteConnectors
+      );
+
+      expect(written).toEqual([]);
+      expect(deleted).toEqual(["slack"]);
+
+      const files = (await readdir(tmpDir)).sort();
+      expect(files).toEqual(["email-connector.jsonc"]);
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("skips writing when data is unchanged, preserving comments and formatting", async () => {
+    const tmpDir = await mkdtemp(join(tmpdir(), "connectors-test-"));
+
+    try {
+      const fileContent = `// My Slack connector config\n{\n  "type": "slack",\n  "scopes": ["chat:write"]\n}\n`;
+      await writeFile(join(tmpDir, "slack.jsonc"), fileContent);
+
+      const remoteConnectors: UpstreamConnector[] = [
+        {
+          integration_type: "slack",
+          status: "active",
+          scopes: ["chat:write"],
+        },
+      ];
+
+      const { written, deleted } = await writeConnectors(
+        tmpDir,
+        remoteConnectors
+      );
+
+      expect(written).toEqual([]);
+      expect(deleted).toEqual([]);
+
+      const rawContent = await readFile(join(tmpDir, "slack.jsonc"), "utf-8");
+      expect(rawContent).toBe(fileContent);
     } finally {
       await rm(tmpDir, { recursive: true, force: true });
     }
