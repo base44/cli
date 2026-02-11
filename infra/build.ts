@@ -28,20 +28,10 @@ const runBuild = async (config: BuildConfig) => {
 };
 
 const runAllBuilds = async () => {
-  const outdir = "./dist/cli";
   const cli = await runBuild({
     entrypoints: ["./src/cli/index.ts"],
-    outdir,
+    outdir: "./dist/cli",
   });
-  /**
-   * This is a dep of Ink. This package imports the wasm file via (fs.readFile).
-   * We need to copy it to the build folder, so it will be available at runtime
-   * after the build. 'esbuild' doesn't handle this automatically.
-   */
-  await copyFile(
-    Bun.resolveSync("yoga-wasm-web/dist/yoga.wasm", process.cwd()),
-    join(outdir, "yoga.wasm"),
-  );
   return {
     cli,
   };
