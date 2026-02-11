@@ -14,6 +14,19 @@ import {
 import type { AgentConfig, AgentConfigApiResponse } from "./schema.js";
 import { AgentConfigSchema } from "./schema.js";
 
+/**
+ * Convert an agent name to a filesystem-safe filename slug.
+ * Lowercases, replaces non-alphanumeric characters with underscores,
+ * and collapses consecutive underscores.
+ */
+function toFileSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "");
+}
+
 export function generateAgentConfigContent(name: string): string {
   return `// Base44 Agent Configuration
 // Agent configuration file
@@ -83,7 +96,8 @@ export async function writeAgents(
 
   const toDelete = existingAgents.filter((a) => !newNames.has(a.name));
   for (const agent of toDelete) {
-    const files = await globby(`${agent.name}.${CONFIG_FILE_EXTENSION_GLOB}`, {
+    const slug = toFileSlug(agent.name);
+    const files = await globby(`${slug}.${CONFIG_FILE_EXTENSION_GLOB}`, {
       cwd: agentsDir,
       absolute: true,
     });
@@ -93,7 +107,8 @@ export async function writeAgents(
   }
 
   for (const agent of remoteAgents) {
-    const filePath = join(agentsDir, `${agent.name}.${CONFIG_FILE_EXTENSION}`);
+    const slug = toFileSlug(agent.name);
+    const filePath = join(agentsDir, `${slug}.${CONFIG_FILE_EXTENSION}`);
     await writeJsonFile(filePath, agent);
   }
 
