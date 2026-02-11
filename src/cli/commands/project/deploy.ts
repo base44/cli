@@ -100,7 +100,7 @@ export async function deployAction(
     if (oauthOutcomes.size === 0) {
       const pending = needsOAuth.map((c) => c.type).join(", ");
       log.info(
-        `To authorize, run 'base44 connectors push' or open the links above in your browser.`
+        `Pending: ${pending}. To authorize, run 'base44 connectors push' or open the links above in your browser.`
       );
     }
   }
