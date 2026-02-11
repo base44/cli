@@ -14,6 +14,7 @@ import { getTypesCommand } from "@/cli/commands/types/index.js";
 import packageJson from "../../package.json";
 import { getDevCommand } from "./commands/dev.js";
 import { getEjectCommand } from "./commands/project/eject.js";
+import { getStatusCommand } from "./commands/project/status.js";
 import type { CLIContext } from "./types.js";
 
 export function createProgram(context: CLIContext): Command {
@@ -41,6 +42,7 @@ export function createProgram(context: CLIContext): Command {
   program.addCommand(getDeployCommand(context));
   program.addCommand(getLinkCommand(context));
   program.addCommand(getEjectCommand(context));
+  program.addCommand(getStatusCommand(context));
 
   // Register entities commands
   program.addCommand(getEntitiesPushCommand(context));
