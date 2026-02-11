@@ -9,23 +9,6 @@ const runBuild = async (config: BuildConfig) => {
     target: "node",
     format: "esm",
     sourcemap: "external",
-    external: [
-      // Optional deps of Ink. Needed for Dev mode only, which we don't support.
-      "react-devtools-core"
-    ],
-    plugins: [{
-      name: 'exclude-devtools',
-      setup(build) {
-        build.onResolve({ filter: /^react-devtools-core$/ }, () => ({
-          path: 'react-devtools-core',
-          namespace: 'empty-module',
-        }));
-        build.onLoad({ filter: /.*/, namespace: 'empty-module' }, () => ({
-          contents: 'module.exports = {};',
-          loader: 'js',
-        }));
-      },
-    }],
   };
 
   const result = await Bun.build({
