@@ -131,7 +131,7 @@ export class AuthExpiredError extends UserError {
 
   constructor(
     message = "Authentication has expired",
-    options?: CLIErrorOptions
+    options?: CLIErrorOptions,
   ) {
     super(message, {
       hints: options?.hints ?? [
@@ -153,7 +153,7 @@ export class ConfigNotFoundError extends UserError {
 
   constructor(
     message = "No Base44 project found in this directory",
-    options?: CLIErrorOptions
+    options?: CLIErrorOptions,
   ) {
     super(message, {
       hints: options?.hints ?? [
@@ -180,7 +180,7 @@ export class ConfigInvalidError extends UserError {
   constructor(
     message: string,
     configFilePath?: string | null,
-    options?: CLIErrorOptions
+    options?: CLIErrorOptions,
   ) {
     const defaultHint = configFilePath
       ? `Check the file at ${configFilePath} for syntax errors`
@@ -270,7 +270,7 @@ export class ApiError extends SystemError {
   constructor(
     message: string,
     options?: ApiErrorOptions,
-    parsedResponse?: ApiErrorResponse
+    parsedResponse?: ApiErrorResponse,
   ) {
     const hints =
       options?.hints ??
@@ -301,7 +301,7 @@ export class ApiError extends SystemError {
    */
   static async fromHttpError(
     error: unknown,
-    context: string
+    context: string,
   ): Promise<ApiError> {
     if (error instanceof HTTPError) {
       let message: string;
@@ -330,7 +330,7 @@ export class ApiError extends SystemError {
           responseBody,
           cause: error,
         },
-        parsedErrorResponse
+        parsedErrorResponse,
       );
     }
 
@@ -378,7 +378,7 @@ export class ApiError extends SystemError {
    * Add new entries to the map when the backend introduces new reason codes.
    */
   private static getReasonHints(
-    parsedResponse?: ApiErrorResponse
+    parsedResponse?: ApiErrorResponse,
   ): ErrorHint[] | undefined {
     const REASON_HINTS: Record<string, ErrorHint[]> = {
       requires_backend_platform_app: [

@@ -8,11 +8,11 @@ import type {
 import { SyncEntitiesResponseSchema } from "@/core/resources/entity/schema.js";
 
 export async function syncEntities(
-  entities: Entity[]
+  entities: Entity[],
 ): Promise<SyncEntitiesResponse> {
   const appClient = getAppClient();
   const schemaSyncPayload = Object.fromEntries(
-    entities.map((entity) => [entity.name, entity])
+    entities.map((entity) => [entity.name, entity]),
   );
 
   let response: KyResponse;
@@ -31,7 +31,7 @@ export async function syncEntities(
   if (!result.success) {
     throw new SchemaValidationError(
       "Invalid response from server",
-      result.error
+      result.error,
     );
   }
 

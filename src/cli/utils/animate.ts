@@ -12,7 +12,7 @@ function sleep(ms: number): Promise<void> {
  */
 async function animateLineReveal(
   line: string,
-  duration: number
+  duration: number,
 ): Promise<void> {
   const steps = 8;
   const stepDuration = duration / steps;

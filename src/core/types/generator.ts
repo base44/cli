@@ -37,7 +37,7 @@ const EMPTY_TEMPLATE = stripIndent`
  * Generate and write types.d.ts file.
  */
 export async function generateTypesFile(
-  input: GenerateTypesInput
+  input: GenerateTypesInput,
 ): Promise<void> {
   const { projectRoot } = getAppConfig();
   const content = await generateContent(input);
@@ -52,7 +52,7 @@ async function generateContent(input: GenerateTypesInput): Promise<string> {
   }
 
   const entityInterfaces = await Promise.all(
-    entities.map((e) => compileEntity(e))
+    entities.map((e) => compileEntity(e)),
   );
 
   // Build registry entries
@@ -103,7 +103,7 @@ async function compileEntity(entity: Entity): Promise<string> {
     throw new TypeGenerationError(
       `Failed to generate types for entity "${name}"`,
       name,
-      error
+      error,
     );
   }
 }

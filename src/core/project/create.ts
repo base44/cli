@@ -29,13 +29,13 @@ async function assertProjectNotExists(dirPath: string): Promise<void> {
 
   if (existingConfigs.length > 0) {
     throw new ConfigExistsError(
-      `A Base44 project already exists at ${existingConfigs[0]}. Please choose a different location.`
+      `A Base44 project already exists at ${existingConfigs[0]}. Please choose a different location.`,
     );
   }
 }
 
 export async function createProjectFiles(
-  options: CreateProjectOptions
+  options: CreateProjectOptions,
 ): Promise<CreateProjectResult> {
   const { name, description, path: basePath, template } = options;
 

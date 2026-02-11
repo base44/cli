@@ -21,7 +21,7 @@ async function pullAgentsAction(): Promise<RunCommandResult> {
     {
       successMessage: "Agents fetched successfully",
       errorMessage: "Failed to fetch agents",
-    }
+    },
   );
 
   if (remoteAgents.items.length === 0) {
@@ -36,7 +36,7 @@ async function pullAgentsAction(): Promise<RunCommandResult> {
     {
       successMessage: "Agent files written successfully",
       errorMessage: "Failed to write agent files",
-    }
+    },
   );
 
   if (written.length > 0) {
@@ -54,7 +54,7 @@ async function pullAgentsAction(): Promise<RunCommandResult> {
 export function getAgentsPullCommand(context: CLIContext): Command {
   return new Command("pull")
     .description(
-      "Pull agents from Base44 to local files (replaces all local agent configs)"
+      "Pull agents from Base44 to local files (replaces all local agent configs)",
     )
     .action(async () => {
       await runCommand(pullAgentsAction, { requireAuth: true }, context);

@@ -9,19 +9,19 @@ import type {
 import { readTextFile } from "@/core/utils/fs.js";
 
 async function loadFunctionCode(
-  fn: BackendFunction
+  fn: BackendFunction,
 ): Promise<FunctionWithCode> {
   const loadedFiles: FunctionFile[] = await Promise.all(
     fn.filePaths.map(async (filePath) => {
       const content = await readTextFile(filePath);
       return { path: basename(filePath), content };
-    })
+    }),
   );
   return { ...fn, files: loadedFiles };
 }
 
 export async function pushFunctions(
-  functions: BackendFunction[]
+  functions: BackendFunction[],
 ): Promise<DeployFunctionsResponse> {
   if (functions.length === 0) {
     return { deployed: [], deleted: [], skipped: [], errors: null };

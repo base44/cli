@@ -46,7 +46,7 @@ async function deployAction(options: DeployOptions): Promise<RunCommandResult> {
     {
       successMessage: "Site deployed successfully",
       errorMessage: "Deployment failed",
-    }
+    },
   );
 
   return { outroMessage: `Visit your site at: ${result.appUrl}` };
@@ -60,7 +60,7 @@ export function getSiteDeployCommand(context: CLIContext): Command {
       await runCommand(
         () => deployAction(options),
         { requireAuth: true },
-        context
+        context,
       );
     });
 }

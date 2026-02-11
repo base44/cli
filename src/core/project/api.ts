@@ -31,7 +31,7 @@ export async function createProject(projectName: string, description?: string) {
   if (!result.success) {
     throw new SchemaValidationError(
       "Invalid response from server",
-      result.error
+      result.error,
     );
   }
 
@@ -58,7 +58,7 @@ export async function listProjects(): Promise<ProjectsResponse> {
   if (!result.success) {
     throw new SchemaValidationError(
       "Invalid response from server",
-      result.error
+      result.error,
     );
   }
 
@@ -76,7 +76,7 @@ export async function downloadProject(projectId: string, projectPath: string) {
   }
 
   const nodeStream = Readable.fromWeb(
-    response.body as import("node:stream/web").ReadableStream
+    response.body as import("node:stream/web").ReadableStream,
   );
 
   await makeDirectory(projectPath);

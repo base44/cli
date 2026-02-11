@@ -97,7 +97,7 @@ async function promptForNewProjectDetails() {
     },
     {
       onCancel: onPromptCancel,
-    }
+    },
   );
 
   return {
@@ -107,7 +107,7 @@ async function promptForNewProjectDetails() {
 }
 
 async function promptForExistingProject(
-  linkableProjects: Project[]
+  linkableProjects: Project[],
 ): Promise<Project> {
   const projectOptions: Option<Project>[] = linkableProjects.map((project) => ({
     value: project,
@@ -132,7 +132,7 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
 
   if (!projectRoot) {
     throw new ConfigNotFoundError(
-      "No Base44 project found. Run this command from a project directory with a config.jsonc file."
+      "No Base44 project found. Run this command from a project directory with a config.jsonc file.",
     );
   }
 
@@ -146,7 +146,7 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
               "If you want to re-link, delete the existing .app.jsonc file first",
           },
         ],
-      }
+      },
     );
   }
 
@@ -164,11 +164,11 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
       {
         successMessage: "Projects fetched",
         errorMessage: "Failed to fetch projects",
-      }
+      },
     );
 
     const linkableProjects = projects.filter(
-      (p) => p.isManagedSourceCode !== true
+      (p) => p.isManagedSourceCode !== true,
     );
 
     if (!linkableProjects.length) {
@@ -191,7 +191,7 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
                   "Use 'base44 link' without --projectId to see available projects",
               },
             ],
-          }
+          },
         );
       }
       projectId = options.projectId;
@@ -209,7 +209,7 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
       {
         successMessage: "Project linked successfully",
         errorMessage: "Failed to link project",
-      }
+      },
     );
 
     finalProjectId = projectId;
@@ -228,7 +228,7 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
       {
         successMessage: "Project created successfully",
         errorMessage: "Failed to create project",
-      }
+      },
     );
 
     await writeAppConfig(projectRoot.root, projectId);
@@ -240,7 +240,7 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
   }
 
   log.message(
-    `${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(finalProjectId))}`
+    `${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(finalProjectId))}`,
   );
   return { outroMessage: "Project linked" };
 }
@@ -248,24 +248,24 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
 export function getLinkCommand(context: CLIContext): Command {
   return new Command("link")
     .description(
-      "Link a local project to a Base44 project (create new or link existing)"
+      "Link a local project to a Base44 project (create new or link existing)",
     )
     .option("-c, --create", "Create a new project (skip selection prompt)")
     .option(
       "-n, --name <name>",
-      "Project name (required when --create is used)"
+      "Project name (required when --create is used)",
     )
     .option("-d, --description <description>", "Project description")
     .option(
       "-p, --projectId <id>",
-      "Project ID to link to an existing project (skips selection prompt)"
+      "Project ID to link to an existing project (skips selection prompt)",
     )
     .hook("preAction", validateNonInteractiveFlags)
     .action(async (options: LinkOptions) => {
       await runCommand(
         () => link(options),
         { requireAuth: true, requireAppConfig: false },
-        context
+        context,
       );
     });
 }

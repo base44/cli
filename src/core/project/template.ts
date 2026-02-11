@@ -26,7 +26,7 @@ export async function listTemplates(): Promise<Template[]> {
     throw new SchemaValidationError(
       "Invalid templates configuration",
       result.error,
-      getTemplatesIndexPath()
+      getTemplatesIndexPath(),
     );
   }
 
@@ -42,7 +42,7 @@ export async function listTemplates(): Promise<Template[]> {
 export async function renderTemplate(
   template: Template,
   destPath: string,
-  data: TemplateData
+  data: TemplateData,
 ): Promise<void> {
   const templateDir = join(getTemplatesDir(), template.path);
 

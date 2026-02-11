@@ -20,7 +20,7 @@ async function createTarFromFixture(fixturePath: string): Promise<Buffer> {
         file: archivePath,
         cwd: fixturePath,
       },
-      ["."]
+      ["."],
     );
     return await readFile(archivePath);
   } finally {
@@ -46,7 +46,7 @@ describe("eject command", () => {
       "--project-id",
       "non-existent-id",
       "-p",
-      "./out"
+      "./out",
     );
 
     t.expectResult(result).toFail();
@@ -68,7 +68,7 @@ describe("eject command", () => {
       "--project-id",
       "test-app-id",
       "-p",
-      "./out"
+      "./out",
     );
 
     t.expectResult(result).toFail();
@@ -80,7 +80,7 @@ describe("eject command", () => {
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain(
-      "Download the code for an existing Base44 project"
+      "Download the code for an existing Base44 project",
     );
     t.expectResult(result).toContain("--project-id");
     t.expectResult(result).toContain("-p, --path");
@@ -111,7 +111,7 @@ describe("eject command", () => {
       "test-app-id",
       "-p",
       outputPath,
-      "-y"
+      "-y",
     );
 
     // Then: command succeeds and files are created
@@ -121,7 +121,7 @@ describe("eject command", () => {
     // Verify the app config was created with the new project ID
     const appConfigContent = await readFile(
       join(outputPath, "base44/.app.jsonc"),
-      "utf-8"
+      "utf-8",
     );
     const appConfig = JSON5.parse(appConfigContent);
     expect(appConfig.id).toBe("new-project-id");

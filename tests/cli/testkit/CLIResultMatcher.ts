@@ -13,7 +13,7 @@ export class CLIResultMatcher {
     if (this.result.exitCode !== 0) {
       throw new Error(
         `Expected command to succeed but got exit code ${this.result.exitCode}\n` +
-          `stderr: ${stripAnsi(this.result.stderr)}`
+          `stderr: ${stripAnsi(this.result.stderr)}`,
       );
     }
   }
@@ -27,7 +27,7 @@ export class CLIResultMatcher {
   toHaveExitCode(code: number): void {
     if (this.result.exitCode !== code) {
       throw new Error(
-        `Expected exit code ${code} but got ${this.result.exitCode}`
+        `Expected exit code ${code} but got ${this.result.exitCode}`,
       );
     }
   }
@@ -38,7 +38,7 @@ export class CLIResultMatcher {
       throw new Error(
         `Expected output to contain "${text}"\n` +
           `stdout: ${stripAnsi(this.result.stdout)}\n` +
-          `stderr: ${stripAnsi(this.result.stderr)}`
+          `stderr: ${stripAnsi(this.result.stderr)}`,
       );
     }
   }
@@ -49,7 +49,7 @@ export class CLIResultMatcher {
       throw new Error(
         `Expected output NOT to contain "${text}"\n` +
           `stdout: ${stripAnsi(this.result.stdout)}\n` +
-          `stderr: ${stripAnsi(this.result.stderr)}`
+          `stderr: ${stripAnsi(this.result.stderr)}`,
       );
     }
   }
@@ -58,7 +58,7 @@ export class CLIResultMatcher {
     if (!this.result.stdout.includes(text)) {
       throw new Error(
         `Expected stdout to contain "${text}"\n` +
-          `stdout: ${stripAnsi(this.result.stdout)}`
+          `stdout: ${stripAnsi(this.result.stdout)}`,
       );
     }
   }
@@ -67,7 +67,7 @@ export class CLIResultMatcher {
     if (!this.result.stderr.includes(text)) {
       throw new Error(
         `Expected stderr to contain "${text}"\n` +
-          `stderr: ${stripAnsi(this.result.stderr)}`
+          `stderr: ${stripAnsi(this.result.stderr)}`,
       );
     }
   }

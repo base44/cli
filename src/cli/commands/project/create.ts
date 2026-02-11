@@ -54,7 +54,7 @@ function validateNonInteractiveFlags(command: Command): void {
 }
 
 async function createInteractive(
-  options: CreateOptions
+  options: CreateOptions,
 ): Promise<RunCommandResult> {
   const templates = await listTemplates();
   const templateOptions: Option<Template>[] = templates.map((t) => ({
@@ -97,7 +97,7 @@ async function createInteractive(
     },
     {
       onCancel: onPromptCancel,
-    }
+    },
   );
 
   return await executeCreate({
@@ -111,10 +111,10 @@ async function createInteractive(
 }
 
 async function createNonInteractive(
-  options: CreateOptions
+  options: CreateOptions,
 ): Promise<RunCommandResult> {
   const template = await getTemplateById(
-    options.template ?? DEFAULT_TEMPLATE_ID
+    options.template ?? DEFAULT_TEMPLATE_ID,
   );
 
   return await executeCreate({
@@ -160,7 +160,7 @@ async function executeCreate({
     {
       successMessage: theme.colors.base44Orange("Project created successfully"),
       errorMessage: "Failed to create project",
-    }
+    },
   );
 
   // Set app config in cache for sync access to getDashboardUrl and getAppClient
@@ -190,10 +190,10 @@ async function executeCreate({
         },
         {
           successMessage: theme.colors.base44Orange(
-            "Data models pushed successfully"
+            "Data models pushed successfully",
           ),
           errorMessage: "Failed to push data models",
-        }
+        },
       );
     }
   }
@@ -226,10 +226,10 @@ async function executeCreate({
         },
         {
           successMessage: theme.colors.base44Orange(
-            "Site deployed successfully"
+            "Site deployed successfully",
           ),
           errorMessage: "Failed to deploy site",
-        }
+        },
       );
 
       finalAppUrl = appUrl;
@@ -251,11 +251,11 @@ async function executeCreate({
         },
         {
           successMessage: theme.colors.base44Orange(
-            "AI agent skills added successfully"
+            "AI agent skills added successfully",
           ),
           errorMessage:
             "Failed to add AI agent skills - you can add them later with: npx skills add base44/skills",
-        }
+        },
       );
     } catch {
       // Skills installation is non-critical (e.g., user may not have git installed)
@@ -264,15 +264,15 @@ async function executeCreate({
   }
 
   log.message(
-    `${theme.styles.header("Project")}: ${theme.colors.base44Orange(name)}`
+    `${theme.styles.header("Project")}: ${theme.colors.base44Orange(name)}`,
   );
   log.message(
-    `${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(projectId))}`
+    `${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(projectId))}`,
   );
 
   if (finalAppUrl) {
     log.message(
-      `${theme.styles.header("Site")}: ${theme.colors.links(finalAppUrl)}`
+      `${theme.styles.header("Site")}: ${theme.colors.links(finalAppUrl)}`,
     );
   }
 
@@ -286,7 +286,7 @@ export function getCreateCommand(context: CLIContext): Command {
     .option("-p, --path <path>", "Path where to create the project")
     .option(
       "-t, --template <id>",
-      "Template ID (e.g., backend-only, backend-and-client)"
+      "Template ID (e.g., backend-only, backend-and-client)",
     )
     .option("--deploy", "Build and deploy the site")
     .option("--no-skills", "Skip AI agent skills installation")
@@ -299,13 +299,13 @@ export function getCreateCommand(context: CLIContext): Command {
           () =>
             createNonInteractive({ name: options.name ?? name, ...options }),
           { requireAuth: true, requireAppConfig: false },
-          context
+          context,
         );
       } else {
         await runCommand(
           () => createInteractive({ name, ...options }),
           { fullBanner: true, requireAuth: true, requireAppConfig: false },
-          context
+          context,
         );
       }
     });

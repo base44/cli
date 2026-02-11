@@ -17,7 +17,7 @@ function toDeployPayloadItem(fn: FunctionWithCode) {
 }
 
 export async function deployFunctions(
-  functions: FunctionWithCode[]
+  functions: FunctionWithCode[],
 ): Promise<DeployFunctionsResponse> {
   const appClient = getAppClient();
   const payload = {
@@ -39,7 +39,7 @@ export async function deployFunctions(
   if (!result.success) {
     throw new SchemaValidationError(
       "Invalid response from server",
-      result.error
+      result.error,
     );
   }
 

@@ -110,11 +110,11 @@ describe("UserError subclasses", () => {
       const error = new SchemaValidationError(
         "Invalid entity file",
         result.error,
-        "/path/to/entity.jsonc"
+        "/path/to/entity.jsonc",
       );
       expect(error.code).toBe("SCHEMA_INVALID");
       expect(error.message).toContain(
-        "Invalid entity file in /path/to/entity.jsonc"
+        "Invalid entity file in /path/to/entity.jsonc",
       );
       expect(error.message).toContain("expected string");
       expect(error.filePath).toBe("/path/to/entity.jsonc");
@@ -138,17 +138,17 @@ describe("SystemError subclasses", () => {
 
     const error403 = new ApiError("Forbidden", { statusCode: 403 });
     expect(error403.hints.some((h) => h.message.includes("permission"))).toBe(
-      true
+      true,
     );
 
     const error404 = new ApiError("Not found", { statusCode: 404 });
     expect(error404.hints.some((h) => h.message.includes("not found"))).toBe(
-      true
+      true,
     );
 
     const error500 = new ApiError("Server error", { statusCode: 500 });
     expect(error500.hints.some((h) => h.message.includes("network"))).toBe(
-      true
+      true,
     );
   });
 
@@ -220,7 +220,7 @@ describe("SystemError subclasses", () => {
     const httpError = new HTTPError(response, request, options);
     const apiError = await ApiError.fromHttpError(
       httpError,
-      "pushing entities"
+      "pushing entities",
     );
 
     expect(apiError.requestBody).toBe('{"entities":[]}');
@@ -330,7 +330,7 @@ describe("formatApiError", () => {
     };
 
     expect(formatApiError(error)).toBe(
-      '{\n  "field": "name",\n  "error": "required"\n}'
+      '{\n  "field": "name",\n  "error": "required"\n}',
     );
   });
 
@@ -340,7 +340,7 @@ describe("formatApiError", () => {
     };
 
     expect(formatApiError(error)).toBe(
-      '[\n  {\n    "loc": [\n      "name"\n    ],\n    "msg": "field required"\n  }\n]'
+      '[\n  {\n    "loc": [\n      "name"\n    ],\n    "msg": "field required"\n  }\n]',
     );
   });
 

@@ -21,9 +21,9 @@ const UserConditionSchema = z
   .refine(
     (val) =>
       Object.keys(val).every(
-        (key) => userConditionAllowedKeys.has(key) || key.startsWith("data.")
+        (key) => userConditionAllowedKeys.has(key) || key.startsWith("data."),
       ),
-    "Keys must be role, email, id, or match data.* pattern"
+    "Keys must be role, email, id, or match data.* pattern",
   );
 
 const rlsConditionAllowedKeys = new Set([
@@ -79,7 +79,7 @@ const RefineRLSConditionSchema = RLSConditionSchema.refine(
       }
       return isValidFieldCondition(value);
     }),
-  "Keys must be known RLS keys or match data.* pattern with valid value"
+  "Keys must be known RLS keys or match data.* pattern with valid value",
 );
 
 const RLSRuleSchema = z.union([z.boolean(), RefineRLSConditionSchema]);

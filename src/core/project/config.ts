@@ -31,7 +31,7 @@ async function findConfigInDir(dir: string): Promise<string | null> {
  * }
  */
 export async function findProjectRoot(
-  startPath?: string
+  startPath?: string,
 ): Promise<ProjectRoot | null> {
   let current = startPath || process.cwd();
 
@@ -58,7 +58,7 @@ export async function findProjectRoot(
  * const { project, entities, functions } = await readProjectConfig();
  */
 export async function readProjectConfig(
-  projectRoot?: string
+  projectRoot?: string,
 ): Promise<ProjectData> {
   let found: ProjectRoot | null;
 
@@ -71,7 +71,7 @@ export async function readProjectConfig(
 
   if (!found) {
     throw new ConfigNotFoundError(
-      `Project root not found. Please ensure config.jsonc or config.json exists in the project directory or ${PROJECT_SUBDIR}/ subdirectory.`
+      `Project root not found. Please ensure config.jsonc or config.json exists in the project directory or ${PROJECT_SUBDIR}/ subdirectory.`,
     );
   }
 
@@ -84,7 +84,7 @@ export async function readProjectConfig(
     throw new SchemaValidationError(
       "Invalid project configuration",
       result.error,
-      configPath
+      configPath,
     );
   }
 

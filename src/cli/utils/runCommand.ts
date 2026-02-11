@@ -63,7 +63,7 @@ export interface RunCommandResult {
 export async function runCommand(
   commandFn: () => Promise<RunCommandResult>,
   options: RunCommandOptions | undefined,
-  context: CLIContext
+  context: CLIContext,
 ): Promise<void> {
   console.log();
 

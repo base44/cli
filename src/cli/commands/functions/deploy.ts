@@ -18,7 +18,7 @@ async function deployFunctionsAction(): Promise<RunCommandResult> {
   }
 
   log.info(
-    `Found ${functions.length} ${functions.length === 1 ? "function" : "functions"} to deploy`
+    `Found ${functions.length} ${functions.length === 1 ? "function" : "functions"} to deploy`,
   );
 
   const result = await runTask(
@@ -29,7 +29,7 @@ async function deployFunctionsAction(): Promise<RunCommandResult> {
     {
       successMessage: "Functions deployed successfully",
       errorMessage: "Failed to deploy functions",
-    }
+    },
   );
 
   if (result.deployed.length > 0) {
@@ -63,8 +63,8 @@ export function getFunctionsDeployCommand(context: CLIContext): Command {
           await runCommand(
             deployFunctionsAction,
             { requireAuth: true },
-            context
+            context,
           );
-        })
+        }),
     );
 }

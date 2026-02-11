@@ -32,7 +32,7 @@ export interface TestContext {
   /** Combined: login + project setup (most common pattern) */
   givenLoggedInWithProject: (
     fixturePath: string,
-    user?: { email: string; name: string }
+    user?: { email: string; name: string },
   ) => Promise<void>;
 
   givenLatestVersion: (version: string | null | undefined) => void;
@@ -86,7 +86,7 @@ export function setupCLITests(): TestContext {
   const getKit = (): CLITestkit => {
     if (!currentKit) {
       throw new Error(
-        "CLITestkit not initialized. Make sure setupCLITests() is called inside describe()"
+        "CLITestkit not initialized. Make sure setupCLITests() is called inside describe()",
       );
     }
     return currentKit;

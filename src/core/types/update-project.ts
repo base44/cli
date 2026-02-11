@@ -12,7 +12,7 @@ const TYPES_INCLUDE_PATH = `${PROJECT_SUBDIR}/${TYPES_OUTPUT_SUBDIR}/*.d.ts`;
  * @returns true if tsconfig.json was updated, false otherwise
  */
 export async function updateProjectConfig(
-  projectRoot: string
+  projectRoot: string,
 ): Promise<boolean> {
   const tsconfigPath = join(projectRoot, "tsconfig.json");
 

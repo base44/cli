@@ -37,7 +37,7 @@ export async function uploadSite(archivePath: string): Promise<DeployResponse> {
   if (!result.success) {
     throw new SchemaValidationError(
       "There was an issue deploying your site",
-      result.error
+      result.error,
     );
   }
 
@@ -59,7 +59,7 @@ export async function getSiteUrl(projectId?: string): Promise<string> {
   if (!result.success) {
     throw new SchemaValidationError(
       "Invalid response from server",
-      result.error
+      result.error,
     );
   }
 

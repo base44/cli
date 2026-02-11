@@ -41,7 +41,7 @@ async function readAgentFile(agentPath: string): Promise<AgentConfig> {
     throw new SchemaValidationError(
       "Invalid agent file",
       result.error,
-      agentPath
+      agentPath,
     );
   }
 
@@ -59,7 +59,7 @@ export async function readAllAgents(agentsDir: string): Promise<AgentConfig[]> {
   });
 
   const agents = await Promise.all(
-    files.map((filePath) => readAgentFile(filePath))
+    files.map((filePath) => readAgentFile(filePath)),
   );
 
   const names = new Set<string>();
@@ -75,7 +75,7 @@ export async function readAllAgents(agentsDir: string): Promise<AgentConfig[]> {
 
 export async function writeAgents(
   agentsDir: string,
-  remoteAgents: AgentConfigApiResponse[]
+  remoteAgents: AgentConfigApiResponse[],
 ): Promise<{ written: string[]; deleted: string[] }> {
   const existingAgents = await readAllAgents(agentsDir);
   const newNames = new Set(remoteAgents.map((a) => a.name));

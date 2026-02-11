@@ -38,7 +38,7 @@ export interface DeployAllResult {
  * @returns The deployment result including app URL if site was deployed
  */
 export async function deployAll(
-  projectData: ProjectData
+  projectData: ProjectData,
 ): Promise<DeployAllResult> {
   const { project, entities, functions, agents } = projectData;
 

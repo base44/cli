@@ -34,7 +34,7 @@ export async function readAuth(): Promise<AuthData> {
       throw new SchemaValidationError(
         "Invalid authentication data",
         result.error,
-        getAuthFilePath()
+        getAuthFilePath(),
       );
     }
 
@@ -47,7 +47,7 @@ export async function readAuth(): Promise<AuthData> {
       `Failed to read authentication file: ${
         error instanceof Error ? error.message : "Unknown error"
       }`,
-      { cause: error instanceof Error ? error : undefined }
+      { cause: error instanceof Error ? error : undefined },
     );
   }
 }
@@ -59,7 +59,7 @@ export async function writeAuth(authData: AuthData): Promise<void> {
     throw new SchemaValidationError(
       "Invalid authentication data",
       result.error,
-      getAuthFilePath()
+      getAuthFilePath(),
     );
   }
 
@@ -70,7 +70,7 @@ export async function writeAuth(authData: AuthData): Promise<void> {
       `Failed to write authentication file: ${
         error instanceof Error ? error.message : "Unknown error"
       }`,
-      { cause: error instanceof Error ? error : undefined }
+      { cause: error instanceof Error ? error : undefined },
     );
   }
 }
@@ -83,7 +83,7 @@ export async function deleteAuth(): Promise<void> {
       `Failed to delete authentication file: ${
         error instanceof Error ? error.message : "Unknown error"
       }`,
-      { cause: error instanceof Error ? error : undefined }
+      { cause: error instanceof Error ? error : undefined },
     );
   }
 }
@@ -156,7 +156,7 @@ export async function isLoggedIn(): Promise<boolean> {
 export async function requireAuth(): Promise<void> {
   if (!(await isLoggedIn())) {
     throw new AuthRequiredError(
-      "Not logged in. Please run 'base44 login' first."
+      "Not logged in. Please run 'base44 login' first.",
     );
   }
 }

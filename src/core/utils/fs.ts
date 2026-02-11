@@ -26,7 +26,7 @@ export async function pathExists(path: string): Promise<boolean> {
 
 export async function writeFile(
   filePath: string,
-  content: string
+  content: string,
 ): Promise<void> {
   const dir = dirname(filePath);
   if (!(await pathExists(dir))) {
@@ -55,7 +55,7 @@ export async function readFile(filePath: string): Promise<Buffer> {
       `Failed to read file ${filePath}: ${
         error instanceof Error ? error.message : "Unknown error"
       }`,
-      { cause: error instanceof Error ? error : undefined }
+      { cause: error instanceof Error ? error : undefined },
     );
   }
 }
@@ -72,7 +72,7 @@ export async function readTextFile(filePath: string): Promise<string> {
       `Failed to read file ${filePath}: ${
         error instanceof Error ? error.message : "Unknown error"
       }`,
-      { cause: error instanceof Error ? error : undefined }
+      { cause: error instanceof Error ? error : undefined },
     );
   }
 }
@@ -90,21 +90,21 @@ export async function readJsonFile(filePath: string): Promise<unknown> {
       throw new ConfigInvalidError(
         `File contains invalid JSON: ${filePath} (${error.message})`,
         filePath,
-        { cause: error }
+        { cause: error },
       );
     }
     throw new FileReadError(
       `Failed to read file ${filePath}: ${
         error instanceof Error ? error.message : "Unknown error"
       }`,
-      { cause: error instanceof Error ? error : undefined }
+      { cause: error instanceof Error ? error : undefined },
     );
   }
 }
 
 export async function writeJsonFile(
   filePath: string,
-  data: unknown
+  data: unknown,
 ): Promise<void> {
   const dir = dirname(filePath);
   if (!(await pathExists(dir))) {

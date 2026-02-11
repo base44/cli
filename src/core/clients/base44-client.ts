@@ -23,7 +23,7 @@ const retriedRequests = new WeakSet<KyRequest>();
  */
 async function captureRequestBody(
   request: KyRequest,
-  options: NormalizedOptions
+  options: NormalizedOptions,
 ): Promise<void> {
   if (request.body == null) {
     return;
@@ -44,7 +44,7 @@ async function captureRequestBody(
 async function handleUnauthorized(
   request: KyRequest,
   _options: NormalizedOptions,
-  response: KyResponse
+  response: KyResponse,
 ): Promise<Response | undefined> {
   if (response.status !== 401) {
     return;

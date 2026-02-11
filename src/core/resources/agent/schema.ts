@@ -22,7 +22,7 @@ export const AgentConfigSchema = z.looseObject({
     .string()
     .regex(
       /^[a-z0-9_]+$/,
-      "Agent name must be lowercase alphanumeric with underscores"
+      "Agent name must be lowercase alphanumeric with underscores",
     )
     .min(1)
     .max(100),

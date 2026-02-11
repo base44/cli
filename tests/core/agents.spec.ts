@@ -131,11 +131,11 @@ describe("pushAgents", () => {
         error_type: "HTTPException",
         message: "Unauthorized access",
         detail: "Token expired",
-      })
+      }),
     );
 
     await expect(pushAgents(agents)).rejects.toThrow(
-      "Error syncing agents: Unauthorized access"
+      "Error syncing agents: Unauthorized access",
     );
   });
 
@@ -150,11 +150,11 @@ describe("pushAgents", () => {
     ];
 
     mockPut.mockRejectedValue(
-      createHTTPError(400, { detail: "Some error detail" })
+      createHTTPError(400, { detail: "Some error detail" }),
     );
 
     await expect(pushAgents(agents)).rejects.toThrow(
-      "Error syncing agents: Some error detail"
+      "Error syncing agents: Some error detail",
     );
   });
 
@@ -173,11 +173,11 @@ describe("pushAgents", () => {
         error_type: "ValidationError",
         message: { field: "name", error: "required" },
         detail: [{ loc: ["name"], msg: "field required" }],
-      })
+      }),
     );
 
     await expect(pushAgents(agents)).rejects.toThrow(
-      'Error syncing agents: {\n  "field": "name",\n  "error": "required"\n}'
+      'Error syncing agents: {\n  "field": "name",\n  "error": "required"\n}',
     );
   });
 });

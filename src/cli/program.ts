@@ -21,7 +21,7 @@ export function createProgram(context: CLIContext): Command {
   program
     .name("base44")
     .description(
-      "Base44 CLI - Unified interface for managing Base44 applications"
+      "Base44 CLI - Unified interface for managing Base44 applications",
     )
     .version(packageJson.version);
 

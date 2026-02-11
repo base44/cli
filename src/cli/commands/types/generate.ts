@@ -26,13 +26,13 @@ async function generateTypesAction(): Promise<RunCommandResult> {
 export function getTypesGenerateCommand(context: CLIContext): Command {
   return new Command("generate")
     .description(
-      "Generate TypeScript declaration file (types.d.ts) from project resources"
+      "Generate TypeScript declaration file (types.d.ts) from project resources",
     )
     .action(async () => {
       await runCommand(
         () => generateTypesAction(),
         { requireAuth: false },
-        context
+        context,
       );
     });
 }

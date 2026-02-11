@@ -94,7 +94,7 @@ describe("types generate command", () => {
     const tsconfigAfterFirst = await t.readProjectFile("tsconfig.json");
     const firstTsconfigObj = JSON.parse(tsconfigAfterFirst!);
     const includeCountAfterFirst = firstTsconfigObj.include.filter(
-      (p: string) => p === "base44/.types/*.d.ts"
+      (p: string) => p === "base44/.types/*.d.ts",
     ).length;
     expect(includeCountAfterFirst).toBe(1);
 
@@ -106,7 +106,7 @@ describe("types generate command", () => {
     const tsconfigAfterSecond = await t.readProjectFile("tsconfig.json");
     const secondTsconfigObj = JSON.parse(tsconfigAfterSecond!);
     const includeCountAfterSecond = secondTsconfigObj.include.filter(
-      (p: string) => p === "base44/.types/*.d.ts"
+      (p: string) => p === "base44/.types/*.d.ts",
     ).length;
     expect(includeCountAfterSecond).toBe(1);
   });

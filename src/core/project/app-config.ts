@@ -46,7 +46,7 @@ export async function initAppConfig(): Promise<CachedAppConfig> {
   const projectRoot = await findProjectRoot();
   if (!projectRoot) {
     throw new ConfigNotFoundError(
-      "No Base44 project found. Run this command from a project directory with a config.jsonc file."
+      "No Base44 project found. Run this command from a project directory with a config.jsonc file.",
     );
   }
 
@@ -64,7 +64,7 @@ export async function initAppConfig(): Promise<CachedAppConfig> {
             command: "base44 link",
           },
         ],
-      }
+      },
     );
   }
 
@@ -79,7 +79,7 @@ export async function initAppConfig(): Promise<CachedAppConfig> {
 export function getAppConfig(): CachedAppConfig {
   if (!cache) {
     throw new ConfigInvalidError(
-      "App config not initialized. Ensure the command uses requireAppConfig option."
+      "App config not initialized. Ensure the command uses requireAppConfig option.",
     );
   }
   return cache;
@@ -101,7 +101,7 @@ export function generateAppConfigContent(id: string): string {
 
 export async function writeAppConfig(
   projectRoot: string,
-  appId: string
+  appId: string,
 ): Promise<string> {
   const configPath = getAppConfigPath(projectRoot);
   const content = generateAppConfigContent(appId);
@@ -110,7 +110,7 @@ export async function writeAppConfig(
 }
 
 export async function findAppConfigPath(
-  projectRoot: string
+  projectRoot: string,
 ): Promise<string | null> {
   const files = await globby(APP_CONFIG_PATTERN, {
     cwd: projectRoot,
@@ -138,7 +138,7 @@ async function readAppConfig(projectRoot: string): Promise<AppConfig | null> {
     throw new SchemaValidationError(
       "Invalid app configuration",
       result.error,
-      configPath
+      configPath,
     );
   }
 

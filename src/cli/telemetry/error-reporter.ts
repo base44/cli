@@ -152,7 +152,7 @@ export class ErrorReporter {
       client?.captureException(
         error,
         this.getDistinctId(),
-        this.buildProperties(error)
+        this.buildProperties(error),
       );
     } catch {
       // Silent - don't let error reporting break the CLI

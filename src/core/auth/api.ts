@@ -25,7 +25,7 @@ export async function generateDeviceCode(): Promise<DeviceCodeResponse> {
   if (!response.ok) {
     throw new ApiError(
       `Failed to generate device code: ${response.status} ${response.statusText}`,
-      { statusCode: response.status }
+      { statusCode: response.status },
     );
   }
 
@@ -34,7 +34,7 @@ export async function generateDeviceCode(): Promise<DeviceCodeResponse> {
   if (!result.success) {
     throw new SchemaValidationError(
       "Invalid device code response from server",
-      result.error
+      result.error,
     );
   }
 
@@ -42,12 +42,12 @@ export async function generateDeviceCode(): Promise<DeviceCodeResponse> {
 }
 
 export async function getTokenFromDeviceCode(
-  deviceCode: string
+  deviceCode: string,
 ): Promise<TokenResponse | null> {
   const searchParams = new URLSearchParams();
   searchParams.set(
     "grant_type",
-    "urn:ietf:params:oauth:grant-type:device_code"
+    "urn:ietf:params:oauth:grant-type:device_code",
   );
   searchParams.set("device_code", deviceCode);
   searchParams.set("client_id", AUTH_CLIENT_ID);
@@ -68,7 +68,7 @@ export async function getTokenFromDeviceCode(
     if (!errorResult.success) {
       throw new SchemaValidationError(
         "Token request failed",
-        errorResult.error
+        errorResult.error,
       );
     }
 
@@ -90,7 +90,7 @@ export async function getTokenFromDeviceCode(
   if (!result.success) {
     throw new SchemaValidationError(
       "Invalid token response from server",
-      result.error
+      result.error,
     );
   }
 
@@ -98,7 +98,7 @@ export async function getTokenFromDeviceCode(
 }
 
 export async function renewAccessToken(
-  refreshToken: string
+  refreshToken: string,
 ): Promise<TokenResponse> {
   const searchParams = new URLSearchParams();
   searchParams.set("grant_type", "refresh_token");
@@ -135,7 +135,7 @@ export async function renewAccessToken(
   if (!result.success) {
     throw new SchemaValidationError(
       "Invalid token response from server",
-      result.error
+      result.error,
     );
   }
 
@@ -143,7 +143,7 @@ export async function renewAccessToken(
 }
 
 export async function getUserInfo(
-  accessToken: string
+  accessToken: string,
 ): Promise<UserInfoResponse> {
   const response = await oauthClient.get("oauth/userinfo", {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -160,7 +160,7 @@ export async function getUserInfo(
   if (!result.success) {
     throw new SchemaValidationError(
       "Invalid UserInfo response from server",
-      result.error
+      result.error,
     );
   }
 

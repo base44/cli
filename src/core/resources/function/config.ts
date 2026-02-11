@@ -10,7 +10,7 @@ import { FunctionConfigSchema } from "@/core/resources/function/schema.js";
 import { pathExists, readJsonFile } from "@/core/utils/fs.js";
 
 export async function readFunctionConfig(
-  configPath: string
+  configPath: string,
 ): Promise<FunctionConfig> {
   const parsed = await readJsonFile(configPath);
   const result = FunctionConfigSchema.safeParse(parsed);
@@ -19,7 +19,7 @@ export async function readFunctionConfig(
     throw new SchemaValidationError(
       "Invalid function configuration",
       result.error,
-      configPath
+      configPath,
     );
   }
 
@@ -27,7 +27,7 @@ export async function readFunctionConfig(
 }
 
 export async function readFunction(
-  configPath: string
+  configPath: string,
 ): Promise<BackendFunction> {
   const config = await readFunctionConfig(configPath);
   const functionDir = dirname(configPath);
@@ -35,7 +35,7 @@ export async function readFunction(
 
   if (!(await pathExists(entryPath))) {
     throw new FileNotFoundError(
-      `Function entry file not found: ${entryPath} (referenced in ${configPath})`
+      `Function entry file not found: ${entryPath} (referenced in ${configPath})`,
     );
   }
 
@@ -49,7 +49,7 @@ export async function readFunction(
 }
 
 export async function readAllFunctions(
-  functionsDir: string
+  functionsDir: string,
 ): Promise<BackendFunction[]> {
   if (!(await pathExists(functionsDir))) {
     return [];
@@ -61,7 +61,7 @@ export async function readAllFunctions(
   });
 
   const functions = await Promise.all(
-    configFiles.map((configPath) => readFunction(configPath))
+    configFiles.map((configPath) => readFunction(configPath)),
   );
 
   const names = new Set<string>();

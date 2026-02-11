@@ -23,7 +23,7 @@ function getFullCommandName(command: Command): string {
 
 export function addCommandInfoToErrorReporter(
   program: Command,
-  errorReporter: ErrorReporter
+  errorReporter: ErrorReporter,
 ): void {
   program.hook("preAction", (_, actionCommand) => {
     const fullCommandName = getFullCommandName(actionCommand);

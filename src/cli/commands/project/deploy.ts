@@ -20,7 +20,7 @@ interface DeployOptions {
 }
 
 export async function deployAction(
-  options: DeployOptions
+  options: DeployOptions,
 ): Promise<RunCommandResult> {
   const projectData = await readProjectConfig(options.projectRoot);
 
@@ -36,17 +36,17 @@ export async function deployAction(
   const summaryLines: string[] = [];
   if (entities.length > 0) {
     summaryLines.push(
-      `  - ${entities.length} ${entities.length === 1 ? "entity" : "entities"}`
+      `  - ${entities.length} ${entities.length === 1 ? "entity" : "entities"}`,
     );
   }
   if (functions.length > 0) {
     summaryLines.push(
-      `  - ${functions.length} ${functions.length === 1 ? "function" : "functions"}`
+      `  - ${functions.length} ${functions.length === 1 ? "function" : "functions"}`,
     );
   }
   if (agents.length > 0) {
     summaryLines.push(
-      `  - ${agents.length} ${agents.length === 1 ? "agent" : "agents"}`
+      `  - ${agents.length} ${agents.length === 1 ? "agent" : "agents"}`,
     );
   }
   if (project.site?.outputDirectory) {
@@ -56,7 +56,7 @@ export async function deployAction(
   // Confirmation prompt
   if (!options.yes) {
     log.warn(
-      `This will update your Base44 app with:\n${summaryLines.join("\n")}`
+      `This will update your Base44 app with:\n${summaryLines.join("\n")}`,
     );
 
     const shouldDeploy = await confirm({
@@ -78,15 +78,15 @@ export async function deployAction(
     {
       successMessage: theme.colors.base44Orange("Deployment completed"),
       errorMessage: "Deployment failed",
-    }
+    },
   );
 
   log.message(
-    `${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl())}`
+    `${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl())}`,
   );
   if (result.appUrl) {
     log.message(
-      `${theme.styles.header("App URL")}: ${theme.colors.links(result.appUrl)}`
+      `${theme.styles.header("App URL")}: ${theme.colors.links(result.appUrl)}`,
     );
   }
 
@@ -96,14 +96,14 @@ export async function deployAction(
 export function getDeployCommand(context: CLIContext): Command {
   return new Command("deploy")
     .description(
-      "Deploy all project resources (entities, functions, agents, and site)"
+      "Deploy all project resources (entities, functions, agents, and site)",
     )
     .option("-y, --yes", "Skip confirmation prompt")
     .action(async (options: DeployOptions) => {
       await runCommand(
         () => deployAction(options),
         { requireAuth: true },
-        context
+        context,
       );
     });
 }

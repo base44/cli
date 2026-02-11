@@ -31,14 +31,14 @@ interface EjectOptions {
 async function eject(options: EjectOptions): Promise<RunCommandResult> {
   const projects = await listProjects();
   const ejectableProjects = projects.filter(
-    (p) => p.isManagedSourceCode !== false
+    (p) => p.isManagedSourceCode !== false,
   );
 
   let selectedProject: Project;
 
   if (options.projectId) {
     const foundProject = ejectableProjects.find(
-      (p) => p.id === options.projectId
+      (p) => p.id === options.projectId,
     );
 
     if (!foundProject) {
@@ -51,7 +51,7 @@ async function eject(options: EjectOptions): Promise<RunCommandResult> {
                 "Run 'base44 eject' without --project-id to see available projects",
             },
           ],
-        }
+        },
       );
     }
 
@@ -110,7 +110,7 @@ async function eject(options: EjectOptions): Promise<RunCommandResult> {
       const newProjectName = `${selectedProject.name} Copy`;
       const { projectId: newProjectId } = await createProject(
         newProjectName,
-        selectedProject.userDescription ?? undefined
+        selectedProject.userDescription ?? undefined,
       );
 
       updateMessage("Linking the project...");
@@ -118,7 +118,7 @@ async function eject(options: EjectOptions): Promise<RunCommandResult> {
       await writeAppConfig(resolvedPath, newProjectId);
       await writeFile(
         `${resolvedPath}/.env.local`,
-        `VITE_BASE44_APP_ID=${newProjectId}`
+        `VITE_BASE44_APP_ID=${newProjectId}`,
       );
 
       setAppConfig({ id: newProjectId, projectRoot: resolvedPath });
@@ -126,7 +126,7 @@ async function eject(options: EjectOptions): Promise<RunCommandResult> {
     {
       successMessage: theme.colors.base44Orange("Project pulled successfully"),
       errorMessage: "Failed to pull project",
-    }
+    },
   );
 
   const { project } = await readProjectConfig(resolvedPath);
@@ -152,10 +152,10 @@ async function eject(options: EjectOptions): Promise<RunCommandResult> {
         },
         {
           successMessage: theme.colors.base44Orange(
-            "Project built successfully"
+            "Project built successfully",
           ),
           errorMessage: "Failed to build project",
-        }
+        },
       );
 
       await deployAction({ yes: true, projectRoot: resolvedPath });
@@ -171,14 +171,14 @@ export function getEjectCommand(context: CLIContext): Command {
     .option("-p, --path <path>", "Path where to write the project")
     .option(
       "--project-id <id>",
-      "Project ID to eject (skips interactive selection)"
+      "Project ID to eject (skips interactive selection)",
     )
     .option("-y, --yes", "Skip confirmation prompts")
     .action(async (options: EjectOptions) => {
       await runCommand(
         () => eject(options),
         { requireAuth: true, requireAppConfig: false },
-        context
+        context,
       );
     });
 }

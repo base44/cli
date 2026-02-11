@@ -12,7 +12,7 @@ async function pushAgentsAction(): Promise<RunCommandResult> {
   log.info(
     agents.length === 0
       ? "No local agents found - this will delete all remote agents"
-      : `Found ${agents.length} agents to push`
+      : `Found ${agents.length} agents to push`,
   );
 
   const result = await runTask(
@@ -23,7 +23,7 @@ async function pushAgentsAction(): Promise<RunCommandResult> {
     {
       successMessage: "Agents pushed successfully",
       errorMessage: "Failed to push agents",
-    }
+    },
   );
 
   if (result.created.length > 0) {
@@ -42,7 +42,7 @@ async function pushAgentsAction(): Promise<RunCommandResult> {
 export function getAgentsPushCommand(context: CLIContext): Command {
   return new Command("push")
     .description(
-      "Push local agents to Base44 (replaces all remote agent configs)"
+      "Push local agents to Base44 (replaces all remote agent configs)",
     )
     .action(async () => {
       await runCommand(pushAgentsAction, { requireAuth: true }, context);

@@ -12,7 +12,7 @@ import {
 } from "./schema.js";
 
 export async function pushAgents(
-  agents: AgentConfig[]
+  agents: AgentConfig[],
 ): Promise<SyncAgentsResponse> {
   if (agents.length === 0) {
     return { created: [], updated: [], deleted: [] };
@@ -34,7 +34,7 @@ export async function pushAgents(
   if (!result.success) {
     throw new SchemaValidationError(
       "Invalid response from server",
-      result.error
+      result.error,
     );
   }
 
@@ -56,7 +56,7 @@ export async function fetchAgents(): Promise<ListAgentsResponse> {
   if (!result.success) {
     throw new SchemaValidationError(
       "Invalid response from server",
-      result.error
+      result.error,
     );
   }
 
