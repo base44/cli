@@ -31,13 +31,14 @@ export async function createDevServer(): Promise<DevServerResult> {
     }),
   );
 
-  // Redirect auth login requests directly to base44.app so the OAuth flow
+  // Redirect all OAuth auth requests directly to base44.app so the OAuth flow
   // (redirects + session cookies) works correctly. Proxying breaks OAuth
-  // because the session cookie ends up on localhost while Google's callback
-  // goes to base44.app.
-  const AUTH_LOGIN_PATTERN = /^\/api\/apps\/auth(\/\w+)?\/login/;
+  // because the session cookie ends up on localhost while the provider's callback
+  // goes to base44.app. This covers login, callback, final-callback, and auth-error
+  // routes for all providers (Google, Microsoft, Facebook).
+  const AUTH_ROUTE_PATTERN = /^\/api\/apps\/auth(\/|$)/;
   app.use((req, res, next) => {
-    if (AUTH_LOGIN_PATTERN.test(req.path)) {
+    if (AUTH_ROUTE_PATTERN.test(req.path)) {
       const targetUrl = `${BASE44_APP_URL}${req.originalUrl}`;
       return res.redirect(targetUrl);
     }
@@ -48,17 +49,12 @@ export async function createDevServer(): Promise<DevServerResult> {
     return remoteProxy(req, res, next);
   });
 
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const server = app.listen(port, "127.0.0.1", () => {
       resolve({
         port,
         server,
       });
-    });
-
-    server.on("error", (err) => {
-      server.close();
-      reject(err);
     });
   });
 }
