@@ -94,7 +94,7 @@ export async function deployAction(
   const needsOAuth = filterPendingOAuth(result.connectorResults ?? []);
   if (needsOAuth.length > 0) {
     const oauthOutcomes = await promptOAuthFlows(needsOAuth, {
-      skipPrompt: options.yes,
+      skipPrompt: options.yes || !!process.env.CI,
     });
 
     if (oauthOutcomes.size === 0) {

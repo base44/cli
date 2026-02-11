@@ -84,7 +84,9 @@ async function pushConnectorsAction(): Promise<RunCommandResult> {
   const needsOAuth = filterPendingOAuth(results);
   let outroMessage = "Connectors pushed to Base44";
 
-  const oauthOutcomes = await promptOAuthFlows(needsOAuth);
+  const oauthOutcomes = await promptOAuthFlows(needsOAuth, {
+    skipPrompt: !!process.env.CI,
+  });
 
   if (needsOAuth.length > 0 && oauthOutcomes.size === 0) {
     const pending = needsOAuth.map((c) => c.type).join(", ");

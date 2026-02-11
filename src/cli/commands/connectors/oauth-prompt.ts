@@ -22,7 +22,6 @@ export function filterPendingOAuth(
 }
 
 export interface OAuthPromptOptions {
-  /** Skip the interactive prompt (CI or --yes mode). */
   skipPrompt?: boolean;
 }
 
@@ -52,7 +51,7 @@ export async function promptOAuthFlows(
     );
   }
 
-  if (options?.skipPrompt || process.env.CI) {
+  if (options?.skipPrompt) {
     return outcomes;
   }
 
