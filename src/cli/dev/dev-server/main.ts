@@ -46,12 +46,24 @@ export async function createDevServer(): Promise<DevServerResult> {
     return remoteProxy(req, res, next);
   });
 
-  return new Promise((resolve) => {
-    const server = app.listen(port, "127.0.0.1", () => {
-      resolve({
-        port,
-        server,
-      });
+  return new Promise((resolve, reject) => {
+    const server = app.listen(port, "127.0.0.1", (err) => {
+      if (err) {
+        if (err.code === "EADDRINUSE") {
+          reject(
+            new Error(
+              `Port ${port} is already in use. Stop the other process and try again.`,
+            ),
+          );
+        } else {
+          reject(err);
+        }
+      } else {
+        resolve({
+          port,
+          server,
+        });
+      }
     });
   });
 }
