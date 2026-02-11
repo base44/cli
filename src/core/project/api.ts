@@ -40,7 +40,9 @@ export async function createProject(projectName: string, description?: string) {
   };
 }
 
-export async function listProjects(): Promise<ProjectsResponse> {
+export async function listProjects(options?: {
+  timeout?: number | false;
+}): Promise<ProjectsResponse> {
   let response: KyResponse;
   try {
     response = await base44Client.get("api/apps", {
@@ -48,6 +50,7 @@ export async function listProjects(): Promise<ProjectsResponse> {
         sort: "-updated_date",
         fields: "id,name,user_description,is_managed_source_code",
       },
+      timeout: options?.timeout,
     });
   } catch (error) {
     throw await ApiError.fromHttpError(error, "listing projects");

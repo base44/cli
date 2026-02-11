@@ -29,7 +29,17 @@ interface EjectOptions {
 }
 
 async function eject(options: EjectOptions): Promise<RunCommandResult> {
-  const projects = await listProjects();
+  const projects = await runTask(
+    "Loading projects...",
+    async () => {
+      return await listProjects({ timeout: 60000 }); // 60 seconds
+    },
+    {
+      successMessage: undefined, // Don't show success message, it's just prep work
+      errorMessage: "Failed to load projects",
+    }
+  );
+
   const ejectableProjects = projects.filter(
     (p) => p.isManagedSourceCode !== false
   );
