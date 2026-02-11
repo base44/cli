@@ -28,7 +28,7 @@ export async function createDevServer(): Promise<DevServerResult> {
     cors({
       origin: /^http:\/\/localhost(:\d+)?$/,
       credentials: true,
-    }),
+    })
   );
 
   // Redirect OAuth routes to base44.app directly — proxying breaks the
@@ -52,8 +52,8 @@ export async function createDevServer(): Promise<DevServerResult> {
         if ("code" in err && err.code === "EADDRINUSE") {
           reject(
             new Error(
-              `Port ${port} is already in use. Stop the other process and try again.`,
-            ),
+              `Port ${port} is already in use. Stop the other process and try again.`
+            )
           );
         } else {
           reject(err);
