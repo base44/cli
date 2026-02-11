@@ -128,11 +128,36 @@ describe("deploy command (unified)", () => {
     t.api.mockFunctionsPush({ deployed: [], deleted: [], errors: null });
     t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
     t.api.mockConnectorsList({ integrations: [] });
+    t.api.mockConnectorSet({
+      redirect_url: null,
+      connection_id: null,
+      already_authorized: true,
+    });
 
     const result = await t.run("deploy", "-y");
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Deployment completed");
     t.expectResult(result).toContain("3 connectors");
+  });
+
+  it("shows OAuth info when connectors need authorization with -y flag", async () => {
+    await t.givenLoggedInWithProject(fixture("with-connectors"));
+    t.api.mockEntitiesPush({ created: [], updated: [], deleted: [] });
+    t.api.mockFunctionsPush({ deployed: [], deleted: [], errors: null });
+    t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
+    t.api.mockConnectorsList({ integrations: [] });
+    t.api.mockConnectorSet({
+      redirect_url: "https://accounts.google.com/oauth",
+      connection_id: "conn_123",
+      already_authorized: false,
+    });
+
+    const result = await t.run("deploy", "-y");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Deployment completed");
+    t.expectResult(result).toContain("require authorization");
+    t.expectResult(result).toContain("base44 connectors push");
   });
 });

@@ -13,6 +13,10 @@ import {
   hasResourcesToDeploy,
   readProjectConfig,
 } from "@/core/project/index.js";
+import {
+  filterPendingOAuth,
+  promptOAuthFlows,
+} from "@/cli/commands/connectors/oauth-prompt.js";
 
 interface DeployOptions {
   yes?: boolean;
@@ -85,6 +89,21 @@ export async function deployAction(
       errorMessage: "Deployment failed",
     },
   );
+
+  // Handle connector OAuth flows
+  const needsOAuth = filterPendingOAuth(result.connectorResults ?? []);
+  if (needsOAuth.length > 0) {
+    const oauthOutcomes = await promptOAuthFlows(needsOAuth, {
+      skipPrompt: options.yes,
+    });
+
+    if (oauthOutcomes.size === 0) {
+      const pending = needsOAuth.map((c) => c.type).join(", ");
+      log.info(
+        `To authorize, run 'base44 connectors push' or open the links above in your browser.`
+      );
+    }
+  }
 
   log.message(
     `${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl())}`,

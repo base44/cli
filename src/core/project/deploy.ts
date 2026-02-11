@@ -1,7 +1,10 @@
 import { resolve } from "node:path";
 import type { ProjectData } from "@/core/project/types.js";
 import { agentResource } from "@/core/resources/agent/index.js";
-import { connectorResource } from "@/core/resources/connector/index.js";
+import {
+  type ConnectorSyncResult,
+  pushConnectors,
+} from "@/core/resources/connector/index.js";
 import { entityResource } from "@/core/resources/entity/index.js";
 import { functionResource } from "@/core/resources/function/index.js";
 import { deploySite } from "@/core/site/index.js";
@@ -31,6 +34,10 @@ interface DeployAllResult {
    * The app URL if a site was deployed, undefined otherwise.
    */
   appUrl?: string;
+  /**
+   * Results of connector push, including any that need OAuth.
+   */
+  connectorResults?: ConnectorSyncResult[];
 }
 
 /**
@@ -47,13 +54,13 @@ export async function deployAll(
   await entityResource.push(entities);
   await functionResource.push(functions);
   await agentResource.push(agents);
-  await connectorResource.push(connectors);
+  const { results: connectorResults } = await pushConnectors(connectors);
 
   if (project.site?.outputDirectory) {
     const outputDir = resolve(project.root, project.site.outputDirectory);
     const { appUrl } = await deploySite(outputDir);
-    return { appUrl };
+    return { appUrl, connectorResults };
   }
 
-  return {};
+  return { connectorResults };
 }
