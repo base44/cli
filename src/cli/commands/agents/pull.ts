@@ -24,18 +24,14 @@ async function pullAgentsAction(): Promise<RunCommandResult> {
     },
   );
 
-  if (remoteAgents.items.length === 0) {
-    return { outroMessage: "No agents found on Base44" };
-  }
-
   const { written, deleted } = await runTask(
-    "Writing agent files",
+    "Syncing agent files",
     async () => {
       return await writeAgents(agentsDir, remoteAgents.items);
     },
     {
-      successMessage: "Agent files written successfully",
-      errorMessage: "Failed to write agent files",
+      successMessage: "Agent files synced successfully",
+      errorMessage: "Failed to sync agent files",
     },
   );
 
