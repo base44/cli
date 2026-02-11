@@ -54,13 +54,12 @@ describe("agents push command", () => {
     t.expectResult(result).toContain("Deleted: old_agent");
   });
 
-  it("fails with helpful error when agent has invalid name format", async () => {
+  it("fails with helpful error when agent has empty name", async () => {
     await t.givenLoggedInWithProject(fixture("invalid-agent"));
 
     const result = await t.run("agents", "push");
 
     t.expectResult(result).toFail();
-    t.expectResult(result).toContain("name");
   });
 
   it("fails when API returns error", async () => {

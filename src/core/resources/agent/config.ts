@@ -14,6 +14,26 @@ import {
 import type { AgentConfig, AgentConfigApiResponse } from "./schema.js";
 import { AgentConfigSchema } from "./schema.js";
 
+export function generateAgentConfigContent(name: string): string {
+  return `// Base44 Agent Configuration
+// Agent configuration file
+{
+  "name": "${name}",
+  // Brief description of what this agent does
+  "description": "",
+  // Detailed instructions for the agent's behavior
+  "instructions": "",
+  // Tool configurations - entity tools and backend function tools
+  // Entity tool example: { "entity_name": "tasks", "allowed_operations": ["read", "create"] }
+  // Function tool example: { "function_name": "send_email", "description": "Send an email" }
+  "tool_configs": [],
+  // Optional WhatsApp greeting message
+  "whatsapp_greeting": null
+}
+`;
+}
+
+
 async function readAgentFile(agentPath: string): Promise<AgentConfig> {
   const parsed = await readJsonFile(agentPath);
   const result = AgentConfigSchema.safeParse(parsed);
