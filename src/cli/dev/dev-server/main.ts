@@ -40,8 +40,8 @@ export async function createDevServer(
   const AUTH_ROUTE_PATTERN = /^\/api\/apps\/auth(\/|$)/;
   app.use((req, res, next) => {
     if (AUTH_ROUTE_PATTERN.test(req.path)) {
-      const targetUrl = `${BASE44_APP_URL}${req.originalUrl}`;
-      return res.redirect(targetUrl);
+      const targetUrl = new URL(req.originalUrl, BASE44_APP_URL);
+      return res.redirect(targetUrl.toString());
     }
     next();
   });
