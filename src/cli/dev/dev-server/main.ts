@@ -49,7 +49,7 @@ export async function createDevServer(): Promise<DevServerResult> {
   return new Promise((resolve, reject) => {
     const server = app.listen(port, "127.0.0.1", (err) => {
       if (err) {
-        if (err.code === "EADDRINUSE") {
+        if ("code" in err && err.code === "EADDRINUSE") {
           reject(
             new Error(
               `Port ${port} is already in use. Stop the other process and try again.`,
