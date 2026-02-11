@@ -60,6 +60,9 @@ export async function createDevServer(
       });
     });
 
-    server.on("error", reject);
+    server.on("error", (err) => {
+      server.close();
+      reject(err);
+    });
   });
 }
