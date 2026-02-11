@@ -2,11 +2,11 @@ import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import type { AgentConfigApiResponse } from "../../src/core/resources/agent/schema.js";
 import {
   readAllAgents,
   writeAgents,
 } from "../../src/core/resources/agent/config.js";
+import type { AgentConfigApiResponse } from "../../src/core/resources/agent/schema.js";
 
 describe("writeAgents", () => {
   it("writes remote agents to files", async () => {
@@ -14,7 +14,11 @@ describe("writeAgents", () => {
 
     try {
       const remoteAgents: AgentConfigApiResponse[] = [
-        { name: "support", description: "Help desk", instructions: "Be helpful" },
+        {
+          name: "support",
+          description: "Help desk",
+          instructions: "Be helpful",
+        },
         { name: "sales", description: "Sales bot", instructions: "Sell stuff" },
       ];
 
@@ -36,13 +40,21 @@ describe("writeAgents", () => {
 
     try {
       const initial: AgentConfigApiResponse[] = [
-        { name: "support", description: "Help desk", instructions: "Be helpful" },
+        {
+          name: "support",
+          description: "Help desk",
+          instructions: "Be helpful",
+        },
         { name: "sales", description: "Sales bot", instructions: "Sell stuff" },
       ];
       await writeAgents(tmpDir, initial);
 
       const remote: AgentConfigApiResponse[] = [
-        { name: "support", description: "Help desk", instructions: "Be helpful" },
+        {
+          name: "support",
+          description: "Help desk",
+          instructions: "Be helpful",
+        },
       ];
       const { written, deleted } = await writeAgents(tmpDir, remote);
 
@@ -71,7 +83,11 @@ describe("writeAgents", () => {
       );
 
       const remoteAgents: AgentConfigApiResponse[] = [
-        { name: "support", description: "Updated help desk", instructions: "Be very helpful" },
+        {
+          name: "support",
+          description: "Updated help desk",
+          instructions: "Be very helpful",
+        },
       ];
 
       const { written, deleted } = await writeAgents(tmpDir, remoteAgents);
@@ -113,7 +129,11 @@ describe("writeAgents", () => {
       );
 
       const remoteAgents: AgentConfigApiResponse[] = [
-        { name: "support", description: "Help desk", instructions: "Be helpful" },
+        {
+          name: "support",
+          description: "Help desk",
+          instructions: "Be helpful",
+        },
       ];
 
       const { written, deleted } = await writeAgents(tmpDir, remoteAgents);
@@ -136,7 +156,11 @@ describe("writeAgents", () => {
       await writeFile(join(tmpDir, "support.jsonc"), fileContent);
 
       const remoteAgents: AgentConfigApiResponse[] = [
-        { name: "support", description: "Help desk", instructions: "Be helpful" },
+        {
+          name: "support",
+          description: "Help desk",
+          instructions: "Be helpful",
+        },
       ];
 
       const { written, deleted } = await writeAgents(tmpDir, remoteAgents);
@@ -159,7 +183,11 @@ describe("writeAgents", () => {
       await writeFile(join(tmpDir, "support.jsonc"), fileContent);
 
       const remoteAgents: AgentConfigApiResponse[] = [
-        { name: "support", description: "Updated help desk", instructions: "Be very helpful" },
+        {
+          name: "support",
+          description: "Updated help desk",
+          instructions: "Be very helpful",
+        },
       ];
 
       const { written, deleted } = await writeAgents(tmpDir, remoteAgents);

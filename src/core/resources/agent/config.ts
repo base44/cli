@@ -51,9 +51,7 @@ interface AgentFileEntry {
   filePath: string;
 }
 
-async function readAgentFiles(
-  agentsDir: string
-): Promise<AgentFileEntry[]> {
+async function readAgentFiles(agentsDir: string): Promise<AgentFileEntry[]> {
   if (!(await pathExists(agentsDir))) {
     return [];
   }
