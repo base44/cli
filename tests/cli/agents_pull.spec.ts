@@ -11,7 +11,7 @@ describe("agents pull command", () => {
     const result = await t.run("agents", "pull");
 
     t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain("No agents found on Base44");
+    t.expectResult(result).toContain("All agents are already up to date");
   });
 
   it("fails when not in a project directory", async () => {
@@ -37,7 +37,7 @@ describe("agents pull command", () => {
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Agents fetched successfully");
-    t.expectResult(result).toContain("Agent files written successfully");
+    t.expectResult(result).toContain("Agent files synced successfully");
     t.expectResult(result).toContain("Pulled 2 agents");
   });
 
