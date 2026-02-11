@@ -1,15 +1,14 @@
-import chalk from "chalk";
 import { Command } from "commander";
 import { createDevServer } from "@/cli/dev/dev-server/main";
-import { runCommand } from "@/cli/utils/index.js";
+import { runCommand, theme } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
-import type { CLIContext } from "../types";
+import type { CLIContext } from "../types.js";
 
 async function devAction(): Promise<RunCommandResult> {
   const { port } = await createDevServer();
 
   return {
-    outroMessage: `Dev server is available at ${chalk.underline.blue(`http://localhost:${port}`)}`,
+    outroMessage: `Dev server is available at ${theme.colors.links(`http://localhost:${port}`)}`,
   };
 }
 

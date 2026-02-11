@@ -12,7 +12,7 @@ import { getLinkCommand } from "@/cli/commands/project/link.js";
 import { getSiteCommand } from "@/cli/commands/site/index.js";
 import { getTypesCommand } from "@/cli/commands/types/index.js";
 import packageJson from "../../package.json";
-import { getDevCommand } from "./commands/dev";
+import { getDevCommand } from "./commands/dev.js";
 import { getEjectCommand } from "./commands/project/eject.js";
 import type { CLIContext } from "./types.js";
 
