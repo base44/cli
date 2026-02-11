@@ -105,28 +105,30 @@ export async function runCommand(
     const { outroMessage } = await commandFn();
     outro(outroMessage || "");
   } catch (error) {
-    // Display error message
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    log.error(errorMessage);
-
-    // Show stack trace if DEBUG mode
-    if (process.env.DEBUG === "1" && error instanceof Error && error.stack) {
-      log.error(theme.styles.dim(error.stack));
-    }
-
-    // Display hints if this is a CLIError with hints
-    if (isCLIError(error)) {
-      const hints = theme.format.agentHints(error.hints);
-      if (hints) {
-        log.error(hints);
-      }
-    }
-
-    // Get error context and display in outro
-    const errorContext = context.errorReporter.getErrorContext();
-    outro(theme.format.errorContext(errorContext));
-
-    // Re-throw for runCLI to handle (error reporting, exit code)
+    displayCommandError(error, context);
     throw error;
   }
+}
+
+/**
+ * Display a structured error with optional debug stack trace, hints, and context.
+ * Extracted from runCommand's catch block to keep the main flow readable.
+ */
+function displayCommandError(error: unknown, context: CLIContext): void {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  log.error(errorMessage);
+
+  if (process.env.DEBUG === "1" && error instanceof Error && error.stack) {
+    log.error(theme.styles.dim(error.stack));
+  }
+
+  if (isCLIError(error)) {
+    const hints = theme.format.agentHints(error.hints);
+    if (hints) {
+      log.error(hints);
+    }
+  }
+
+  const errorContext = context.errorReporter.getErrorContext();
+  outro(theme.format.errorContext(errorContext));
 }

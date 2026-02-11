@@ -19,7 +19,7 @@ async function devAction(options: DevOptions): Promise<RunCommandResult> {
 
 export function getDevCommand(context: CLIContext): Command {
   return new Command("dev")
-    .description("Start the development server")
+    .description("Start the local development server with hot reload")
     .option("-p, --port <number>", "Port for the development server")
     .action(async (options: DevOptions) => {
       await runCommand(
