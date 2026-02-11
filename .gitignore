@@ -29,7 +29,6 @@ packages/*/dist/
 .pnp.*
 
 # IDE
-.vscode/
 .idea/
 *.swp
 *.swo
