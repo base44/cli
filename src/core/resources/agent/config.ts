@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { isDeepStrictEqual } from "node:util";
 import { globby } from "globby";
 import { SchemaValidationError } from "@/core/errors.js";
 import {
@@ -27,9 +28,11 @@ function toFileSlug(name: string): string {
     .replace(/^_|_$/g, "");
 }
 
-async function readAgentFile(agentPath: string): Promise<AgentConfig> {
-  const parsed = await readJsonFile(agentPath);
-  const result = AgentConfigSchema.safeParse(parsed);
+async function readAgentFile(
+  agentPath: string
+): Promise<{ data: AgentConfig; raw: unknown }> {
+  const raw = await readJsonFile(agentPath);
+  const result = AgentConfigSchema.safeParse(raw);
 
   if (!result.success) {
     throw new SchemaValidationError(
@@ -39,10 +42,18 @@ async function readAgentFile(agentPath: string): Promise<AgentConfig> {
     );
   }
 
-  return result.data;
+  return { data: result.data, raw };
 }
 
-export async function readAllAgents(agentsDir: string): Promise<AgentConfig[]> {
+interface AgentFileEntry {
+  data: AgentConfig;
+  raw: unknown;
+  filePath: string;
+}
+
+async function readAgentFiles(
+  agentsDir: string
+): Promise<AgentFileEntry[]> {
   if (!(await pathExists(agentsDir))) {
     return [];
   }
@@ -52,48 +63,66 @@ export async function readAllAgents(agentsDir: string): Promise<AgentConfig[]> {
     absolute: true,
   });
 
-  const agents = await Promise.all(
-    files.map((filePath) => readAgentFile(filePath)),
+  return await Promise.all(
+    files.map(async (filePath) => {
+      const { data, raw } = await readAgentFile(filePath);
+      return { data, raw, filePath };
+    })
   );
+}
+
+export async function readAllAgents(agentsDir: string): Promise<AgentConfig[]> {
+  const entries = await readAgentFiles(agentsDir);
 
   const names = new Set<string>();
-  for (const agent of agents) {
-    if (names.has(agent.name)) {
-      throw new Error(`Duplicate agent name "${agent.name}"`);
+  for (const { data } of entries) {
+    if (names.has(data.name)) {
+      throw new Error(`Duplicate agent name "${data.name}"`);
     }
-    names.add(agent.name);
+    names.add(data.name);
   }
 
-  return agents;
+  return entries.map((e) => e.data);
 }
 
 export async function writeAgents(
   agentsDir: string,
   remoteAgents: AgentConfigApiResponse[],
 ): Promise<{ written: string[]; deleted: string[] }> {
-  const existingAgents = await readAllAgents(agentsDir);
+  const entries = await readAgentFiles(agentsDir);
+
+  const nameToEntry = new Map<string, AgentFileEntry>();
+  for (const entry of entries) {
+    if (nameToEntry.has(entry.data.name)) {
+      throw new Error(`Duplicate agent name "${entry.data.name}"`);
+    }
+    nameToEntry.set(entry.data.name, entry);
+  }
+
   const newNames = new Set(remoteAgents.map((a) => a.name));
 
-  const toDelete = existingAgents.filter((a) => !newNames.has(a.name));
-  for (const agent of toDelete) {
-    const slug = toFileSlug(agent.name);
-    const files = await globby(`${slug}.${CONFIG_FILE_EXTENSION_GLOB}`, {
-      cwd: agentsDir,
-      absolute: true,
-    });
-    for (const filePath of files) {
-      await deleteFile(filePath);
+  const deleted: string[] = [];
+  for (const [name, entry] of nameToEntry) {
+    if (!newNames.has(name)) {
+      await deleteFile(entry.filePath);
+      deleted.push(name);
     }
   }
 
+  const written: string[] = [];
   for (const agent of remoteAgents) {
-    const slug = toFileSlug(agent.name);
-    const filePath = join(agentsDir, `${slug}.${CONFIG_FILE_EXTENSION}`);
-    await writeJsonFile(filePath, agent);
-  }
+    const existing = nameToEntry.get(agent.name);
 
-  const written = remoteAgents.map((a) => a.name);
-  const deleted = toDelete.map((a) => a.name);
+    if (existing && isDeepStrictEqual(existing.raw, agent)) {
+      continue;
+    }
+
+    const filePath =
+      existing?.filePath ??
+      join(agentsDir, `${agent.name}.${CONFIG_FILE_EXTENSION}`);
+    await writeJsonFile(filePath, agent);
+    written.push(agent.name);
+  }
 
   return { written, deleted };
 }

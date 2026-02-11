@@ -45,6 +45,9 @@ async function pullAgentsAction(): Promise<RunCommandResult> {
   if (deleted.length > 0) {
     log.warn(`Deleted: ${deleted.join(", ")}`);
   }
+  if (written.length === 0 && deleted.length === 0) {
+    log.info("All agents are already up to date");
+  }
 
   return {
     outroMessage: `Pulled ${remoteAgents.total} agents to ${agentsDir}`,
