@@ -44,5 +44,6 @@ jobs:
           # prompt: 'Update the pull request description to include a summary of changes.'
 
           # Allow Claude to run bun and gh commands
-          claude_args: '--allowedTools "Bash(bun *)" --allowedTools "Bash(gh pr *)" --allowedTools "Bash(gh issue *)"'
+          claude_args: |
+            --allowedTools "Bash(bun:*),Bash(gh pr:*),Bash(gh issue:*)"
 
