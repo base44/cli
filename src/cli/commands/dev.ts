@@ -22,6 +22,10 @@ export function getDevCommand(context: CLIContext): Command {
     .description("Start the development server")
     .option("-p, --port <number>", "Port for the development server")
     .action(async (options: DevOptions) => {
-      await runCommand(() => devAction(options), { requireAuth: true }, context);
+      await runCommand(
+        () => devAction(options),
+        { requireAuth: true },
+        context
+      );
     });
 }
