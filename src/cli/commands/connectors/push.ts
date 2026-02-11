@@ -91,8 +91,8 @@ async function pushConnectorsAction(): Promise<RunCommandResult> {
   if (needsOAuth.length > 0 && oauthOutcomes.size === 0) {
     const pending = needsOAuth.map((c) => c.type).join(", ");
     outroMessage = process.env.CI
-      ? `Skipped OAuth in CI. Pending: ${pending}. Run 'base44 connectors push' locally to authorize.`
-      : `Authorization skipped. Pending: ${pending}. Run 'base44 connectors push' again to complete.`;
+      ? `Skipped OAuth in CI. Pending: ${pending}. Run 'base44 connectors push' locally or open the links above to authorize.`
+      : `Authorization skipped. Pending: ${pending}. Run 'base44 connectors push' or open the links above to authorize.`;
   }
 
   printSummary(results, oauthOutcomes);
