@@ -65,16 +65,13 @@ export async function readAllConnectors(
   const types = new Set<string>();
   for (const { data } of entries) {
     if (types.has(data.type)) {
-      throw new InvalidInputError(
-        `Duplicate connector type "${data.type}"`,
-        {
-          hints: [
-            {
-              message: `Remove duplicate connectors with type "${data.type}" - only one connector per type is allowed`,
-            },
-          ],
-        }
-      );
+      throw new InvalidInputError(`Duplicate connector type "${data.type}"`, {
+        hints: [
+          {
+            message: `Remove duplicate connectors with type "${data.type}" - only one connector per type is allowed`,
+          },
+        ],
+      });
     }
     types.add(data.type);
   }
