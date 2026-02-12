@@ -78,6 +78,7 @@ async function handleUnauthorized(
  */
 export const base44Client = ky.create({
   prefixUrl: getBase44ApiUrl(),
+  timeout: 180_000,
   headers: {
     "User-Agent": "Base44 CLI",
   },
