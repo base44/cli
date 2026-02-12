@@ -80,6 +80,14 @@ cli/
 │   │   │   │   ├── resource.ts
 │   │   │   │   ├── api.ts
 │   │   │   │   └── index.ts
+│   │   │   ├── connector/
+│   │   │   │   ├── schema.ts
+│   │   │   │   ├── config.ts
+│   │   │   │   ├── resource.ts
+│   │   │   │   ├── api.ts
+│   │   │   │   ├── push.ts
+│   │   │   │   ├── oauth.ts
+│   │   │   │   └── index.ts
 │   │   │   └── index.ts
 │   │   ├── site/                 # Site deployment (NOT a Resource)
 │   │   │   ├── schema.ts         # DeployResponse Zod schema
@@ -120,6 +128,9 @@ cli/
 │       │   ├── agents/
 │       │   │   ├── index.ts      # getAgentsCommand(context) - parent command
 │       │   │   ├── pull.ts
+│       │   │   └── push.ts
+│       │   ├── connectors/
+│       │   │   ├── index.ts      # getConnectorsCommand(context) - parent command
 │       │   │   └── push.ts
 │       │   ├── functions/
 │       │   │   └── deploy.ts

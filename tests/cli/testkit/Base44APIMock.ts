@@ -57,6 +57,33 @@ interface AgentsFetchResponse {
   total: number;
 }
 
+interface ConnectorsListResponse {
+  integrations: Array<{
+    integration_type: string;
+    status: string;
+    scopes: string[];
+    user_email?: string;
+  }>;
+}
+
+interface ConnectorSetResponse {
+  redirect_url: string | null;
+  connection_id: string | null;
+  already_authorized: boolean;
+  error?: "different_user";
+  error_message?: string;
+  other_user_email?: string;
+}
+
+interface ConnectorOAuthStatusResponse {
+  status: "ACTIVE" | "FAILED" | "PENDING";
+}
+
+interface ConnectorRemoveResponse {
+  status: "removed";
+  integration_type: string;
+}
+
 interface CreateAppResponse {
   id: string;
   name: string;
@@ -189,6 +216,56 @@ export class Base44APIMock {
     return this;
   }
 
+  // ─── CONNECTOR ENDPOINTS ──────────────────────────────────
+
+  /** Mock GET /api/apps/{appId}/external-auth/list - List connectors */
+  mockConnectorsList(response: ConnectorsListResponse): this {
+    this.handlers.push(
+      http.get(`${BASE_URL}/api/apps/${this.appId}/external-auth/list`, () =>
+        HttpResponse.json(response),
+      ),
+    );
+    return this;
+  }
+
+  /** Mock PUT /api/apps/{appId}/external-auth/integrations/{type} - Set connector */
+  mockConnectorSet(response: ConnectorSetResponse): this {
+    this.handlers.push(
+      http.put(
+        `${BASE_URL}/api/apps/${this.appId}/external-auth/integrations/:type`,
+        () =>
+          HttpResponse.json({
+            error: null,
+            error_message: null,
+            other_user_email: null,
+            ...response,
+          }),
+      ),
+    );
+    return this;
+  }
+
+  /** Mock GET /api/apps/{appId}/external-auth/status - Get OAuth status */
+  mockConnectorOAuthStatus(response: ConnectorOAuthStatusResponse): this {
+    this.handlers.push(
+      http.get(`${BASE_URL}/api/apps/${this.appId}/external-auth/status`, () =>
+        HttpResponse.json(response),
+      ),
+    );
+    return this;
+  }
+
+  /** Mock DELETE /api/apps/{appId}/external-auth/integrations/{type}/remove */
+  mockConnectorRemove(response: ConnectorRemoveResponse): this {
+    this.handlers.push(
+      http.delete(
+        `${BASE_URL}/api/apps/${this.appId}/external-auth/integrations/:type/remove`,
+        () => HttpResponse.json(response),
+      ),
+    );
+    return this;
+  }
+
   // ─── GENERAL ENDPOINTS ─────────────────────────────────────
 
   /** Mock POST /api/apps - Create new app */
@@ -300,6 +377,24 @@ export class Base44APIMock {
   /** Mock userinfo endpoint to return an error */
   mockUserInfoError(error: ErrorResponse): this {
     return this.mockError("get", "/oauth/userinfo", error);
+  }
+
+  /** Mock connectors list to return an error */
+  mockConnectorsListError(error: ErrorResponse): this {
+    return this.mockError(
+      "get",
+      `/api/apps/${this.appId}/external-auth/list`,
+      error,
+    );
+  }
+
+  /** Mock connector set to return an error */
+  mockConnectorSetError(error: ErrorResponse): this {
+    return this.mockError(
+      "put",
+      `/api/apps/${this.appId}/external-auth/integrations/:type`,
+      error,
+    );
   }
 
   // ─── INTERNAL ──────────────────────────────────────────────
