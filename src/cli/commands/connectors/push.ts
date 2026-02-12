@@ -1,17 +1,99 @@
-import { confirm, isCancel, log } from "@clack/prompts";
+import { confirm, isCancel, log, spinner } from "@clack/prompts";
 import { Command } from "commander";
 import open from "open";
+import pWaitFor, { TimeoutError } from "p-wait-for";
 import type { CLIContext } from "@/cli/types.js";
 import { runCommand, runTask, theme } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 import { readProjectConfig } from "@/core/index.js";
 import {
+  type ConnectorOAuthStatus,
   type ConnectorSyncResult,
   type IntegrationType,
-  type OAuthFlowStatus,
+  getOAuthStatus,
   pushConnectors,
-  runOAuthFlowWithSkip,
 } from "@/core/resources/connector/index.js";
+
+const POLL_INTERVAL_MS = 2000;
+const POLL_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
+
+interface OAuthFlowParams {
+  type: IntegrationType;
+  redirectUrl: string;
+  connectionId: string;
+}
+
+type OAuthFlowStatus = ConnectorOAuthStatus | "SKIPPED";
+
+interface OAuthFlowResult {
+  type: IntegrationType;
+  status: OAuthFlowStatus;
+}
+
+/**
+ * Clack's block() puts stdin in raw mode where Ctrl+C calls process.exit(0)
+ * directly instead of emitting SIGINT. We override process.exit temporarily
+ * so Ctrl+C skips the current connector instead of killing the process.
+ */
+async function runOAuthFlowWithSkip(
+  params: OAuthFlowParams,
+): Promise<OAuthFlowResult> {
+  await open(params.redirectUrl);
+
+  let finalStatus = "PENDING" as OAuthFlowStatus;
+  let skipped = false;
+
+  const s = spinner();
+
+  const originalExit = process.exit;
+  process.exit = (() => {
+    skipped = true;
+    s.stop(`${params.type} skipped`);
+  }) as unknown as typeof process.exit;
+
+  s.start(`Waiting for ${params.type} authorization... (Esc to skip)`);
+
+  try {
+    await pWaitFor(
+      async () => {
+        if (skipped) {
+          finalStatus = "SKIPPED";
+          return true;
+        }
+        const response = await getOAuthStatus(
+          params.type,
+          params.connectionId,
+        );
+        finalStatus = response.status;
+        return response.status !== "PENDING";
+      },
+      {
+        interval: POLL_INTERVAL_MS,
+        timeout: POLL_TIMEOUT_MS,
+      },
+    ).catch((err) => {
+      if (err instanceof TimeoutError) {
+        finalStatus = "PENDING";
+      } else {
+        throw err;
+      }
+    });
+  } finally {
+    process.exit = originalExit;
+
+    if (!skipped) {
+      if (finalStatus === "ACTIVE") {
+        s.stop(`${params.type} authorization complete`);
+      } else if (finalStatus === "FAILED") {
+        s.stop(`${params.type} authorization failed`);
+      } else {
+        s.stop(`${params.type} authorization timed out`);
+      }
+    }
+  }
+
+  return { type: params.type, status: finalStatus };
+}
 
 type PendingOAuthResult = ConnectorSyncResult & {
   redirectUrl: string;
@@ -130,7 +212,6 @@ async function pushConnectorsAction(): Promise<RunCommandResult> {
       for (const connector of needsOAuth) {
         try {
           log.info(`\nOpening browser for '${connector.type}'...`);
-          await open(connector.redirectUrl);
 
           const oauthResult = await runOAuthFlowWithSkip({
             type: connector.type,
