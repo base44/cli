@@ -177,7 +177,7 @@ async function pushConnectorsAction(): Promise<RunCommandResult> {
 export function getConnectorsPushCommand(context: CLIContext): Command {
   return new Command("push")
     .description(
-      "Push local connectors to Base44 (syncs scopes and removes connectors not defined locally)",
+      "Push local connectors to Base44 (overwrites connectors on Base44)",
     )
     .action(async () => {
       await runCommand(pushConnectorsAction, { requireAuth: true }, context);
