@@ -79,6 +79,7 @@ describe("pushAgents", () => {
           whatsapp_greeting: "Hello!",
         },
       ],
+      timeout: 60_000,
     });
     expect(result.created).toEqual(["test_agent"]);
   });
@@ -113,6 +114,7 @@ describe("pushAgents", () => {
           tool_configs: [],
         },
       ],
+      timeout: 60_000,
     });
   });
 
