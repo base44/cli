@@ -6,7 +6,7 @@ const BASE_URL = "https://app.base44.com";
 
 // ─── RESPONSE TYPES ──────────────────────────────────────────
 
-export interface DeviceCodeResponse {
+interface DeviceCodeResponse {
   device_code: string;
   user_code: string;
   verification_uri: string;
@@ -14,62 +14,62 @@ export interface DeviceCodeResponse {
   interval: number;
 }
 
-export interface TokenResponse {
+interface TokenResponse {
   access_token: string;
   refresh_token: string;
   expires_in: number;
   token_type: string;
 }
 
-export interface UserInfoResponse {
+interface UserInfoResponse {
   email: string;
   name?: string;
 }
 
-export interface EntitiesPushResponse {
+interface EntitiesPushResponse {
   created: string[];
   updated: string[];
   deleted: string[];
 }
 
-export interface FunctionsPushResponse {
+interface FunctionsPushResponse {
   deployed: string[];
   deleted: string[];
   errors: Array<{ name: string; message: string }> | null;
 }
 
-export interface SiteDeployResponse {
+interface SiteDeployResponse {
   app_url: string;
 }
 
-export interface SiteUrlResponse {
+interface SiteUrlResponse {
   url: string;
 }
 
-export interface AgentsPushResponse {
+interface AgentsPushResponse {
   created: string[];
   updated: string[];
   deleted: string[];
 }
 
-export interface AgentsFetchResponse {
+interface AgentsFetchResponse {
   items: Array<{ name: string; [key: string]: unknown }>;
   total: number;
 }
 
-export interface CreateAppResponse {
+interface CreateAppResponse {
   id: string;
   name: string;
 }
 
-export interface ListProjectsResponse {
+interface ListProjectsResponse {
   id: string;
   name: string;
   user_description?: string | null;
   is_managed_source_code?: boolean;
 }
 
-export interface ErrorResponse {
+interface ErrorResponse {
   status: number;
   body?: unknown;
 }
