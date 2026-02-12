@@ -45,6 +45,8 @@ async function runOAuthFlowWithSkip(
 
   const s = spinner();
 
+  // Clack's spinner calls block() which puts stdin in raw mode — Esc/Ctrl+C
+  // calls process.exit(0) directly, bypassing SIGINT. Override to skip instead.
   const originalExit = process.exit;
   process.exit = (() => {
     skipped = true;
@@ -68,13 +70,13 @@ async function runOAuthFlowWithSkip(
         interval: POLL_INTERVAL_MS,
         timeout: POLL_TIMEOUT_MS,
       },
-    ).catch((err) => {
-      if (err instanceof TimeoutError) {
-        finalStatus = "PENDING";
-      } else {
-        throw err;
-      }
-    });
+    );
+  } catch (err) {
+    if (err instanceof TimeoutError) {
+      finalStatus = "PENDING";
+    } else {
+      throw err;
+    }
   } finally {
     process.exit = originalExit;
 
