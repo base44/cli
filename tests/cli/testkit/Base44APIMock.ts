@@ -233,7 +233,13 @@ export class Base44APIMock {
     this.handlers.push(
       http.put(
         `${BASE_URL}/api/apps/${this.appId}/external-auth/integrations/:type`,
-        () => HttpResponse.json(response),
+        () =>
+          HttpResponse.json({
+            error: null,
+            error_message: null,
+            other_user_email: null,
+            ...response,
+          }),
       ),
     );
     return this;
