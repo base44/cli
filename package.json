@@ -20,7 +20,9 @@
     "lint": "biome check src tests",
     "lint:fix": "biome check --write src tests",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "knip": "knip",
+    "knip:fix": "knip --fix"
   },
   "keywords": [
     "base44",
@@ -59,6 +61,7 @@
     "http-proxy-middleware": "^3.0.5",
     "json-schema-to-typescript": "^15.0.4",
     "json5": "^2.2.3",
+    "knip": "^5.83.1",
     "ky": "^1.14.2",
     "lodash.kebabcase": "^4.1.1",
     "msw": "^2.12.7",
