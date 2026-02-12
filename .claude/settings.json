@@ -21,7 +21,7 @@
           },
           {
             "type": "command",
-            "command": "bun run knip 2>&1 | head -50"
+            "command": "bun run knip:fix 2>&1 | head -50"
           }
         ]
       },
@@ -38,7 +38,7 @@
           },
           {
             "type": "command",
-            "command": "bun run knip 2>&1 | head -50"
+            "command": "bun run knip:fix 2>&1 | head -50"
           }
         ]
       }
