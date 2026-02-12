@@ -28,7 +28,7 @@ export async function deployFunctions(
   try {
     response = await appClient.put("backend-functions", {
       json: payload,
-      timeout: 120_000,
+      timeout: false,
     });
   } catch (error) {
     throw await ApiError.fromHttpError(error, "deploying functions");

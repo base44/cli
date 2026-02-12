@@ -21,6 +21,7 @@ export async function syncEntities(
       json: {
         entityNameToSchema: schemaSyncPayload,
       },
+      timeout: 60_000,
     });
   } catch (error) {
     throw await ApiError.fromHttpError(error, "syncing entities");

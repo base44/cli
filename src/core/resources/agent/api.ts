@@ -24,6 +24,7 @@ export async function pushAgents(
   try {
     response = await appClient.put("agent-configs", {
       json: agents,
+      timeout: 60_000,
     });
   } catch (error) {
     throw await ApiError.fromHttpError(error, "syncing agents");

@@ -27,6 +27,7 @@ export async function uploadSite(archivePath: string): Promise<DeployResponse> {
   try {
     response = await appClient.post("deploy-dist", {
       body: formData,
+      timeout: 180_000,
     });
   } catch (error) {
     throw await ApiError.fromHttpError(error, "deploying site");
