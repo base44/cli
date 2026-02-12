@@ -55,7 +55,7 @@ export async function deployAction(
   }
   if (connectors.length > 0) {
     summaryLines.push(
-      `  - ${connectors.length} ${connectors.length === 1 ? "connector" : "connectors"}`
+      `  - ${connectors.length} ${connectors.length === 1 ? "connector" : "connectors"}`,
     );
   }
   if (project.site?.outputDirectory) {
@@ -99,7 +99,7 @@ export async function deployAction(
 
     if (oauthOutcomes.size === 0) {
       log.info(
-        "To authorize, run 'base44 connectors push' or open the links above in your browser."
+        "To authorize, run 'base44 connectors push' or open the links above in your browser.",
       );
     }
   }
@@ -119,7 +119,7 @@ export async function deployAction(
 export function getDeployCommand(context: CLIContext): Command {
   return new Command("deploy")
     .description(
-"Deploy all project resources (entities, functions, agents, connectors, and site)"
+      "Deploy all project resources (entities, functions, agents, connectors, and site)",
     )
     .option("-y, --yes", "Skip confirmation prompt")
     .action(async (options: DeployOptions) => {

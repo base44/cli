@@ -43,7 +43,6 @@ function printSummary(
     }
   }
 
-  log.info("");
   log.info(theme.styles.bold("Summary:"));
 
   if (synced.length > 0) {

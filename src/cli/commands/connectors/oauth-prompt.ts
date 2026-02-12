@@ -9,21 +9,21 @@ import type {
 } from "@/core/resources/connector/index.js";
 import { getOAuthStatus } from "@/core/resources/connector/index.js";
 
-export type PendingOAuthResult = ConnectorSyncResult & {
+type PendingOAuthResult = ConnectorSyncResult & {
   redirectUrl: string;
   connectionId: string;
 };
 
 export function filterPendingOAuth(
-  results: ConnectorSyncResult[]
+  results: ConnectorSyncResult[],
 ): PendingOAuthResult[] {
   return results.filter(
     (r): r is PendingOAuthResult =>
-      r.action === "needs_oauth" && !!r.redirectUrl && !!r.connectionId
+      r.action === "needs_oauth" && !!r.redirectUrl && !!r.connectionId,
   );
 }
 
-export interface OAuthPromptOptions {
+interface OAuthPromptOptions {
   skipPrompt?: boolean;
 }
 
@@ -35,7 +35,7 @@ export interface OAuthPromptOptions {
  */
 export async function promptOAuthFlows(
   pending: PendingOAuthResult[],
-  options?: OAuthPromptOptions
+  options?: OAuthPromptOptions,
 ): Promise<Map<IntegrationType, ConnectorOAuthStatus>> {
   const outcomes = new Map<IntegrationType, ConnectorOAuthStatus>();
 
@@ -43,9 +43,8 @@ export async function promptOAuthFlows(
     return outcomes;
   }
 
-  log.info("");
   log.warn(
-    `${pending.length} connector(s) require authorization in your browser:`
+    `${pending.length} connector(s) require authorization in your browser:`,
   );
   for (const connector of pending) {
     log.info(`  ${connector.type}: ${theme.styles.dim(connector.redirectUrl)}`);
