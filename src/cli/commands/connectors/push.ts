@@ -9,8 +9,8 @@ import { readProjectConfig } from "@/core/index.js";
 import {
   type ConnectorOAuthStatus,
   type ConnectorSyncResult,
-  type IntegrationType,
   getOAuthStatus,
+  type IntegrationType,
   pushConnectors,
 } from "@/core/resources/connector/index.js";
 
@@ -60,10 +60,7 @@ async function runOAuthFlowWithSkip(
           finalStatus = "SKIPPED";
           return true;
         }
-        const response = await getOAuthStatus(
-          params.type,
-          params.connectionId,
-        );
+        const response = await getOAuthStatus(params.type, params.connectionId);
         finalStatus = response.status;
         return response.status !== "PENDING";
       },
