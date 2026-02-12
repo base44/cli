@@ -24,7 +24,7 @@ export function hasResourcesToDeploy(projectData: ProjectData): boolean {
 /**
  * Result of deploying all project resources.
  */
-export interface DeployAllResult {
+interface DeployAllResult {
   /**
    * The app URL if a site was deployed, undefined otherwise.
    */

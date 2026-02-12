@@ -60,8 +60,6 @@ export const OAuthErrorSchema = z.object({
   error_description: z.string().optional(),
 });
 
-export type OAuthError = z.infer<typeof OAuthErrorSchema>;
-
 export const UserInfoSchema = z.object({
   email: z.email(),
   name: z.string(),

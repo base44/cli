@@ -9,7 +9,7 @@ import type { Entity } from "@/core/resources/entity/index.js";
 import type { BackendFunction } from "@/core/resources/function/index.js";
 import { writeFile } from "@/core/utils/fs.js";
 
-export interface GenerateTypesInput {
+interface GenerateTypesInput {
   entities: Entity[];
   functions: BackendFunction[];
   agents: AgentConfig[];

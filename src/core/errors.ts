@@ -59,7 +59,7 @@ export interface ErrorHint {
   command?: string; // Optional command to run
 }
 
-export interface CLIErrorOptions {
+interface CLIErrorOptions {
   hints?: ErrorHint[];
   cause?: Error;
 }
@@ -72,7 +72,7 @@ export interface CLIErrorOptions {
  * Base class for all CLI errors.
  * Provides structured error data with code, hints, and cause tracking.
  */
-export abstract class CLIError extends Error {
+abstract class CLIError extends Error {
   abstract readonly code: string;
   readonly hints: ErrorHint[];
   override readonly cause?: Error;
@@ -92,13 +92,13 @@ export abstract class CLIError extends Error {
  * User errors - the user did something wrong that they can fix.
  * Examples: not logged in, invalid config, missing project
  */
-export abstract class UserError extends CLIError {}
+abstract class UserError extends CLIError {}
 
 /**
  * System errors - something broke that needs investigation.
  * Examples: API failures, network issues, file system errors
  */
-export abstract class SystemError extends CLIError {}
+abstract class SystemError extends CLIError {}
 
 // ============================================================================
 // User Errors
@@ -248,7 +248,7 @@ export class InvalidInputError extends UserError {
 // System Errors
 // ============================================================================
 
-export interface ApiErrorOptions extends CLIErrorOptions {
+interface ApiErrorOptions extends CLIErrorOptions {
   statusCode?: number;
   requestUrl?: string;
   requestMethod?: string;

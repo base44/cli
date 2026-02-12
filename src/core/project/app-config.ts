@@ -11,7 +11,7 @@ import type { AppConfig } from "@/core/project/schema.js";
 import { AppConfigSchema } from "@/core/project/schema.js";
 import { readJsonFile, writeFile } from "@/core/utils/fs.js";
 
-export interface CachedAppConfig {
+interface CachedAppConfig {
   id: string;
   projectRoot: string;
 }
@@ -89,7 +89,7 @@ export function setAppConfig(config: CachedAppConfig): void {
   cache = config;
 }
 
-export function generateAppConfigContent(id: string): string {
+function generateAppConfigContent(id: string): string {
   return `// Base44 App Configuration
 // This file links your local project to your Base44 app.
 // Do not commit this file to version control.
@@ -109,9 +109,7 @@ export async function writeAppConfig(
   return configPath;
 }
 
-export async function findAppConfigPath(
-  projectRoot: string,
-): Promise<string | null> {
+async function findAppConfigPath(projectRoot: string): Promise<string | null> {
   const files = await globby(APP_CONFIG_PATTERN, {
     cwd: projectRoot,
     absolute: true,

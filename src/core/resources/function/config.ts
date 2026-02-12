@@ -9,9 +9,7 @@ import type {
 import { FunctionConfigSchema } from "@/core/resources/function/schema.js";
 import { pathExists, readJsonFile } from "@/core/utils/fs.js";
 
-export async function readFunctionConfig(
-  configPath: string,
-): Promise<FunctionConfig> {
+async function readFunctionConfig(configPath: string): Promise<FunctionConfig> {
   const parsed = await readJsonFile(configPath);
   const result = FunctionConfigSchema.safeParse(parsed);
 
@@ -26,9 +24,7 @@ export async function readFunctionConfig(
   return result.data;
 }
 
-export async function readFunction(
-  configPath: string,
-): Promise<BackendFunction> {
+async function readFunction(configPath: string): Promise<BackendFunction> {
   const config = await readFunctionConfig(configPath);
   const functionDir = dirname(configPath);
   const entryPath = join(functionDir, config.entry);

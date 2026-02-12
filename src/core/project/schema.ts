@@ -12,8 +12,6 @@ export const TemplatesConfigSchema = z.object({
 });
 
 export type Template = z.infer<typeof TemplateSchema>;
-export type TemplatesConfig = z.infer<typeof TemplatesConfigSchema>;
-
 const SiteConfigSchema = z.object({
   buildCommand: z.string().optional(),
   serveCommand: z.string().optional(),
@@ -34,7 +32,6 @@ export const ProjectConfigSchema = z.object({
   agentsDir: z.string().optional().default("agents"),
 });
 
-export type SiteConfig = z.infer<typeof SiteConfigSchema>;
 export type ProjectConfig = z.infer<typeof ProjectConfigSchema>;
 
 export const AppConfigSchema = z.object({
@@ -46,8 +43,6 @@ export type AppConfig = z.infer<typeof AppConfigSchema>;
 export const CreateProjectResponseSchema = z.looseObject({
   id: z.string(),
 });
-
-export type CreateProjectResponse = z.infer<typeof CreateProjectResponseSchema>;
 
 export const ProjectSchema = z
   .object({

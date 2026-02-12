@@ -5,14 +5,14 @@ import { createProject, downloadProject } from "@/core/project/api.js";
 import type { Template } from "@/core/project/schema.js";
 import { renderTemplate } from "@/core/project/template.js";
 
-export interface CreateProjectOptions {
+interface CreateProjectOptions {
   name: string;
   description?: string;
   path: string;
   template: Template;
 }
 
-export interface CreateProjectResult {
+interface CreateProjectResult {
   projectId: string;
   projectDir: string;
 }

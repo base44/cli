@@ -8,7 +8,7 @@ import type { Template } from "@/core/project/schema.js";
 import { TemplatesConfigSchema } from "@/core/project/schema.js";
 import { copyFile, readJsonFile, writeFile } from "@/core/utils/fs.js";
 
-export interface TemplateData {
+interface TemplateData {
   name: string;
   description?: string;
   projectId: string;

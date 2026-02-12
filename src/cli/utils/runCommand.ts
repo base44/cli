@@ -8,7 +8,7 @@ import { isLoggedIn, readAuth } from "@/core/auth/index.js";
 import { isCLIError } from "@/core/errors.js";
 import { initAppConfig } from "@/core/project/index.js";
 
-export interface RunCommandOptions {
+interface RunCommandOptions {
   /**
    * Use the full ASCII art banner instead of the simple intro tag.
    * Useful for commands like `create` that want more visual impact.
