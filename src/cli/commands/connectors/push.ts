@@ -1,5 +1,7 @@
 import { confirm, isCancel, log } from "@clack/prompts";
 import { Command } from "commander";
+import open from "open";
+import pWaitFor, { TimeoutError } from "p-wait-for";
 import type { CLIContext } from "@/cli/types.js";
 import { runCommand, runTask, theme } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
@@ -8,8 +10,8 @@ import {
   type ConnectorOAuthStatus,
   type ConnectorSyncResult,
   type IntegrationType,
+  getOAuthStatus,
   pushConnectors,
-  runOAuthFlow,
 } from "@/core/resources/connector/index.js";
 
 type PendingOAuthResult = ConnectorSyncResult & {
@@ -119,23 +121,41 @@ async function pushConnectorsAction(): Promise<RunCommandResult> {
       } else {
         for (const connector of needsOAuth) {
           log.info(`\nOpening browser for ${connector.type}...`);
+          await open(connector.redirectUrl);
 
-          const oauthResult = await runTask(
+          let finalStatus: ConnectorOAuthStatus = "PENDING";
+
+          await runTask(
             `Waiting for ${connector.type} authorization...`,
             async () => {
-              return await runOAuthFlow({
-                type: connector.type,
-                redirectUrl: connector.redirectUrl,
-                connectionId: connector.connectionId,
-              });
+              await pWaitFor(
+                async () => {
+                  const response = await getOAuthStatus(
+                    connector.type,
+                    connector.connectionId
+                  );
+                  finalStatus = response.status;
+                  return response.status !== "PENDING";
+                },
+                {
+                  interval: 2000,
+                  timeout: 2 * 60 * 1000,
+                }
+              );
             },
             {
               successMessage: `${connector.type} authorization complete`,
               errorMessage: `${connector.type} authorization failed`,
             }
-          );
+          ).catch((err) => {
+            if (err instanceof TimeoutError) {
+              finalStatus = "PENDING";
+            } else {
+              throw err;
+            }
+          });
 
-          oauthOutcomes.set(connector.type, oauthResult.status);
+          oauthOutcomes.set(connector.type, finalStatus);
         }
       }
     }
