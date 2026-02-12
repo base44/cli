@@ -1,73 +1,73 @@
 import { z } from "zod";
 
 /** Google Calendar - Scopes: https://developers.google.com/identity/protocols/oauth2/scopes#calendar */
-export const GoogleCalendarConnectorSchema = z.object({
+const GoogleCalendarConnectorSchema = z.object({
   type: z.literal("googlecalendar"),
   scopes: z.array(z.string()).default([]),
 });
 
 /** Google Drive - Scopes: https://developers.google.com/identity/protocols/oauth2/scopes#drive */
-export const GoogleDriveConnectorSchema = z.object({
+const GoogleDriveConnectorSchema = z.object({
   type: z.literal("googledrive"),
   scopes: z.array(z.string()).default([]),
 });
 
 /** Gmail - Scopes: https://developers.google.com/identity/protocols/oauth2/scopes#gmail */
-export const GmailConnectorSchema = z.object({
+const GmailConnectorSchema = z.object({
   type: z.literal("gmail"),
   scopes: z.array(z.string()).default([]),
 });
 
 /** Google Sheets - Scopes: https://developers.google.com/identity/protocols/oauth2/scopes#sheets */
-export const GoogleSheetsConnectorSchema = z.object({
+const GoogleSheetsConnectorSchema = z.object({
   type: z.literal("googlesheets"),
   scopes: z.array(z.string()).default([]),
 });
 
 /** Google Docs - Scopes: https://developers.google.com/identity/protocols/oauth2/scopes#docs */
-export const GoogleDocsConnectorSchema = z.object({
+const GoogleDocsConnectorSchema = z.object({
   type: z.literal("googledocs"),
   scopes: z.array(z.string()).default([]),
 });
 
 /** Google Slides - Scopes: https://developers.google.com/identity/protocols/oauth2/scopes#slides */
-export const GoogleSlidesConnectorSchema = z.object({
+const GoogleSlidesConnectorSchema = z.object({
   type: z.literal("googleslides"),
   scopes: z.array(z.string()).default([]),
 });
 
 /** Slack - Scopes: https://api.slack.com/scopes */
-export const SlackConnectorSchema = z.object({
+const SlackConnectorSchema = z.object({
   type: z.literal("slack"),
   scopes: z.array(z.string()).default([]),
 });
 
 /** Notion - Scopes are preauthorized by Notion and don't need to be explicitly requested */
-export const NotionConnectorSchema = z.object({
+const NotionConnectorSchema = z.object({
   type: z.literal("notion"),
   scopes: z.array(z.string()).default([]).optional(),
 });
 
 /** Salesforce - Scopes: https://developer.salesforce.com/docs/platform/mobile-sdk/guide/oauth-scope-parameter-values.html */
-export const SalesforceConnectorSchema = z.object({
+const SalesforceConnectorSchema = z.object({
   type: z.literal("salesforce"),
   scopes: z.array(z.string()).default([]),
 });
 
 /** HubSpot - Scopes: https://developers.hubspot.com/docs/api/scopes */
-export const HubspotConnectorSchema = z.object({
+const HubspotConnectorSchema = z.object({
   type: z.literal("hubspot"),
   scopes: z.array(z.string()).default([]),
 });
 
 /** LinkedIn - Scopes: https://learn.microsoft.com/en-us/linkedin/shared/authentication/authorization-code-flow */
-export const LinkedInConnectorSchema = z.object({
+const LinkedInConnectorSchema = z.object({
   type: z.literal("linkedin"),
   scopes: z.array(z.string()).default([]),
 });
 
 /** TikTok - Scopes: https://developers.tiktok.com/doc/tiktok-api-scopes */
-export const TikTokConnectorSchema = z.object({
+const TikTokConnectorSchema = z.object({
   type: z.literal("tiktok"),
   scopes: z.array(z.string()).default([]),
 });
@@ -106,7 +106,7 @@ export const ConnectorResourceSchema = z.union([
 export type ConnectorResource = z.infer<typeof ConnectorResourceSchema>;
 
 /** Known integration types with first-class support */
-export const KnownIntegrationTypes = [
+const KnownIntegrationTypes = [
   "googlecalendar",
   "googledrive",
   "gmail",
@@ -132,22 +132,22 @@ export const IntegrationTypeSchema = z.union([
 
 export type IntegrationType = z.infer<typeof IntegrationTypeSchema>;
 
-export const ConnectorStatusSchema = z.enum([
+const ConnectorStatusSchema = z.enum([
   "active",
   "disconnected",
   "expired",
 ]);
 
-export type ConnectorStatus = z.infer<typeof ConnectorStatusSchema>;
+type ConnectorStatus = z.infer<typeof ConnectorStatusSchema>;
 
-export const UpstreamConnectorSchema = z.object({
+const UpstreamConnectorSchema = z.object({
   integration_type: IntegrationTypeSchema,
   status: ConnectorStatusSchema,
   scopes: z.array(z.string()),
   user_email: z.string().optional(),
 });
 
-export type UpstreamConnector = z.infer<typeof UpstreamConnectorSchema>;
+type UpstreamConnector = z.infer<typeof UpstreamConnectorSchema>;
 
 export const ListConnectorsResponseSchema = z.object({
   integrations: z.array(UpstreamConnectorSchema),

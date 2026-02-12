@@ -13,7 +13,7 @@ export interface ConnectorSyncResult {
   error?: string;
 }
 
-export interface PushConnectorsResponse {
+interface PushConnectorsResponse {
   results: ConnectorSyncResult[];
 }
 

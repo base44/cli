@@ -57,7 +57,7 @@ interface AgentsFetchResponse {
   total: number;
 }
 
-export interface ConnectorsListResponse {
+interface ConnectorsListResponse {
   integrations: Array<{
     integration_type: string;
     status: string;
@@ -66,7 +66,7 @@ export interface ConnectorsListResponse {
   }>;
 }
 
-export interface ConnectorSetResponse {
+interface ConnectorSetResponse {
   redirect_url: string | null;
   connection_id: string | null;
   already_authorized: boolean;
@@ -75,11 +75,11 @@ export interface ConnectorSetResponse {
   other_user_email?: string;
 }
 
-export interface ConnectorOAuthStatusResponse {
+interface ConnectorOAuthStatusResponse {
   status: "ACTIVE" | "FAILED" | "PENDING";
 }
 
-export interface ConnectorRemoveResponse {
+interface ConnectorRemoveResponse {
   status: "removed";
   integration_type: string;
 }

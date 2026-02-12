@@ -12,7 +12,7 @@ export interface OAuthFlowParams {
   connectionId: string;
 }
 
-export interface OAuthFlowResult {
+interface OAuthFlowResult {
   type: IntegrationType;
   status: ConnectorOAuthStatus;
 }
