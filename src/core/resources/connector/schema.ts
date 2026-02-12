@@ -1,72 +1,71 @@
 import { z } from "zod";
 
-/** Google Calendar - Scopes: https://developers.google.com/identity/protocols/oauth2/scopes#calendar */
+// Scopes: https://developers.google.com/identity/protocols/oauth2/scopes#calendar
 const GoogleCalendarConnectorSchema = z.object({
   type: z.literal("googlecalendar"),
   scopes: z.array(z.string()).default([]),
 });
 
-/** Google Drive - Scopes: https://developers.google.com/identity/protocols/oauth2/scopes#drive */
+// Scopes: https://developers.google.com/identity/protocols/oauth2/scopes#drive
 const GoogleDriveConnectorSchema = z.object({
   type: z.literal("googledrive"),
   scopes: z.array(z.string()).default([]),
 });
 
-/** Gmail - Scopes: https://developers.google.com/identity/protocols/oauth2/scopes#gmail */
+// Scopes: https://developers.google.com/identity/protocols/oauth2/scopes#gmail
 const GmailConnectorSchema = z.object({
   type: z.literal("gmail"),
   scopes: z.array(z.string()).default([]),
 });
 
-/** Google Sheets - Scopes: https://developers.google.com/identity/protocols/oauth2/scopes#sheets */
+// Scopes: https://developers.google.com/identity/protocols/oauth2/scopes#sheets
 const GoogleSheetsConnectorSchema = z.object({
   type: z.literal("googlesheets"),
   scopes: z.array(z.string()).default([]),
 });
 
-/** Google Docs - Scopes: https://developers.google.com/identity/protocols/oauth2/scopes#docs */
+// Scopes: https://developers.google.com/identity/protocols/oauth2/scopes#docs
 const GoogleDocsConnectorSchema = z.object({
   type: z.literal("googledocs"),
   scopes: z.array(z.string()).default([]),
 });
 
-/** Google Slides - Scopes: https://developers.google.com/identity/protocols/oauth2/scopes#slides */
+// Scopes: https://developers.google.com/identity/protocols/oauth2/scopes#slides
 const GoogleSlidesConnectorSchema = z.object({
   type: z.literal("googleslides"),
   scopes: z.array(z.string()).default([]),
 });
 
-/** Slack - Scopes: https://api.slack.com/scopes */
+// Scopes: https://api.slack.com/scopes
 const SlackConnectorSchema = z.object({
   type: z.literal("slack"),
   scopes: z.array(z.string()).default([]),
 });
 
-/** Notion - Scopes are preauthorized by Notion and don't need to be explicitly requested */
 const NotionConnectorSchema = z.object({
   type: z.literal("notion"),
   scopes: z.array(z.string()).default([]).optional(),
 });
 
-/** Salesforce - Scopes: https://developer.salesforce.com/docs/platform/mobile-sdk/guide/oauth-scope-parameter-values.html */
+// Scopes: https://developer.salesforce.com/docs/platform/mobile-sdk/guide/oauth-scope-parameter-values.html
 const SalesforceConnectorSchema = z.object({
   type: z.literal("salesforce"),
   scopes: z.array(z.string()).default([]),
 });
 
-/** HubSpot - Scopes: https://developers.hubspot.com/docs/api/scopes */
+// Scopes: https://developers.hubspot.com/docs/api/scopes
 const HubspotConnectorSchema = z.object({
   type: z.literal("hubspot"),
   scopes: z.array(z.string()).default([]),
 });
 
-/** LinkedIn - Scopes: https://learn.microsoft.com/en-us/linkedin/shared/authentication/authorization-code-flow */
+// Scopes: https://learn.microsoft.com/en-us/linkedin/shared/authentication/authorization-code-flow
 const LinkedInConnectorSchema = z.object({
   type: z.literal("linkedin"),
   scopes: z.array(z.string()).default([]),
 });
 
-/** TikTok - Scopes: https://developers.tiktok.com/doc/tiktok-api-scopes */
+// Scopes: https://developers.tiktok.com/doc/tiktok-api-scopes
 const TikTokConnectorSchema = z.object({
   type: z.literal("tiktok"),
   scopes: z.array(z.string()).default([]),
@@ -77,16 +76,11 @@ const CustomTypeSchema = z
   .min(1)
   .regex(/^[a-z0-9_-]+$/i);
 
-/** Generic connector schema for arbitrary providers */
 const GenericConnectorSchema = z.object({
   type: CustomTypeSchema,
   scopes: z.array(z.string()).default([]),
 });
 
-/**
- * Connector resource schema that accepts both known providers (with specific schemas)
- * and arbitrary provider strings (with generic schema).
- */
 export const ConnectorResourceSchema = z.union([
   GoogleCalendarConnectorSchema,
   GoogleDriveConnectorSchema,
@@ -105,7 +99,6 @@ export const ConnectorResourceSchema = z.union([
 
 export type ConnectorResource = z.infer<typeof ConnectorResourceSchema>;
 
-/** Known integration types with first-class support */
 const KnownIntegrationTypes = [
   "googlecalendar",
   "googledrive",
@@ -121,10 +114,6 @@ const KnownIntegrationTypes = [
   "tiktok",
 ] as const;
 
-/**
- * Integration type schema that accepts both known providers and arbitrary strings.
- * This allows users to use custom OAuth providers not yet supported by Base44.
- */
 export const IntegrationTypeSchema = z.union([
   z.enum(KnownIntegrationTypes),
   CustomTypeSchema,
@@ -132,13 +121,7 @@ export const IntegrationTypeSchema = z.union([
 
 export type IntegrationType = z.infer<typeof IntegrationTypeSchema>;
 
-const ConnectorStatusSchema = z.enum([
-  "active",
-  "disconnected",
-  "expired",
-]);
-
-type ConnectorStatus = z.infer<typeof ConnectorStatusSchema>;
+const ConnectorStatusSchema = z.enum(["active", "disconnected", "expired"]);
 
 const UpstreamConnectorSchema = z.object({
   integration_type: IntegrationTypeSchema,
@@ -147,24 +130,40 @@ const UpstreamConnectorSchema = z.object({
   user_email: z.string().optional(),
 });
 
-type UpstreamConnector = z.infer<typeof UpstreamConnectorSchema>;
-
-export const ListConnectorsResponseSchema = z.object({
-  integrations: z.array(UpstreamConnectorSchema),
-});
+export const ListConnectorsResponseSchema = z
+  .object({
+    integrations: z.array(UpstreamConnectorSchema),
+  })
+  .transform((data) => ({
+    integrations: data.integrations.map((i) => ({
+      integrationType: i.integration_type,
+      status: i.status,
+      scopes: i.scopes,
+      userEmail: i.user_email,
+    })),
+  }));
 
 export type ListConnectorsResponse = z.infer<
   typeof ListConnectorsResponseSchema
 >;
 
-export const SetConnectorResponseSchema = z.object({
-  redirect_url: z.string().nullable(),
-  connection_id: z.string().nullable(),
-  already_authorized: z.boolean(),
-  error: z.string().nullable().optional(),
-  error_message: z.string().nullable().optional(),
-  other_user_email: z.string().nullable().optional(),
-});
+export const SetConnectorResponseSchema = z
+  .object({
+    redirect_url: z.string().nullable(),
+    connection_id: z.string().nullable(),
+    already_authorized: z.boolean(),
+    error: z.string().nullable(),
+    error_message: z.string().nullable(),
+    other_user_email: z.string().nullable(),
+  })
+  .transform((data) => ({
+    redirectUrl: data.redirect_url,
+    connectionId: data.connection_id,
+    alreadyAuthorized: data.already_authorized,
+    error: data.error,
+    errorMessage: data.error_message,
+    otherUserEmail: data.other_user_email,
+  }));
 
 export type SetConnectorResponse = z.infer<typeof SetConnectorResponseSchema>;
 
@@ -182,10 +181,15 @@ export const OAuthStatusResponseSchema = z.object({
 
 export type OAuthStatusResponse = z.infer<typeof OAuthStatusResponseSchema>;
 
-export const RemoveConnectorResponseSchema = z.object({
-  status: z.literal("removed"),
-  integration_type: IntegrationTypeSchema,
-});
+export const RemoveConnectorResponseSchema = z
+  .object({
+    status: z.literal("removed"),
+    integration_type: IntegrationTypeSchema,
+  })
+  .transform((data) => ({
+    status: data.status,
+    integrationType: data.integration_type,
+  }));
 
 export type RemoveConnectorResponse = z.infer<
   typeof RemoveConnectorResponseSchema

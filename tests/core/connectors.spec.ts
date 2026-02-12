@@ -163,21 +163,21 @@ describe("readAllConnectors", () => {
     const connectorsDir = resolve(FIXTURES_DIR, "invalid-connector/connectors");
 
     await expect(readAllConnectors(connectorsDir)).rejects.toThrow(
-      "Invalid connector file"
+      "Invalid connector file",
     );
   });
 
   it("throws InvalidInputError for duplicate connector types", async () => {
     const connectorsDir = resolve(
       FIXTURES_DIR,
-      "duplicate-connectors/connectors"
+      "duplicate-connectors/connectors",
     );
 
     await expect(readAllConnectors(connectorsDir)).rejects.toThrow(
-      InvalidInputError
+      InvalidInputError,
     );
     await expect(readAllConnectors(connectorsDir)).rejects.toThrow(
-      'Duplicate connector type "slack"'
+      'Duplicate connector type "slack"',
     );
   });
 });
@@ -203,9 +203,12 @@ describe("pushConnectors", () => {
       { type: "gmail", scopes: ["https://mail.google.com/"] },
     ];
     mockSetConnector.mockResolvedValue({
-      redirect_url: null,
-      connection_id: null,
-      already_authorized: true,
+      redirectUrl: null,
+      connectionId: null,
+      alreadyAuthorized: true,
+      error: null,
+      errorMessage: null,
+      otherUserEmail: null,
     });
 
     const result = await pushConnectors(local);
@@ -219,12 +222,17 @@ describe("pushConnectors", () => {
   it("removes upstream-only connectors", async () => {
     mockListConnectors.mockResolvedValue({
       integrations: [
-        { integration_type: "slack", status: "active", scopes: ["chat:write"] },
+        {
+          integrationType: "slack",
+          status: "active",
+          scopes: ["chat:write"],
+          userEmail: undefined,
+        },
       ],
     });
     mockRemoveConnector.mockResolvedValue({
       status: "removed",
-      integration_type: "slack",
+      integrationType: "slack",
     });
 
     const result = await pushConnectors([]);
@@ -239,17 +247,25 @@ describe("pushConnectors", () => {
     ];
     mockListConnectors.mockResolvedValue({
       integrations: [
-        { integration_type: "slack", status: "active", scopes: ["chat:write"] },
+        {
+          integrationType: "slack",
+          status: "active",
+          scopes: ["chat:write"],
+          userEmail: undefined,
+        },
       ],
     });
     mockSetConnector.mockResolvedValue({
-      redirect_url: null,
-      connection_id: null,
-      already_authorized: true,
+      redirectUrl: null,
+      connectionId: null,
+      alreadyAuthorized: true,
+      error: null,
+      errorMessage: null,
+      otherUserEmail: null,
     });
     mockRemoveConnector.mockResolvedValue({
       status: "removed",
-      integration_type: "slack",
+      integrationType: "slack",
     });
 
     const result = await pushConnectors(local);
@@ -271,16 +287,20 @@ describe("pushConnectors", () => {
     mockListConnectors.mockResolvedValue({
       integrations: [
         {
-          integration_type: "gmail",
+          integrationType: "gmail",
           status: "active",
           scopes: ["https://mail.google.com/"],
+          userEmail: undefined,
         },
       ],
     });
     mockSetConnector.mockResolvedValue({
-      redirect_url: null,
-      connection_id: null,
-      already_authorized: true,
+      redirectUrl: null,
+      connectionId: null,
+      alreadyAuthorized: true,
+      error: null,
+      errorMessage: null,
+      otherUserEmail: null,
     });
 
     const result = await pushConnectors(local);
@@ -294,9 +314,12 @@ describe("pushConnectors", () => {
       { type: "gmail", scopes: ["https://mail.google.com/"] },
     ];
     mockSetConnector.mockResolvedValue({
-      redirect_url: "https://accounts.google.com/oauth",
-      connection_id: "conn_123",
-      already_authorized: false,
+      redirectUrl: "https://accounts.google.com/oauth",
+      connectionId: "conn_123",
+      alreadyAuthorized: false,
+      error: null,
+      errorMessage: null,
+      otherUserEmail: null,
     });
 
     const result = await pushConnectors(local);
@@ -316,12 +339,12 @@ describe("pushConnectors", () => {
       { type: "gmail", scopes: ["https://mail.google.com/"] },
     ];
     mockSetConnector.mockResolvedValue({
-      redirect_url: null,
-      connection_id: null,
-      already_authorized: false,
+      redirectUrl: null,
+      connectionId: null,
+      alreadyAuthorized: false,
       error: "different_user",
-      error_message: "Already connected by another user",
-      other_user_email: "other@example.com",
+      errorMessage: "Already connected by another user",
+      otherUserEmail: "other@example.com",
     });
 
     const result = await pushConnectors(local);
@@ -340,12 +363,12 @@ describe("pushConnectors", () => {
       { type: "gmail", scopes: ["https://mail.google.com/"] },
     ];
     mockSetConnector.mockResolvedValue({
-      redirect_url: null,
-      connection_id: null,
-      already_authorized: false,
+      redirectUrl: null,
+      connectionId: null,
+      alreadyAuthorized: false,
       error: "different_user",
-      error_message: null,
-      other_user_email: null,
+      errorMessage: null,
+      otherUserEmail: null,
     });
 
     const result = await pushConnectors(local);
@@ -375,7 +398,12 @@ describe("pushConnectors", () => {
   it("handles remove errors gracefully", async () => {
     mockListConnectors.mockResolvedValue({
       integrations: [
-        { integration_type: "slack", status: "active", scopes: ["chat:write"] },
+        {
+          integrationType: "slack",
+          status: "active",
+          scopes: ["chat:write"],
+          userEmail: undefined,
+        },
       ],
     });
     mockRemoveConnector.mockRejectedValue(new Error("Remove failed"));
@@ -392,9 +420,12 @@ describe("pushConnectors", () => {
       { type: "custom-crm", scopes: ["read", "write"] },
     ];
     mockSetConnector.mockResolvedValue({
-      redirect_url: null,
-      connection_id: null,
-      already_authorized: true,
+      redirectUrl: null,
+      connectionId: null,
+      alreadyAuthorized: true,
+      error: null,
+      errorMessage: null,
+      otherUserEmail: null,
     });
 
     const result = await pushConnectors(local);
@@ -410,15 +441,16 @@ describe("pushConnectors", () => {
     mockListConnectors.mockResolvedValue({
       integrations: [
         {
-          integration_type: "custom-crm",
+          integrationType: "custom-crm",
           status: "active",
           scopes: ["read"],
+          userEmail: undefined,
         },
       ],
     });
     mockRemoveConnector.mockResolvedValue({
       status: "removed",
-      integration_type: "custom-crm",
+      integrationType: "custom-crm",
     });
 
     const result = await pushConnectors([]);
@@ -433,9 +465,12 @@ describe("pushConnectors", () => {
       { type: "slack", scopes: ["chat:write"] },
     ];
     mockSetConnector.mockResolvedValue({
-      redirect_url: null,
-      connection_id: null,
-      already_authorized: true,
+      redirectUrl: null,
+      connectionId: null,
+      alreadyAuthorized: true,
+      error: null,
+      errorMessage: null,
+      otherUserEmail: null,
     });
 
     const result = await pushConnectors(local);
@@ -447,4 +482,3 @@ describe("pushConnectors", () => {
     ]);
   });
 });
-

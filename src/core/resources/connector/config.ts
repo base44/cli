@@ -6,7 +6,7 @@ import type { ConnectorResource } from "./schema.js";
 import { ConnectorResourceSchema } from "./schema.js";
 
 async function readConnectorFile(
-  connectorPath: string
+  connectorPath: string,
 ): Promise<ConnectorResource> {
   const parsed = await readJsonFile(connectorPath);
   const result = ConnectorResourceSchema.safeParse(parsed);
@@ -15,19 +15,15 @@ async function readConnectorFile(
     throw new SchemaValidationError(
       "Invalid connector file",
       result.error,
-      connectorPath
+      connectorPath,
     );
   }
 
   return result.data;
 }
 
-/**
- * Read all connector files from a directory.
- * Returns an empty array if the directory doesn't exist.
- */
 export async function readAllConnectors(
-  connectorsDir: string
+  connectorsDir: string,
 ): Promise<ConnectorResource[]> {
   if (!(await pathExists(connectorsDir))) {
     return [];
@@ -39,9 +35,15 @@ export async function readAllConnectors(
   });
 
   const connectors = await Promise.all(
-    files.map((filePath) => readConnectorFile(filePath))
+    files.map((filePath) => readConnectorFile(filePath)),
   );
 
+  assertNoDuplicateConnectors(connectors);
+
+  return connectors;
+}
+
+function assertNoDuplicateConnectors(connectors: ConnectorResource[]): void {
   const types = new Set<string>();
   for (const connector of connectors) {
     if (types.has(connector.type)) {
@@ -53,11 +55,9 @@ export async function readAllConnectors(
               message: `Remove duplicate connectors with type "${connector.type}" - only one connector per type is allowed`,
             },
           ],
-        }
+        },
       );
     }
     types.add(connector.type);
   }
-
-  return connectors;
 }

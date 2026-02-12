@@ -15,10 +15,6 @@ import {
   SetConnectorResponseSchema,
 } from "./schema.js";
 
-/**
- * List all connectors for the current app.
- * GET /api/apps/{app_id}/external-auth/list
- */
 export async function listConnectors(): Promise<ListConnectorsResponse> {
   const appClient = getAppClient();
 
@@ -34,7 +30,7 @@ export async function listConnectors(): Promise<ListConnectorsResponse> {
   if (!result.success) {
     throw new SchemaValidationError(
       "Invalid response from server",
-      result.error
+      result.error,
     );
   }
 
@@ -43,7 +39,7 @@ export async function listConnectors(): Promise<ListConnectorsResponse> {
 
 export async function setConnector(
   integrationType: IntegrationType,
-  scopes: string[]
+  scopes: string[],
 ): Promise<SetConnectorResponse> {
   const appClient = getAppClient();
 
@@ -55,7 +51,7 @@ export async function setConnector(
         json: {
           scopes,
         },
-      }
+      },
     );
   } catch (error) {
     throw await ApiError.fromHttpError(error, "setting connector");
@@ -66,7 +62,7 @@ export async function setConnector(
   if (!result.success) {
     throw new SchemaValidationError(
       "Invalid response from server",
-      result.error
+      result.error,
     );
   }
 
@@ -75,7 +71,7 @@ export async function setConnector(
 
 export async function getOAuthStatus(
   integrationType: IntegrationType,
-  connectionId: string
+  connectionId: string,
 ): Promise<OAuthStatusResponse> {
   const appClient = getAppClient();
 
@@ -96,7 +92,7 @@ export async function getOAuthStatus(
   if (!result.success) {
     throw new SchemaValidationError(
       "Invalid response from server",
-      result.error
+      result.error,
     );
   }
 
@@ -104,14 +100,14 @@ export async function getOAuthStatus(
 }
 
 export async function removeConnector(
-  integrationType: IntegrationType
+  integrationType: IntegrationType,
 ): Promise<RemoveConnectorResponse> {
   const appClient = getAppClient();
 
   let response: KyResponse;
   try {
     response = await appClient.delete(
-      `external-auth/integrations/${integrationType}/remove`
+      `external-auth/integrations/${integrationType}/remove`,
     );
   } catch (error) {
     throw await ApiError.fromHttpError(error, "removing connector");
@@ -122,7 +118,7 @@ export async function removeConnector(
   if (!result.success) {
     throw new SchemaValidationError(
       "Invalid response from server",
-      result.error
+      result.error,
     );
   }
 

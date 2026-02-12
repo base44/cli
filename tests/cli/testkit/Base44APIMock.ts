@@ -222,8 +222,8 @@ export class Base44APIMock {
   mockConnectorsList(response: ConnectorsListResponse): this {
     this.handlers.push(
       http.get(`${BASE_URL}/api/apps/${this.appId}/external-auth/list`, () =>
-        HttpResponse.json(response)
-      )
+        HttpResponse.json(response),
+      ),
     );
     return this;
   }
@@ -233,8 +233,8 @@ export class Base44APIMock {
     this.handlers.push(
       http.put(
         `${BASE_URL}/api/apps/${this.appId}/external-auth/integrations/:type`,
-        () => HttpResponse.json(response)
-      )
+        () => HttpResponse.json(response),
+      ),
     );
     return this;
   }
@@ -243,8 +243,8 @@ export class Base44APIMock {
   mockConnectorOAuthStatus(response: ConnectorOAuthStatusResponse): this {
     this.handlers.push(
       http.get(`${BASE_URL}/api/apps/${this.appId}/external-auth/status`, () =>
-        HttpResponse.json(response)
-      )
+        HttpResponse.json(response),
+      ),
     );
     return this;
   }
@@ -254,8 +254,8 @@ export class Base44APIMock {
     this.handlers.push(
       http.delete(
         `${BASE_URL}/api/apps/${this.appId}/external-auth/integrations/:type/remove`,
-        () => HttpResponse.json(response)
-      )
+        () => HttpResponse.json(response),
+      ),
     );
     return this;
   }
@@ -378,7 +378,7 @@ export class Base44APIMock {
     return this.mockError(
       "get",
       `/api/apps/${this.appId}/external-auth/list`,
-      error
+      error,
     );
   }
 
@@ -387,7 +387,7 @@ export class Base44APIMock {
     return this.mockError(
       "put",
       `/api/apps/${this.appId}/external-auth/integrations/:type`,
-      error
+      error,
     );
   }
 
