@@ -1,11 +1,13 @@
 import { confirm, isCancel, log } from "@clack/prompts";
+import open from "open";
+import pWaitFor, { TimeoutError } from "p-wait-for";
 import { runTask, theme } from "@/cli/utils/index.js";
 import type {
   ConnectorOAuthStatus,
   ConnectorSyncResult,
   IntegrationType,
 } from "@/core/resources/connector/index.js";
-import { runOAuthFlow } from "@/core/resources/connector/index.js";
+import { getOAuthStatus } from "@/core/resources/connector/index.js";
 
 export type PendingOAuthResult = ConnectorSyncResult & {
   redirectUrl: string;
@@ -63,23 +65,41 @@ export async function promptOAuthFlows(
 
   for (const connector of pending) {
     log.info(`\nOpening browser for ${connector.type}...`);
+    await open(connector.redirectUrl);
 
-    const oauthResult = await runTask(
+    let finalStatus: ConnectorOAuthStatus = "PENDING";
+
+    await runTask(
       `Waiting for ${connector.type} authorization...`,
       async () => {
-        return await runOAuthFlow({
-          type: connector.type,
-          redirectUrl: connector.redirectUrl,
-          connectionId: connector.connectionId,
-        });
+        await pWaitFor(
+          async () => {
+            const response = await getOAuthStatus(
+              connector.type,
+              connector.connectionId,
+            );
+            finalStatus = response.status;
+            return response.status !== "PENDING";
+          },
+          {
+            interval: 2000,
+            timeout: 2 * 60 * 1000,
+          },
+        );
       },
       {
         successMessage: `${connector.type} authorization complete`,
         errorMessage: `${connector.type} authorization failed`,
+      },
+    ).catch((err) => {
+      if (err instanceof TimeoutError) {
+        finalStatus = "PENDING";
+      } else {
+        throw err;
       }
-    );
+    });
 
-    outcomes.set(connector.type, oauthResult.status);
+    outcomes.set(connector.type, finalStatus);
   }
 
   return outcomes;
