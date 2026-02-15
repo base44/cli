@@ -8,10 +8,11 @@ import { generateTypesFile, updateProjectConfig } from "@/core/types/index.js";
 const TYPES_FILE_PATH = "base44/.types/types.d.ts";
 
 async function generateTypesAction(): Promise<RunCommandResult> {
-  const { entities, functions, agents, project } = await readProjectConfig();
+  const { entities, functions, agents, connectors, project } =
+    await readProjectConfig();
 
   await runTask("Generating types", async () => {
-    await generateTypesFile({ entities, functions, agents });
+    await generateTypesFile({ entities, functions, agents, connectors });
   });
 
   const tsconfigUpdated = await updateProjectConfig(project.root);
