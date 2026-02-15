@@ -5,9 +5,9 @@ import { getTypesOutputPath } from "@/core/config.js";
 import { TypeGenerationError } from "@/core/errors.js";
 import { getAppConfig } from "@/core/project/app-config.js";
 import type { AgentConfig } from "@/core/resources/agent/index.js";
+import type { ConnectorResource } from "@/core/resources/connector/index.js";
 import type { Entity } from "@/core/resources/entity/index.js";
 import type { BackendFunction } from "@/core/resources/function/index.js";
-import type { ConnectorResource } from "@/core/resources/connector/index.js";
 import { writeFile } from "@/core/utils/fs.js";
 
 interface GenerateTypesInput {
@@ -49,7 +49,12 @@ export async function generateTypesFile(
 async function generateContent(input: GenerateTypesInput): Promise<string> {
   const { entities, functions, agents, connectors } = input;
 
-  if (!entities.length && !functions.length && !agents.length && !connectors.length) {
+  if (
+    !entities.length &&
+    !functions.length &&
+    !agents.length &&
+    !connectors.length
+  ) {
     return EMPTY_TEMPLATE;
   }
 

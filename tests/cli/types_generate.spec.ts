@@ -83,7 +83,9 @@ describe("types generate command", () => {
     // And an empty template is generated
     const typesContent = await t.readProjectFile("base44/.types/types.d.ts");
     expect(typesContent).not.toBeNull();
-    expect(typesContent).toContain("No entities, functions, agents, or connectors found");
+    expect(typesContent).toContain(
+      "No entities, functions, agents, or connectors found",
+    );
   });
 
   it("skips tsconfig update if types path already included", async () => {
