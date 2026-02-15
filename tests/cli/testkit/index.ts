@@ -1,8 +1,8 @@
 import { resolve } from "node:path";
-import { beforeAll, beforeEach, afterEach, afterAll } from "vitest";
 import { setupServer } from "msw/node";
+import { afterAll, afterEach, beforeAll, beforeEach } from "vitest";
+import type { CLIResult, CLIResultMatcher } from "./CLIResultMatcher.js";
 import { CLITestkit } from "./CLITestkit.js";
-import type { CLIResult , CLIResultMatcher } from "./CLIResultMatcher.js";
 
 const FIXTURES_DIR = resolve(__dirname, "../../fixtures");
 
@@ -30,7 +30,12 @@ export interface TestContext {
   givenProject: (fixturePath: string) => Promise<void>;
 
   /** Combined: login + project setup (most common pattern) */
-  givenLoggedInWithProject: (fixturePath: string, user?: { email: string; name: string }) => Promise<void>;
+  givenLoggedInWithProject: (
+    fixturePath: string,
+    user?: { email: string; name: string },
+  ) => Promise<void>;
+
+  givenLatestVersion: (version: string | null | undefined) => void;
 
   // ─── WHEN METHODS ──────────────────────────────────────────
 
@@ -44,6 +49,12 @@ export interface TestContext {
 
   /** Read the auth file (for login tests) */
   readAuthFile: () => Promise<Record<string, unknown> | null>;
+
+  /** Read a file from the project directory */
+  readProjectFile: (relativePath: string) => Promise<string | null>;
+
+  /** Check if a file exists in the project directory */
+  fileExists: (relativePath: string) => Promise<boolean>;
 
   /** Get the temp directory path */
   getTempDir: () => string;
@@ -74,7 +85,9 @@ export function setupCLITests(): TestContext {
 
   const getKit = (): CLITestkit => {
     if (!currentKit) {
-      throw new Error("CLITestkit not initialized. Make sure setupCLITests() is called inside describe()");
+      throw new Error(
+        "CLITestkit not initialized. Make sure setupCLITests() is called inside describe()",
+      );
     }
     return currentKit;
   };
@@ -103,7 +116,9 @@ export function setupCLITests(): TestContext {
   const defaultUser = { email: "test@example.com", name: "Test User" };
 
   return {
-    get kit() { return getKit(); },
+    get kit() {
+      return getKit();
+    },
 
     // Given methods
     givenLoggedIn: (user) => getKit().givenLoggedIn(user),
@@ -112,6 +127,7 @@ export function setupCLITests(): TestContext {
       await getKit().givenLoggedIn(user);
       await getKit().givenProject(fixturePath);
     },
+    givenLatestVersion: (version) => getKit().givenLatestVersion(version),
 
     // When methods
     run: (...args) => getKit().run(...args),
@@ -119,15 +135,19 @@ export function setupCLITests(): TestContext {
     // Then methods
     expectResult: (result) => getKit().expect(result),
     readAuthFile: () => getKit().readAuthFile(),
+    readProjectFile: (relativePath) => getKit().readProjectFile(relativePath),
+    fileExists: (relativePath) => getKit().fileExists(relativePath),
     getTempDir: () => getKit().getTempDir(),
 
     // API mocks
-    get api() { return getKit().api; },
+    get api() {
+      return getKit().api;
+    },
   };
 }
 
+export { Base44APIMock } from "./Base44APIMock.js";
+export type { CLIResult } from "./CLIResultMatcher.js";
+export { CLIResultMatcher } from "./CLIResultMatcher.js";
 // Re-export types and classes that tests might need
 export { CLITestkit } from "./CLITestkit.js";
-export { CLIResultMatcher } from "./CLIResultMatcher.js";
-export type { CLIResult } from "./CLIResultMatcher.js";
-export { Base44APIMock } from "./Base44APIMock.js";

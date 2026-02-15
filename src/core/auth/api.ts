@@ -1,17 +1,17 @@
-import { ApiError, SchemaValidationError } from "@/core/errors.js";
-import {
-  DeviceCodeResponseSchema,
-  TokenResponseSchema,
-  OAuthErrorSchema,
-  UserInfoSchema,
-} from "@/core/auth/schema.js";
 import type {
   DeviceCodeResponse,
   TokenResponse,
   UserInfoResponse,
 } from "@/core/auth/schema.js";
-import { AUTH_CLIENT_ID } from "@/core/consts.js";
+import {
+  DeviceCodeResponseSchema,
+  OAuthErrorSchema,
+  TokenResponseSchema,
+  UserInfoSchema,
+} from "@/core/auth/schema.js";
 import { oauthClient } from "@/core/clients/index.js";
+import { AUTH_CLIENT_ID } from "@/core/consts.js";
+import { ApiError, SchemaValidationError } from "@/core/errors.js";
 
 export async function generateDeviceCode(): Promise<DeviceCodeResponse> {
   const response = await oauthClient.post("oauth/device/code", {
@@ -25,26 +25,29 @@ export async function generateDeviceCode(): Promise<DeviceCodeResponse> {
   if (!response.ok) {
     throw new ApiError(
       `Failed to generate device code: ${response.status} ${response.statusText}`,
-      { statusCode: response.status }
+      { statusCode: response.status },
     );
   }
 
   const result = DeviceCodeResponseSchema.safeParse(await response.json());
 
   if (!result.success) {
-    throw new SchemaValidationError("Invalid device code response from server", result.error);
+    throw new SchemaValidationError(
+      "Invalid device code response from server",
+      result.error,
+    );
   }
 
   return result.data;
 }
 
 export async function getTokenFromDeviceCode(
-  deviceCode: string
+  deviceCode: string,
 ): Promise<TokenResponse | null> {
   const searchParams = new URLSearchParams();
   searchParams.set(
     "grant_type",
-    "urn:ietf:params:oauth:grant-type:device_code"
+    "urn:ietf:params:oauth:grant-type:device_code",
   );
   searchParams.set("device_code", deviceCode);
   searchParams.set("client_id", AUTH_CLIENT_ID);
@@ -63,7 +66,10 @@ export async function getTokenFromDeviceCode(
     const errorResult = OAuthErrorSchema.safeParse(json);
 
     if (!errorResult.success) {
-      throw new SchemaValidationError("Token request failed", errorResult.error);
+      throw new SchemaValidationError(
+        "Token request failed",
+        errorResult.error,
+      );
     }
 
     const { error, error_description } = errorResult.data;
@@ -82,14 +88,17 @@ export async function getTokenFromDeviceCode(
   const result = TokenResponseSchema.safeParse(json);
 
   if (!result.success) {
-    throw new SchemaValidationError("Invalid token response from server", result.error);
+    throw new SchemaValidationError(
+      "Invalid token response from server",
+      result.error,
+    );
   }
 
   return result.data;
 }
 
 export async function renewAccessToken(
-  refreshToken: string
+  refreshToken: string,
 ): Promise<TokenResponse> {
   const searchParams = new URLSearchParams();
   searchParams.set("grant_type", "refresh_token");
@@ -124,14 +133,17 @@ export async function renewAccessToken(
   const result = TokenResponseSchema.safeParse(json);
 
   if (!result.success) {
-    throw new SchemaValidationError("Invalid token response from server", result.error);
+    throw new SchemaValidationError(
+      "Invalid token response from server",
+      result.error,
+    );
   }
 
   return result.data;
 }
 
 export async function getUserInfo(
-  accessToken: string
+  accessToken: string,
 ): Promise<UserInfoResponse> {
   const response = await oauthClient.get("oauth/userinfo", {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -146,7 +158,10 @@ export async function getUserInfo(
   const result = UserInfoSchema.safeParse(await response.json());
 
   if (!result.success) {
-    throw new SchemaValidationError("Invalid UserInfo response from server", result.error);
+    throw new SchemaValidationError(
+      "Invalid UserInfo response from server",
+      result.error,
+    );
   }
 
   return result.data;

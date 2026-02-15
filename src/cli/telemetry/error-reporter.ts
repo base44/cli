@@ -1,9 +1,9 @@
 import { release, type } from "node:os";
-import { nanoid } from "nanoid";
 import { determineAgent } from "@vercel/detect-agent";
-import { getPostHogClient, isTelemetryEnabled } from "./posthog.js";
-import { isUserError, isCLIError } from "@/core/errors.js";
+import { nanoid } from "nanoid";
+import { ApiError, isCLIError, isUserError } from "@/core/errors.js";
 import packageJson from "../../../package.json";
+import { getPostHogClient, isTelemetryEnabled } from "./posthog.js";
 
 /**
  * Context that can be set during CLI execution.
@@ -20,10 +20,6 @@ export interface ErrorContext {
     options: Record<string, unknown>;
   };
   appId?: string;
-  api?: {
-    statusCode?: number;
-    errorBody?: unknown;
-  };
 }
 
 export class ErrorReporter {
@@ -68,11 +64,23 @@ export class ErrorReporter {
   }
 
   private buildProperties(error?: Error): Record<string, unknown> {
-    const { user, command, appId, api } = this.context;
+    const { user, command, appId } = this.context;
 
     // Extract CLIError-specific properties if applicable
     const errorCode = error && isCLIError(error) ? error.code : undefined;
     const userError = error ? isUserError(error) : undefined;
+
+    // Extract API request/response data from ApiError instances
+    const apiProps =
+      error instanceof ApiError
+        ? {
+            api_status_code: error.statusCode,
+            api_request_url: error.requestUrl,
+            api_request_method: error.requestMethod,
+            api_request_body: error.requestBody,
+            api_response_body: error.responseBody,
+          }
+        : {};
 
     return {
       // Session
@@ -97,9 +105,8 @@ export class ErrorReporter {
         is_user_error: userError,
       }),
 
-      // API error
-      api_status_code: api?.statusCode,
-      api_error_body: api?.errorBody,
+      // API error (auto-extracted from ApiError)
+      ...apiProps,
 
       // System
       cli_version: packageJson.version,
@@ -142,7 +149,11 @@ export class ErrorReporter {
 
     try {
       const client = getPostHogClient();
-      client?.captureException(error, this.getDistinctId(), this.buildProperties(error));
+      client?.captureException(
+        error,
+        this.getDistinctId(),
+        this.buildProperties(error),
+      );
     } catch {
       // Silent - don't let error reporting break the CLI
     }

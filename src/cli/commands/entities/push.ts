@@ -1,10 +1,10 @@
-import { Command } from "@commander-js/extra-typings";
 import { log } from "@clack/prompts";
+import { Command } from "@commander-js/extra-typings";
 import type { CLIContext } from "@/cli/types.js";
-import { pushEntities } from "@/core/resources/entity/index.js";
-import { readProjectConfig } from "@/core/index.js";
 import { runCommand, runTask } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
+import { readProjectConfig } from "@/core/index.js";
+import { pushEntities } from "@/core/resources/entity/index.js";
 
 async function pushEntitiesAction(): Promise<RunCommandResult> {
   const { entities } = await readProjectConfig();
@@ -24,7 +24,7 @@ async function pushEntitiesAction(): Promise<RunCommandResult> {
     {
       successMessage: "Entities pushed successfully",
       errorMessage: "Failed to push entities",
-    }
+    },
   );
 
   // Print the results
@@ -49,6 +49,6 @@ export function getEntitiesPushCommand(context: CLIContext): Command {
         .description("Push local entities to Base44")
         .action(async () => {
           await runCommand(pushEntitiesAction, { requireAuth: true }, context);
-        })
+        }),
     );
 }

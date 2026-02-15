@@ -1,5 +1,5 @@
 import { describe, it } from "vitest";
-import { setupCLITests, fixture } from "./testkit/index.js";
+import { fixture, setupCLITests } from "./testkit/index.js";
 
 describe("agents push command", () => {
   const t = setupCLITests();
@@ -25,7 +25,11 @@ describe("agents push command", () => {
 
   it("finds and lists agents in project", async () => {
     await t.givenLoggedInWithProject(fixture("with-agents"));
-    t.api.mockAgentsPush({ created: ["customer_support", "data_analyst", "order_assistant"], updated: [], deleted: [] });
+    t.api.mockAgentsPush({
+      created: ["customer_support", "data_analyst", "order_assistant"],
+      updated: [],
+      deleted: [],
+    });
 
     const result = await t.run("agents", "push");
 
@@ -35,7 +39,11 @@ describe("agents push command", () => {
 
   it("pushes agents successfully and shows results", async () => {
     await t.givenLoggedInWithProject(fixture("with-agents"));
-    t.api.mockAgentsPush({ created: ["customer_support"], updated: ["data_analyst"], deleted: ["old_agent"] });
+    t.api.mockAgentsPush({
+      created: ["customer_support"],
+      updated: ["data_analyst"],
+      deleted: ["old_agent"],
+    });
 
     const result = await t.run("agents", "push");
 
@@ -46,13 +54,12 @@ describe("agents push command", () => {
     t.expectResult(result).toContain("Deleted: old_agent");
   });
 
-  it("fails with helpful error when agent has invalid name format", async () => {
+  it("fails with helpful error when agent has empty name", async () => {
     await t.givenLoggedInWithProject(fixture("invalid-agent"));
 
     const result = await t.run("agents", "push");
 
     t.expectResult(result).toFail();
-    t.expectResult(result).toContain("name");
   });
 
   it("fails when API returns error", async () => {

@@ -3,18 +3,39 @@
  * Automatically handles token refresh and retry on 401 responses.
  */
 
-import ky from "ky";
 import type { KyRequest, KyResponse, NormalizedOptions } from "ky";
-import { getBase44ApiUrl } from "@/core/config.js";
+import ky from "ky";
 import {
+  isTokenExpired,
   readAuth,
   refreshAndSaveTokens,
-  isTokenExpired,
 } from "@/core/auth/config.js";
+import { getBase44ApiUrl } from "@/core/config.js";
 import { getAppConfig } from "@/core/project/index.js";
 
 // Track requests that have already been retried to prevent infinite loops
 const retriedRequests = new WeakSet<KyRequest>();
+
+/**
+ * Captures request body for error reporting. Clones the request and reads the
+ * clone's body so the original is not consumed. Body is stored in options.context.__requestBody
+ * so it is available on HTTPError.options when ApiError.fromHttpError runs (for telemetry).
+ */
+async function captureRequestBody(
+  request: KyRequest,
+  options: NormalizedOptions,
+): Promise<void> {
+  if (request.body == null) {
+    return;
+  }
+  try {
+    const cloned = request.clone();
+    const text = await cloned.text();
+    options.context.__requestBody = text;
+  } catch {
+    // Ignore capture failures; request will still succeed
+  }
+}
 
 /**
  * Handles 401 responses by refreshing the token and retrying the request.
@@ -23,8 +44,8 @@ const retriedRequests = new WeakSet<KyRequest>();
 async function handleUnauthorized(
   request: KyRequest,
   _options: NormalizedOptions,
-  response: KyResponse
-): Promise<Response | void> {
+  response: KyResponse,
+): Promise<Response | undefined> {
   if (response.status !== 401) {
     return;
   }
@@ -62,6 +83,7 @@ export const base44Client = ky.create({
   },
   hooks: {
     beforeRequest: [
+      captureRequestBody,
       async (request) => {
         try {
           const auth = await readAuth();

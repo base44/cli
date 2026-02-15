@@ -1,0 +1,15 @@
+{
+  "name": "User",
+  "type": "object",
+  "properties": {
+    "email": {
+      "type": "string",
+      "description": "User email address"
+    },
+    "age": {
+      "type": "number",
+      "description": "User age"
+    }
+  },
+  "required": ["email"]
+}

@@ -1,41 +1,28 @@
 import { globby } from "globby";
-import { getAppConfigPath } from "@/core/config.js";
-import { writeFile, readJsonFile } from "@/core/utils/fs.js";
+import { getAppConfigPath, getTestOverrides } from "@/core/config.js";
 import { APP_CONFIG_PATTERN } from "@/core/consts.js";
-import { AppConfigSchema } from "@/core/project/schema.js";
-import type { AppConfig } from "@/core/project/schema.js";
-import { findProjectRoot } from "@/core/project/config.js";
 import {
-  ConfigNotFoundError,
   ConfigInvalidError,
+  ConfigNotFoundError,
   SchemaValidationError,
 } from "@/core/errors.js";
+import { findProjectRoot } from "@/core/project/config.js";
+import type { AppConfig } from "@/core/project/schema.js";
+import { AppConfigSchema } from "@/core/project/schema.js";
+import { readJsonFile, writeFile } from "@/core/utils/fs.js";
 
-export interface CachedAppConfig {
+interface CachedAppConfig {
   id: string;
   projectRoot: string;
 }
 
 let cache: CachedAppConfig | null = null;
 
-/**
- * Load app config from BASE44_CLI_TEST_OVERRIDES env var.
- * @returns true if override was applied, false otherwise
- */
 function loadFromTestOverrides(): boolean {
-  const overrides = process.env.BASE44_CLI_TEST_OVERRIDES;
-  if (!overrides) {
-    return false;
-  }
-
-  try {
-    const data = JSON.parse(overrides);
-    if (data.appConfig?.id && data.appConfig?.projectRoot) {
-      cache = { id: data.appConfig.id, projectRoot: data.appConfig.projectRoot };
-      return true;
-    }
-  } catch {
-    // Invalid JSON, ignore
+  const appConfig = getTestOverrides()?.appConfig;
+  if (appConfig?.id && appConfig.projectRoot) {
+    cache = { id: appConfig.id, projectRoot: appConfig.projectRoot };
+    return true;
   }
   return false;
 }
@@ -59,7 +46,7 @@ export async function initAppConfig(): Promise<CachedAppConfig> {
   const projectRoot = await findProjectRoot();
   if (!projectRoot) {
     throw new ConfigNotFoundError(
-      "No Base44 project found. Run this command from a project directory with a config.jsonc file."
+      "No Base44 project found. Run this command from a project directory with a config.jsonc file.",
     );
   }
 
@@ -72,9 +59,12 @@ export async function initAppConfig(): Promise<CachedAppConfig> {
       appConfigPath,
       {
         hints: [
-          { message: "Run 'base44 link' to link this project to a Base44 app", command: "base44 link" },
+          {
+            message: "Run 'base44 link' to link this project to a Base44 app",
+            command: "base44 link",
+          },
         ],
-      }
+      },
     );
   }
 
@@ -89,7 +79,7 @@ export async function initAppConfig(): Promise<CachedAppConfig> {
 export function getAppConfig(): CachedAppConfig {
   if (!cache) {
     throw new ConfigInvalidError(
-      "App config not initialized. Ensure the command uses requireAppConfig option."
+      "App config not initialized. Ensure the command uses requireAppConfig option.",
     );
   }
   return cache;
@@ -99,7 +89,7 @@ export function setAppConfig(config: CachedAppConfig): void {
   cache = config;
 }
 
-export function generateAppConfigContent(id: string): string {
+function generateAppConfigContent(id: string): string {
   return `// Base44 App Configuration
 // This file links your local project to your Base44 app.
 // Do not commit this file to version control.
@@ -111,7 +101,7 @@ export function generateAppConfigContent(id: string): string {
 
 export async function writeAppConfig(
   projectRoot: string,
-  appId: string
+  appId: string,
 ): Promise<string> {
   const configPath = getAppConfigPath(projectRoot);
   const content = generateAppConfigContent(appId);
@@ -119,9 +109,7 @@ export async function writeAppConfig(
   return configPath;
 }
 
-export async function findAppConfigPath(
-  projectRoot: string
-): Promise<string | null> {
+async function findAppConfigPath(projectRoot: string): Promise<string | null> {
   const files = await globby(APP_CONFIG_PATTERN, {
     cwd: projectRoot,
     absolute: true,
@@ -134,9 +122,7 @@ export async function appConfigExists(projectRoot: string): Promise<boolean> {
   return configPath !== null;
 }
 
-async function readAppConfig(
-  projectRoot: string
-): Promise<AppConfig | null> {
+async function readAppConfig(projectRoot: string): Promise<AppConfig | null> {
   const configPath = await findAppConfigPath(projectRoot);
 
   if (!configPath) {
@@ -147,7 +133,11 @@ async function readAppConfig(
   const result = AppConfigSchema.safeParse(parsed);
 
   if (!result.success) {
-    throw new SchemaValidationError(`Invalid app configuration in ${configPath}`, result.error);
+    throw new SchemaValidationError(
+      "Invalid app configuration",
+      result.error,
+      configPath,
+    );
   }
 
   return result.data;

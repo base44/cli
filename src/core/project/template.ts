@@ -1,14 +1,14 @@
-import { join, dirname } from "node:path";
-import { globby } from "globby";
+import { dirname, join } from "node:path";
 import ejs from "ejs";
-import frontmatter from 'front-matter';
+import frontmatter from "front-matter";
+import { globby } from "globby";
 import { getTemplatesDir, getTemplatesIndexPath } from "@/core/config.js";
-import { readJsonFile, writeFile, copyFile } from "@/core/utils/fs.js";
-import { TemplatesConfigSchema } from "@/core/project/schema.js";
-import type { Template } from "@/core/project/schema.js";
 import { SchemaValidationError } from "@/core/errors.js";
+import type { Template } from "@/core/project/schema.js";
+import { TemplatesConfigSchema } from "@/core/project/schema.js";
+import { copyFile, readJsonFile, writeFile } from "@/core/utils/fs.js";
 
-export interface TemplateData {
+interface TemplateData {
   name: string;
   description?: string;
   projectId: string;
@@ -23,7 +23,11 @@ export async function listTemplates(): Promise<Template[]> {
   const result = TemplatesConfigSchema.safeParse(parsed);
 
   if (!result.success) {
-    throw new SchemaValidationError("Invalid templates configuration", result.error);
+    throw new SchemaValidationError(
+      "Invalid templates configuration",
+      result.error,
+      getTemplatesIndexPath(),
+    );
   }
 
   return result.data.templates;
@@ -38,7 +42,7 @@ export async function listTemplates(): Promise<Template[]> {
 export async function renderTemplate(
   template: Template,
   destPath: string,
-  data: TemplateData
+  data: TemplateData,
 ): Promise<void> {
   const templateDir = join(getTemplatesDir(), template.path);
 
@@ -57,7 +61,9 @@ export async function renderTemplate(
         // Render EJS template and write to outputFileName or filename without .ejs extension
         const rendered = await ejs.renderFile(srcPath, data);
         const { attributes, body } = frontmatter<TemplateFrontmatter>(rendered);
-        const destFile = attributes.outputFileName ? join(dirname(file), attributes.outputFileName) : file.replace(/\.ejs$/, "");
+        const destFile = attributes.outputFileName
+          ? join(dirname(file), attributes.outputFileName)
+          : file.replace(/\.ejs$/, "");
         const destFilePath = join(destPath, destFile);
 
         await writeFile(destFilePath, body);

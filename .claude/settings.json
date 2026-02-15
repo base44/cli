@@ -1,0 +1,47 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git worktree:*)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun run typecheck 2>&1 | head -30"
+          },
+          {
+            "type": "command",
+            "command": "bun run lint:fix 2>&1 | head -30"
+          },
+          {
+            "type": "command",
+            "command": "bun run knip:fix 2>&1 | head -50"
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun run typecheck 2>&1 | head -30"
+          },
+          {
+            "type": "command",
+            "command": "bun run lint:fix 2>&1 | head -30"
+          },
+          {
+            "type": "command",
+            "command": "bun run knip:fix 2>&1 | head -50"
+          }
+        ]
+      }
+    ]
+  }
+}

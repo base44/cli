@@ -1,11 +1,11 @@
-import { Command } from "@commander-js/extra-typings";
 import { log } from "@clack/prompts";
+import { Command } from "@commander-js/extra-typings";
 import type { CLIContext } from "@/cli/types.js";
-import { pushFunctions } from "@/core/resources/function/index.js";
-import { readProjectConfig } from "@/core/index.js";
-import { ApiError } from "@/core/errors.js";
 import { runCommand, runTask } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
+import { ApiError } from "@/core/errors.js";
+import { readProjectConfig } from "@/core/index.js";
+import { pushFunctions } from "@/core/resources/function/index.js";
 
 async function deployFunctionsAction(): Promise<RunCommandResult> {
   const { functions } = await readProjectConfig();
@@ -18,7 +18,7 @@ async function deployFunctionsAction(): Promise<RunCommandResult> {
   }
 
   log.info(
-    `Found ${functions.length} ${functions.length === 1 ? "function" : "functions"} to deploy`
+    `Found ${functions.length} ${functions.length === 1 ? "function" : "functions"} to deploy`,
   );
 
   const result = await runTask(
@@ -29,7 +29,7 @@ async function deployFunctionsAction(): Promise<RunCommandResult> {
     {
       successMessage: "Functions deployed successfully",
       errorMessage: "Failed to deploy functions",
-    }
+    },
   );
 
   if (result.deployed.length > 0) {
@@ -60,7 +60,11 @@ export function getFunctionsDeployCommand(context: CLIContext): Command {
       new Command("deploy")
         .description("Deploy local functions to Base44")
         .action(async () => {
-          await runCommand(deployFunctionsAction, { requireAuth: true }, context);
-        })
+          await runCommand(
+            deployFunctionsAction,
+            { requireAuth: true },
+            context,
+          );
+        }),
     );
 }

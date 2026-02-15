@@ -1,0 +1,59 @@
+name: README Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review, reopened]
+    paths:
+      - "src/cli/**"
+      - "src/core/**"
+      - "package.json"
+      - "README.md"
+  workflow_dispatch:
+    # Run from Actions tab to test: use a branch that has an open PR, or run on default to see check result in the job log only.
+
+jobs:
+  readme-check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run Claude README Check
+        id: claude-readme-check
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            You are checking whether README.md is still accurate after the changes in this PR.
+
+            GROUND TRUTH (read from the repo):
+            1. Read src/cli/program.ts to get all registered commands. Note which are registered with { hidden: true } — those should NOT appear in the README command table.
+            2. For each command, read the corresponding factory file under src/cli/commands/ to get:
+               - Command name and subcommand names (e.g. "dashboard open", "site deploy")
+               - The .description() string for each command/subcommand
+            3. Read package.json for: the "name" field (install command) and "engines"."node" if present (Node.js requirement).
+
+            COMPARE AGAINST README.md:
+            - Command table: Every non-hidden command/subcommand must be listed. Descriptions in the table should match the code. Remove any row for a command that no longer exists.
+            - Installation section: Package name and Node version mentioned must match package.json.
+            - Quick start: The example commands (e.g. base44 login, base44 create) must still exist as commands in the codebase.
+
+            PR number for this run (use this exact number in gh pr comment; if blank/empty, do not comment—print conclusion to the terminal only): ${{ github.event.pull_request.number }}
+
+            RULES:
+            1. If everything matches: If the PR number line above has a number, run: gh pr comment <that number> --body "README check ran. README is up to date." If it is empty (manual run), print "README check ran. README is up to date." to the terminal and exit.
+            2. If you find discrepancies: Update README.md with the correct content (use the Write tool). If the PR number line above has a number (i.e. this is a PR-triggered run), commit and push the fix: git config user.name "github-actions[bot]"; git config user.email "github-actions[bot]@users.noreply.github.com"; git add README.md; git commit -m "docs: update README to match CLI (command table, install, or quick start)"; git push. Then post one short comment with gh pr comment <that number> --body "..." summarizing what was fixed (e.g. "README check ran. N issue(s) found and applied: [brief list]. README.md has been updated in this branch."; escape the body for the shell). If the PR number is empty (manual/workflow_dispatch run), do NOT run git push. Instead, print the summary of discrepancies to the terminal so the user can review them.
+            3. The PR comment or terminal output must only state that the check ran and the conclusion. Do not paste full diffs or long suggestion lists.
+          claude_args: '--allowed-tools Read Glob Grep Write "Bash(gh pr comment:*)" "Bash(git config *)" "Bash(git add *)" "Bash(git commit *)" "Bash(git push *)"'
+          allowed_bots: 'claude[bot]'
+          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
+          # or https://code.claude.com/docs/en/cli-reference for available options

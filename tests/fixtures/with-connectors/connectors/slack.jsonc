@@ -1,0 +1,8 @@
+// Slack connector
+{
+  "type": "slack",
+  "scopes": [
+    "chat:write",
+    "channels:read"
+  ]
+}

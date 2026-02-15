@@ -1,9 +1,9 @@
-import type { CLIContext } from "./types.js";
+import { createProgram } from "@/cli/program.js";
+import { readAuth } from "@/core/auth/index.js";
 import { CLIExitError } from "./errors.js";
 import { ErrorReporter } from "./telemetry/error-reporter.js";
 import { addCommandInfoToErrorReporter } from "./telemetry/index.js";
-import { readAuth } from "@/core/auth/index.js";
-import { createProgram } from "@/cli/program.js";
+import type { CLIContext } from "./types.js";
 
 async function runCLI(): Promise<void> {
   // Create error reporter - single instance for the CLI session
@@ -20,7 +20,9 @@ async function runCLI(): Promise<void> {
 
   try {
     const userInfo = await readAuth();
-    errorReporter.setContext({ user: { email: userInfo.email, name: userInfo.name } });
+    errorReporter.setContext({
+      user: { email: userInfo.email, name: userInfo.name },
+    });
   } catch {
     // User info is optional context
   }
@@ -32,7 +34,8 @@ async function runCLI(): Promise<void> {
   } catch (error) {
     // CLIExitError = controlled exit (e.g., user cancellation), don't report
     if (!(error instanceof CLIExitError)) {
-      const errorObj = error instanceof Error ? error : new Error(String(error));
+      const errorObj =
+        error instanceof Error ? error : new Error(String(error));
       errorReporter.captureException(errorObj);
     }
 

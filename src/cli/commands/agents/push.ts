@@ -1,8 +1,8 @@
-import { Command } from "@commander-js/extra-typings";
 import { log } from "@clack/prompts";
+import { Command } from "@commander-js/extra-typings";
 import type { CLIContext } from "@/cli/types.js";
-import { pushAgents } from "@/core/resources/agent/index.js";
 import { readProjectConfig } from "@/core/index.js";
+import { pushAgents } from "@/core/resources/agent/index.js";
 import { runCommand, runTask } from "../../utils/index.js";
 import type { RunCommandResult } from "../../utils/runCommand.js";
 
@@ -12,7 +12,7 @@ async function pushAgentsAction(): Promise<RunCommandResult> {
   log.info(
     agents.length === 0
       ? "No local agents found - this will delete all remote agents"
-      : `Found ${agents.length} agents to push`
+      : `Found ${agents.length} agents to push`,
   );
 
   const result = await runTask(
@@ -23,7 +23,7 @@ async function pushAgentsAction(): Promise<RunCommandResult> {
     {
       successMessage: "Agents pushed successfully",
       errorMessage: "Failed to push agents",
-    }
+    },
   );
 
   if (result.created.length > 0) {
@@ -41,7 +41,9 @@ async function pushAgentsAction(): Promise<RunCommandResult> {
 
 export function getAgentsPushCommand(context: CLIContext): Command {
   return new Command("push")
-    .description("Push local agents to Base44 (replaces all remote agent configs)")
+    .description(
+      "Push local agents to Base44 (replaces all remote agent configs)",
+    )
     .action(async () => {
       await runCommand(pushAgentsAction, { requireAuth: true }, context);
     });

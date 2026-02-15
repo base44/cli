@@ -1,5 +1,7 @@
 # AI Agent Guidelines for Base44 CLI Development
 
+@.cursor/rules/use-bun-instead-of-node-vite-npm-pnpm.mdc
+
 This document provides essential context and guidelines for AI agents working on the Base44 CLI project.
 
 **Important**: Keep this file updated when making significant architectural changes.
@@ -12,10 +14,12 @@ The Base44 CLI is a TypeScript-based command-line tool built with:
 - **Zod** - Schema validation for API responses, config files, and user inputs
 - **JSON5** - Parsing JSONC/JSON5 config files (supports comments and trailing commas)
 - **TypeScript** - Primary language
-- **tsdown** - Bundler (powered by Rolldown, the Rust-based Rollup successor)
+- **Bun** - Runtime, bundler, and package manager
+- **Biome** - Linting and formatting (fast, replaces ESLint)
+- **Vitest** - Test runner
 
 ### Distribution Strategy
-The CLI is distributed as a **zero-dependency package**. All runtime dependencies are bundled into JavaScript files. This means:
+The CLI is distributed as a **zero-dependency npm package**. All runtime dependencies are bundled into JavaScript files. This means:
 - Users only download the bundled code (`dist/` and `bin/` directories)
 - No dependency resolution or node_modules installation
 - Faster install times and no version conflicts
@@ -33,7 +37,7 @@ The CLI is distributed as a **zero-dependency package**. All runtime dependencie
 cli/
 ├── bin/                          # Entry point scripts
 │   ├── run.js                    # Production entry (imports dist/index.js)
-│   └── dev.js                    # Development entry (uses tsx for TypeScript)
+│   └── dev.ts                    # Development entry (Bun runs TypeScript directly)
 ├── src/
 │   ├── core/
 │   │   ├── api/                  # HTTP clients
@@ -76,12 +80,24 @@ cli/
 │   │   │   │   ├── resource.ts
 │   │   │   │   ├── api.ts
 │   │   │   │   └── index.ts
+│   │   │   ├── connector/
+│   │   │   │   ├── schema.ts
+│   │   │   │   ├── config.ts
+│   │   │   │   ├── resource.ts
+│   │   │   │   ├── api.ts
+│   │   │   │   ├── push.ts
+│   │   │   │   ├── oauth.ts
+│   │   │   │   └── index.ts
 │   │   │   └── index.ts
 │   │   ├── site/                 # Site deployment (NOT a Resource)
 │   │   │   ├── schema.ts         # DeployResponse Zod schema
 │   │   │   ├── config.ts         # getSiteFilePaths() - glob files for validation
 │   │   │   ├── api.ts            # uploadSite() - reads archive, sends to API
 │   │   │   ├── deploy.ts         # deploySite() - validates, creates tar.gz, uploads
+│   │   │   └── index.ts
+│   │   ├── types/                # TypeScript type generation
+│   │   │   ├── generator.ts      # generateTypesFile() - creates types.d.ts
+│   │   │   ├── update-project.ts # updateProjectConfig() - updates tsconfig.json
 │   │   │   └── index.ts
 │   │   ├── utils/
 │   │   │   ├── fs.ts             # File system utilities
@@ -105,6 +121,7 @@ cli/
 │       │   │   ├── create.ts
 │       │   │   ├── dashboard.ts
 │       │   │   ├── deploy.ts     # Unified deploy command
+│       │   │   ├── eject.ts      # Download existing project code
 │       │   │   └── link.ts
 │       │   ├── entities/
 │       │   │   └── push.ts
@@ -112,10 +129,16 @@ cli/
 │       │   │   ├── index.ts      # getAgentsCommand(context) - parent command
 │       │   │   ├── pull.ts
 │       │   │   └── push.ts
+│       │   ├── connectors/
+│       │   │   ├── index.ts      # getConnectorsCommand(context) - parent command
+│       │   │   └── push.ts
 │       │   ├── functions/
 │       │   │   └── deploy.ts
-│       │   └── site/
-│       │       └── deploy.ts
+│       │   ├── site/
+│       │   │   └── deploy.ts
+│       │   └── types/
+│       │       ├── index.ts      # getTypesCommand(context) - parent command
+│       │       └── generate.ts   # getTypesGenerateCommand(context) factory
 │       ├── telemetry/            # Error reporting and telemetry
 │       │   ├── consts.ts         # PostHog API key, env var names
 │       │   ├── posthog.ts        # PostHog client singleton
@@ -301,6 +324,35 @@ The `base44Client` automatically handles token refresh:
 1. Before each request, checks if token is expired
 2. If expired, refreshes token and saves new tokens
 3. On 401 response, attempts refresh and retries once
+
+### API Response Transformation (snake_case → camelCase)
+
+The Base44 API returns snake_case keys (e.g., `user_description`, `is_managed_source_code`), but the CLI codebase uses camelCase. Use Zod's `.transform()` to convert API responses:
+
+```typescript
+// In schema.ts - define schema with snake_case, transform to camelCase
+export const ProjectSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    user_description: z.string().optional().nullable(),
+    is_managed_source_code: z.boolean().optional(),
+  })
+  .transform((data) => ({
+    id: data.id,
+    name: data.name,
+    userDescription: data.user_description,
+    isManagedSourceCode: data.is_managed_source_code,
+  }));
+
+export type Project = z.infer<typeof ProjectSchema>;
+```
+
+**Important**: 
+- The `z.infer<typeof Schema>` type will be the **transformed** type (camelCase)
+- Test mocks should use **snake_case** (matching the real API), and Zod handles the transformation
+
+See `src/core/auth/schema.ts` and `src/core/site/schema.ts` for more examples.
 
 ## Resource Pattern
 
@@ -522,21 +574,6 @@ export async function myApiFunction(data: MyData): Promise<MyResponse> {
 }
 ```
 
-For status-specific handling (e.g., 428 for delete conflicts):
-
-```typescript
-import { HTTPError } from "ky";
-
-try {
-  response = await appClient.put("endpoint", { json: data });
-} catch (error) {
-  if (error instanceof HTTPError && error.response.status === 428) {
-    throw new ApiError("Cannot delete: resource has dependencies", { statusCode: 428, cause: error });
-  }
-  throw await ApiError.fromHttpError(error, "performing action");
-}
-```
-
 ### SchemaValidationError with Zod
 
 `SchemaValidationError` requires a context message and a `ZodError`. It formats the error automatically using `z.prettifyError()`:
@@ -582,6 +619,7 @@ When an error is thrown, the CLI displays:
 | `FILE_NOT_FOUND`   | `FileNotFoundError`     | File doesn't exist                    |
 | `FILE_READ_ERROR`  | `FileReadError`         | Can't read/write file                 |
 | `INTERNAL_ERROR`   | `InternalError`         | Unexpected error                      |
+| `TYPE_GENERATION_ERROR` | `TypeGenerationError` | Type generation failed for entity |
 
 ### CLIExitError (Special Case)
 
@@ -645,7 +683,7 @@ Set the environment variable: `BASE44_DISABLE_TELEMETRY=1`
 
 ## Important Rules
 
-1. **npm only** - Never use yarn
+1. **Bun for development** - Use `bun` commands (not npm/yarn) for install, test, build during development
 2. **Zod validation** - Required for all external data (API responses, config files)
 3. **@clack/prompts** - For all user interaction (prompts, spinners, logs)
 4. **ES Modules** - Use `.js` extensions in imports
@@ -666,12 +704,14 @@ Set the environment variable: `BASE44_DISABLE_TELEMETRY=1`
 ## Development
 
 ```bash
-npm run build      # tsdown - bundles to dist/index.js
-npm run typecheck  # tsc --noEmit - type checking only
-npm run dev        # runs ./bin/dev.js (tsx for direct TypeScript execution)
-npm run start      # runs ./bin/run.js (production, requires build first)
-npm test           # vitest
-npm run lint       # eslint
+bun install        # Install dependencies
+bun run build      # bun build - bundles to dist/index.js + copies templates
+bun run typecheck  # tsc --noEmit - type checking only
+bun run dev        # runs ./bin/dev.ts (Bun runs TypeScript directly)
+bun run start      # runs ./bin/run.js (production, requires build first)
+bun run test       # Run tests with vitest (note: use `bun run test`, not `bun test`)
+bun run lint       # Biome - linting, formatting, and import organization
+bun run lint:fix   # Biome - auto-fix lint and format issues
 ```
 
 ### Debugging
@@ -688,12 +728,13 @@ The CLI uses a split architecture for better development experience:
 
 **Production** (`./bin/run.js`):
 - Used when installed via npm (`base44` command)
+- Uses `#!/usr/bin/env node` shebang for Node.js compatibility
 - Imports from bundled `dist/index.js`
-- Requires `npm run build` first
+- Requires `bun run build` first
 
-**Development** (`./bin/dev.js`):
-- Used during development (`npm run dev`)
-- Uses `tsx` shebang to run TypeScript directly from `src/cli/index.ts`
+**Development** (`./bin/dev.ts`):
+- Used during development (`bun run dev`)
+- Uses `#!/usr/bin/env bun` shebang to run TypeScript directly
 - No build step required - changes are reflected immediately
 
 **CLI Module** (`src/cli/`):
@@ -712,9 +753,10 @@ The CLI uses a split architecture for better development experience:
 6. Telemetry can be disabled via `BASE44_DISABLE_TELEMETRY=1` environment variable
 7. Telemetry includes `error_code` and `is_user_error` properties for all errors
 
-### Node.js Version
+### Prerequisites
 
-This project requires Node.js >= 20.19.0. A `.node-version` file is provided for fnm/nodenv.
+- **Bun**: Install via `curl -fsSL https://bun.sh/install | bash`
+- **Node.js >= 20.19.0**: Still needed for npm publishing (`.node-version` file provided)
 
 ### CLI Utilities
 
@@ -739,7 +781,7 @@ await runTask("Installing...", async () => {
 
 ## Testing
 
-**Build before testing**: Tests import the bundled `dist/index.js`, so run `npm run build && npm test`.
+**Build before testing**: Tests import the bundled `dist/index.js`, so run `bun run build && bun run test`.
 
 ### Test Structure
 
@@ -830,6 +872,8 @@ t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
 t.api.mockAgentsFetch({ items: [], total: 0 });
 t.api.mockSiteDeploy({ app_url: "https://app.base44.app" });
 t.api.mockCreateApp({ id: "app-id", name: "App" });
+t.api.mockListProjects([{ id: "...", name: "...", is_managed_source_code: true }]);
+t.api.mockProjectEject(tarContentAsUint8Array);
 t.api.mockDeviceCode({ device_code: "...", user_code: "...", ... });
 t.api.mockToken({ access_token: "...", refresh_token: "...", ... });
 t.api.mockUserInfo({ email: "...", name: "..." });
@@ -841,9 +885,55 @@ t.api.mockAgentsPushError({ status: 401, body: { error: "..." } });
 t.api.mockSiteDeployError({ status: 413, body: { error: "..." } });
 ```
 
+**Note**: API mocks use **snake_case** keys (e.g., `is_managed_source_code`) to match the real API. The CLI code uses camelCase after Zod transformation.
+
+### Test Overrides (`BASE44_CLI_TEST_OVERRIDES`)
+
+The CLI uses a centralized JSON-based override mechanism for tests. When adding new testable behaviors that need mocking, **extend this existing mechanism** rather than creating new environment variables.
+
+**Current overrides:**
+- `appConfig` - Mock app configuration (id, projectRoot)
+- `latestVersion` - Mock version check response (string for newer version, null for no update)
+
+**Adding new overrides:**
+
+1. Add the field to `TestOverrides` interface in `CLITestkit.ts`:
+```typescript
+interface TestOverrides {
+  appConfig?: { id: string; projectRoot: string };
+  latestVersion?: string | null;
+  myNewOverride?: MyType;  // Add here
+}
+```
+
+2. Add a `given*` method to `CLITestkit`:
+```typescript
+givenMyOverride(value: MyType): void {
+  this.testOverrides.myNewOverride = value;
+}
+```
+
+3. Expose it in `testkit/index.ts` `TestContext` interface and implementation.
+
+4. Read the override in your source code:
+```typescript
+function getTestOverride(): MyType | undefined {
+  const overrides = process.env.BASE44_CLI_TEST_OVERRIDES;
+  if (!overrides) return undefined;
+  try {
+    return JSON.parse(overrides).myNewOverride;
+  } catch {
+    return undefined;
+  }
+}
+```
+
+**Why not vi.mock()?** Tests run against the bundled `dist/index.js` where path aliases are resolved. `vi.mock("@/some/path.js")` won't match the bundled code.
+
 ### Testing Rules
 
-1. **Build first** - Run `npm run build` before `npm test`
+1. **Build first** - Run `bun run build` before `bun test`
 2. **Use fixtures** - Don't create project structures in tests
 3. **Fixtures need `.app.jsonc`** - Add `base44/.app.jsonc` with `{ "id": "test-app-id" }`
 4. **Interactive prompts can't be tested** - Only test via non-interactive flags
+5. **Use test overrides** - Extend `BASE44_CLI_TEST_OVERRIDES` for new testable behaviors; don't create new env vars

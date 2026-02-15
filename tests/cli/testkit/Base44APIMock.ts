@@ -1,12 +1,12 @@
 import type { RequestHandler } from "msw";
-import { http, HttpResponse } from "msw";
+import { HttpResponse, http } from "msw";
 import { mswServer } from "./index.js";
 
 const BASE_URL = "https://app.base44.com";
 
 // ─── RESPONSE TYPES ──────────────────────────────────────────
 
-export interface DeviceCodeResponse {
+interface DeviceCodeResponse {
   device_code: string;
   user_code: string;
   verification_uri: string;
@@ -14,51 +14,89 @@ export interface DeviceCodeResponse {
   interval: number;
 }
 
-export interface TokenResponse {
+interface TokenResponse {
   access_token: string;
   refresh_token: string;
   expires_in: number;
   token_type: string;
 }
 
-export interface UserInfoResponse {
+interface UserInfoResponse {
   email: string;
   name?: string;
 }
 
-export interface EntitiesPushResponse {
+interface EntitiesPushResponse {
   created: string[];
   updated: string[];
   deleted: string[];
 }
 
-export interface FunctionsPushResponse {
+interface FunctionsPushResponse {
   deployed: string[];
   deleted: string[];
   errors: Array<{ name: string; message: string }> | null;
 }
 
-export interface SiteDeployResponse {
+interface SiteDeployResponse {
   app_url: string;
 }
 
-export interface AgentsPushResponse {
+interface SiteUrlResponse {
+  url: string;
+}
+
+interface AgentsPushResponse {
   created: string[];
   updated: string[];
   deleted: string[];
 }
 
-export interface AgentsFetchResponse {
+interface AgentsFetchResponse {
   items: Array<{ name: string; [key: string]: unknown }>;
   total: number;
 }
 
-export interface CreateAppResponse {
+interface ConnectorsListResponse {
+  integrations: Array<{
+    integration_type: string;
+    status: string;
+    scopes: string[];
+    user_email?: string;
+  }>;
+}
+
+interface ConnectorSetResponse {
+  redirect_url: string | null;
+  connection_id: string | null;
+  already_authorized: boolean;
+  error?: "different_user";
+  error_message?: string;
+  other_user_email?: string;
+}
+
+interface ConnectorOAuthStatusResponse {
+  status: "ACTIVE" | "FAILED" | "PENDING";
+}
+
+interface ConnectorRemoveResponse {
+  status: "removed";
+  integration_type: string;
+}
+
+interface CreateAppResponse {
   id: string;
   name: string;
 }
 
-export interface ErrorResponse {
+interface ListProjectsResponse {
+  id: string;
+  name: string;
+  user_description?: string | null;
+  is_managed_source_code?: boolean;
+}
+
+interface ErrorResponse {
   status: number;
   body?: unknown;
 }
@@ -92,7 +130,9 @@ export class Base44APIMock {
   /** Mock POST /oauth/device/code - Start device authorization flow */
   mockDeviceCode(response: DeviceCodeResponse): this {
     this.handlers.push(
-      http.post(`${BASE_URL}/oauth/device/code`, () => HttpResponse.json(response))
+      http.post(`${BASE_URL}/oauth/device/code`, () =>
+        HttpResponse.json(response),
+      ),
     );
     return this;
   }
@@ -100,7 +140,7 @@ export class Base44APIMock {
   /** Mock POST /oauth/token - Exchange code for tokens or refresh */
   mockToken(response: TokenResponse): this {
     this.handlers.push(
-      http.post(`${BASE_URL}/oauth/token`, () => HttpResponse.json(response))
+      http.post(`${BASE_URL}/oauth/token`, () => HttpResponse.json(response)),
     );
     return this;
   }
@@ -108,7 +148,7 @@ export class Base44APIMock {
   /** Mock GET /oauth/userinfo - Get authenticated user info */
   mockUserInfo(response: UserInfoResponse): this {
     this.handlers.push(
-      http.get(`${BASE_URL}/oauth/userinfo`, () => HttpResponse.json(response))
+      http.get(`${BASE_URL}/oauth/userinfo`, () => HttpResponse.json(response)),
     );
     return this;
   }
@@ -119,8 +159,8 @@ export class Base44APIMock {
   mockEntitiesPush(response: EntitiesPushResponse): this {
     this.handlers.push(
       http.put(`${BASE_URL}/api/apps/${this.appId}/entity-schemas`, () =>
-        HttpResponse.json(response)
-      )
+        HttpResponse.json(response),
+      ),
     );
     return this;
   }
@@ -129,8 +169,8 @@ export class Base44APIMock {
   mockFunctionsPush(response: FunctionsPushResponse): this {
     this.handlers.push(
       http.put(`${BASE_URL}/api/apps/${this.appId}/backend-functions`, () =>
-        HttpResponse.json(response)
-      )
+        HttpResponse.json(response),
+      ),
     );
     return this;
   }
@@ -139,8 +179,19 @@ export class Base44APIMock {
   mockSiteDeploy(response: SiteDeployResponse): this {
     this.handlers.push(
       http.post(`${BASE_URL}/api/apps/${this.appId}/deploy-dist`, () =>
-        HttpResponse.json(response)
-      )
+        HttpResponse.json(response),
+      ),
+    );
+    return this;
+  }
+
+  /** Mock GET /api/apps/platform/{appId}/published-url - Get site URL */
+  mockSiteUrl(response: SiteUrlResponse): this {
+    this.handlers.push(
+      http.get(
+        `${BASE_URL}/api/apps/platform/${this.appId}/published-url`,
+        () => HttpResponse.json(response),
+      ),
     );
     return this;
   }
@@ -149,8 +200,8 @@ export class Base44APIMock {
   mockAgentsPush(response: AgentsPushResponse): this {
     this.handlers.push(
       http.put(`${BASE_URL}/api/apps/${this.appId}/agent-configs`, () =>
-        HttpResponse.json(response)
-      )
+        HttpResponse.json(response),
+      ),
     );
     return this;
   }
@@ -159,8 +210,58 @@ export class Base44APIMock {
   mockAgentsFetch(response: AgentsFetchResponse): this {
     this.handlers.push(
       http.get(`${BASE_URL}/api/apps/${this.appId}/agent-configs`, () =>
-        HttpResponse.json(response)
-      )
+        HttpResponse.json(response),
+      ),
+    );
+    return this;
+  }
+
+  // ─── CONNECTOR ENDPOINTS ──────────────────────────────────
+
+  /** Mock GET /api/apps/{appId}/external-auth/list - List connectors */
+  mockConnectorsList(response: ConnectorsListResponse): this {
+    this.handlers.push(
+      http.get(`${BASE_URL}/api/apps/${this.appId}/external-auth/list`, () =>
+        HttpResponse.json(response),
+      ),
+    );
+    return this;
+  }
+
+  /** Mock PUT /api/apps/{appId}/external-auth/integrations/{type} - Set connector */
+  mockConnectorSet(response: ConnectorSetResponse): this {
+    this.handlers.push(
+      http.put(
+        `${BASE_URL}/api/apps/${this.appId}/external-auth/integrations/:type`,
+        () =>
+          HttpResponse.json({
+            error: null,
+            error_message: null,
+            other_user_email: null,
+            ...response,
+          }),
+      ),
+    );
+    return this;
+  }
+
+  /** Mock GET /api/apps/{appId}/external-auth/status - Get OAuth status */
+  mockConnectorOAuthStatus(response: ConnectorOAuthStatusResponse): this {
+    this.handlers.push(
+      http.get(`${BASE_URL}/api/apps/${this.appId}/external-auth/status`, () =>
+        HttpResponse.json(response),
+      ),
+    );
+    return this;
+  }
+
+  /** Mock DELETE /api/apps/{appId}/external-auth/integrations/{type}/remove */
+  mockConnectorRemove(response: ConnectorRemoveResponse): this {
+    this.handlers.push(
+      http.delete(
+        `${BASE_URL}/api/apps/${this.appId}/external-auth/integrations/:type/remove`,
+        () => HttpResponse.json(response),
+      ),
     );
     return this;
   }
@@ -170,7 +271,29 @@ export class Base44APIMock {
   /** Mock POST /api/apps - Create new app */
   mockCreateApp(response: CreateAppResponse): this {
     this.handlers.push(
-      http.post(`${BASE_URL}/api/apps`, () => HttpResponse.json(response))
+      http.post(`${BASE_URL}/api/apps`, () => HttpResponse.json(response)),
+    );
+    return this;
+  }
+
+  /** Mock GET /api/apps - List projects */
+  mockListProjects(response: ListProjectsResponse[]): this {
+    this.handlers.push(
+      http.get(`${BASE_URL}/api/apps`, () => HttpResponse.json(response)),
+    );
+    return this;
+  }
+
+  /** Mock GET /api/apps/{appId}/eject - Download project as tar */
+  mockProjectEject(tarContent: Uint8Array = new Uint8Array()): this {
+    this.handlers.push(
+      http.get(
+        `${BASE_URL}/api/apps/${this.appId}/eject`,
+        () =>
+          new HttpResponse(tarContent, {
+            headers: { "Content-Type": "application/gzip" },
+          }),
+      ),
     );
     return this;
   }
@@ -178,22 +301,40 @@ export class Base44APIMock {
   // ─── ERROR RESPONSES ────────────────────────────────────────
 
   /** Mock any endpoint to return an error */
-  mockError(method: "get" | "post" | "put" | "delete", path: string, error: ErrorResponse): this {
-    const url = path.startsWith("/") ? `${BASE_URL}${path}` : `${BASE_URL}/${path}`;
+  mockError(
+    method: "get" | "post" | "put" | "delete",
+    path: string,
+    error: ErrorResponse,
+  ): this {
+    const url = path.startsWith("/")
+      ? `${BASE_URL}${path}`
+      : `${BASE_URL}/${path}`;
     this.handlers.push(
-      http[method](url, () => HttpResponse.json(error.body ?? { error: "Error" }, { status: error.status }))
+      http[method](url, () =>
+        HttpResponse.json(error.body ?? { error: "Error" }, {
+          status: error.status,
+        }),
+      ),
     );
     return this;
   }
 
   /** Mock entities push to return an error */
   mockEntitiesPushError(error: ErrorResponse): this {
-    return this.mockError("put", `/api/apps/${this.appId}/entity-schemas`, error);
+    return this.mockError(
+      "put",
+      `/api/apps/${this.appId}/entity-schemas`,
+      error,
+    );
   }
 
   /** Mock functions push to return an error */
   mockFunctionsPushError(error: ErrorResponse): this {
-    return this.mockError("put", `/api/apps/${this.appId}/backend-functions`, error);
+    return this.mockError(
+      "put",
+      `/api/apps/${this.appId}/backend-functions`,
+      error,
+    );
   }
 
   /** Mock site deploy to return an error */
@@ -201,14 +342,31 @@ export class Base44APIMock {
     return this.mockError("post", `/api/apps/${this.appId}/deploy-dist`, error);
   }
 
+  /** Mock site URL to return an error */
+  mockSiteUrlError(error: ErrorResponse): this {
+    return this.mockError(
+      "get",
+      `/api/apps/platform/${this.appId}/published-url`,
+      error,
+    );
+  }
+
   /** Mock agents push to return an error */
   mockAgentsPushError(error: ErrorResponse): this {
-    return this.mockError("put", `/api/apps/${this.appId}/agent-configs`, error);
+    return this.mockError(
+      "put",
+      `/api/apps/${this.appId}/agent-configs`,
+      error,
+    );
   }
 
   /** Mock agents fetch to return an error */
   mockAgentsFetchError(error: ErrorResponse): this {
-    return this.mockError("get", `/api/apps/${this.appId}/agent-configs`, error);
+    return this.mockError(
+      "get",
+      `/api/apps/${this.appId}/agent-configs`,
+      error,
+    );
   }
 
   /** Mock token endpoint to return an error (for auth failure testing) */
@@ -219,6 +377,24 @@ export class Base44APIMock {
   /** Mock userinfo endpoint to return an error */
   mockUserInfoError(error: ErrorResponse): this {
     return this.mockError("get", "/oauth/userinfo", error);
+  }
+
+  /** Mock connectors list to return an error */
+  mockConnectorsListError(error: ErrorResponse): this {
+    return this.mockError(
+      "get",
+      `/api/apps/${this.appId}/external-auth/list`,
+      error,
+    );
+  }
+
+  /** Mock connector set to return an error */
+  mockConnectorSetError(error: ErrorResponse): this {
+    return this.mockError(
+      "put",
+      `/api/apps/${this.appId}/external-auth/integrations/:type`,
+      error,
+    );
   }
 
   // ─── INTERNAL ──────────────────────────────────────────────

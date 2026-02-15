@@ -29,7 +29,6 @@ packages/*/dist/
 .pnp.*
 
 # IDE
-.vscode/
 .idea/
 *.swp
 *.swo
@@ -79,3 +78,5 @@ coverage/
 *.seed
 *.pid.lock
 
+# Worktrees
+.worktrees/

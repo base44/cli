@@ -1,15 +1,19 @@
 import {
+  access,
+  copyFile as fsCopyFile,
   readFile as fsReadFile,
   writeFile as fsWriteFile,
-  copyFile as fsCopyFile,
   mkdir,
-  unlink,
-  access,
   readdir,
+  unlink,
 } from "node:fs/promises";
 import { dirname } from "node:path";
 import JSON5 from "json5";
-import { FileNotFoundError, FileReadError, ConfigInvalidError } from "@/core/errors.js";
+import {
+  ConfigInvalidError,
+  FileNotFoundError,
+  FileReadError,
+} from "@/core/errors.js";
 
 export async function pathExists(path: string): Promise<boolean> {
   try {
@@ -22,7 +26,7 @@ export async function pathExists(path: string): Promise<boolean> {
 
 export async function writeFile(
   filePath: string,
-  content: string
+  content: string,
 ): Promise<void> {
   const dir = dirname(filePath);
   if (!(await pathExists(dir))) {
@@ -51,7 +55,7 @@ export async function readFile(filePath: string): Promise<Buffer> {
       `Failed to read file ${filePath}: ${
         error instanceof Error ? error.message : "Unknown error"
       }`,
-      { cause: error instanceof Error ? error : undefined }
+      { cause: error instanceof Error ? error : undefined },
     );
   }
 }
@@ -68,7 +72,7 @@ export async function readTextFile(filePath: string): Promise<string> {
       `Failed to read file ${filePath}: ${
         error instanceof Error ? error.message : "Unknown error"
       }`,
-      { cause: error instanceof Error ? error : undefined }
+      { cause: error instanceof Error ? error : undefined },
     );
   }
 }
@@ -86,21 +90,21 @@ export async function readJsonFile(filePath: string): Promise<unknown> {
       throw new ConfigInvalidError(
         `File contains invalid JSON: ${filePath} (${error.message})`,
         filePath,
-        { cause: error }
+        { cause: error },
       );
     }
     throw new FileReadError(
       `Failed to read file ${filePath}: ${
         error instanceof Error ? error.message : "Unknown error"
       }`,
-      { cause: error instanceof Error ? error : undefined }
+      { cause: error instanceof Error ? error : undefined },
     );
   }
 }
 
 export async function writeJsonFile(
   filePath: string,
-  data: unknown
+  data: unknown,
 ): Promise<void> {
   const dir = dirname(filePath);
   if (!(await pathExists(dir))) {
@@ -120,4 +124,10 @@ export async function deleteFile(filePath: string): Promise<void> {
 export async function isDirEmpty(dir = process.cwd()) {
   const files = await readdir(dir);
   return files.length === 0;
+}
+
+export async function makeDirectory(dirPath: string): Promise<void> {
+  if (!(await pathExists(dirPath))) {
+    await mkdir(dirPath, { recursive: true });
+  }
 }

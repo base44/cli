@@ -51,14 +51,18 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version-file: ".node-version"
-          cache: "npm"
           registry-url: "https://registry.npmjs.org"
 
       - name: Update npm
         run: npm install -g npm@latest
 
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
       - name: Install dependencies
-        run: npm ci
+        run: bun install --frozen-lockfile
 
       - name: Check if version needs to be bumped
         id: check-version
@@ -143,7 +147,16 @@ jobs:
             --allowedTools Bash(git log:*),Bash(gh pr:*),Read(*),Edit(CHANGELOG.md)
 
       - name: Build package
-        run: npm run build
+        run: bun run build
+
+      - name: Upload sourcemaps to PostHog
+        if: github.event.inputs.dry_run == 'false'
+        uses: PostHog/upload-source-maps@v0.4.6
+        with:
+          directory: ./dist/cli
+          env-id: ${{ vars.POSTHOG_PROJECT_ID }}
+          cli-token: ${{ secrets.POSTHOG_CLI_API_KEY }}
+          version: ${{ env.NEW_VERSION }}
 
       - name: Show package info
         run: |
@@ -171,7 +184,7 @@ jobs:
           git config --local user.name "GitHub Action"
           # Re-configure git remote to use the App token for push
           git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
-          git add package.json package-lock.json
+          git add package.json
           # Add CHANGELOG.md only if changelog update was requested
           if [[ "${{ github.event.inputs.update_changelog }}" == "true" ]]; then
             git add CHANGELOG.md
