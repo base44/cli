@@ -96,10 +96,13 @@ async function pushConnectorsAction(): Promise<RunCommandResult> {
     skipPrompt: !!process.env.CI,
   });
 
-  if (needsOAuth.length > 0 && oauthOutcomes.size === 0) {
+  const allAuthorized =
+    oauthOutcomes.size > 0 &&
+    [...oauthOutcomes.values()].every((s) => s === "ACTIVE");
+  if (needsOAuth.length > 0 && !allAuthorized) {
     outroMessage = process.env.CI
       ? "Skipped OAuth in CI. Run 'base44 connectors push' locally or open the links above to authorize."
-      : "Authorization skipped. Run 'base44 connectors push' or open the links above to authorize.";
+      : "Some connectors still require authorization. Run 'base44 connectors push' or open the links above to authorize.";
   }
 
   printSummary(results, oauthOutcomes);

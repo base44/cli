@@ -97,9 +97,12 @@ export async function deployAction(
       skipPrompt: options.yes || !!process.env.CI,
     });
 
-    if (oauthOutcomes.size === 0) {
+    const allAuthorized =
+      oauthOutcomes.size > 0 &&
+      [...oauthOutcomes.values()].every((s) => s === "ACTIVE");
+    if (!allAuthorized) {
       log.info(
-        "To authorize, run 'base44 connectors push' or open the links above in your browser.",
+        "Some connectors still require authorization. Run 'base44 connectors push' or open the links above in your browser.",
       );
     }
   }
