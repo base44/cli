@@ -7,18 +7,22 @@ import { readProjectConfig } from "@/core/index.js";
 import {
   type ConnectorSyncResult,
   type IntegrationType,
-  type ConnectorOAuthStatus,
   pushConnectors,
 } from "@/core/resources/connector/index.js";
-import { filterPendingOAuth, promptOAuthFlows } from "./oauth-prompt.js";
+import {
+  filterPendingOAuth,
+  type OAuthFlowStatus,
+  promptOAuthFlows,
+} from "./oauth-prompt.js";
 
 function printSummary(
   results: ConnectorSyncResult[],
-  oauthOutcomes: Map<IntegrationType, ConnectorOAuthStatus>,
+  oauthOutcomes: Map<IntegrationType, OAuthFlowStatus>,
 ): void {
   const synced: IntegrationType[] = [];
   const added: IntegrationType[] = [];
   const removed: IntegrationType[] = [];
+  const skipped: IntegrationType[] = [];
   const failed: { type: IntegrationType; error?: string }[] = [];
 
   for (const r of results) {
@@ -33,6 +37,8 @@ function printSummary(
     } else if (r.action === "needs_oauth") {
       if (oauthStatus === "ACTIVE") {
         added.push(r.type);
+      } else if (oauthStatus === "SKIPPED") {
+        skipped.push(r.type);
       } else if (oauthStatus === "PENDING") {
         failed.push({ type: r.type, error: "authorization timed out" });
       } else if (oauthStatus === "FAILED") {
@@ -53,6 +59,9 @@ function printSummary(
   }
   if (removed.length > 0) {
     log.info(theme.styles.dim(`Removed: ${removed.join(", ")}`));
+  }
+  if (skipped.length > 0) {
+    log.warn(`Skipped: ${skipped.join(", ")}`);
   }
   for (const r of failed) {
     log.error(`Failed: ${r.type}${r.error ? ` - ${r.error}` : ""}`);

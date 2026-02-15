@@ -1,13 +1,18 @@
-import { confirm, isCancel, log } from "@clack/prompts";
+import { confirm, isCancel, log, spinner } from "@clack/prompts";
 import open from "open";
 import pWaitFor, { TimeoutError } from "p-wait-for";
-import { runTask, theme } from "@/cli/utils/index.js";
+import { theme } from "@/cli/utils/index.js";
 import type {
   ConnectorOAuthStatus,
   ConnectorSyncResult,
   IntegrationType,
 } from "@/core/resources/connector/index.js";
 import { getOAuthStatus } from "@/core/resources/connector/index.js";
+
+const POLL_INTERVAL_MS = 2000;
+const POLL_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
+
+export type OAuthFlowStatus = ConnectorOAuthStatus | "SKIPPED";
 
 type PendingOAuthResult = ConnectorSyncResult & {
   redirectUrl: string;
@@ -28,6 +33,72 @@ interface OAuthPromptOptions {
 }
 
 /**
+ * Clack's block() puts stdin in raw mode where Ctrl+C calls process.exit(0)
+ * directly instead of emitting SIGINT. We override process.exit temporarily
+ * so Ctrl+C/Esc skips the current connector instead of killing the process.
+ */
+async function runOAuthFlowWithSkip(
+  connector: PendingOAuthResult,
+): Promise<OAuthFlowStatus> {
+  await open(connector.redirectUrl);
+
+  // Mutated inside the pWaitFor callback — use `as` to prevent TS narrowing
+  let finalStatus = "PENDING" as OAuthFlowStatus;
+  let skipped = false;
+
+  const s = spinner();
+
+  const originalExit = process.exit;
+  process.exit = (() => {
+    skipped = true;
+    s.stop(`${connector.type} skipped`);
+  }) as unknown as typeof process.exit;
+
+  s.start(`Waiting for ${connector.type} authorization... (Esc to skip)`);
+
+  try {
+    await pWaitFor(
+      async () => {
+        if (skipped) {
+          finalStatus = "SKIPPED";
+          return true;
+        }
+        const response = await getOAuthStatus(
+          connector.type,
+          connector.connectionId,
+        );
+        finalStatus = response.status;
+        return response.status !== "PENDING";
+      },
+      {
+        interval: POLL_INTERVAL_MS,
+        timeout: POLL_TIMEOUT_MS,
+      },
+    );
+  } catch (err) {
+    if (err instanceof TimeoutError) {
+      finalStatus = "PENDING";
+    } else {
+      throw err;
+    }
+  } finally {
+    process.exit = originalExit;
+
+    if (!skipped) {
+      if (finalStatus === "ACTIVE") {
+        s.stop(`${connector.type} authorization complete`);
+      } else if (finalStatus === "FAILED") {
+        s.stop(`${connector.type} authorization failed`);
+      } else {
+        s.stop(`${connector.type} authorization timed out`);
+      }
+    }
+  }
+
+  return finalStatus;
+}
+
+/**
  * Prompt the user to authorize connectors that need OAuth.
  * Returns a map of connector type → final OAuth status for each connector
  * that was processed. An empty map means either nothing needed OAuth or
@@ -36,8 +107,8 @@ interface OAuthPromptOptions {
 export async function promptOAuthFlows(
   pending: PendingOAuthResult[],
   options?: OAuthPromptOptions,
-): Promise<Map<IntegrationType, ConnectorOAuthStatus>> {
-  const outcomes = new Map<IntegrationType, ConnectorOAuthStatus>();
+): Promise<Map<IntegrationType, OAuthFlowStatus>> {
+  const outcomes = new Map<IntegrationType, OAuthFlowStatus>();
 
   if (pending.length === 0) {
     return outcomes;
@@ -63,42 +134,16 @@ export async function promptOAuthFlows(
   }
 
   for (const connector of pending) {
-    log.info(`\nOpening browser for ${connector.type}...`);
-    await open(connector.redirectUrl);
-
-    let finalStatus: ConnectorOAuthStatus = "PENDING";
-
-    await runTask(
-      `Waiting for ${connector.type} authorization...`,
-      async () => {
-        await pWaitFor(
-          async () => {
-            const response = await getOAuthStatus(
-              connector.type,
-              connector.connectionId,
-            );
-            finalStatus = response.status;
-            return response.status !== "PENDING";
-          },
-          {
-            interval: 2000,
-            timeout: 2 * 60 * 1000,
-          },
-        );
-      },
-      {
-        successMessage: `${connector.type} authorization complete`,
-        errorMessage: `${connector.type} authorization failed`,
-      },
-    ).catch((err) => {
-      if (err instanceof TimeoutError) {
-        finalStatus = "PENDING";
-      } else {
-        throw err;
-      }
-    });
-
-    outcomes.set(connector.type, finalStatus);
+    try {
+      log.info(`\nOpening browser for ${connector.type}...`);
+      const status = await runOAuthFlowWithSkip(connector);
+      outcomes.set(connector.type, status);
+    } catch (err) {
+      log.error(
+        `Failed to authorize ${connector.type}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      outcomes.set(connector.type, "FAILED");
+    }
   }
 
   return outcomes;
