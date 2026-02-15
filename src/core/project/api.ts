@@ -47,6 +47,7 @@ export async function listProjects(): Promise<ProjectsResponse> {
       searchParams: {
         sort: "-updated_date",
         fields: "id,name,user_description,is_managed_source_code",
+        limit: 50,
       },
     });
   } catch (error) {
