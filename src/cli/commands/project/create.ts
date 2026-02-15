@@ -31,6 +31,7 @@ interface CreateOptions {
   template?: string;
   deploy?: boolean;
   skills?: boolean;
+  [key: string]: unknown;
 }
 
 async function getTemplateById(templateId: string): Promise<Template> {
@@ -45,8 +46,10 @@ async function getTemplateById(templateId: string): Promise<Template> {
   return template;
 }
 
-function validateNonInteractiveFlags(command: Command): void {
-  const { path } = command.opts<CreateOptions>();
+function validateNonInteractiveFlags(
+  command: Command<[string | undefined], CreateOptions>,
+): void {
+  const { path } = command.opts();
 
   if (path && !command.args.length) {
     command.error("Non-interactive mode requires all flags: --name, --path");
@@ -279,7 +282,9 @@ async function executeCreate({
   return { outroMessage: "Your project is set up and ready to use" };
 }
 
-export function getCreateCommand(context: CLIContext): Command {
+export function getCreateCommand(
+  context: CLIContext,
+): Command<[string | undefined], CreateOptions> {
   return new Command("create")
     .description("Create a new Base44 project")
     .addArgument(new Argument("name", "Project name").argOptional())

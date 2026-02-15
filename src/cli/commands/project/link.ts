@@ -31,12 +31,13 @@ interface LinkOptions {
   name?: string;
   description?: string;
   projectId?: string;
+  [key: string]: unknown;
 }
 
 type LinkAction = "create" | "choose";
 
-function validateNonInteractiveFlags(command: Command): void {
-  const { create, name, projectId } = command.opts<LinkOptions>();
+function validateNonInteractiveFlags(command: Command<[], LinkOptions>): void {
+  const { create, name, projectId } = command.opts();
 
   if (create && projectId) {
     command.error("--create and --projectId cannot be used together");
@@ -245,7 +246,7 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
   return { outroMessage: "Project linked" };
 }
 
-export function getLinkCommand(context: CLIContext): Command {
+export function getLinkCommand(context: CLIContext): Command<[], LinkOptions> {
   return new Command("link")
     .description(
       "Link a local project to a Base44 project (create new or link existing)",
