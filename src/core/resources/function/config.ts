@@ -1,4 +1,4 @@
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { globby } from "globby";
 import { FUNCTION_CONFIG_FILE } from "@/core/consts.js";
 import { FileNotFoundError, SchemaValidationError } from "@/core/errors.js";
@@ -56,9 +56,37 @@ export async function readAllFunctions(
     absolute: true,
   });
 
-  const functions = await Promise.all(
+  const indexFiles = await globby(`*/index.{js,ts}`, {
+    cwd: functionsDir,
+    absolute: true,
+  });
+
+  const configFilesDirs = new Set(configFiles.map(f => dirname(f)));
+
+  const indexFilesDirs = indexFiles.filter(
+    indexFile => !configFilesDirs.has(dirname(indexFile))
+  );
+
+  const functionsFromConfig = await Promise.all(
     configFiles.map((configPath) => readFunction(configPath)),
   );
+
+  const functionsWithoutConfig = await Promise.all(
+    indexFilesDirs.map(async (functionFile) => {
+      const functionDir = dirname(functionFile);
+      const filePaths = await globby("*.{js,ts,json}", {
+        cwd: functionDir,
+        absolute: true,
+      });
+
+      const name = basename(functionDir);
+      const entry = basename(functionFile);
+
+      return { name, entry, entryPath: functionFile, filePaths };
+    }),
+  );
+
+  const functions = [...functionsFromConfig, ...functionsWithoutConfig];
 
   const names = new Set<string>();
   for (const fn of functions) {
