@@ -37,10 +37,6 @@ export async function listConnectors(): Promise<ListConnectorsResponse> {
   return result.data;
 }
 
-export async function fetchConnectors(): Promise<ListConnectorsResponse> {
-  return await listConnectors();
-}
-
 export async function setConnector(
   integrationType: IntegrationType,
   scopes: string[],

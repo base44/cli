@@ -8,17 +8,8 @@ import {
   readAllConnectors,
   writeConnectors,
 } from "../../src/core/resources/connector/config.js";
-import {
-  type OAuthFlowParams,
-  runOAuthFlow,
-} from "../../src/core/resources/connector/oauth.js";
 import { pushConnectors } from "../../src/core/resources/connector/push.js";
-import {
-  type ConnectorResource,
-  ConnectorResourceSchema,
-  IntegrationTypeSchema,
-  type UpstreamConnector,
-} from "../../src/core/resources/connector/schema.js";
+import type { ConnectorResource } from "../../src/core/resources/connector/schema.js";
 
 vi.mock("../../src/core/resources/connector/api.js");
 
@@ -77,23 +68,20 @@ describe("writeConnectors", () => {
     const tmpDir = await mkdtemp(join(tmpdir(), "connectors-test-"));
 
     try {
-      const remoteConnectors: UpstreamConnector[] = [
+      const remoteConnectors = [
         {
-          integration_type: "gmail",
-          status: "active",
+          integrationType: "gmail",
           scopes: ["https://mail.google.com/"],
-          user_email: "test@example.com",
         },
         {
-          integration_type: "slack",
-          status: "active",
+          integrationType: "slack",
           scopes: ["chat:write", "channels:read"],
         },
       ];
 
       const { written, deleted } = await writeConnectors(
         tmpDir,
-        remoteConnectors
+        remoteConnectors,
       );
 
       expect(written).toEqual(["gmail", "slack"]);
@@ -116,15 +104,13 @@ describe("writeConnectors", () => {
     const tmpDir = await mkdtemp(join(tmpdir(), "connectors-test-"));
 
     try {
-      const initialConnectors: UpstreamConnector[] = [
+      const initialConnectors = [
         {
-          integration_type: "gmail",
-          status: "active",
+          integrationType: "gmail",
           scopes: ["https://mail.google.com/"],
         },
         {
-          integration_type: "slack",
-          status: "active",
+          integrationType: "slack",
           scopes: ["chat:write"],
         },
       ];
@@ -132,8 +118,7 @@ describe("writeConnectors", () => {
 
       const { written, deleted } = await writeConnectors(tmpDir, [
         {
-          integration_type: "gmail",
-          status: "active",
+          integrationType: "gmail",
           scopes: ["https://mail.google.com/"],
         },
       ]);
@@ -153,10 +138,9 @@ describe("writeConnectors", () => {
     const tmpDir = await mkdtemp(join(tmpdir(), "connectors-test-"));
 
     try {
-      const initialConnectors: UpstreamConnector[] = [
+      const initialConnectors = [
         {
-          integration_type: "gmail",
-          status: "active",
+          integrationType: "gmail",
           scopes: ["https://mail.google.com/"],
         },
       ];
@@ -180,20 +164,19 @@ describe("writeConnectors", () => {
     try {
       await writeFile(
         join(tmpDir, "my-custom-slack.jsonc"),
-        JSON.stringify({ type: "slack", scopes: ["chat:write"] })
+        JSON.stringify({ type: "slack", scopes: ["chat:write"] }),
       );
 
-      const remoteConnectors: UpstreamConnector[] = [
+      const remoteConnectors = [
         {
-          integration_type: "slack",
-          status: "active",
+          integrationType: "slack",
           scopes: ["chat:write", "channels:read"],
         },
       ];
 
       const { written, deleted } = await writeConnectors(
         tmpDir,
-        remoteConnectors
+        remoteConnectors,
       );
 
       expect(written).toEqual(["slack"]);
@@ -203,7 +186,7 @@ describe("writeConnectors", () => {
       expect(files).toEqual(["my-custom-slack.jsonc"]);
 
       const content = JSON.parse(
-        await readFile(join(tmpDir, "my-custom-slack.jsonc"), "utf-8")
+        await readFile(join(tmpDir, "my-custom-slack.jsonc"), "utf-8"),
       );
       expect(content.scopes).toEqual(["chat:write", "channels:read"]);
     } finally {
@@ -217,24 +200,23 @@ describe("writeConnectors", () => {
     try {
       await writeFile(
         join(tmpDir, "my-slack.jsonc"),
-        JSON.stringify({ type: "slack", scopes: ["chat:write"] })
+        JSON.stringify({ type: "slack", scopes: ["chat:write"] }),
       );
       await writeFile(
         join(tmpDir, "email-connector.jsonc"),
-        JSON.stringify({ type: "gmail", scopes: ["https://mail.google.com/"] })
+        JSON.stringify({ type: "gmail", scopes: ["https://mail.google.com/"] }),
       );
 
-      const remoteConnectors: UpstreamConnector[] = [
+      const remoteConnectors = [
         {
-          integration_type: "gmail",
-          status: "active",
+          integrationType: "gmail",
           scopes: ["https://mail.google.com/"],
         },
       ];
 
       const { written, deleted } = await writeConnectors(
         tmpDir,
-        remoteConnectors
+        remoteConnectors,
       );
 
       expect(written).toEqual([]);
@@ -254,17 +236,16 @@ describe("writeConnectors", () => {
       const fileContent = `// My Slack connector config\n{\n  "type": "slack",\n  "scopes": ["chat:write"]\n}\n`;
       await writeFile(join(tmpDir, "slack.jsonc"), fileContent);
 
-      const remoteConnectors: UpstreamConnector[] = [
+      const remoteConnectors = [
         {
-          integration_type: "slack",
-          status: "active",
+          integrationType: "slack",
           scopes: ["chat:write"],
         },
       ];
 
       const { written, deleted } = await writeConnectors(
         tmpDir,
-        remoteConnectors
+        remoteConnectors,
       );
 
       expect(written).toEqual([]);
@@ -282,17 +263,16 @@ describe("writeConnectors", () => {
     const connectorsDir = join(tmpDir, "connectors");
 
     try {
-      const remoteConnectors: UpstreamConnector[] = [
+      const remoteConnectors = [
         {
-          integration_type: "notion",
-          status: "active",
-          scopes: [],
+          integrationType: "notion",
+          scopes: [] as string[],
         },
       ];
 
       const { written, deleted } = await writeConnectors(
         connectorsDir,
-        remoteConnectors
+        remoteConnectors,
       );
 
       expect(written).toEqual(["notion"]);

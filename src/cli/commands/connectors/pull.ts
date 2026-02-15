@@ -4,7 +4,7 @@ import { Command } from "commander";
 import type { CLIContext } from "@/cli/types.js";
 import { readProjectConfig } from "@/core/index.js";
 import {
-  fetchConnectors,
+  listConnectors,
   writeConnectors,
 } from "@/core/resources/connector/index.js";
 import { runCommand, runTask } from "../../utils/index.js";
@@ -19,12 +19,12 @@ async function pullConnectorsAction(): Promise<RunCommandResult> {
   const remoteConnectors = await runTask(
     "Fetching connectors from Base44",
     async () => {
-      return await fetchConnectors();
+      return await listConnectors();
     },
     {
       successMessage: "Connectors fetched successfully",
       errorMessage: "Failed to fetch connectors",
-    }
+    },
   );
 
   const { written, deleted } = await runTask(
@@ -32,13 +32,13 @@ async function pullConnectorsAction(): Promise<RunCommandResult> {
     async () => {
       return await writeConnectors(
         connectorsDir,
-        remoteConnectors.integrations
+        remoteConnectors.integrations,
       );
     },
     {
       successMessage: "Connector files synced successfully",
       errorMessage: "Failed to sync connector files",
-    }
+    },
   );
 
   if (written.length > 0) {
@@ -59,7 +59,7 @@ async function pullConnectorsAction(): Promise<RunCommandResult> {
 export function getConnectorsPullCommand(context: CLIContext): Command {
   return new Command("pull")
     .description(
-      "Pull connectors from Base44 to local files (replaces all local connector configs)"
+      "Pull connectors from Base44 to local files (replaces all local connector configs)",
     )
     .action(async () => {
       await runCommand(pullConnectorsAction, { requireAuth: true }, context);
