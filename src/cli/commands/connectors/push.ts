@@ -1,35 +1,28 @@
-import { confirm, isCancel, log } from "@clack/prompts";
+import { log } from "@clack/prompts";
 import { Command } from "commander";
-import open from "open";
-import pWaitFor, { TimeoutError } from "p-wait-for";
 import type { CLIContext } from "@/cli/types.js";
 import { runCommand, runTask, theme } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 import { readProjectConfig } from "@/core/index.js";
 import {
-  type ConnectorOAuthStatus,
   type ConnectorSyncResult,
-  getOAuthStatus,
   type IntegrationType,
   pushConnectors,
 } from "@/core/resources/connector/index.js";
-
-type PendingOAuthResult = ConnectorSyncResult & {
-  redirectUrl: string;
-  connectionId: string;
-};
-
-function isPendingOAuth(r: ConnectorSyncResult): r is PendingOAuthResult {
-  return r.action === "needs_oauth" && !!r.redirectUrl && !!r.connectionId;
-}
+import {
+  filterPendingOAuth,
+  type OAuthFlowStatus,
+  promptOAuthFlows,
+} from "./oauth-prompt.js";
 
 function printSummary(
   results: ConnectorSyncResult[],
-  oauthOutcomes: Map<IntegrationType, ConnectorOAuthStatus>,
+  oauthOutcomes: Map<IntegrationType, OAuthFlowStatus>,
 ): void {
   const synced: IntegrationType[] = [];
   const added: IntegrationType[] = [];
   const removed: IntegrationType[] = [];
+  const skipped: IntegrationType[] = [];
   const failed: { type: IntegrationType; error?: string }[] = [];
 
   for (const r of results) {
@@ -44,6 +37,8 @@ function printSummary(
     } else if (r.action === "needs_oauth") {
       if (oauthStatus === "ACTIVE") {
         added.push(r.type);
+      } else if (oauthStatus === "SKIPPED") {
+        skipped.push(r.type);
       } else if (oauthStatus === "PENDING") {
         failed.push({ type: r.type, error: "authorization timed out" });
       } else if (oauthStatus === "FAILED") {
@@ -54,7 +49,6 @@ function printSummary(
     }
   }
 
-  log.info("");
   log.info(theme.styles.bold("Summary:"));
 
   if (synced.length > 0) {
@@ -65,6 +59,9 @@ function printSummary(
   }
   if (removed.length > 0) {
     log.info(theme.styles.dim(`Removed: ${removed.join(", ")}`));
+  }
+  if (skipped.length > 0) {
+    log.warn(`Skipped: ${skipped.join(", ")}`);
   }
   for (const r of failed) {
     log.error(`Failed: ${r.type}${r.error ? ` - ${r.error}` : ""}`);
@@ -92,82 +89,20 @@ async function pushConnectorsAction(): Promise<RunCommandResult> {
     },
   );
 
-  const oauthOutcomes = new Map<IntegrationType, ConnectorOAuthStatus>();
-  const needsOAuth = results.filter(isPendingOAuth);
+  const needsOAuth = filterPendingOAuth(results);
   let outroMessage = "Connectors pushed to Base44";
 
-  if (needsOAuth.length === 0) {
-    printSummary(results, oauthOutcomes);
-    return { outroMessage };
-  }
+  const oauthOutcomes = await promptOAuthFlows(needsOAuth, {
+    skipPrompt: !!process.env.CI,
+  });
 
-  log.warn(
-    `${needsOAuth.length} connector(s) require authorization in your browser:`,
-  );
-  for (const connector of needsOAuth) {
-    log.info(
-      `  '${connector.type}': ${theme.styles.dim(connector.redirectUrl)}`,
-    );
-  }
-
-  const pending = needsOAuth.map((c) => c.type).join(", ");
-
-  if (process.env.CI) {
-    outroMessage = `Skipped OAuth in CI. Pending: ${pending}. Run 'base44 connectors push' locally to authorize.`;
-  } else {
-    const shouldAuth = await confirm({
-      message: "Open browser to authorize now?",
-    });
-
-    if (isCancel(shouldAuth) || !shouldAuth) {
-      outroMessage = `Authorization skipped. Pending: ${pending}. Run 'base44 connectors push' again to complete.`;
-    } else {
-      for (const connector of needsOAuth) {
-        try {
-          log.info(`\nOpening browser for '${connector.type}'...`);
-          await open(connector.redirectUrl);
-
-          let finalStatus: ConnectorOAuthStatus = "PENDING";
-
-          await runTask(
-            `Waiting for '${connector.type}' authorization...`,
-            async () => {
-              await pWaitFor(
-                async () => {
-                  const response = await getOAuthStatus(
-                    connector.type,
-                    connector.connectionId,
-                  );
-                  finalStatus = response.status;
-                  return response.status !== "PENDING";
-                },
-                {
-                  interval: 2000,
-                  timeout: 2 * 60 * 1000,
-                },
-              );
-            },
-            {
-              successMessage: `'${connector.type}' authorization complete`,
-              errorMessage: `'${connector.type}' authorization failed`,
-            },
-          ).catch((err) => {
-            if (err instanceof TimeoutError) {
-              finalStatus = "PENDING";
-            } else {
-              throw err;
-            }
-          });
-
-          oauthOutcomes.set(connector.type, finalStatus);
-        } catch (err) {
-          log.error(
-            `Failed to authorize '${connector.type}': ${err instanceof Error ? err.message : String(err)}`,
-          );
-          oauthOutcomes.set(connector.type, "FAILED");
-        }
-      }
-    }
+  const allAuthorized =
+    oauthOutcomes.size > 0 &&
+    [...oauthOutcomes.values()].every((s) => s === "ACTIVE");
+  if (needsOAuth.length > 0 && !allAuthorized) {
+    outroMessage = process.env.CI
+      ? "Skipped OAuth in CI. Run 'base44 connectors push' locally or open the links above to authorize."
+      : "Some connectors still require authorization. Run 'base44 connectors push' or open the links above to authorize.";
   }
 
   printSummary(results, oauthOutcomes);

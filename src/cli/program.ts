@@ -59,7 +59,7 @@ export function createProgram(context: CLIContext): Command {
   program.addCommand(getSiteCommand(context));
 
   // Register types command
-  program.addCommand(getTypesCommand(context), { hidden: true });
+  program.addCommand(getTypesCommand(context));
 
   // Register development commands
   program.addCommand(getDevCommand(context), { hidden: true });

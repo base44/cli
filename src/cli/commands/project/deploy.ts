@@ -1,5 +1,9 @@
 import { confirm, isCancel, log } from "@clack/prompts";
 import { Command } from "commander";
+import {
+  filterPendingOAuth,
+  promptOAuthFlows,
+} from "@/cli/commands/connectors/oauth-prompt.js";
 import type { CLIContext } from "@/cli/types.js";
 import {
   getDashboardUrl,
@@ -30,7 +34,7 @@ export async function deployAction(
     };
   }
 
-  const { project, entities, functions, agents } = projectData;
+  const { project, entities, functions, agents, connectors } = projectData;
 
   // Build summary of what will be deployed
   const summaryLines: string[] = [];
@@ -47,6 +51,11 @@ export async function deployAction(
   if (agents.length > 0) {
     summaryLines.push(
       `  - ${agents.length} ${agents.length === 1 ? "agent" : "agents"}`,
+    );
+  }
+  if (connectors.length > 0) {
+    summaryLines.push(
+      `  - ${connectors.length} ${connectors.length === 1 ? "connector" : "connectors"}`,
     );
   }
   if (project.site?.outputDirectory) {
@@ -81,6 +90,23 @@ export async function deployAction(
     },
   );
 
+  // Handle connector OAuth flows
+  const needsOAuth = filterPendingOAuth(result.connectorResults ?? []);
+  if (needsOAuth.length > 0) {
+    const oauthOutcomes = await promptOAuthFlows(needsOAuth, {
+      skipPrompt: options.yes || !!process.env.CI,
+    });
+
+    const allAuthorized =
+      oauthOutcomes.size > 0 &&
+      [...oauthOutcomes.values()].every((s) => s === "ACTIVE");
+    if (!allAuthorized) {
+      log.info(
+        "Some connectors still require authorization. Run 'base44 connectors push' or open the links above in your browser.",
+      );
+    }
+  }
+
   log.message(
     `${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl())}`,
   );
@@ -96,7 +122,7 @@ export async function deployAction(
 export function getDeployCommand(context: CLIContext): Command {
   return new Command("deploy")
     .description(
-      "Deploy all project resources (entities, functions, agents, and site)",
+      "Deploy all project resources (entities, functions, agents, connectors, and site)",
     )
     .option("-y, --yes", "Skip confirmation prompt")
     .action(async (options: DeployOptions) => {

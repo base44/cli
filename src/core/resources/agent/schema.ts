@@ -18,14 +18,7 @@ const ToolConfigSchema = z.union([
 ]);
 
 export const AgentConfigSchema = z.looseObject({
-  name: z
-    .string()
-    .regex(
-      /^[a-z0-9_]+$/,
-      "Agent name must be lowercase alphanumeric with underscores",
-    )
-    .min(1)
-    .max(100),
+  name: z.string().trim().min(1).max(100),
   description: z.string().trim().min(1, "Description is required"),
   instructions: z.string().trim().min(1, "Instructions are required"),
   tool_configs: z.array(ToolConfigSchema).optional().default([]),

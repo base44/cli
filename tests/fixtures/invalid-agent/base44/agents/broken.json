@@ -1,4 +1,5 @@
 {
-  "name": "INVALID-NAME!",
-  "description": ""
+  "name": "",
+  "description": "A valid description",
+  "instructions": "Valid instructions"
 }
