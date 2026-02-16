@@ -1,10 +1,3 @@
-<<<<<<< HEAD
-
-import { Command } from "@commander-js/extra-typings";
-
-=======
->>>>>>> origin/main
-
 import { confirm, isCancel, log } from "@clack/prompts";
 import { Command } from "commander";
 import {
@@ -28,6 +21,7 @@ import {
 interface DeployOptions {
   yes?: boolean;
   projectRoot?: string;
+  isNonInteractive?: boolean;
 }
 
 export async function deployAction(
@@ -101,7 +95,7 @@ export async function deployAction(
   const needsOAuth = filterPendingOAuth(result.connectorResults ?? []);
   if (needsOAuth.length > 0) {
     const oauthOutcomes = await promptOAuthFlows(needsOAuth, {
-      skipPrompt: options.yes || !!process.env.CI,
+      skipPrompt: options.yes || options.isNonInteractive,
     });
 
     const allAuthorized =
@@ -134,23 +128,13 @@ export function getDeployCommand(context: CLIContext): Command {
     .option("-y, --yes", "Skip confirmation prompt")
     .action(async (options: DeployOptions) => {
       await runCommand(
-        () => deployAction(options),
+        () =>
+          deployAction({
+            ...options,
+            isNonInteractive: context.isNonInteractive,
+          }),
         { requireAuth: true },
         context,
       );
-    });
-}
-    });
-}
-    });
-}
-    });
-}
-    });
-}
-    });
-}
-    });
-}
     });
 }

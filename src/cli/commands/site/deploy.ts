@@ -1,12 +1,4 @@
 import { resolve } from "node:path";
-
-<<<<<<< HEAD
-
-import { Command } from "@commander-js/extra-typings";
-
-=======
->>>>>>> origin/main
-
 import { confirm, isCancel } from "@clack/prompts";
 import { Command } from "commander";
 import type { CLIContext } from "@/cli/types.js";
@@ -18,6 +10,7 @@ import { deploySite } from "@/core/site/index.js";
 
 interface DeployOptions {
   yes?: boolean;
+  isNonInteractive?: boolean;
 }
 
 async function deployAction(options: DeployOptions): Promise<RunCommandResult> {
@@ -66,7 +59,11 @@ export function getSiteDeployCommand(context: CLIContext): Command {
     .option("-y, --yes", "Skip confirmation prompt")
     .action(async (options: DeployOptions) => {
       await runCommand(
-        () => deployAction(options),
+        () =>
+          deployAction({
+            ...options,
+            isNonInteractive: context.isNonInteractive,
+          }),
         { requireAuth: true },
         context,
       );

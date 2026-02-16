@@ -26,6 +26,7 @@ interface EjectOptions {
   path?: string;
   projectId?: string;
   yes?: boolean;
+  isNonInteractive?: boolean;
 }
 
 async function eject(options: EjectOptions): Promise<RunCommandResult> {
@@ -62,7 +63,7 @@ async function eject(options: EjectOptions): Promise<RunCommandResult> {
     const projectOptions: Option<Project>[] = ejectableProjects.map((p) => ({
       value: p,
       label: p.name,
-      hint: p.userDescription,
+      hint: p.userDescription ?? undefined,
     }));
 
     const selected = await select({
@@ -110,7 +111,7 @@ async function eject(options: EjectOptions): Promise<RunCommandResult> {
       const newProjectName = `${selectedProject.name} Copy`;
       const { projectId: newProjectId } = await createProject(
         newProjectName,
-        selectedProject.userDescription,
+        selectedProject.userDescription ?? undefined,
       );
 
       updateMessage("Linking the project...");
@@ -176,7 +177,7 @@ export function getEjectCommand(context: CLIContext): Command {
     .option("-y, --yes", "Skip confirmation prompts")
     .action(async (options: EjectOptions) => {
       await runCommand(
-        () => eject(options),
+        () => eject({ ...options, isNonInteractive: context.isNonInteractive }),
         { requireAuth: true, requireAppConfig: false },
         context,
       );
