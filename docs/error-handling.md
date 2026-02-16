@@ -137,3 +137,9 @@ The display includes:
 - **Error message** via `log.error()` (full stack trace only with `DEBUG=1`)
 - **Agent Hints** (if hints exist) -- actionable suggestions
 - **Error Context** -- dimmed outro line with session ID, app ID, and timestamp
+
+## Rules (Error-Specific)
+
+- **No direct process.exit()** - Throw `CLIExitError` instead; entry points handle the exit
+- **Use structured errors** - Never `throw new Error()`; use specific classes from `@/core/errors.js` with hints
+- **SchemaValidationError requires ZodError** - Pass `ZodError`: `new SchemaValidationError("context", result.error)` -- do NOT call `z.prettifyError()` manually

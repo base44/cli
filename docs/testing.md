@@ -2,6 +2,18 @@
 
 **Keywords:** test, vitest, testkit, setupCLITests, fixture, mock, Given/When/Then, BASE44_CLI_TEST_OVERRIDES, build before test, MSW
 
+## Table of Contents
+
+- [How Testing Works](#how-testing-works)
+- [Test Structure](#test-structure)
+- [Writing a Test](#writing-a-test)
+- [Testkit API](#testkit-api) (Given / When / Then / File Assertions / Utilities)
+- [API Mocks](#api-mocks) (Entity / Function / Agent / Site / Connector / Auth / Project / Generic)
+- [Test Overrides](#test-overrides-base44_cli_test_overrides) (Adding a New Override)
+- [Testing Rules](#testing-rules)
+
+---
+
 **Build before testing**: Tests import the bundled `dist/index.js`, so always run:
 
 ```bash

@@ -137,3 +137,11 @@ theme.format.agentHints(hints)            // "[Agent Hints]\n  Run: ..."
 ```
 
 When adding new theme properties, use **semantic names** (e.g., `links`, `header`) not color names.
+
+## Rules (Command-Specific)
+
+- **Command factory pattern** - Commands export `getXCommand(context)` functions, not static instances
+- **Command wrapper** - All commands use `runCommand(fn, options, context)` utility
+- **Task wrapper** - Use `runTask()` for async operations with spinners
+- **Use theme for styling** - Never use `chalk` directly; import `theme` from `@/cli/utils/` and use semantic names
+- **Use fs.ts utilities** - Always use `@/core/utils/fs.js` for file operations

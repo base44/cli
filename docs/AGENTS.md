@@ -1,7 +1,5 @@
 # Base44 CLI
 
-@.cursor/rules/use-bun-instead-of-node-vite-npm-pnpm.mdc
-
 The Base44 CLI (`base44` npm package) is a TypeScript command-line tool for creating, managing, and deploying Base44 apps from the terminal.
 
 ## Tech Stack
@@ -19,9 +17,17 @@ The Base44 CLI (`base44` npm package) is a TypeScript command-line tool for crea
 
 The codebase has two layers with a clear separation of concerns:
 
-- **`src/core/`** - SDK layer: pure business logic with no UI or CLI concerns. Handles resources (entity, function, agent, connector), auth, API clients (`ky`), project config, site deployment, error classes, and file utilities. This layer could be used outside a CLI context.
-- **`src/cli/`** - Presentation layer: CLI commands, user interaction (`@clack/prompts`), theming, telemetry, and wiring. Depends on `core/`, never the reverse.
+- **`src/core/`** - SDK layer: pure business logic with no UI or CLI concerns. Handles resources, auth, API clients, project config, site deployment, error classes, and utilities.
+- **`src/cli/`** - Presentation layer: CLI commands, user interaction, theming, telemetry, and wiring. Depends on `core/`, never the reverse.
 - **`bin/`** - Entry points: `run.js` (production, Node.js) and `dev.ts` (development, Bun runs TypeScript directly).
+- **`templates/`** - Project scaffolding templates for `base44 create`.
+- **`tests/`** - CLI integration tests (`cli/`), core unit tests (`core/`), and test fixtures (`fixtures/`).
+
+```
+src/
+├── core/           # SDK: auth, clients, project, resources (entity/function/agent/connector), site, errors, utils
+└── cli/            # UI: commands, telemetry, utils (runCommand, runTask, theme, banner)
+```
 
 ### Distribution
 
@@ -50,31 +56,25 @@ bun run lint:fix   # Biome - auto-fix
 
 ## Rules
 
+These apply to every task. See topic guides below for domain-specific rules.
+
 1. **Bun for everything** - Use `bun` commands for install, test, build, run
 2. **Zod validation** - Required for all external data (API responses, config files)
 3. **@clack/prompts only** - For all user interaction (prompts, spinners, logs). No `console.log`
 4. **ES Modules** - Use `.js` extensions in all imports
 5. **Cross-platform** - Use `path` module utilities, never hardcode separators
-6. **Command factory pattern** - Commands export `getXCommand(context)` functions, not static instances
-7. **Command wrapper** - All commands use `runCommand(fn, options, context)` utility
-8. **Task wrapper** - Use `runTask()` for async operations with spinners
-9. **consts.ts has no imports** - Keep `consts.ts` dependency-free to avoid circular deps
-10. **Zero-dependency distribution** - All packages go in `devDependencies`; they get bundled
-11. **Use theme for styling** - Never use `chalk` directly; import `theme` from `@/cli/utils/` and use semantic names
-12. **Use fs.ts utilities** - Always use `@/core/utils/fs.js` for file operations
-13. **No direct process.exit()** - Throw `CLIExitError` instead; entry points handle the exit
-14. **Use structured errors** - Never `throw new Error()`; use specific classes from `@/core/errors.js` with hints
-15. **SchemaValidationError requires ZodError** - Pass `ZodError`: `new SchemaValidationError("context", result.error)`
-16. **No dynamic imports** - Use static imports at top of file, avoid `await import()`
-17. **Keep docs updated** - Update files in `docs/` when architecture changes
+6. **Zero-dependency distribution** - All packages go in `devDependencies`; they get bundled
+7. **No dynamic imports** - Use static imports at top of file, avoid `await import()`
+8. **consts.ts has no imports** - Keep `consts.ts` dependency-free to avoid circular deps
+9. **Keep docs updated** - Update files in `docs/` when architecture changes
 
 ## Topic Guides
 
 Read these when working on the relevant area:
 
-- **[Adding or modifying CLI commands](commands.md)** - Command factory pattern, `runCommand()`, `runTask()`, `CLIContext`, theming
+- **[Adding or modifying CLI commands](commands.md)** - Factory pattern, `runCommand()`, `runTask()`, `CLIContext`, theming, `chalk` ban
 - **[Making API calls](api-patterns.md)** - HTTP clients, Zod snake_case-to-camelCase transforms, `ApiError.fromHttpError()`
 - **[Working with resources](resources.md)** - `Resource<T>` interface, adding new resources, site module, unified deploy
-- **[Error handling](error-handling.md)** - Error hierarchy, throwing patterns, error codes, `CLIExitError`
+- **[Error handling](error-handling.md)** - Error hierarchy, throwing patterns, error codes, `CLIExitError`, `process.exit` ban
 - **[Writing tests](testing.md)** - Testkit, Given/When/Then pattern, API mocks, fixtures, test overrides
 - **[Telemetry & error reporting](telemetry.md)** - PostHog `ErrorReporter`, what's captured, disabling
