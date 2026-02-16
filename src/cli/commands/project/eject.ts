@@ -62,7 +62,7 @@ async function eject(options: EjectOptions): Promise<RunCommandResult> {
     const projectOptions: Option<Project>[] = ejectableProjects.map((p) => ({
       value: p,
       label: p.name,
-      hint: p.userDescription ?? undefined,
+      hint: p.userDescription,
     }));
 
     const selected = await select({
@@ -110,7 +110,7 @@ async function eject(options: EjectOptions): Promise<RunCommandResult> {
       const newProjectName = `${selectedProject.name} Copy`;
       const { projectId: newProjectId } = await createProject(
         newProjectName,
-        selectedProject.userDescription ?? undefined,
+        selectedProject.userDescription,
       );
 
       updateMessage("Linking the project...");

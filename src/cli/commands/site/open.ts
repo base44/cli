@@ -5,10 +5,12 @@ import { runCommand } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 import { getSiteUrl } from "@/core/site/index.js";
 
-async function openAction(): Promise<RunCommandResult> {
+async function openAction(
+  isNonInteractive: boolean,
+): Promise<RunCommandResult> {
   const siteUrl = await getSiteUrl();
 
-  if (!process.env.CI) {
+  if (!isNonInteractive) {
     await open(siteUrl);
   }
 
@@ -19,6 +21,10 @@ export function getSiteOpenCommand(context: CLIContext): Command {
   return new Command("open")
     .description("Open the published site in your browser")
     .action(async () => {
-      await runCommand(openAction, { requireAuth: true }, context);
+      await runCommand(
+        () => openAction(context.isNonInteractive),
+        { requireAuth: true },
+        context,
+      );
     });
 }

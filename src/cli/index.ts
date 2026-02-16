@@ -13,7 +13,8 @@ async function runCLI(): Promise<void> {
   errorReporter.registerProcessErrorHandlers();
 
   // Create context for dependency injection
-  const context: CLIContext = { errorReporter };
+  const isNonInteractive = !process.stdin.isTTY || !process.stdout.isTTY;
+  const context: CLIContext = { errorReporter, isNonInteractive };
 
   // Create program with injected context
   const program = createProgram(context);

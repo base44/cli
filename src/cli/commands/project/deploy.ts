@@ -1,3 +1,10 @@
+<<<<<<< HEAD
+
+import { Command } from "@commander-js/extra-typings";
+
+=======
+>>>>>>> origin/main
+
 import { confirm, isCancel, log } from "@clack/prompts";
 import { Command } from "commander";
 import {
@@ -131,5 +138,19 @@ export function getDeployCommand(context: CLIContext): Command {
         { requireAuth: true },
         context,
       );
+    });
+}
+    });
+}
+    });
+}
+    });
+}
+    });
+}
+    });
+}
+    });
+}
     });
 }

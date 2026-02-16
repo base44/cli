@@ -68,7 +68,9 @@ function printSummary(
   }
 }
 
-async function pushConnectorsAction(): Promise<RunCommandResult> {
+async function pushConnectorsAction(
+  isNonInteractive: boolean,
+): Promise<RunCommandResult> {
   const { connectors } = await readProjectConfig();
 
   if (connectors.length === 0) {
@@ -93,15 +95,15 @@ async function pushConnectorsAction(): Promise<RunCommandResult> {
   let outroMessage = "Connectors pushed to Base44";
 
   const oauthOutcomes = await promptOAuthFlows(needsOAuth, {
-    skipPrompt: !!process.env.CI,
+    skipPrompt: isNonInteractive,
   });
 
   const allAuthorized =
     oauthOutcomes.size > 0 &&
     [...oauthOutcomes.values()].every((s) => s === "ACTIVE");
   if (needsOAuth.length > 0 && !allAuthorized) {
-    outroMessage = process.env.CI
-      ? "Skipped OAuth in CI. Run 'base44 connectors push' locally or open the links above to authorize."
+    outroMessage = isNonInteractive
+      ? "Skipped OAuth in non-interactive mode. Run 'base44 connectors push' locally or open the links above to authorize."
       : "Some connectors still require authorization. Run 'base44 connectors push' or open the links above to authorize.";
   }
 
@@ -115,6 +117,10 @@ export function getConnectorsPushCommand(context: CLIContext): Command {
       "Push local connectors to Base44 (overwrites connectors on Base44)",
     )
     .action(async () => {
-      await runCommand(pushConnectorsAction, { requireAuth: true }, context);
+      await runCommand(
+        () => pushConnectorsAction(context.isNonInteractive),
+        { requireAuth: true },
+        context,
+      );
     });
 }

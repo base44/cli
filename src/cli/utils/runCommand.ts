@@ -68,7 +68,7 @@ export async function runCommand(
   console.log();
 
   if (options?.fullBanner) {
-    await printBanner();
+    await printBanner(context.isNonInteractive);
     intro("");
   } else {
     intro(theme.colors.base44OrangeBackground(" Base 44 "));

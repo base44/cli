@@ -1,4 +1,12 @@
 import { resolve } from "node:path";
+
+<<<<<<< HEAD
+
+import { Command } from "@commander-js/extra-typings";
+
+=======
+>>>>>>> origin/main
+
 import { confirm, isCancel } from "@clack/prompts";
 import { Command } from "commander";
 import type { CLIContext } from "@/cli/types.js";
