@@ -71,6 +71,12 @@ const TikTokConnectorSchema = z.object({
   scopes: z.array(z.string()).default([]),
 });
 
+// Scopes: https://cloud.google.com/bigquery/docs/authorization
+const GoogleBigQueryConnectorSchema = z.object({
+  type: z.literal("googlebigquery"),
+  scopes: z.array(z.string()).default([]),
+});
+
 const CustomTypeSchema = z
   .string()
   .min(1)
@@ -88,6 +94,7 @@ export const ConnectorResourceSchema = z.union([
   GoogleSheetsConnectorSchema,
   GoogleDocsConnectorSchema,
   GoogleSlidesConnectorSchema,
+  GoogleBigQueryConnectorSchema,
   SlackConnectorSchema,
   NotionConnectorSchema,
   SalesforceConnectorSchema,
@@ -106,6 +113,7 @@ const KnownIntegrationTypes = [
   "googlesheets",
   "googledocs",
   "googleslides",
+  "googlebigquery",
   "slack",
   "notion",
   "salesforce",
