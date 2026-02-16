@@ -62,9 +62,12 @@ async function handleUnauthorized(
     return;
   }
 
-  // Mark this request as retried and retry with new token
+  // Mark this request as retried and retry with new token.
+  // Clone the request before passing to ky — `new Request(request, init)` transfers
+  // (consumes) the original request's body, which would leave the outer ky's preserved
+  // request in an unusable state if this inner call fails and the outer ky tries to retry.
   retriedRequests.add(request);
-  return ky(request, {
+  return ky(request.clone() as Request, {
     headers: { Authorization: `Bearer ${newAccessToken}` },
   });
 }
