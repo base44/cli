@@ -80,7 +80,7 @@ jobs:
             > - [ ] I have commented my code, particularly in hard-to-understand areas
             > - [ ] I have made corresponding changes to the documentation (if applicable)
             > - [ ] My changes generate no new warnings
-            > - [ ] I have updated AGENTS.md if I made architectural changes
+            > - [ ] I have updated `docs/` (AGENTS.md) if I made architectural changes
             >
             > ## Additional Notes
             >
