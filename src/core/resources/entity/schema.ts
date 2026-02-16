@@ -81,17 +81,11 @@ const isValidFieldCondition = (value: unknown): boolean => {
 
 const RefineRLSConditionSchema = RLSConditionSchema.refine(
   (val) =>
-    Object.entries(val).every(([key, value]) => {
-      if (rlsConditionAllowedKeys.has(key)) {
-        return true;
-      }
-      if (key.startsWith("data.")) {
-        return isValidFieldCondition(value);
-      }
-      // Accept unknown entity field keys with valid condition values
-      return isValidFieldCondition(value);
-    }),
-  "Keys must be known RLS keys or match data.* pattern with valid value",
+    Object.entries(val).every(
+      ([key, value]) =>
+        rlsConditionAllowedKeys.has(key) || isValidFieldCondition(value),
+    ),
+  "Field condition values must be a primitive or an operator object ($in, $nin, $ne, $all)",
 );
 
 const RLSRuleSchema = z.union([z.boolean(), RefineRLSConditionSchema]);
