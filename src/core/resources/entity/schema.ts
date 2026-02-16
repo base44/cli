@@ -5,7 +5,7 @@ const FieldConditionSchema = z.union([
   z.number(),
   z.boolean(),
   z.null(),
-  z.object({
+  z.looseObject({
     $in: z.unknown().optional(),
     $nin: z.unknown().optional(),
     $ne: z.unknown().optional(),
@@ -96,7 +96,7 @@ const RefineRLSConditionSchema = RLSConditionSchema.refine(
 
 const RLSRuleSchema = z.union([z.boolean(), RefineRLSConditionSchema]);
 
-const EntityRLSSchema = z.strictObject({
+const EntityRLSSchema = z.looseObject({
   create: RLSRuleSchema.optional(),
   read: RLSRuleSchema.optional(),
   update: RLSRuleSchema.optional(),
@@ -104,7 +104,7 @@ const EntityRLSSchema = z.strictObject({
   write: RLSRuleSchema.optional(),
 });
 
-const FieldRLSSchema = z.strictObject({
+const FieldRLSSchema = z.looseObject({
   read: RLSRuleSchema.optional(),
   write: RLSRuleSchema.optional(),
   create: RLSRuleSchema.optional(),
@@ -113,7 +113,7 @@ const FieldRLSSchema = z.strictObject({
 });
 
 const PropertyDefinitionSchema: z.ZodType<unknown> = z.looseObject({
-  type: z.string(),
+  type: z.string().optional(),
   title: z.string().optional(),
   description: z.string().optional(),
   minLength: z.number().int().min(0).optional(),
@@ -143,10 +143,7 @@ export const EntitySchema = z.looseObject({
   name: z
     .string()
     .min(1)
-    .regex(
-      /^[a-zA-Z0-9_-]+$/,
-      "Entity name must contain only letters, digits, underscores, or hyphens",
-    ),
+    .regex(/^[a-zA-Z0-9]+$/, "Entity name must be alphanumeric only"),
   title: z.string().optional(),
   description: z.string().optional(),
   properties: z.record(z.string(), PropertyDefinitionSchema).default({}),
