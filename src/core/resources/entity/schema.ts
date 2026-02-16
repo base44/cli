@@ -2,7 +2,10 @@ import { z } from "zod";
 
 const FieldConditionSchema = z.union([
   z.string(),
-  z.object({
+  z.number(),
+  z.boolean(),
+  z.null(),
+  z.looseObject({
     $in: z.unknown().optional(),
     $nin: z.unknown().optional(),
     $ne: z.unknown().optional(),
@@ -30,6 +33,15 @@ const rlsConditionAllowedKeys = new Set([
   "user_condition",
   "created_by",
   "created_by_id",
+  "id",
+  "_id",
+  "created_date",
+  "updated_date",
+  "app_id",
+  "entity_name",
+  "is_deleted",
+  "deleted_date",
+  "environment",
   "$or",
   "$and",
   "$nor",
@@ -53,7 +65,6 @@ const RLSConditionSchema = z.looseObject({
 const fieldConditionOperators = new Set(["$in", "$nin", "$ne", "$all"]);
 
 const isValidFieldCondition = (value: unknown): boolean => {
-  // Server accepts: string, number, boolean, null, or operator object
   if (
     value === null ||
     typeof value === "string" ||
@@ -70,21 +81,16 @@ const isValidFieldCondition = (value: unknown): boolean => {
 
 const RefineRLSConditionSchema = RLSConditionSchema.refine(
   (val) =>
-    Object.entries(val).every(([key, value]) => {
-      if (rlsConditionAllowedKeys.has(key)) {
-        return true;
-      }
-      if (!key.startsWith("data.")) {
-        return false;
-      }
-      return isValidFieldCondition(value);
-    }),
-  "Keys must be known RLS keys or match data.* pattern with valid value",
+    Object.entries(val).every(
+      ([key, value]) =>
+        rlsConditionAllowedKeys.has(key) || isValidFieldCondition(value),
+    ),
+  "Field condition values must be a primitive or an operator object ($in, $nin, $ne, $all)",
 );
 
 const RLSRuleSchema = z.union([z.boolean(), RefineRLSConditionSchema]);
 
-const EntityRLSSchema = z.strictObject({
+const EntityRLSSchema = z.looseObject({
   create: RLSRuleSchema.optional(),
   read: RLSRuleSchema.optional(),
   update: RLSRuleSchema.optional(),
@@ -92,7 +98,7 @@ const EntityRLSSchema = z.strictObject({
   write: RLSRuleSchema.optional(),
 });
 
-const FieldRLSSchema = z.strictObject({
+const FieldRLSSchema = z.looseObject({
   read: RLSRuleSchema.optional(),
   write: RLSRuleSchema.optional(),
   create: RLSRuleSchema.optional(),
@@ -100,59 +106,41 @@ const FieldRLSSchema = z.strictObject({
   delete: RLSRuleSchema.optional(),
 });
 
-const PropertyTypeSchema = z.enum([
-  "string",
-  "number",
-  "integer",
-  "boolean",
-  "array",
-  "object",
-]);
-
-const StringFormatSchema = z.enum([
-  "date",
-  "date-time",
-  "time",
-  "email",
-  "uri",
-  "hostname",
-  "ipv4",
-  "ipv6",
-  "uuid",
-]);
-
-const PropertyDefinitionSchema = z.object({
-  type: PropertyTypeSchema,
+const PropertyDefinitionSchema: z.ZodType<unknown> = z.looseObject({
+  type: z.string().optional(),
   title: z.string().optional(),
   description: z.string().optional(),
   minLength: z.number().int().min(0).optional(),
   maxLength: z.number().int().min(0).optional(),
   pattern: z.string().optional(),
-  format: StringFormatSchema.optional(),
+  format: z.string().optional(),
   minimum: z.number().optional(),
   maximum: z.number().optional(),
-  enum: z.array(z.string()).optional(),
+  enum: z.array(z.unknown()).optional(),
   enumNames: z.array(z.string()).optional(),
   default: z.unknown().optional(),
   $ref: z.string().optional(),
   rls: FieldRLSSchema.optional(),
   required: z.array(z.string()).optional(),
-  get items() {
+  get items(): z.ZodOptional<z.ZodType<unknown>> {
     return PropertyDefinitionSchema.optional();
   },
-  get properties() {
+  get properties(): z.ZodOptional<
+    z.ZodRecord<z.ZodString, z.ZodType<unknown>>
+  > {
     return z.record(z.string(), PropertyDefinitionSchema).optional();
   },
 });
 
-export const EntitySchema = z.object({
-  type: z.literal("object"),
+export const EntitySchema = z.looseObject({
+  type: z.literal("object").default("object"),
   name: z
     .string()
+    .min(1)
     .regex(/^[a-zA-Z0-9]+$/, "Entity name must be alphanumeric only"),
   title: z.string().optional(),
   description: z.string().optional(),
-  properties: z.record(z.string(), PropertyDefinitionSchema),
+  properties: z.record(z.string(), PropertyDefinitionSchema).default({}),
   required: z.array(z.string()).optional(),
   rls: EntityRLSSchema.optional(),
 });

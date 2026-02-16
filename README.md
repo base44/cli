@@ -83,9 +83,9 @@ base44 <command> --help
 base44 --version
 ```
 
-## Alpha
+## Beta
 
-The CLI and Base44 backend service are currently in alpha. We're actively improving them based on user feedback. Share your thoughts and feature requests on our [GitHub Discussions](https://github.com/orgs/base44/discussions).
+The CLI and Base44 backend service are currently in beta. We're actively improving them based on user feedback. Share your thoughts and feature requests on our [GitHub Discussions](https://github.com/orgs/base44/discussions).
 
 Found a bug? [Open an issue](https://github.com/base44/cli/issues).
 
