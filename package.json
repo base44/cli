@@ -30,7 +30,7 @@
     "command-line"
   ],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/base44/cli"
