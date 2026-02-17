@@ -88,10 +88,12 @@ if (!hasResourcesToDeploy(projectData)) {
 const { appUrl } = await deployAll(projectData);
 ```
 
-What it deploys:
+What it deploys (in order):
 1. Entities (via `entityResource.push()`)
 2. Functions (via `functionResource.push()`)
-3. Site (if `site.outputDirectory` is configured)
+3. Agents (via `agentResource.push()`)
+4. Connectors (via `pushConnectors()`) -- may return OAuth redirect URLs
+5. Site (if `site.outputDirectory` is configured)
 
 ```bash
 base44 deploy        # With confirmation prompt

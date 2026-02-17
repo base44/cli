@@ -78,3 +78,4 @@ Read these when working on the relevant area:
 - **[Error handling](error-handling.md)** - Error hierarchy, throwing patterns, error codes, `CLIExitError`, `process.exit` ban
 - **[Writing tests](testing.md)** - Testkit, Given/When/Then pattern, API mocks, fixtures, test overrides
 - **[Telemetry & error reporting](telemetry.md)** - PostHog `ErrorReporter`, what's captured, disabling
+- **[Writing & maintaining docs](writing-docs.md)** - Progressive disclosure, style rules, keywords, adding new topic guides

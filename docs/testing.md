@@ -28,6 +28,7 @@ This means:
 - **`vi.mock()` won't work** with path aliases like `@/some/path.js` (they're resolved in the bundle)
 - Use the **`BASE44_CLI_TEST_OVERRIDES` env var** for mocking behavior instead (see below)
 - Always `bun run build` before `bun run test` to ensure the bundle is fresh
+- Tests always run with `isNonInteractive: true` (no TTY), so browser opens and animations are skipped
 
 ## Test Structure
 

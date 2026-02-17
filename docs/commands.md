@@ -1,6 +1,6 @@
 # Adding & Modifying CLI Commands
 
-**Keywords:** command, factory pattern, CLIContext, runCommand, runTask, spinner, theming, chalk, program.ts, register, banner, intro, outro
+**Keywords:** command, factory pattern, CLIContext, isNonInteractive, runCommand, runTask, spinner, theming, chalk, program.ts, register, banner, intro, outro
 
 Commands live in `src/cli/commands/<domain>/`. They use a **factory pattern** with dependency injection via `CLIContext`.
 
@@ -44,7 +44,7 @@ export function getMyCommand(context: CLIContext): Command {
 
 **Key rules**:
 - Export a **factory function** (`getMyCommand`), not a static command instance
-- The factory receives `CLIContext` (contains `errorReporter`)
+- The factory receives `CLIContext` (contains `errorReporter` and `isNonInteractive`)
 - Commands must NOT call `intro()` or `outro()` directly -- `runCommand()` handles both
 - Always pass `context` as the third argument to `runCommand()`
 
@@ -78,10 +78,39 @@ await runCommand(myAction, { fullBanner: true, requireAuth: true }, context);
 ```typescript
 export interface CLIContext {
   errorReporter: ErrorReporter;
+  isNonInteractive: boolean;
 }
 ```
 
-Created once in `runCLI()` at startup, passed to `createProgram(context)`, which passes it to each command factory. Commands pass it to `runCommand()` for error reporting integration.
+- Created once in `runCLI()` at startup
+- `isNonInteractive` is `true` when stdin/stdout are not a TTY (e.g., CI, piped output, AI agents). Use it to skip interactive prompts, browser opens, and animations.
+- Passed to `createProgram(context)`, which passes it to each command factory
+- Commands pass it to `runCommand()` for error reporting integration
+
+### Using `isNonInteractive`
+
+Pass `context.isNonInteractive` to your action when the command has interactive behavior (browser opens, confirmation prompts, animations):
+
+```typescript
+export function getMyCommand(context: CLIContext): Command {
+  return new Command("open")
+    .description("Open something in browser")
+    .action(async () => {
+      await runCommand(
+        () => myAction(context.isNonInteractive),
+        { requireAuth: true },
+        context,
+      );
+    });
+}
+
+async function myAction(isNonInteractive: boolean): Promise<RunCommandResult> {
+  if (!isNonInteractive) {
+    await open(url); // Only open browser in interactive mode
+  }
+  return { outroMessage: `Opened at ${url}` };
+}
+```
 
 ## runTask (Async Operations with Spinners)
 

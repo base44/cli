@@ -23,7 +23,8 @@ The `ErrorReporter` is created once in `runCLI()` and injected via `CLIContext`:
 // In runCLI() - creates and injects the reporter
 const errorReporter = new ErrorReporter();
 errorReporter.registerProcessErrorHandlers();
-const context: CLIContext = { errorReporter };
+const isNonInteractive = !process.stdin.isTTY || !process.stdout.isTTY;
+const context: CLIContext = { errorReporter, isNonInteractive };
 const program = createProgram(context);
 
 // Context is set throughout execution
