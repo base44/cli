@@ -4,9 +4,7 @@ on:
   pull_request:
     types: [opened, synchronize, ready_for_review, reopened]
     paths:
-      - "src/cli/**"
-      - "src/core/**"
-      - "package.json"
+      - "src/cli/commands/**"
       - "README.md"
   workflow_dispatch:
     # Run from Actions tab to test: use a branch that has an open PR, or run on default to see check result in the job log only.
