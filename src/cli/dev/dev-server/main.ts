@@ -7,14 +7,25 @@ import { createProxyMiddleware } from "http-proxy-middleware";
 import { createDevLogger } from "@/cli/dev/createDevLogger.js";
 import { FunctionManager } from "@/cli/dev/dev-server/function-manager.js";
 import { createFunctionRouter } from "@/cli/dev/dev-server/routes/functions.js";
+import type { Entity } from "@/core/resources/entity/schema.js";
 import type { BackendFunction } from "@/core/resources/function/schema.js";
+import { Database } from "./database.js";
+import {
+  type BroadcastEntityEvent,
+  broadcastEntityEvent,
+  createRealtimeServer,
+} from "./realtime.js";
+import { createEntityRoutes } from "./routes/entities.js";
 
 const DEFAULT_PORT = 4400;
 const BASE44_APP_URL = "https://base44.app";
 
 interface DevServerOptions {
   port?: number;
-  loadResources: () => Promise<{ functions: BackendFunction[] }>;
+  loadResources: () => Promise<{
+    functions: BackendFunction[];
+    entities: Entity[];
+  }>;
 }
 
 interface DevServerResult {
@@ -28,7 +39,7 @@ export async function createDevServer(
   const { port: userPort } = options;
   const port = userPort ?? (await getPort({ port: DEFAULT_PORT }));
 
-  const { functions } = await options.loadResources();
+  const { functions, entities } = await options.loadResources();
 
   const app = express();
 
@@ -68,6 +79,19 @@ export async function createDevServer(
     app.use("/api/apps/:appId/functions", functionRoutes);
   }
 
+  const db = new Database(entities);
+
+  // Socket.IO is attached after the HTTP server starts; entity routes receive
+  // a broadcast callback that becomes a no-op until the server is ready.
+  let emitEntityEvent: BroadcastEntityEvent = () => {};
+  const entityRoutes = createEntityRoutes(
+    db,
+    devLogger,
+    remoteProxy,
+    (...args) => emitEntityEvent(...args),
+  );
+  app.use("/api/apps/:appId/entities", entityRoutes);
+
   app.use((req, res, next) => {
     return remoteProxy(req, res, next);
   });
@@ -85,7 +109,13 @@ export async function createDevServer(
           reject(err);
         }
       } else {
+        const io = createRealtimeServer(server);
+        emitEntityEvent = (appId, entityName, event) => {
+          broadcastEntityEvent(io, appId, entityName, event);
+        };
+
         const shutdown = () => {
+          io.close();
           functionManager.stopAll();
           server.close();
         };

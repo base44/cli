@@ -38,6 +38,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.0.0",
     "@clack/prompts": "^1.0.1",
+    "@seald-io/nedb": "^4.1.2",
     "@types/bun": "^1.2.15",
     "@types/common-tags": "^1.8.4",
     "@types/cors": "^2.8.19",
@@ -69,6 +70,7 @@
     "open": "^11.0.0",
     "p-wait-for": "^6.0.0",
     "posthog-node": "5.21.2",
+    "socket.io": "^4.8.3",
     "strip-ansi": "^7.1.2",
     "tar": "^7.5.4",
     "tmp-promise": "^3.0.3",
