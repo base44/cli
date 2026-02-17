@@ -266,6 +266,114 @@ export class Base44APIMock {
     return this;
   }
 
+  // ─── ENTITY RECORD ENDPOINTS (admin) ────────────────────────
+
+  /** Mock GET /api/apps/{appId}/admin/entities/{entityName} - List records */
+  mockRecordsList(entityName: string, response: Record<string, unknown>[]): this {
+    this.handlers.push(
+      http.get(`${BASE_URL}/api/apps/${this.appId}/admin/entities/${entityName}`, () =>
+        HttpResponse.json(response),
+      ),
+    );
+    return this;
+  }
+
+  /** Mock GET /api/apps/{appId}/admin/entities/{entityName}/{recordId} - Get record */
+  mockRecordGet(entityName: string, recordId: string, response: Record<string, unknown>): this {
+    this.handlers.push(
+      http.get(
+        `${BASE_URL}/api/apps/${this.appId}/admin/entities/${entityName}/${recordId}`,
+        () => HttpResponse.json(response),
+      ),
+    );
+    return this;
+  }
+
+  /** Mock POST /api/apps/{appId}/admin/entities/{entityName} - Create record */
+  mockRecordCreate(entityName: string, response: Record<string, unknown>): this {
+    this.handlers.push(
+      http.post(`${BASE_URL}/api/apps/${this.appId}/admin/entities/${entityName}`, () =>
+        HttpResponse.json(response),
+      ),
+    );
+    return this;
+  }
+
+  /** Mock PUT /api/apps/{appId}/admin/entities/{entityName}/{recordId} - Update record */
+  mockRecordUpdate(
+    entityName: string,
+    recordId: string,
+    response: Record<string, unknown>,
+  ): this {
+    this.handlers.push(
+      http.put(
+        `${BASE_URL}/api/apps/${this.appId}/admin/entities/${entityName}/${recordId}`,
+        () => HttpResponse.json(response),
+      ),
+    );
+    return this;
+  }
+
+  /** Mock DELETE /api/apps/{appId}/admin/entities/{entityName}/{recordId} - Delete record */
+  mockRecordDelete(entityName: string, recordId: string): this {
+    this.handlers.push(
+      http.delete(
+        `${BASE_URL}/api/apps/${this.appId}/admin/entities/${entityName}/${recordId}`,
+        () => HttpResponse.json({ success: true }),
+      ),
+    );
+    return this;
+  }
+
+  /** Mock entity records list to return an error */
+  mockRecordsListError(entityName: string, error: ErrorResponse): this {
+    return this.mockError(
+      "get",
+      `/api/apps/${this.appId}/admin/entities/${entityName}`,
+      error,
+    );
+  }
+
+  /** Mock entity record get to return an error */
+  mockRecordGetError(entityName: string, recordId: string, error: ErrorResponse): this {
+    return this.mockError(
+      "get",
+      `/api/apps/${this.appId}/admin/entities/${entityName}/${recordId}`,
+      error,
+    );
+  }
+
+  /** Mock entity record create to return an error */
+  mockRecordCreateError(entityName: string, error: ErrorResponse): this {
+    return this.mockError(
+      "post",
+      `/api/apps/${this.appId}/admin/entities/${entityName}`,
+      error,
+    );
+  }
+
+  /** Mock entity record update to return an error */
+  mockRecordUpdateError(
+    entityName: string,
+    recordId: string,
+    error: ErrorResponse,
+  ): this {
+    return this.mockError(
+      "put",
+      `/api/apps/${this.appId}/admin/entities/${entityName}/${recordId}`,
+      error,
+    );
+  }
+
+  /** Mock entity record delete to return an error */
+  mockRecordDeleteError(entityName: string, recordId: string, error: ErrorResponse): this {
+    return this.mockError(
+      "delete",
+      `/api/apps/${this.appId}/admin/entities/${entityName}/${recordId}`,
+      error,
+    );
+  }
+
   // ─── GENERAL ENDPOINTS ─────────────────────────────────────
 
   /** Mock POST /api/apps - Create new app */
