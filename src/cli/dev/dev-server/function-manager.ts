@@ -181,6 +181,17 @@ export class FunctionManager {
     runningFunc: RunningFunction,
   ): Promise<number> {
     return new Promise((resolve, reject) => {
+      runningFunc.process.on("exit", (code) => {
+        if (!runningFunc.ready) {
+          clearTimeout(timeout);
+          reject(
+            new InternalError(`Function "${name}" exited with code ${code}`, {
+              hints: [{ message: "Check the function code for errors" }],
+            }),
+          );
+        }
+      });
+
       const timeout = setTimeout(() => {
         runningFunc.process.kill();
         reject(
@@ -206,17 +217,6 @@ export class FunctionManager {
       };
 
       runningFunc.process.stdout?.on("data", onData);
-
-      runningFunc.process.on("exit", (code) => {
-        if (!runningFunc.ready) {
-          clearTimeout(timeout);
-          reject(
-            new InternalError(`Function "${name}" exited with code ${code}`, {
-              hints: [{ message: "Check the function code for errors" }],
-            }),
-          );
-        }
-      });
     });
   }
 }
