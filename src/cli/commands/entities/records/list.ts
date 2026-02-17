@@ -35,7 +35,7 @@ async function listRecordsAction(
   );
 
   log.info(`Found ${records.length} record(s)`);
-  console.log(JSON.stringify(records, null, 2));
+  process.stdout.write(`${JSON.stringify(records, null, 2)}\n`);
 
   return {};
 }

@@ -6,16 +6,17 @@
  * and automatically bypasses RLS.
  */
 
+import type { KyResponse } from "ky";
 import { getAppClient } from "@/core/clients/index.js";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";
 import {
-  DeleteRecordResponseSchema,
-  EntityRecordSchema,
   type DeleteRecordResponse,
+  DeleteRecordResponseSchema,
   type EntityRecord,
+  EntityRecordSchema,
 } from "./records-schema.js";
 
-export interface ListRecordsOptions {
+interface ListRecordsOptions {
   filter?: string;
   sort?: string;
   limit?: number;
@@ -46,7 +47,7 @@ export async function listRecords(
     searchParams.set("fields", options.fields);
   }
 
-  let response;
+  let response: KyResponse;
   try {
     response = await appClient.get(`admin/entities/${entityName}`, {
       searchParams,
@@ -77,7 +78,7 @@ export async function getRecord(
 ): Promise<EntityRecord> {
   const appClient = getAppClient();
 
-  let response;
+  let response: KyResponse;
   try {
     response = await appClient.get(`admin/entities/${entityName}/${recordId}`);
   } catch (error) {
@@ -99,7 +100,7 @@ export async function createRecord(
 ): Promise<EntityRecord> {
   const appClient = getAppClient();
 
-  let response;
+  let response: KyResponse;
   try {
     response = await appClient.post(`admin/entities/${entityName}`, {
       json: data,
@@ -127,7 +128,7 @@ export async function updateRecord(
 ): Promise<EntityRecord> {
   const appClient = getAppClient();
 
-  let response;
+  let response: KyResponse;
   try {
     response = await appClient.put(`admin/entities/${entityName}/${recordId}`, {
       json: data,
@@ -154,9 +155,11 @@ export async function deleteRecord(
 ): Promise<DeleteRecordResponse> {
   const appClient = getAppClient();
 
-  let response;
+  let response: KyResponse;
   try {
-    response = await appClient.delete(`admin/entities/${entityName}/${recordId}`);
+    response = await appClient.delete(
+      `admin/entities/${entityName}/${recordId}`,
+    );
   } catch (error) {
     throw await ApiError.fromHttpError(error, "deleting record");
   }
@@ -164,10 +167,7 @@ export async function deleteRecord(
   const json = await response.json();
   const result = DeleteRecordResponseSchema.safeParse(json);
   if (!result.success) {
-    throw new SchemaValidationError(
-      "Invalid delete response",
-      result.error,
-    );
+    throw new SchemaValidationError("Invalid delete response", result.error);
   }
 
   return result.data;

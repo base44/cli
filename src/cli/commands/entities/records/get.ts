@@ -19,7 +19,7 @@ async function getRecordAction(
     },
   );
 
-  console.log(JSON.stringify(record, null, 2));
+  process.stdout.write(`${JSON.stringify(record, null, 2)}\n`);
 
   return {};
 }

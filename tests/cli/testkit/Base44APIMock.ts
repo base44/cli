@@ -269,17 +269,25 @@ export class Base44APIMock {
   // ─── ENTITY RECORD ENDPOINTS (admin) ────────────────────────
 
   /** Mock GET /api/apps/{appId}/admin/entities/{entityName} - List records */
-  mockRecordsList(entityName: string, response: Record<string, unknown>[]): this {
+  mockRecordsList(
+    entityName: string,
+    response: Record<string, unknown>[],
+  ): this {
     this.handlers.push(
-      http.get(`${BASE_URL}/api/apps/${this.appId}/admin/entities/${entityName}`, () =>
-        HttpResponse.json(response),
+      http.get(
+        `${BASE_URL}/api/apps/${this.appId}/admin/entities/${entityName}`,
+        () => HttpResponse.json(response),
       ),
     );
     return this;
   }
 
   /** Mock GET /api/apps/{appId}/admin/entities/{entityName}/{recordId} - Get record */
-  mockRecordGet(entityName: string, recordId: string, response: Record<string, unknown>): this {
+  mockRecordGet(
+    entityName: string,
+    recordId: string,
+    response: Record<string, unknown>,
+  ): this {
     this.handlers.push(
       http.get(
         `${BASE_URL}/api/apps/${this.appId}/admin/entities/${entityName}/${recordId}`,
@@ -290,10 +298,14 @@ export class Base44APIMock {
   }
 
   /** Mock POST /api/apps/{appId}/admin/entities/{entityName} - Create record */
-  mockRecordCreate(entityName: string, response: Record<string, unknown>): this {
+  mockRecordCreate(
+    entityName: string,
+    response: Record<string, unknown>,
+  ): this {
     this.handlers.push(
-      http.post(`${BASE_URL}/api/apps/${this.appId}/admin/entities/${entityName}`, () =>
-        HttpResponse.json(response),
+      http.post(
+        `${BASE_URL}/api/apps/${this.appId}/admin/entities/${entityName}`,
+        () => HttpResponse.json(response),
       ),
     );
     return this;
@@ -335,7 +347,11 @@ export class Base44APIMock {
   }
 
   /** Mock entity record get to return an error */
-  mockRecordGetError(entityName: string, recordId: string, error: ErrorResponse): this {
+  mockRecordGetError(
+    entityName: string,
+    recordId: string,
+    error: ErrorResponse,
+  ): this {
     return this.mockError(
       "get",
       `/api/apps/${this.appId}/admin/entities/${entityName}/${recordId}`,
@@ -366,7 +382,11 @@ export class Base44APIMock {
   }
 
   /** Mock entity record delete to return an error */
-  mockRecordDeleteError(entityName: string, recordId: string, error: ErrorResponse): this {
+  mockRecordDeleteError(
+    entityName: string,
+    recordId: string,
+    error: ErrorResponse,
+  ): this {
     return this.mockError(
       "delete",
       `/api/apps/${this.appId}/admin/entities/${entityName}/${recordId}`,

@@ -50,8 +50,7 @@ async function parseRecordData(
     {
       hints: [
         {
-          message:
-            'Example: --data \'{"name": "John"}\' or --file record.json',
+          message: 'Example: --data \'{"name": "John"}\' or --file record.json',
         },
       ],
     },
@@ -76,7 +75,7 @@ async function createRecordAction(
   );
 
   log.success(`Record created with ID: ${record.id}`);
-  console.log(JSON.stringify(record, null, 2));
+  process.stdout.write(`${JSON.stringify(record, null, 2)}\n`);
 
   return {};
 }
@@ -87,13 +86,11 @@ export function getRecordsCreateCommand(context: CLIContext): Command {
     .argument("<entity-name>", "Name of the entity (e.g. Users, Products)")
     .option("-d, --data <json>", "JSON object with record data")
     .option("--file <path>", "Read record data from a JSON/JSONC file")
-    .action(
-      async (entityName: string, options: CreateRecordCommandOptions) => {
-        await runCommand(
-          () => createRecordAction(entityName, options),
-          { requireAuth: true },
-          context,
-        );
-      },
-    );
+    .action(async (entityName: string, options: CreateRecordCommandOptions) => {
+      await runCommand(
+        () => createRecordAction(entityName, options),
+        { requireAuth: true },
+        context,
+      );
+    });
 }

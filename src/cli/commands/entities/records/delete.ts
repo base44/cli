@@ -1,7 +1,7 @@
 import { confirm, log } from "@clack/prompts";
 import { Command } from "commander";
-import type { CLIContext } from "@/cli/types.js";
 import { CLIExitError } from "@/cli/errors.js";
+import type { CLIContext } from "@/cli/types.js";
 import { runCommand, runTask } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 import { deleteRecord } from "@/core/resources/entity/index.js";

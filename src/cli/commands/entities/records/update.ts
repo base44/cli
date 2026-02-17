@@ -76,7 +76,7 @@ async function updateRecordAction(
   );
 
   log.success(`Record ${recordId} updated`);
-  console.log(JSON.stringify(record, null, 2));
+  process.stdout.write(`${JSON.stringify(record, null, 2)}\n`);
 
   return {};
 }
