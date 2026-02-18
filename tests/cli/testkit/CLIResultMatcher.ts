@@ -24,14 +24,6 @@ export class CLIResultMatcher {
     }
   }
 
-  toHaveExitCode(code: number): void {
-    if (this.result.exitCode !== code) {
-      throw new Error(
-        `Expected exit code ${code} but got ${this.result.exitCode}`,
-      );
-    }
-  }
-
   toContain(text: string): void {
     const output = this.result.stdout + this.result.stderr;
     if (!output.includes(text)) {
@@ -49,24 +41,6 @@ export class CLIResultMatcher {
       throw new Error(
         `Expected output NOT to contain "${text}"\n` +
           `stdout: ${stripAnsi(this.result.stdout)}\n` +
-          `stderr: ${stripAnsi(this.result.stderr)}`,
-      );
-    }
-  }
-
-  toContainInStdout(text: string): void {
-    if (!this.result.stdout.includes(text)) {
-      throw new Error(
-        `Expected stdout to contain "${text}"\n` +
-          `stdout: ${stripAnsi(this.result.stdout)}`,
-      );
-    }
-  }
-
-  toContainInStderr(text: string): void {
-    if (!this.result.stderr.includes(text)) {
-      throw new Error(
-        `Expected stderr to contain "${text}"\n` +
           `stderr: ${stripAnsi(this.result.stderr)}`,
       );
     }
