@@ -38,10 +38,6 @@ export class FunctionManager {
     return Array.from(this.functions.keys());
   }
 
-  getFunction(name: string): BackendFunction | undefined {
-    return this.functions.get(name);
-  }
-
   verifyDenoIsInstalled(): void {
     if (this.functions.size > 0) {
       const result = spawnSync("deno", ["--version"]);
@@ -54,6 +50,13 @@ export class FunctionManager {
   }
 
   async ensureRunning(name: string): Promise<number> {
+    const backendFunction = this.functions.get(name);
+    if (!backendFunction) {
+      throw new InvalidInputError(`Function "${name}" not found`, {
+        hints: [{ message: "Check available functions in your project" }],
+      });
+    }
+
     const existing = this.running.get(name);
     if (existing?.ready) {
       return existing.port;
@@ -62,13 +65,6 @@ export class FunctionManager {
     const pending = this.starting.get(name);
     if (pending) {
       return pending;
-    }
-
-    const backendFunction = this.functions.get(name);
-    if (!backendFunction) {
-      throw new InvalidInputError(`Function "${name}" not found`, {
-        hints: [{ message: "Check available functions in your project" }],
-      });
     }
 
     const promise = this.startFunction(name, backendFunction);

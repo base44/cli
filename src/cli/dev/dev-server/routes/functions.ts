@@ -47,14 +47,6 @@ export function createFunctionRouter(
     async (req: Request<{ functionName: string }>, res: Response, next) => {
       const { functionName } = req.params;
 
-      const func = manager.getFunction(functionName);
-      if (!func) {
-        res.status(404).json({
-          error: `Function "${functionName}" not found`,
-        });
-        return;
-      }
-
       try {
         const port = await manager.ensureRunning(functionName);
         portsByRequest.set(req, port);
