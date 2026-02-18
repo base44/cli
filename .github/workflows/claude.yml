@@ -45,5 +45,5 @@ jobs:
 
           # Allow Claude to run bun and gh commands
           claude_args: |
-            --allowedTools "Bash(bun:*),Bash(gh pr:*),Bash(gh issue:*)"
+            --allowedTools "Bash(bun:*),Bash(gh pr:*),Bash(gh issue:*)",Bash(git:*)
 
