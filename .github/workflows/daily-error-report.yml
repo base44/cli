@@ -44,14 +44,22 @@ jobs:
           POSTHOG_CLI_TOKEN: ${{ secrets.POSTHOG_CLI_API_KEY }}
           POSTHOG_CLI_ENV_ID: ${{ vars.POSTHOG_PROJECT_ID }}
         run: |
-          posthog-cli exp query run "SELECT properties.is_user_error as is_user_error, properties.error_code as error_code, count() as occurrences, count(DISTINCT distinct_id) as users_affected, any(properties.\$exception_values) as sample_message, any(properties.command_name) as sample_command FROM events WHERE event = '\$exception' AND timestamp >= now() - INTERVAL ${{ steps.time-range.outputs.hours }} HOUR GROUP BY is_user_error, error_code ORDER BY occurrences DESC" > /tmp/summary.jsonl || true
+          posthog-cli exp query run "SELECT properties.is_user_error as is_user_error, properties.error_code as error_code, count() as occurrences, count(DISTINCT distinct_id) as users_affected, countIf(distinct_id LIKE '%@wix.com' OR distinct_id LIKE '%@base44.com') as internal_occurrences, any(properties.\$exception_values) as sample_message, any(properties.command_name) as sample_command FROM events WHERE event = '\$exception' AND timestamp >= now() - INTERVAL ${{ steps.time-range.outputs.hours }} HOUR GROUP BY is_user_error, error_code ORDER BY occurrences DESC" > /tmp/summary.jsonl || true
 
       - name: Query error details
         env:
           POSTHOG_CLI_TOKEN: ${{ secrets.POSTHOG_CLI_API_KEY }}
           POSTHOG_CLI_ENV_ID: ${{ vars.POSTHOG_PROJECT_ID }}
         run: |
-          posthog-cli exp query run "SELECT timestamp, distinct_id, properties.\$exception_types as exception_type, properties.\$exception_values as exception_message, properties.\$exception_list as exception_list, properties.\$exception_fingerprint as fingerprint, properties.\$exception_level as level, properties.error_code as error_code, properties.is_user_error as is_user_error, properties.command_name as command_name, properties.command_args as command_args, properties.app_id as app_id, properties.cli_version as cli_version, properties.node_version as node_version, properties.platform as platform, properties.arch as arch, properties.os_type as os_type, properties.is_agent as is_agent, properties.agent_name as agent_name, properties.api_status_code as api_status_code, properties.api_request_url as api_request_url, properties.api_request_method as api_request_method FROM events WHERE event = '\$exception' AND timestamp >= now() - INTERVAL ${{ steps.time-range.outputs.hours }} HOUR ORDER BY timestamp DESC LIMIT 50" > /tmp/details.jsonl || true
+          posthog-cli exp query run "SELECT properties.\$exception_fingerprint as fingerprint, count() as occurrences, any(properties.\$exception_types) as exception_type, any(properties.\$exception_values) as exception_message, substring(toString(any(properties.\$exception_list)), 1, 3000) as exception_list, any(properties.\$exception_level) as level, any(properties.error_code) as error_code, any(properties.is_user_error) as is_user_error, any(properties.command_name) as command_name, any(properties.cli_version) as cli_version, any(properties.node_version) as node_version, any(properties.platform) as platform, any(properties.arch) as arch, any(properties.os_type) as os_type, any(properties.is_agent) as is_agent, any(properties.agent_name) as agent_name, any(properties.api_status_code) as api_status_code, any(properties.api_request_url) as api_request_url, any(properties.api_request_method) as api_request_method, max(timestamp) as last_seen, min(timestamp) as first_seen FROM events WHERE event = '\$exception' AND timestamp >= now() - INTERVAL ${{ steps.time-range.outputs.hours }} HOUR GROUP BY fingerprint ORDER BY occurrences DESC LIMIT 25" > /tmp/details.jsonl || true
+
+      - name: Trim output files
+        run: |
+          for f in /tmp/summary.jsonl /tmp/details.jsonl; do
+            if [ -f "$f" ] && [ "$(wc -c < "$f")" -gt 200000 ]; then
+              awk 'BEGIN{t=0}{t+=length($0)+1; if(t>200000) exit; print}' "$f" > "${f}.tmp" && mv "${f}.tmp" "$f"
+            fi
+          done
 
       - name: Check for errors
         id: check-errors
@@ -71,17 +79,31 @@ jobs:
             You are an error triage engineer for the Base44 CLI (a TypeScript CLI tool built with Commander.js).
             Your task: analyze the error data from the last ${{ steps.time-range.outputs.hours }} hours and produce a GitHub issue report.
 
+            ## Context
+
+            PostHog project ID: `${{ vars.POSTHOG_PROJECT_ID }}`
+            PostHog error tracking URL pattern: `https://us.posthog.com/project/${{ vars.POSTHOG_PROJECT_ID }}/error_tracking/<fingerprint>`
+
             ## Step 1: Read the error data
 
             Read two JSONL files (one JSON array per line):
 
             **`/tmp/summary.jsonl`** — aggregated error counts. Columns (by position):
-            `[is_user_error, error_code, occurrences, users_affected, sample_message, sample_command]`
+            `[is_user_error, error_code, occurrences, users_affected, internal_occurrences, sample_message, sample_command]`
+            - `users_affected` = unique users (count of distinct users, no PII)
+            - `internal_occurrences` = how many occurrences came from internal users (@wix.com / @base44.com)
 
-            **`/tmp/details.jsonl`** — individual error events. Columns (by position):
-            `[timestamp, distinct_id, exception_type, exception_message, exception_list, fingerprint, level, error_code, is_user_error, command_name, command_args, app_id, cli_version, node_version, platform, arch, os_type, is_agent, agent_name, api_status_code, api_request_url, api_request_method]`
+            **`/tmp/details.jsonl`** — one representative event per unique error group (grouped by fingerprint, ordered by occurrences DESC). Columns (by position):
+            `[fingerprint, occurrences, exception_type, exception_message, exception_list, level, error_code, is_user_error, command_name, cli_version, node_version, platform, arch, os_type, is_agent, agent_name, api_status_code, api_request_url, api_request_method, last_seen, first_seen]`
 
-            `distinct_id` is typically the user's email. Users with emails ending in `@wix.com` or `@base44.com` are internal users — mark them as `[internal]` in the report.
+            ## PRIVACY — this repo is public, the issue will be public
+
+            The data does NOT contain user emails or distinct_ids. However, other fields may still leak PII:
+            - **Stack traces** (`exception_list`): frame `filename` paths may contain usernames (e.g. `/Users/john/node_modules/...`). When including stack traces in the report, replace any home-directory path segments with `<redacted>` (e.g. `/Users/<redacted>/node_modules/base44/...`).
+            - **Error messages** (`exception_message`): may contain file paths with usernames. Apply the same redaction.
+            - **`app_id`**: this is an internal ID. You may use it for grouping/counting, but do NOT list raw app_id values in the report.
+            - **`api_request_url`**: redact any query parameters and path segments that look like tokens or user-specific identifiers.
+            - Never include user emails, names, IP addresses, or identifiable information in the report.
 
             ## Step 2: Check for recurring errors and existing issues
 
@@ -93,21 +115,27 @@ jobs:
                - Run `gh issue list --state open --search "<error_code or key phrase from the error message>" --json number,title,labels,assignees --limit 5`
                - If you find a matching issue, link to it in the report instead of re-describing the problem. Note the issue number and whether someone is assigned.
 
-            ## Step 3: Understand the errors
+            ## Step 3: Understand the errors — always include code snippets
 
-            For each unique error (group by fingerprint or error_code + exception_message):
+            The details file is already grouped by fingerprint (one row per unique error group, ordered by occurrences). For each error group:
             1. Read the stack trace from `exception_list` (it's a JSON array of `{type, value, stacktrace: {frames: [{filename, lineno, colno, function}]}}`)
-            2. Use the stack trace to find the relevant source files in this repository (under `src/`)
-            3. Read those source files and understand WHY the error happened
-            4. Check if the error is a known pattern or a real bug
+               Note: `exception_list` is truncated to ~3000 chars — this should include the most relevant top frames.
+            2. **Include the error message and stack trace from PostHog** in the report. Show `exception_message` and the top 3-5 frames from `exception_list`. These are the actual errors users hit.
+            3. **Build a PostHog link** for each error using the `fingerprint` field: `https://us.posthog.com/project/${{ vars.POSTHOG_PROJECT_ID }}/error_tracking/<fingerprint>`. Include this link in the report so readers can drill into PostHog for full details.
+            4. Use the stack trace frames to find the relevant source files in this repository (under `src/`). Map the frame `filename` and `lineno` to actual source files using Grep/Glob.
+            5. **Read those source files** and understand WHY the error happened. This is critical — you MUST read the actual source code, not guess.
+            6. **Include code snippets** in the report for every error. Show the exact lines from `src/` that caused or are related to the error. Use the `// src/path/to/file.ts:NN` format.
+            7. Check if the error is a known pattern or a real bug.
+
+            Each error in the report must have BOTH: (a) the error/stack trace from PostHog data, and (b) the relevant source code from the repo.
 
             ## Step 4: Classify and filter
 
             - **System errors** (`is_user_error = false`): These are bugs. Always include them.
             - **User errors** (`is_user_error = true`): These are expected (auth expired, invalid input, etc). Only include a user error if:
-              - It affects many different users (>= 5 unique distinct_ids), suggesting a CLI problem rather than individual user mistakes
+              - It affects many different users (>= 5 from `users_affected`), suggesting a CLI problem rather than individual user mistakes
               - OR it looks like a CLI bug disguised as a user error
-            - **Internal users**: Users whose `distinct_id` ends with `@wix.com` or `@base44.com`. Still include their errors, but mark them as `[internal]` in the report.
+            - **Internal vs external**: Use `internal_occurrences` from the summary to note what fraction of errors come from internal users.
 
             ## Step 5: Create the GitHub issue
 
@@ -131,7 +159,7 @@ jobs:
             | System errors | N |
             | User errors (noteworthy) | N |
             | Unique users affected | N |
-            | Internal users affected | N |
+            | Internal user occurrences | N |
 
             ## Recurring Errors
 
@@ -152,27 +180,35 @@ jobs:
             **Error code**: `CODE` | **Occurrences**: N | **Users affected**: N
             **Command**: `command name` | **Type**: System/User
             **Recurring**: Yes (N days) / No | **Existing issue**: #123 or None
+            **PostHog**: [View in error tracking](https://us.posthog.com/project/<PROJECT_ID>/error_tracking/<fingerprint>)
+
+            **Error from PostHog**:
+            ```
+            ErrorType: error message from exception_message
+            ```
+
+            **Stack trace** (from PostHog, abbreviated — redact PII from paths):
+            ```
+            ErrorType: message
+                at function (file:line:col)
+                at function (file:line:col)
+                ...
+            ```
 
             **What happened**:
             One paragraph explaining the error in plain English.
 
-            **Root cause analysis**:
-            Explain what you found in the code. Include the relevant code snippet:
+            **Root cause in code**:
+            Explain what you found in the source code. Include the relevant code snippet:
             ```typescript
             // src/path/to/file.ts:NN
             <relevant code>
             ```
 
-            **Evidence**:
-            - Stack trace (abbreviated):
-            ```
-            ErrorType: message
-                at function (file:line:col)
-                ...
-            ```
-            - Affected users: list (mark [internal] where applicable)
+            **Additional context**:
             - CLI versions: list
             - Platforms: list
+            - Internal vs external: N of M occurrences from internal users
 
             **Expected behavior**: What should have happened
             **Actual behavior**: What actually happened
@@ -192,7 +228,7 @@ jobs:
             ## Rules
 
             - Be concise. Don't pad the report.
-            - Cite actual code from the repo (read the files, don't guess).
+            - ALWAYS include code snippets from the repo for every error. Read the source files using the stack trace frames, then paste the relevant lines in fenced code blocks with `// src/path:line` comments. This is mandatory — a report without code snippets is incomplete.
             - For stack traces, show the most relevant 3-5 frames, not the full trace.
             - Group duplicate/similar errors together. Don't repeat the same error N times.
             - Add the label "error-report" to the issue.
