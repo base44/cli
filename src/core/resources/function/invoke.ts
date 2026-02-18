@@ -22,7 +22,11 @@ const METHODS_WITH_BODY = new Set<HttpMethod>(["POST", "PUT", "PATCH"]);
 export async function invokeFunction(
   functionName: string,
   data: Record<string, unknown>,
-  options?: { timeout?: number; method?: string; headers?: Record<string, string> },
+  options?: {
+    timeout?: number;
+    method?: string;
+    headers?: Record<string, string>;
+  },
 ): Promise<unknown> {
   const { id } = getAppConfig();
   const method = (options?.method?.toUpperCase() ?? "POST") as HttpMethod;

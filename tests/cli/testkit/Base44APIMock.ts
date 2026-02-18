@@ -75,10 +75,6 @@ interface ConnectorSetResponse {
   other_user_email?: string;
 }
 
-interface ConnectorOAuthStatusResponse {
-  status: "ACTIVE" | "FAILED" | "PENDING";
-}
-
 interface ConnectorRemoveResponse {
   status: "removed";
   integration_type: string;
@@ -246,7 +242,9 @@ export class Base44APIMock {
   }
 
   /** Mock GET /api/apps/{appId}/external-auth/status - Get OAuth status */
-  mockConnectorOAuthStatus(response: ConnectorOAuthStatusResponse): this {
+  mockConnectorOAuthStatus(response: {
+    status: "ACTIVE" | "FAILED" | "PENDING";
+  }): this {
     this.handlers.push(
       http.get(`${BASE_URL}/api/apps/${this.appId}/external-auth/status`, () =>
         HttpResponse.json(response),

@@ -22,7 +22,11 @@ function collectHeader(
 function parseJsonArg(value: string): Record<string, unknown> {
   try {
     const parsed: unknown = JSON.parse(value);
-    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      Array.isArray(parsed)
+    ) {
       throw new Error("Data must be a JSON object");
     }
     return parsed as Record<string, unknown>;
@@ -35,7 +39,12 @@ function parseJsonArg(value: string): Record<string, unknown> {
 
 async function invokeFunctionAction(
   functionName: string,
-  options: { data?: string; timeout?: string; method?: string; header?: Record<string, string> },
+  options: {
+    data?: string;
+    timeout?: string;
+    method?: string;
+    header?: Record<string, string>;
+  },
 ): Promise<RunCommandResult> {
   const data = options.data ? parseJsonArg(options.data) : {};
   const method = options.method?.toUpperCase() ?? "POST";
@@ -43,9 +52,7 @@ async function invokeFunctionAction(
     ? parseInt(options.timeout, 10) * 1000
     : undefined;
 
-  log.info(
-    `Invoking function ${theme.styles.bold(functionName)} (${method})`,
-  );
+  log.info(`Invoking function ${theme.styles.bold(functionName)} (${method})`);
 
   const result = await runTask(
     "Running function",
@@ -77,7 +84,12 @@ export function getFunctionsInvokeCommand(context: CLIContext): Command {
     .description("Invoke a deployed backend function")
     .argument("<function-name>", "Name of the function to invoke")
     .option("-X, --method <verb>", "HTTP method (default: POST)")
-    .option("-H, --header <header>", "Custom header (Name: Value), repeatable", collectHeader, {})
+    .option(
+      "-H, --header <header>",
+      "Custom header (Name: Value), repeatable",
+      collectHeader,
+      {},
+    )
     .option("-d, --data <json>", "JSON data to send to the function")
     .option("-t, --timeout <seconds>", "Timeout in seconds (default: 300)")
     .action(async (functionName: string, options) => {
