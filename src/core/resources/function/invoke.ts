@@ -5,11 +5,11 @@ import {
   refreshAndSaveTokens,
 } from "@/core/auth/config.js";
 import { getAppConfig } from "@/core/project/index.js";
+import { getSiteUrl } from "@/core/site/api.js";
 
-// Function invocation must go through the app domain (base44.app),
-// not the platform domain (app.base44.com).
-const APP_DOMAIN_BASE_URL =
-  process.env.BASE44_APP_URL || "https://base44.app";
+type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
+
+const METHODS_WITH_BODY = new Set<HttpMethod>(["POST", "PUT", "PATCH"]);
 
 /**
  * Invokes a deployed backend function by name.
@@ -22,9 +22,14 @@ const APP_DOMAIN_BASE_URL =
 export async function invokeFunction(
   functionName: string,
   data: Record<string, unknown>,
-  options?: { timeout?: number },
+  options?: { timeout?: number; method?: string },
 ): Promise<unknown> {
   const { id } = getAppConfig();
+  const method = (options?.method?.toUpperCase() ?? "POST") as HttpMethod;
+
+  // Resolve the app's published URL (e.g. https://my-app.base44.app)
+  const siteUrl = await getSiteUrl();
+  const url = `${siteUrl.replace(/\/+$/, "")}/api/functions/${functionName}`;
 
   // Get a valid access token
   const auth = await readAuth();
@@ -36,18 +41,16 @@ export async function invokeFunction(
     }
   }
 
-  const response = await ky.post(
-    `${APP_DOMAIN_BASE_URL}/api/apps/${id}/functions/${functionName}`,
-    {
-      json: data,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "X-App-Id": id,
-        "User-Agent": "Base44 CLI",
-      },
-      timeout: options?.timeout ?? 300_000,
+  const response = await ky(url, {
+    method,
+    ...(METHODS_WITH_BODY.has(method) ? { json: data } : {}),
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "X-App-Id": id,
+      "User-Agent": "Base44 CLI",
     },
-  );
+    timeout: options?.timeout ?? 300_000,
+  });
 
   return response.json();
 }
