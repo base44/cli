@@ -1,9 +1,11 @@
+import type { KyResponse } from "ky";
 import ky from "ky";
 import {
   isTokenExpired,
   readAuth,
   refreshAndSaveTokens,
 } from "@/core/auth/config.js";
+import { ApiError } from "@/core/errors.js";
 import { getAppConfig } from "@/core/project/index.js";
 import { getSiteUrl } from "@/core/site/api.js";
 
@@ -45,17 +47,22 @@ export async function invokeFunction(
     }
   }
 
-  const response = await ky(url, {
-    method,
-    ...(METHODS_WITH_BODY.has(method) ? { json: data } : {}),
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "X-App-Id": id,
-      "User-Agent": "Base44 CLI",
-      ...options?.headers,
-    },
-    timeout: options?.timeout ?? 300_000,
-  });
+  let response: KyResponse;
+  try {
+    response = await ky(url, {
+      method,
+      ...(METHODS_WITH_BODY.has(method) ? { json: data } : {}),
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "X-App-Id": id,
+        "User-Agent": "Base44 CLI",
+        ...options?.headers,
+      },
+      timeout: options?.timeout ?? 300_000,
+    });
+  } catch (error) {
+    throw await ApiError.fromHttpError(error, "invoking function");
+  }
 
   return response.json();
 }
