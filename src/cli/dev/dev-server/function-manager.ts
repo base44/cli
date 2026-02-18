@@ -105,15 +105,6 @@ export class FunctionManager {
     this.starting.clear();
   }
 
-  stop(name: string): void {
-    const running = this.running.get(name);
-    if (running) {
-      this.logger.log(`Stopping function: ${name}`);
-      running.process.kill();
-      this.running.delete(name);
-    }
-  }
-
   private async allocatePort(): Promise<number> {
     const usedPorts = Array.from(this.running.values()).map((r) => r.port);
     return getPort({ exclude: usedPorts });
