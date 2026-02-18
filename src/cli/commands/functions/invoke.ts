@@ -44,6 +44,7 @@ async function invokeFunctionAction(
     timeout?: string;
     method?: string;
     header?: Record<string, string>;
+    verbose?: boolean;
   },
 ): Promise<RunCommandResult> {
   const data = options.data ? parseJsonArg(options.data) : {};
@@ -52,7 +53,11 @@ async function invokeFunctionAction(
     ? parseInt(options.timeout, 10) * 1000
     : undefined;
 
-  log.info(`Invoking function ${theme.styles.bold(functionName)} (${method})`);
+  if (!options.verbose) {
+    log.info(
+      `Invoking function ${theme.styles.bold(functionName)} (${method})`,
+    );
+  }
 
   const result = await runTask(
     "Running function",
@@ -64,18 +69,55 @@ async function invokeFunctionAction(
       });
     },
     {
-      successMessage: "Function executed successfully",
+      successMessage: options.verbose
+        ? undefined
+        : "Function executed successfully",
       errorMessage: "Function execution failed",
     },
   );
 
-  const output =
-    typeof result === "string" ? result : JSON.stringify(result, null, 2);
+  if (options.verbose) {
+    // curl-like verbose output
+    log.info(theme.styles.dim("* Request:"));
+    log.info(theme.styles.dim(`> ${result.method} ${result.url}`));
+    for (const [key, value] of Object.entries(result.requestHeaders)) {
+      // Don't show the full auth token for security
+      const displayValue =
+        key === "Authorization" ? "Bearer [REDACTED]" : value;
+      log.info(theme.styles.dim(`> ${key}: ${displayValue}`));
+    }
+    if (Object.keys(data).length > 0) {
+      log.info(theme.styles.dim(">"));
+      log.info(theme.styles.dim(`> ${JSON.stringify(data)}`));
+    }
+    log.info(theme.styles.dim("*"));
+    log.info(theme.styles.dim("* Response:"));
+    log.info(
+      theme.styles.dim(
+        `< HTTP ${result.status} ${result.statusText} (${result.durationMs}ms)`,
+      ),
+    );
+    for (const [key, value] of Object.entries(result.headers)) {
+      log.info(theme.styles.dim(`< ${key}: ${value}`));
+    }
+    log.info(theme.styles.dim("<"));
+  }
 
-  log.info(`Response:\n${output}`);
+  const output =
+    typeof result.body === "string"
+      ? result.body
+      : JSON.stringify(result.body, null, 2);
+
+  if (options.verbose) {
+    log.info(output);
+  } else {
+    log.info(`Response:\n${output}`);
+  }
 
   return {
-    outroMessage: `Function ${theme.styles.bold(functionName)} completed`,
+    outroMessage: options.verbose
+      ? undefined
+      : `Function ${theme.styles.bold(functionName)} completed`,
   };
 }
 
@@ -92,6 +134,10 @@ export function getFunctionsInvokeCommand(context: CLIContext): Command {
     )
     .option("-d, --data <json>", "JSON data to send to the function")
     .option("-t, --timeout <seconds>", "Timeout in seconds (default: 300)")
+    .option(
+      "-v, --verbose",
+      "Verbose output (show request/response headers, status, timing)",
+    )
     .action(async (functionName: string, options) => {
       await runCommand(
         () => invokeFunctionAction(functionName, options),

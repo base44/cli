@@ -13,13 +13,32 @@ type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
 
 const METHODS_WITH_BODY = new Set<HttpMethod>(["POST", "PUT", "PATCH"]);
 
+interface InvokeFunctionResult {
+  /** The function's response body */
+  body: unknown;
+  /** HTTP status code */
+  status: number;
+  /** HTTP status text */
+  statusText: string;
+  /** Response headers */
+  headers: Record<string, string>;
+  /** Request URL */
+  url: string;
+  /** Request method */
+  method: string;
+  /** Request headers that were sent */
+  requestHeaders: Record<string, string>;
+  /** Time taken in milliseconds */
+  durationMs: number;
+}
+
 /**
  * Invokes a deployed backend function by name.
  *
  * @param functionName - The name of the function to invoke
  * @param data - JSON-serializable data to pass to the function
  * @param options - Optional configuration for the invocation
- * @returns The function's response data
+ * @returns The function's response data and metadata
  */
 export async function invokeFunction(
   functionName: string,
@@ -29,7 +48,7 @@ export async function invokeFunction(
     method?: string;
     headers?: Record<string, string>;
   },
-): Promise<unknown> {
+): Promise<InvokeFunctionResult> {
   const { id } = getAppConfig();
   const method = (options?.method?.toUpperCase() ?? "POST") as HttpMethod;
 
@@ -47,22 +66,43 @@ export async function invokeFunction(
     }
   }
 
+  const requestHeaders = {
+    Authorization: `Bearer ${token}`,
+    "X-App-Id": id,
+    "User-Agent": "Base44 CLI",
+    ...options?.headers,
+  };
+
+  const startTime = Date.now();
   let response: KyResponse;
   try {
     response = await ky(url, {
       method,
       ...(METHODS_WITH_BODY.has(method) ? { json: data } : {}),
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "X-App-Id": id,
-        "User-Agent": "Base44 CLI",
-        ...options?.headers,
-      },
+      headers: requestHeaders,
       timeout: options?.timeout ?? 300_000,
     });
   } catch (error) {
     throw await ApiError.fromHttpError(error, "invoking function");
   }
+  const durationMs = Date.now() - startTime;
 
-  return response.json();
+  // Extract response headers
+  const responseHeaders: Record<string, string> = {};
+  response.headers.forEach((value, key) => {
+    responseHeaders[key] = value;
+  });
+
+  const body = await response.json();
+
+  return {
+    body,
+    status: response.status,
+    statusText: response.statusText,
+    headers: responseHeaders,
+    url,
+    method,
+    requestHeaders,
+    durationMs,
+  };
 }
