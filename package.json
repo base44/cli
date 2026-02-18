@@ -37,7 +37,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.0.0",
-    "@clack/prompts": "^0.11.0",
+    "@clack/prompts": "^1.0.1",
     "@types/bun": "^1.2.15",
     "@types/common-tags": "^1.8.4",
     "@types/cors": "^2.8.19",

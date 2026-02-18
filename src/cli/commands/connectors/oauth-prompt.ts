@@ -32,27 +32,20 @@ interface OAuthPromptOptions {
   skipPrompt?: boolean;
 }
 
-/**
- * Clack's block() puts stdin in raw mode where Ctrl+C calls process.exit(0)
- * directly instead of emitting SIGINT. We override process.exit temporarily
- * so Ctrl+C/Esc skips the current connector instead of killing the process.
- */
 async function runOAuthFlowWithSkip(
   connector: PendingOAuthResult,
 ): Promise<OAuthFlowStatus> {
   await open(connector.redirectUrl);
 
-  // Mutated inside the pWaitFor callback — use `as` to prevent TS narrowing
   let finalStatus = "PENDING" as OAuthFlowStatus;
   let skipped = false;
 
-  const s = spinner();
-
-  const originalExit = process.exit;
-  process.exit = (() => {
-    skipped = true;
-    s.stop(`${connector.type} skipped`);
-  }) as unknown as typeof process.exit;
+  const s = spinner({
+    onCancel: () => {
+      skipped = true;
+    },
+    cancelMessage: `${connector.type} skipped`,
+  });
 
   s.start(`Waiting for ${connector.type} authorization... (Esc to skip)`);
 
@@ -82,15 +75,13 @@ async function runOAuthFlowWithSkip(
       throw err;
     }
   } finally {
-    process.exit = originalExit;
-
     if (!skipped) {
       if (finalStatus === "ACTIVE") {
         s.stop(`${connector.type} authorization complete`);
       } else if (finalStatus === "FAILED") {
-        s.stop(`${connector.type} authorization failed`);
+        s.error(`${connector.type} authorization failed`);
       } else {
-        s.stop(`${connector.type} authorization timed out`);
+        s.error(`${connector.type} authorization timed out`);
       }
     }
   }
