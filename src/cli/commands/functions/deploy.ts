@@ -1,5 +1,6 @@
 import { log } from "@clack/prompts";
 import { Command } from "commander";
+import { getFunctionsInvokeCommand } from "@/cli/commands/functions/invoke.js";
 import type { CLIContext } from "@/cli/types.js";
 import { runCommand, runTask } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
@@ -66,5 +67,6 @@ export function getFunctionsDeployCommand(context: CLIContext): Command {
             context,
           );
         }),
-    );
+    )
+    .addCommand(getFunctionsInvokeCommand(context));
 }
