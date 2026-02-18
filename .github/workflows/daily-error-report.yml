@@ -1,0 +1,208 @@
+name: Daily Error Report
+
+on:
+  schedule:
+    - cron: "0 8 * * *"
+  workflow_dispatch:
+    inputs:
+      hours:
+        description: "Time range in hours to look back"
+        required: false
+        default: "24"
+        type: string
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install PostHog CLI
+        run: npm install -g @posthog/cli
+
+      - name: Set time range
+        id: time-range
+        run: |
+          HOURS="${{ github.event.inputs.hours || '24' }}"
+          echo "hours=$HOURS" >> $GITHUB_OUTPUT
+
+      - name: Query error summary
+        env:
+          POSTHOG_CLI_TOKEN: ${{ secrets.POSTHOG_CLI_API_KEY }}
+          POSTHOG_CLI_ENV_ID: ${{ vars.POSTHOG_PROJECT_ID }}
+        run: |
+          posthog-cli exp query run "SELECT properties.is_user_error as is_user_error, properties.error_code as error_code, count() as occurrences, count(DISTINCT distinct_id) as users_affected, any(properties.\$exception_values) as sample_message, any(properties.command_name) as sample_command FROM events WHERE event = '\$exception' AND timestamp >= now() - INTERVAL ${{ steps.time-range.outputs.hours }} HOUR GROUP BY is_user_error, error_code ORDER BY occurrences DESC" > /tmp/summary.jsonl || true
+
+      - name: Query error details
+        env:
+          POSTHOG_CLI_TOKEN: ${{ secrets.POSTHOG_CLI_API_KEY }}
+          POSTHOG_CLI_ENV_ID: ${{ vars.POSTHOG_PROJECT_ID }}
+        run: |
+          posthog-cli exp query run "SELECT timestamp, distinct_id, properties.\$exception_types as exception_type, properties.\$exception_values as exception_message, properties.\$exception_list as exception_list, properties.\$exception_fingerprint as fingerprint, properties.\$exception_level as level, properties.error_code as error_code, properties.is_user_error as is_user_error, properties.command_name as command_name, properties.command_args as command_args, properties.app_id as app_id, properties.cli_version as cli_version, properties.node_version as node_version, properties.platform as platform, properties.arch as arch, properties.os_type as os_type, properties.is_agent as is_agent, properties.agent_name as agent_name, properties.api_status_code as api_status_code, properties.api_request_url as api_request_url, properties.api_request_method as api_request_method FROM events WHERE event = '\$exception' AND timestamp >= now() - INTERVAL ${{ steps.time-range.outputs.hours }} HOUR ORDER BY timestamp DESC LIMIT 50" > /tmp/details.jsonl || true
+
+      - name: Check for errors
+        id: check-errors
+        run: |
+          if [ -s /tmp/summary.jsonl ]; then
+            echo "has_errors=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_errors=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate report with Claude
+        if: steps.check-errors.outputs.has_errors == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            You are an error triage engineer for the Base44 CLI (a TypeScript CLI tool built with Commander.js).
+            Your task: analyze the error data from the last ${{ steps.time-range.outputs.hours }} hours and produce a GitHub issue report.
+
+            ## Step 1: Read the error data
+
+            Read two JSONL files (one JSON array per line):
+
+            **`/tmp/summary.jsonl`** — aggregated error counts. Columns (by position):
+            `[is_user_error, error_code, occurrences, users_affected, sample_message, sample_command]`
+
+            **`/tmp/details.jsonl`** — individual error events. Columns (by position):
+            `[timestamp, distinct_id, exception_type, exception_message, exception_list, fingerprint, level, error_code, is_user_error, command_name, command_args, app_id, cli_version, node_version, platform, arch, os_type, is_agent, agent_name, api_status_code, api_request_url, api_request_method]`
+
+            `distinct_id` is typically the user's email. Users with emails ending in `@wix.com` or `@base44.com` are internal users — mark them as `[internal]` in the report.
+
+            ## Step 2: Check for recurring errors and existing issues
+
+            Before analyzing, gather context:
+
+            1. **Previous error reports**: Run `gh issue list --label error-report --limit 5 --json number,title,body,createdAt` to get the last few daily reports. Read through them to identify errors that keep recurring across multiple days. If an error appeared in previous reports too, mark it as **recurring** and note how many consecutive days it has appeared.
+
+            2. **Existing GitHub issues**: For each unique error you find in the data, search for existing open issues that might already track it:
+               - Run `gh issue list --state open --search "<error_code or key phrase from the error message>" --json number,title,labels,assignees --limit 5`
+               - If you find a matching issue, link to it in the report instead of re-describing the problem. Note the issue number and whether someone is assigned.
+
+            ## Step 3: Understand the errors
+
+            For each unique error (group by fingerprint or error_code + exception_message):
+            1. Read the stack trace from `exception_list` (it's a JSON array of `{type, value, stacktrace: {frames: [{filename, lineno, colno, function}]}}`)
+            2. Use the stack trace to find the relevant source files in this repository (under `src/`)
+            3. Read those source files and understand WHY the error happened
+            4. Check if the error is a known pattern or a real bug
+
+            ## Step 4: Classify and filter
+
+            - **System errors** (`is_user_error = false`): These are bugs. Always include them.
+            - **User errors** (`is_user_error = true`): These are expected (auth expired, invalid input, etc). Only include a user error if:
+              - It affects many different users (>= 5 unique distinct_ids), suggesting a CLI problem rather than individual user mistakes
+              - OR it looks like a CLI bug disguised as a user error
+            - **Internal users**: Users whose `distinct_id` ends with `@wix.com` or `@base44.com`. Still include their errors, but mark them as `[internal]` in the report.
+
+            ## Step 5: Create the GitHub issue
+
+            If there are errors worth reporting, create ONE GitHub issue using `gh issue create`. The issue should follow this structure:
+
+            **Title**: `Error Report: <date> (<N> errors in last <hours>h)`
+
+            **Body** (use this template):
+
+            ```
+            ## Summary
+
+            Brief 2-3 sentence overview of the error landscape. Mention total errors, how many are system vs user, and the most critical finding.
+
+            ## Key Metrics
+
+            | Metric | Value |
+            | --- | --- |
+            | Time range | last <hours> hours |
+            | Total errors | N |
+            | System errors | N |
+            | User errors (noteworthy) | N |
+            | Unique users affected | N |
+            | Internal users affected | N |
+
+            ## Recurring Errors
+
+            If any errors appeared in previous daily reports, list them here:
+
+            | Error | Days recurring | Existing issue | Status |
+            | --- | --- | --- | --- |
+            | Short description | N days | #123 or "none" | open/assigned/untracked |
+
+            Recurring errors that are not yet tracked in an issue should be called out explicitly.
+
+            ## Critical Issues
+
+            For each significant error group (ordered by severity/impact):
+
+            ### Issue N: <Short descriptive title>
+
+            **Error code**: `CODE` | **Occurrences**: N | **Users affected**: N
+            **Command**: `command name` | **Type**: System/User
+            **Recurring**: Yes (N days) / No | **Existing issue**: #123 or None
+
+            **What happened**:
+            One paragraph explaining the error in plain English.
+
+            **Root cause analysis**:
+            Explain what you found in the code. Include the relevant code snippet:
+            ```typescript
+            // src/path/to/file.ts:NN
+            <relevant code>
+            ```
+
+            **Evidence**:
+            - Stack trace (abbreviated):
+            ```
+            ErrorType: message
+                at function (file:line:col)
+                ...
+            ```
+            - Affected users: list (mark [internal] where applicable)
+            - CLI versions: list
+            - Platforms: list
+
+            **Expected behavior**: What should have happened
+            **Actual behavior**: What actually happened
+
+            ---
+
+            ## Suggestions
+
+            Numbered list of actionable next steps, ordered by priority. For each:
+            1. What to fix and where (file path + line)
+            2. Suggested approach (brief)
+            3. Severity: critical / high / medium / low
+            ```
+
+            If there are zero errors worth reporting, do NOT create an issue. Instead just print "No significant errors to report."
+
+            ## Rules
+
+            - Be concise. Don't pad the report.
+            - Cite actual code from the repo (read the files, don't guess).
+            - For stack traces, show the most relevant 3-5 frames, not the full trace.
+            - Group duplicate/similar errors together. Don't repeat the same error N times.
+            - Add the label "error-report" to the issue.
+            - Don't speculate — if you can't find the root cause in the code, say so.
+            - When an existing issue already tracks the error, reference it with `#<number>` instead of re-explaining everything. Just note if occurrences have increased or new users are affected.
+            - Recurring untracked errors should be flagged prominently — these are being ignored.
+          claude_args: |
+            --model claude-sonnet-4-20250514
+            --allowedTools Read,Glob,Grep,"Bash(cat /tmp/*)",Bash(gh issue create:*),Bash(gh issue list:*),Bash(gh issue view:*),Bash(gh label create:*)
+
+      - name: No errors summary
+        if: steps.check-errors.outputs.has_errors != 'true'
+        run: echo "### No errors in the last ${{ steps.time-range.outputs.hours }} hours" >> $GITHUB_STEP_SUMMARY
