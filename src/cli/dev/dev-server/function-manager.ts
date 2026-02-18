@@ -96,11 +96,6 @@ export class FunctionManager {
     return this.waitForReady(name, runningFunc);
   }
 
-  getPort(name: string): number | undefined {
-    const running = this.running.get(name);
-    return running?.ready ? running.port : undefined;
-  }
-
   stopAll(): void {
     for (const [name, { process }] of this.running) {
       this.logger.log(`[dev-server] Stopping function: ${name}`);
