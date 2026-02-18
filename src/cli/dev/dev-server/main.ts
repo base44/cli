@@ -1,5 +1,4 @@
 import type { Server } from "node:http";
-import { dirname, join } from "node:path";
 import { log as clackLog } from "@clack/prompts";
 import cors from "cors";
 import express from "express";
@@ -8,14 +7,14 @@ import { createProxyMiddleware } from "http-proxy-middleware";
 import { createDevLogger } from "@/cli/dev/createDevLogger.js";
 import { FunctionManager } from "@/cli/dev/dev-server/function-manager.js";
 import { createFunctionRouter } from "@/cli/dev/dev-server/routes/functions.js";
-import { readProjectConfig } from "@/core/project/config.js";
-import { functionResource } from "@/core/resources/function/resource.js";
+import type { BackendFunction } from "@/core/resources/function/schema.js";
 
 const DEFAULT_PORT = 4400;
 const BASE44_APP_URL = "https://base44.app";
 
 interface DevServerOptions {
   port?: number;
+  loadResources: () => Promise<{ functions: BackendFunction[] }>;
 }
 
 interface DevServerResult {
@@ -29,8 +28,7 @@ export async function createDevServer(
   const { port: userPort } = options;
   const port = userPort ?? (await getPort({ port: DEFAULT_PORT }));
 
-  const { project } = await readProjectConfig();
-  const configDir = dirname(project.configPath);
+  const { functions } = await options.loadResources();
 
   const app = express();
 
@@ -56,10 +54,6 @@ export async function createDevServer(
     }
     next();
   });
-
-  const functions = await functionResource.readAll(
-    join(configDir, project.functionsDir),
-  );
 
   const devLogger = createDevLogger();
 
