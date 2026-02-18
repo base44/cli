@@ -1,4 +1,4 @@
-# Base44 CLI
+ Base44 CLI
 
 Command-line interface for building applications with [Base44's backend service](https://docs.base44.com/developers/backend/overview/introduction).
 
