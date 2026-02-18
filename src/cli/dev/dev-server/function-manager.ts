@@ -32,21 +32,21 @@ export class FunctionManager {
   constructor(functions: BackendFunction[], logger: Logger) {
     this.functions = new Map(functions.map((f) => [f.name, f]));
     this.logger = logger;
+
+    this.verifyDenoIsInstalled();
+  }
+
+  private verifyDenoIsInstalled(): void {
+    const result = spawnSync("deno", ["--version"]);
+    if (result.error) {
+      throw new DependencyNotFoundError("Deno is required to run functions", {
+        hints: [{ message: "Install Deno from https://deno.com/download" }],
+      });
+    }
   }
 
   getFunctionNames(): string[] {
     return Array.from(this.functions.keys());
-  }
-
-  verifyDenoIsInstalled(): void {
-    if (this.functions.size > 0) {
-      const result = spawnSync("deno", ["--version"]);
-      if (result.error) {
-        throw new DependencyNotFoundError("Deno is required to run functions", {
-          hints: [{ message: "Install Deno from https://deno.com/download" }],
-        });
-      }
-    }
   }
 
   async ensureRunning(name: string): Promise<number> {

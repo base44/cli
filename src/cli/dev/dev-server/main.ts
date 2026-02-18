@@ -64,7 +64,6 @@ export async function createDevServer(
   const devLogger = createDevLogger();
 
   const functionManager = new FunctionManager(functions, devLogger);
-  functionManager.verifyDenoIsInstalled();
 
   if (functionManager.getFunctionNames().length > 0) {
     clackLog.info(
