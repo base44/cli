@@ -199,6 +199,7 @@ export class FunctionManager {
 
       const onData = (data: Buffer) => {
         const output = data.toString();
+        // We relay on the fact that logic in `deno-runtime/main.ts` will print `Listening on` when function is up and ready.
         if (output.includes("Listening on")) {
           runningFunc.ready = true;
           clearTimeout(timeout);
