@@ -223,7 +223,6 @@ t.api.mockConnectorSet({
   connection_id: "conn-123",
   already_authorized: false,
 });
-t.api.mockConnectorOAuthStatus({ status: "ACTIVE" });
 t.api.mockConnectorRemove({ status: "removed", integration_type: "googlecalendar" });
 t.api.mockConnectorsListError({ status: 500, body: { error: "Server error" } });
 t.api.mockConnectorSetError({ status: 401, body: { error: "Unauthorized" } });

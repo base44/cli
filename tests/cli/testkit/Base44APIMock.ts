@@ -241,18 +241,6 @@ export class Base44APIMock {
     return this;
   }
 
-  /** Mock GET /api/apps/{appId}/external-auth/status - Get OAuth status */
-  mockConnectorOAuthStatus(response: {
-    status: "ACTIVE" | "FAILED" | "PENDING";
-  }): this {
-    this.handlers.push(
-      http.get(`${BASE_URL}/api/apps/${this.appId}/external-auth/status`, () =>
-        HttpResponse.json(response),
-      ),
-    );
-    return this;
-  }
-
   /** Mock DELETE /api/apps/{appId}/external-auth/integrations/{type}/remove */
   mockConnectorRemove(response: ConnectorRemoveResponse): this {
     this.handlers.push(
