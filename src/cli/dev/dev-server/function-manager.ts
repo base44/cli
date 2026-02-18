@@ -34,7 +34,7 @@ export class FunctionManager {
     this.logger = logger;
   }
 
-  functionNames(): string[] {
+  getFunctionNames(): string[] {
     return Array.from(this.functions.keys());
   }
 

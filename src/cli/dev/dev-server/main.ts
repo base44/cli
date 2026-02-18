@@ -7,7 +7,7 @@ import getPort from "get-port";
 import { createProxyMiddleware } from "http-proxy-middleware";
 import { createDevLogger } from "@/cli/dev/createDevLogger.js";
 import { FunctionManager } from "@/cli/dev/dev-server/function-manager.js";
-import { createFunctionRoutes } from "@/cli/dev/dev-server/routes/functions.js";
+import { createFunctionRouter } from "@/cli/dev/dev-server/routes/functions.js";
 import { readProjectConfig } from "@/core/project/config.js";
 import { functionResource } from "@/core/resources/function/resource.js";
 
@@ -61,18 +61,18 @@ export async function createDevServer(
     join(configDir, project.functionsDir),
   );
 
-  const devLogger = createDevLogger(false);
+  const devLogger = createDevLogger();
 
   const functionManager = new FunctionManager(functions, devLogger);
   functionManager.verifyDenoIsInstalled();
 
-  if (functionManager.functionNames().length > 0) {
+  if (functionManager.getFunctionNames().length > 0) {
     clackLog.info(
-      `Loaded functions: ${functionManager.functionNames().join(", ")}`,
+      `Loaded functions: ${functionManager.getFunctionNames().join(", ")}`,
     );
   }
 
-  const functionRoutes = createFunctionRoutes(functionManager, devLogger);
+  const functionRoutes = createFunctionRouter(functionManager, devLogger);
   app.use("/api/apps/:appId/functions", functionRoutes);
 
   app.use((req, res, next) => {

@@ -5,7 +5,7 @@ import { Router } from "express";
 import type { Logger } from "../../createDevLogger.js";
 import type { FunctionManager } from "../function-manager.js";
 
-export function createFunctionRoutes(
+export function createFunctionRouter(
   manager: FunctionManager,
   logger: Logger,
 ): Router {
