@@ -51,7 +51,7 @@ jobs:
           POSTHOG_CLI_TOKEN: ${{ secrets.POSTHOG_CLI_API_KEY }}
           POSTHOG_CLI_ENV_ID: ${{ vars.POSTHOG_PROJECT_ID }}
         run: |
-          posthog-cli exp query run "SELECT properties.\$exception_fingerprint as fingerprint, count() as occurrences, any(properties.\$exception_types) as exception_type, any(properties.\$exception_values) as exception_message, substring(toString(any(properties.\$exception_list)), 1, 3000) as exception_list, any(properties.\$exception_level) as level, any(properties.error_code) as error_code, any(properties.is_user_error) as is_user_error, any(properties.command_name) as command_name, any(properties.cli_version) as cli_version, any(properties.node_version) as node_version, any(properties.platform) as platform, any(properties.arch) as arch, any(properties.os_type) as os_type, any(properties.is_agent) as is_agent, any(properties.agent_name) as agent_name, any(properties.api_status_code) as api_status_code, any(properties.api_request_url) as api_request_url, any(properties.api_request_method) as api_request_method, max(timestamp) as last_seen, min(timestamp) as first_seen FROM events WHERE event = '\$exception' AND timestamp >= now() - INTERVAL ${{ steps.time-range.outputs.hours }} HOUR GROUP BY fingerprint ORDER BY occurrences DESC LIMIT 25" > /tmp/details.jsonl || true
+          posthog-cli exp query run "SELECT properties.\$exception_fingerprint as fingerprint, count() as occurrences, any(properties.\$exception_types) as exception_type, any(properties.\$exception_values) as exception_message, substring(toString(any(properties.\$exception_list)), 1, 1500) as exception_list, any(properties.\$exception_level) as level, any(properties.error_code) as error_code, any(properties.is_user_error) as is_user_error, any(properties.command_name) as command_name, any(properties.cli_version) as cli_version, any(properties.node_version) as node_version, any(properties.platform) as platform, any(properties.arch) as arch, any(properties.os_type) as os_type, any(properties.is_agent) as is_agent, any(properties.agent_name) as agent_name, any(properties.api_status_code) as api_status_code, any(properties.api_request_url) as api_request_url, any(properties.api_request_method) as api_request_method, max(timestamp) as last_seen, min(timestamp) as first_seen FROM events WHERE event = '\$exception' AND timestamp >= now() - INTERVAL ${{ steps.time-range.outputs.hours }} HOUR GROUP BY fingerprint ORDER BY occurrences DESC LIMIT 25" > /tmp/details.jsonl || true
 
       - name: Trim output files
         run: |
@@ -86,7 +86,9 @@ jobs:
 
             ## Step 1: Read the error data
 
-            Read two JSONL files (one JSON array per line):
+            IMPORTANT: Use `cat /tmp/summary.jsonl` and `cat /tmp/details.jsonl` (Bash tool) to read the data files — do NOT use the Read tool, as it may hit token limits on large files.
+
+            Both files are JSONL (one JSON array per line):
 
             **`/tmp/summary.jsonl`** — aggregated error counts. Columns (by position):
             `[is_user_error, error_code, occurrences, users_affected, internal_occurrences, sample_message, sample_command]`
@@ -95,6 +97,8 @@ jobs:
 
             **`/tmp/details.jsonl`** — one representative event per unique error group (grouped by fingerprint, ordered by occurrences DESC). Columns (by position):
             `[fingerprint, occurrences, exception_type, exception_message, exception_list, level, error_code, is_user_error, command_name, cli_version, node_version, platform, arch, os_type, is_agent, agent_name, api_status_code, api_request_url, api_request_method, last_seen, first_seen]`
+
+            You MUST read ALL rows from both files. Every error group in the data must be analyzed.
 
             ## PRIVACY — this repo is public, the issue will be public
 
@@ -119,7 +123,7 @@ jobs:
 
             The details file is already grouped by fingerprint (one row per unique error group, ordered by occurrences). For each error group:
             1. Read the stack trace from `exception_list` (it's a JSON array of `{type, value, stacktrace: {frames: [{filename, lineno, colno, function}]}}`)
-               Note: `exception_list` is truncated to ~3000 chars — this should include the most relevant top frames.
+               Note: `exception_list` is truncated to ~1500 chars — this should include the most relevant top frames.
             2. **Include the error message and stack trace from PostHog** in the report. Show `exception_message` and the top 3-5 frames from `exception_list`. These are the actual errors users hit.
             3. **Build a PostHog link** for each error using the `fingerprint` field: `https://us.posthog.com/project/${{ vars.POSTHOG_PROJECT_ID }}/error_tracking/<fingerprint>`. Include this link in the report so readers can drill into PostHog for full details.
             4. Use the stack trace frames to find the relevant source files in this repository (under `src/`). Map the frame `filename` and `lineno` to actual source files using Grep/Glob.
@@ -139,11 +143,15 @@ jobs:
 
             ## Step 5: Create the GitHub issue
 
-            If there are errors worth reporting, create ONE GitHub issue using `gh issue create`. The issue should follow this structure:
+            If there are errors worth reporting:
+            1. First, write the full issue body to a file: use the Write tool to save the markdown body to `error-report-body.md` in the workspace root.
+            2. Then create the issue using: `gh issue create --title "<title>" --label error-report --body-file error-report-body.md`
+
+            This two-step approach is required because the issue body is too large for inline `--body` arguments.
 
             **Title**: `Error Report: <date> (<N> errors in last <hours>h)`
 
-            **Body** (use this template):
+            **Body** (write this to `error-report-body.md`):
 
             ```
             ## Summary
@@ -235,7 +243,7 @@ jobs:
             - Don't speculate — if you can't find the root cause in the code, say so.
             - When an existing issue already tracks the error, reference it with `#<number>` instead of re-explaining everything. Just note if occurrences have increased or new users are affected.
             - Recurring untracked errors should be flagged prominently — these are being ignored.
-          claude_args: '--model claude-sonnet-4-20250514 --allowed-tools Read Glob Grep "Bash(cat /tmp/*)" "Bash(gh issue create:*)" "Bash(gh issue list:*)" "Bash(gh issue view:*)" "Bash(gh label create:*)"'
+          claude_args: '--model claude-sonnet-4-20250514 --allowed-tools Read Write Glob Grep "Bash(cat /tmp/*)" "Bash(gh issue create:*)" "Bash(gh issue list:*)" "Bash(gh issue view:*)" "Bash(gh label create:*)"'
 
       - name: No errors summary
         if: steps.check-errors.outputs.has_errors != 'true'
