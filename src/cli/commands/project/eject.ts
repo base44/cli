@@ -26,6 +26,7 @@ interface EjectOptions {
   path?: string;
   projectId?: string;
   yes?: boolean;
+  isNonInteractive?: boolean;
 }
 
 async function eject(options: EjectOptions): Promise<RunCommandResult> {
@@ -176,7 +177,7 @@ export function getEjectCommand(context: CLIContext): Command {
     .option("-y, --yes", "Skip confirmation prompts")
     .action(async (options: EjectOptions) => {
       await runCommand(
-        () => eject(options),
+        () => eject({ ...options, isNonInteractive: context.isNonInteractive }),
         { requireAuth: true, requireAppConfig: false },
         context,
       );

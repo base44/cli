@@ -12,12 +12,12 @@ const BANNER_LINES = [
 
 /**
  * Print the Base44 banner with smooth animation if supported,
- * or fall back to static banner.
+ * or fall back to static banner in non-interactive environments.
  */
-export async function printBanner(): Promise<void> {
-  if (process.stdout.isTTY) {
-    await printAnimatedLines(BANNER_LINES);
-  } else {
+export async function printBanner(isNonInteractive: boolean): Promise<void> {
+  if (isNonInteractive) {
     console.log(theme.colors.base44Orange(BANNER_LINES.join("\n")));
+  } else {
+    await printAnimatedLines(BANNER_LINES);
   }
 }

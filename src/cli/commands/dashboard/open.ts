@@ -4,10 +4,12 @@ import type { CLIContext } from "@/cli/types.js";
 import { getDashboardUrl, runCommand } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 
-async function openDashboard(): Promise<RunCommandResult> {
+async function openDashboard(
+  isNonInteractive: boolean,
+): Promise<RunCommandResult> {
   const dashboardUrl = getDashboardUrl();
 
-  if (!process.env.CI) {
+  if (!isNonInteractive) {
     await open(dashboardUrl);
   }
 
@@ -18,6 +20,10 @@ export function getDashboardOpenCommand(context: CLIContext): Command {
   return new Command("open")
     .description("Open the app dashboard in your browser")
     .action(async () => {
-      await runCommand(openDashboard, { requireAuth: true }, context);
+      await runCommand(
+        () => openDashboard(context.isNonInteractive),
+        { requireAuth: true },
+        context,
+      );
     });
 }
