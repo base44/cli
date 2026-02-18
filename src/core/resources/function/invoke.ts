@@ -22,7 +22,7 @@ const METHODS_WITH_BODY = new Set<HttpMethod>(["POST", "PUT", "PATCH"]);
 export async function invokeFunction(
   functionName: string,
   data: Record<string, unknown>,
-  options?: { timeout?: number; method?: string },
+  options?: { timeout?: number; method?: string; headers?: Record<string, string> },
 ): Promise<unknown> {
   const { id } = getAppConfig();
   const method = (options?.method?.toUpperCase() ?? "POST") as HttpMethod;
@@ -48,6 +48,7 @@ export async function invokeFunction(
       Authorization: `Bearer ${token}`,
       "X-App-Id": id,
       "User-Agent": "Base44 CLI",
+      ...options?.headers,
     },
     timeout: options?.timeout ?? 300_000,
   });
