@@ -456,7 +456,6 @@ export class InternalError extends SystemError {
  */
 export class TypeGenerationError extends SystemError {
   readonly code = "TYPE_GENERATION_ERROR";
-  readonly entityName?: string;
 
   constructor(message: string, entityName?: string, cause?: unknown) {
     super(message, {
@@ -469,7 +468,6 @@ export class TypeGenerationError extends SystemError {
       ],
       cause: cause instanceof Error ? cause : undefined,
     });
-    this.entityName = entityName;
   }
 }
 

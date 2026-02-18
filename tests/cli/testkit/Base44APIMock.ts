@@ -367,16 +367,6 @@ export class Base44APIMock {
     );
   }
 
-  /** Mock token endpoint to return an error (for auth failure testing) */
-  mockTokenError(error: ErrorResponse): this {
-    return this.mockError("post", "/oauth/token", error);
-  }
-
-  /** Mock userinfo endpoint to return an error */
-  mockUserInfoError(error: ErrorResponse): this {
-    return this.mockError("get", "/oauth/userinfo", error);
-  }
-
   /** Mock connectors list to return an error */
   mockConnectorsListError(error: ErrorResponse): this {
     return this.mockError(
