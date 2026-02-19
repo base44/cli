@@ -1,4 +1,4 @@
-import { describe, it } from "vitest";
+import { describe, it } from "bun:test";
 import { setupCLITests } from "./testkit/index.js";
 
 describe("whoami command", () => {

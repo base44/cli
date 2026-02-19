@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import { setupServer } from "msw/node";
-import { afterAll, afterEach, beforeAll, beforeEach } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach } from "bun:test";
 import type { CLIResult, CLIResultMatcher } from "./CLIResultMatcher.js";
 import { CLITestkit } from "./CLITestkit.js";
 

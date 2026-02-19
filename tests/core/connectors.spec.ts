@@ -1,7 +1,7 @@
 import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "bun:test";
 import { InvalidInputError } from "../../src/core/errors.js";
 import {
   readAllConnectors,
@@ -305,7 +305,7 @@ describe("pushConnectors", () => {
   it("returns empty results when no local or upstream connectors", async () => {
     const result = await pushConnectors([]);
     expect(result.results).toEqual([]);
-    expect(mockListConnectors).toHaveBeenCalledOnce();
+    expect(mockListConnectors).toHaveBeenCalledTimes(1);
   });
 
   it("syncs local connectors", async () => {

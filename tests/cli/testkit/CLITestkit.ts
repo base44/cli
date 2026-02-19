@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Command } from "commander";
 import { dir } from "tmp-promise";
-import { vi } from "vitest";
+import { vi } from "bun:test";
 import { Base44APIMock } from "./Base44APIMock.js";
 import type { CLIResult } from "./CLIResultMatcher.js";
 import { CLIResultMatcher } from "./CLIResultMatcher.js";

@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import JSON5 from "json5";
 import { create as tarCreate } from "tar";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { fixture, setupCLITests } from "./testkit/index.js";
 
 /**

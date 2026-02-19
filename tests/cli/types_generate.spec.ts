@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { fixture, setupCLITests } from "./testkit/index.js";
 
 describe("types generate command", () => {

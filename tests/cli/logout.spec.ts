@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { setupCLITests } from "./testkit/index.js";
 
 describe("logout command", () => {

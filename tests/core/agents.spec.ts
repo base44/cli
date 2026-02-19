@@ -1,5 +1,5 @@
 import { HTTPError } from "ky";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "bun:test";
 import { pushAgents } from "../../src/core/resources/agent/api.js";
 import type { AgentConfig } from "../../src/core/resources/agent/index.js";
 

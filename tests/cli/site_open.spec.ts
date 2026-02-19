@@ -1,4 +1,4 @@
-import { describe, it } from "vitest";
+import { describe, it } from "bun:test";
 import { fixture, setupCLITests } from "./testkit/index.js";
 
 describe("site open command", () => {

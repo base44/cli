@@ -1,5 +1,5 @@
 import { HttpResponse, http } from "msw";
-import { describe, it } from "vitest";
+import { describe, it } from "bun:test";
 import { fixture, mswServer, setupCLITests } from "./testkit/index.js";
 
 const BASE_URL = "https://app.base44.com";
