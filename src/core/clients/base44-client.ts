@@ -112,7 +112,7 @@ export const base44Client = ky.create({
 
 /**
  * Returns an HTTP client scoped to the current app.
- * Requires app config to be initialized first via initAppConfig() or setAppConfig().
+ * Requires app config to be set via withAppConfig() scope.
  * Use this for API calls to app-specific endpoints (entities, functions, etc.).
  *
  * @throws {Error} If app config is not initialized.

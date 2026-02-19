@@ -22,7 +22,6 @@ import {
   createProject,
   findProjectRoot,
   listProjects,
-  setAppConfig,
   writeAppConfig,
 } from "@/core/project/index.js";
 
@@ -204,7 +203,6 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
       "Linking project...",
       async () => {
         await writeAppConfig(projectRoot.root, projectId);
-        setAppConfig({ id: projectId, projectRoot: projectRoot.root });
       },
       {
         successMessage: "Project linked successfully",
@@ -233,14 +231,11 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
 
     await writeAppConfig(projectRoot.root, projectId);
 
-    // Set app config in cache for sync access to getDashboardUrl
-    setAppConfig({ id: projectId, projectRoot: projectRoot.root });
-
     finalProjectId = projectId;
   }
 
   log.message(
-    `${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(finalProjectId))}`,
+    `${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(finalProjectId!))}`,
   );
   return { outroMessage: "Project linked" };
 }

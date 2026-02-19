@@ -6,8 +6,9 @@ import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 
 async function openDashboard(
   isNonInteractive: boolean,
+  appId: string,
 ): Promise<RunCommandResult> {
-  const dashboardUrl = getDashboardUrl();
+  const dashboardUrl = getDashboardUrl(appId);
 
   if (!isNonInteractive) {
     await open(dashboardUrl);
@@ -21,7 +22,7 @@ export function getDashboardOpenCommand(context: CLIContext): Command {
     .description("Open the app dashboard in your browser")
     .action(async () => {
       await runCommand(
-        () => openDashboard(context.isNonInteractive),
+        () => openDashboard(context.isNonInteractive, context.appConfig!.id),
         { requireAuth: true },
         context,
       );

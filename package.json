@@ -19,8 +19,8 @@
     "clean": "rm -rf dist && mkdir -p dist",
     "lint": "biome check src tests",
     "lint:fix": "biome check --write src tests",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "test": "bun test",
+    "test:watch": "bun test --watch",
     "knip": "knip",
     "knip:fix": "knip --fix"
   },
@@ -73,7 +73,6 @@
     "tar": "^7.5.4",
     "tmp-promise": "^3.0.3",
     "typescript": "^5.7.2",
-    "vitest": "^4.0.16",
     "zod": "^4.3.5"
   },
   "engines": {

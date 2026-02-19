@@ -1,6 +1,6 @@
 # Writing Tests
 
-**Keywords:** test, vitest, testkit, setupCLITests, fixture, mock, Given/When/Then, BASE44_CLI_TEST_OVERRIDES, build before test, MSW
+**Keywords:** test, bun test, testkit, setupCLITests, fixture, mock, Given/When/Then, BASE44_CLI_TEST_OVERRIDES, build before test, MSW
 
 ## Table of Contents
 
@@ -17,7 +17,7 @@
 **Build before testing**: Tests import the bundled `dist/index.js`, so always run:
 
 ```bash
-bun run build && bun run test
+bun run build && bun test
 ```
 
 ## How Testing Works
@@ -27,7 +27,7 @@ Tests use **MSW (Mock Service Worker)** to intercept HTTP requests. The testkit 
 This means:
 - **`vi.mock()` won't work** with path aliases like `@/some/path.js` (they're resolved in the bundle)
 - Use the **`BASE44_CLI_TEST_OVERRIDES` env var** for mocking behavior instead (see below)
-- Always `bun run build` before `bun run test` to ensure the bundle is fresh
+- Always `bun run build` before `bun test` to ensure the bundle is fresh
 - Tests always run with `isNonInteractive: true` (no TTY), so browser opens and animations are skipped
 
 ## Test Structure
@@ -57,7 +57,7 @@ tests/
 ## Writing a Test
 
 ```typescript
-import { describe, it } from "vitest";
+import { describe, it } from "vitest"; // Bun's vitest compat layer provides these
 import { setupCLITests, fixture } from "./testkit/index.js";
 
 describe("<command> command", () => {
@@ -320,7 +320,7 @@ function getTestOverride(): MyType | undefined {
 
 ## Testing Rules
 
-1. **Build first** -- Always `bun run build` before `bun run test`
+1. **Build first** -- Always `bun run build` before `bun test`
 2. **Use fixtures** -- Don't create project structures in tests; use `tests/fixtures/`
 3. **Fixtures need `.app.jsonc`** -- Add `base44/.app.jsonc` with `{ "id": "test-app-id" }`
 4. **Interactive prompts can't be tested** -- Only test via non-interactive flags

@@ -7,40 +7,41 @@ import {
   SchemaValidationError,
 } from "@/core/errors.js";
 import { findProjectRoot } from "@/core/project/config.js";
-import type { AppConfig } from "@/core/project/schema.js";
-import { AppConfigSchema } from "@/core/project/schema.js";
+import type { AppConfigFile } from "@/core/project/schema.js";
+import { AppConfigFileSchema } from "@/core/project/schema.js";
 import { readJsonFile, writeFile } from "@/core/utils/fs.js";
 
-interface CachedAppConfig {
-  id: string;
-  projectRoot: string;
-}
+export type AppConfig = { id: string; projectRoot: string };
 
-let cache: CachedAppConfig | null = null;
+// Not concurrent-safe; fine for a sequential CLI.
+let _current: AppConfig | null = null;
 
-function loadFromTestOverrides(): boolean {
-  const appConfig = getTestOverrides()?.appConfig;
-  if (appConfig?.id && appConfig.projectRoot) {
-    cache = { id: appConfig.id, projectRoot: appConfig.projectRoot };
-    return true;
+/**
+ * Execute a function with app config in scope.
+ * Any code that calls getAppConfig() inside `fn` will get this config.
+ * Automatically cleans up when fn completes (or throws).
+ */
+export async function withAppConfig<T>(
+  config: AppConfig,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const prev = _current;
+  _current = config;
+  try {
+    return await fn();
+  } finally {
+    _current = prev;
   }
-  return false;
 }
 
 /**
- * Initialize app config by reading from .app.jsonc.
- * Returns the cached config, reading from disk only on first call.
- * @returns The app config with id and projectRoot
- * @throws Error if no project found or .app.jsonc missing
+ * Read app config from disk (or test overrides). Pure function, no caching.
+ * Use withAppConfig() to make the result available to getAppConfig().
  */
-export async function initAppConfig(): Promise<CachedAppConfig> {
-  // Check for test overrides first
-  if (loadFromTestOverrides()) {
-    return cache!;
-  }
-
-  if (cache) {
-    return cache;
+export async function resolveAppConfig(): Promise<AppConfig> {
+  const testOverride = getTestOverrides()?.appConfig;
+  if (testOverride?.id && testOverride.projectRoot) {
+    return { id: testOverride.id, projectRoot: testOverride.projectRoot };
   }
 
   const projectRoot = await findProjectRoot();
@@ -68,25 +69,19 @@ export async function initAppConfig(): Promise<CachedAppConfig> {
     );
   }
 
-  cache = { projectRoot: projectRoot.root, id: config.id };
-  return cache;
+  return { projectRoot: projectRoot.root, id: config.id };
 }
 
 /**
- * Get the cached app config.
- * @throws ConfigInvalidError if not initialized - call initAppConfig() or setAppConfig() first
+ * Get the current app config. Must be called inside withAppConfig().
  */
-export function getAppConfig(): CachedAppConfig {
-  if (!cache) {
+export function getAppConfig(): AppConfig {
+  if (!_current) {
     throw new ConfigInvalidError(
       "App config not initialized. Ensure the command uses requireAppConfig option.",
     );
   }
-  return cache;
-}
-
-export function setAppConfig(config: CachedAppConfig): void {
-  cache = config;
+  return _current;
 }
 
 function generateAppConfigContent(id: string): string {
@@ -122,7 +117,9 @@ export async function appConfigExists(projectRoot: string): Promise<boolean> {
   return configPath !== null;
 }
 
-async function readAppConfig(projectRoot: string): Promise<AppConfig | null> {
+async function readAppConfig(
+  projectRoot: string,
+): Promise<AppConfigFile | null> {
   const configPath = await findAppConfigPath(projectRoot);
 
   if (!configPath) {
@@ -130,7 +127,7 @@ async function readAppConfig(projectRoot: string): Promise<AppConfig | null> {
   }
 
   const parsed = await readJsonFile(configPath);
-  const result = AppConfigSchema.safeParse(parsed);
+  const result = AppConfigFileSchema.safeParse(parsed);
 
   if (!result.success) {
     throw new SchemaValidationError(

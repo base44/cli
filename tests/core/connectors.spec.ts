@@ -3,7 +3,6 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { InvalidInputError } from "../../src/core/errors.js";
-import * as api from "../../src/core/resources/connector/api.js";
 import {
   readAllConnectors,
   writeConnectors,
@@ -11,7 +10,17 @@ import {
 import { pushConnectors } from "../../src/core/resources/connector/push.js";
 import type { ConnectorResource } from "../../src/core/resources/connector/schema.js";
 
-vi.mock("../../src/core/resources/connector/api.js");
+const mockListConnectors = vi.fn();
+const mockSetConnector = vi.fn();
+const mockRemoveConnector = vi.fn();
+const mockGetOAuthStatus = vi.fn();
+
+vi.mock("../../src/core/resources/connector/api.js", () => ({
+  listConnectors: mockListConnectors,
+  setConnector: mockSetConnector,
+  removeConnector: mockRemoveConnector,
+  getOAuthStatus: mockGetOAuthStatus,
+}));
 
 const FIXTURES_DIR = resolve(__dirname, "../fixtures");
 
@@ -286,10 +295,6 @@ describe("writeConnectors", () => {
     }
   });
 });
-
-const mockListConnectors = vi.mocked(api.listConnectors);
-const mockSetConnector = vi.mocked(api.setConnector);
-const mockRemoveConnector = vi.mocked(api.removeConnector);
 
 describe("pushConnectors", () => {
   beforeEach(() => {

@@ -79,10 +79,12 @@ await runCommand(myAction, { fullBanner: true, requireAuth: true }, context);
 export interface CLIContext {
   errorReporter: ErrorReporter;
   isNonInteractive: boolean;
+  appConfig?: AppConfig; // Set by runCommand when requireAppConfig is true
 }
 ```
 
 - Created once in `runCLI()` at startup
+- `appConfig` is set automatically by `runCommand()` when `requireAppConfig` is `true` (the default). Use `context.appConfig` to access the resolved app config instead of calling `getAppConfig()`.
 - `isNonInteractive` is `true` when stdin/stdout are not a TTY (e.g., CI, piped output, AI agents). Use it to skip interactive prompts, browser opens, and animations.
 - Passed to `createProgram(context)`, which passes it to each command factory
 - Commands pass it to `runCommand()` for error reporting integration

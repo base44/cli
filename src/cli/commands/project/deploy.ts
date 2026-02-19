@@ -22,6 +22,7 @@ interface DeployOptions {
   yes?: boolean;
   projectRoot?: string;
   isNonInteractive?: boolean;
+  appId: string;
 }
 
 export async function deployAction(
@@ -109,7 +110,7 @@ export async function deployAction(
   }
 
   log.message(
-    `${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl())}`,
+    `${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(options.appId!))}`,
   );
   if (result.appUrl) {
     log.message(
@@ -132,6 +133,7 @@ export function getDeployCommand(context: CLIContext): Command {
           deployAction({
             ...options,
             isNonInteractive: context.isNonInteractive,
+            appId: context.appConfig!.id,
           }),
         { requireAuth: true },
         context,

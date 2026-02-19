@@ -11,7 +11,7 @@ The Base44 CLI (`base44` npm package) is a TypeScript command-line tool for crea
 - **JSON5** - Parsing JSONC/JSON5 config files (supports comments and trailing commas)
 - **TypeScript** - Primary language, strict types
 - **Biome** - Linting and formatting (replaces ESLint)
-- **Vitest** - Test runner
+- **Bun Test** - Test runner 
 
 ## Architecture
 
@@ -45,7 +45,7 @@ bun run build      # Bundle to dist/index.js + copy templates
 bun run typecheck  # tsc --noEmit
 bun run dev        # Run bin/dev.ts (no build needed, Bun runs TS directly)
 bun run start      # Run bin/run.js (requires build first)
-bun run test       # Run tests with vitest (use `bun run test`, not `bun test`)
+bun test           # Run tests
 bun run lint       # Biome - lint and format check
 bun run lint:fix   # Biome - auto-fix
 ```

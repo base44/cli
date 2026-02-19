@@ -11,6 +11,15 @@ import { CLIResultMatcher } from "./CLIResultMatcher.js";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DIST_INDEX_PATH = join(__dirname, "../../../dist/cli/index.js");
 
+let _programModule: ProgramModule | null = null;
+
+async function loadProgram(): Promise<ProgramModule> {
+  if (!_programModule) {
+    _programModule = (await import(DIST_INDEX_PATH)) as ProgramModule;
+  }
+  return _programModule;
+}
+
 /** Type for CLIContext */
 interface CLIContext {
   errorReporter: {
@@ -125,13 +134,7 @@ export class CLITestkit {
     // Apply all API mocks before running
     this.api.apply();
 
-    // Reset module state to ensure test isolation
-    vi.resetModules();
-
-    // Import CLI module fresh after reset
-    const { createProgram, CLIExitError } = (await import(
-      DIST_INDEX_PATH
-    )) as ProgramModule;
+    const { createProgram, CLIExitError } = await loadProgram();
 
     // Create a mock context for tests (telemetry is disabled via env var anyway)
     const mockContext: CLIContext = {

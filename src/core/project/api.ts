@@ -76,10 +76,10 @@ export async function downloadProject(projectId: string, projectPath: string) {
     throw await ApiError.fromHttpError(error, "downloading project");
   }
 
-  const nodeStream = Readable.fromWeb(
-    response.body as import("node:stream/web").ReadableStream,
-  );
+  // Use arrayBuffer + Readable.from instead of Readable.fromWeb
+  // because Bun's Readable.fromWeb has stream compat issues with the tar package.
+  const buffer = Buffer.from(await response.arrayBuffer());
 
   await makeDirectory(projectPath);
-  await pipeline(nodeStream, extract({ cwd: projectPath }));
+  await pipeline(Readable.from(buffer), extract({ cwd: projectPath }));
 }

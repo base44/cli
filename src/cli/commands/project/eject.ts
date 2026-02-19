@@ -17,7 +17,7 @@ import {
   isDirEmpty,
   listProjects,
   readProjectConfig,
-  setAppConfig,
+  withAppConfig,
   writeAppConfig,
   writeFile,
 } from "@/core/index.js";
@@ -98,7 +98,7 @@ async function eject(options: EjectOptions): Promise<RunCommandResult> {
 
   const resolvedPath = resolve(selectedPath);
 
-  await runTask(
+  const newProjectId = await runTask(
     "Downloading your project's code...",
     async (updateMessage) => {
       await createProjectFilesForExistingProject({
@@ -109,20 +109,20 @@ async function eject(options: EjectOptions): Promise<RunCommandResult> {
       updateMessage("Creating a new project...");
 
       const newProjectName = `${selectedProject.name} Copy`;
-      const { projectId: newProjectId } = await createProject(
+      const { projectId: createdId } = await createProject(
         newProjectName,
         selectedProject.userDescription ?? undefined,
       );
 
       updateMessage("Linking the project...");
 
-      await writeAppConfig(resolvedPath, newProjectId);
+      await writeAppConfig(resolvedPath, createdId);
       await writeFile(
         `${resolvedPath}/.env.local`,
-        `VITE_BASE44_APP_ID=${newProjectId}`,
+        `VITE_BASE44_APP_ID=${createdId}`,
       );
 
-      setAppConfig({ id: newProjectId, projectRoot: resolvedPath });
+      return createdId;
     },
     {
       successMessage: theme.colors.base44Orange("Project pulled successfully"),
@@ -130,40 +130,52 @@ async function eject(options: EjectOptions): Promise<RunCommandResult> {
     },
   );
 
-  const { project } = await readProjectConfig(resolvedPath);
-  const installCommand = project.site?.installCommand;
-  const buildCommand = project.site?.buildCommand;
+  return await withAppConfig(
+    { id: newProjectId, projectRoot: resolvedPath },
+    async () => {
+      const { project } = await readProjectConfig(resolvedPath);
+      const installCommand = project.site?.installCommand;
+      const buildCommand = project.site?.buildCommand;
 
-  // Only offer deploy if the project has build commands configured
-  if (installCommand && buildCommand) {
-    const shouldDeploy = options.yes
-      ? true
-      : await confirm({
-          message: "Would you like to deploy your project now?",
-        });
+      // Only offer deploy if the project has build commands configured
+      if (installCommand && buildCommand) {
+        const shouldDeploy = options.yes
+          ? true
+          : await confirm({
+              message: "Would you like to deploy your project now?",
+            });
 
-    if (!isCancel(shouldDeploy) && shouldDeploy) {
-      await runTask(
-        "Installing dependencies...",
-        async (updateMessage) => {
-          await execa({ cwd: resolvedPath, shell: true })`${installCommand}`;
+        if (!isCancel(shouldDeploy) && shouldDeploy) {
+          await runTask(
+            "Installing dependencies...",
+            async (updateMessage) => {
+              await execa({
+                cwd: resolvedPath,
+                shell: true,
+              })`${installCommand}`;
 
-          updateMessage("Building project...");
-          await execa({ cwd: resolvedPath, shell: true })`${buildCommand}`;
-        },
-        {
-          successMessage: theme.colors.base44Orange(
-            "Project built successfully",
-          ),
-          errorMessage: "Failed to build project",
-        },
-      );
+              updateMessage("Building project...");
+              await execa({ cwd: resolvedPath, shell: true })`${buildCommand}`;
+            },
+            {
+              successMessage: theme.colors.base44Orange(
+                "Project built successfully",
+              ),
+              errorMessage: "Failed to build project",
+            },
+          );
 
-      await deployAction({ yes: true, projectRoot: resolvedPath });
-    }
-  }
+          await deployAction({
+            yes: true,
+            projectRoot: resolvedPath,
+            appId: newProjectId,
+          });
+        }
+      }
 
-  return { outroMessage: "Your new project is set and ready to use" };
+      return { outroMessage: "Your new project is set and ready to use" };
+    },
+  );
 }
 
 export function getEjectCommand(context: CLIContext): Command {

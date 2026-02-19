@@ -16,7 +16,10 @@ import {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 function getBase44GlobalDir(): string {
-  return join(homedir(), ".base44");
+  // Use process.env.HOME directly because Bun's os.homedir() caches
+  // the initial value and ignores subsequent process.env.HOME changes.
+  const home = process.env.HOME || homedir();
+  return join(home, ".base44");
 }
 
 export function getAuthFilePath(): string {

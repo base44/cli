@@ -6,7 +6,7 @@ import { theme } from "@/cli/utils/theme.js";
 import { printUpgradeNotificationIfAvailable } from "@/cli/utils/upgradeNotification.js";
 import { isLoggedIn, readAuth } from "@/core/auth/index.js";
 import { isCLIError } from "@/core/errors.js";
-import { initAppConfig } from "@/core/project/index.js";
+import { resolveAppConfig, withAppConfig } from "@/core/project/index.js";
 
 interface RunCommandOptions {
   /**
@@ -23,7 +23,7 @@ interface RunCommandOptions {
   requireAuth?: boolean;
   /**
    * Initialize app config before running this command.
-   * Reads .app.jsonc and caches the appId for sync access via getAppConfig().
+   * Reads .app.jsonc and makes appConfig available via context.appConfig and getAppConfig().
    * @default true
    */
   requireAppConfig?: boolean;
@@ -97,12 +97,17 @@ export async function runCommand(
     }
 
     // Initialize app config unless explicitly disabled
+    let outroMessage: string | undefined;
+
     if (options?.requireAppConfig !== false) {
-      const appConfig = await initAppConfig();
+      const appConfig = await resolveAppConfig();
+      context.appConfig = appConfig;
       context.errorReporter.setContext({ appId: appConfig.id });
+      ({ outroMessage } = await withAppConfig(appConfig, commandFn));
+    } else {
+      ({ outroMessage } = await commandFn());
     }
 
-    const { outroMessage } = await commandFn();
     outro(outroMessage || "");
   } catch (error) {
     // Display error message

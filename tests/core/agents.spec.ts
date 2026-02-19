@@ -3,18 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { pushAgents } from "../../src/core/resources/agent/api.js";
 import type { AgentConfig } from "../../src/core/resources/agent/index.js";
 
-// Mock the HTTP client
 const mockPut = vi.fn();
-vi.mock("../../src/core/clients/index.js", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("../../src/core/clients/index.js")>();
-  return {
-    ...actual,
-    getAppClient: () => ({
-      put: mockPut,
-    }),
-  };
-});
+vi.mock("../../src/core/clients/index.js", () => ({
+  getAppClient: () => ({ put: mockPut }),
+}));
 
 /**
  * Creates a ky HTTPError for testing error handling.
@@ -31,7 +23,7 @@ function createHTTPError(status: number, body: unknown): HTTPError {
 
 describe("pushAgents", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   it("returns empty result without API call when no agents provided", async () => {

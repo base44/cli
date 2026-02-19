@@ -20,7 +20,7 @@ import {
   createProjectFiles,
   listTemplates,
   readProjectConfig,
-  setAppConfig,
+  withAppConfig,
 } from "@/core/project/index.js";
 
 const DEFAULT_TEMPLATE_ID = "backend-only";
@@ -163,120 +163,130 @@ async function executeCreate({
     },
   );
 
-  // Set app config in cache for sync access to getDashboardUrl and getAppClient
-  setAppConfig({ id: projectId, projectRoot: resolvedPath });
+  return await withAppConfig(
+    { id: projectId, projectRoot: resolvedPath },
+    async () => {
+      const { project, entities } = await readProjectConfig(resolvedPath);
+      let finalAppUrl: string | undefined;
 
-  const { project, entities } = await readProjectConfig(resolvedPath);
-  let finalAppUrl: string | undefined;
+      if (entities.length > 0) {
+        let shouldPushEntities: boolean;
 
-  if (entities.length > 0) {
-    let shouldPushEntities: boolean;
-
-    if (isInteractive) {
-      const result = await confirm({
-        message:
-          "Set up the backend data now? (This pushes the data models used by the template to Base44)",
-      });
-      shouldPushEntities = !isCancel(result) && result;
-    } else {
-      shouldPushEntities = !!deploy;
-    }
-
-    if (shouldPushEntities) {
-      await runTask(
-        `Pushing ${entities.length} data models to Base44...`,
-        async () => {
-          await pushEntities(entities);
-        },
-        {
-          successMessage: theme.colors.base44Orange(
-            "Data models pushed successfully",
-          ),
-          errorMessage: "Failed to push data models",
-        },
-      );
-    }
-  }
-
-  if (project.site) {
-    const { installCommand, buildCommand, outputDirectory } = project.site;
-
-    let shouldDeploy: boolean;
-
-    if (isInteractive) {
-      const result = await confirm({
-        message: "Would you like to deploy the site now? (Hosted on Base44)",
-      });
-      shouldDeploy = !isCancel(result) && result;
-    } else {
-      shouldDeploy = !!deploy;
-    }
-
-    if (shouldDeploy && installCommand && buildCommand && outputDirectory) {
-      const { appUrl } = await runTask(
-        "Installing dependencies...",
-        async (updateMessage) => {
-          await execa({ cwd: resolvedPath, shell: true })`${installCommand}`;
-
-          updateMessage("Building project...");
-          await execa({ cwd: resolvedPath, shell: true })`${buildCommand}`;
-
-          updateMessage("Deploying site...");
-          return await deploySite(join(resolvedPath, outputDirectory));
-        },
-        {
-          successMessage: theme.colors.base44Orange(
-            "Site deployed successfully",
-          ),
-          errorMessage: "Failed to deploy site",
-        },
-      );
-
-      finalAppUrl = appUrl;
-    }
-  }
-
-  // Add AI agent skills (--no-skills flag sets skills to false, otherwise defaults to true)
-  const shouldAddSkills = skills;
-
-  if (shouldAddSkills) {
-    try {
-      await runTask(
-        "Installing AI agent skills...",
-        async () => {
-          await execa("npx", ["-y", "skills", "add", "base44/skills", "-y"], {
-            cwd: resolvedPath,
-            shell: true,
+        if (isInteractive) {
+          const result = await confirm({
+            message:
+              "Set up the backend data now? (This pushes the data models used by the template to Base44)",
           });
-        },
-        {
-          successMessage: theme.colors.base44Orange(
-            "AI agent skills added successfully",
-          ),
-          errorMessage:
-            "Failed to add AI agent skills - you can add them later with: npx skills add base44/skills",
-        },
+          shouldPushEntities = !isCancel(result) && result;
+        } else {
+          shouldPushEntities = !!deploy;
+        }
+
+        if (shouldPushEntities) {
+          await runTask(
+            `Pushing ${entities.length} data models to Base44...`,
+            async () => {
+              await pushEntities(entities);
+            },
+            {
+              successMessage: theme.colors.base44Orange(
+                "Data models pushed successfully",
+              ),
+              errorMessage: "Failed to push data models",
+            },
+          );
+        }
+      }
+
+      if (project.site) {
+        const { installCommand, buildCommand, outputDirectory } = project.site;
+
+        let shouldDeploy: boolean;
+
+        if (isInteractive) {
+          const result = await confirm({
+            message:
+              "Would you like to deploy the site now? (Hosted on Base44)",
+          });
+          shouldDeploy = !isCancel(result) && result;
+        } else {
+          shouldDeploy = !!deploy;
+        }
+
+        if (shouldDeploy && installCommand && buildCommand && outputDirectory) {
+          const { appUrl } = await runTask(
+            "Installing dependencies...",
+            async (updateMessage) => {
+              await execa({
+                cwd: resolvedPath,
+                shell: true,
+              })`${installCommand}`;
+
+              updateMessage("Building project...");
+              await execa({ cwd: resolvedPath, shell: true })`${buildCommand}`;
+
+              updateMessage("Deploying site...");
+              return await deploySite(join(resolvedPath, outputDirectory));
+            },
+            {
+              successMessage: theme.colors.base44Orange(
+                "Site deployed successfully",
+              ),
+              errorMessage: "Failed to deploy site",
+            },
+          );
+
+          finalAppUrl = appUrl;
+        }
+      }
+
+      // Add AI agent skills (--no-skills flag sets skills to false, otherwise defaults to true)
+      const shouldAddSkills = skills;
+
+      if (shouldAddSkills) {
+        try {
+          await runTask(
+            "Installing AI agent skills...",
+            async () => {
+              await execa(
+                "npx",
+                ["-y", "skills", "add", "base44/skills", "-y"],
+                {
+                  cwd: resolvedPath,
+                  shell: true,
+                },
+              );
+            },
+            {
+              successMessage: theme.colors.base44Orange(
+                "AI agent skills added successfully",
+              ),
+              errorMessage:
+                "Failed to add AI agent skills - you can add them later with: npx skills add base44/skills",
+            },
+          );
+        } catch {
+          // Skills installation is non-critical (e.g., user may not have git installed)
+          // The error message is already shown by runTask, so we just continue
+        }
+      }
+
+      log.message(
+        `${theme.styles.header("Project")}: ${theme.colors.base44Orange(name)}`,
       );
-    } catch {
-      // Skills installation is non-critical (e.g., user may not have git installed)
-      // The error message is already shown by runTask, so we just continue
-    }
-  }
+      log.message(
+        `${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(projectId))}`,
+      );
 
-  log.message(
-    `${theme.styles.header("Project")}: ${theme.colors.base44Orange(name)}`,
+      if (finalAppUrl) {
+        log.message(
+          `${theme.styles.header("Site")}: ${theme.colors.links(finalAppUrl)}`,
+        );
+      }
+
+      return { outroMessage: "Your project is set up and ready to use" };
+    },
   );
-  log.message(
-    `${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(projectId))}`,
-  );
-
-  if (finalAppUrl) {
-    log.message(
-      `${theme.styles.header("Site")}: ${theme.colors.links(finalAppUrl)}`,
-    );
-  }
-
-  return { outroMessage: "Your project is set up and ready to use" };
 }
 
 export function getCreateCommand(context: CLIContext): Command {
