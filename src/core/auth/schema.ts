@@ -2,10 +2,11 @@ import { z } from "zod";
 
 export const AuthDataSchema = z.object({
   accessToken: z.string().min(1, "Token cannot be empty"),
-  refreshToken: z.string().min(1, "Refresh token cannot be empty"),
+  refreshToken: z.string().optional(),
   expiresAt: z.number().int().positive("Expires at must be a positive integer"),
   email: z.email(),
   name: z.string().min(1, "Name cannot be empty"),
+  isApiKey: z.boolean().optional(),
 });
 
 export type AuthData = z.infer<typeof AuthDataSchema>;

@@ -85,6 +85,8 @@ export async function deleteAuth(): Promise<void> {
 }
 
 export function isTokenExpired(auth: AuthData): boolean {
+  // API key auth never expires
+  if (auth.isApiKey) return false;
   return Date.now() >= auth.expiresAt - TOKEN_REFRESH_BUFFER_MS;
 }
 
@@ -97,6 +99,17 @@ export async function refreshAndSaveTokens(): Promise<string | null> {
   refreshPromise = (async () => {
     try {
       const auth = await readAuth();
+
+      // API key auth doesn't need token refresh
+      if (auth.isApiKey) {
+        return auth.accessToken;
+      }
+
+      if (!auth.refreshToken) {
+        await deleteAuth();
+        return null;
+      }
+
       const tokenResponse = await renewAccessToken(auth.refreshToken);
 
       await writeAuth({

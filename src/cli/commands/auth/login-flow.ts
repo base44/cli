@@ -96,6 +96,37 @@ async function saveAuthData(
 }
 
 /**
+ * Authenticate using a Base44 API key (for CI/CD environments).
+ * Validates the key by fetching user info, then saves auth data normally.
+ */
+export async function loginWithApiKey(
+  apiKey: string,
+): Promise<RunCommandResult> {
+  const userInfo = await runTask(
+    "Verifying API key...",
+    async () => {
+      return await getUserInfo(apiKey);
+    },
+    {
+      successMessage: "API key verified",
+      errorMessage: "Failed to verify API key",
+    },
+  );
+
+  await writeAuth({
+    accessToken: apiKey,
+    expiresAt: Date.now() + 100 * 365 * 24 * 60 * 60 * 1000,
+    email: userInfo.email,
+    name: userInfo.name,
+    isApiKey: true,
+  });
+
+  return {
+    outroMessage: `Successfully logged in as ${theme.styles.bold(userInfo.email)}`,
+  };
+}
+
+/**
  * Execute the login flow (device code authentication).
  * This function is separate from the command to avoid circular dependencies.
  */
