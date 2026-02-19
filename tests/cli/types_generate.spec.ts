@@ -1,5 +1,5 @@
-import { describe, expect, it } from "bun:test";
 import { fixture, setupCLITests } from "./testkit/index.js";
+import { describe, expect, it } from "bun:test";
 
 describe("types generate command", () => {
   const t = setupCLITests();

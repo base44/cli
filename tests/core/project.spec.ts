@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
-import { describe, expect, it } from "bun:test";
 import { readProjectConfig } from "@/core/project/index.js";
+import { describe, expect, it } from "bun:test";
 
 const FIXTURES_DIR = resolve(__dirname, "../fixtures");
 

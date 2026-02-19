@@ -1,8 +1,8 @@
 import { resolve } from "node:path";
 import { setupServer } from "msw/node";
-import { afterAll, afterEach, beforeAll, beforeEach } from "bun:test";
 import type { CLIResult, CLIResultMatcher } from "./CLIResultMatcher.js";
 import { CLITestkit } from "./CLITestkit.js";
+import { afterAll, afterEach, beforeAll, beforeEach } from "bun:test";
 
 const FIXTURES_DIR = resolve(__dirname, "../../fixtures");
 

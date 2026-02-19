@@ -1,5 +1,5 @@
-import { describe, it } from "bun:test";
 import { fixture, setupCLITests } from "./testkit/index.js";
+import { describe, it } from "bun:test";
 
 describe("agents push command", () => {
   const t = setupCLITests();

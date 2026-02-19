@@ -1,4 +1,3 @@
-import { describe, expect, it } from "bun:test";
 import {
   ApiError,
   AuthExpiredError,
@@ -16,6 +15,7 @@ import {
   isUserError,
   SchemaValidationError,
 } from "../../src/core/errors.js";
+import { describe, expect, it } from "bun:test";
 
 describe("CLIError base class", () => {
   it("has correct properties on UserError subclass", () => {

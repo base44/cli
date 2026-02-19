@@ -1,6 +1,6 @@
 import { join } from "node:path";
-import { describe, it } from "bun:test";
 import { setupCLITests } from "./testkit/index.js";
+import { describe, it } from "bun:test";
 
 describe("create command", () => {
   const t = setupCLITests();

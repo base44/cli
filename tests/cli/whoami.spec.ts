@@ -1,5 +1,5 @@
-import { describe, it } from "bun:test";
 import { setupCLITests } from "./testkit/index.js";
+import { describe, it } from "bun:test";
 
 describe("whoami command", () => {
   const t = setupCLITests();

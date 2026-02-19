@@ -1,5 +1,5 @@
-import { describe, expect, it } from "bun:test";
 import { setupCLITests } from "./testkit/index.js";
+import { describe, expect, it } from "bun:test";
 
 describe("login command", () => {
   const t = setupCLITests();

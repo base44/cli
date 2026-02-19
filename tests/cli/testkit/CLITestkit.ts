@@ -3,10 +3,10 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Command } from "commander";
 import { dir } from "tmp-promise";
-import { vi } from "bun:test";
 import { Base44APIMock } from "./Base44APIMock.js";
 import type { CLIResult } from "./CLIResultMatcher.js";
 import { CLIResultMatcher } from "./CLIResultMatcher.js";
+import { vi } from "bun:test";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DIST_INDEX_PATH = join(__dirname, "../../../dist/cli/index.js");

@@ -1,7 +1,6 @@
 import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { beforeEach, describe, expect, it, vi } from "bun:test";
 import { InvalidInputError } from "../../src/core/errors.js";
 import {
   readAllConnectors,
@@ -9,6 +8,7 @@ import {
 } from "../../src/core/resources/connector/config.js";
 import { pushConnectors } from "../../src/core/resources/connector/push.js";
 import type { ConnectorResource } from "../../src/core/resources/connector/schema.js";
+import { beforeEach, describe, expect, it, vi } from "bun:test";
 
 const mockListConnectors = vi.fn();
 const mockSetConnector = vi.fn();
