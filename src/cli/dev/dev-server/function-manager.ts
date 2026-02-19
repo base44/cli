@@ -33,7 +33,9 @@ export class FunctionManager {
     this.functions = new Map(functions.map((f) => [f.name, f]));
     this.logger = logger;
 
-    this.verifyDenoIsInstalled();
+    if (functions.length > 0) {
+      this.verifyDenoIsInstalled();
+    }
   }
 
   private verifyDenoIsInstalled(): void {

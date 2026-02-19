@@ -63,10 +63,10 @@ export async function createDevServer(
     clackLog.info(
       `Loaded functions: ${functionManager.getFunctionNames().join(", ")}`,
     );
-  }
 
-  const functionRoutes = createFunctionRouter(functionManager, devLogger);
-  app.use("/api/apps/:appId/functions", functionRoutes);
+    const functionRoutes = createFunctionRouter(functionManager, devLogger);
+    app.use("/api/apps/:appId/functions", functionRoutes);
+  }
 
   app.use((req, res, next) => {
     return remoteProxy(req, res, next);
