@@ -1,0 +1,275 @@
+name: Daily Error Report
+
+on:
+  schedule:
+    - cron: "0 8 * * *"
+  workflow_dispatch:
+    inputs:
+      hours:
+        description: "Time range in hours to look back"
+        required: false
+        default: "24"
+        type: string
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install PostHog CLI
+        run: npm install -g @posthog/cli
+
+      - name: Set time range
+        id: time-range
+        run: |
+          HOURS="${{ inputs.hours || '24' }}"
+          echo "hours=$HOURS" >> $GITHUB_OUTPUT
+
+      - name: Query error summary
+        env:
+          POSTHOG_CLI_TOKEN: ${{ secrets.POSTHOG_CLI_API_KEY }}
+          POSTHOG_CLI_ENV_ID: ${{ vars.POSTHOG_PROJECT_ID }}
+        run: |
+          posthog-cli exp query run "SELECT properties.is_user_error as is_user_error, properties.error_code as error_code, count() as occurrences, count(DISTINCT distinct_id) as users_affected, countIf(distinct_id LIKE '%@wix.com' OR distinct_id LIKE '%@base44.com') as internal_occurrences, any(properties.\$exception_values) as sample_message, any(properties.command_name) as sample_command FROM events WHERE event = '\$exception' AND timestamp >= now() - INTERVAL ${{ steps.time-range.outputs.hours }} HOUR GROUP BY is_user_error, error_code ORDER BY occurrences DESC" > /tmp/summary.jsonl || true
+
+      - name: Query error details
+        env:
+          POSTHOG_CLI_TOKEN: ${{ secrets.POSTHOG_CLI_API_KEY }}
+          POSTHOG_CLI_ENV_ID: ${{ vars.POSTHOG_PROJECT_ID }}
+        run: |
+          posthog-cli exp query run "SELECT properties.\$exception_fingerprint as fingerprint, any(properties.\$exception_issue_id) as issue_id, count() as occurrences, any(properties.\$exception_types) as exception_type, any(properties.\$exception_values) as exception_message, substring(toString(any(properties.\$exception_list)), 1, 1500) as exception_list, any(properties.\$exception_level) as level, any(properties.error_code) as error_code, any(properties.is_user_error) as is_user_error, any(properties.command_name) as command_name, any(properties.cli_version) as cli_version, any(properties.node_version) as node_version, any(properties.platform) as platform, any(properties.arch) as arch, any(properties.os_type) as os_type, any(properties.is_agent) as is_agent, any(properties.agent_name) as agent_name, any(properties.api_status_code) as api_status_code, any(properties.api_request_url) as api_request_url, any(properties.api_request_method) as api_request_method, max(timestamp) as last_seen, min(timestamp) as first_seen FROM events WHERE event = '\$exception' AND timestamp >= now() - INTERVAL ${{ steps.time-range.outputs.hours }} HOUR GROUP BY fingerprint ORDER BY occurrences DESC LIMIT 25" > /tmp/details.jsonl || true
+
+      - name: Prepare data files
+        run: |
+          for f in /tmp/summary.jsonl /tmp/details.jsonl; do
+            if [ -f "$f" ] && [ "$(wc -c < "$f")" -gt 200000 ]; then
+              awk 'BEGIN{t=0}{t+=length($0)+1; if(t>200000) exit; print}' "$f" > "${f}.tmp" && mv "${f}.tmp" "$f"
+            fi
+          done
+          cp /tmp/summary.jsonl ./summary.jsonl 2>/dev/null || touch ./summary.jsonl
+          cp /tmp/details.jsonl ./details.jsonl 2>/dev/null || touch ./details.jsonl
+
+      - name: Check for errors
+        id: check-errors
+        run: |
+          if [ -s ./summary.jsonl ]; then
+            echo "has_errors=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_errors=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate report with Claude
+        if: steps.check-errors.outputs.has_errors == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            You are an error triage engineer for the Base44 CLI (a TypeScript CLI tool built with Commander.js).
+            Your task: analyze the error data from the last ${{ steps.time-range.outputs.hours }} hours and produce a GitHub issue report.
+
+            ## Context
+
+            PostHog project ID: `${{ vars.POSTHOG_PROJECT_ID }}`
+            PostHog error tracking URL pattern: `https://us.posthog.com/project/${{ vars.POSTHOG_PROJECT_ID }}/error_tracking/<issue_id>`
+            (use the `issue_id` field from details.jsonl, NOT the fingerprint — issue_id is a UUID that PostHog uses in its UI)
+
+            ## Step 1: Read the error data
+
+            The data files are in the workspace root. Use `cat summary.jsonl` and `cat details.jsonl` (Bash tool) to read them — do NOT use the Read tool, as it may hit token limits on large files.
+
+            Both files are JSONL (one JSON array per line):
+
+            **`summary.jsonl`** — aggregated error counts. Columns (by position):
+            `[is_user_error, error_code, occurrences, users_affected, internal_occurrences, sample_message, sample_command]`
+            - `users_affected` = unique users (count of distinct users, no PII)
+            - `internal_occurrences` = how many occurrences came from internal users (@wix.com / @base44.com)
+
+            **`details.jsonl`** — one representative event per unique error group (grouped by fingerprint, ordered by occurrences DESC). Columns (by position):
+            `[fingerprint, issue_id, occurrences, exception_type, exception_message, exception_list, level, error_code, is_user_error, command_name, cli_version, node_version, platform, arch, os_type, is_agent, agent_name, api_status_code, api_request_url, api_request_method, last_seen, first_seen]`
+            - `issue_id` is the PostHog error tracking UUID — use it for PostHog links, not the fingerprint
+
+            You MUST read ALL rows from both files. Every error group in the data must be analyzed.
+
+            ## PRIVACY — this repo is public, the issue will be public
+
+            The data does NOT contain user emails or distinct_ids. However, other fields may still leak PII:
+            - **Stack traces** (`exception_list`): frame `filename` paths may contain usernames (e.g. `/Users/john/node_modules/...`). When including stack traces in the report, replace any home-directory path segments with `<redacted>` (e.g. `/Users/<redacted>/node_modules/base44/...`).
+            - **Error messages** (`exception_message`): may contain file paths with usernames. Apply the same redaction.
+            - **`app_id`**: this is an internal ID. You may use it for grouping/counting, but do NOT list raw app_id values in the report.
+            - **`api_request_url`**: redact any query parameters and path segments that look like tokens or user-specific identifiers.
+            - Never include user emails, names, IP addresses, or identifiable information in the report.
+
+            ## Step 2: Check for recurring errors and existing issues
+
+            Before analyzing, gather context:
+
+            1. **Previous error reports**: Run `gh issue list --label error-report --limit 5 --json number,title,body,createdAt` to get the last few daily reports. Read through them to identify errors that keep recurring across multiple days. If an error appeared in previous reports too, mark it as **recurring** and note how many consecutive days it has appeared.
+
+            2. **Existing GitHub issues**: For each unique error you find in the data, search for existing open issues that might already track it:
+               - Run `gh issue list --state open --search "<error_code or key phrase from the error message>" --json number,title,labels,assignees --limit 5`
+               - If you find a matching issue, link to it in the report instead of re-describing the problem. Note the issue number and whether someone is assigned.
+
+            ## Step 3: Understand the errors — always include code snippets
+
+            The details file is already grouped by fingerprint (one row per unique error group, ordered by occurrences). For each error group:
+            1. Read the stack trace from `exception_list` (it's a JSON array of `{type, value, stacktrace: {frames: [{filename, lineno, colno, function}]}}`)
+               Note: `exception_list` is truncated to ~1500 chars — this should include the most relevant top frames.
+            2. **Include the error message and stack trace from PostHog** in the report. Show `exception_message` and the top 3-5 frames from `exception_list`. These are the actual errors users hit.
+            3. **Build a PostHog link** for each error using the `issue_id` field (NOT fingerprint): `https://us.posthog.com/project/${{ vars.POSTHOG_PROJECT_ID }}/error_tracking/<issue_id>`. Include this link in the report so readers can drill into PostHog for full details. If `issue_id` is null/empty, omit the link.
+            4. Use the stack trace frames to find the relevant source files in this repository (under `src/`). Map the frame `filename` and `lineno` to actual source files using Grep/Glob.
+            5. **Read those source files** and understand WHY the error happened. This is critical — you MUST read the actual source code, not guess.
+            6. **Include code snippets** in the report for every error. Show the exact lines from `src/` that caused or are related to the error. Use the `// src/path/to/file.ts:NN` format.
+            7. Check if the error is a known pattern or a real bug.
+
+            Each error in the report must have BOTH: (a) the error/stack trace from PostHog data, and (b) the relevant source code from the repo.
+
+            ## Step 4: Classify every error
+
+            For EVERY error group, assign one of these verdicts:
+            - **CLI bug** — something in the CLI code is broken and needs a fix
+            - **Backend issue** — the CLI correctly reports a server-side problem (not a CLI fix)
+            - **Working as designed** — user error, the CLI correctly validates and throws (e.g. wrong directory, invalid schema). Only flag if volume is unusually high suggesting a UX gap.
+            - **Needs investigation** — can't determine root cause from available data
+
+            Also classify:
+            - `is_user_error = false` → likely CLI bug or backend issue
+            - `is_user_error = true` → likely working as designed, unless it affects >= 5 users AND looks like a CLI problem
+            - Use `internal_occurrences` from the summary to note what fraction of errors come from internal users
+
+            ## Step 5: Create the GitHub issue
+
+            If there are errors worth reporting:
+            1. First, write the full issue body to a file: use the Write tool to save the markdown body to `error-report-body.md` in the workspace root.
+            2. Then create the issue using: `gh issue create --title "<title>" --label error-report --body-file error-report-body.md`
+
+            This two-step approach is required because the issue body is too large for inline `--body` arguments.
+
+            **Title**: `Error Report: <date> (<N> errors in last <hours>h)`
+
+            **Body** (write this to `error-report-body.md`):
+
+            ```
+            ## Summary
+
+            Brief 2-3 sentence overview. Lead with the most actionable finding.
+
+            | Metric | Value |
+            | --- | --- |
+            | Time range | last <hours> hours |
+            | Total errors | N |
+            | CLI bugs | N |
+            | Backend issues | N |
+            | User errors (working as designed) | N |
+            | Unique users affected | N |
+            | Internal user occurrences | N |
+
+            ## Errors requiring action
+
+            For each error that is a CLI bug or needs investigation (ordered by impact):
+
+            ### <N>. <Short title> — <verdict: CLI bug / needs investigation>
+
+            | | |
+            | --- | --- |
+            | Error code | `CODE` |
+            | Occurrences | N (N internal) |
+            | Users affected | N |
+            | Command | `name` |
+            | Platforms | list |
+            | PostHog | [View in error tracking](https://us.posthog.com/project/<PROJECT_ID>/error_tracking/<issue_id>) |
+            | Existing issue | #123 or None |
+            | Recurring | Yes (N days) / No |
+
+            **Error**: (from PostHog — the actual error message users see)
+            ```
+            ErrorType: message
+            ```
+
+            **Stack trace**: (only show frames from `src/` — skip generic entry points like `runCLI`, `parseAsync`)
+            ```
+            at specificFunction (src/path/to/file.ts:NN:NN)
+            at callerFunction (src/path/to/other.ts:NN:NN)
+            ```
+
+            **Root cause**: (what you found in the code — include a code snippet)
+            ```typescript
+            // src/path/to/file.ts:NN
+            <the relevant code>
+            ```
+
+            If you cannot find the root cause, say "Root cause not found in CLI code — may be a backend/infrastructure issue" rather than showing irrelevant code (like the generic error handler).
+
+            **Suggested fix**: One concrete sentence — what to change, in which file, and how.
+
+            ---
+
+            ## Backend issues (not CLI fixes)
+
+            Brief table of errors caused by the backend/server, not the CLI:
+
+            | Error | Occurrences | Users | Command | PostHog |
+            | --- | --- | --- | --- | --- |
+            | Short description | N | N | `cmd` | [link](url) |
+
+            These are not CLI bugs but may need backend team attention.
+
+            ## User errors (working as designed)
+
+            Brief table of expected user errors where the CLI validation is correct:
+
+            | Error | Occurrences | Users | Command | PostHog |
+            | --- | --- | --- | --- | --- |
+            | Short description | N | N | `cmd` | [link](url) |
+
+            If any user error has unusually high volume, add a note about potential UX improvements.
+
+            ## Recurring errors
+
+            If any errors appeared in previous daily reports:
+
+            | Error | Days recurring | Existing issue | Tracked? |
+            | --- | --- | --- | --- |
+            | Short description | N days | #123 or none | yes/no |
+
+            Untracked recurring errors should be called out.
+
+            ## Action items
+
+            Numbered list of concrete next steps, most important first:
+            1. **[critical/high/medium]** `src/path/to/file.ts:NN` — what to change and why
+            ```
+
+            If there are zero errors worth reporting, do NOT create an issue. Instead just print "No significant errors to report."
+
+            ## Rules
+
+            - **Be concise.** Don't pad. An engineer should scan this in 2 minutes and know what to do.
+            - **Every error in the data must appear** in the report — either in "Errors requiring action", "Backend issues", or "User errors". Don't silently drop error groups.
+            - **Code snippets are mandatory** for errors in "Errors requiring action". Show the actual code that threw or is relevant, not the generic error handler.
+            - **Stack traces: skip boilerplate frames.** `runCLI`, `Command.parseAsync`, `Command._parseCommand` are entry-point noise. Only show frames from `src/` that point to the actual error origin.
+            - **Don't show irrelevant code.** If the only code you can find is the generic catch block in `index.ts`, say "root cause not found" — don't pretend it's the root cause.
+            - **Suggestions must be concrete.** "Investigate X" is not actionable. "In `src/path/file.ts:42`, add a timeout parameter to the fetch call" is.
+            - **No "Expected/Actual behavior" sections** — they just repeat "What happened". Keep it tight.
+            - **PostHog links use `issue_id`** (UUID), not fingerprint. If issue_id is null, omit the link.
+            - Add the label "error-report" to the issue.
+            - When an existing issue already tracks the error, reference it with `#<number>` instead of re-explaining.
+            - Recurring untracked errors should be flagged prominently.
+          claude_args: '--model claude-sonnet-4-20250514 --allowed-tools Read Write Glob Grep "Bash(cat:*)" "Bash(gh issue create:*)" "Bash(gh issue list:*)" "Bash(gh issue view:*)" "Bash(gh label create:*)"'
+
+      - name: No errors summary
+        if: steps.check-errors.outputs.has_errors != 'true'
+        run: echo "### No errors in the last ${{ steps.time-range.outputs.hours }} hours" >> $GITHUB_STEP_SUMMARY

@@ -33,7 +33,7 @@ interface OAuthPromptOptions {
 }
 
 /**
- * Clack's block() puts stdin in raw mode where Ctrl+C calls process.exit(0)
+ * Clack's block() puts stdin in raw mode where Ctrl+C/Esc calls process.exit(0)
  * directly instead of emitting SIGINT. We override process.exit temporarily
  * so Ctrl+C/Esc skips the current connector instead of killing the process.
  */
@@ -42,7 +42,6 @@ async function runOAuthFlowWithSkip(
 ): Promise<OAuthFlowStatus> {
   await open(connector.redirectUrl);
 
-  // Mutated inside the pWaitFor callback — use `as` to prevent TS narrowing
   let finalStatus = "PENDING" as OAuthFlowStatus;
   let skipped = false;
 
@@ -51,7 +50,6 @@ async function runOAuthFlowWithSkip(
   const originalExit = process.exit;
   process.exit = (() => {
     skipped = true;
-    s.stop(`${connector.type} skipped`);
   }) as unknown as typeof process.exit;
 
   s.start(`Waiting for ${connector.type} authorization... (Esc to skip)`);
@@ -84,14 +82,14 @@ async function runOAuthFlowWithSkip(
   } finally {
     process.exit = originalExit;
 
-    if (!skipped) {
-      if (finalStatus === "ACTIVE") {
-        s.stop(`${connector.type} authorization complete`);
-      } else if (finalStatus === "FAILED") {
-        s.stop(`${connector.type} authorization failed`);
-      } else {
-        s.stop(`${connector.type} authorization timed out`);
-      }
+    if (skipped) {
+      s.cancel(`${connector.type} skipped`);
+    } else if (finalStatus === "ACTIVE") {
+      s.stop(`${connector.type} authorization complete`);
+    } else if (finalStatus === "FAILED") {
+      s.error(`${connector.type} authorization failed`);
+    } else {
+      s.error(`${connector.type} authorization timed out`);
     }
   }
 
@@ -135,7 +133,7 @@ export async function promptOAuthFlows(
 
   for (const connector of pending) {
     try {
-      log.info(`\nOpening browser for ${connector.type}...`);
+      log.info(`Opening browser for ${connector.type}...`);
       const status = await runOAuthFlowWithSkip(connector);
       outcomes.set(connector.type, status);
     } catch (err) {

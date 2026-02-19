@@ -245,16 +245,6 @@ export class Base44APIMock {
     return this;
   }
 
-  /** Mock GET /api/apps/{appId}/external-auth/status - Get OAuth status */
-  mockConnectorOAuthStatus(response: ConnectorOAuthStatusResponse): this {
-    this.handlers.push(
-      http.get(`${BASE_URL}/api/apps/${this.appId}/external-auth/status`, () =>
-        HttpResponse.json(response),
-      ),
-    );
-    return this;
-  }
-
   /** Mock DELETE /api/apps/{appId}/external-auth/integrations/{type}/remove */
   mockConnectorRemove(response: ConnectorRemoveResponse): this {
     this.handlers.push(
@@ -367,16 +357,6 @@ export class Base44APIMock {
       `/api/apps/${this.appId}/agent-configs`,
       error,
     );
-  }
-
-  /** Mock token endpoint to return an error (for auth failure testing) */
-  mockTokenError(error: ErrorResponse): this {
-    return this.mockError("post", "/oauth/token", error);
-  }
-
-  /** Mock userinfo endpoint to return an error */
-  mockUserInfoError(error: ErrorResponse): this {
-    return this.mockError("get", "/oauth/userinfo", error);
   }
 
   /** Mock connectors list to return an error */

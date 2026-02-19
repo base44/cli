@@ -1,6 +1,62 @@
 # Changelog
 
 
+## [0.0.33] - 2026-02-19
+
+### Added
+
+- CLI local dev functions support (#249)
+- Automated error reporter GitHub Action (#267)
+- MIT License (#257)
+
+### Changed
+
+- Update CLI status from alpha to beta (#248)
+- Refactor AGENTS.md to a new docs structure (#253)
+- Add `isNonInteractive` to CLIContext for aligned behavior (#254)
+- Align CLI schemas with backend (#252)
+- Bump clack version to latest with small fixes (#264)
+- Knip include classMember (#263)
+
+### Fixed
+
+- Reauthorization issue (#250)
+- Remove PII from error reports (#269)
+
+## [0.0.32] - 2026-02-16
+
+### Added
+
+- OAuth connector resource with `base44 connectors` commands (#189)
+- Connector pull command to sync connectors from remote (#214)
+- Connectors integration in unified `base44 deploy` command (#211)
+- Allow skipping OAuth with Esc key in connector setup (#217)
+- `ConnectorTypeRegistry` to generated types (#236)
+- `limit` parameter to listProjects API call (#245)
+- `type` command shown in the help menu (#244)
+- Knip dead code detection setup (#239)
+- Readme update workflow (#209)
+
+### Changed
+
+- CLI local dev full proxy support (#226)
+- Trailing comma standard enforcement (#230)
+- Biome linting on save (#227)
+- Change global timeout to request-specific timeouts (#243)
+- Extend request timeouts to 3 minutes (#242)
+- Remove agent name pattern validation (#231)
+
+## [0.0.31] - 2026-02-10
+
+### Added
+
+- `base44 eject` command to eject project from Base44 (#220)
+
+### Fixed
+
+- Wrap name registries with quotes for safety (#223)
+- Use `npm install -g base44@latest` instead of `npm update -g base44` for upgrade notification (#222)
+
 ## [0.0.30] - 2026-02-09
 
 ### Added

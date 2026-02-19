@@ -1,6 +1,6 @@
 {
   "name": "base44",
-  "version": "0.0.32",
+  "version": "0.0.33",
   "description": "Base44 CLI - Unified interface for managing Base44 applications",
   "type": "module",
   "bin": {
@@ -37,10 +37,11 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.0.0",
-    "@clack/prompts": "^0.11.0",
+    "@clack/prompts": "^1.0.1",
     "@types/bun": "^1.2.15",
     "@types/common-tags": "^1.8.4",
     "@types/cors": "^2.8.19",
+    "@types/deno": "^2.5.0",
     "@types/ejs": "^3.1.5",
     "@types/express": "^5.0.6",
     "@types/json-schema": "^7.0.15",
