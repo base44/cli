@@ -1,5 +1,6 @@
 import { log } from "@clack/prompts";
 import pWaitFor from "p-wait-for";
+import { CLIExitError } from "@/cli/errors.js";
 import { runTask } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 import { theme } from "@/cli/utils/theme.js";
@@ -67,8 +68,15 @@ async function waitForAuthentication(
       },
     );
   } catch (error) {
-    if (error instanceof Error && error.message.includes("timed out")) {
-      throw new Error("Authentication timed out. Please try again.");
+    if (error instanceof Error) {
+      if (error.message.includes("timed out")) {
+        throw new Error("Authentication timed out. Please try again.");
+      }
+      // EPIPE: user closed the terminal or cancelled while we were writing spinner
+      // updates. Exit cleanly rather than propagating an unhandled broken-pipe error.
+      if ((error as NodeJS.ErrnoException).code === "EPIPE") {
+        throw new CLIExitError(0);
+      }
     }
     throw error;
   }
