@@ -45,4 +45,13 @@ export class CLIResultMatcher {
       );
     }
   }
+
+  toContainInStdout(text: string): void {
+    if (!this.result.stdout.includes(text)) {
+      throw new Error(
+        `Expected stdout to contain "${text}"\n` +
+          `stdout: ${stripAnsi(this.result.stdout)}`,
+      );
+    }
+  }
 }

@@ -75,10 +75,6 @@ interface ConnectorSetResponse {
   other_user_email?: string;
 }
 
-interface ConnectorOAuthStatusResponse {
-  status: "ACTIVE" | "FAILED" | "PENDING";
-}
-
 interface ConnectorRemoveResponse {
   status: "removed";
   integration_type: string;
