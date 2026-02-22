@@ -44,21 +44,22 @@ The CLI will guide you through project setup. For step-by-step tutorials, see th
 | Command | Description |
 | ------- | ----------- |
 | [`create`](https://docs.base44.com/developers/references/cli/commands/create) | Create a new Base44 project from a template |
-| [`deploy`](https://docs.base44.com/developers/references/cli/commands/deploy) | Deploy resources and site to Base44 |
-| [`link`](https://docs.base44.com/developers/references/cli/commands/link) | Link a local project to a project on Base44 |
+| [`deploy`](https://docs.base44.com/developers/references/cli/commands/deploy) | Deploy all project resources and site to Base44 |
+| [`eject`](https://docs.base44.com/developers/references/cli/commands/eject) | Download the code for an existing Base44 project |
+| [`link`](https://docs.base44.com/developers/references/cli/commands/link) | Link a local project to a Base44 project |
 | [`dashboard open`](https://docs.base44.com/developers/references/cli/commands/dashboard) | Open the app dashboard in your browser |
 | [`login`](https://docs.base44.com/developers/references/cli/commands/login) | Authenticate with Base44 |
 | [`logout`](https://docs.base44.com/developers/references/cli/commands/logout) | Sign out and clear stored credentials |
 | [`whoami`](https://docs.base44.com/developers/references/cli/commands/whoami) | Display the current authenticated user |
 | [`agents pull`](https://docs.base44.com/developers/references/cli/commands/agents-pull) | Pull agents from Base44 to local files |
 | [`agents push`](https://docs.base44.com/developers/references/cli/commands/agents-push) | Push local agents to Base44 |
-| [`entities push`](https://docs.base44.com/developers/references/cli/commands/entities-push) | Push local entity schemas to Base44 |
+| [`connectors pull`](https://docs.base44.com/developers/references/cli/commands/connectors-pull) | Pull connectors from Base44 to local files |
+| [`connectors push`](https://docs.base44.com/developers/references/cli/commands/connectors-push) | Push local connectors to Base44 |
+| [`entities push`](https://docs.base44.com/developers/references/cli/commands/entities-push) | Push local entities to Base44 |
 | [`functions deploy`](https://docs.base44.com/developers/references/cli/commands/functions-deploy) | Deploy local functions to Base44 |
 | [`site deploy`](https://docs.base44.com/developers/references/cli/commands/site-deploy) | Deploy built site files to Base44 hosting |
 | [`site open`](https://docs.base44.com/developers/references/cli/commands/site-open) | Open the published site in your browser |
-
-
-<!--| [`eject`](https://docs.base44.com/developers/references/cli/commands/eject) | Create a Base44 backend project from an existing Base44 app | -->
+| [`types generate`](https://docs.base44.com/developers/references/cli/commands/types-generate) | Generate TypeScript types from project resources |
 
 ## AI agent skills
 
@@ -91,4 +92,4 @@ Found a bug? [Open an issue](https://github.com/base44/cli/issues).
 
 ## License
 
-ISC
+MIT
