@@ -9,7 +9,7 @@ interface RecordDataOptions {
 
 export async function parseRecordData(
   options: RecordDataOptions,
-  exampleHint: string,
+  exampleHint?: string,
 ): Promise<Record<string, unknown>> {
   if (options.data && options.file) {
     throw new InvalidInputError(
@@ -30,9 +30,9 @@ export async function parseRecordData(
     } catch {
       throw new InvalidInputError(
         "Invalid JSON in --data flag. Provide valid JSON.",
-        {
-          hints: [{ message: `Example: --data '${exampleHint}'` }],
-        },
+        exampleHint
+          ? { hints: [{ message: `Example: --data '${exampleHint}'` }] }
+          : undefined,
       );
     }
   }
@@ -43,12 +43,14 @@ export async function parseRecordData(
 
   throw new InvalidInputError(
     "Provide record data with --data or --file flag",
-    {
-      hints: [
-        {
-          message: `Example: --data '${exampleHint}' or --file record.json`,
-        },
-      ],
-    },
+    exampleHint
+      ? {
+          hints: [
+            {
+              message: `Example: --data '${exampleHint}' or --file record.json`,
+            },
+          ],
+        }
+      : undefined,
   );
 }
