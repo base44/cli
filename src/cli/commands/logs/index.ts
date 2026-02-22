@@ -1,20 +1,15 @@
-import { Command } from "commander";
+import { Command, Option } from "commander";
 import type { CLIContext } from "@/cli/types.js";
 import { runCommand } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
-import { InvalidInputError } from "@/core/errors.js";
+import { ApiError, InvalidInputError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/index.js";
 import type {
   FunctionLogFilters,
   FunctionLogsResponse,
   LogLevel,
 } from "@/core/resources/function/index.js";
-import {
-  FunctionNotFoundError,
-  fetchFunctionLogs,
-} from "@/core/resources/function/index.js";
-
-// ─── TYPES ──────────────────────────────────────────────────
+import { fetchFunctionLogs } from "@/core/resources/function/index.js";
 
 interface LogsOptions {
   function?: string;
@@ -36,15 +31,8 @@ interface LogEntry {
   source: string; // function name
 }
 
-// ─── CONSTANTS ──────────────────────────────────────────────
-
 const VALID_LEVELS = ["log", "info", "warn", "error", "debug"];
 
-// ─── OPTION PARSING ─────────────────────────────────────────
-
-/**
- * Parse CLI options into FunctionLogFilters.
- */
 function parseFunctionFilters(options: LogsOptions): FunctionLogFilters {
   const filters: FunctionLogFilters = {};
 
@@ -71,9 +59,6 @@ function parseFunctionFilters(options: LogsOptions): FunctionLogFilters {
   return filters;
 }
 
-/**
- * Parse --function option into array of function names.
- */
 function parseFunctionNames(option: string | undefined): string[] {
   if (!option) return [];
   return option
@@ -82,51 +67,16 @@ function parseFunctionNames(option: string | undefined): string[] {
     .filter((s) => s.length > 0);
 }
 
-/**
- * Ensure datetime has a timezone (append Z if missing) for APIs that require it.
- */
 function normalizeDatetime(value: string): string {
   if (/Z$|[+-]\d{2}:\d{2}$/.test(value)) return value;
   return `${value}Z`;
 }
 
-/**
- * Validate CLI options upfront before any API calls.
- */
-function validateOptions(options: LogsOptions): void {
-  if (options.level && !VALID_LEVELS.includes(options.level)) {
-    throw new InvalidInputError(
-      `Invalid level: "${options.level}". Must be one of: ${VALID_LEVELS.join(", ")}.`
-    );
-  }
-  if (options.limit) {
-    const limit = Number.parseInt(options.limit, 10);
-    if (Number.isNaN(limit) || limit < 1 || limit > 1000) {
-      throw new InvalidInputError(
-        `Invalid limit: "${options.limit}". Must be a number between 1 and 1000.`
-      );
-    }
-  }
-  if (options.order) {
-    const order = options.order.toUpperCase();
-    if (order !== "ASC" && order !== "DESC") {
-      throw new InvalidInputError(
-        `Invalid order: "${options.order}". Must be "ASC" or "DESC".`
-      );
-    }
-  }
-}
-
-// ─── DISPLAY ────────────────────────────────────────────────
-
-/**
- * Format a single log entry as a plain log-file line.
- */
 function formatEntry(entry: LogEntry): string {
   const time = entry.time.substring(0, 19).replace("T", " ");
   const level = entry.level.toUpperCase().padEnd(5);
   const message = entry.message.trim();
-  return `${time} ${level} ${message}\n`;
+  return `${time} ${level} ${message}`;
 }
 
 /**
@@ -137,21 +87,13 @@ function formatLogs(entries: LogEntry[]): string {
     return "No logs found matching the filters.\n";
   }
 
-  let output = `Showing ${entries.length} function log entries\n\n`;
-  for (const entry of entries) {
-    output += formatEntry(entry);
-  }
-  return output;
+  const header = `Showing ${entries.length} function log entries\n`;
+  return [header, ...entries.map(formatEntry)].join("\n");
 }
 
-// ─── ACTIONS ────────────────────────────────────────────────
-
-/**
- * Normalize a function log entry to display format.
- */
 function normalizeLogEntry(
   entry: { time: string; level: string; message: string },
-  functionName: string
+  functionName: string,
 ): LogEntry {
   return {
     time: entry.time,
@@ -161,14 +103,10 @@ function normalizeLogEntry(
   };
 }
 
-/**
- * Fetch logs for specified functions.
- * If a function is not found, re-throws with a hint listing available functions.
- */
 async function fetchLogsForFunctions(
   functionNames: string[],
   options: LogsOptions,
-  availableFunctionNames: string[]
+  availableFunctionNames: string[],
 ): Promise<LogEntry[]> {
   const filters = parseFunctionFilters(options);
   const allEntries: LogEntry[] = [];
@@ -179,7 +117,8 @@ async function fetchLogsForFunctions(
       logs = await fetchFunctionLogs(functionName, filters);
     } catch (error) {
       if (
-        error instanceof FunctionNotFoundError &&
+        error instanceof ApiError &&
+        error.statusCode === 404 &&
         availableFunctionNames.length > 0
       ) {
         const available = availableFunctionNames.join(", ");
@@ -196,7 +135,7 @@ async function fetchLogsForFunctions(
                 command: "base44 functions deploy",
               },
             ],
-          }
+          },
         );
       }
       throw error;
@@ -216,22 +155,12 @@ async function fetchLogsForFunctions(
   return allEntries;
 }
 
-/**
- * Get all function names from project config.
- */
 async function getAllFunctionNames(): Promise<string[]> {
   const { functions } = await readProjectConfig();
   return functions.map((fn) => fn.name);
 }
 
-/**
- * Main logs action.
- */
 async function logsAction(options: LogsOptions): Promise<RunCommandResult> {
-  if (options.since) options.since = normalizeDatetime(options.since);
-  if (options.until) options.until = normalizeDatetime(options.until);
-  validateOptions(options);
-
   const specifiedFunctions = parseFunctionNames(options.function);
 
   // Always read project functions so we can list them in error messages
@@ -242,7 +171,7 @@ async function logsAction(options: LogsOptions): Promise<RunCommandResult> {
     specifiedFunctions.length > 0 ? specifiedFunctions : allProjectFunctions;
 
   if (functionNames.length === 0) {
-    return { stdout: "No functions found in this project.\n" };
+    return { outroMessage: "No functions found in this project." };
   }
 
   let entries = await fetchLogsForFunctions(
@@ -257,36 +186,57 @@ async function logsAction(options: LogsOptions): Promise<RunCommandResult> {
     entries = entries.slice(0, limit);
   }
 
-  const stdout = options.json
+  const logsOutput = options.json
     ? `${JSON.stringify(entries, null, 2)}\n`
     : formatLogs(entries);
 
-  return { stdout };
+  return { outroMessage: "Fetched logs", stdout: logsOutput };
 }
-
-// ─── COMMAND ────────────────────────────────────────────────
 
 export function getLogsCommand(context: CLIContext): Command {
   return new Command("logs")
     .description("Fetch function logs for this app")
     .option(
       "--function <names>",
-      "Filter by function name(s), comma-separated. If omitted, fetches logs for all project functions"
+      "Filter by function name(s), comma-separated. If omitted, fetches logs for all project functions",
     )
-    .option("--since <datetime>", "Show logs from this time (ISO format)")
-    .option("--until <datetime>", "Show logs until this time (ISO format)")
     .option(
-      "--level <level>",
-      "Filter by log level: log, info, warn, error, debug"
+      "--since <datetime>",
+      "Show logs from this time (ISO format)",
+      normalizeDatetime,
     )
-    .option("-n, --limit <n>", "Results per page (1-1000, default: 50)")
-    .option("--order <order>", "Sort order: ASC|DESC (default: DESC)")
+    .option(
+      "--until <datetime>",
+      "Show logs until this time (ISO format)",
+      normalizeDatetime,
+    )
+    .addOption(
+      new Option("--level <level>", "Filter by log level").choices(
+        VALID_LEVELS,
+      ),
+    )
+    .option(
+      "-n, --limit <n>",
+      "Results per page (1-1000, default: 50)",
+      (v) => {
+        const n = Number.parseInt(v, 10);
+        if (Number.isNaN(n) || n < 1 || n > 1000) {
+          throw new InvalidInputError(
+            `Invalid limit: "${v}". Must be a number between 1 and 1000.`,
+          );
+        }
+        return v;
+      },
+    )
+    .addOption(
+      new Option("--order <order>", "Sort order").choices(["asc", "desc"]),
+    )
     .option("--json", "Output raw JSON")
     .action(async (options: LogsOptions) => {
       await runCommand(
         () => logsAction(options),
         { requireAuth: true },
-        context
+        context,
       );
     });
 }

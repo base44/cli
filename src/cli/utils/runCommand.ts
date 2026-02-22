@@ -106,6 +106,7 @@ export async function runCommand(
 
     const result = await commandFn();
     outro(result.outroMessage || "");
+    
     if (result.stdout) {
       process.stdout.write(result.stdout);
     }

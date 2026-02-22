@@ -104,8 +104,6 @@ export type FunctionWithCode = Omit<BackendFunction, "filePaths"> & {
   files: FunctionFile[];
 };
 
-// ─── FUNCTION LOGS SCHEMAS ──────────────────────────────────
-
 /**
  * Log level from Deno Deploy runtime.
  */
@@ -113,27 +111,16 @@ export const LogLevelSchema = z.enum(["log", "info", "warn", "error", "debug"]);
 
 export type LogLevel = z.infer<typeof LogLevelSchema>;
 
-/**
- * Single log entry from the function runtime (Deno Deploy).
- */
-export const FunctionLogEntrySchema = z.object({
+const FunctionLogEntrySchema = z.object({
   time: z.string(),
   level: LogLevelSchema,
   message: z.string(),
 });
 
-export type FunctionLogEntry = z.infer<typeof FunctionLogEntrySchema>;
-
-/**
- * Response from the function logs API - array of log entries.
- */
 export const FunctionLogsResponseSchema = z.array(FunctionLogEntrySchema);
 
 export type FunctionLogsResponse = z.infer<typeof FunctionLogsResponseSchema>;
 
-/**
- * CLI filter options for function logs.
- */
 export interface FunctionLogFilters {
   since?: string;
   until?: string;

@@ -272,6 +272,7 @@ interface ApiErrorOptions extends CLIErrorOptions {
   responseBody?: unknown;
 }
 
+
 /**
  * Thrown when an API request fails.
  */
@@ -304,9 +305,11 @@ export class ApiError extends SystemError {
    * Creates an ApiError from a caught error (typically HTTPError from ky).
    * Extracts status code, request info, and response body for error reporting.
    *
+   * Normalizes backend KeyError responses (Python dict lookup failures) to
+   * 404 status, since they represent "resource not found" conditions.
+   *
    * @param error - The caught error (HTTPError, Error, or unknown)
    * @param context - Description of what operation failed (e.g., "syncing agents")
-   * @returns ApiError with formatted message, status code, and request/response data
    *
    * @example
    * try {
@@ -334,12 +337,16 @@ export class ApiError extends SystemError {
         message = error.message;
       }
 
+      const statusCode = ApiError.normalizeStatusCode(
+        error.response.status,
+        responseBody,
+      );
       const requestBody = error.options.context?.__requestBody;
 
       return new ApiError(
         `Error ${context}: ${message}`,
         {
-          statusCode: error.response.status,
+          statusCode,
           requestUrl: error.request.url,
           requestMethod: error.request.method,
           requestBody,
@@ -414,6 +421,20 @@ export class ApiError extends SystemError {
 
     return REASON_HINTS[reason];
   }
+
+  /**
+   * Backend KeyError responses (Python dict lookup failures) are semantically
+   * "not found" — normalize them to 404.
+   */
+  private static normalizeStatusCode(
+    statusCode: number,
+    responseBody: unknown,
+  ): number {
+    if ((responseBody as Record<string, unknown> | null)?.error_type === "KeyError") {
+      return 404;
+    }
+    return statusCode;
+  }
 }
 
 /**
@@ -444,29 +465,6 @@ export class FileReadError extends SystemError {
         { message: "Check file permissions and try again" },
       ],
       cause: options?.cause,
-    });
-  }
-}
-
-/**
- * Thrown when a specific function is not found in the app.
- */
-export class FunctionNotFoundError extends ApiError {
-  constructor(functionName: string, cause: Error) {
-    super(`Function "${functionName}" was not found in this app`, {
-      statusCode: 404,
-      cause,
-      hints: [
-        {
-          message:
-            "Make sure the function name is correct and has been deployed",
-          command: "base44 functions deploy",
-        },
-        {
-          message:
-            "List project functions by checking the base44/functions/ directory",
-        },
-      ],
     });
   }
 }

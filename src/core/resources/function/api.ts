@@ -1,11 +1,6 @@
 import type { KyResponse } from "ky";
-import { HTTPError } from "ky";
 import { getAppClient } from "@/core/clients/index.js";
-import {
-  ApiError,
-  FunctionNotFoundError,
-  SchemaValidationError,
-} from "@/core/errors.js";
+import { ApiError, SchemaValidationError } from "@/core/errors.js";
 import type {
   DeployFunctionsResponse,
   FunctionLogFilters,
@@ -17,7 +12,6 @@ import {
   FunctionLogsResponseSchema,
 } from "@/core/resources/function/schema.js";
 
-export { FunctionNotFoundError };
 
 function toDeployPayloadItem(fn: FunctionWithCode) {
   return {
@@ -63,7 +57,7 @@ export async function deployFunctions(
 /**
  * Build query string from filter options.
  */
-function buildLogsQueryString(filters: FunctionLogFilters): string {
+function buildLogsQueryString(filters: FunctionLogFilters): URLSearchParams {
   const params = new URLSearchParams();
 
   if (filters.since) {
@@ -82,8 +76,7 @@ function buildLogsQueryString(filters: FunctionLogFilters): string {
     params.set("order", filters.order);
   }
 
-  const queryString = params.toString();
-  return queryString ? `?${queryString}` : "";
+  return params;
 }
 
 /**
@@ -91,41 +84,20 @@ function buildLogsQueryString(filters: FunctionLogFilters): string {
  */
 export async function fetchFunctionLogs(
   functionName: string,
-  filters: FunctionLogFilters = {}
+  filters: FunctionLogFilters = {},
 ): Promise<FunctionLogsResponse> {
   const appClient = getAppClient();
-  const queryString = buildLogsQueryString(filters);
+  const searchParams = buildLogsQueryString(filters);
 
   let response: KyResponse;
   try {
-    response = await appClient.get(
-      `functions-mgmt/${functionName}/logs${queryString}`
-    );
+    response = await appClient.get(`functions-mgmt/${functionName}/logs`, {
+      searchParams,
+    });
   } catch (error) {
-    if (error instanceof HTTPError) {
-      if (error.response.status === 404) {
-        throw new FunctionNotFoundError(functionName, error);
-      }
-
-      // The server returns a 500 with a KeyError when the function doesn't
-      // exist: {"error_type":"KeyError","message":"'fn-name'", ...}
-      // Detect this and throw a clear "not found" error instead.
-      try {
-        const body = (await error.response.clone().json()) as Record<
-          string,
-          unknown
-        >;
-        if (body.error_type === "KeyError") {
-          throw new FunctionNotFoundError(functionName, error);
-        }
-      } catch (parseError) {
-        if (parseError instanceof ApiError) throw parseError;
-        // JSON parse failed — fall through to generic handler
-      }
-    }
     throw await ApiError.fromHttpError(
       error,
-      `fetching function logs: '${functionName}'`
+      `fetching function logs: '${functionName}'`,
     );
   }
 
@@ -134,7 +106,7 @@ export async function fetchFunctionLogs(
   if (!result.success) {
     throw new SchemaValidationError(
       "Invalid function logs response from server",
-      result.error
+      result.error,
     );
   }
 
