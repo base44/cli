@@ -1,4 +1,4 @@
-import { confirm, log } from "@clack/prompts";
+import { confirm } from "@clack/prompts";
 import { Command } from "commander";
 import { CLIExitError } from "@/cli/errors.js";
 import type { CLIContext } from "@/cli/types.js";
@@ -36,9 +36,7 @@ async function deleteRecordAction(
     },
   );
 
-  log.success(`Record ${recordId} deleted`);
-
-  return {};
+  return { outroMessage: `Record ${recordId} deleted` };
 }
 
 export function getRecordsDeleteCommand(context: CLIContext): Command {

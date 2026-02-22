@@ -5,14 +5,12 @@ import { z } from "zod";
  * Records are dynamic — data fields depend on the entity schema and are merged at the top level.
  * System fields (id, created_date, updated_date, created_by) are always present.
  */
-export const EntityRecordSchema = z
-  .object({
-    id: z.string(),
-    created_date: z.string(),
-    updated_date: z.string(),
-    created_by: z.string().optional(),
-  })
-  .passthrough();
+export const EntityRecordSchema = z.looseObject({
+  id: z.string(),
+  created_date: z.string(),
+  updated_date: z.string(),
+  created_by: z.string().optional(),
+});
 
 export type EntityRecord = z.infer<typeof EntityRecordSchema>;
 

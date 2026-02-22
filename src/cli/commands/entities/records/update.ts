@@ -1,60 +1,14 @@
 import { log } from "@clack/prompts";
 import { Command } from "commander";
-import JSON5 from "json5";
 import type { CLIContext } from "@/cli/types.js";
 import { runCommand, runTask } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
-import { InvalidInputError } from "@/core/errors.js";
 import { updateRecord } from "@/core/resources/entity/index.js";
-import { readTextFile } from "@/core/utils/fs.js";
+import { parseRecordData } from "./parseRecordData.js";
 
 interface UpdateRecordCommandOptions {
   data?: string;
   file?: string;
-}
-
-async function parseUpdateData(
-  options: UpdateRecordCommandOptions,
-): Promise<Record<string, unknown>> {
-  if (options.data) {
-    try {
-      return JSON5.parse(options.data);
-    } catch {
-      throw new InvalidInputError(
-        "Invalid JSON in --data flag. Provide valid JSON.",
-        {
-          hints: [
-            {
-              message: 'Example: --data \'{"status": "active"}\'',
-            },
-          ],
-        },
-      );
-    }
-  }
-
-  if (options.file) {
-    const content = await readTextFile(options.file);
-    try {
-      return JSON5.parse(content);
-    } catch {
-      throw new InvalidInputError(
-        `Invalid JSON in file ${options.file}. Provide a valid JSON/JSONC file.`,
-      );
-    }
-  }
-
-  throw new InvalidInputError(
-    "Provide update data with --data or --file flag",
-    {
-      hints: [
-        {
-          message:
-            'Example: --data \'{"status": "active"}\' or --file update.json',
-        },
-      ],
-    },
-  );
 }
 
 async function updateRecordAction(
@@ -62,7 +16,7 @@ async function updateRecordAction(
   recordId: string,
   options: UpdateRecordCommandOptions,
 ): Promise<RunCommandResult> {
-  const data = await parseUpdateData(options);
+  const data = await parseRecordData(options, '{"status": "active"}');
 
   const record = await runTask(
     `Updating ${entityName} record...`,
@@ -75,10 +29,9 @@ async function updateRecordAction(
     },
   );
 
-  log.success(`Record ${recordId} updated`);
-  process.stdout.write(`${JSON.stringify(record, null, 2)}\n`);
+  log.info(JSON.stringify(record, null, 2));
 
-  return {};
+  return { outroMessage: `Record ${recordId} updated` };
 }
 
 export function getRecordsUpdateCommand(context: CLIContext): Command {

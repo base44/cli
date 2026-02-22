@@ -1,3 +1,4 @@
+import { log } from "@clack/prompts";
 import { Command } from "commander";
 import type { CLIContext } from "@/cli/types.js";
 import { runCommand, runTask } from "@/cli/utils/index.js";
@@ -19,7 +20,7 @@ async function getRecordAction(
     },
   );
 
-  process.stdout.write(`${JSON.stringify(record, null, 2)}\n`);
+  log.info(JSON.stringify(record, null, 2));
 
   return {};
 }

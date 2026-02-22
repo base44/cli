@@ -34,21 +34,29 @@ async function listRecordsAction(
     },
   );
 
-  log.info(`Found ${records.length} record(s)`);
-  process.stdout.write(`${JSON.stringify(records, null, 2)}\n`);
+  log.info(JSON.stringify(records, null, 2));
 
-  return {};
+  return { outroMessage: `Found ${records.length} ${entityName} record(s)` };
 }
 
 export function getRecordsListCommand(context: CLIContext): Command {
   return new Command("list")
     .description("List entity records")
     .argument("<entity-name>", "Name of the entity (e.g. Users, Products)")
-    .option("-f, --filter <json>", "JSON query filter")
-    .option("-s, --sort <field>", "Sort field (prefix with - for descending)")
-    .option("-l, --limit <n>", "Max records to return", "50")
-    .option("--skip <n>", "Number of records to skip")
-    .option("--fields <fields>", "Comma-separated fields to return")
+    .option(
+      "-f, --filter <json>",
+      'JSON filter object (e.g. \'{"status":"active"}\' or \'{"age":{"$gt":18}}\')',
+    )
+    .option(
+      "-s, --sort <field>",
+      "Sort field name, prefix with - for descending (e.g. -created_date)",
+    )
+    .option("-l, --limit <n>", "Max number of records to return", "50")
+    .option("--skip <n>", "Number of records to skip (for pagination)")
+    .option(
+      "--fields <fields>",
+      "Comma-separated list of fields to return (e.g. id,name,email)",
+    )
     .action(async (entityName: string, options: ListRecordsCommandOptions) => {
       await runCommand(
         () => listRecordsAction(entityName, options),

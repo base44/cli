@@ -1,67 +1,24 @@
 import { log } from "@clack/prompts";
 import { Command } from "commander";
-import JSON5 from "json5";
 import type { CLIContext } from "@/cli/types.js";
 import { runCommand, runTask } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
-import { InvalidInputError } from "@/core/errors.js";
 import { createRecord } from "@/core/resources/entity/index.js";
-import { readTextFile } from "@/core/utils/fs.js";
+import { parseRecordData } from "./parseRecordData.js";
 
 interface CreateRecordCommandOptions {
   data?: string;
   file?: string;
 }
 
-async function parseRecordData(
-  options: CreateRecordCommandOptions,
-): Promise<Record<string, unknown>> {
-  if (options.data) {
-    try {
-      return JSON5.parse(options.data);
-    } catch {
-      throw new InvalidInputError(
-        "Invalid JSON in --data flag. Provide valid JSON.",
-        {
-          hints: [
-            {
-              message:
-                'Example: --data \'{"name": "John", "email": "john@example.com"}\'',
-            },
-          ],
-        },
-      );
-    }
-  }
-
-  if (options.file) {
-    const content = await readTextFile(options.file);
-    try {
-      return JSON5.parse(content);
-    } catch {
-      throw new InvalidInputError(
-        `Invalid JSON in file ${options.file}. Provide a valid JSON/JSONC file.`,
-      );
-    }
-  }
-
-  throw new InvalidInputError(
-    "Provide record data with --data or --file flag",
-    {
-      hints: [
-        {
-          message: 'Example: --data \'{"name": "John"}\' or --file record.json',
-        },
-      ],
-    },
-  );
-}
-
 async function createRecordAction(
   entityName: string,
   options: CreateRecordCommandOptions,
 ): Promise<RunCommandResult> {
-  const data = await parseRecordData(options);
+  const data = await parseRecordData(
+    options,
+    '{"name": "John", "email": "john@example.com"}',
+  );
 
   const record = await runTask(
     `Creating ${entityName} record...`,
@@ -74,10 +31,9 @@ async function createRecordAction(
     },
   );
 
-  log.success(`Record created with ID: ${record.id}`);
-  process.stdout.write(`${JSON.stringify(record, null, 2)}\n`);
+  log.info(JSON.stringify(record, null, 2));
 
-  return {};
+  return { outroMessage: `Record created with ID: ${record.id}` };
 }
 
 export function getRecordsCreateCommand(context: CLIContext): Command {

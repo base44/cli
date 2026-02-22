@@ -29,7 +29,7 @@ describe("entities records list command", () => {
     const result = await t.run("entities", "records", "list", "Customer");
 
     t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain("Found 2 record(s)");
+    t.expectResult(result).toContain("Found 2 Customer record(s)");
     t.expectResult(result).toContainInStdout("rec-123");
     t.expectResult(result).toContainInStdout("rec-456");
   });
@@ -41,7 +41,7 @@ describe("entities records list command", () => {
     const result = await t.run("entities", "records", "list", "Customer");
 
     t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain("Found 0 record(s)");
+    t.expectResult(result).toContain("Found 0 Customer record(s)");
   });
 
   it("fails when API returns error", async () => {
