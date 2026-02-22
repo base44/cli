@@ -29,7 +29,6 @@ interface LogEntry {
   source: string; // function name
 }
 
-
 function parseFunctionFilters(options: LogsOptions): FunctionLogFilters {
   const filters: FunctionLogFilters = {};
 

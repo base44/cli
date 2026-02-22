@@ -12,7 +12,6 @@ import {
   FunctionLogsResponseSchema,
 } from "@/core/resources/function/schema.js";
 
-
 function toDeployPayloadItem(fn: FunctionWithCode) {
   return {
     name: fn.name,

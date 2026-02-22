@@ -107,7 +107,7 @@ export type FunctionWithCode = Omit<BackendFunction, "filePaths"> & {
 /**
  * Log level from Deno Deploy runtime.
  */
-export const LogLevelSchema = z.enum(["log", "info", "warn", "error", "debug"]);
+const LogLevelSchema = z.enum(["log", "info", "warn", "error", "debug"]);
 
 export type LogLevel = z.infer<typeof LogLevelSchema>;
 

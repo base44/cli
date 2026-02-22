@@ -143,7 +143,7 @@ describe("logs command", () => {
       "--limit",
       "10",
       "--order",
-      "asc"
+      "asc",
     );
 
     t.expectResult(result).toSucceed();

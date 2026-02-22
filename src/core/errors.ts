@@ -272,7 +272,6 @@ interface ApiErrorOptions extends CLIErrorOptions {
   responseBody?: unknown;
 }
 
-
 /**
  * Thrown when an API request fails.
  */
@@ -430,7 +429,10 @@ export class ApiError extends SystemError {
     statusCode: number,
     responseBody: unknown,
   ): number {
-    if ((responseBody as Record<string, unknown> | null)?.error_type === "KeyError") {
+    if (
+      (responseBody as Record<string, unknown> | null)?.error_type ===
+      "KeyError"
+    ) {
       return 404;
     }
     return statusCode;

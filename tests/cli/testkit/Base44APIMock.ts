@@ -57,13 +57,13 @@ interface AgentsFetchResponse {
   total: number;
 }
 
-export interface FunctionLogEntry {
+interface FunctionLogEntry {
   time: string;
   level: "log" | "info" | "warn" | "error" | "debug";
   message: string;
 }
 
-export type FunctionLogsResponse = FunctionLogEntry[];
+type FunctionLogsResponse = FunctionLogEntry[];
 
 interface ConnectorsListResponse {
   integrations: Array<{
@@ -81,10 +81,6 @@ interface ConnectorSetResponse {
   error?: "different_user";
   error_message?: string;
   other_user_email?: string;
-}
-
-interface ConnectorOAuthStatusResponse {
-  status: "ACTIVE" | "FAILED" | "PENDING";
 }
 
 interface ConnectorRemoveResponse {
@@ -269,8 +265,8 @@ export class Base44APIMock {
     this.handlers.push(
       http.get(
         `${BASE_URL}/api/apps/${this.appId}/functions-mgmt/${functionName}/logs`,
-        () => HttpResponse.json(response)
-      )
+        () => HttpResponse.json(response),
+      ),
     );
     return this;
   }
@@ -388,9 +384,6 @@ export class Base44APIMock {
   }
 
   /** Mock token endpoint to return an error (for auth failure testing) */
-  mockTokenError(error: ErrorResponse): this {
-    return this.mockError("post", "/oauth/token", error);
-  }
 
   /** Mock connectors list to return an error */
   mockConnectorsListError(error: ErrorResponse): this {
