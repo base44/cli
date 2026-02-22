@@ -56,7 +56,7 @@ export async function runTask<T>(
     s.stop(options?.successMessage || startMessage);
     return result;
   } catch (error) {
-    s.stop(options?.errorMessage || "Failed");
+    s.error(options?.errorMessage || "Failed");
     throw error;
   }
 }

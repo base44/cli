@@ -114,6 +114,7 @@ See [api-patterns.md](api-patterns.md) for the full `ApiError.fromHttpError()` p
 | `FILE_READ_ERROR` | `FileReadError` | Can't read/write file |
 | `INTERNAL_ERROR` | `InternalError` | Unexpected error |
 | `TYPE_GENERATION_ERROR` | `TypeGenerationError` | Type generation failed for entity |
+| `DEPENDENCY_NOT_FOUND` | `DependencyNotFoundError` | Required external tool not installed |
 
 ## CLIExitError (Special Case)
 

@@ -1,8 +1,6 @@
 import { watch } from "node:fs";
-import { copyFile } from "node:fs/promises";
-import { join } from "node:path";
+import type { BuildConfig } from "bun";
 import chalk from "chalk";
-import { BuildConfig } from "bun";
 
 const runBuild = async (config: BuildConfig) => {
   const defaultBuildOptions: Partial<BuildConfig> = {
@@ -32,8 +30,13 @@ const runAllBuilds = async () => {
     entrypoints: ["./src/cli/index.ts"],
     outdir: "./dist/cli",
   });
+  const denoRuntime = await runBuild({
+    entrypoints: ["./deno-runtime/main.ts"],
+    outdir: "./dist/deno-runtime",
+  });
   return {
     cli,
+    denoRuntime,
   };
 };
 
@@ -46,18 +49,18 @@ if (process.argv.includes("--watch")) {
 
   const changeHandler = async (
     event: "rename" | "change",
-    filename: string | null
+    filename: string | null,
   ) => {
     const time = new Date().toLocaleTimeString();
     console.log(chalk.dim(`[${time}]`), chalk.gray(`${filename} ${event}d`));
 
-    const { cli } = await runAllBuilds();
-    for (const result of [cli]) {
+    const { cli, denoRuntime } = await runAllBuilds();
+    for (const result of [cli, denoRuntime]) {
       if (result.success && result.outputs.length > 0) {
         console.log(
           chalk.green(`  ✓ Rebuilt`),
           chalk.dim(`→`),
-          formatOutput(result.outputs)
+          formatOutput(result.outputs),
         );
       }
     }
@@ -65,15 +68,16 @@ if (process.argv.includes("--watch")) {
 
   await runAllBuilds();
 
-  for (const dir of ["./src"]) {
+  for (const dir of ["./src", "./deno-runtime"]) {
     watch(dir, { recursive: true }, changeHandler);
   }
 
   // Keep process alive
   await new Promise(() => {});
 } else {
-  const { cli } = await runAllBuilds();
+  const { cli, denoRuntime } = await runAllBuilds();
   console.log(chalk.green.bold(`\n✓ Build complete\n`));
   console.log(chalk.dim("  Output:"));
   console.log(`  ${formatOutput(cli.outputs)}`);
+  console.log(`  ${formatOutput(denoRuntime.outputs)}`);
 }
