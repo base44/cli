@@ -8,7 +8,7 @@ import { isLoggedIn, readAuth } from "@/core/auth/index.js";
 import { isCLIError } from "@/core/errors.js";
 import { initAppConfig } from "@/core/project/index.js";
 
-export interface RunCommandOptions {
+interface RunCommandOptions {
   /**
    * Use the full ASCII art banner instead of the simple intro tag.
    * Useful for commands like `create` that want more visual impact.
@@ -27,22 +27,15 @@ export interface RunCommandOptions {
    * @default true
    */
   requireAppConfig?: boolean;
-  /**
-   * Skip intro and upgrade notification for pipe-friendly or log-file-style output.
-   * Use for commands that write raw content to stdout (e.g. logs).
-   * @default false
-   */
-  skipIntro?: boolean;
-  /**
-   * Skip outro for pipe-friendly or log-file-style output.
-   * Use for commands that write raw content to stdout (e.g. logs).
-   * @default false
-   */
-  skipOutro?: boolean;
 }
 
 export interface RunCommandResult {
   outroMessage?: string;
+  /**
+   * Raw text to write to stdout after the command UI (intro/outro) finishes.
+   * Useful for commands that produce machine-readable or pipeable output.
+   */
+  stdout?: string;
 }
 
 /**
@@ -75,21 +68,15 @@ export interface RunCommandResult {
 export async function runCommand(
   commandFn: () => Promise<RunCommandResult>,
   options: RunCommandOptions | undefined,
-  context: CLIContext
+  context: CLIContext,
 ): Promise<void> {
-  const skipIntro = options?.skipIntro === true;
-  const skipOutro = options?.skipOutro === true;
-
-  if (!skipIntro) {
-    console.log();
-    if (options?.fullBanner) {
-      await printBanner();
-      intro("");
-    } else {
-      intro(theme.colors.base44OrangeBackground(" Base 44 "));
-    }
-    await printUpgradeNotificationIfAvailable();
+  if (options?.fullBanner) {
+    await printBanner(context.isNonInteractive);
+    intro("");
+  } else {
+    intro(theme.colors.base44OrangeBackground(" Base 44 "));
   }
+  await printUpgradeNotificationIfAvailable();
 
   try {
     // Check authentication if required
@@ -117,9 +104,10 @@ export async function runCommand(
       context.errorReporter.setContext({ appId: appConfig.id });
     }
 
-    const { outroMessage } = await commandFn();
-    if (!skipOutro) {
-      outro(outroMessage || "");
+    const result = await commandFn();
+    outro(result.outroMessage || "");
+    if (result.stdout) {
+      process.stdout.write(result.stdout);
     }
   } catch (error) {
     // Display error message
@@ -141,11 +129,7 @@ export async function runCommand(
 
     // Get error context and display in outro
     const errorContext = context.errorReporter.getErrorContext();
-    if (!skipOutro) {
-      outro(theme.format.errorContext(errorContext));
-    } else {
-      process.stderr.write(`${theme.format.errorContext(errorContext)}\n`);
-    }
+    outro(theme.format.errorContext(errorContext));
 
     // Re-throw for runCLI to handle (error reporting, exit code)
     throw error;

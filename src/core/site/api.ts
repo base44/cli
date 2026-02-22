@@ -27,6 +27,7 @@ export async function uploadSite(archivePath: string): Promise<DeployResponse> {
   try {
     response = await appClient.post("deploy-dist", {
       body: formData,
+      timeout: 180_000,
     });
   } catch (error) {
     throw await ApiError.fromHttpError(error, "deploying site");
@@ -37,7 +38,7 @@ export async function uploadSite(archivePath: string): Promise<DeployResponse> {
   if (!result.success) {
     throw new SchemaValidationError(
       "There was an issue deploying your site",
-      result.error
+      result.error,
     );
   }
 
@@ -59,7 +60,7 @@ export async function getSiteUrl(projectId?: string): Promise<string> {
   if (!result.success) {
     throw new SchemaValidationError(
       "Invalid response from server",
-      result.error
+      result.error,
     );
   }
 

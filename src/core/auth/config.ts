@@ -2,11 +2,7 @@ import { renewAccessToken } from "@/core/auth/api.js";
 import type { AuthData } from "@/core/auth/schema.js";
 import { AuthDataSchema } from "@/core/auth/schema.js";
 import { getAuthFilePath } from "@/core/config.js";
-import {
-  AuthRequiredError,
-  FileReadError,
-  SchemaValidationError,
-} from "@/core/errors.js";
+import { FileReadError, SchemaValidationError } from "@/core/errors.js";
 import { deleteFile, readJsonFile, writeJsonFile } from "@/core/utils/fs.js";
 
 // Buffer time before expiration to trigger proactive refresh (60 seconds)
@@ -34,7 +30,7 @@ export async function readAuth(): Promise<AuthData> {
       throw new SchemaValidationError(
         "Invalid authentication data",
         result.error,
-        getAuthFilePath()
+        getAuthFilePath(),
       );
     }
 
@@ -47,7 +43,7 @@ export async function readAuth(): Promise<AuthData> {
       `Failed to read authentication file: ${
         error instanceof Error ? error.message : "Unknown error"
       }`,
-      { cause: error instanceof Error ? error : undefined }
+      { cause: error instanceof Error ? error : undefined },
     );
   }
 }
@@ -59,7 +55,7 @@ export async function writeAuth(authData: AuthData): Promise<void> {
     throw new SchemaValidationError(
       "Invalid authentication data",
       result.error,
-      getAuthFilePath()
+      getAuthFilePath(),
     );
   }
 
@@ -70,7 +66,7 @@ export async function writeAuth(authData: AuthData): Promise<void> {
       `Failed to write authentication file: ${
         error instanceof Error ? error.message : "Unknown error"
       }`,
-      { cause: error instanceof Error ? error : undefined }
+      { cause: error instanceof Error ? error : undefined },
     );
   }
 }
@@ -83,7 +79,7 @@ export async function deleteAuth(): Promise<void> {
       `Failed to delete authentication file: ${
         error instanceof Error ? error.message : "Unknown error"
       }`,
-      { cause: error instanceof Error ? error : undefined }
+      { cause: error instanceof Error ? error : undefined },
     );
   }
 }
@@ -141,22 +137,5 @@ export async function isLoggedIn(): Promise<boolean> {
     return true;
   } catch {
     return false;
-  }
-}
-
-/**
- * Ensures the user is logged in before proceeding.
- *
- * @throws {AuthRequiredError} If the user is not logged in.
- *
- * @example
- * await requireAuth();
- * // Code here will only run if user is authenticated
- */
-export async function requireAuth(): Promise<void> {
-  if (!(await isLoggedIn())) {
-    throw new AuthRequiredError(
-      "Not logged in. Please run 'base44 login' first."
-    );
   }
 }

@@ -59,7 +59,7 @@ export interface ErrorHint {
   command?: string; // Optional command to run
 }
 
-export interface CLIErrorOptions {
+interface CLIErrorOptions {
   hints?: ErrorHint[];
   cause?: Error;
 }
@@ -72,7 +72,7 @@ export interface CLIErrorOptions {
  * Base class for all CLI errors.
  * Provides structured error data with code, hints, and cause tracking.
  */
-export abstract class CLIError extends Error {
+abstract class CLIError extends Error {
   abstract readonly code: string;
   readonly hints: ErrorHint[];
   override readonly cause?: Error;
@@ -92,13 +92,13 @@ export abstract class CLIError extends Error {
  * User errors - the user did something wrong that they can fix.
  * Examples: not logged in, invalid config, missing project
  */
-export abstract class UserError extends CLIError {}
+abstract class UserError extends CLIError {}
 
 /**
  * System errors - something broke that needs investigation.
  * Examples: API failures, network issues, file system errors
  */
-export abstract class SystemError extends CLIError {}
+abstract class SystemError extends CLIError {}
 
 // ============================================================================
 // User Errors
@@ -131,7 +131,7 @@ export class AuthExpiredError extends UserError {
 
   constructor(
     message = "Authentication has expired",
-    options?: CLIErrorOptions
+    options?: CLIErrorOptions,
   ) {
     super(message, {
       hints: options?.hints ?? [
@@ -153,7 +153,7 @@ export class ConfigNotFoundError extends UserError {
 
   constructor(
     message = "No Base44 project found in this directory",
-    options?: CLIErrorOptions
+    options?: CLIErrorOptions,
   ) {
     super(message, {
       hints: options?.hints ?? [
@@ -180,7 +180,7 @@ export class ConfigInvalidError extends UserError {
   constructor(
     message: string,
     configFilePath?: string | null,
-    options?: CLIErrorOptions
+    options?: CLIErrorOptions,
   ) {
     const defaultHint = configFilePath
       ? `Check the file at ${configFilePath} for syntax errors`
@@ -244,11 +244,27 @@ export class InvalidInputError extends UserError {
   readonly code = "INVALID_INPUT";
 }
 
+/**
+ * Thrown when a required external dependency is not installed (e.g., Deno, Git).
+ */
+export class DependencyNotFoundError extends UserError {
+  readonly code = "DEPENDENCY_NOT_FOUND";
+
+  constructor(message: string, options?: CLIErrorOptions) {
+    super(message, {
+      hints: options?.hints ?? [
+        { message: "Install the required dependency and try again" },
+      ],
+      cause: options?.cause,
+    });
+  }
+}
+
 // ============================================================================
 // System Errors
 // ============================================================================
 
-export interface ApiErrorOptions extends CLIErrorOptions {
+interface ApiErrorOptions extends CLIErrorOptions {
   statusCode?: number;
   requestUrl?: string;
   requestMethod?: string;
@@ -270,7 +286,7 @@ export class ApiError extends SystemError {
   constructor(
     message: string,
     options?: ApiErrorOptions,
-    parsedResponse?: ApiErrorResponse
+    parsedResponse?: ApiErrorResponse,
   ) {
     const hints =
       options?.hints ??
@@ -301,7 +317,7 @@ export class ApiError extends SystemError {
    */
   static async fromHttpError(
     error: unknown,
-    context: string
+    context: string,
   ): Promise<ApiError> {
     if (error instanceof HTTPError) {
       let message: string;
@@ -330,7 +346,7 @@ export class ApiError extends SystemError {
           responseBody,
           cause: error,
         },
-        parsedErrorResponse
+        parsedErrorResponse,
       );
     }
 
@@ -344,6 +360,14 @@ export class ApiError extends SystemError {
   }
 
   private static getDefaultHints(statusCode?: number): ErrorHint[] {
+    if (statusCode === 400) {
+      return [
+        {
+          message:
+            "The server rejected the request. Check the error message above for details.",
+        },
+      ];
+    }
     if (statusCode === 401) {
       return [{ message: "Try logging in again", command: "base44 login" }];
     }
@@ -370,7 +394,7 @@ export class ApiError extends SystemError {
    * Add new entries to the map when the backend introduces new reason codes.
    */
   private static getReasonHints(
-    parsedResponse?: ApiErrorResponse
+    parsedResponse?: ApiErrorResponse,
   ): ErrorHint[] | undefined {
     const REASON_HINTS: Record<string, ErrorHint[]> = {
       requires_backend_platform_app: [
@@ -471,7 +495,6 @@ export class InternalError extends SystemError {
  */
 export class TypeGenerationError extends SystemError {
   readonly code = "TYPE_GENERATION_ERROR";
-  readonly entityName?: string;
 
   constructor(message: string, entityName?: string, cause?: unknown) {
     super(message, {
@@ -484,7 +507,6 @@ export class TypeGenerationError extends SystemError {
       ],
       cause: cause instanceof Error ? cause : undefined,
     });
-    this.entityName = entityName;
   }
 }
 

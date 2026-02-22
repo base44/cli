@@ -5,6 +5,7 @@ import { ConfigNotFoundError, SchemaValidationError } from "@/core/errors.js";
 import { ProjectConfigSchema } from "@/core/project/schema.js";
 import type { ProjectData, ProjectRoot } from "@/core/project/types.js";
 import { agentResource } from "@/core/resources/agent/index.js";
+import { connectorResource } from "@/core/resources/connector/index.js";
 import { entityResource } from "@/core/resources/entity/index.js";
 import { functionResource } from "@/core/resources/function/index.js";
 import { readJsonFile } from "@/core/utils/fs.js";
@@ -31,7 +32,7 @@ async function findConfigInDir(dir: string): Promise<string | null> {
  * }
  */
 export async function findProjectRoot(
-  startPath?: string
+  startPath?: string,
 ): Promise<ProjectRoot | null> {
   let current = startPath || process.cwd();
 
@@ -58,7 +59,7 @@ export async function findProjectRoot(
  * const { project, entities, functions } = await readProjectConfig();
  */
 export async function readProjectConfig(
-  projectRoot?: string
+  projectRoot?: string,
 ): Promise<ProjectData> {
   let found: ProjectRoot | null;
 
@@ -71,7 +72,7 @@ export async function readProjectConfig(
 
   if (!found) {
     throw new ConfigNotFoundError(
-      `Project root not found. Please ensure config.jsonc or config.json exists in the project directory or ${PROJECT_SUBDIR}/ subdirectory.`
+      `Project root not found. Please ensure config.jsonc or config.json exists in the project directory or ${PROJECT_SUBDIR}/ subdirectory.`,
     );
   }
 
@@ -84,17 +85,18 @@ export async function readProjectConfig(
     throw new SchemaValidationError(
       "Invalid project configuration",
       result.error,
-      configPath
+      configPath,
     );
   }
 
   const project = result.data;
   const configDir = dirname(configPath);
 
-  const [entities, functions, agents] = await Promise.all([
+  const [entities, functions, agents, connectors] = await Promise.all([
     entityResource.readAll(join(configDir, project.entitiesDir)),
     functionResource.readAll(join(configDir, project.functionsDir)),
     agentResource.readAll(join(configDir, project.agentsDir)),
+    connectorResource.readAll(join(configDir, project.connectorsDir)),
   ]);
 
   return {
@@ -102,5 +104,6 @@ export async function readProjectConfig(
     entities,
     functions,
     agents,
+    connectors,
   };
 }

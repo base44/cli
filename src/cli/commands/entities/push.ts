@@ -24,7 +24,7 @@ async function pushEntitiesAction(): Promise<RunCommandResult> {
     {
       successMessage: "Entities pushed successfully",
       errorMessage: "Failed to push entities",
-    }
+    },
   );
 
   // Print the results
@@ -49,6 +49,6 @@ export function getEntitiesPushCommand(context: CLIContext): Command {
         .description("Push local entities to Base44")
         .action(async () => {
           await runCommand(pushEntitiesAction, { requireAuth: true }, context);
-        })
+        }),
     );
 }

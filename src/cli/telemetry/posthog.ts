@@ -2,7 +2,6 @@ import { PostHog } from "posthog-node";
 import {
   POSTHOG_API_KEY,
   POSTHOG_REQUEST_TIMEOUT_MS,
-  POSTHOG_SHUTDOWN_TIMEOUT_MS,
   TELEMETRY_DISABLED_ENV_VAR,
 } from "./consts.js";
 
@@ -42,19 +41,4 @@ export function getPostHogClient(): PostHog | null {
   }
 
   return client;
-}
-
-export async function shutdownPostHog(): Promise<void> {
-  if (!client) {
-    return;
-  }
-
-  const clientToShutdown = client;
-  client = null; // Prevent further use
-
-  try {
-    await clientToShutdown.shutdown(POSTHOG_SHUTDOWN_TIMEOUT_MS);
-  } catch {
-    // Silent - don't let shutdown errors block CLI exit
-  }
 }

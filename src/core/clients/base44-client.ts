@@ -23,7 +23,7 @@ const retriedRequests = new WeakSet<KyRequest>();
  */
 async function captureRequestBody(
   request: KyRequest,
-  options: NormalizedOptions
+  options: NormalizedOptions,
 ): Promise<void> {
   if (request.body == null) {
     return;
@@ -44,7 +44,7 @@ async function captureRequestBody(
 async function handleUnauthorized(
   request: KyRequest,
   _options: NormalizedOptions,
-  response: KyResponse
+  response: KyResponse,
 ): Promise<Response | undefined> {
   if (response.status !== 401) {
     return;
@@ -62,9 +62,12 @@ async function handleUnauthorized(
     return;
   }
 
-  // Mark this request as retried and retry with new token
+  // Mark this request as retried and retry with new token.
+  // Clone the request before passing to ky — `new Request(request, init)` transfers
+  // (consumes) the original request's body, which would leave the outer ky's preserved
+  // request in an unusable state if this inner call fails and the outer ky tries to retry.
   retriedRequests.add(request);
-  return ky(request, {
+  return ky(request.clone() as Request, {
     headers: { Authorization: `Bearer ${newAccessToken}` },
   });
 }

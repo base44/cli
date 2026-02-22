@@ -27,7 +27,7 @@ describe("create command", () => {
       "My New Project",
       "--path",
       projectPath,
-      "--no-skills"
+      "--no-skills",
     );
 
     t.expectResult(result).toSucceed();
@@ -52,7 +52,7 @@ describe("create command", () => {
       projectPath,
       "--template",
       "backend-only",
-      "--no-skills"
+      "--no-skills",
     );
 
     t.expectResult(result).toSucceed();

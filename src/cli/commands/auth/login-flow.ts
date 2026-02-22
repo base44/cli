@@ -24,12 +24,12 @@ async function generateAndDisplayDeviceCode(): Promise<DeviceCodeResponse> {
     {
       successMessage: "Device code generated",
       errorMessage: "Failed to generate device code",
-    }
+    },
   );
 
   log.info(
     `Verification code: ${theme.styles.bold(deviceCodeResponse.userCode)}` +
-      `\nPlease confirm this code at: ${deviceCodeResponse.verificationUri}`
+      `\nPlease confirm this code at: ${deviceCodeResponse.verificationUri}`,
   );
 
   return deviceCodeResponse;
@@ -38,7 +38,7 @@ async function generateAndDisplayDeviceCode(): Promise<DeviceCodeResponse> {
 async function waitForAuthentication(
   deviceCode: string,
   expiresIn: number,
-  interval: number
+  interval: number,
 ): Promise<TokenResponse> {
   let tokenResponse: TokenResponse | undefined;
 
@@ -58,13 +58,13 @@ async function waitForAuthentication(
           {
             interval: interval * 1000,
             timeout: expiresIn * 1000,
-          }
+          },
         );
       },
       {
         successMessage: "Authentication completed!",
         errorMessage: "Authentication failed",
-      }
+      },
     );
   } catch (error) {
     if (error instanceof Error && error.message.includes("timed out")) {
@@ -82,7 +82,7 @@ async function waitForAuthentication(
 
 async function saveAuthData(
   response: TokenResponse,
-  userInfo: UserInfoResponse
+  userInfo: UserInfoResponse,
 ): Promise<void> {
   const expiresAt = Date.now() + response.expiresIn * 1000;
 
@@ -105,7 +105,7 @@ export async function login(): Promise<RunCommandResult> {
   const token = await waitForAuthentication(
     deviceCodeResponse.deviceCode,
     deviceCodeResponse.expiresIn,
-    deviceCodeResponse.interval
+    deviceCodeResponse.interval,
   );
 
   const userInfo = await getUserInfo(token.accessToken);

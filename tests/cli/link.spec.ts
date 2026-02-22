@@ -53,7 +53,7 @@ describe("link command", () => {
       "--name",
       "App With Description",
       "--description",
-      "A test application"
+      "A test application",
     );
 
     t.expectResult(result).toSucceed();
@@ -80,7 +80,7 @@ describe("link command", () => {
       "-n",
       "All Short Flags",
       "-d",
-      "Description with short flag"
+      "Description with short flag",
     );
 
     t.expectResult(result).toSucceed();

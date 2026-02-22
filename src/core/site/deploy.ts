@@ -9,7 +9,7 @@ import type { DeployResponse } from "@/core/site/schema.js";
 import { deleteFile, pathExists } from "@/core/utils/fs.js";
 
 export async function deploySite(
-  siteOutputDir: string
+  siteOutputDir: string,
 ): Promise<DeployResponse> {
   if (!(await pathExists(siteOutputDir))) {
     throw new FileNotFoundError(
@@ -18,7 +18,7 @@ export async function deploySite(
         hints: [
           { message: "Run your build command (e.g., 'npm run build') first" },
         ],
-      }
+      },
     );
   }
 
@@ -31,7 +31,7 @@ export async function deploySite(
         hints: [
           { message: "Run your build command (e.g., 'npm run build') first" },
         ],
-      }
+      },
     );
   }
 
@@ -48,7 +48,7 @@ export async function deploySite(
 
 async function createArchive(
   pathToArchive: string,
-  targetArchivePath: string
+  targetArchivePath: string,
 ): Promise<void> {
   await tarCreate(
     {
@@ -56,6 +56,6 @@ async function createArchive(
       file: targetArchivePath,
       cwd: pathToArchive,
     },
-    ["."]
+    ["."],
   );
 }

@@ -5,7 +5,7 @@ import type {
 } from "@/core/resources/entity/schema.js";
 
 export async function pushEntities(
-  entities: Entity[]
+  entities: Entity[],
 ): Promise<SyncEntitiesResponse> {
   if (entities.length === 0) {
     return { created: [], updated: [], deleted: [] };

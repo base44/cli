@@ -1,0 +1,4 @@
+// Invalid connector - missing type field
+{
+  "scopes": []
+}

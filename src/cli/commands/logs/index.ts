@@ -130,19 +130,18 @@ function formatEntry(entry: LogEntry): string {
 }
 
 /**
- * Display function logs (log-file style, plain stdout).
+ * Build function logs output (log-file style).
  */
-function displayLogs(entries: LogEntry[]): void {
+function formatLogs(entries: LogEntry[]): string {
   if (entries.length === 0) {
-    process.stdout.write("No logs found matching the filters.\n");
-    return;
+    return "No logs found matching the filters.\n";
   }
 
-  process.stdout.write(`Showing ${entries.length} function log entries\n\n`);
-
+  let output = `Showing ${entries.length} function log entries\n\n`;
   for (const entry of entries) {
-    process.stdout.write(formatEntry(entry));
+    output += formatEntry(entry);
   }
+  return output;
 }
 
 // ─── ACTIONS ────────────────────────────────────────────────
@@ -243,14 +242,13 @@ async function logsAction(options: LogsOptions): Promise<RunCommandResult> {
     specifiedFunctions.length > 0 ? specifiedFunctions : allProjectFunctions;
 
   if (functionNames.length === 0) {
-    process.stdout.write("No functions found in this project.\n");
-    return {};
+    return { stdout: "No functions found in this project.\n" };
   }
 
   let entries = await fetchLogsForFunctions(
     functionNames,
     options,
-    allProjectFunctions
+    allProjectFunctions,
   );
 
   // Apply limit after merging logs from all functions
@@ -259,13 +257,11 @@ async function logsAction(options: LogsOptions): Promise<RunCommandResult> {
     entries = entries.slice(0, limit);
   }
 
-  if (options.json) {
-    process.stdout.write(`${JSON.stringify(entries, null, 2)}\n`);
-  } else {
-    displayLogs(entries);
-  }
+  const stdout = options.json
+    ? `${JSON.stringify(entries, null, 2)}\n`
+    : formatLogs(entries);
 
-  return {};
+  return { stdout };
 }
 
 // ─── COMMAND ────────────────────────────────────────────────
@@ -289,7 +285,7 @@ export function getLogsCommand(context: CLIContext): Command {
     .action(async (options: LogsOptions) => {
       await runCommand(
         () => logsAction(options),
-        { requireAuth: true, skipIntro: true, skipOutro: true },
+        { requireAuth: true },
         context
       );
     });

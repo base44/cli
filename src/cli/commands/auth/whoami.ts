@@ -16,7 +16,7 @@ export function getWhoamiCommand(context: CLIContext): Command {
       await runCommand(
         whoami,
         { requireAuth: true, requireAppConfig: false },
-        context
+        context,
       );
     });
 }

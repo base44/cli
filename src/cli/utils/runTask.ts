@@ -44,7 +44,7 @@ export async function runTask<T>(
   options?: {
     successMessage?: string;
     errorMessage?: string;
-  }
+  },
 ): Promise<T> {
   const s = spinner();
   s.start(startMessage);
@@ -56,7 +56,7 @@ export async function runTask<T>(
     s.stop(options?.successMessage || startMessage);
     return result;
   } catch (error) {
-    s.stop(options?.errorMessage || "Failed");
+    s.error(options?.errorMessage || "Failed");
     throw error;
   }
 }

@@ -46,13 +46,6 @@ export class ErrorReporter {
   }
 
   /**
-   * Get the session ID for this CLI execution.
-   */
-  getSessionId(): string {
-    return this.sessionId;
-  }
-
-  /**
    * Set context for error reporting. Can be called multiple times to add/update context.
    */
   setContext(context: ErrorContext): void {
@@ -152,7 +145,7 @@ export class ErrorReporter {
       client?.captureException(
         error,
         this.getDistinctId(),
-        this.buildProperties(error)
+        this.buildProperties(error),
       );
     } catch {
       // Silent - don't let error reporting break the CLI

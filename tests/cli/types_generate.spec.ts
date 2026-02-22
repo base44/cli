@@ -41,6 +41,10 @@ describe("types generate command", () => {
     // Contains the AgentNameRegistry with the agent name
     expect(typesContent).toContain("AgentNameRegistry");
     expect(typesContent).toContain(`"assistant": true`);
+
+    // Contains the ConnectorTypeRegistry with the connector type
+    expect(typesContent).toContain("ConnectorTypeRegistry");
+    expect(typesContent).toContain(`"slack": true`);
   });
 
   it("updates tsconfig.json to include types path", async () => {
@@ -79,7 +83,9 @@ describe("types generate command", () => {
     // And an empty template is generated
     const typesContent = await t.readProjectFile("base44/.types/types.d.ts");
     expect(typesContent).not.toBeNull();
-    expect(typesContent).toContain("No entities, functions, or agents found");
+    expect(typesContent).toContain(
+      "No entities, functions, agents, or connectors found",
+    );
   });
 
   it("skips tsconfig update if types path already included", async () => {
@@ -94,7 +100,7 @@ describe("types generate command", () => {
     const tsconfigAfterFirst = await t.readProjectFile("tsconfig.json");
     const firstTsconfigObj = JSON.parse(tsconfigAfterFirst!);
     const includeCountAfterFirst = firstTsconfigObj.include.filter(
-      (p: string) => p === "base44/.types/*.d.ts"
+      (p: string) => p === "base44/.types/*.d.ts",
     ).length;
     expect(includeCountAfterFirst).toBe(1);
 
@@ -106,7 +112,7 @@ describe("types generate command", () => {
     const tsconfigAfterSecond = await t.readProjectFile("tsconfig.json");
     const secondTsconfigObj = JSON.parse(tsconfigAfterSecond!);
     const includeCountAfterSecond = secondTsconfigObj.include.filter(
-      (p: string) => p === "base44/.types/*.d.ts"
+      (p: string) => p === "base44/.types/*.d.ts",
     ).length;
     expect(includeCountAfterSecond).toBe(1);
   });

@@ -10,6 +10,7 @@ import { deploySite } from "@/core/site/index.js";
 
 interface DeployOptions {
   yes?: boolean;
+  isNonInteractive?: boolean;
 }
 
 async function deployAction(options: DeployOptions): Promise<RunCommandResult> {
@@ -46,7 +47,7 @@ async function deployAction(options: DeployOptions): Promise<RunCommandResult> {
     {
       successMessage: "Site deployed successfully",
       errorMessage: "Deployment failed",
-    }
+    },
   );
 
   return { outroMessage: `Visit your site at: ${result.appUrl}` };
@@ -58,9 +59,13 @@ export function getSiteDeployCommand(context: CLIContext): Command {
     .option("-y, --yes", "Skip confirmation prompt")
     .action(async (options: DeployOptions) => {
       await runCommand(
-        () => deployAction(options),
+        () =>
+          deployAction({
+            ...options,
+            isNonInteractive: context.isNonInteractive,
+          }),
         { requireAuth: true },
-        context
+        context,
       );
     });
 }

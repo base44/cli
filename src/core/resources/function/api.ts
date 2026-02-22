@@ -29,7 +29,7 @@ function toDeployPayloadItem(fn: FunctionWithCode) {
 }
 
 export async function deployFunctions(
-  functions: FunctionWithCode[]
+  functions: FunctionWithCode[],
 ): Promise<DeployFunctionsResponse> {
   const appClient = getAppClient();
   const payload = {
@@ -40,7 +40,7 @@ export async function deployFunctions(
   try {
     response = await appClient.put("backend-functions", {
       json: payload,
-      timeout: 120_000,
+      timeout: false,
     });
   } catch (error) {
     throw await ApiError.fromHttpError(error, "deploying functions");
@@ -51,7 +51,7 @@ export async function deployFunctions(
   if (!result.success) {
     throw new SchemaValidationError(
       "Invalid response from server",
-      result.error
+      result.error,
     );
   }
 

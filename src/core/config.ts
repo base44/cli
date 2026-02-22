@@ -15,7 +15,7 @@ import {
 // Templates are copied to dist/templates/
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-export function getBase44GlobalDir(): string {
+function getBase44GlobalDir(): string {
   return join(homedir(), ".base44");
 }
 

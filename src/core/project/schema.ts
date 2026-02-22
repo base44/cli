@@ -12,8 +12,6 @@ export const TemplatesConfigSchema = z.object({
 });
 
 export type Template = z.infer<typeof TemplateSchema>;
-export type TemplatesConfig = z.infer<typeof TemplatesConfigSchema>;
-
 const SiteConfigSchema = z.object({
   buildCommand: z.string().optional(),
   serveCommand: z.string().optional(),
@@ -32,9 +30,9 @@ export const ProjectConfigSchema = z.object({
   entitiesDir: z.string().optional().default("entities"),
   functionsDir: z.string().optional().default("functions"),
   agentsDir: z.string().optional().default("agents"),
+  connectorsDir: z.string().optional().default("connectors"),
 });
 
-export type SiteConfig = z.infer<typeof SiteConfigSchema>;
 export type ProjectConfig = z.infer<typeof ProjectConfigSchema>;
 
 export const AppConfigSchema = z.object({
@@ -47,14 +45,19 @@ export const CreateProjectResponseSchema = z.looseObject({
   id: z.string(),
 });
 
-export type CreateProjectResponse = z.infer<typeof CreateProjectResponseSchema>;
-
-export const ProjectSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  userDescription: z.string().optional(),
-  isManagedSourceCode: z.boolean().optional(),
-});
+export const ProjectSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    user_description: z.string().optional().nullable(),
+    is_managed_source_code: z.boolean().optional(),
+  })
+  .transform((data) => ({
+    id: data.id,
+    name: data.name,
+    userDescription: data.user_description,
+    isManagedSourceCode: data.is_managed_source_code,
+  }));
 
 export type Project = z.infer<typeof ProjectSchema>;
 

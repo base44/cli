@@ -17,6 +17,7 @@ interface CLIContext {
     setContext: (context: Record<string, unknown>) => void;
     getErrorContext: () => { sessionId?: string; appId?: string };
   };
+  isNonInteractive: boolean;
 }
 
 /** Type for the bundled program module */
@@ -45,7 +46,7 @@ export class CLITestkit {
   private constructor(
     tempDir: string,
     cleanupFn: () => Promise<void>,
-    appId: string
+    appId: string,
   ) {
     this.tempDir = tempDir;
     this.cleanupFn = cleanupFn;
@@ -81,7 +82,7 @@ export class CLITestkit {
         expiresAt: Date.now() + 3600000, // 1 hour from now
         email: user.email,
         name: user.name,
-      })
+      }),
     );
   }
 
@@ -138,6 +139,7 @@ export class CLITestkit {
         setContext: () => {},
         getErrorContext: () => ({ sessionId: "test-session" }),
       },
+      isNonInteractive: true,
     };
     const program = createProgram(mockContext);
 
@@ -207,7 +209,7 @@ export class CLITestkit {
   }
 
   private restoreEnvSnapshot(
-    snapshot: Record<string, string | undefined>
+    snapshot: Record<string, string | undefined>,
   ): void {
     for (const key of Object.keys(snapshot)) {
       if (snapshot[key] === undefined) {
