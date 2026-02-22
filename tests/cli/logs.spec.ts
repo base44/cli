@@ -74,30 +74,6 @@ describe("logs command", () => {
     t.expectResult(result).toContain("No logs found matching the filters.");
   });
 
-  it("filters function logs by --level", async () => {
-    await t.givenLoggedInWithProject(fixture("basic"));
-    // Backend filters by level, so mock returns only matching entries
-    t.api.mockFunctionLogs("my-function", [
-      {
-        time: "2024-01-15T10:30:00.050Z",
-        level: "error",
-        message: "Error message",
-      },
-    ]);
-
-    const result = await t.run(
-      "logs",
-      "--function",
-      "my-function",
-      "--level",
-      "error"
-    );
-
-    t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain("Error message");
-    t.expectResult(result).toNotContain("Info message");
-  });
-
   it("outputs JSON with --json flag", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
     t.api.mockFunctionLogs("my-function", [
@@ -138,21 +114,6 @@ describe("logs command", () => {
     t.expectResult(result).toFail();
   });
 
-  it("fails with invalid level option", async () => {
-    await t.givenLoggedInWithProject(fixture("basic"));
-
-    const result = await t.run(
-      "logs",
-      "--function",
-      "dummy",
-      "--level",
-      "invalid"
-    );
-
-    t.expectResult(result).toFail();
-    t.expectResult(result).toContain("Invalid level");
-  });
-
   it("fails with invalid limit option", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
 
@@ -168,7 +129,7 @@ describe("logs command", () => {
     const result = await t.run("logs", "--order", "RANDOM");
 
     t.expectResult(result).toFail();
-    t.expectResult(result).toContain("Invalid order");
+    t.expectResult(result).toContain("is invalid");
   });
 
   it("passes filter options to API", async () => {
@@ -182,7 +143,7 @@ describe("logs command", () => {
       "--limit",
       "10",
       "--order",
-      "ASC"
+      "asc"
     );
 
     t.expectResult(result).toSucceed();
