@@ -1,16 +1,47 @@
 import { log } from "@clack/prompts";
 import { Command } from "commander";
 import type { CLIContext } from "@/cli/types.js";
-import { runCommand, runTask } from "@/cli/utils/index.js";
+import { runCommand } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
-import { ApiError } from "@/core/errors.js";
+import { theme } from "@/cli/utils/theme.js";
+import { InvalidInputError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/index.js";
-import { pushFunctions } from "@/core/resources/function/index.js";
+import {
+  pruneRemovedFunctions,
+  pushFunctionsSingle,
+} from "@/core/resources/function/deploy.js";
+import type { SingleFunctionDeployResult } from "@/core/resources/function/deploy.js";
 
-async function deployFunctionsAction(): Promise<RunCommandResult> {
+function formatDuration(ms: number): string {
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+function formatResult(r: SingleFunctionDeployResult): void {
+  const label = r.name.padEnd(25);
+  if (r.status === "deployed") {
+    const timing = r.duration_ms ? theme.styles.dim(` (${formatDuration(r.duration_ms)})`) : "";
+    log.success(`${label} deployed${timing}`);
+  } else if (r.status === "unchanged") {
+    log.success(`${label} unchanged`);
+  } else {
+    log.error(`${label} error: ${r.error}`);
+  }
+}
+
+async function deployFunctionsAction(
+  name: string | undefined,
+  options: { prune?: boolean; concurrency?: number },
+): Promise<RunCommandResult> {
   const { functions } = await readProjectConfig();
 
-  if (functions.length === 0) {
+  const toDeploy = name
+    ? functions.filter((f) => f.name === name)
+    : functions;
+
+  if (toDeploy.length === 0) {
+    if (name) {
+      throw new InvalidInputError(`Function "${name}" not found in project`);
+    }
     return {
       outroMessage:
         "No functions found. Create functions in the 'functions' directory.",
@@ -18,53 +49,84 @@ async function deployFunctionsAction(): Promise<RunCommandResult> {
   }
 
   log.info(
-    `Found ${functions.length} ${functions.length === 1 ? "function" : "functions"} to deploy`,
+    `Found ${toDeploy.length} ${toDeploy.length === 1 ? "function" : "functions"} to deploy`,
   );
 
-  const result = await runTask(
-    "Deploying functions to Base44",
-    async () => {
-      return await pushFunctions(functions);
-    },
-    {
-      successMessage: "Functions deployed successfully",
-      errorMessage: "Failed to deploy functions",
-    },
-  );
+  let completed = 0;
+  const total = toDeploy.length;
 
-  if (result.deployed.length > 0) {
-    log.success(`Deployed: ${result.deployed.join(", ")}`);
-  }
-  if (result.deleted.length > 0) {
-    log.warn(`Deleted: ${result.deleted.join(", ")}`);
-  }
-  if (result.errors && result.errors.length > 0) {
-    const errorMessages = result.errors
-      .map((e) => `'${e.name}' function: ${e.message}`)
-      .join("\n");
-    throw new ApiError(`Function deployment errors:\n${errorMessages}`, {
-      hints: [
-        { message: "Check the function code for syntax errors" },
-        { message: "Ensure all imports are valid" },
-      ],
-    });
+  const results = await pushFunctionsSingle(toDeploy, {
+    concurrency: options.concurrency,
+    onStart: (names) => {
+      const label = names.length === 1 ? names[0] : `${names.length} functions`;
+      log.step(theme.styles.dim(`[${completed}/${total}] Deploying ${label}...`));
+    },
+    onResult: (r) => {
+      completed++;
+      formatResult(r);
+    },
+  });
+
+  const succeeded = results.filter((r) => r.status !== "error").length;
+  const failed = results.filter((r) => r.status === "error").length;
+
+  // Prune if requested
+  if (options.prune) {
+    log.info("Pruning remote functions not found locally...");
+    const allLocalNames = functions.map((f) => f.name);
+    const pruneResults = await pruneRemovedFunctions(allLocalNames);
+
+    for (const pr of pruneResults) {
+      if (pr.deleted) {
+        log.success(`${pr.name.padEnd(25)} deleted`);
+      } else {
+        log.error(`${pr.name.padEnd(25)} error: ${pr.error}`);
+      }
+    }
+
+    if (pruneResults.length > 0) {
+      const pruned = pruneResults.filter((r) => r.deleted).length;
+      log.info(`${pruned} function${pruned !== 1 ? "s" : ""} pruned`);
+    }
   }
 
-  return { outroMessage: "Functions deployed to Base44" };
+  // Summary
+  const parts: string[] = [];
+  if (succeeded > 0) parts.push(`${succeeded}/${results.length} succeeded`);
+  if (failed > 0) parts.push(`${failed} error${failed !== 1 ? "s" : ""}`);
+  const summary = parts.join(", ") || "No functions deployed";
+
+  return { outroMessage: summary };
 }
 
-export function getFunctionsDeployCommand(context: CLIContext): Command {
-  return new Command("functions")
-    .description("Manage project functions")
-    .addCommand(
-      new Command("deploy")
-        .description("Deploy local functions to Base44")
-        .action(async () => {
-          await runCommand(
-            deployFunctionsAction,
-            { requireAuth: true },
-            context,
-          );
-        }),
-    );
+export function getDeployCommand(context: CLIContext): Command {
+  return new Command("deploy")
+    .description("Deploy local functions to Base44")
+    .argument("[name]", "Deploy a single function by name")
+    .option("--prune", "Delete remote functions not found locally")
+    .option(
+      "-c, --concurrency <n>",
+      "Number of functions to deploy in parallel",
+    )
+    .action(
+      async (
+        name: string | undefined,
+        options: { prune?: boolean; concurrency?: string },
+      ) => {
+      await runCommand(
+        () => {
+          let concurrency: number | undefined;
+          if (options.concurrency !== undefined) {
+            const n = parseInt(options.concurrency, 10);
+            if (Number.isNaN(n) || n < 1) {
+              throw new InvalidInputError("--concurrency must be a positive integer");
+            }
+            concurrency = n;
+          }
+          return deployFunctionsAction(name, { prune: options.prune, concurrency });
+        },
+        { requireAuth: true },
+        context,
+      );
+    });
 }

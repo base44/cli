@@ -93,12 +93,41 @@ export const DeployFunctionsResponseSchema = z.object({
     .nullable(),
 });
 
+export const DeploySingleFunctionResponseSchema = z.object({
+  status: z.enum(["deployed", "unchanged", "error"]),
+  error: z.string().optional().nullable(),
+  duration_ms: z.number().optional().nullable(),
+});
+
+const FunctionAutomationInfoSchema = z.object({
+  name: z.string(),
+  type: z.string(),
+  is_active: z.boolean(),
+});
+
+const FunctionInfoSchema = z.object({
+  name: z.string(),
+  deployment_id: z.string(),
+  entry: z.string(),
+  files: z.array(FunctionFileSchema),
+  automations: z.array(FunctionAutomationInfoSchema),
+});
+
+export const ListFunctionsResponseSchema = z.object({
+  functions: z.array(FunctionInfoSchema),
+});
+
 export type FunctionConfig = z.infer<typeof FunctionConfigSchema>;
 export type BackendFunction = z.infer<typeof BackendFunctionSchema>;
 export type FunctionFile = z.infer<typeof FunctionFileSchema>;
 export type DeployFunctionsResponse = z.infer<
   typeof DeployFunctionsResponseSchema
 >;
+export type DeploySingleFunctionResponse = z.infer<
+  typeof DeploySingleFunctionResponseSchema
+>;
+export type FunctionInfo = z.infer<typeof FunctionInfoSchema>;
+export type ListFunctionsResponse = z.infer<typeof ListFunctionsResponseSchema>;
 
 export type FunctionWithCode = Omit<BackendFunction, "filePaths"> & {
   files: FunctionFile[];
