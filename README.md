@@ -57,6 +57,7 @@ The CLI will guide you through project setup. For step-by-step tutorials, see th
 | [`connectors push`](https://docs.base44.com/developers/references/cli/commands/connectors-push) | Push local connectors to Base44 |
 | [`entities push`](https://docs.base44.com/developers/references/cli/commands/entities-push) | Push local entities to Base44 |
 | [`functions deploy`](https://docs.base44.com/developers/references/cli/commands/functions-deploy) | Deploy local functions to Base44 |
+| `logs` | Fetch function logs for this app |
 | [`site deploy`](https://docs.base44.com/developers/references/cli/commands/site-deploy) | Deploy built site files to Base44 hosting |
 | [`site open`](https://docs.base44.com/developers/references/cli/commands/site-open) | Open the published site in your browser |
 | [`types generate`](https://docs.base44.com/developers/references/cli/commands/types-generate) | Generate TypeScript types from project resources |
