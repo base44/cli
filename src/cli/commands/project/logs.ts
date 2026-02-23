@@ -7,13 +7,16 @@ import { readProjectConfig } from "@/core/index.js";
 import type {
   FunctionLogFilters,
   FunctionLogsResponse,
+  LogLevel,
 } from "@/core/resources/function/index.js";
+import { LogLevelSchema } from "@/core/resources/function/index.js";
 import { fetchFunctionLogs } from "@/core/resources/function/index.js";
 
 interface LogsOptions {
   function?: string;
   since?: string;
   until?: string;
+  level?: string;
   limit?: string;
   order?: string;
   json?: boolean;
@@ -38,6 +41,10 @@ function parseFunctionFilters(options: LogsOptions): FunctionLogFilters {
 
   if (options.until) {
     filters.until = options.until;
+  }
+
+  if (options.level) {
+    filters.level = options.level as LogLevel;
   }
 
   if (options.limit) {
@@ -202,6 +209,11 @@ export function getLogsCommand(context: CLIContext): Command {
       "Show logs until this time (ISO format)",
       normalizeDatetime,
     )
+    .addOption(
+      new Option("--level <level>", "Filter by log level")
+        .choices([...LogLevelSchema.options])
+        .hideHelp(),
+    )
     .option(
       "-n, --limit <n>",
       "Results per page (1-1000, default: 50)",
@@ -218,7 +230,6 @@ export function getLogsCommand(context: CLIContext): Command {
     .addOption(
       new Option("--order <order>", "Sort order").choices(["asc", "desc"]),
     )
-    .option("--json", "Output raw JSON")
     .action(async (options: LogsOptions) => {
       await runCommand(
         () => logsAction(options),

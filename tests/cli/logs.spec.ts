@@ -74,23 +74,58 @@ describe("logs command", () => {
     t.expectResult(result).toContain("No logs found matching the filters.");
   });
 
-  it("outputs JSON with --json flag", async () => {
+  it("filters function logs by --level", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+    t.api.mockFunctionLogs("my-function", [
+      {
+        time: "2024-01-15T10:30:00.050Z",
+        level: "error",
+        message: "Error message",
+      },
+    ]);
+
+    const result = await t.run(
+      "logs",
+      "--function",
+      "my-function",
+      "--level",
+      "error",
+    );
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Error message");
+  });
+
+  it("fails with invalid level option", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+
+    const result = await t.run(
+      "logs",
+      "--function",
+      "dummy",
+      "--level",
+      "invalid",
+    );
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("is invalid");
+  });
+
+  it("accepts 'warning' level values from Deno Deploy", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
     t.api.mockFunctionLogs("my-function", [
       {
         time: "2024-01-15T10:30:00.000Z",
-        level: "info",
-        message: "Test log",
+        level: "warning",
+        message: "A warning from Deno",
       },
     ]);
 
-    const result = await t.run("logs", "--function", "my-function", "--json");
+    const result = await t.run("logs", "--function", "my-function");
 
     t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain('"time"');
-    t.expectResult(result).toContain('"level"');
-    t.expectResult(result).toContain('"message"');
-    t.expectResult(result).toContain('"source"');
+    t.expectResult(result).toContain("A warning from Deno");
+    t.expectResult(result).toContain("WARNING");
   });
 
   it("fails when not in a project directory", async () => {

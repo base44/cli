@@ -105,15 +105,15 @@ export type FunctionWithCode = Omit<BackendFunction, "filePaths"> & {
 };
 
 /**
- * Log level from Deno Deploy runtime.
+ * Log levels from Deno Deploy runtime.
  */
-const LogLevelSchema = z.enum(["log", "info", "warn", "error", "debug"]);
+export const LogLevelSchema = z.enum(["info", "warning", "error", "debug"]);
 
 export type LogLevel = z.infer<typeof LogLevelSchema>;
 
 const FunctionLogEntrySchema = z.object({
   time: z.string(),
-  level: LogLevelSchema,
+  level: z.string(),
   message: z.string(),
 });
 
