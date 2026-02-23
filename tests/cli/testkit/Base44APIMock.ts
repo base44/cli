@@ -65,6 +65,16 @@ interface FunctionLogEntry {
 
 type FunctionLogsResponse = FunctionLogEntry[];
 
+type SecretsListResponse = Record<string, string>;
+
+interface SecretsSetResponse {
+  success: boolean;
+}
+
+interface SecretsDeleteResponse {
+  success: boolean;
+}
+
 interface ConnectorsListResponse {
   integrations: Array<{
     integration_type: string;
@@ -271,6 +281,38 @@ export class Base44APIMock {
     return this;
   }
 
+  // ─── SECRETS ENDPOINTS ──────────────────────────────────────
+
+  /** Mock GET /api/apps/{appId}/secrets - List secrets */
+  mockSecretsList(response: SecretsListResponse): this {
+    this.handlers.push(
+      http.get(`${BASE_URL}/api/apps/${this.appId}/secrets`, () =>
+        HttpResponse.json(response),
+      ),
+    );
+    return this;
+  }
+
+  /** Mock POST /api/apps/{appId}/secrets - Set secrets */
+  mockSecretsSet(response: SecretsSetResponse): this {
+    this.handlers.push(
+      http.post(`${BASE_URL}/api/apps/${this.appId}/secrets`, () =>
+        HttpResponse.json(response),
+      ),
+    );
+    return this;
+  }
+
+  /** Mock DELETE /api/apps/{appId}/secrets - Delete secret */
+  mockSecretsDelete(response: SecretsDeleteResponse): this {
+    this.handlers.push(
+      http.delete(`${BASE_URL}/api/apps/${this.appId}/secrets`, () =>
+        HttpResponse.json(response),
+      ),
+    );
+    return this;
+  }
+
   // ─── GENERAL ENDPOINTS ─────────────────────────────────────
 
   /** Mock POST /api/apps - Create new app */
@@ -384,6 +426,21 @@ export class Base44APIMock {
   }
 
   /** Mock token endpoint to return an error (for auth failure testing) */
+
+  /** Mock secrets list to return an error */
+  mockSecretsListError(error: ErrorResponse): this {
+    return this.mockError("get", `/api/apps/${this.appId}/secrets`, error);
+  }
+
+  /** Mock secrets set to return an error */
+  mockSecretsSetError(error: ErrorResponse): this {
+    return this.mockError("post", `/api/apps/${this.appId}/secrets`, error);
+  }
+
+  /** Mock secrets delete to return an error */
+  mockSecretsDeleteError(error: ErrorResponse): this {
+    return this.mockError("delete", `/api/apps/${this.appId}/secrets`, error);
+  }
 
   /** Mock connectors list to return an error */
   mockConnectorsListError(error: ErrorResponse): this {
