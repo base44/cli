@@ -79,7 +79,7 @@ describe("writeAgents", () => {
           name: "support",
           description: "Help desk",
           instructions: "Be helpful",
-        })
+        }),
       );
 
       const remoteAgents: AgentConfigApiResponse[] = [
@@ -99,7 +99,7 @@ describe("writeAgents", () => {
       expect(files).toEqual(["my-custom-agent.jsonc"]);
 
       const content = JSON.parse(
-        await readFile(join(tmpDir, "my-custom-agent.jsonc"), "utf-8")
+        await readFile(join(tmpDir, "my-custom-agent.jsonc"), "utf-8"),
       );
       expect(content.description).toBe("Updated help desk");
     } finally {
@@ -117,7 +117,7 @@ describe("writeAgents", () => {
           name: "legacy",
           description: "Old agent",
           instructions: "Do old things",
-        })
+        }),
       );
       await writeFile(
         join(tmpDir, "helper.jsonc"),
@@ -125,7 +125,7 @@ describe("writeAgents", () => {
           name: "support",
           description: "Help desk",
           instructions: "Be helpful",
-        })
+        }),
       );
 
       const remoteAgents: AgentConfigApiResponse[] = [
@@ -196,7 +196,7 @@ describe("writeAgents", () => {
       expect(deleted).toEqual([]);
 
       const content = JSON.parse(
-        await readFile(join(tmpDir, "support.jsonc"), "utf-8")
+        await readFile(join(tmpDir, "support.jsonc"), "utf-8"),
       );
       expect(content.description).toBe("Updated help desk");
     } finally {
