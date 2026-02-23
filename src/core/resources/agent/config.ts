@@ -15,21 +15,8 @@ import {
 import type { AgentConfig, AgentConfigApiResponse } from "./schema.js";
 import { AgentConfigSchema } from "./schema.js";
 
-/**
- * Convert an agent name to a filesystem-safe filename slug.
- * Lowercases, replaces non-alphanumeric characters with underscores,
- * and collapses consecutive underscores.
- */
-function toFileSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9_]/g, "_")
-    .replace(/_+/g, "_")
-    .replace(/^_|_$/g, "");
-}
-
 async function readAgentFile(
-  agentPath: string
+  agentPath: string,
 ): Promise<{ data: AgentConfig; raw: unknown }> {
   const raw = await readJsonFile(agentPath);
   const result = AgentConfigSchema.safeParse(raw);
@@ -65,7 +52,7 @@ async function readAgentFiles(agentsDir: string): Promise<AgentFileEntry[]> {
     files.map(async (filePath) => {
       const { data, raw } = await readAgentFile(filePath);
       return { data, raw, filePath };
-    })
+    }),
   );
 }
 
