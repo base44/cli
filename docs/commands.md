@@ -174,3 +174,4 @@ When adding new theme properties, use **semantic names** (e.g., `links`, `header
 - **Task wrapper** - Use `runTask()` for async operations with spinners
 - **Use theme for styling** - Never use `chalk` directly; import `theme` from `@/cli/utils/` and use semantic names
 - **Use fs.ts utilities** - Always use `@/core/utils/fs.js` for file operations
+- **Consistent copy across related commands** - User-facing messages (errors, success, hints) for commands in the same group should use consistent language and structure. When writing validation errors, outro messages, or spinner text, check sibling commands for parity so the product voice stays coherent.
