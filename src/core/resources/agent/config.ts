@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { globby } from "globby";
-import { SchemaValidationError } from "@/core/errors.js";
+import { InvalidInputError, SchemaValidationError } from "@/core/errors.js";
 import {
   CONFIG_FILE_EXTENSION,
   CONFIG_FILE_EXTENSION_GLOB,
@@ -56,18 +56,46 @@ async function readAgentFiles(agentsDir: string): Promise<AgentFileEntry[]> {
   );
 }
 
+function buildNameToEntryMap(
+  entries: AgentFileEntry[],
+): Map<string, AgentFileEntry> {
+  const nameToEntry = new Map<string, AgentFileEntry>();
+  for (const entry of entries) {
+    if (nameToEntry.has(entry.data.name)) {
+      throw new InvalidInputError(`Duplicate agent name "${entry.data.name}"`, {
+        hints: [
+          {
+            message: `Remove duplicate agents with name "${entry.data.name}" - only one agent per name is allowed`,
+          },
+        ],
+      });
+    }
+    nameToEntry.set(entry.data.name, entry);
+  }
+  return nameToEntry;
+}
+
 export async function readAllAgents(agentsDir: string): Promise<AgentConfig[]> {
   const entries = await readAgentFiles(agentsDir);
+  const nameToEntry = buildNameToEntryMap(entries);
+  return [...nameToEntry.values()].map((e) => e.data);
+}
 
-  const names = new Set<string>();
-  for (const { data } of entries) {
-    if (names.has(data.name)) {
-      throw new Error(`Duplicate agent name "${data.name}"`);
-    }
-    names.add(data.name);
+function findAvailablePath(
+  agentsDir: string,
+  name: string,
+  claimedPaths: Set<string>,
+): string {
+  const base = join(agentsDir, `${name}.${CONFIG_FILE_EXTENSION}`);
+  if (!claimedPaths.has(base)) {
+    return base;
   }
-
-  return entries.map((e) => e.data);
+  for (let i = 1; ; i++) {
+    const candidate = join(agentsDir, `${name}_${i}.${CONFIG_FILE_EXTENSION}`);
+    if (!claimedPaths.has(candidate)) {
+      return candidate;
+    }
+  }
 }
 
 export async function writeAgents(
@@ -75,14 +103,7 @@ export async function writeAgents(
   remoteAgents: AgentConfigApiResponse[],
 ): Promise<{ written: string[]; deleted: string[] }> {
   const entries = await readAgentFiles(agentsDir);
-
-  const nameToEntry = new Map<string, AgentFileEntry>();
-  for (const entry of entries) {
-    if (nameToEntry.has(entry.data.name)) {
-      throw new Error(`Duplicate agent name "${entry.data.name}"`);
-    }
-    nameToEntry.set(entry.data.name, entry);
-  }
+  const nameToEntry = buildNameToEntryMap(entries);
 
   const newNames = new Set(remoteAgents.map((a) => a.name));
 
@@ -94,9 +115,13 @@ export async function writeAgents(
     }
   }
 
-  const claimedPaths = new Set(
-    [...nameToEntry.values()].map((e) => e.filePath),
-  );
+  // Track all paths that are in use (existing files that weren't deleted)
+  const claimedPaths = new Set<string>();
+  for (const [name, entry] of nameToEntry) {
+    if (newNames.has(name)) {
+      claimedPaths.add(entry.filePath);
+    }
+  }
 
   const written: string[] = [];
   for (const agent of remoteAgents) {
@@ -106,18 +131,10 @@ export async function writeAgents(
       continue;
     }
 
-    const defaultPath = join(
-      agentsDir,
-      `${agent.name}.${CONFIG_FILE_EXTENSION}`,
-    );
-
-    if (!existing && claimedPaths.has(defaultPath)) {
-      throw new Error(
-        `Cannot write agent "${agent.name}": file "${defaultPath}" is already used by another agent`,
-      );
-    }
-
-    const filePath = existing?.filePath ?? defaultPath;
+    const filePath =
+      existing?.filePath ??
+      findAvailablePath(agentsDir, agent.name, claimedPaths);
+    claimedPaths.add(filePath);
     await writeJsonFile(filePath, agent);
     written.push(agent.name);
   }
