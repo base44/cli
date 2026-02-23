@@ -31,6 +31,11 @@ interface RunCommandOptions {
 
 export interface RunCommandResult {
   outroMessage?: string;
+  /**
+   * Raw text to write to stdout after the command UI (intro/outro) finishes.
+   * Useful for commands that produce machine-readable or pipeable output.
+   */
+  stdout?: string;
 }
 
 /**
@@ -65,15 +70,12 @@ export async function runCommand(
   options: RunCommandOptions | undefined,
   context: CLIContext,
 ): Promise<void> {
-  console.log();
-
   if (options?.fullBanner) {
     await printBanner(context.isNonInteractive);
     intro("");
   } else {
     intro(theme.colors.base44OrangeBackground(" Base 44 "));
   }
-
   await printUpgradeNotificationIfAvailable();
 
   try {
@@ -102,8 +104,12 @@ export async function runCommand(
       context.errorReporter.setContext({ appId: appConfig.id });
     }
 
-    const { outroMessage } = await commandFn();
-    outro(outroMessage || "");
+    const result = await commandFn();
+    outro(result.outroMessage || "");
+
+    if (result.stdout) {
+      process.stdout.write(result.stdout);
+    }
   } catch (error) {
     // Display error message
     const errorMessage = error instanceof Error ? error.message : String(error);

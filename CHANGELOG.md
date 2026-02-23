@@ -1,6 +1,16 @@
 # Changelog
 
 
+## [0.0.34] - 2026-02-23
+
+### Added
+
+- `base44 logs` command for fetching function runtime logs (#225)
+
+### Docs
+
+- Add authoring agent instructions topic guide (#286)
+
 ## [0.0.33] - 2026-02-19
 
 ### Added

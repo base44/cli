@@ -103,3 +103,28 @@ export type DeployFunctionsResponse = z.infer<
 export type FunctionWithCode = Omit<BackendFunction, "filePaths"> & {
   files: FunctionFile[];
 };
+
+/**
+ * Log level from Deno Deploy runtime.
+ */
+const LogLevelSchema = z.enum(["log", "info", "warn", "error", "debug"]);
+
+export type LogLevel = z.infer<typeof LogLevelSchema>;
+
+const FunctionLogEntrySchema = z.object({
+  time: z.string(),
+  level: LogLevelSchema,
+  message: z.string(),
+});
+
+export const FunctionLogsResponseSchema = z.array(FunctionLogEntrySchema);
+
+export type FunctionLogsResponse = z.infer<typeof FunctionLogsResponseSchema>;
+
+export interface FunctionLogFilters {
+  since?: string;
+  until?: string;
+  level?: LogLevel;
+  limit?: number;
+  order?: "asc" | "desc";
+}
