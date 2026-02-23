@@ -280,9 +280,8 @@ export class Base44APIMock {
     if (this.appUserTokenMocked) return this;
     this.appUserTokenMocked = true;
     this.handlers.push(
-      http.get(
-        `${BASE_URL}/api/apps/${this.appId}/auth/token`,
-        () => HttpResponse.json({ token: "mock-app-user-token" }),
+      http.get(`${BASE_URL}/api/apps/${this.appId}/auth/token`, () =>
+        HttpResponse.json({ token: "mock-app-user-token" }),
       ),
     );
     return this;
