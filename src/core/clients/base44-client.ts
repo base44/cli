@@ -127,3 +127,28 @@ export function getAppClient() {
     prefixUrl: new URL(`/api/apps/${id}/`, getBase44ApiUrl()).href,
   });
 }
+
+/**
+ * Returns an HTTP client that authenticates as an app user (not a platform user).
+ * Exchanges the platform token for an app-user token via GET /auth/token,
+ * then creates a plain ky client with that token and admin bypass headers.
+ *
+ * Use this for API calls to RuntimeRouter endpoints that require app-user auth
+ * with admin privileges (e.g. entity record CRUD from the CLI).
+ */
+export async function getAppUserClient() {
+  const appClient = getAppClient();
+  const response = await appClient.get("auth/token");
+  const { token } = await response.json<{ token: string }>();
+
+  const { id } = getAppConfig();
+  return ky.create({
+    prefixUrl: new URL(`/api/apps/${id}/`, getBase44ApiUrl()).href,
+    headers: {
+      "User-Agent": "Base44 CLI",
+      Authorization: `Bearer ${token}`,
+      "X-Bypass-RLS": "true",
+      "X-Bypass-Entities-Filter-Limit": "true",
+    },
+  });
+}

@@ -1,13 +1,13 @@
 /**
  * API functions for entity record CRUD operations.
- * Communicates with GET/POST/PUT/DELETE /api/apps/{app_id}/admin/entities/{entity_name}
+ * Communicates with GET/POST/PUT/DELETE /api/apps/{app_id}/entities/{entity_name}
  *
- * Uses the admin entities router which authenticates via AppAdminRouter (builder/platform auth)
- * and automatically bypasses RLS.
+ * Uses a token exchange (platform token → app-user token) to authenticate with
+ * the RuntimeRouter, with X-Bypass-RLS to get admin-level access.
  */
 
 import type { KyResponse } from "ky";
-import { getAppClient } from "@/core/clients/index.js";
+import { getAppUserClient } from "@/core/clients/index.js";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";
 import {
   type DeleteRecordResponse,
@@ -28,7 +28,7 @@ export async function listRecords(
   entityName: string,
   options: ListRecordsOptions = {},
 ): Promise<EntityRecord[]> {
-  const appClient = getAppClient();
+  const client = await getAppUserClient();
 
   const searchParams = new URLSearchParams();
   if (options.filter) {
@@ -49,7 +49,7 @@ export async function listRecords(
 
   let response: KyResponse;
   try {
-    response = await appClient.get(`admin/entities/${entityName}`, {
+    response = await client.get(`entities/${entityName}`, {
       searchParams,
     });
   } catch (error) {
@@ -76,11 +76,11 @@ export async function getRecord(
   entityName: string,
   recordId: string,
 ): Promise<EntityRecord> {
-  const appClient = getAppClient();
+  const client = await getAppUserClient();
 
   let response: KyResponse;
   try {
-    response = await appClient.get(`admin/entities/${entityName}/${recordId}`);
+    response = await client.get(`entities/${entityName}/${recordId}`);
   } catch (error) {
     throw await ApiError.fromHttpError(error, "getting record");
   }
@@ -98,11 +98,11 @@ export async function createRecord(
   entityName: string,
   data: Record<string, unknown>,
 ): Promise<EntityRecord> {
-  const appClient = getAppClient();
+  const client = await getAppUserClient();
 
   let response: KyResponse;
   try {
-    response = await appClient.post(`admin/entities/${entityName}`, {
+    response = await client.post(`entities/${entityName}`, {
       json: data,
     });
   } catch (error) {
@@ -126,11 +126,11 @@ export async function updateRecord(
   recordId: string,
   data: Record<string, unknown>,
 ): Promise<EntityRecord> {
-  const appClient = getAppClient();
+  const client = await getAppUserClient();
 
   let response: KyResponse;
   try {
-    response = await appClient.put(`admin/entities/${entityName}/${recordId}`, {
+    response = await client.put(`entities/${entityName}/${recordId}`, {
       json: data,
     });
   } catch (error) {
@@ -153,13 +153,11 @@ export async function deleteRecord(
   entityName: string,
   recordId: string,
 ): Promise<DeleteRecordResponse> {
-  const appClient = getAppClient();
+  const client = await getAppUserClient();
 
   let response: KyResponse;
   try {
-    response = await appClient.delete(
-      `admin/entities/${entityName}/${recordId}`,
-    );
+    response = await client.delete(`entities/${entityName}/${recordId}`);
   } catch (error) {
     throw await ApiError.fromHttpError(error, "deleting record");
   }

@@ -252,71 +252,93 @@ export class Base44APIMock {
     return this;
   }
 
-  // ─── ENTITY RECORD ENDPOINTS (admin) ────────────────────────
+  // ─── APP-USER TOKEN EXCHANGE ────────────────────────────────
 
-  /** Mock GET /api/apps/{appId}/admin/entities/{entityName} - List records */
+  private appUserTokenMocked = false;
+
+  /** Mock GET /api/apps/{appId}/auth/token - Token exchange (platform → app-user) */
+  mockAppUserToken(): this {
+    if (this.appUserTokenMocked) return this;
+    this.appUserTokenMocked = true;
+    this.handlers.push(
+      http.get(
+        `${BASE_URL}/api/apps/${this.appId}/auth/token`,
+        () => HttpResponse.json({ token: "mock-app-user-token" }),
+      ),
+    );
+    return this;
+  }
+
+  // ─── ENTITY RECORD ENDPOINTS ──────────────────────────────
+
+  /** Mock GET /api/apps/{appId}/entities/{entityName} - List records */
   mockRecordsList(
     entityName: string,
     response: Record<string, unknown>[],
   ): this {
+    this.mockAppUserToken();
     this.handlers.push(
       http.get(
-        `${BASE_URL}/api/apps/${this.appId}/admin/entities/${entityName}`,
+        `${BASE_URL}/api/apps/${this.appId}/entities/${entityName}`,
         () => HttpResponse.json(response),
       ),
     );
     return this;
   }
 
-  /** Mock GET /api/apps/{appId}/admin/entities/{entityName}/{recordId} - Get record */
+  /** Mock GET /api/apps/{appId}/entities/{entityName}/{recordId} - Get record */
   mockRecordGet(
     entityName: string,
     recordId: string,
     response: Record<string, unknown>,
   ): this {
+    this.mockAppUserToken();
     this.handlers.push(
       http.get(
-        `${BASE_URL}/api/apps/${this.appId}/admin/entities/${entityName}/${recordId}`,
+        `${BASE_URL}/api/apps/${this.appId}/entities/${entityName}/${recordId}`,
         () => HttpResponse.json(response),
       ),
     );
     return this;
   }
 
-  /** Mock POST /api/apps/{appId}/admin/entities/{entityName} - Create record */
+  /** Mock POST /api/apps/{appId}/entities/{entityName} - Create record */
   mockRecordCreate(
     entityName: string,
     response: Record<string, unknown>,
   ): this {
+    this.mockAppUserToken();
     this.handlers.push(
       http.post(
-        `${BASE_URL}/api/apps/${this.appId}/admin/entities/${entityName}`,
+        `${BASE_URL}/api/apps/${this.appId}/entities/${entityName}`,
         () => HttpResponse.json(response),
       ),
     );
     return this;
   }
 
-  /** Mock PUT /api/apps/{appId}/admin/entities/{entityName}/{recordId} - Update record */
+  /** Mock PUT /api/apps/{appId}/entities/{entityName}/{recordId} - Update record */
   mockRecordUpdate(
     entityName: string,
     recordId: string,
     response: Record<string, unknown>,
   ): this {
+    this.mockAppUserToken();
     this.handlers.push(
       http.put(
-        `${BASE_URL}/api/apps/${this.appId}/admin/entities/${entityName}/${recordId}`,
+        `${BASE_URL}/api/apps/${this.appId}/entities/${entityName}/${recordId}`,
         () => HttpResponse.json(response),
       ),
     );
     return this;
   }
 
-  /** Mock DELETE /api/apps/{appId}/admin/entities/{entityName}/{recordId} - Delete record */
+  /** Mock DELETE /api/apps/{appId}/entities/{entityName}/{recordId} - Delete record */
   mockRecordDelete(entityName: string, recordId: string): this {
+    this.mockAppUserToken();
     this.handlers.push(
       http.delete(
-        `${BASE_URL}/api/apps/${this.appId}/admin/entities/${entityName}/${recordId}`,
+        `${BASE_URL}/api/apps/${this.appId}/entities/${entityName}/${recordId}`,
         () => HttpResponse.json({ success: true }),
       ),
     );
@@ -325,9 +347,10 @@ export class Base44APIMock {
 
   /** Mock entity records list to return an error */
   mockRecordsListError(entityName: string, error: ErrorResponse): this {
+    this.mockAppUserToken();
     return this.mockError(
       "get",
-      `/api/apps/${this.appId}/admin/entities/${entityName}`,
+      `/api/apps/${this.appId}/entities/${entityName}`,
       error,
     );
   }
@@ -338,18 +361,20 @@ export class Base44APIMock {
     recordId: string,
     error: ErrorResponse,
   ): this {
+    this.mockAppUserToken();
     return this.mockError(
       "get",
-      `/api/apps/${this.appId}/admin/entities/${entityName}/${recordId}`,
+      `/api/apps/${this.appId}/entities/${entityName}/${recordId}`,
       error,
     );
   }
 
   /** Mock entity record create to return an error */
   mockRecordCreateError(entityName: string, error: ErrorResponse): this {
+    this.mockAppUserToken();
     return this.mockError(
       "post",
-      `/api/apps/${this.appId}/admin/entities/${entityName}`,
+      `/api/apps/${this.appId}/entities/${entityName}`,
       error,
     );
   }
@@ -360,9 +385,10 @@ export class Base44APIMock {
     recordId: string,
     error: ErrorResponse,
   ): this {
+    this.mockAppUserToken();
     return this.mockError(
       "put",
-      `/api/apps/${this.appId}/admin/entities/${entityName}/${recordId}`,
+      `/api/apps/${this.appId}/entities/${entityName}/${recordId}`,
       error,
     );
   }
@@ -373,9 +399,10 @@ export class Base44APIMock {
     recordId: string,
     error: ErrorResponse,
   ): this {
+    this.mockAppUserToken();
     return this.mockError(
       "delete",
-      `/api/apps/${this.appId}/admin/entities/${entityName}/${recordId}`,
+      `/api/apps/${this.appId}/entities/${entityName}/${recordId}`,
       error,
     );
   }
