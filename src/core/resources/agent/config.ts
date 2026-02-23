@@ -94,6 +94,10 @@ export async function writeAgents(
     }
   }
 
+  const claimedPaths = new Set(
+    [...nameToEntry.values()].map((e) => e.filePath),
+  );
+
   const written: string[] = [];
   for (const agent of remoteAgents) {
     const existing = nameToEntry.get(agent.name);
@@ -102,9 +106,18 @@ export async function writeAgents(
       continue;
     }
 
-    const filePath =
-      existing?.filePath ??
-      join(agentsDir, `${agent.name}.${CONFIG_FILE_EXTENSION}`);
+    const defaultPath = join(
+      agentsDir,
+      `${agent.name}.${CONFIG_FILE_EXTENSION}`,
+    );
+
+    if (!existing && claimedPaths.has(defaultPath)) {
+      throw new Error(
+        `Cannot write agent "${agent.name}": file "${defaultPath}" is already used by another agent`,
+      );
+    }
+
+    const filePath = existing?.filePath ?? defaultPath;
     await writeJsonFile(filePath, agent);
     written.push(agent.name);
   }

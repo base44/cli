@@ -106,6 +106,33 @@ describe("agents pull command", () => {
     expect(fileContent).toContain("// My support agent");
   });
 
+  it("fails when a new remote agent's default filename clashes with an existing custom-named file", async () => {
+    // Local: custom_name.jsonc has name "support_agent" (custom filename)
+    // Remote returns support_agent (maps to custom_name.jsonc) AND custom_name
+    // (new agent whose default path custom_name.jsonc is already taken)
+    await t.givenLoggedInWithProject(fixture("with-agents-naming-clash"));
+    t.api.mockAgentsFetch({
+      items: [
+        {
+          name: "support_agent",
+          description: "Helps users",
+          instructions: "Be helpful",
+        },
+        {
+          name: "custom_name",
+          description: "A new agent",
+          instructions: "Do new things",
+        },
+      ],
+      total: 2,
+    });
+
+    const result = await t.run("agents", "pull");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("custom_name");
+  });
+
   it("updates agent file in-place when remote data changes", async () => {
     await t.givenLoggedInWithProject(fixture("with-agents-for-pull"));
     t.api.mockAgentsFetch({
