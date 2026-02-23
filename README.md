@@ -93,3 +93,5 @@ Found a bug? [Open an issue](https://github.com/base44/cli/issues).
 ## License
 
 MIT
+
+<!-- Test comment from IGOR to verify PR access -->
