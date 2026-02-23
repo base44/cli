@@ -46,7 +46,7 @@ describe("logs command", () => {
   it("fetches logs for all project functions when no --function specified", async () => {
     await t.givenLoggedInWithProject(fixture("full-project"));
     t.api.mockFunctionLogs("hello", [
-      { time: "2024-01-15T10:29:00Z", level: "log", message: "Hello world" },
+      { time: "2024-01-15T10:29:00Z", level: "info", message: "Hello world" },
     ]);
 
     const result = await t.run("logs");

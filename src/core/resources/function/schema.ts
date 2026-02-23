@@ -113,7 +113,7 @@ export type LogLevel = z.infer<typeof LogLevelSchema>;
 
 const FunctionLogEntrySchema = z.object({
   time: z.string(),
-  level: z.string(),
+  level: LogLevelSchema,
   message: z.string(),
 });
 

@@ -9,8 +9,10 @@ import type {
   FunctionLogsResponse,
   LogLevel,
 } from "@/core/resources/function/index.js";
-import { LogLevelSchema } from "@/core/resources/function/index.js";
-import { fetchFunctionLogs } from "@/core/resources/function/index.js";
+import {
+  fetchFunctionLogs,
+  LogLevelSchema,
+} from "@/core/resources/function/index.js";
 
 interface LogsOptions {
   function?: string;

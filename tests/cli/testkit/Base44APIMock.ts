@@ -59,7 +59,7 @@ interface AgentsFetchResponse {
 
 interface FunctionLogEntry {
   time: string;
-  level: "log" | "info" | "warn" | "error" | "debug";
+  level: "info" | "warning" | "error" | "debug";
   message: string;
 }
 
