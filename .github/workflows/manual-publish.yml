@@ -60,7 +60,6 @@ jobs:
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-          cache: true
 
       - name: Cache Bun dependencies
         uses: actions/cache@v5
