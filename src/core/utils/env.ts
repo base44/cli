@@ -1,4 +1,3 @@
-import { resolve } from "node:path";
 import { parse } from "dotenv";
 import { readTextFile } from "./fs.js";
 
@@ -8,6 +7,6 @@ import { readTextFile } from "./fs.js";
 export async function parseEnvFile(
   filePath: string,
 ): Promise<Record<string, string>> {
-  const content = await readTextFile(resolve(filePath));
+  const content = await readTextFile(filePath);
   return parse(content);
 }

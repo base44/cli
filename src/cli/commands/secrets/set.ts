@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import { log } from "@clack/prompts";
 import { Command } from "commander";
 import type { CLIContext } from "@/cli/types.js";
@@ -59,7 +60,7 @@ async function setSecretsAction(
   let secrets: Record<string, string>;
 
   if (options.envFile) {
-    secrets = await parseEnvFile(options.envFile as string);
+    secrets = await parseEnvFile(resolve(options.envFile as string));
     if (Object.keys(secrets).length === 0) {
       throw new InvalidInputError(
         "The env file contains no valid KEY=VALUE entries.",
