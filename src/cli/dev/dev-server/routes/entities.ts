@@ -213,7 +213,7 @@ export function createEntityRoutes(
           await collection.insertAsync(record),
         );
         emit(appId, entityName, "create", inserted);
-        res.status(201).json(stripInternalFields(inserted));
+        res.status(201).json(inserted);
       } catch (error) {
         logger.error(`Error in POST /${entityName}:`, error);
         res.status(500).json({ error: "Internal server error" });
@@ -271,7 +271,7 @@ export function createEntityRoutes(
         return;
       }
 
-      const { id: _id, created_date, ...body } = req.body;
+      const { id: _id, created_date: _created_date, ...body } = req.body;
 
       try {
         const updateData = {
