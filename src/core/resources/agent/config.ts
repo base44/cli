@@ -1,6 +1,7 @@
 import { join } from "node:path";
+import { isDeepStrictEqual } from "node:util";
 import { globby } from "globby";
-import { SchemaValidationError } from "@/core/errors.js";
+import { InvalidInputError, SchemaValidationError } from "@/core/errors.js";
 import {
   CONFIG_FILE_EXTENSION,
   CONFIG_FILE_EXTENSION_GLOB,
@@ -14,22 +15,11 @@ import {
 import type { AgentConfig, AgentConfigApiResponse } from "./schema.js";
 import { AgentConfigSchema } from "./schema.js";
 
-/**
- * Convert an agent name to a filesystem-safe filename slug.
- * Lowercases, replaces non-alphanumeric characters with underscores,
- * and collapses consecutive underscores.
- */
-function toFileSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9_]/g, "_")
-    .replace(/_+/g, "_")
-    .replace(/^_|_$/g, "");
-}
-
-async function readAgentFile(agentPath: string): Promise<AgentConfig> {
-  const parsed = await readJsonFile(agentPath);
-  const result = AgentConfigSchema.safeParse(parsed);
+async function readAgentFile(
+  agentPath: string,
+): Promise<{ data: AgentConfig; raw: unknown }> {
+  const raw = await readJsonFile(agentPath);
+  const result = AgentConfigSchema.safeParse(raw);
 
   if (!result.success) {
     throw new SchemaValidationError(
@@ -39,10 +29,16 @@ async function readAgentFile(agentPath: string): Promise<AgentConfig> {
     );
   }
 
-  return result.data;
+  return { data: result.data, raw };
 }
 
-export async function readAllAgents(agentsDir: string): Promise<AgentConfig[]> {
+interface AgentFileEntry {
+  data: AgentConfig;
+  raw: unknown;
+  filePath: string;
+}
+
+async function readAgentFiles(agentsDir: string): Promise<AgentFileEntry[]> {
   if (!(await pathExists(agentsDir))) {
     return [];
   }
@@ -52,48 +48,96 @@ export async function readAllAgents(agentsDir: string): Promise<AgentConfig[]> {
     absolute: true,
   });
 
-  const agents = await Promise.all(
-    files.map((filePath) => readAgentFile(filePath)),
+  return await Promise.all(
+    files.map(async (filePath) => {
+      const { data, raw } = await readAgentFile(filePath);
+      return { data, raw, filePath };
+    }),
   );
+}
 
-  const names = new Set<string>();
-  for (const agent of agents) {
-    if (names.has(agent.name)) {
-      throw new Error(`Duplicate agent name "${agent.name}"`);
+function buildNameToEntryMap(
+  entries: AgentFileEntry[],
+): Map<string, AgentFileEntry> {
+  const nameToEntry = new Map<string, AgentFileEntry>();
+  for (const entry of entries) {
+    if (nameToEntry.has(entry.data.name)) {
+      throw new InvalidInputError(`Duplicate agent name "${entry.data.name}"`, {
+        hints: [
+          {
+            message: `Remove duplicate agents with name "${entry.data.name}" - only one agent per name is allowed`,
+          },
+        ],
+      });
     }
-    names.add(agent.name);
+    nameToEntry.set(entry.data.name, entry);
   }
+  return nameToEntry;
+}
 
-  return agents;
+export async function readAllAgents(agentsDir: string): Promise<AgentConfig[]> {
+  const entries = await readAgentFiles(agentsDir);
+  const nameToEntry = buildNameToEntryMap(entries);
+  return [...nameToEntry.values()].map((e) => e.data);
+}
+
+function findAvailablePath(
+  agentsDir: string,
+  name: string,
+  claimedPaths: Set<string>,
+): string {
+  const base = join(agentsDir, `${name}.${CONFIG_FILE_EXTENSION}`);
+  if (!claimedPaths.has(base)) {
+    return base;
+  }
+  for (let i = 1; ; i++) {
+    const candidate = join(agentsDir, `${name}_${i}.${CONFIG_FILE_EXTENSION}`);
+    if (!claimedPaths.has(candidate)) {
+      return candidate;
+    }
+  }
 }
 
 export async function writeAgents(
   agentsDir: string,
   remoteAgents: AgentConfigApiResponse[],
 ): Promise<{ written: string[]; deleted: string[] }> {
-  const existingAgents = await readAllAgents(agentsDir);
+  const entries = await readAgentFiles(agentsDir);
+  const nameToEntry = buildNameToEntryMap(entries);
+
   const newNames = new Set(remoteAgents.map((a) => a.name));
 
-  const toDelete = existingAgents.filter((a) => !newNames.has(a.name));
-  for (const agent of toDelete) {
-    const slug = toFileSlug(agent.name);
-    const files = await globby(`${slug}.${CONFIG_FILE_EXTENSION_GLOB}`, {
-      cwd: agentsDir,
-      absolute: true,
-    });
-    for (const filePath of files) {
-      await deleteFile(filePath);
+  const deleted: string[] = [];
+  for (const [name, entry] of nameToEntry) {
+    if (!newNames.has(name)) {
+      await deleteFile(entry.filePath);
+      deleted.push(name);
     }
   }
 
-  for (const agent of remoteAgents) {
-    const slug = toFileSlug(agent.name);
-    const filePath = join(agentsDir, `${slug}.${CONFIG_FILE_EXTENSION}`);
-    await writeJsonFile(filePath, agent);
+  // Track all paths that are in use (existing files that weren't deleted)
+  const claimedPaths = new Set<string>();
+  for (const [name, entry] of nameToEntry) {
+    if (newNames.has(name)) {
+      claimedPaths.add(entry.filePath);
+    }
   }
 
-  const written = remoteAgents.map((a) => a.name);
-  const deleted = toDelete.map((a) => a.name);
+  const written: string[] = [];
+  for (const agent of remoteAgents) {
+    const existing = nameToEntry.get(agent.name);
+
+    if (existing && isDeepStrictEqual(existing.raw, agent)) {
+      continue;
+    }
+
+    const filePath =
+      existing?.filePath ??
+      findAvailablePath(agentsDir, agent.name, claimedPaths);
+    claimedPaths.add(filePath);
+    await writeJsonFile(filePath, agent);
+    written.push(agent.name);
+  }
 
   return { written, deleted };
 }

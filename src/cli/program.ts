@@ -10,6 +10,7 @@ import { getFunctionsDeployCommand } from "@/cli/commands/functions/deploy.js";
 import { getCreateCommand } from "@/cli/commands/project/create.js";
 import { getDeployCommand } from "@/cli/commands/project/deploy.js";
 import { getLinkCommand } from "@/cli/commands/project/link.js";
+import { getLogsCommand } from "@/cli/commands/project/logs.js";
 import { getSiteCommand } from "@/cli/commands/site/index.js";
 import { getTypesCommand } from "@/cli/commands/types/index.js";
 import packageJson from "../../package.json";
@@ -63,6 +64,9 @@ export function createProgram(context: CLIContext): Command {
 
   // Register development commands
   program.addCommand(getDevCommand(context), { hidden: true });
+
+  // Register logs command
+  program.addCommand(getLogsCommand(context), { hidden: true });
 
   return program;
 }

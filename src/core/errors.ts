@@ -244,6 +244,22 @@ export class InvalidInputError extends UserError {
   readonly code = "INVALID_INPUT";
 }
 
+/**
+ * Thrown when a required external dependency is not installed (e.g., Deno, Git).
+ */
+export class DependencyNotFoundError extends UserError {
+  readonly code = "DEPENDENCY_NOT_FOUND";
+
+  constructor(message: string, options?: CLIErrorOptions) {
+    super(message, {
+      hints: options?.hints ?? [
+        { message: "Install the required dependency and try again" },
+      ],
+      cause: options?.cause,
+    });
+  }
+}
+
 // ============================================================================
 // System Errors
 // ============================================================================
@@ -288,9 +304,11 @@ export class ApiError extends SystemError {
    * Creates an ApiError from a caught error (typically HTTPError from ky).
    * Extracts status code, request info, and response body for error reporting.
    *
+   * Normalizes backend KeyError responses (Python dict lookup failures) to
+   * 404 status, since they represent "resource not found" conditions.
+   *
    * @param error - The caught error (HTTPError, Error, or unknown)
    * @param context - Description of what operation failed (e.g., "syncing agents")
-   * @returns ApiError with formatted message, status code, and request/response data
    *
    * @example
    * try {
@@ -318,12 +336,16 @@ export class ApiError extends SystemError {
         message = error.message;
       }
 
+      const statusCode = ApiError.normalizeStatusCode(
+        error.response.status,
+        responseBody,
+      );
       const requestBody = error.options.context?.__requestBody;
 
       return new ApiError(
         `Error ${context}: ${message}`,
         {
-          statusCode: error.response.status,
+          statusCode,
           requestUrl: error.request.url,
           requestMethod: error.request.method,
           requestBody,
@@ -398,6 +420,23 @@ export class ApiError extends SystemError {
 
     return REASON_HINTS[reason];
   }
+
+  /**
+   * Backend KeyError responses (Python dict lookup failures) are semantically
+   * "not found" — normalize them to 404.
+   */
+  private static normalizeStatusCode(
+    statusCode: number,
+    responseBody: unknown,
+  ): number {
+    if (
+      (responseBody as Record<string, unknown> | null)?.error_type ===
+      "KeyError"
+    ) {
+      return 404;
+    }
+    return statusCode;
+  }
 }
 
 /**
@@ -456,7 +495,6 @@ export class InternalError extends SystemError {
  */
 export class TypeGenerationError extends SystemError {
   readonly code = "TYPE_GENERATION_ERROR";
-  readonly entityName?: string;
 
   constructor(message: string, entityName?: string, cause?: unknown) {
     super(message, {
@@ -469,7 +507,6 @@ export class TypeGenerationError extends SystemError {
       ],
       cause: cause instanceof Error ? cause : undefined,
     });
-    this.entityName = entityName;
   }
 }
 

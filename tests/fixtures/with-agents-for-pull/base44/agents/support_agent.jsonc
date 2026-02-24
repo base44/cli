@@ -1,0 +1,6 @@
+// My support agent
+{
+  "name": "support_agent",
+  "description": "Helps users",
+  "instructions": "Be helpful"
+}
