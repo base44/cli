@@ -160,14 +160,14 @@ export function createEntityRoutes(
         }
 
         if (skip) {
-          const skipNum = parseInt(skip as string, 10);
+          const skipNum = Number.parseInt(skip as string, 10);
           if (!Number.isNaN(skipNum)) {
             cursor = cursor.skip(skipNum);
           }
         }
 
         if (limit) {
-          const limitNum = parseInt(limit as string, 10);
+          const limitNum = Number.parseInt(limit as string, 10);
           if (!Number.isNaN(limitNum)) {
             cursor = cursor.limit(limitNum);
           }
