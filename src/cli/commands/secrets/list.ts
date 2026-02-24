@@ -23,8 +23,8 @@ async function listSecretsAction(): Promise<RunCommandResult> {
     return { outroMessage: "No secrets configured." };
   }
 
-  for (const [name, maskedValue] of Object.entries(secrets)) {
-    log.info(`${name} = ${maskedValue}`);
+  for (const name of names) {
+    log.info(name);
   }
 
   return {
@@ -34,7 +34,7 @@ async function listSecretsAction(): Promise<RunCommandResult> {
 
 export function getSecretsListCommand(context: CLIContext): Command {
   return new Command("list")
-    .description("List secret names (values are masked)")
+    .description("List secret names")
     .action(async () => {
       await runCommand(listSecretsAction, { requireAuth: true }, context);
     });

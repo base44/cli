@@ -6,7 +6,7 @@ import { fixture, setupCLITests } from "./testkit/index.js";
 describe("secrets list command", () => {
   const t = setupCLITests();
 
-  it("lists secret names with masked values", async () => {
+  it("lists secret names", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
     t.api.mockSecretsList({
       DATABASE_URL: "xxxxxxxxxxxxxxxx",
