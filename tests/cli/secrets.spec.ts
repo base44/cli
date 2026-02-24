@@ -78,7 +78,7 @@ describe("secrets set command", () => {
     t.expectResult(result).toContain("KEY2");
   });
 
-  it("sets secrets from --env-file", async () => {
+  it("sets secrets from --env-file with absolute path", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
     t.api.mockSecretsSet({ success: true });
 
@@ -93,6 +93,20 @@ describe("secrets set command", () => {
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("DB_HOST");
     t.expectResult(result).toContain("DB_PASS");
+  });
+
+  it("sets secrets from --env-file with relative path", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+    t.api.mockSecretsSet({ success: true });
+
+    // Write .env file inside the project dir (which is process.cwd() in tests)
+    const projectDir = join(t.getTempDir(), "project");
+    await writeFile(join(projectDir, ".env.local"), "SECRET_KEY=mysecret\n");
+
+    const result = await t.run("secrets", "set", "--env-file", ".env.local");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("SECRET_KEY");
   });
 
   it("errors when neither entries nor --env-file provided", async () => {
