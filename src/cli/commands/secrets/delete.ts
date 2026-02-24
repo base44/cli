@@ -17,7 +17,7 @@ async function deleteSecretAction(key: string): Promise<RunCommandResult> {
   );
 
   return {
-    outroMessage: "Secret deleted.",
+    outroMessage: "Secret deleted successfully.",
   };
 }
 

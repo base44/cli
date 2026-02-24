@@ -64,7 +64,7 @@ describe("secrets set command", () => {
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("OPENAI_API_KEY");
-    t.expectResult(result).toContain("saved");
+    t.expectResult(result).toContain("set successfully");
   });
 
   it("sets multiple secrets", async () => {

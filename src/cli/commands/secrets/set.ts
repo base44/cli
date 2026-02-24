@@ -86,7 +86,7 @@ async function setSecretsAction(
   log.info(`Set: ${names.join(", ")}`);
 
   return {
-    outroMessage: "Secrets saved.",
+    outroMessage: "Secrets set successfully.",
   };
 }
 
