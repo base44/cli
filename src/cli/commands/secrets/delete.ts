@@ -17,8 +17,7 @@ async function deleteSecretAction(key: string): Promise<RunCommandResult> {
   );
 
   return {
-    outroMessage:
-      "Secret deleted. Your app will automatically redeploy with the updated values.",
+    outroMessage: "Secret deleted.",
   };
 }
 

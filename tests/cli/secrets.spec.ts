@@ -64,7 +64,7 @@ describe("secrets set command", () => {
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("OPENAI_API_KEY");
-    t.expectResult(result).toContain("redeploy");
+    t.expectResult(result).toContain("saved");
   });
 
   it("sets multiple secrets", async () => {
@@ -173,7 +173,7 @@ describe("secrets delete command", () => {
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("API_KEY");
-    t.expectResult(result).toContain("redeploy");
+    t.expectResult(result).toContain("deleted");
   });
 
   it("fails when API returns error", async () => {

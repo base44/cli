@@ -86,8 +86,7 @@ async function setSecretsAction(
   log.info(`Set: ${names.join(", ")}`);
 
   return {
-    outroMessage:
-      "Secrets saved. Your app will automatically redeploy with the new values.",
+    outroMessage: "Secrets saved.",
   };
 }
 
