@@ -167,6 +167,34 @@ theme.format.agentHints(hints)            // "[Agent Hints]\n  Run: ..."
 
 When adding new theme properties, use **semantic names** (e.g., `links`, `header`) not color names.
 
+## Input Validation with Commander Hooks
+
+Use `.hook("preAction", validator)` to validate command input (required args, mutually exclusive options) **before** the action runs. This keeps validation separate from business logic.
+
+```typescript
+function validateInput(command: Command): void {
+  const { flagA, flagB } = command.opts<MyOptions>();
+  if (!command.args.length && !flagA) {
+    throw new InvalidInputError("Provide args or use --flag-a.");
+  }
+  if (command.args.length > 0 && flagA) {
+    throw new InvalidInputError("Provide args or --flag-a, but not both.");
+  }
+}
+
+export function getMyCommand(context: CLIContext): Command {
+  return new Command("my-cmd")
+    .argument("[entries...]", "Input entries")
+    .option("--flag-a <value>", "Alternative input")
+    .hook("preAction", validateInput)
+    .action(async (entries, options) => {
+      await runCommand(() => myAction(entries, options), { requireAuth: true }, context);
+    });
+}
+```
+
+Access `command.args` for positional arguments and `command.opts()` for options inside the hook. See `secrets/set.ts` and `project/create.ts` for real examples.
+
 ## Rules (Command-Specific)
 
 - **Command factory pattern** - Commands export `getXCommand(context)` functions, not static instances

@@ -33,12 +33,11 @@ function parseEntries(entries: string[]): Record<string, string> {
   return secrets;
 }
 
-async function setSecretsAction(
-  entries: string[],
-  options: { envFile?: string },
-): Promise<RunCommandResult> {
+function validateInput(command: Command): void {
+  const entries = command.args;
+  const { envFile } = command.opts<{ envFile?: string }>();
   const hasEntries = entries.length > 0;
-  const hasEnvFile = Boolean(options.envFile);
+  const hasEnvFile = Boolean(envFile);
 
   if (!hasEntries && !hasEnvFile) {
     throw new InvalidInputError(
@@ -51,10 +50,15 @@ async function setSecretsAction(
       "Provide KEY=VALUE pairs or --env-file, but not both.",
     );
   }
+}
 
+async function setSecretsAction(
+  entries: string[],
+  options: { envFile?: string },
+): Promise<RunCommandResult> {
   let secrets: Record<string, string>;
 
-  if (hasEnvFile) {
+  if (options.envFile) {
     secrets = await parseEnvFile(options.envFile as string);
     if (Object.keys(secrets).length === 0) {
       throw new InvalidInputError(
@@ -91,6 +95,7 @@ export function getSecretsSetCommand(context: CLIContext): Command {
     .description("Set one or more secrets (KEY=VALUE format)")
     .argument("[entries...]", "KEY=VALUE pairs (e.g. KEY1=VALUE1 KEY2=VALUE2)")
     .option("--env-file <path>", "Path to .env file")
+    .hook("preAction", validateInput)
     .action(async (entries: string[], options: { envFile?: string }) => {
       await runCommand(
         () => setSecretsAction(entries, options),
