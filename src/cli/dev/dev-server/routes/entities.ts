@@ -1,3 +1,4 @@
+import type Datastore from "@seald-io/nedb";
 import type { Request, RequestHandler, Response, Router } from "express";
 import { Router as createRouter, json } from "express";
 import { nanoid } from "nanoid";
@@ -75,6 +76,25 @@ export function createEntityRoutes(
   const router = createRouter({ mergeParams: true });
   const parseBody = json();
 
+  function withCollection(
+    handler: (
+      req: Request<EntityParams>,
+      res: Response,
+      collection: Datastore,
+    ) => Promise<void> | void,
+  ): (req: Request<EntityParams>, res: Response) => Promise<void> {
+    return async (req, res) => {
+      const collection = db.getCollection(req.params.entityName);
+      if (!collection) {
+        res
+          .status(404)
+          .json({ error: `Entity "${req.params.entityName}" not found` });
+        return;
+      }
+      await handler(req, res, collection);
+    };
+  }
+
   function emit(
     appId: string,
     entityName: string,
@@ -105,14 +125,8 @@ export function createEntityRoutes(
 
   router.get(
     "/:entityName/:id",
-    async (req: Request<EntityParams>, res: Response) => {
+    withCollection(async (req, res, collection) => {
       const { entityName, id } = req.params;
-      const collection = db.getCollection(entityName);
-
-      if (!collection) {
-        res.status(404).json({ error: `Entity "${entityName}" not found` });
-        return;
-      }
 
       try {
         const doc = await collection.findOneAsync({ id });
@@ -125,19 +139,13 @@ export function createEntityRoutes(
         logger.error(`Error in GET /${entityName}/${id}:`, error);
         res.status(500).json({ error: "Internal server error" });
       }
-    },
+    }),
   );
 
   router.get(
     "/:entityName",
-    async (req: Request<EntityParams>, res: Response) => {
+    withCollection(async (req, res, collection) => {
       const { entityName } = req.params;
-      const collection = db.getCollection(entityName);
-
-      if (!collection) {
-        res.status(404).json({ error: `Entity "${entityName}" not found` });
-        return;
-      }
 
       try {
         const { sort, limit, skip, fields, q } = req.query;
@@ -184,20 +192,14 @@ export function createEntityRoutes(
         logger.error(`Error in GET /${entityName}:`, error);
         res.status(500).json({ error: "Internal server error" });
       }
-    },
+    }),
   );
 
   router.post(
     "/:entityName",
     parseBody,
-    async (req: Request<EntityParams>, res: Response) => {
+    withCollection(async (req, res, collection) => {
       const { appId, entityName } = req.params;
-      const collection = db.getCollection(entityName);
-
-      if (!collection) {
-        res.status(404).json({ error: `Entity "${entityName}" not found` });
-        return;
-      }
 
       try {
         const now = new Date().toISOString();
@@ -218,20 +220,14 @@ export function createEntityRoutes(
         logger.error(`Error in POST /${entityName}:`, error);
         res.status(500).json({ error: "Internal server error" });
       }
-    },
+    }),
   );
 
   router.post(
     "/:entityName/bulk",
     parseBody,
-    async (req: Request<EntityParams>, res: Response) => {
+    withCollection(async (req, res, collection) => {
       const { appId, entityName } = req.params;
-      const collection = db.getCollection(entityName);
-
-      if (!collection) {
-        res.status(404).json({ error: `Entity "${entityName}" not found` });
-        return;
-      }
 
       if (!Array.isArray(req.body)) {
         res.status(400).json({ error: "Request body must be an array" });
@@ -256,21 +252,14 @@ export function createEntityRoutes(
         logger.error(`Error in POST /${entityName}/bulk:`, error);
         res.status(500).json({ error: "Internal server error" });
       }
-    },
+    }),
   );
 
   router.put(
     "/:entityName/:id",
     parseBody,
-    async (req: Request<EntityParams>, res: Response) => {
+    withCollection(async (req, res, collection) => {
       const { appId, entityName, id } = req.params;
-      const collection = db.getCollection(entityName);
-
-      if (!collection) {
-        res.status(404).json({ error: `Entity "${entityName}" not found` });
-        return;
-      }
-
       const { id: _id, created_date: _created_date, ...body } = req.body;
 
       try {
@@ -297,19 +286,13 @@ export function createEntityRoutes(
         logger.error(`Error in PUT /${entityName}/${id}:`, error);
         res.status(500).json({ error: "Internal server error" });
       }
-    },
+    }),
   );
 
   router.delete(
     "/:entityName/:id",
-    async (req: Request<EntityParams>, res: Response) => {
+    withCollection(async (req, res, collection) => {
       const { appId, entityName, id } = req.params;
-      const collection = db.getCollection(entityName);
-
-      if (!collection) {
-        res.status(404).json({ error: `Entity "${entityName}" not found` });
-        return;
-      }
 
       try {
         const doc = await collection.findOneAsync({ id });
@@ -331,20 +314,14 @@ export function createEntityRoutes(
         logger.error(`Error in DELETE /${entityName}/${id}:`, error);
         res.status(500).json({ error: "Internal server error" });
       }
-    },
+    }),
   );
 
   router.delete(
     "/:entityName",
     parseBody,
-    async (req: Request<EntityParams>, res: Response) => {
+    withCollection(async (req, res, collection) => {
       const { entityName } = req.params;
-      const collection = db.getCollection(entityName);
-
-      if (!collection) {
-        res.status(404).json({ error: `Entity "${entityName}" not found` });
-        return;
-      }
 
       try {
         const query = req.body || {};
@@ -354,7 +331,7 @@ export function createEntityRoutes(
         logger.error(`Error in DELETE /${entityName}:`, error);
         res.status(500).json({ error: "Internal server error" });
       }
-    },
+    }),
   );
 
   return router;
