@@ -72,12 +72,12 @@ async function setSecretsAction(
   const names = Object.keys(secrets);
 
   await runTask(
-    `Setting ${names.length} secret${names.length === 1 ? "" : "s"}`,
+    `Setting ${names.length} secrets`,
     async () => {
       return await setSecrets(secrets);
     },
     {
-      successMessage: `${names.length} secret${names.length === 1 ? "" : "s"} set successfully`,
+      successMessage: `${names.length} secrets set successfully`,
       errorMessage: "Failed to set secrets",
     },
   );

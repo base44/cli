@@ -28,7 +28,7 @@ async function listSecretsAction(): Promise<RunCommandResult> {
   }
 
   return {
-    outroMessage: `Found ${names.length} secret${names.length === 1 ? "" : "s"}.`,
+    outroMessage: `Found ${names.length} secrets.`,
   };
 }
 
