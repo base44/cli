@@ -326,7 +326,7 @@ export function createEntityRoutes(
         if (doc) {
           emit(appId, entityName, "delete", stripInternalFields(doc));
         }
-        res.json({ deleted: numRemoved });
+        res.json({ success: true });
       } catch (error) {
         logger.error(`Error in DELETE /${entityName}/${id}:`, error);
         res.status(500).json({ error: "Internal server error" });
@@ -338,7 +338,7 @@ export function createEntityRoutes(
     "/:entityName",
     parseBody,
     async (req: Request<EntityParams>, res: Response) => {
-      const { appId, entityName } = req.params;
+      const { entityName } = req.params;
       const collection = db.getCollection(entityName);
 
       if (!collection) {
@@ -348,12 +348,8 @@ export function createEntityRoutes(
 
       try {
         const query = req.body || {};
-        const docs = await collection.findAsync(query);
         const numRemoved = await collection.removeAsync(query, { multi: true });
-        for (const doc of docs) {
-          emit(appId, entityName, "delete", doc);
-        }
-        res.json({ deleted: numRemoved });
+        res.json({ success: true, deleted: numRemoved });
       } catch (error) {
         logger.error(`Error in DELETE /${entityName}:`, error);
         res.status(500).json({ error: "Internal server error" });
