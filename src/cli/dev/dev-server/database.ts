@@ -14,4 +14,8 @@ export class Database {
   getCollection(name: string): Datastore | undefined {
     return this.collections.get(name);
   }
+
+  getCollectionNames(): string[] {
+    return Array.from(this.collections.keys());
+  }
 }

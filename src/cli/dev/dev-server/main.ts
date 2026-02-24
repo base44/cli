@@ -80,6 +80,9 @@ export async function createDevServer(
   }
 
   const db = new Database(entities);
+  if (db.getCollectionNames().length > 0) {
+    clackLog.info(`Loaded entities: ${db.getCollectionNames().join(", ")}`);
+  }
 
   // Socket.IO is attached after the HTTP server starts; entity routes receive
   // a broadcast callback that becomes a no-op until the server is ready.
