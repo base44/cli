@@ -3,32 +3,66 @@ import { Command } from "commander";
 import type { CLIContext } from "@/cli/types.js";
 import { runCommand } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
-import { ApiError } from "@/core/errors.js";
+import { ApiError, InvalidInputError } from "@/core/errors.js";
 import { deleteSingleFunction } from "@/core/resources/function/api.js";
 
-async function deleteFunctionAction(
-  name: string,
+/**
+ * Parse function names from variadic args, supporting comma-separated values.
+ * e.g. ["fn-a", "fn-b,fn-c"] → ["fn-a", "fn-b", "fn-c"]
+ */
+function parseNames(args: string[]): string[] {
+  return args.flatMap((arg) => arg.split(",")).map((n) => n.trim()).filter(Boolean);
+}
+
+async function deleteFunctionsAction(
+  names: string[],
 ): Promise<RunCommandResult> {
-  try {
-    await deleteSingleFunction(name);
-    log.success(`${name} deleted`);
-    return { outroMessage: `Function "${name}" deleted` };
-  } catch (error) {
-    if (error instanceof ApiError && error.statusCode === 404) {
-      log.warn(`Function "${name}" not found on remote`);
-      return { outroMessage: `Function "${name}" not found` };
+  let deleted = 0;
+  let notFound = 0;
+  let errors = 0;
+
+  for (const name of names) {
+    try {
+      await deleteSingleFunction(name);
+      log.success(`${name} deleted`);
+      deleted++;
+    } catch (error) {
+      if (error instanceof ApiError && error.statusCode === 404) {
+        log.warn(`Function "${name}" not found on remote`);
+        notFound++;
+      } else {
+        log.error(`${name} error: ${error instanceof Error ? error.message : String(error)}`);
+        errors++;
+      }
     }
-    throw error;
   }
+
+  if (names.length === 1) {
+    if (deleted) return { outroMessage: `Function "${names[0]}" deleted` };
+    if (notFound) return { outroMessage: `Function "${names[0]}" not found` };
+    return { outroMessage: `Failed to delete "${names[0]}"` };
+  }
+
+  const parts: string[] = [];
+  if (deleted > 0) parts.push(`${deleted} deleted`);
+  if (notFound > 0) parts.push(`${notFound} not found`);
+  if (errors > 0) parts.push(`${errors} error${errors !== 1 ? "s" : ""}`);
+  return { outroMessage: parts.join(", ") };
 }
 
 export function getDeleteCommand(context: CLIContext): Command {
   return new Command("delete")
-    .description("Delete a deployed backend function")
-    .argument("<name>", "Name of the function to delete")
-    .action(async (name: string) => {
+    .description("Delete deployed functions")
+    .argument("<names...>", "Function names to delete")
+    .action(async (rawNames: string[]) => {
       await runCommand(
-        () => deleteFunctionAction(name),
+        () => {
+          const names = parseNames(rawNames);
+          if (names.length === 0) {
+            throw new InvalidInputError("At least one function name is required");
+          }
+          return deleteFunctionsAction(names);
+        },
         { requireAuth: true },
         context,
       );

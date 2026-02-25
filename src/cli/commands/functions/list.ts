@@ -31,7 +31,7 @@ async function listFunctionsAction(): Promise<RunCommandResult> {
 
 export function getListCommand(context: CLIContext): Command {
   return new Command("list")
-    .description("List deployed backend functions")
+    .description("List all deployed functions")
     .action(async () => {
       await runCommand(listFunctionsAction, { requireAuth: true }, context);
     });

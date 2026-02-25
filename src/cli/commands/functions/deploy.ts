@@ -28,20 +28,38 @@ function formatResult(r: SingleFunctionDeployResult): void {
   }
 }
 
+/**
+ * Parse function names from variadic args, supporting comma-separated values.
+ * e.g. ["fn-a", "fn-b,fn-c"] → ["fn-a", "fn-b", "fn-c"]
+ */
+function parseNames(args: string[]): string[] {
+  return args.flatMap((arg) => arg.split(",")).map((n) => n.trim()).filter(Boolean);
+}
+
 async function deployFunctionsAction(
-  name: string | undefined,
-  options: { prune?: boolean; concurrency?: number },
+  names: string[],
+  options: { force?: boolean },
 ): Promise<RunCommandResult> {
+  if (options.force && names.length > 0) {
+    throw new InvalidInputError("--force cannot be used when specifying function names");
+  }
+
   const { functions } = await readProjectConfig();
 
-  const toDeploy = name
-    ? functions.filter((f) => f.name === name)
-    : functions;
+  let toDeploy;
+  if (names.length > 0) {
+    const notFound = names.filter((n) => !functions.some((f) => f.name === n));
+    if (notFound.length > 0) {
+      throw new InvalidInputError(
+        `Function${notFound.length > 1 ? "s" : ""} not found in project: ${notFound.join(", ")}`,
+      );
+    }
+    toDeploy = functions.filter((f) => names.includes(f.name));
+  } else {
+    toDeploy = functions;
+  }
 
   if (toDeploy.length === 0) {
-    if (name) {
-      throw new InvalidInputError(`Function "${name}" not found in project`);
-    }
     return {
       outroMessage:
         "No functions found. Create functions in the 'functions' directory.",
@@ -56,9 +74,8 @@ async function deployFunctionsAction(
   const total = toDeploy.length;
 
   const results = await pushFunctionsSingle(toDeploy, {
-    concurrency: options.concurrency,
-    onStart: (names) => {
-      const label = names.length === 1 ? names[0] : `${names.length} functions`;
+    onStart: (startNames) => {
+      const label = startNames.length === 1 ? startNames[0] : `${startNames.length} functions`;
       log.step(theme.styles.dim(`[${completed}/${total}] Deploying ${label}...`));
     },
     onResult: (r) => {
@@ -70,9 +87,9 @@ async function deployFunctionsAction(
   const succeeded = results.filter((r) => r.status !== "error").length;
   const failed = results.filter((r) => r.status === "error").length;
 
-  // Prune if requested
-  if (options.prune) {
-    log.info("Pruning remote functions not found locally...");
+  // Force: delete remote functions not found locally
+  if (options.force) {
+    log.info("Removing remote functions not found locally...");
     const allLocalNames = functions.map((f) => f.name);
     const pruneResults = await pruneRemovedFunctions(allLocalNames);
 
@@ -86,7 +103,7 @@ async function deployFunctionsAction(
 
     if (pruneResults.length > 0) {
       const pruned = pruneResults.filter((r) => r.deleted).length;
-      log.info(`${pruned} function${pruned !== 1 ? "s" : ""} pruned`);
+      log.info(`${pruned} function${pruned !== 1 ? "s" : ""} removed`);
     }
   }
 
@@ -101,29 +118,18 @@ async function deployFunctionsAction(
 
 export function getDeployCommand(context: CLIContext): Command {
   return new Command("deploy")
-    .description("Deploy local functions to Base44")
-    .argument("[name]", "Deploy a single function by name")
-    .option("--prune", "Delete remote functions not found locally")
-    .option(
-      "-c, --concurrency <n>",
-      "Number of functions to deploy in parallel",
-    )
+    .description("Deploy functions to Base44")
+    .argument("[names...]", "Function names to deploy (deploys all if omitted)")
+    .option("--force", "Delete remote functions not found locally")
     .action(
       async (
-        name: string | undefined,
-        options: { prune?: boolean; concurrency?: string },
+        rawNames: string[],
+        options: { force?: boolean },
       ) => {
       await runCommand(
         () => {
-          let concurrency: number | undefined;
-          if (options.concurrency !== undefined) {
-            const n = parseInt(options.concurrency, 10);
-            if (Number.isNaN(n) || n < 1) {
-              throw new InvalidInputError("--concurrency must be a positive integer");
-            }
-            concurrency = n;
-          }
-          return deployFunctionsAction(name, { prune: options.prune, concurrency });
+          const names = parseNames(rawNames);
+          return deployFunctionsAction(names, options);
         },
         { requireAuth: true },
         context,

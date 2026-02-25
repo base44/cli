@@ -67,41 +67,19 @@ async function deployOne(
 export async function pushFunctionsSingle(
   functions: BackendFunction[],
   options?: {
-    concurrency?: number;
     onStart?: (names: string[]) => void;
     onResult?: (result: SingleFunctionDeployResult) => void;
   },
 ): Promise<SingleFunctionDeployResult[]> {
   if (functions.length === 0) return [];
 
-  const concurrency = options?.concurrency ?? 1;
-
-  if (concurrency <= 1) {
-    // Sequential: deploy one at a time, report as each completes
-    const results: SingleFunctionDeployResult[] = [];
-    for (const fn of functions) {
-      options?.onStart?.([fn.name]);
-      const result = await deployOne(fn);
-      results.push(result);
-      options?.onResult?.(result);
-    }
-    return results;
-  }
-
-  // Concurrent: process in batches of `concurrency`
   const results: SingleFunctionDeployResult[] = [];
-
-  for (let i = 0; i < functions.length; i += concurrency) {
-    const batch = functions.slice(i, i + concurrency);
-    options?.onStart?.(batch.map((fn) => fn.name));
-    const batchResults = await Promise.all(batch.map(deployOne));
-
-    for (const result of batchResults) {
-      results.push(result);
-      options?.onResult?.(result);
-    }
+  for (const fn of functions) {
+    options?.onStart?.([fn.name]);
+    const result = await deployOne(fn);
+    results.push(result);
+    options?.onResult?.(result);
   }
-
   return results;
 }
 
