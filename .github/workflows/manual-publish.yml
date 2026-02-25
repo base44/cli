@@ -118,6 +118,7 @@ jobs:
             Generate release notes for version ${{ env.NEW_VERSION }} (release date: today).
             Previous version tag: ${{ steps.prev-tag.outputs.tag }}
             Update changelog: ${{ github.event.inputs.update_changelog }}
+            Dry run: ${{ github.event.inputs.dry_run }}
 
             ## Instructions
 
@@ -133,7 +134,7 @@ jobs:
                - **Fixed** - bug fixes
                - **Removed** - removed features
 
-            4. If "Update changelog" above is "true", update CHANGELOG.md by inserting the new entry AFTER `## [Unreleased]`.
+            4. If "Update changelog" above is "true" AND "Dry run" is "false", update CHANGELOG.md by inserting the new entry AFTER `## [Unreleased]`. Skip file writes during dry runs.
 
             5. **Always** write a file called `release-summary.md` with a concise, media-sharable summary of user-facing changes. This is what gets shared in Slack/social — keep it tight.
 
