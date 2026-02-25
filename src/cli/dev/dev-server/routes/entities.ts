@@ -117,6 +117,9 @@ export function createEntityRoutes(
   }
 
   router.get("/User/:id", (req, res, next) => {
+    logger.warn(
+      `"${req.originalUrl}" is not supported in local development, passing call to production`,
+    );
     // This is necessary because Express strips the router prefix from req.url,
     // so without this the proxy would send just `/User/:id` instead of the full path.
     req.url = req.originalUrl;
