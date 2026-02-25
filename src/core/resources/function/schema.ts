@@ -94,8 +94,7 @@ export const DeployFunctionsResponseSchema = z.object({
 });
 
 export const DeploySingleFunctionResponseSchema = z.object({
-  status: z.enum(["deployed", "unchanged", "error"]),
-  error: z.string().optional().nullable(),
+  status: z.enum(["deployed", "unchanged"]),
   duration_ms: z.number().optional().nullable(),
 });
 
