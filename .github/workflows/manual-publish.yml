@@ -177,7 +177,9 @@ jobs:
 
             🔧 Bug fixes and internal improvements
             ```
-          claude_args: --model claude-3-5-haiku-latest --allowedTools Bash,Read,Edit,Write
+          claude_args: |
+            --model claude-3-5-haiku-latest
+            --allowedTools "Bash(git log:*),Bash(gh pr:*),Read,Edit(CHANGELOG.md),Write(release-summary.md)"
 
       - name: Build package
         run: bun run build
