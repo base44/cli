@@ -1,6 +1,21 @@
 # Changelog
 
 
+## [0.0.36] - 2026-02-25
+
+### Added
+
+- Secrets list, set, and delete commands (#321)
+- CLI local dev support for entities (#279)
+
+### Changed
+
+- Hide secrets command from help output (#333)
+
+### Fixed
+
+- Fixed eject command when there are no options (#332)
+
 ## [0.0.34] - 2026-02-23
 
 ### Added
