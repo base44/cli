@@ -21,7 +21,6 @@ interface LogsOptions {
   level?: string;
   limit?: string;
   order?: string;
-  json?: boolean;
 }
 
 /**
@@ -187,11 +186,11 @@ async function logsAction(options: LogsOptions): Promise<RunCommandResult> {
     entries = entries.slice(0, limit);
   }
 
-  const logsOutput = options.json
-    ? `${JSON.stringify(entries, null, 2)}\n`
-    : formatLogs(entries);
-
-  return { outroMessage: "Fetched logs", stdout: logsOutput };
+  return {
+    outroMessage: "Fetched logs",
+    stdout: formatLogs(entries),
+    data: { logs: entries },
+  };
 }
 
 export function getLogsCommand(context: CLIContext): Command {

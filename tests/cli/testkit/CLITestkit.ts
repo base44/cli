@@ -18,6 +18,7 @@ interface CLIContext {
     getErrorContext: () => { sessionId?: string; appId?: string };
   };
   isNonInteractive: boolean;
+  isJsonMode: boolean;
 }
 
 /** Type for the bundled program module */
@@ -140,6 +141,7 @@ export class CLITestkit {
         getErrorContext: () => ({ sessionId: "test-session" }),
       },
       isNonInteractive: true,
+      isJsonMode: false,
     };
     const program = createProgram(mockContext);
 

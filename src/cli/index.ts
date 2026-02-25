@@ -14,7 +14,11 @@ async function runCLI(): Promise<void> {
 
   // Create context for dependency injection
   const isNonInteractive = !process.stdin.isTTY || !process.stdout.isTTY;
-  const context: CLIContext = { errorReporter, isNonInteractive };
+  const context: CLIContext = {
+    errorReporter,
+    isNonInteractive,
+    isJsonMode: false,
+  };
 
   // Create program with injected context
   const program = createProgram(context);

@@ -264,7 +264,7 @@ export function getLinkCommand(context: CLIContext): Command {
     .action(async (options: LinkOptions) => {
       await runCommand(
         () => link(options),
-        { requireAuth: true, requireAppConfig: false },
+        { requireAuth: true, requireAppConfig: false, interactive: true },
         context,
       );
     });

@@ -304,7 +304,12 @@ export function getCreateCommand(context: CLIContext): Command {
       } else {
         await runCommand(
           () => createInteractive({ name, ...options }),
-          { fullBanner: true, requireAuth: true, requireAppConfig: false },
+          {
+            fullBanner: true,
+            requireAuth: true,
+            requireAppConfig: false,
+            interactive: true,
+          },
           context,
         );
       }

@@ -181,7 +181,7 @@ export function getEjectCommand(context: CLIContext): Command {
     .action(async (options: EjectOptions) => {
       await runCommand(
         () => eject({ ...options, isNonInteractive: context.isNonInteractive }),
-        { requireAuth: true, requireAppConfig: false },
+        { requireAuth: true, requireAppConfig: false, interactive: true },
         context,
       );
     });

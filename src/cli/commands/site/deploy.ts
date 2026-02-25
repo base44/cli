@@ -64,7 +64,7 @@ export function getSiteDeployCommand(context: CLIContext): Command {
             ...options,
             isNonInteractive: context.isNonInteractive,
           }),
-        { requireAuth: true },
+        { requireAuth: true, interactive: !options.yes },
         context,
       );
     });

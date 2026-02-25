@@ -29,6 +29,17 @@ export function createProgram(context: CLIContext): Command {
     )
     .version(packageJson.version);
 
+  program.option(
+    "--json",
+    "Output results as JSON instead of human-readable text",
+  );
+
+  program.hook("preAction", (thisCommand) => {
+    if (thisCommand.opts().json) {
+      context.isJsonMode = true;
+    }
+  });
+
   program.configureHelp({
     sortSubcommands: true,
   });

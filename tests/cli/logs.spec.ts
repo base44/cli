@@ -1,4 +1,4 @@
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { fixture, setupCLITests } from "./testkit/index.js";
 
 describe("logs command", () => {
@@ -182,5 +182,70 @@ describe("logs command", () => {
     );
 
     t.expectResult(result).toSucceed();
+  });
+
+  describe("--json mode", () => {
+    it("outputs structured JSON with logs wrapped in an object", async () => {
+      await t.givenLoggedInWithProject(fixture("basic"));
+      t.api.mockFunctionLogs("my-function", [
+        {
+          time: "2024-01-15T10:30:00.000Z",
+          level: "info",
+          message: "Test log",
+        },
+      ]);
+
+      const result = await t.run("logs", "--function", "my-function", "--json");
+
+      t.expectResult(result).toSucceed();
+      const parsed = JSON.parse(result.stdout);
+      expect(parsed).toHaveProperty("logs");
+      expect(parsed.logs).toHaveLength(1);
+      expect(parsed.logs[0]).toMatchObject({
+        time: "2024-01-15T10:30:00.000Z",
+        level: "info",
+        source: "my-function",
+      });
+    });
+
+    it("outputs empty logs array when no logs found", async () => {
+      await t.givenLoggedInWithProject(fixture("basic"));
+      t.api.mockFunctionLogs("my-function", []);
+
+      const result = await t.run("logs", "--function", "my-function", "--json");
+
+      t.expectResult(result).toSucceed();
+      const parsed = JSON.parse(result.stdout);
+      expect(parsed.logs).toEqual([]);
+    });
+
+    it("suppresses clack UI output in JSON mode", async () => {
+      await t.givenLoggedInWithProject(fixture("basic"));
+      t.api.mockFunctionLogs("my-function", [
+        {
+          time: "2024-01-15T10:30:00.000Z",
+          level: "info",
+          message: "Test",
+        },
+      ]);
+
+      const result = await t.run("logs", "--function", "my-function", "--json");
+
+      t.expectResult(result).toSucceed();
+      expect(result.stdout).not.toContain("Base 44");
+      expect(result.stdout).not.toContain("Fetched logs");
+    });
+
+    it("falls back to message object when command has no data", async () => {
+      await t.givenLoggedInWithProject(fixture("basic"));
+
+      const result = await t.run("logs", "--json");
+
+      t.expectResult(result).toSucceed();
+      const parsed = JSON.parse(result.stdout);
+      expect(parsed).toEqual({
+        message: "No functions found in this project.",
+      });
+    });
   });
 });
