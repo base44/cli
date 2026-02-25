@@ -69,7 +69,6 @@ export function createIntegrationRoutes(
     res.json({ signed_url });
   });
 
-  // Other Core endpoints (stub for future implementation)
   router.post(
     "/Core/:endpointName",
     (req: Request<{ endpointName: string }>, res, next) => {
@@ -83,7 +82,6 @@ export function createIntegrationRoutes(
     },
   );
 
-  // Installable package integrations (stub)
   router.post(
     "/installable/:packageName/integration-endpoints/:endpointName",
     (
