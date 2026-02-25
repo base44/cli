@@ -109,14 +109,15 @@ jobs:
             echo "Previous tag date: $PREV_TAG_DATE"
           fi
 
-      - name: Generate Changelog
-        if: github.event.inputs.update_changelog == 'true' && github.event.inputs.dry_run == 'false' && steps.prev-tag.outputs.tag != ''
+      - name: Generate Changelog & Release Summary
+        if: steps.prev-tag.outputs.tag != ''
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
-            Generate a changelog entry for version ${{ env.NEW_VERSION }} (release date: today).
+            Generate release notes for version ${{ env.NEW_VERSION }} (release date: today).
             Previous version tag: ${{ steps.prev-tag.outputs.tag }}
+            Update changelog: ${{ github.event.inputs.update_changelog }}
 
             ## Instructions
 
@@ -132,7 +133,9 @@ jobs:
                - **Fixed** - bug fixes
                - **Removed** - removed features
 
-            4. Update CHANGELOG.md by inserting the new entry AFTER `## [Unreleased]`.
+            4. If "Update changelog" above is "true", update CHANGELOG.md by inserting the new entry AFTER `## [Unreleased]`.
+
+            5. **Always** write a file called `release-summary.md` with a concise, media-sharable summary of user-facing changes. This is what gets shared in Slack/social — keep it tight.
 
             ## Rules
 
@@ -140,7 +143,7 @@ jobs:
             - Include PR numbers: "Added foo feature (#123)"
             - Use ISO date: YYYY-MM-DD
 
-            ## Example
+            ## CHANGELOG.md example
 
             ```markdown
             ## [0.0.8] - 2026-01-19
@@ -151,7 +154,30 @@ jobs:
             ### Fixed
             - Various small fixes (#60)
             ```
-          claude_args: --model claude-3-5-haiku-latest --allowedTools Bash,Read,Edit
+
+            ## release-summary.md format
+
+            The summary must follow this exact format. Only include sections that have items.
+            If the release is only bug fixes or internal changes, collapse to a single line.
+
+            Format for releases with notable features:
+            ```
+            📦 base44 v0.0.8
+
+            ✨ New
+              • Non-interactive mode for `create` command (#67)
+
+            🐛 Fixes
+              • Fixed deploy crash on empty projects (#60)
+            ```
+
+            Format for internal-only releases:
+            ```
+            📦 base44 v0.0.8
+
+            🔧 Bug fixes and internal improvements
+            ```
+          claude_args: --model claude-3-5-haiku-latest --allowedTools Bash,Read,Edit,Write
 
       - name: Build package
         run: bun run build
@@ -229,63 +255,9 @@ jobs:
       - name: Release summary
         if: steps.prev-tag.outputs.tag != ''
         run: |
-          PREV_TAG="${{ steps.prev-tag.outputs.tag }}"
-          VERSION="${{ env.NEW_VERSION }}"
-          DRY_RUN="${{ github.event.inputs.dry_run }}"
-
-          features=""
-          fixes=""
-          has_internal=false
-
-          while IFS= read -r msg; do
-            [ -z "$msg" ] && continue
-
-            # Skip version bumps and changelog commits
-            if echo "$msg" | grep -qiE '^chore:\s*(release|bump|version)'; then
-              continue
-            fi
-
-            # Extract PR number if present
-            pr=$(echo "$msg" | grep -oE '\(#[0-9]+\)' | head -1)
-
-            # Clean the message: strip conventional commit prefix and scope
-            clean=$(echo "$msg" | sed -E 's/^[a-z]+(\([^)]*\))?:\s*//' | sed -E 's/\s*\(#[0-9]+\)\s*$//')
-
-            # Categorize by conventional commit prefix
-            if echo "$msg" | grep -qE '^feat(\(|:)'; then
-              features="${features}  • ${clean} ${pr}\n"
-            elif echo "$msg" | grep -qE '^fix(\(|:)'; then
-              fixes="${fixes}  • ${clean} ${pr}\n"
-            else
-              has_internal=true
-            fi
-          done <<< "$(git log "${PREV_TAG}..HEAD" --pretty=format:"%s" --no-merges)"
-
-          # Build summary
-          {
-            if [ "$DRY_RUN" == "true" ]; then
-              echo "📦 base44 v${VERSION} (dry run)"
-            else
-              echo "📦 base44 v${VERSION}"
-            fi
-            echo ""
-
-            if [ -n "$features" ]; then
-              echo "✨ New"
-              echo -e "$features"
-            fi
-
-            if [ -n "$fixes" ]; then
-              echo "🐛 Fixes"
-              echo -e "$fixes"
-            fi
-
-            if [ -z "$features" ] && [ -z "$fixes" ]; then
-              echo "🔧 Bug fixes and internal improvements"
-            elif [ "$has_internal" = true ]; then
-              echo "🔧 Plus internal improvements"
-            fi
-          } | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ -f release-summary.md ]; then
+            cat release-summary.md | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Generate token for skills repo
         if: github.event.inputs.dry_run == 'false' && github.event.inputs.notify_skills_repo == 'true'
