@@ -2,6 +2,7 @@ import { join } from "node:path";
 import type { FunctionInfo } from "@/core/resources/function/schema.js";
 import {
   pathExists,
+  readJsonFile,
   readTextFile,
   writeFile,
   writeJsonFile,
@@ -63,6 +64,26 @@ async function isFunctionUnchanged(
     return false;
   }
 
+  // Compare function config (entry, automations)
+  const configPath = join(functionDir, "function.jsonc");
+  try {
+    const localConfig = (await readJsonFile(configPath)) as Record<
+      string,
+      unknown
+    >;
+    if (localConfig.entry !== fn.entry) {
+      return false;
+    }
+    const localAuto = JSON.stringify(localConfig.automations ?? []);
+    const remoteAuto = JSON.stringify(fn.automations);
+    if (localAuto !== remoteAuto) {
+      return false;
+    }
+  } catch {
+    return false;
+  }
+
+  // Compare source files
   for (const file of fn.files) {
     const filePath = join(functionDir, file.path);
     if (!(await pathExists(filePath))) {
