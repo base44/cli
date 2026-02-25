@@ -6,7 +6,10 @@ import {
   pushConnectors,
 } from "@/core/resources/connector/index.js";
 import { entityResource } from "@/core/resources/entity/index.js";
-import { functionResource } from "@/core/resources/function/index.js";
+import {
+  type SingleFunctionDeployResult,
+  pushFunctionsSingle,
+} from "@/core/resources/function/deploy.js";
 import { deploySite } from "@/core/site/index.js";
 
 /**
@@ -40,19 +43,29 @@ interface DeployAllResult {
   connectorResults?: ConnectorSyncResult[];
 }
 
+export interface DeployAllOptions {
+  onFunctionStart?: (names: string[]) => void;
+  onFunctionResult?: (result: SingleFunctionDeployResult) => void;
+}
+
 /**
  * Deploys all project resources (entities, functions, agents, connectors, and site) to Base44.
  *
  * @param projectData - The project configuration and resources to deploy
+ * @param options - Optional callbacks for per-function deploy progress
  * @returns The deployment result including app URL if site was deployed
  */
 export async function deployAll(
   projectData: ProjectData,
+  options?: DeployAllOptions,
 ): Promise<DeployAllResult> {
   const { project, entities, functions, agents, connectors } = projectData;
 
   await entityResource.push(entities);
-  await functionResource.push(functions);
+  await pushFunctionsSingle(functions, {
+    onStart: options?.onFunctionStart,
+    onResult: options?.onFunctionResult,
+  });
   await agentResource.push(agents);
   const { results: connectorResults } = await pushConnectors(connectors);
 
