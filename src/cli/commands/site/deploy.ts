@@ -53,10 +53,20 @@ async function deployAction(options: DeployOptions): Promise<RunCommandResult> {
   return { outroMessage: `Visit your site at: ${result.appUrl}` };
 }
 
+function validateNonInteractiveMode(context: CLIContext) {
+  return (command: Command): void => {
+    if (!context.isJsonMode && !context.isNonInteractive) return;
+    if (!command.opts<DeployOptions>().yes) {
+      command.error("Non-interactive mode requires: --yes");
+    }
+  };
+}
+
 export function getSiteDeployCommand(context: CLIContext): Command {
   return new Command("deploy")
     .description("Deploy built site files to Base44 hosting")
     .option("-y, --yes", "Skip confirmation prompt")
+    .hook("preAction", validateNonInteractiveMode(context))
     .action(async (options: DeployOptions) => {
       await runCommand(
         () =>
@@ -64,7 +74,7 @@ export function getSiteDeployCommand(context: CLIContext): Command {
             ...options,
             isNonInteractive: context.isNonInteractive,
           }),
-        { requireAuth: true, interactive: !options.yes },
+        { requireAuth: true },
         context,
       );
     });

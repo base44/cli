@@ -72,7 +72,6 @@ await runCommand(myAction, { fullBanner: true, requireAuth: true }, context);
 - `fullBanner` - Show ASCII art banner instead of simple tag (for special commands like `create`)
 - `requireAuth` - Check authentication before running, auto-triggers login if needed
 - `requireAppConfig` - Load `.app.jsonc` and cache for sync access (default: `true`)
-- `interactive` - Mark command as requiring interactive prompts; throws if `--json` is used
 
 ## CLIContext (Dependency Injection)
 
@@ -245,11 +244,25 @@ On error in JSON mode, a JSON object is written to stderr:
 
 ### Interactive commands
 
-Commands that use interactive prompts (`select`, `confirm`, `text`) must set `interactive: true` in their `runCommand` options. This causes an immediate error if `--json` is used:
+Commands with interactive prompts (`select`, `confirm`, `text`) should validate required flags in a `preAction` hook. This fires before `runCommand` (no wasted auth/API calls) and works for both `--json` and piped/CI sessions:
 
 ```typescript
-await runCommand(myAction, { requireAuth: true, interactive: true }, context);
+export function getMyCommand(context: CLIContext): Command {
+  return new Command("my-cmd")
+    .option("-y, --yes", "Skip confirmation prompt")
+    .hook("preAction", (command) => {
+      if (!context.isJsonMode && !context.isNonInteractive) return;
+      if (!command.opts().yes) {
+        command.error("Non-interactive mode requires: --yes");
+      }
+    })
+    .action(async (options) => {
+      await runCommand(() => myAction(options), { requireAuth: true }, context);
+    });
+}
 ```
+
+List specific missing flags so users know exactly what to add (e.g., `Missing: --project-id <id>, --path <path>`).
 
 ## Rules (Command-Specific)
 

@@ -5,11 +5,7 @@ import { printBanner } from "@/cli/utils/banner.js";
 import { theme } from "@/cli/utils/theme.js";
 import { printUpgradeNotificationIfAvailable } from "@/cli/utils/upgradeNotification.js";
 import { isLoggedIn, readAuth } from "@/core/auth/index.js";
-import {
-  AuthRequiredError,
-  InvalidInputError,
-  isCLIError,
-} from "@/core/errors.js";
+import { AuthRequiredError, isCLIError } from "@/core/errors.js";
 import { initAppConfig } from "@/core/project/index.js";
 
 interface RunCommandOptions {
@@ -31,12 +27,6 @@ interface RunCommandOptions {
    * @default true
    */
   requireAppConfig?: boolean;
-  /**
-   * Mark this command as requiring interactive prompts (select, confirm, text).
-   * When set, the command will throw if --json is used.
-   * @default false
-   */
-  interactive?: boolean;
 }
 
 export interface RunCommandResult {
@@ -83,11 +73,6 @@ export async function runCommand(
 
   try {
     if (json) {
-      if (options?.interactive) {
-        throw new InvalidInputError(
-          "This command requires interactive input and cannot be used with --json",
-        );
-      }
       savedStdoutWrite = process.stdout.write.bind(process.stdout);
       process.stdout.write = (() => true) as typeof process.stdout.write;
     }

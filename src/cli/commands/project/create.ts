@@ -45,12 +45,23 @@ async function getTemplateById(templateId: string): Promise<Template> {
   return template;
 }
 
-function validateNonInteractiveFlags(command: Command): void {
-  const { path } = command.opts<CreateOptions>();
+function validateFlags(context: CLIContext) {
+  return (command: Command): void => {
+    const opts = command.opts<CreateOptions>();
+    const name = command.args[0];
 
-  if (path && !command.args.length) {
-    command.error("Non-interactive mode requires all flags: --name, --path");
-  }
+    if (opts.path && !(opts.name ?? name)) {
+      command.error("Non-interactive mode requires all flags: --name, --path");
+    }
+
+    if (context.isJsonMode || context.isNonInteractive) {
+      if (!(opts.name ?? name) || !opts.path) {
+        command.error(
+          "Non-interactive mode requires: <name> and --path <path>",
+        );
+      }
+    }
+  };
 }
 
 async function createInteractive(
@@ -290,7 +301,7 @@ export function getCreateCommand(context: CLIContext): Command {
     )
     .option("--deploy", "Build and deploy the site")
     .option("--no-skills", "Skip AI agent skills installation")
-    .hook("preAction", validateNonInteractiveFlags)
+    .hook("preAction", validateFlags(context))
     .action(async (name: string | undefined, options: CreateOptions) => {
       const isNonInteractive = !!(options.name ?? name) && !!options.path;
 
@@ -308,7 +319,6 @@ export function getCreateCommand(context: CLIContext): Command {
             fullBanner: true,
             requireAuth: true,
             requireAppConfig: false,
-            interactive: true,
           },
           context,
         );

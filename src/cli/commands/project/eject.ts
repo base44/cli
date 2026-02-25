@@ -169,6 +169,19 @@ async function eject(options: EjectOptions): Promise<RunCommandResult> {
   return { outroMessage: "Your new project is set and ready to use" };
 }
 
+function validateNonInteractiveMode(context: CLIContext) {
+  return (command: Command): void => {
+    if (!context.isJsonMode && !context.isNonInteractive) return;
+    const opts = command.opts<EjectOptions>();
+    const missing: string[] = [];
+    if (!opts.projectId) missing.push("--project-id <id>");
+    if (!opts.path) missing.push("--path <path>");
+    if (missing.length > 0) {
+      command.error(`Non-interactive mode requires: ${missing.join(", ")}`);
+    }
+  };
+}
+
 export function getEjectCommand(context: CLIContext): Command {
   return new Command("eject")
     .description("Download the code for an existing Base44 project")
@@ -178,10 +191,11 @@ export function getEjectCommand(context: CLIContext): Command {
       "Project ID to eject (skips interactive selection)",
     )
     .option("-y, --yes", "Skip confirmation prompts")
+    .hook("preAction", validateNonInteractiveMode(context))
     .action(async (options: EjectOptions) => {
       await runCommand(
         () => eject({ ...options, isNonInteractive: context.isNonInteractive }),
-        { requireAuth: true, requireAppConfig: false, interactive: true },
+        { requireAuth: true, requireAppConfig: false },
         context,
       );
     });

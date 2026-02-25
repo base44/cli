@@ -120,12 +120,22 @@ export async function deployAction(
   return { outroMessage: "App deployed successfully" };
 }
 
+function validateNonInteractiveMode(context: CLIContext) {
+  return (command: Command): void => {
+    if (!context.isJsonMode && !context.isNonInteractive) return;
+    if (!command.opts<DeployOptions>().yes) {
+      command.error("Non-interactive mode requires: --yes");
+    }
+  };
+}
+
 export function getDeployCommand(context: CLIContext): Command {
   return new Command("deploy")
     .description(
       "Deploy all project resources (entities, functions, agents, connectors, and site)",
     )
     .option("-y, --yes", "Skip confirmation prompt")
+    .hook("preAction", validateNonInteractiveMode(context))
     .action(async (options: DeployOptions) => {
       await runCommand(
         () =>
