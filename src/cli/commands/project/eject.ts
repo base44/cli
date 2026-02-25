@@ -59,7 +59,10 @@ async function eject(options: EjectOptions): Promise<RunCommandResult> {
     selectedProject = foundProject;
     log.info(`Selected project: ${theme.styles.bold(selectedProject.name)}`);
   } else {
-    // Interactive: show project selection prompt
+    if (ejectableProjects.length === 0) {
+      return { outroMessage: "No projects available to eject." };
+    }
+
     const projectOptions: Option<Project>[] = ejectableProjects.map((p) => ({
       value: p,
       label: p.name,
