@@ -29,7 +29,11 @@ export function createIntegrationRoutes(
       cb(null, `${randomUUID()}${ext}`);
     },
   });
-  const upload = multer({ storage });
+
+  // File size limitation is 50 MB
+  // https://docs.base44.com/Building-your-app/Using-media#sharing-media-on-your-live-app
+  const MAX_FILE_SIZE = 50 * 1024 * 1024;
+  const upload = multer({ storage, limits: { fileSize: MAX_FILE_SIZE } });
 
   router.post(
     "/Core/UploadFile",
