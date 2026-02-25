@@ -1,13 +1,11 @@
 import { basename } from "node:path";
 import {
   deleteSingleFunction,
-  deployFunctions,
   deploySingleFunction,
   listDeployedFunctions,
 } from "@/core/resources/function/api.js";
 import type {
   BackendFunction,
-  DeployFunctionsResponse,
   DeploySingleFunctionResponse,
   FunctionFile,
   FunctionWithCode,
@@ -24,17 +22,6 @@ export async function loadFunctionCode(
     }),
   );
   return { ...fn, files: loadedFiles };
-}
-
-export async function pushFunctions(
-  functions: BackendFunction[],
-): Promise<DeployFunctionsResponse> {
-  if (functions.length === 0) {
-    return { deployed: [], deleted: [], skipped: [], errors: null };
-  }
-
-  const functionsWithCode = await Promise.all(functions.map(loadFunctionCode));
-  return deployFunctions(functionsWithCode);
 }
 
 export interface SingleFunctionDeployResult {

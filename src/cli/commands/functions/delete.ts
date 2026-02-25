@@ -3,16 +3,9 @@ import { Command } from "commander";
 import type { CLIContext } from "@/cli/types.js";
 import { runCommand } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
+import { parseNames } from "@/cli/utils/parseNames.js";
 import { ApiError, InvalidInputError } from "@/core/errors.js";
 import { deleteSingleFunction } from "@/core/resources/function/api.js";
-
-/**
- * Parse function names from variadic args, supporting comma-separated values.
- * e.g. ["fn-a", "fn-b,fn-c"] → ["fn-a", "fn-b", "fn-c"]
- */
-function parseNames(args: string[]): string[] {
-  return args.flatMap((arg) => arg.split(",")).map((n) => n.trim()).filter(Boolean);
-}
 
 async function deleteFunctionsAction(
   names: string[],

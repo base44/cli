@@ -1,7 +1,9 @@
 import { log } from "@clack/prompts";
 import { Command } from "commander";
 import type { CLIContext } from "@/cli/types.js";
+import { formatDeployResult } from "@/cli/utils/formatDeployResult.js";
 import { runCommand } from "@/cli/utils/index.js";
+import { parseNames } from "@/cli/utils/parseNames.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 import { theme } from "@/cli/utils/theme.js";
 import { InvalidInputError } from "@/core/errors.js";
@@ -10,31 +12,6 @@ import {
   pruneRemovedFunctions,
   pushFunctionsSingle,
 } from "@/core/resources/function/deploy.js";
-import type { SingleFunctionDeployResult } from "@/core/resources/function/deploy.js";
-
-function formatDuration(ms: number): string {
-  return `${(ms / 1000).toFixed(1)}s`;
-}
-
-function formatResult(r: SingleFunctionDeployResult): void {
-  const label = r.name.padEnd(25);
-  if (r.status === "deployed") {
-    const timing = r.duration_ms ? theme.styles.dim(` (${formatDuration(r.duration_ms)})`) : "";
-    log.success(`${label} deployed${timing}`);
-  } else if (r.status === "unchanged") {
-    log.success(`${label} unchanged`);
-  } else {
-    log.error(`${label} error: ${r.error}`);
-  }
-}
-
-/**
- * Parse function names from variadic args, supporting comma-separated values.
- * e.g. ["fn-a", "fn-b,fn-c"] → ["fn-a", "fn-b", "fn-c"]
- */
-function parseNames(args: string[]): string[] {
-  return args.flatMap((arg) => arg.split(",")).map((n) => n.trim()).filter(Boolean);
-}
 
 async function deployFunctionsAction(
   names: string[],
@@ -80,7 +57,7 @@ async function deployFunctionsAction(
     },
     onResult: (r) => {
       completed++;
-      formatResult(r);
+      formatDeployResult(r);
     },
   });
 
