@@ -110,6 +110,7 @@ export async function createDevServer(
   const integrationRoutes = createIntegrationRoutes(
     mediaFilesDir,
     baseUrl,
+    remoteProxy,
     devLogger,
   );
   app.use("/api/apps/:appId/integration-endpoints", integrationRoutes);

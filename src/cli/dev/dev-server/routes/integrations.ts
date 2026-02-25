@@ -13,6 +13,7 @@ import type { Logger } from "../../createDevLogger.js";
 export function createIntegrationRoutes(
   mediaFilesDir: string,
   baseUrl: string,
+  remoteProxy: RequestHandler,
   logger: Logger,
 ): Router {
   const router = Router({ mergeParams: true });
@@ -48,42 +49,37 @@ export function createIntegrationRoutes(
     },
   );
 
-  router.post(
-    "/Core/UploadPrivateFile",
-    upload.single("file"),
-    (req: Request, res: Response) => {
-      if (!req.file) {
-        res.status(400).json({ error: "No file uploaded" });
-        return;
-      }
-      const file_uri = req.file.filename;
-      res.json({ file_uri });
-    },
-  );
+  router.post("/Core/UploadPrivateFile", upload.single("file"), (req, res) => {
+    if (!req.file) {
+      res.status(400).json({ error: "No file uploaded" });
+      return;
+    }
+    const file_uri = req.file.filename;
+    res.json({ file_uri });
+  });
 
-  router.post(
-    "/Core/CreateFileSignedUrl",
-    parseBody,
-    (req: Request, res: Response) => {
-      const { file_uri } = req.body;
-      if (!file_uri) {
-        res.status(400).json({ error: "file_uri is required" });
-        return;
-      }
-      const signature = randomUUID();
-      const signed_url = `${baseUrl}/media/${file_uri}?signature=${signature}`;
-      res.json({ signed_url });
-    },
-  );
+  router.post("/Core/CreateFileSignedUrl", parseBody, (req, res) => {
+    const { file_uri } = req.body;
+    if (!file_uri) {
+      res.status(400).json({ error: "file_uri is required" });
+      return;
+    }
+    const signature = randomUUID();
+    const signed_url = `${baseUrl}/media/${file_uri}?signature=${signature}`;
+    res.json({ signed_url });
+  });
 
   // Other Core endpoints (stub for future implementation)
   router.post(
     "/Core/:endpointName",
-    (req: Request<{ endpointName: string }>, res: Response) => {
+    (req: Request<{ endpointName: string }>, res, next) => {
       logger.warn(
         `Core.${req.params.endpointName} is not supported in local development`,
       );
-      res.json({});
+      // This is necessary because Express strips the router prefix from req.url,
+      // so without this the proxy would send just `/Core/:endpointName` instead of the full path.
+      req.url = req.originalUrl;
+      remoteProxy(req, res, next);
     },
   );
 
@@ -92,12 +88,16 @@ export function createIntegrationRoutes(
     "/installable/:packageName/integration-endpoints/:endpointName",
     (
       req: Request<{ packageName: string; endpointName: string }>,
-      res: Response,
+      res,
+      next,
     ) => {
       logger.warn(
         `${req.params.packageName}.${req.params.endpointName} is not supported in local development`,
       );
-      res.json({});
+      // This is necessary because Express strips the router prefix from req.url,
+      // so without this the proxy would send just `/installable/:packageName/integration-endpoints/:endpointName` instead of the full path.
+      req.url = req.originalUrl;
+      remoteProxy(req, res, next);
     },
   );
 
@@ -115,7 +115,7 @@ export function createCustomIntegrationRoutes(
       `"${req.originalUrl}" is not supported in local development, passing call to production`,
     );
     // This is necessary because Express strips the router prefix from req.url,
-    // so without this the proxy would send just `/User/:id` instead of the full path.
+    // so without this the proxy would send just `/:slug/:operationId` instead of the full path.
     req.url = req.originalUrl;
     remoteProxy(req, res, next);
   });
