@@ -151,9 +151,7 @@ jobs:
             ### Fixed
             - Various small fixes (#60)
             ```
-          claude_args: |
-            --model claude-3-5-haiku-latest
-            --allowedTools Bash(git log:*),Bash(gh pr:*),Read(*),Edit(CHANGELOG.md)
+          claude_args: --model claude-3-5-haiku-latest --allowedTools Bash,Read,Edit
 
       - name: Build package
         run: bun run build
