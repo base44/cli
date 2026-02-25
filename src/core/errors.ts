@@ -270,6 +270,7 @@ interface ApiErrorOptions extends CLIErrorOptions {
   requestMethod?: string;
   requestBody?: unknown;
   responseBody?: unknown;
+  requestId?: string;
 }
 
 /**
@@ -282,6 +283,7 @@ export class ApiError extends SystemError {
   readonly requestMethod?: string;
   readonly requestBody?: unknown;
   readonly responseBody?: unknown;
+  readonly requestId?: string;
 
   constructor(
     message: string,
@@ -298,6 +300,7 @@ export class ApiError extends SystemError {
     this.requestMethod = options?.requestMethod;
     this.requestBody = options?.requestBody;
     this.responseBody = options?.responseBody;
+    this.requestId = options?.requestId;
   }
 
   /**
@@ -341,6 +344,7 @@ export class ApiError extends SystemError {
         responseBody,
       );
       const requestBody = error.options.context?.__requestBody;
+      const requestId = error.response.headers.get("x-request-id") ?? undefined;
 
       return new ApiError(
         `Error ${context}: ${message}`,
@@ -350,6 +354,7 @@ export class ApiError extends SystemError {
           requestMethod: error.request.method,
           requestBody,
           responseBody,
+          requestId,
           cause: error,
         },
         parsedErrorResponse,

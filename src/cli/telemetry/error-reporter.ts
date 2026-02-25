@@ -72,6 +72,7 @@ export class ErrorReporter {
             api_request_method: error.requestMethod,
             api_request_body: error.requestBody,
             api_response_body: error.responseBody,
+            api_request_id: error.requestId,
           }
         : {};
 
