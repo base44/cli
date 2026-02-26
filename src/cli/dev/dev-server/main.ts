@@ -122,7 +122,10 @@ export async function createDevServer(
   app.use("/api/apps/:appId/integrations/custom", customIntegrationRoutes);
 
   app.use((req, res, next) => {
-    return remoteProxy(req, res, next);
+    devLogger.warn(
+      `"${req.originalUrl}" is not supported in local development, passing call to production`,
+    );
+    remoteProxy(req, res, next);
   });
 
   return new Promise((resolve, reject) => {
