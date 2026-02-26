@@ -6,16 +6,16 @@ function formatDuration(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
-export function formatDeployResult(r: SingleFunctionDeployResult): void {
-  const label = r.name.padEnd(25);
-  if (r.status === "deployed") {
-    const timing = r.duration_ms
-      ? theme.styles.dim(` (${formatDuration(r.duration_ms)})`)
+export function formatDeployResult(result: SingleFunctionDeployResult): void {
+  const label = result.name.padEnd(25);
+  if (result.status === "deployed") {
+    const timing = result.durationMs
+      ? theme.styles.dim(` (${formatDuration(result.durationMs)})`)
       : "";
     log.success(`${label} deployed${timing}`);
-  } else if (r.status === "unchanged") {
+  } else if (result.status === "unchanged") {
     log.success(`${label} unchanged`);
   } else {
-    log.error(`${label} error: ${r.error}`);
+    log.error(`${label} error: ${result.error}`);
   }
 }

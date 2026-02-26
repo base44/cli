@@ -8,10 +8,53 @@ import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 import { theme } from "@/cli/utils/theme.js";
 import { InvalidInputError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/index.js";
+import type { BackendFunction } from "@/core/resources/function/schema.js";
 import {
+  type SingleFunctionDeployResult,
+  type PruneResult,
   pruneRemovedFunctions,
-  pushFunctionsSingle,
+  deployFunctionsSequentially,
 } from "@/core/resources/function/deploy.js";
+
+function resolveFunctionsToDeploy(
+  names: string[],
+  allFunctions: BackendFunction[],
+): BackendFunction[] {
+  if (names.length === 0) return allFunctions;
+
+  const notFound = names.filter((n) => !allFunctions.some((f) => f.name === n));
+  if (notFound.length > 0) {
+    throw new InvalidInputError(
+      `Function${notFound.length > 1 ? "s" : ""} not found in project: ${notFound.join(", ")}`,
+    );
+  }
+  return allFunctions.filter((f) => names.includes(f.name));
+}
+
+function formatPruneResults(pruneResults: PruneResult[]): void {
+  for (const pruneResult of pruneResults) {
+    if (pruneResult.deleted) {
+      log.success(`${pruneResult.name.padEnd(25)} deleted`);
+    } else {
+      log.error(`${pruneResult.name.padEnd(25)} error: ${pruneResult.error}`);
+    }
+  }
+
+  if (pruneResults.length > 0) {
+    const pruned = pruneResults.filter((r) => r.deleted).length;
+    log.info(`${pruned} function${pruned !== 1 ? "s" : ""} removed`);
+  }
+}
+
+function buildDeploySummary(results: SingleFunctionDeployResult[]): string {
+  const succeeded = results.filter((r) => r.status !== "error").length;
+  const failed = results.filter((r) => r.status === "error").length;
+
+  const parts: string[] = [];
+  if (succeeded > 0) parts.push(`${succeeded}/${results.length} succeeded`);
+  if (failed > 0) parts.push(`${failed} error${failed !== 1 ? "s" : ""}`);
+  return parts.join(", ") || "No functions deployed";
+}
 
 async function deployFunctionsAction(
   names: string[],
@@ -22,19 +65,7 @@ async function deployFunctionsAction(
   }
 
   const { functions } = await readProjectConfig();
-
-  let toDeploy;
-  if (names.length > 0) {
-    const notFound = names.filter((n) => !functions.some((f) => f.name === n));
-    if (notFound.length > 0) {
-      throw new InvalidInputError(
-        `Function${notFound.length > 1 ? "s" : ""} not found in project: ${notFound.join(", ")}`,
-      );
-    }
-    toDeploy = functions.filter((f) => names.includes(f.name));
-  } else {
-    toDeploy = functions;
-  }
+  const toDeploy = resolveFunctionsToDeploy(names, functions);
 
   if (toDeploy.length === 0) {
     return {
@@ -50,47 +81,25 @@ async function deployFunctionsAction(
   let completed = 0;
   const total = toDeploy.length;
 
-  const results = await pushFunctionsSingle(toDeploy, {
+  const results = await deployFunctionsSequentially(toDeploy, {
     onStart: (startNames) => {
       const label = startNames.length === 1 ? startNames[0] : `${startNames.length} functions`;
       log.step(theme.styles.dim(`[${completed + 1}/${total}] Deploying ${label}...`));
     },
-    onResult: (r) => {
+    onResult: (result) => {
       completed++;
-      formatDeployResult(r);
+      formatDeployResult(result);
     },
   });
 
-  const succeeded = results.filter((r) => r.status !== "error").length;
-  const failed = results.filter((r) => r.status === "error").length;
-
-  // Force: delete remote functions not found locally
   if (options.force) {
     log.info("Removing remote functions not found locally...");
     const allLocalNames = functions.map((f) => f.name);
     const pruneResults = await pruneRemovedFunctions(allLocalNames);
-
-    for (const pr of pruneResults) {
-      if (pr.deleted) {
-        log.success(`${pr.name.padEnd(25)} deleted`);
-      } else {
-        log.error(`${pr.name.padEnd(25)} error: ${pr.error}`);
-      }
-    }
-
-    if (pruneResults.length > 0) {
-      const pruned = pruneResults.filter((r) => r.deleted).length;
-      log.info(`${pruned} function${pruned !== 1 ? "s" : ""} removed`);
-    }
+    formatPruneResults(pruneResults);
   }
 
-  // Summary
-  const parts: string[] = [];
-  if (succeeded > 0) parts.push(`${succeeded}/${results.length} succeeded`);
-  if (failed > 0) parts.push(`${failed} error${failed !== 1 ? "s" : ""}`);
-  const summary = parts.join(", ") || "No functions deployed";
-
-  return { outroMessage: summary };
+  return { outroMessage: buildDeploySummary(results) };
 }
 
 export function getDeployCommand(context: CLIContext): Command {

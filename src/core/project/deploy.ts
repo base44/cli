@@ -8,7 +8,7 @@ import {
 import { entityResource } from "@/core/resources/entity/index.js";
 import {
   type SingleFunctionDeployResult,
-  pushFunctionsSingle,
+  deployFunctionsSequentially,
 } from "@/core/resources/function/deploy.js";
 import { deploySite } from "@/core/site/index.js";
 
@@ -62,7 +62,7 @@ export async function deployAll(
   const { project, entities, functions, agents, connectors } = projectData;
 
   await entityResource.push(entities);
-  await pushFunctionsSingle(functions, {
+  await deployFunctionsSequentially(functions, {
     onStart: options?.onFunctionStart,
     onResult: options?.onFunctionResult,
   });

@@ -6,7 +6,6 @@ import {
 } from "@/core/resources/function/api.js";
 import type {
   BackendFunction,
-  DeploySingleFunctionResponse,
   FunctionFile,
   FunctionWithCode,
 } from "@/core/resources/function/schema.js";
@@ -15,33 +14,37 @@ import { readTextFile } from "@/core/utils/fs.js";
 export async function loadFunctionCode(
   fn: BackendFunction,
 ): Promise<FunctionWithCode> {
-  const loadedFiles: FunctionFile[] = await Promise.all(
+  const resolvedFiles: FunctionFile[] = await Promise.all(
     fn.filePaths.map(async (filePath) => {
       const content = await readTextFile(filePath);
       return { path: basename(filePath), content };
     }),
   );
-  return { ...fn, files: loadedFiles };
+  return { ...fn, files: resolvedFiles };
 }
 
 export interface SingleFunctionDeployResult {
   name: string;
   status: "deployed" | "unchanged" | "error";
   error?: string | null;
-  duration_ms?: number | null;
+  durationMs?: number | null;
 }
 
 async function deployOne(
   fn: BackendFunction,
 ): Promise<SingleFunctionDeployResult> {
   try {
-    const loaded = await loadFunctionCode(fn);
-    const resp = await deploySingleFunction(loaded.name, {
-      entry: loaded.entry,
-      files: loaded.files,
-      automations: loaded.automations,
+    const functionWithCode = await loadFunctionCode(fn);
+    const response = await deploySingleFunction(functionWithCode.name, {
+      entry: functionWithCode.entry,
+      files: functionWithCode.files,
+      automations: functionWithCode.automations,
     });
-    return { name: loaded.name, ...resp };
+    return {
+      name: functionWithCode.name,
+      status: response.status,
+      durationMs: response.duration_ms,
+    };
   } catch (error) {
     return {
       name: fn.name,
@@ -51,7 +54,7 @@ async function deployOne(
   }
 }
 
-export async function pushFunctionsSingle(
+export async function deployFunctionsSequentially(
   functions: BackendFunction[],
   options?: {
     onStart?: (names: string[]) => void;
