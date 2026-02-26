@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import type { Request, RequestHandler, Response } from "express";
+import type { NextFunction, Request, RequestHandler, Response } from "express";
 import { json, Router } from "express";
 import multer from "multer";
 import type { Logger } from "../../createDevLogger.js";
@@ -96,6 +96,18 @@ export function createIntegrationRoutes(
       // so without this the proxy would send just `/installable/:packageName/integration-endpoints/:endpointName` instead of the full path.
       req.url = req.originalUrl;
       remoteProxy(req, res, next);
+    },
+  );
+
+  router.use(
+    (err: unknown, _req: Request, res: Response, next: NextFunction) => {
+      if (err instanceof multer.MulterError) {
+        res
+          .status(err.code === "LIMIT_FILE_SIZE" ? 413 : 400)
+          .json({ error: err.message });
+        return;
+      }
+      next(err);
     },
   );
 
