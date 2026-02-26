@@ -10,7 +10,7 @@ async function listFunctionsAction(): Promise<RunCommandResult> {
   const { functions } = await listDeployedFunctions();
 
   if (functions.length === 0) {
-    return { outroMessage: "No functions deployed" };
+    return { outroMessage: "No functions on remote" };
   }
 
   for (const fn of functions) {
@@ -25,7 +25,7 @@ async function listFunctionsAction(): Promise<RunCommandResult> {
   }
 
   return {
-    outroMessage: `${functions.length} function${functions.length !== 1 ? "s" : ""} deployed`,
+    outroMessage: `${functions.length} function${functions.length !== 1 ? "s" : ""} on remote`,
   };
 }
 
