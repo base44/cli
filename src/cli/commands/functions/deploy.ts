@@ -53,7 +53,7 @@ async function deployFunctionsAction(
   const results = await pushFunctionsSingle(toDeploy, {
     onStart: (startNames) => {
       const label = startNames.length === 1 ? startNames[0] : `${startNames.length} functions`;
-      log.step(theme.styles.dim(`[${completed}/${total}] Deploying ${label}...`));
+      log.step(theme.styles.dim(`[${completed + 1}/${total}] Deploying ${label}...`));
     },
     onResult: (r) => {
       completed++;

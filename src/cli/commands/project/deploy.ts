@@ -90,7 +90,7 @@ export async function deployAction(
         names.length === 1 ? names[0] : `${names.length} functions`;
       log.step(
         theme.styles.dim(
-          `[${functionCompleted}/${functionTotal}] Deploying ${label}...`,
+          `[${functionCompleted + 1}/${functionTotal}] Deploying ${label}...`,
         ),
       );
     },
