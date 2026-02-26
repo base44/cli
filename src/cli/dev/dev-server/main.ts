@@ -5,6 +5,7 @@ import cors from "cors";
 import express from "express";
 import getPort from "get-port";
 import { createProxyMiddleware } from "http-proxy-middleware";
+import { dir } from "tmp-promise";
 import { createDevLogger } from "@/cli/dev/createDevLogger.js";
 import { FunctionManager } from "@/cli/dev/dev-server/function-manager.js";
 import { createFunctionRouter } from "@/cli/dev/dev-server/routes/functions.js";
@@ -101,8 +102,7 @@ export async function createDevServer(
   );
   app.use("/api/apps/:appId/entities", entityRoutes);
 
-  const configDir = dirname(project.configPath);
-  const mediaFilesDir = join(configDir, "tmp", "files");
+  const { path: mediaFilesDir } = await dir();
 
   // Serve uploaded files statically
   app.use("/media", express.static(mediaFilesDir));
