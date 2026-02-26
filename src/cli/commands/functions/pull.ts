@@ -53,11 +53,11 @@ async function pullFunctionsAction(
     },
   );
 
-  if (written.length > 0) {
-    log.success(`Written: ${written.join(", ")}`);
+  for (const name of written) {
+    log.success(`${name.padEnd(25)} written`);
   }
-  if (skipped.length > 0) {
-    log.info(`Skipped (unchanged): ${skipped.join(", ")}`);
+  for (const name of skipped) {
+    log.info(`${name.padEnd(25)} unchanged`);
   }
 
   return {

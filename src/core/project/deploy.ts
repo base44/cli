@@ -52,7 +52,7 @@ export interface DeployAllOptions {
  * Deploys all project resources (entities, functions, agents, connectors, and site) to Base44.
  *
  * @param projectData - The project configuration and resources to deploy
- * @param options - Optional callbacks for per-function deploy progress
+ * @param options - Optional progress callbacks for resource deployment
  * @returns The deployment result including app URL if site was deployed
  */
 export async function deployAll(

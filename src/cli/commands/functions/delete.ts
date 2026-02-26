@@ -1,7 +1,7 @@
 import { log } from "@clack/prompts";
 import { Command } from "commander";
 import type { CLIContext } from "@/cli/types.js";
-import { runCommand } from "@/cli/utils/index.js";
+import { runCommand, theme } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 import { parseNames } from "@/cli/utils/parseNames.js";
 import { ApiError, InvalidInputError } from "@/core/errors.js";
@@ -13,21 +13,25 @@ async function deleteFunctionsAction(
   let deleted = 0;
   let notFound = 0;
   let errors = 0;
+  let completed = 0;
+  const total = names.length;
 
   for (const name of names) {
+    log.step(theme.styles.dim(`[${completed + 1}/${total}] Deleting ${name}...`));
     try {
       await deleteSingleFunction(name);
-      log.success(`${name} deleted`);
+      log.success(`${name.padEnd(25)} deleted`);
       deleted++;
     } catch (error) {
       if (error instanceof ApiError && error.statusCode === 404) {
-        log.warn(`Function "${name}" not found on remote`);
+        log.warn(`${name.padEnd(25)} not found`);
         notFound++;
       } else {
-        log.error(`${name} error: ${error instanceof Error ? error.message : String(error)}`);
+        log.error(`${name.padEnd(25)} error: ${error instanceof Error ? error.message : String(error)}`);
         errors++;
       }
     }
+    completed++;
   }
 
   if (names.length === 1) {
@@ -37,7 +41,7 @@ async function deleteFunctionsAction(
   }
 
   const parts: string[] = [];
-  if (deleted > 0) parts.push(`${deleted} deleted`);
+  if (deleted > 0) parts.push(`${deleted}/${total} deleted`);
   if (notFound > 0) parts.push(`${notFound} not found`);
   if (errors > 0) parts.push(`${errors} error${errors !== 1 ? "s" : ""}`);
   return { outroMessage: parts.join(", ") };

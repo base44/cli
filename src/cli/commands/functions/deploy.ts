@@ -47,11 +47,11 @@ function formatPruneResults(pruneResults: PruneResult[]): void {
 }
 
 function buildDeploySummary(results: SingleFunctionDeployResult[]): string {
-  const succeeded = results.filter((r) => r.status !== "error").length;
+  const deployed = results.filter((r) => r.status !== "error").length;
   const failed = results.filter((r) => r.status === "error").length;
 
   const parts: string[] = [];
-  if (succeeded > 0) parts.push(`${succeeded}/${results.length} succeeded`);
+  if (deployed > 0) parts.push(`${deployed}/${results.length} deployed`);
   if (failed > 0) parts.push(`${failed} error${failed !== 1 ? "s" : ""}`);
   return parts.join(", ") || "No functions deployed";
 }
