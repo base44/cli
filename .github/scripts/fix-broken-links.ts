@@ -13,6 +13,7 @@ interface LycheeResults {
 /**
  * Reads lychee JSON results and strips broken link markup from a markdown file.
  * [text](broken-url) → text
+ * Skips image links ![alt](url).
  */
 export function fixBrokenLinks(
   lycheeResultsPath: string,
@@ -31,7 +32,7 @@ export function fixBrokenLinks(
   for (const url of brokenUrls) {
     const escaped = url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     content = content.replace(
-      new RegExp(`\\[([^\\]]*)\\]\\(${escaped}\\)`, "g"),
+      new RegExp(`(?<!!)\\[([^\\]]*)\\]\\(${escaped}\\)`, "g"),
       "$1",
     );
   }
@@ -60,18 +61,16 @@ export function parseBrokenUrls(lycheeResultsPath: string): Set<string> {
     for (const links of Object.values(results.error_map || {})) {
       for (const link of links) brokenUrls.add(link.url);
     }
-  } catch {}
+  } catch (err: unknown) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code !== "ENOENT") {
+      console.warn(`Warning: could not parse lychee results: ${err}`);
+    }
+  }
   return brokenUrls;
 }
 
-// Run as CLI script
-const isMainModule =
-  typeof process !== "undefined" &&
-  process.argv[1] &&
-  (process.argv[1].endsWith("fix-broken-links.js") ||
-    process.argv[1].endsWith("fix-broken-links.ts"));
-
-if (isMainModule) {
+if (import.meta.main) {
   const lycheeResults = process.argv[2] || ".lychee-results.json";
   const markdownFile = process.argv[3] || "README.md";
   fixBrokenLinks(lycheeResults, markdownFile);

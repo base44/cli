@@ -1,7 +1,7 @@
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   fixBrokenLinks,
   parseBrokenUrls,
@@ -78,6 +78,21 @@ describe("parseBrokenUrls", () => {
     const { lycheeResultsPath } = createTempFiles({}, "");
     const urls = parseBrokenUrls(lycheeResultsPath);
     expect(urls).toEqual(new Set());
+  });
+
+  it("returns empty set and warns on malformed JSON", () => {
+    const dir = mkdtempSync(join(tmpdir(), "fix-broken-links-"));
+    const path = join(dir, "bad.json");
+    writeFileSync(path, "not valid json{{{");
+
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const urls = parseBrokenUrls(path);
+
+    expect(urls).toEqual(new Set());
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("could not parse lychee results"),
+    );
+    warn.mockRestore();
   });
 });
 
@@ -188,6 +203,44 @@ describe("fixBrokenLinks", () => {
 
     expect(changed).toBe(true);
     expect(readFileSync(markdownPath, "utf8")).toBe("See docs here.");
+  });
+
+  it("skips image links", () => {
+    const { lycheeResultsPath, markdownPath } = createTempFiles(
+      {
+        fail_map: {
+          "README.md": [
+            { url: "https://broken.com/logo.png", status: { code: 404 } },
+          ],
+        },
+      },
+      "Logo: ![alt text](https://broken.com/logo.png) here.",
+    );
+
+    const changed = fixBrokenLinks(lycheeResultsPath, markdownPath);
+
+    expect(changed).toBe(false);
+    expect(readFileSync(markdownPath, "utf8")).toBe(
+      "Logo: ![alt text](https://broken.com/logo.png) here.",
+    );
+  });
+
+  it("strips regular link but skips image link with same URL", () => {
+    const { lycheeResultsPath, markdownPath } = createTempFiles(
+      {
+        fail_map: {
+          "README.md": [{ url: "https://broken.com", status: { code: 404 } }],
+        },
+      },
+      "![img](https://broken.com) and [link](https://broken.com)",
+    );
+
+    const changed = fixBrokenLinks(lycheeResultsPath, markdownPath);
+
+    expect(changed).toBe(true);
+    expect(readFileSync(markdownPath, "utf8")).toBe(
+      "![img](https://broken.com) and link",
+    );
   });
 
   it("handles same URL appearing multiple times", () => {

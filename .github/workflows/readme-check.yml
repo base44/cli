@@ -8,6 +8,10 @@ on:
       - "README.md"
   workflow_dispatch:
 
+concurrency:
+  group: readme-check-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   readme-check:
     if: github.actor != 'github-actions[bot]'
@@ -57,7 +61,10 @@ jobs:
           2. If you find discrepancies: Update README.md with the correct content, then commit and push the fix: git config user.name "github-actions[bot]"; git config user.email "github-actions[bot]@users.noreply.github.com"; git add README.md; git commit -m "docs: sync README with CLI commands"; git push.
           3. Only modify README.md. Do not touch any other file.
           EOF
-          )" --allowedTools "Read,Glob,Grep,Write(README.md),Edit(README.md),Bash(git config *),Bash(git add README.md),Bash(git commit *),Bash(git push *)"
+          )" --allowedTools "Read,Glob,Grep,Write(README.md),Edit(README.md),Bash(git config *),Bash(git add README.md),Bash(git commit -m *),Bash(git push origin *)"
+
+      - name: Pull latest changes
+        run: git pull --rebase
 
       - name: Restore lychee cache
         uses: actions/cache@v4
