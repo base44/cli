@@ -1,10 +1,23 @@
-import { readFileSync, writeFileSync } from "fs";
+import { readFileSync, writeFileSync } from "node:fs";
+
+interface LycheeLink {
+  url: string;
+  status: { code: number } | string;
+}
+
+interface LycheeResults {
+  fail_map?: Record<string, LycheeLink[]>;
+  error_map?: Record<string, LycheeLink[]>;
+}
 
 /**
  * Reads lychee JSON results and strips broken link markup from a markdown file.
  * [text](broken-url) → text
  */
-export function fixBrokenLinks(lycheeResultsPath, markdownPath) {
+export function fixBrokenLinks(
+  lycheeResultsPath: string,
+  markdownPath: string,
+): boolean {
   const brokenUrls = parseBrokenUrls(lycheeResultsPath);
 
   if (brokenUrls.size === 0) {
@@ -29,14 +42,18 @@ export function fixBrokenLinks(lycheeResultsPath, markdownPath) {
   }
 
   writeFileSync(markdownPath, content);
-  console.log(`Removed ${brokenUrls.size} broken link(s) from ${markdownPath}`);
+  console.log(
+    `Removed ${brokenUrls.size} broken link(s) from ${markdownPath}`,
+  );
   return true;
 }
 
-export function parseBrokenUrls(lycheeResultsPath) {
-  const brokenUrls = new Set();
+export function parseBrokenUrls(lycheeResultsPath: string): Set<string> {
+  const brokenUrls = new Set<string>();
   try {
-    const results = JSON.parse(readFileSync(lycheeResultsPath, "utf8"));
+    const results: LycheeResults = JSON.parse(
+      readFileSync(lycheeResultsPath, "utf8"),
+    );
     for (const links of Object.values(results.fail_map || {})) {
       for (const link of links) brokenUrls.add(link.url);
     }
@@ -57,6 +74,5 @@ const isMainModule =
 if (isMainModule) {
   const lycheeResults = process.argv[2] || ".lychee-results.json";
   const markdownFile = process.argv[3] || "README.md";
-  const changed = fixBrokenLinks(lycheeResults, markdownFile);
-  process.exit(changed ? 0 : 0);
+  fixBrokenLinks(lycheeResults, markdownFile);
 }

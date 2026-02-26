@@ -76,7 +76,7 @@ jobs:
 
       - name: Remove broken links from README
         run: |
-          bun .github/scripts/fix-broken-links.js .lychee-results.json README.md
+          bun .github/scripts/fix-broken-links.ts .lychee-results.json README.md
 
           # Commit if README was modified
           if ! git diff --quiet README.md; then
