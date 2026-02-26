@@ -1,6 +1,6 @@
 # Adding & Modifying CLI Commands
 
-**Keywords:** command, factory pattern, CLIContext, isNonInteractive, runCommand, runTask, spinner, theming, chalk, program.ts, register, banner, intro, outro
+**Keywords:** command, factory pattern, CLIContext, isNonInteractive, isJsonMode, runCommand, runTask, spinner, theming, chalk, program.ts, register, banner, intro, outro, json, --json, data, piping
 
 Commands live in `src/cli/commands/<domain>/`. They use a **factory pattern** with dependency injection via `CLIContext`.
 
@@ -79,11 +79,13 @@ await runCommand(myAction, { fullBanner: true, requireAuth: true }, context);
 export interface CLIContext {
   errorReporter: ErrorReporter;
   isNonInteractive: boolean;
+  isJsonMode: boolean;
 }
 ```
 
 - Created once in `runCLI()` at startup
 - `isNonInteractive` is `true` when stdin/stdout are not a TTY (e.g., CI, piped output, AI agents). Use it to skip interactive prompts, browser opens, and animations.
+- `isJsonMode` is set by the global `--json` flag via a `preAction` hook. Commands don't need to check it directly -- `runCommand` handles all mode-switching.
 - Passed to `createProgram(context)`, which passes it to each command factory
 - Commands pass it to `runCommand()` for error reporting integration
 
@@ -194,6 +196,73 @@ export function getMyCommand(context: CLIContext): Command {
 ```
 
 Access `command.args` for positional arguments and `command.opts()` for options inside the hook. See `secrets/set.ts` and `project/create.ts` for real examples.
+
+## JSON Mode (`--json`)
+
+The CLI supports a global `--json` flag that outputs structured JSON instead of human-readable text. This enables piping output to tools like `jq`:
+
+```bash
+base44 logs --function my-fn --json | jq '.logs[] | .message'
+```
+
+### How it works
+
+When `--json` is set, `runCommand` mutes `process.stdout.write` before calling `commandFn()`. This silences all clack output (intro, outro, `log.*`, spinners) automatically. Only the serialized `result.data` is written to stdout. Errors are written to stderr as JSON.
+
+### Adding JSON support to a command
+
+Return a `data` field from your action. Always use a top-level object (wrap arrays):
+
+```typescript
+async function listAction(): Promise<RunCommandResult> {
+  const items = await fetchItems();
+
+  return {
+    outroMessage: `Found ${items.length} items`,
+    stdout: formatItems(items),       // human mode
+    data: { items },                  // json mode: { "items": [...] }
+  };
+}
+```
+
+- `data` is `Record<string, unknown>` -- always an object, never a raw array
+- If `data` is not set, `runCommand` falls back to `{ "message": outroMessage }`
+- Commands need zero changes to be silenced -- the stdout muting handles `log.*` and spinners
+
+### Error format
+
+On error in JSON mode, a JSON object is written to stderr:
+
+```json
+{
+  "error": true,
+  "code": "API_ERROR",
+  "message": "Request failed with status 500",
+  "hints": [{ "message": "Check your network connection" }]
+}
+```
+
+### Interactive commands
+
+Commands with interactive prompts (`select`, `confirm`, `text`) should validate required flags in a `preAction` hook. This fires before `runCommand` (no wasted auth/API calls) and works for both `--json` and piped/CI sessions:
+
+```typescript
+export function getMyCommand(context: CLIContext): Command {
+  return new Command("my-cmd")
+    .option("-y, --yes", "Skip confirmation prompt")
+    .hook("preAction", (command) => {
+      if (!context.isJsonMode && !context.isNonInteractive) return;
+      if (!command.opts().yes) {
+        command.error("Non-interactive mode requires: --yes");
+      }
+    })
+    .action(async (options) => {
+      await runCommand(() => myAction(options), { requireAuth: true }, context);
+    });
+}
+```
+
+List specific missing flags so users know exactly what to add (e.g., `Missing: --project-id <id>, --path <path>`).
 
 ## Rules (Command-Specific)
 

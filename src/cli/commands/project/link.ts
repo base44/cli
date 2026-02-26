@@ -35,16 +35,26 @@ interface LinkOptions {
 
 type LinkAction = "create" | "choose";
 
-function validateNonInteractiveFlags(command: Command): void {
-  const { create, name, projectId } = command.opts<LinkOptions>();
+function validateFlags(context: CLIContext) {
+  return (command: Command): void => {
+    const { create, name, projectId } = command.opts<LinkOptions>();
 
-  if (create && projectId) {
-    command.error("--create and --projectId cannot be used together");
-  }
+    if (create && projectId) {
+      command.error("--create and --projectId cannot be used together");
+    }
 
-  if (create && !name) {
-    command.error("--name is required when using --create");
-  }
+    if (create && !name) {
+      command.error("--name is required when using --create");
+    }
+
+    if (context.isJsonMode || context.isNonInteractive) {
+      if (!projectId && !create) {
+        command.error(
+          "Non-interactive mode requires --projectId <id> or --create --name <name>",
+        );
+      }
+    }
+  };
 }
 
 async function promptForLinkAction(): Promise<LinkAction> {
@@ -260,7 +270,7 @@ export function getLinkCommand(context: CLIContext): Command {
       "-p, --projectId <id>",
       "Project ID to link to an existing project (skips selection prompt)",
     )
-    .hook("preAction", validateNonInteractiveFlags)
+    .hook("preAction", validateFlags(context))
     .action(async (options: LinkOptions) => {
       await runCommand(
         () => link(options),

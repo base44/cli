@@ -5,7 +5,7 @@ import { printBanner } from "@/cli/utils/banner.js";
 import { theme } from "@/cli/utils/theme.js";
 import { printUpgradeNotificationIfAvailable } from "@/cli/utils/upgradeNotification.js";
 import { isLoggedIn, readAuth } from "@/core/auth/index.js";
-import { isCLIError } from "@/core/errors.js";
+import { AuthRequiredError, isCLIError } from "@/core/errors.js";
 import { initAppConfig } from "@/core/project/index.js";
 
 interface RunCommandOptions {
@@ -36,11 +36,24 @@ export interface RunCommandResult {
    * Useful for commands that produce machine-readable or pipeable output.
    */
   stdout?: string;
+  /**
+   * Structured data for --json output. Serialized by runCommand when
+   * isJsonMode is true. Always a top-level object (wrap arrays:
+   * `{ logs: [...] }` not `[...]`).
+   *
+   * When --json is set but data is not provided, runCommand falls back to
+   * `{ "message": outroMessage }`.
+   */
+  data?: Record<string, unknown>;
 }
 
 /**
  * Wraps a command function with the Base44 intro/outro and error handling.
  * All CLI commands should use this utility to ensure consistent branding.
+ *
+ * In JSON mode (--json flag), stdout is muted so all clack output (intro,
+ * outro, log.*, spinners) is silenced automatically. Only the serialized
+ * `result.data` is written to stdout. Errors are written to stderr as JSON.
  *
  * **Important**: Commands should NOT call `intro()` or `outro()` directly.
  * This function handles both. Commands can return an optional `outroMessage`
@@ -49,41 +62,38 @@ export interface RunCommandResult {
  * @param commandFn - The async function to execute. Returns `RunCommandResult` with optional `outroMessage`.
  * @param options - Optional configuration for the command wrapper
  * @param context - CLI context with dependencies (errorReporter, etc.)
- *
- * @example
- * export function getMyCommand(context: CLIContext): Command {
- *   return new Command("my-command")
- *     .action(async () => {
- *       await runCommand(
- *         async () => {
- *           // ... do work ...
- *           return { outroMessage: "Done!" };
- *         },
- *         { requireAuth: true },
- *         context
- *       );
- *     });
- * }
  */
 export async function runCommand(
   commandFn: () => Promise<RunCommandResult>,
   options: RunCommandOptions | undefined,
   context: CLIContext,
 ): Promise<void> {
-  if (options?.fullBanner) {
-    await printBanner(context.isNonInteractive);
-    intro("");
-  } else {
-    intro(theme.colors.base44OrangeBackground(" Base 44 "));
-  }
-  await printUpgradeNotificationIfAvailable();
+  const json = context.isJsonMode;
+  let savedStdoutWrite: typeof process.stdout.write | undefined;
 
   try {
-    // Check authentication if required
+    if (json) {
+      savedStdoutWrite = process.stdout.write.bind(process.stdout);
+      process.stdout.write = (() => true) as typeof process.stdout.write;
+    }
+
+    if (options?.fullBanner) {
+      await printBanner(context.isNonInteractive);
+      intro("");
+    } else {
+      intro(theme.colors.base44OrangeBackground(" Base 44 "));
+    }
+    await printUpgradeNotificationIfAvailable();
+
     if (options?.requireAuth) {
       const loggedIn = await isLoggedIn();
 
       if (!loggedIn) {
+        if (json) {
+          throw new AuthRequiredError(
+            "Authentication required. Run: base44 login",
+          );
+        }
         log.info("You need to login first to continue.");
         await login();
       }
@@ -98,41 +108,63 @@ export async function runCommand(
       }
     }
 
-    // Initialize app config unless explicitly disabled
     if (options?.requireAppConfig !== false) {
       const appConfig = await initAppConfig();
       context.errorReporter.setContext({ appId: appConfig.id });
     }
 
     const result = await commandFn();
-    outro(result.outroMessage || "");
 
-    if (result.stdout) {
-      process.stdout.write(result.stdout);
-    }
-  } catch (error) {
-    // Display error message
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    log.error(errorMessage);
-
-    // Show stack trace if DEBUG mode
-    if (process.env.DEBUG === "1" && error instanceof Error && error.stack) {
-      log.error(theme.styles.dim(error.stack));
-    }
-
-    // Display hints if this is a CLIError with hints
-    if (isCLIError(error)) {
-      const hints = theme.format.agentHints(error.hints);
-      if (hints) {
-        log.error(hints);
+    if (json) {
+      const output = result.data ?? {
+        message: result.outroMessage ?? "Done",
+      };
+      savedStdoutWrite!(`${JSON.stringify(output, null, 2)}\n`);
+    } else {
+      outro(result.outroMessage || "");
+      if (result.stdout) {
+        process.stdout.write(result.stdout);
       }
     }
+  } catch (error) {
+    if (json) {
+      const errorContext = context.errorReporter.getErrorContext();
+      const jsonError: Record<string, unknown> = {
+        error: true,
+        message: error instanceof Error ? error.message : String(error),
+        context: errorContext,
+      };
+      if (isCLIError(error)) {
+        jsonError.code = error.code;
+        if (error.hints.length > 0) {
+          jsonError.hints = error.hints;
+        }
+      }
+      process.stderr.write(`${JSON.stringify(jsonError, null, 2)}\n`);
+    } else {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      log.error(errorMessage);
 
-    // Get error context and display in outro
-    const errorContext = context.errorReporter.getErrorContext();
-    outro(theme.format.errorContext(errorContext));
+      if (process.env.DEBUG === "1" && error instanceof Error && error.stack) {
+        log.error(theme.styles.dim(error.stack));
+      }
 
-    // Re-throw for runCLI to handle (error reporting, exit code)
+      if (isCLIError(error)) {
+        const hints = theme.format.agentHints(error.hints);
+        if (hints) {
+          log.error(hints);
+        }
+      }
+
+      const errorContext = context.errorReporter.getErrorContext();
+      outro(theme.format.errorContext(errorContext));
+    }
+
     throw error;
+  } finally {
+    if (savedStdoutWrite) {
+      process.stdout.write = savedStdoutWrite;
+    }
   }
 }
