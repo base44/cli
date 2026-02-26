@@ -20,6 +20,11 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -71,46 +76,7 @@ jobs:
 
       - name: Remove broken links from README
         run: |
-          node << 'SCRIPT'
-          const fs = require("fs");
-
-          // Collect broken URLs from lychee results
-          const brokenUrls = new Set();
-          try {
-            const results = JSON.parse(fs.readFileSync(".lychee-results.json", "utf8"));
-            for (const links of Object.values(results.fail_map || {})) {
-              for (const link of links) brokenUrls.add(link.url);
-            }
-            for (const links of Object.values(results.error_map || {})) {
-              for (const link of links) brokenUrls.add(link.url);
-            }
-          } catch {}
-
-          if (brokenUrls.size === 0) {
-            console.log("No broken links found");
-            process.exit(0);
-          }
-
-          let readme = fs.readFileSync("README.md", "utf8");
-          const original = readme;
-
-          // Strip link markup, keep display text: [text](url) → text
-          for (const url of brokenUrls) {
-            const escaped = url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-            readme = readme.replace(
-              new RegExp(`\\[([^\\]]*)\\]\\(${escaped}\\)`, "g"),
-              "$1"
-            );
-          }
-
-          if (readme === original) {
-            console.log("No broken links in README to fix");
-            process.exit(0);
-          }
-
-          fs.writeFileSync("README.md", readme);
-          console.log(`Removed ${brokenUrls.size} broken link(s) from README.md`);
-          SCRIPT
+          bun .github/scripts/fix-broken-links.js .lychee-results.json README.md
 
           # Commit if README was modified
           if ! git diff --quiet README.md; then
