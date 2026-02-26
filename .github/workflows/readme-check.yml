@@ -63,9 +63,6 @@ jobs:
           EOF
           )" --allowedTools "Read,Glob,Grep,Write(README.md),Edit(README.md),Bash(git config *),Bash(git add README.md),Bash(git commit -m *),Bash(git push origin *)"
 
-      - name: Pull latest changes
-        run: git pull --rebase
-
       - name: Restore lychee cache
         uses: actions/cache@v4
         with:
@@ -77,7 +74,8 @@ jobs:
         id: lychee
         uses: lycheeverse/lychee-action@v2
         with:
-          args: --verbose --no-progress --cache --max-cache-age 1d --format json --output .lychee-results.json README.md
+          args: --verbose --no-progress --cache --max-cache-age 1d --format json README.md
+          output: .lychee-results.json
           fail: false
           jobSummary: true
 
