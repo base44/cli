@@ -62,8 +62,37 @@ jobs:
           restore-keys: cache-lychee-
 
       - name: Check for broken links in README
+        id: lychee
         uses: lycheeverse/lychee-action@v2
         with:
-          args: --verbose --no-progress --cache --max-cache-age 1d README.md
-          fail: true
+          args: --verbose --no-progress --cache --max-cache-age 1d --format json --output .lychee-results.json README.md
+          fail: false
           jobSummary: true
+
+      - name: Fix broken links in README
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          claude -p "$(cat <<'EOF'
+          You manage broken links in README.md. Read .lychee-results.json for lychee's link check results.
+
+          TWO JOBS:
+
+          1. REMOVE broken links:
+             For each link that lychee reports as broken/errored (status is not 200/2xx), find it in README.md
+             and convert the markdown link to plain text with a tracking comment:
+               [Display Text](https://broken-url) → <!-- broken-link: [Display Text](https://broken-url) -->Display Text
+
+          2. RESTORE previously-removed links:
+             Search README.md for <!-- broken-link: [text](url) --> comments.
+             If the URL in such a comment is NOT in lychee's broken list (meaning it works now),
+             restore the link and remove the comment:
+               <!-- broken-link: [Display Text](https://fixed-url) -->Display Text → [Display Text](https://fixed-url)
+
+          RULES:
+          1. If there are no broken links AND no broken-link comments to restore, do nothing and exit.
+          2. If you make changes: commit and push using: git config user.name "github-actions[bot]"; git config user.email "github-actions[bot]@users.noreply.github.com"; git add README.md; git commit -m "docs: fix broken links in README"; git push.
+          3. Only modify README.md.
+          4. Preserve all surrounding content exactly as-is.
+          EOF
+          )" --allowedTools "Read,Grep,Edit(README.md),Bash(git config *),Bash(git add README.md),Bash(git commit *),Bash(git push *)"
