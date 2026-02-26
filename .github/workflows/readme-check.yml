@@ -8,42 +8,88 @@ on:
       - "README.md"
   workflow_dispatch:
 
+concurrency:
+  group: readme-check-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   readme-check:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      id-token: write
 
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
-          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code@latest
 
       - name: Run Claude README Check
-        id: claude-readme-check
-        uses: anthropics/claude-code-action@v1
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          claude -p "$(cat <<'EOF'
+          You are checking whether README.md is still accurate after changes on main.
+
+          GROUND TRUTH (read from the repo):
+          1. Read src/cli/program.ts to get all registered commands. Note which are registered with { hidden: true } — those should NOT appear in the README command table.
+          2. For each command, read the corresponding factory file under src/cli/commands/ to get:
+             - Command name and subcommand names (e.g. "dashboard open", "site deploy")
+             - The .description() string for each command/subcommand
+          3. Read package.json for: the "name" field (install command) and "engines"."node" if present (Node.js requirement).
+
+          COMPARE AGAINST README.md:
+          - Command table: Every non-hidden command/subcommand must be listed. Use the descriptions from the codebase as the basis for the description in the table. They don't need to match exactly. They should be concise and user-friendly. If a description already exists, only change it if it's factually incorrect. Remove any row for a command that no longer exists.
+          - Installation section: Package name and Node version mentioned must match package.json.
+          - Quick start: The example commands (e.g. base44 login, base44 create) must still exist as commands in the codebase.
+
+          RULES:
+          1. If everything matches, do nothing further and exit.
+          2. If you find discrepancies: Update README.md with the correct content, then commit and push the fix: git config user.name "github-actions[bot]"; git config user.email "github-actions[bot]@users.noreply.github.com"; git add README.md; git commit -m "docs: sync README with CLI commands"; git push.
+          3. Only modify README.md. Do not touch any other file.
+          EOF
+          )" --allowedTools "Read,Glob,Grep,Write(README.md),Edit(README.md),Bash(git config *),Bash(git add README.md),Bash(git commit -m *),Bash(git push origin *)"
+
+      - name: Pull latest changes
+        run: git pull --rebase
+
+      - name: Restore lychee cache
+        uses: actions/cache@v4
         with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          prompt: |
-            You are checking whether README.md is still accurate after changes on main.
+          path: .lycheecache
+          key: cache-lychee-${{ github.sha }}
+          restore-keys: cache-lychee-
 
-            GROUND TRUTH (read from the repo):
-            1. Read src/cli/program.ts to get all registered commands. Note which are registered with { hidden: true } — those should NOT appear in the README command table.
-            2. For each command, read the corresponding factory file under src/cli/commands/ to get:
-               - Command name and subcommand names (e.g. "dashboard open", "site deploy")
-               - The .description() string for each command/subcommand
-            3. Read package.json for: the "name" field (install command) and "engines"."node" if present (Node.js requirement).
+      - name: Check for broken links in README
+        id: lychee
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: --verbose --no-progress --cache --max-cache-age 1d --format json --output .lychee-results.json README.md
+          fail: false
+          jobSummary: true
 
-            COMPARE AGAINST README.md:
-            - Command table: Every non-hidden command/subcommand must be listed. Use the descriptions from the codebase as the basis for the description in the table. They don't need to match exactly. They should be concise and user-friendly. If a description already exists, only change it if it's factually incorrect. Remove any row for a command that no longer exists.
-            - Installation section: Package name and Node version mentioned must match package.json.
-            - Quick start: The example commands (e.g. base44 login, base44 create) must still exist as commands in the codebase.
+      - name: Remove broken links from README
+        run: |
+          bun .github/scripts/fix-broken-links.ts .lychee-results.json README.md
 
-            RULES:
-            1. If everything matches, do nothing further and exit.
-            2. If you find discrepancies: Update README.md with the correct content, then commit and push the fix: git config user.name "github-actions[bot]"; git config user.email "github-actions[bot]@users.noreply.github.com"; git add README.md; git commit -m "docs: sync README with CLI commands"; git push.
-            3. Only modify README.md. Do not touch any other file.
-          claude_args: '--allowed-tools Read Glob Grep "Write(README.md)" "Edit(README.md)" "Bash(git config *)" "Bash(git add README.md)" "Bash(git commit *)" "Bash(git push *)"'
+          # Commit if README was modified
+          if ! git diff --quiet README.md; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add README.md
+            git commit -m "docs: remove broken links from README"
+            git push
+          fi
