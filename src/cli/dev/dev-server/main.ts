@@ -1,5 +1,4 @@
 import type { Server } from "node:http";
-import { dirname, join } from "node:path";
 import { log as clackLog } from "@clack/prompts";
 import cors from "cors";
 import express from "express";
@@ -46,7 +45,7 @@ export async function createDevServer(
   const port = userPort ?? (await getPort({ port: DEFAULT_PORT }));
   const baseUrl = `http://localhost:${port}`;
 
-  const { functions, entities, project } = await options.loadResources();
+  const { functions, entities } = await options.loadResources();
 
   const app = express();
 
