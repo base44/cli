@@ -47,11 +47,6 @@ jobs:
           - Installation section: Package name and Node version mentioned must match package.json.
           - Quick start: The example commands (e.g. base44 login, base44 create) must still exist as commands in the codebase.
 
-          BROKEN LINK COMMENTS:
-          - README.md may contain <!-- broken-link: [text](url) --> comments followed by plain text.
-            These mark links that were automatically removed because the URLs are broken.
-            DO NOT re-add these links. Leave the comment and plain text as-is.
-
           RULES:
           1. If everything matches, do nothing further and exit.
           2. If you find discrepancies: Update README.md with the correct content, then commit and push the fix: git config user.name "github-actions[bot]"; git config user.email "github-actions[bot]@users.noreply.github.com"; git add README.md; git commit -m "docs: sync README with CLI commands"; git push.
@@ -74,7 +69,7 @@ jobs:
           fail: false
           jobSummary: true
 
-      - name: Fix broken links in README
+      - name: Remove broken links from README
         run: |
           node << 'SCRIPT'
           const fs = require("fs");
@@ -91,34 +86,30 @@ jobs:
             }
           } catch {}
 
+          if (brokenUrls.size === 0) {
+            console.log("No broken links found");
+            process.exit(0);
+          }
+
           let readme = fs.readFileSync("README.md", "utf8");
           const original = readme;
 
-          // 1. Remove broken links: [text](url) → <!-- broken-link: [text](url) -->text
+          // Strip link markup, keep display text: [text](url) → text
           for (const url of brokenUrls) {
             const escaped = url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
             readme = readme.replace(
               new RegExp(`\\[([^\\]]*)\\]\\(${escaped}\\)`, "g"),
-              `<!-- broken-link: [$1](${url}) -->$1`
+              "$1"
             );
           }
 
-          // 2. Restore previously-broken links that now work
-          readme = readme.replace(
-            /<!-- broken-link: \[([^\]]*)\]\(([^)]*)\) -->\1/g,
-            (match, text, url) => {
-              if (!brokenUrls.has(url)) return `[${text}](${url})`;
-              return match;
-            }
-          );
-
           if (readme === original) {
-            console.log("No broken link changes needed");
+            console.log("No broken links in README to fix");
             process.exit(0);
           }
 
           fs.writeFileSync("README.md", readme);
-          console.log("Fixed broken links in README.md");
+          console.log(`Removed ${brokenUrls.size} broken link(s) from README.md`);
           SCRIPT
 
           # Commit if README was modified
@@ -126,6 +117,6 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git add README.md
-            git commit -m "docs: fix broken links in README"
+            git commit -m "docs: remove broken links from README"
             git push
           fi
