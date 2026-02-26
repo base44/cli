@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { afterEach, beforeEach } from "vitest";
 import type { CLIResult, CLIResultMatcher } from "./CLIResultMatcher.js";
+import type { RunLiveHandle } from "./CLITestkit.js";
 import { CLITestkit } from "./CLITestkit.js";
 
 const FIXTURES_DIR = resolve(__dirname, "../../fixtures");
@@ -41,6 +42,9 @@ export interface TestContext {
 
   /** Execute CLI command */
   run: (...args: string[]) => Promise<CLIResult>;
+
+  /** Start a long-running CLI command and return a live handle */
+  runLive: (...args: string[]) => Promise<RunLiveHandle>;
 
   // ─── THEN METHODS ──────────────────────────────────────────
 
@@ -123,6 +127,7 @@ export function setupCLITests(): TestContext {
 
     // When methods
     run: (...args) => getKit().run(...args),
+    runLive: (...args) => getKit().runLive(...args),
 
     // Then methods
     expectResult: (result) => getKit().expect(result),
@@ -140,6 +145,7 @@ export function setupCLITests(): TestContext {
 
 export type { CLIResult } from "./CLIResultMatcher.js";
 export { CLIResultMatcher } from "./CLIResultMatcher.js";
+export type { RunLiveHandle } from "./CLITestkit.js";
 // Re-export types and classes that tests might need
 export { CLITestkit } from "./CLITestkit.js";
 export { TestAPIServer } from "./TestAPIServer.js";
