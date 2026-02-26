@@ -344,7 +344,7 @@ export class ApiError extends SystemError {
         responseBody,
       );
       const requestBody = error.options.context?.__requestBody;
-      const requestId = error.response.headers.get("x-request-id") ?? undefined;
+      const requestId = error.response.headers.get("X-Request-ID") ?? undefined;
 
       return new ApiError(
         `Error ${context}: ${message}`,
