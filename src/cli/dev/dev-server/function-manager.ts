@@ -75,6 +75,12 @@ export class FunctionManager {
     try {
       return await promise;
     } finally {
+      if (!this.starting.has(name) && this.running.has(name)) {
+        // We can end up here if user called `stopAll()` while one of the processes is being initialized.
+        // In this case we need to kill the process, to avoid zombies running around.
+        this.running.get(name)?.process.kill();
+        this.running.delete(name);
+      }
       this.starting.delete(name);
     }
   }
@@ -96,6 +102,11 @@ export class FunctionManager {
     this.setupProcessHandlers(name, process);
 
     return this.waitForReady(name, runningFunc);
+  }
+
+  reload(functions: BackendFunction[]): void {
+    this.stopAll();
+    this.functions = new Map(functions.map((f) => [f.name, f]));
   }
 
   stopAll(): void {
@@ -148,9 +159,14 @@ export class FunctionManager {
     });
 
     process.on("exit", (code) => {
-      this.logger.log(
-        `[dev-server] Function "${name}" exited with code ${code}`,
-      );
+      // `code === null` happens when process is terminated by a signal.
+      // In this case I'm assuming that it's happening as part of the reload mechanism.
+      // In other words there is no need to log `code` information, if we ourselve killed the process.
+      if (code !== null) {
+        this.logger.log(
+          `[dev-server] Function "${name}" exited with code ${code}`,
+        );
+      }
       this.running.delete(name);
     });
 
