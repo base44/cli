@@ -51,6 +51,29 @@ export function formatApiError(errorBody: unknown): string {
 }
 
 // ============================================================================
+// API Validation Errors (structured per-item errors from extra_data.errors)
+// ============================================================================
+
+/**
+ * Extracts display-ready detail lines from a parsed API error response.
+ * Returns undefined if no extra_data.errors are present.
+ */
+function parseErrorDetails(
+  extraData: ApiErrorResponse["extra_data"],
+): string[] | undefined {
+  const errors = extraData?.errors;
+  if (!errors || errors.length === 0) return undefined;
+
+  return errors.map((item) =>
+    typeof item === "string"
+      ? item
+      : item.name
+        ? `${item.name}: ${item.message}`
+        : item.message,
+  );
+}
+
+// ============================================================================
 // Types
 // ============================================================================
 
@@ -61,6 +84,7 @@ export interface ErrorHint {
 
 interface CLIErrorOptions {
   hints?: ErrorHint[];
+  details?: string[];
   cause?: Error;
 }
 
@@ -70,17 +94,23 @@ interface CLIErrorOptions {
 
 /**
  * Base class for all CLI errors.
- * Provides structured error data with code, hints, and cause tracking.
+ * Provides structured error data with code, hints, details, and cause tracking.
+ *
+ * - `details`: Extra lines displayed below the error message (e.g. per-item validation failures).
+ *   Subclasses populate this in their constructor.
+ * - `hints`: Actionable suggestions displayed after details.
  */
 abstract class CLIError extends Error {
   abstract readonly code: string;
   readonly hints: ErrorHint[];
+  readonly details: string[];
   override readonly cause?: Error;
 
   constructor(message: string, options?: CLIErrorOptions) {
     super(message);
     this.name = this.constructor.name;
     this.hints = options?.hints ?? [];
+    this.details = options?.details ?? [];
     this.cause = options?.cause;
 
     // Maintain proper stack trace in V8 environments (Node.js)
@@ -285,16 +315,10 @@ export class ApiError extends SystemError {
   readonly responseBody?: unknown;
   readonly requestId?: string;
 
-  constructor(
-    message: string,
-    options?: ApiErrorOptions,
-    parsedResponse?: ApiErrorResponse,
-  ) {
+  constructor(message: string, options?: ApiErrorOptions) {
     const hints =
-      options?.hints ??
-      ApiError.getReasonHints(parsedResponse) ??
-      ApiError.getDefaultHints(options?.statusCode);
-    super(message, { hints, cause: options?.cause });
+      options?.hints ?? ApiError.getDefaultHints(options?.statusCode);
+    super(message, { hints, details: options?.details, cause: options?.cause });
     this.statusCode = options?.statusCode;
     this.requestUrl = options?.requestUrl;
     this.requestMethod = options?.requestMethod;
@@ -327,13 +351,15 @@ export class ApiError extends SystemError {
     if (error instanceof HTTPError) {
       let message: string;
       let responseBody: unknown;
-      let parsedErrorResponse: ApiErrorResponse | undefined;
+      let hints: ErrorHint[] | undefined;
+      let details: string[] | undefined;
       try {
         responseBody = await error.response.clone().json();
         message = formatApiError(responseBody);
         const parsed = ApiErrorResponseSchema.safeParse(responseBody);
         if (parsed.success) {
-          parsedErrorResponse = parsed.data;
+          hints = ApiError.getReasonHints(parsed.data);
+          details = parseErrorDetails(parsed.data.extra_data);
         }
       } catch {
         message = error.message;
@@ -346,19 +372,17 @@ export class ApiError extends SystemError {
       const requestBody = error.options.context?.__requestBody;
       const requestId = error.response.headers.get("X-Request-ID") ?? undefined;
 
-      return new ApiError(
-        `Error ${context}: ${message}`,
-        {
-          statusCode,
-          requestUrl: error.request.url,
-          requestMethod: error.request.method,
-          requestBody,
-          responseBody,
-          requestId,
-          cause: error,
-        },
-        parsedErrorResponse,
-      );
+      return new ApiError(`Error ${context}: ${message}`, {
+        statusCode,
+        requestUrl: error.request.url,
+        requestMethod: error.request.method,
+        requestBody,
+        responseBody,
+        requestId,
+        hints,
+        details,
+        cause: error,
+      });
     }
 
     if (error instanceof Error) {
@@ -387,6 +411,14 @@ export class ApiError extends SystemError {
     }
     if (statusCode === 404) {
       return [{ message: "The requested resource was not found" }];
+    }
+    if (statusCode === 422) {
+      return [
+        {
+          message:
+            "The request was rejected due to a validation error. Check the error message above for details.",
+        },
+      ];
     }
     if (statusCode === 428) {
       return [
