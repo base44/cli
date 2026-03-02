@@ -33,9 +33,7 @@ async function readFunction(configPath: string): Promise<BackendFunction> {
     throw new InvalidInputError(
       `Function entry file not found: ${entryPath} (referenced in ${configPath})`,
       {
-        hints: [
-          { message: "Check the 'entry' field in your function config" },
-        ],
+        hints: [{ message: "Check the 'entry' field in your function config" }],
       },
     );
   }
