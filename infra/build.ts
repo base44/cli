@@ -34,9 +34,15 @@ const runAllBuilds = async () => {
     entrypoints: ["./deno-runtime/main.ts"],
     outdir: "./dist/deno-runtime",
   });
+  const denoExec = await runBuild({
+    entrypoints: ["./deno-runtime/exec.ts"],
+    outdir: "./dist/deno-runtime",
+    external: ["npm:@base44/sdk"],
+  });
   return {
     cli,
     denoRuntime,
+    denoExec,
   };
 };
 
@@ -54,8 +60,8 @@ if (process.argv.includes("--watch")) {
     const time = new Date().toLocaleTimeString();
     console.log(chalk.dim(`[${time}]`), chalk.gray(`${filename} ${event}d`));
 
-    const { cli, denoRuntime } = await runAllBuilds();
-    for (const result of [cli, denoRuntime]) {
+    const { cli, denoRuntime, denoExec } = await runAllBuilds();
+    for (const result of [cli, denoRuntime, denoExec]) {
       if (result.success && result.outputs.length > 0) {
         console.log(
           chalk.green(`  ✓ Rebuilt`),
@@ -75,9 +81,10 @@ if (process.argv.includes("--watch")) {
   // Keep process alive
   await new Promise(() => {});
 } else {
-  const { cli, denoRuntime } = await runAllBuilds();
+  const { cli, denoRuntime, denoExec } = await runAllBuilds();
   console.log(chalk.green.bold(`\n✓ Build complete\n`));
   console.log(chalk.dim("  Output:"));
   console.log(`  ${formatOutput(cli.outputs)}`);
   console.log(`  ${formatOutput(denoRuntime.outputs)}`);
+  console.log(`  ${formatOutput(denoExec.outputs)}`);
 }
