@@ -127,7 +127,7 @@ function displayError(error: unknown): void {
 
   if (isCLIError(error)) {
     if (error.details.length > 0) {
-      log.error(theme.format.details(error.details));
+      log.info(theme.format.details(error.details));
     }
 
     const hints = theme.format.agentHints(error.hints);

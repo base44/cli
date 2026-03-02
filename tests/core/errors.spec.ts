@@ -431,33 +431,11 @@ describe("ApiError.fromHttpError with extra_data.errors", () => {
     ]);
   });
 
-  it("populates details from plain string errors", async () => {
-    const { HTTPError } = await import("ky");
-    const responseBody = {
-      message: "Multiple errors",
-      extra_data: { errors: ["first error", "second error"] },
-    };
-    const response = new Response(JSON.stringify(responseBody), {
-      status: 422,
-      statusText: "Unprocessable Entity",
-    });
-    const request = new Request("https://api.base44.com/v1/functions", {
-      method: "PUT",
-    });
-
-    const httpError = new HTTPError(response, request, {} as never);
-    const apiError = await ApiError.fromHttpError(httpError, "deploying");
-
-    expect(apiError.details).toEqual(["first error", "second error"]);
-  });
-
-  it("populates details from mixed string and object errors", async () => {
+  it("drops errors gracefully when items have unexpected shapes", async () => {
     const { HTTPError } = await import("ky");
     const responseBody = {
       message: "Validation failed",
-      extra_data: {
-        errors: [{ name: "fn1", message: "too large" }, "generic error"],
-      },
+      extra_data: { errors: [123, "plain string", { bad: "shape" }] },
     };
     const response = new Response(JSON.stringify(responseBody), {
       status: 422,
@@ -470,7 +448,7 @@ describe("ApiError.fromHttpError with extra_data.errors", () => {
     const httpError = new HTTPError(response, request, {} as never);
     const apiError = await ApiError.fromHttpError(httpError, "deploying");
 
-    expect(apiError.details).toEqual(["fn1: too large", "generic error"]);
+    expect(apiError.details).toEqual([]);
   });
 
   it("returns empty details for response without extra_data", async () => {
@@ -623,6 +601,31 @@ describe("ApiError reason-based hints via fromHttpError", () => {
     const httpError = new HTTPError(response, request, {} as never);
     const apiError = await ApiError.fromHttpError(httpError, "testing");
 
+    expect(apiError.details).toEqual([]);
+  });
+
+  it("preserves reason-based hints when extra_data.errors is malformed", async () => {
+    const { HTTPError } = await import("ky");
+    const responseBody = {
+      message: "Forbidden",
+      extra_data: {
+        reason: "requires_backend_platform_app",
+        errors: [123, { bad: "shape" }],
+      },
+    };
+    const response = new Response(JSON.stringify(responseBody), {
+      status: 403,
+      statusText: "Forbidden",
+    });
+    const request = new Request("https://api.base44.com/v1/test", {
+      method: "POST",
+    });
+
+    const httpError = new HTTPError(response, request, {} as never);
+    const apiError = await ApiError.fromHttpError(httpError, "testing");
+
+    expect(apiError.hints).toHaveLength(2);
+    expect(apiError.hints[0].message).toContain("base44 link");
     expect(apiError.details).toEqual([]);
   });
 });

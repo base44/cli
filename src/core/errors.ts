@@ -27,25 +27,19 @@ import {
  * @param errorBody - The raw error response body (unknown type)
  * @returns A formatted error message string
  */
-export function formatApiError(errorBody: unknown): string {
-  const result = ApiErrorResponseSchema.safeParse(errorBody);
+export function formatApiError(
+  errorBody: unknown,
+  parsed?: ApiErrorResponse,
+): string {
+  const data = parsed ?? ApiErrorResponseSchema.safeParse(errorBody).data;
 
-  if (result.success) {
-    const { message, detail } = result.data;
-    // Prefer message, fall back to detail
-    const content = message ?? detail;
-    if (typeof content === "string") {
-      return content;
-    }
-    if (content !== undefined) {
-      return JSON.stringify(content, null, 2);
-    }
+  if (data) {
+    const content = data.message ?? data.detail;
+    if (typeof content === "string") return content;
+    if (content !== undefined) return JSON.stringify(content, null, 2);
   }
 
-  // Fallback for non-standard error responses
-  if (typeof errorBody === "string") {
-    return errorBody;
-  }
+  if (typeof errorBody === "string") return errorBody;
 
   return JSON.stringify(errorBody, null, 2);
 }
@@ -64,13 +58,7 @@ function parseErrorDetails(
   const errors = extraData?.errors;
   if (!errors || errors.length === 0) return undefined;
 
-  return errors.map((item) =>
-    typeof item === "string"
-      ? item
-      : item.name
-        ? `${item.name}: ${item.message}`
-        : item.message,
-  );
+  return errors.map((e) => `${e.name}: ${e.message}`);
 }
 
 // ============================================================================
@@ -355,11 +343,12 @@ export class ApiError extends SystemError {
       let details: string[] | undefined;
       try {
         responseBody = await error.response.clone().json();
-        message = formatApiError(responseBody);
         const parsed = ApiErrorResponseSchema.safeParse(responseBody);
-        if (parsed.success) {
-          hints = ApiError.getReasonHints(parsed.data);
-          details = parseErrorDetails(parsed.data.extra_data);
+        const parsedData = parsed.success ? parsed.data : undefined;
+        message = formatApiError(responseBody, parsedData);
+        if (parsedData) {
+          hints = ApiError.getReasonHints(parsedData);
+          details = parseErrorDetails(parsedData.extra_data);
         }
       } catch {
         message = error.message;
@@ -437,7 +426,7 @@ export class ApiError extends SystemError {
    * Add new entries to the map when the backend introduces new reason codes.
    */
   private static getReasonHints(
-    parsedResponse?: ApiErrorResponse,
+    parsedResponse: ApiErrorResponse,
   ): ErrorHint[] | undefined {
     const REASON_HINTS: Record<string, ErrorHint[]> = {
       requires_backend_platform_app: [
@@ -452,7 +441,7 @@ export class ApiError extends SystemError {
       ],
     };
 
-    const reason = parsedResponse?.extra_data?.reason;
+    const reason = parsedResponse.extra_data?.reason;
     if (typeof reason !== "string") return undefined;
 
     return REASON_HINTS[reason];
