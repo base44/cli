@@ -115,7 +115,7 @@ async function execAction(
     const exitCode = await new Promise<number>((resolvePromise) => {
       const child = spawn(
         "deno",
-        ["run", "--allow-all", EXEC_WRAPPER_PATH, ...extraArgs],
+        ["run", "--allow-all", "--node-modules-dir=auto", EXEC_WRAPPER_PATH, ...extraArgs],
         {
           env: {
             ...process.env,
