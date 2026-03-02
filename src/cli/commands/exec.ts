@@ -62,13 +62,18 @@ async function execAction(
   let scriptPath: string;
   let tempFile: string | null = null;
 
-  const isStdinPipe = !process.stdin.isTTY;
   const hasFile = scriptArg !== undefined;
   const hasEval = options.eval !== undefined;
+  // Only consider stdin when no explicit input mode (file/eval) was given
+  const isStdinPipe = !hasFile && !hasEval && !process.stdin.isTTY;
 
-  // Validate: exactly one input mode
-  const modeCount = [hasFile, hasEval, isStdinPipe].filter(Boolean).length;
-  if (modeCount === 0) {
+  if (hasFile && hasEval) {
+    throw new InvalidInputError(
+      "Cannot use both a file path and -e flag. Provide only one input mode.",
+    );
+  }
+
+  if (!hasFile && !hasEval && !isStdinPipe) {
     throw new InvalidInputError(
       "No script provided. Pass a file path, use -e for inline code, or pipe from stdin.",
       {
@@ -78,11 +83,6 @@ async function execAction(
           { message: "Stdin: echo 'code' | base44 exec" },
         ],
       },
-    );
-  }
-  if (modeCount > 1) {
-    throw new InvalidInputError(
-      "Multiple input modes detected. Provide only one of: file path, -e flag, or stdin.",
     );
   }
 
