@@ -43,4 +43,8 @@ try {
 } catch (error) {
   console.error("Failed to execute script:", error);
   Deno.exit(1);
+} finally {
+  // Clean up the SDK client (clears analytics heartbeat interval,
+  // disconnects socket) so the process can exit naturally.
+  base44.cleanup();
 }
