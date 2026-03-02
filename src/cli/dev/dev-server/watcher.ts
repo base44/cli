@@ -8,41 +8,36 @@ import type { Logger } from "../createDevLogger.js";
 const WATCH_DEBOUNCE_MS = 300;
 const WATCH_QUEUE_DELAY_MS = 500;
 
-type WatchEntryName = "functions";
-
-type WatchEntry = {
-  name: WatchEntryName;
-  path: string;
-};
-
-interface WatchBase44Events {
-  change: [name: WatchEntryName, relativePath: string];
+interface WatchBase44Events<T extends string> {
+  change: [name: T, relativePath: string];
 }
 
-export class WatchBase44 extends EventEmitter<WatchBase44Events> {
-  private watchers: FSWatcher[] = [];
-  private queueWaitForCreation: WatchEntry[] = [];
+export class WatchBase44<T extends string> extends EventEmitter<
+  WatchBase44Events<T>
+> {
+  private entryNames: T[];
+  private watchers: Map<T, FSWatcher> = new Map();
   private queueWaitForCreationTimeout: NodeJS.Timeout | null = null;
 
   constructor(
-    private itemsToWatch: WatchEntry[],
+    private itemsToWatch: Record<T, string>,
     private logger: Logger,
   ) {
     super();
+    this.entryNames = Object.keys(itemsToWatch) as T[];
   }
 
   async start(): Promise<void> {
-    if (this.watchers.length > 0 || this.queueWaitForCreation.length > 0) {
+    if (this.watchers.size > 0) {
       return;
     }
-    for (const item of this.itemsToWatch) {
-      if (await pathExists(item.path)) {
-        this.watchers.push(this.watchTarget(item));
-      } else {
-        this.queueWaitForCreation.push(item);
+    for (const name of this.entryNames) {
+      const targetPath = this.itemsToWatch[name];
+      if (await pathExists(targetPath)) {
+        this.watchers.set(name, this.watchTarget(name, targetPath));
       }
     }
-    this.watchCreationQueue();
+    this.watchEntries();
   }
 
   async close(): Promise<void> {
@@ -50,63 +45,62 @@ export class WatchBase44 extends EventEmitter<WatchBase44Events> {
       clearTimeout(this.queueWaitForCreationTimeout);
       this.queueWaitForCreationTimeout = null;
     }
-    for (const watcher of this.watchers) {
+    for (const watcher of this.watchers.values()) {
       await watcher.close();
     }
-    this.watchers = [];
-    this.queueWaitForCreation = [];
+    this.watchers.clear();
   }
 
-  private watchCreationQueue(): void {
+  private watchEntries(): void {
     if (this.queueWaitForCreationTimeout) {
       clearTimeout(this.queueWaitForCreationTimeout);
     }
     this.queueWaitForCreationTimeout = setTimeout(async () => {
-      const toRemove: WatchEntry[] = [];
-      for (const entry of this.queueWaitForCreation) {
-        if (await pathExists(entry.path)) {
-          this.watchers.push(this.watchTarget(entry));
-          toRemove.push(entry);
+      for (const name of this.entryNames) {
+        const path = this.itemsToWatch[name];
+        const watchItem = this.watchers.get(name);
+        const exists = await pathExists(path);
+
+        // Chokidar does not fire an event when the root directory it is watching is deleted.
+        // The `unlinkDir` event is only triggered for nested directories, not the root.
+        // Therefore, I need to watch for the root deletion separately.
+        if (!watchItem && exists) {
+          this.emit("change", name, path);
+          this.watchers.set(name, this.watchTarget(name, path));
+        } else if (watchItem && !exists) {
+          await watchItem.close();
+          this.emit("change", name, path);
+
+          setTimeout(() => {
+            // Garbage collecting closed watchers.
+            // This needs to happen in the next "tick", so process will not be "stuck".
+            // (User wouldn't be able to exit otherwise)
+            this.watchers.forEach((watcher, watcherName) => {
+              if (watcher.closed) {
+                this.watchers.delete(watcherName);
+              }
+            });
+          });
         }
       }
-      this.queueWaitForCreation = this.queueWaitForCreation.filter(
-        (entry) => !toRemove.includes(entry),
-      );
-      if (this.queueWaitForCreation.length > 0) {
-        this.watchCreationQueue();
-      } else {
-        this.queueWaitForCreationTimeout = null;
-      }
+      this.queueWaitForCreationTimeout = null;
+      this.watchEntries();
     }, WATCH_QUEUE_DELAY_MS);
   }
 
-  private watchTarget(item: WatchEntry): FSWatcher {
-    const handler = debounce(async (_event: string, path: string) => {
-      this.emit("change", item.name, relative(item.path, path));
-    }, WATCH_DEBOUNCE_MS);
-
-    const watcher = watch(item.path, {
+  private watchTarget(name: T, targetPath: string): FSWatcher {
+    const watcher = watch(targetPath, {
       ignoreInitial: true,
     });
-    watcher.on("all", handler);
-    watcher.on("unlinkDir", async (deletedPath) => {
-      if (deletedPath !== item.path) {
-        return;
-      }
-      await watcher.close();
-      this.queueWaitForCreation.push(item);
-      this.watchCreationQueue();
-
-      setTimeout(() => {
-        // Garbage collecting closed watchers.
-        // This needs to happen in the next "tick", so process will not be "stuck".
-        // (User wouldn't be able to exit otherwise)
-        this.watchers = this.watchers.filter((watcher) => !watcher.closed);
-      });
-    });
+    watcher.on(
+      "all",
+      debounce(async (_event: string, path: string) => {
+        this.emit("change", name, relative(targetPath, path));
+      }, WATCH_DEBOUNCE_MS),
+    );
     watcher.on("error", (err) => {
       this.logger.error(
-        `Watch handler failed for ${item.path}`,
+        `Watch handler failed for ${targetPath}`,
         err instanceof Error ? err : undefined,
       );
     });

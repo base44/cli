@@ -2,10 +2,9 @@ import Datastore from "@seald-io/nedb";
 import type { Entity } from "@/core/resources/entity/schema.js";
 
 export class Database {
-  private collections: Map<string, Datastore>;
+  private collections: Map<string, Datastore> = new Map();
 
-  constructor(entities: Entity[]) {
-    this.collections = new Map();
+  load(entities: Entity[]) {
     for (const entity of entities) {
       this.collections.set(entity.name, new Datastore());
     }
@@ -17,5 +16,12 @@ export class Database {
 
   getCollectionNames(): string[] {
     return Array.from(this.collections.keys());
+  }
+
+  dropAll() {
+    for (const collection of this.collections.values()) {
+      collection.remove({}, { multi: true });
+    }
+    this.collections.clear();
   }
 }

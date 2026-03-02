@@ -86,7 +86,8 @@ export async function createDevServer(
     );
   }
 
-  const db = new Database(entities);
+  const db = new Database();
+  db.load(entities);
   if (db.getCollectionNames().length > 0) {
     clackLog.info(`Loaded entities: ${db.getCollectionNames().join(", ")}`);
   }
@@ -152,18 +153,17 @@ export async function createDevServer(
   };
 
   const base44ConfigWatcher = new WatchBase44(
-    [
-      {
-        name: "functions",
-        path: join(dirname(project.configPath), project.functionsDir),
-      },
-    ],
+    {
+      functions: join(dirname(project.configPath), project.functionsDir),
+      entities: join(dirname(project.configPath), project.entitiesDir),
+    },
     devLogger,
   );
   base44ConfigWatcher.on("change", async (name) => {
     try {
+      const { functions, entities } = await options.loadResources();
+
       if (name === "functions") {
-        const { functions } = await options.loadResources();
         const previousFunctionCount = functionManager.getFunctionNames().length;
         functionManager.reload(functions);
 
@@ -172,6 +172,20 @@ export async function createDevServer(
           devLogger.log(`Reloaded functions: ${names.sort().join(", ")}`);
         } else if (previousFunctionCount > 0) {
           devLogger.log("All functions removed");
+        }
+      }
+
+      if (name === "entities") {
+        const previousEntityCount = db.getCollectionNames().length;
+        db.dropAll();
+        if (previousEntityCount > 0) {
+          devLogger.log("Entities directory changed, clearing data...");
+        }
+        db.load(entities);
+        if (db.getCollectionNames().length > 0) {
+          devLogger.log(
+            `Loaded entities: ${db.getCollectionNames().join(", ")}`,
+          );
         }
       }
     } catch (error) {
