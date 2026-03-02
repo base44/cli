@@ -15,6 +15,7 @@ import {
   InvalidInputError,
 } from "@/core/errors.js";
 import { getAppConfig } from "@/core/project/app-config.js";
+import { getSiteUrl } from "@/core/site/api.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const EXEC_WRAPPER_PATH = join(__dirname, "../deno-runtime/exec.js");
@@ -111,6 +112,15 @@ async function execAction(
     );
   }
 
+  // Fetch the app's published URL (subdomain) so the SDK can route
+  // function invocations through the app domain instead of the platform.
+  let appBaseUrl: string | undefined;
+  try {
+    appBaseUrl = await getSiteUrl();
+  } catch {
+    // Non-fatal: fall back to the platform API URL
+  }
+
   // Copy the exec wrapper out of node_modules to a temp location.
   // Deno 2.x treats files inside node_modules as Node modules and
   // doesn't support npm: specifiers in them.
@@ -135,6 +145,7 @@ async function execAction(
             BASE44_APP_ID: appConfig.id,
             BASE44_ACCESS_TOKEN: appUserToken,
             BASE44_API_URL: getBase44ApiUrl(),
+            ...(appBaseUrl ? { BASE44_APP_BASE_URL: appBaseUrl } : {}),
           },
           stdio: "inherit",
         },
