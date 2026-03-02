@@ -39,10 +39,8 @@ async function deployFunctionsAction(): Promise<RunCommandResult> {
     log.warn(`Deleted: ${result.deleted.join(", ")}`);
   }
   if (result.errors && result.errors.length > 0) {
-    const errorMessages = result.errors
-      .map((e) => `'${e.name}' function: ${e.message}`)
-      .join("\n");
-    throw new ApiError(`Function deployment errors:\n${errorMessages}`, {
+    throw new ApiError("Function deployment errors", {
+      details: result.errors.map((e) => `'${e.name}': ${e.message}`),
       hints: [
         { message: "Check the function code for syntax errors" },
         { message: "Ensure all imports are valid" },

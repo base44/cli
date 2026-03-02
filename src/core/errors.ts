@@ -27,27 +27,38 @@ import {
  * @param errorBody - The raw error response body (unknown type)
  * @returns A formatted error message string
  */
-export function formatApiError(errorBody: unknown): string {
-  const result = ApiErrorResponseSchema.safeParse(errorBody);
+export function formatApiError(
+  errorBody: unknown,
+  parsed?: ApiErrorResponse,
+): string {
+  const data = parsed ?? ApiErrorResponseSchema.safeParse(errorBody).data;
 
-  if (result.success) {
-    const { message, detail } = result.data;
-    // Prefer message, fall back to detail
-    const content = message ?? detail;
-    if (typeof content === "string") {
-      return content;
-    }
-    if (content !== undefined) {
-      return JSON.stringify(content, null, 2);
-    }
+  if (data) {
+    const content = data.message ?? data.detail;
+    if (typeof content === "string") return content;
+    if (content !== undefined) return JSON.stringify(content, null, 2);
   }
 
-  // Fallback for non-standard error responses
-  if (typeof errorBody === "string") {
-    return errorBody;
-  }
+  if (typeof errorBody === "string") return errorBody;
 
   return JSON.stringify(errorBody, null, 2);
+}
+
+// ============================================================================
+// API Validation Errors (structured per-item errors from extra_data.errors)
+// ============================================================================
+
+/**
+ * Extracts display-ready detail lines from a parsed API error response.
+ * Returns undefined if no extra_data.errors are present.
+ */
+function parseErrorDetails(
+  extraData: ApiErrorResponse["extra_data"],
+): string[] | undefined {
+  const errors = extraData?.errors;
+  if (!errors || errors.length === 0) return undefined;
+
+  return errors.map((e) => `${e.name}: ${e.message}`);
 }
 
 // ============================================================================
@@ -61,6 +72,7 @@ export interface ErrorHint {
 
 interface CLIErrorOptions {
   hints?: ErrorHint[];
+  details?: string[];
   cause?: Error;
 }
 
@@ -70,17 +82,23 @@ interface CLIErrorOptions {
 
 /**
  * Base class for all CLI errors.
- * Provides structured error data with code, hints, and cause tracking.
+ * Provides structured error data with code, hints, details, and cause tracking.
+ *
+ * - `details`: Extra lines displayed below the error message (e.g. per-item validation failures).
+ *   Subclasses populate this in their constructor.
+ * - `hints`: Actionable suggestions displayed after details.
  */
 abstract class CLIError extends Error {
   abstract readonly code: string;
   readonly hints: ErrorHint[];
+  readonly details: string[];
   override readonly cause?: Error;
 
   constructor(message: string, options?: CLIErrorOptions) {
     super(message);
     this.name = this.constructor.name;
     this.hints = options?.hints ?? [];
+    this.details = options?.details ?? [];
     this.cause = options?.cause;
 
     // Maintain proper stack trace in V8 environments (Node.js)
@@ -270,6 +288,7 @@ interface ApiErrorOptions extends CLIErrorOptions {
   requestMethod?: string;
   requestBody?: unknown;
   responseBody?: unknown;
+  requestId?: string;
 }
 
 /**
@@ -282,22 +301,18 @@ export class ApiError extends SystemError {
   readonly requestMethod?: string;
   readonly requestBody?: unknown;
   readonly responseBody?: unknown;
+  readonly requestId?: string;
 
-  constructor(
-    message: string,
-    options?: ApiErrorOptions,
-    parsedResponse?: ApiErrorResponse,
-  ) {
+  constructor(message: string, options?: ApiErrorOptions) {
     const hints =
-      options?.hints ??
-      ApiError.getReasonHints(parsedResponse) ??
-      ApiError.getDefaultHints(options?.statusCode);
-    super(message, { hints, cause: options?.cause });
+      options?.hints ?? ApiError.getDefaultHints(options?.statusCode);
+    super(message, { hints, details: options?.details, cause: options?.cause });
     this.statusCode = options?.statusCode;
     this.requestUrl = options?.requestUrl;
     this.requestMethod = options?.requestMethod;
     this.requestBody = options?.requestBody;
     this.responseBody = options?.responseBody;
+    this.requestId = options?.requestId;
   }
 
   /**
@@ -324,13 +339,16 @@ export class ApiError extends SystemError {
     if (error instanceof HTTPError) {
       let message: string;
       let responseBody: unknown;
-      let parsedErrorResponse: ApiErrorResponse | undefined;
+      let hints: ErrorHint[] | undefined;
+      let details: string[] | undefined;
       try {
         responseBody = await error.response.clone().json();
-        message = formatApiError(responseBody);
         const parsed = ApiErrorResponseSchema.safeParse(responseBody);
-        if (parsed.success) {
-          parsedErrorResponse = parsed.data;
+        const parsedData = parsed.success ? parsed.data : undefined;
+        message = formatApiError(responseBody, parsedData);
+        if (parsedData) {
+          hints = ApiError.getReasonHints(parsedData);
+          details = parseErrorDetails(parsedData.extra_data);
         }
       } catch {
         message = error.message;
@@ -341,19 +359,19 @@ export class ApiError extends SystemError {
         responseBody,
       );
       const requestBody = error.options.context?.__requestBody;
+      const requestId = error.response.headers.get("X-Request-ID") ?? undefined;
 
-      return new ApiError(
-        `Error ${context}: ${message}`,
-        {
-          statusCode,
-          requestUrl: error.request.url,
-          requestMethod: error.request.method,
-          requestBody,
-          responseBody,
-          cause: error,
-        },
-        parsedErrorResponse,
-      );
+      return new ApiError(`Error ${context}: ${message}`, {
+        statusCode,
+        requestUrl: error.request.url,
+        requestMethod: error.request.method,
+        requestBody,
+        responseBody,
+        requestId,
+        hints,
+        details,
+        cause: error,
+      });
     }
 
     if (error instanceof Error) {
@@ -383,6 +401,14 @@ export class ApiError extends SystemError {
     if (statusCode === 404) {
       return [{ message: "The requested resource was not found" }];
     }
+    if (statusCode === 422) {
+      return [
+        {
+          message:
+            "The request was rejected due to a validation error. Check the error message above for details.",
+        },
+      ];
+    }
     if (statusCode === 428) {
       return [
         {
@@ -400,7 +426,7 @@ export class ApiError extends SystemError {
    * Add new entries to the map when the backend introduces new reason codes.
    */
   private static getReasonHints(
-    parsedResponse?: ApiErrorResponse,
+    parsedResponse: ApiErrorResponse,
   ): ErrorHint[] | undefined {
     const REASON_HINTS: Record<string, ErrorHint[]> = {
       requires_backend_platform_app: [
@@ -415,7 +441,7 @@ export class ApiError extends SystemError {
       ],
     };
 
-    const reason = parsedResponse?.extra_data?.reason;
+    const reason = parsedResponse.extra_data?.reason;
     if (typeof reason !== "string") return undefined;
 
     return REASON_HINTS[reason];

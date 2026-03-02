@@ -1,7 +1,7 @@
 import { dirname, join } from "node:path";
 import { globby } from "globby";
 import { FUNCTION_CONFIG_FILE } from "@/core/consts.js";
-import { FileNotFoundError, SchemaValidationError } from "@/core/errors.js";
+import { InvalidInputError, SchemaValidationError } from "@/core/errors.js";
 import type {
   BackendFunction,
   FunctionConfig,
@@ -30,8 +30,11 @@ async function readFunction(configPath: string): Promise<BackendFunction> {
   const entryPath = join(functionDir, config.entry);
 
   if (!(await pathExists(entryPath))) {
-    throw new FileNotFoundError(
+    throw new InvalidInputError(
       `Function entry file not found: ${entryPath} (referenced in ${configPath})`,
+      {
+        hints: [{ message: "Check the 'entry' field in your function config" }],
+      },
     );
   }
 

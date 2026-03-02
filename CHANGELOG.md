@@ -1,6 +1,20 @@
 # Changelog
 
 
+## [0.0.37] - 2026-03-02
+
+### Added
+
+- Show the base44 secret command in help menu (#356)
+- Include x-request-id in ApiError and error reporter (#346)
+- CLI Local Dev - Media (#339)
+- Add functions pull (#331)
+
+### Changed
+
+- Improve Errors - Changed system to user errors, and display validation errors returned from the server (#355)
+- Migrate base44 deploy to per-function API (#338)
+
 ## [0.0.36] - 2026-02-25
 
 ### Added

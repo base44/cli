@@ -1,12 +1,9 @@
-import { dirname, join } from "node:path";
 import { Command } from "commander";
 import { createDevServer } from "@/cli/dev/dev-server/main.js";
 import type { CLIContext } from "@/cli/types.js";
 import { runCommand, theme } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 import { readProjectConfig } from "@/core/project/config.js";
-import { entityResource } from "@/core/resources/entity/resource.js";
-import { functionResource } from "@/core/resources/function/resource.js";
 
 interface DevOptions {
   port?: string;
@@ -17,13 +14,8 @@ async function devAction(options: DevOptions): Promise<RunCommandResult> {
   const { port: resolvedPort } = await createDevServer({
     port,
     loadResources: async () => {
-      const { project } = await readProjectConfig();
-      const configDir = dirname(project.configPath);
-      const [functions, entities] = await Promise.all([
-        functionResource.readAll(join(configDir, project.functionsDir)),
-        entityResource.readAll(join(configDir, project.entitiesDir)),
-      ]);
-      return { functions, entities };
+      const { functions, entities, project } = await readProjectConfig();
+      return { functions, entities, project };
     },
   });
 

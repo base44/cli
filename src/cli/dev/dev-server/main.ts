@@ -4,11 +4,11 @@ import cors from "cors";
 import express from "express";
 import getPort from "get-port";
 import { createProxyMiddleware } from "http-proxy-middleware";
+import { dir } from "tmp-promise";
 import { createDevLogger } from "@/cli/dev/createDevLogger.js";
 import { FunctionManager } from "@/cli/dev/dev-server/function-manager.js";
 import { createFunctionRouter } from "@/cli/dev/dev-server/routes/functions.js";
-import type { Entity } from "@/core/resources/entity/schema.js";
-import type { BackendFunction } from "@/core/resources/function/schema.js";
+import type { ProjectData } from "@/core/project/types.js";
 import { Database } from "./database.js";
 import {
   type BroadcastEntityEvent,
@@ -16,6 +16,10 @@ import {
   createRealtimeServer,
 } from "./realtime.js";
 import { createEntityRoutes } from "./routes/entities.js";
+import {
+  createCustomIntegrationRoutes,
+  createIntegrationRoutes,
+} from "./routes/integrations.js";
 
 const DEFAULT_PORT = 4400;
 const BASE44_APP_URL = "https://base44.app";
@@ -23,8 +27,9 @@ const BASE44_APP_URL = "https://base44.app";
 interface DevServerOptions {
   port?: number;
   loadResources: () => Promise<{
-    functions: BackendFunction[];
-    entities: Entity[];
+    functions: ProjectData["functions"];
+    entities: ProjectData["entities"];
+    project: ProjectData["project"];
   }>;
 }
 
@@ -38,6 +43,7 @@ export async function createDevServer(
 ): Promise<DevServerResult> {
   const { port: userPort } = options;
   const port = userPort ?? (await getPort({ port: DEFAULT_PORT }));
+  const baseUrl = `http://localhost:${port}`;
 
   const { functions, entities } = await options.loadResources();
 
@@ -95,8 +101,30 @@ export async function createDevServer(
   );
   app.use("/api/apps/:appId/entities", entityRoutes);
 
+  const { path: mediaFilesDir } = await dir();
+
+  // Serve uploaded files statically
+  app.use("/media", express.static(mediaFilesDir));
+
+  const integrationRoutes = createIntegrationRoutes(
+    mediaFilesDir,
+    baseUrl,
+    remoteProxy,
+    devLogger,
+  );
+  app.use("/api/apps/:appId/integration-endpoints", integrationRoutes);
+
+  const customIntegrationRoutes = createCustomIntegrationRoutes(
+    remoteProxy,
+    devLogger,
+  );
+  app.use("/api/apps/:appId/integrations/custom", customIntegrationRoutes);
+
   app.use((req, res, next) => {
-    return remoteProxy(req, res, next);
+    devLogger.warn(
+      `"${req.originalUrl}" is not supported in local development, passing call to production`,
+    );
+    remoteProxy(req, res, next);
   });
 
   return new Promise((resolve, reject) => {
