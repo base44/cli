@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from "node:child_process";
-import { unlinkSync, writeFileSync } from "node:fs";
+import { copyFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -111,11 +111,17 @@ async function execAction(
     );
   }
 
+  // Copy the exec wrapper out of node_modules to a temp location.
+  // Deno 2.x treats files inside node_modules as Node modules and
+  // doesn't support npm: specifiers in them.
+  const tempWrapper = join(tmpdir(), `base44-exec-wrapper-${Date.now()}.js`);
+  copyFileSync(EXEC_WRAPPER_PATH, tempWrapper);
+
   try {
     const exitCode = await new Promise<number>((resolvePromise) => {
       const child = spawn(
         "deno",
-        ["run", "--allow-all", "--node-modules-dir=auto", EXEC_WRAPPER_PATH, ...extraArgs],
+        ["run", "--allow-all", "--node-modules-dir=auto", tempWrapper, ...extraArgs],
         {
           env: {
             ...process.env,
@@ -137,11 +143,13 @@ async function execAction(
       process.exitCode = exitCode;
     }
   } finally {
-    if (tempFile) {
-      try {
-        unlinkSync(tempFile);
-      } catch {
-        // Ignore cleanup errors
+    for (const f of [tempFile, tempWrapper]) {
+      if (f) {
+        try {
+          unlinkSync(f);
+        } catch {
+          // Ignore cleanup errors
+        }
       }
     }
   }
