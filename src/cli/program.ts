@@ -58,7 +58,7 @@ export function createProgram(context: CLIContext): Command {
   program.addCommand(getFunctionsDeployCommand(context));
 
   // Register secrets commands
-  program.addCommand(getSecretsCommand(context), { hidden: true });
+  program.addCommand(getSecretsCommand(context));
 
   // Register site commands
   program.addCommand(getSiteCommand(context));
