@@ -57,8 +57,6 @@ async function execAction(
   options: ExecOptions,
   extraArgs: string[],
 ): Promise<RunCommandResult> {
-  verifyDenoIsInstalled();
-
   let scriptPath: string;
   let tempFile: string | null = null;
 
@@ -85,6 +83,8 @@ async function execAction(
       },
     );
   }
+
+  verifyDenoIsInstalled();
 
   if (hasFile) {
     scriptPath = `file://${resolve(scriptArg!)}`;
