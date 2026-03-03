@@ -25,6 +25,7 @@ const ROOT = join(import.meta.dir, "..");
 const DIST = join(ROOT, "dist");
 const BINARIES_DIR = join(DIST, "binaries");
 const ENTRY = join(ROOT, "src", "cli", "binary-entry.ts");
+const WINDOWS_ICON = join(ROOT, "infra", "base44.ico");
 
 // ---------------------------------------------------------------------------
 // Verify prerequisites
@@ -61,18 +62,22 @@ for (const { target, output } of TARGETS) {
   const outPath = join(BINARIES_DIR, output);
   console.log(chalk.dim(`  Compiling ${output}...`));
 
-  const result = Bun.spawnSync(
-    [
-      "bun",
-      "build",
-      "--compile",
-      `--target=${target}`,
-      ENTRY,
-      "--outfile",
-      outPath,
-    ],
-    { cwd: ROOT },
-  );
+  const args = [
+    "bun",
+    "build",
+    "--compile",
+    `--target=${target}`,
+    ENTRY,
+    "--outfile",
+    outPath,
+  ];
+
+  // --windows-icon is only supported when the build host is Windows
+  if (target.includes("windows") && process.platform === "win32") {
+    args.push(`--windows-icon=${WINDOWS_ICON}`);
+  }
+
+  const result = Bun.spawnSync(args, { cwd: ROOT });
 
   if (!result.success) {
     console.error(chalk.red(`\n✗ Failed to compile ${output}\n`));
