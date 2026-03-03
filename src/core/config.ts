@@ -1,3 +1,10 @@
+declare global {
+  // Set by the compiled binary entry point (src/cli/binary-entry.ts)
+  // to override asset paths that don't work inside Bun-compiled binaries.
+  var __BASE44_TEMPLATES_DIR: string | undefined;
+  var __BASE44_DENO_WRAPPER_PATH: string | undefined;
+}
+
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -24,6 +31,8 @@ export function getAuthFilePath(): string {
 }
 
 export function getTemplatesDir(): string {
+  if (globalThis.__BASE44_TEMPLATES_DIR)
+    return globalThis.__BASE44_TEMPLATES_DIR;
   return join(__dirname, "../templates");
 }
 

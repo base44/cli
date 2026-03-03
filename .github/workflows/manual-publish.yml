@@ -185,6 +185,9 @@ jobs:
       - name: Build package
         run: bun run build
 
+      - name: Build standalone binaries
+        run: bun run build:binaries
+
       - name: Upload sourcemaps to PostHog
         if: github.event.inputs.dry_run == 'false'
         uses: PostHog/upload-source-maps@v0.4.6
@@ -246,14 +249,30 @@ jobs:
 
             ### Installation
 
+            **npm:**
             ```bash
-            npm install base44@${{ github.event.inputs.npm_tag }}
+            npm install -g base44@${{ github.event.inputs.npm_tag }}
+            ```
+
+            **Homebrew:**
+            ```bash
+            brew install base44/tap/base44
             ```
 
             ### Version: ${{ env.NEW_VERSION }}
             ### NPM Tag: ${{ github.event.inputs.npm_tag }}
           draft: false
           prerelease: false
+
+      - name: Upload binaries to GitHub Release
+        if: github.event.inputs.dry_run == 'false'
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+        run: |
+          for file in dist/binaries/base44-*; do
+            echo "Uploading $file..."
+            gh release upload "v${{ env.NEW_VERSION }}" "$file" --clobber
+          done
 
       - name: Release summary
         if: steps.prev-tag.outputs.tag != ''

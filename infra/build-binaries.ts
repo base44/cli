@@ -1,0 +1,106 @@
+/**
+ * Build standalone binaries for Homebrew / direct download distribution.
+ *
+ * Prerequisites: run `bun run build` first so that dist/cli/ and dist/deno-runtime/ exist.
+ *
+ * Steps:
+ *   1. Create dist/templates.tar.gz from templates/
+ *   2. Cross-compile for each platform with `bun build --compile`
+ *   3. Generate SHA256 checksums
+ */
+import { createHash } from "node:crypto";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import chalk from "chalk";
+
+const TARGETS = [
+  { target: "bun-darwin-arm64", output: "base44-darwin-arm64" },
+  { target: "bun-darwin-x64", output: "base44-darwin-x64" },
+  { target: "bun-linux-x64", output: "base44-linux-x64" },
+  { target: "bun-linux-arm64", output: "base44-linux-arm64" },
+  { target: "bun-windows-x64", output: "base44-windows-x64.exe" },
+] as const;
+
+const ROOT = join(import.meta.dir, "..");
+const DIST = join(ROOT, "dist");
+const BINARIES_DIR = join(DIST, "binaries");
+const ENTRY = join(ROOT, "src", "cli", "binary-entry.ts");
+
+// ---------------------------------------------------------------------------
+// Verify prerequisites
+// ---------------------------------------------------------------------------
+for (const required of ["dist/cli/index.js", "dist/deno-runtime/main.js"]) {
+  if (!existsSync(join(ROOT, required))) {
+    console.error(
+      chalk.red(`\n✗ Missing ${required} — run \`bun run build\` first.\n`),
+    );
+    process.exit(1);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 1. Create templates tarball
+// ---------------------------------------------------------------------------
+console.log(chalk.dim("  Creating templates.tar.gz..."));
+const tarball = join(DIST, "templates.tar.gz");
+const proc = Bun.spawnSync(["tar", "-czf", tarball, "-C", join(ROOT, "templates"), "."], {
+  cwd: ROOT,
+});
+if (!proc.success) {
+  console.error(chalk.red("\n✗ Failed to create templates tarball\n"));
+  console.error(proc.stderr.toString());
+  process.exit(1);
+}
+
+// ---------------------------------------------------------------------------
+// 2. Compile binaries
+// ---------------------------------------------------------------------------
+mkdirSync(BINARIES_DIR, { recursive: true });
+
+for (const { target, output } of TARGETS) {
+  const outPath = join(BINARIES_DIR, output);
+  console.log(chalk.dim(`  Compiling ${output}...`));
+
+  const result = Bun.spawnSync(
+    [
+      "bun",
+      "build",
+      "--compile",
+      `--target=${target}`,
+      ENTRY,
+      "--outfile",
+      outPath,
+    ],
+    { cwd: ROOT },
+  );
+
+  if (!result.success) {
+    console.error(chalk.red(`\n✗ Failed to compile ${output}\n`));
+    console.error(result.stderr.toString());
+    process.exit(1);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 3. Generate SHA256 checksums
+// ---------------------------------------------------------------------------
+console.log(chalk.dim("  Generating checksums..."));
+
+for (const { output } of TARGETS) {
+  const filePath = join(BINARIES_DIR, output);
+  const hash = createHash("sha256")
+    .update(readFileSync(filePath))
+    .digest("hex");
+  writeFileSync(join(BINARIES_DIR, `${output}.sha256`), `${hash}  ${output}\n`);
+}
+
+// ---------------------------------------------------------------------------
+// Done
+// ---------------------------------------------------------------------------
+console.log(chalk.green.bold("\n✓ Binaries built\n"));
+console.log(chalk.dim("  Output:"));
+for (const { output } of TARGETS) {
+  const filePath = join(BINARIES_DIR, output);
+  const sizeMB = (Bun.file(filePath).size / 1024 / 1024).toFixed(1);
+  console.log(`  ${chalk.cyan(filePath)} ${chalk.dim(`(${sizeMB} MB)`)}`);
+}

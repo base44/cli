@@ -21,6 +21,7 @@
     "lint:fix": "biome check --write src tests",
     "test": "vitest run",
     "test:watch": "vitest",
+    "build:binaries": "bun run infra/build-binaries.ts",
     "knip": "knip",
     "knip:fix": "knip --fix"
   },

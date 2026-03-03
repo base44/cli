@@ -13,7 +13,9 @@ import type { Logger } from "../createDevLogger";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const WRAPPER_PATH = join(__dirname, "../deno-runtime/main.js");
+const WRAPPER_PATH =
+  globalThis.__BASE44_DENO_WRAPPER_PATH ??
+  join(__dirname, "../deno-runtime/main.js");
 
 const READY_TIMEOUT = 30000;
 
