@@ -11,6 +11,7 @@ describe("exec command", () => {
     t.expectResult(result).toContain("Run a script with the Base44 SDK");
     t.expectResult(result).toContain("[script]");
     t.expectResult(result).toContain("-e, --eval");
+    t.expectResult(result).toContain("--stdin");
   });
 
   it("fails when not in a project directory", async () => {
@@ -22,13 +23,13 @@ describe("exec command", () => {
     t.expectResult(result).toContain("No Base44 project found");
   });
 
-  it("fails when both file and -e flag are provided", async () => {
+  it("fails when multiple input modes are provided", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
 
     const result = await t.run("exec", "script.ts", "-e", "console.log(1)");
 
     t.expectResult(result).toFail();
-    t.expectResult(result).toContain("Cannot use both a file path and -e flag");
+    t.expectResult(result).toContain("Cannot use more than one input mode");
   });
 
   it("fails when token exchange returns an error", async () => {

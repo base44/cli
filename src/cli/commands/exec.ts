@@ -8,7 +8,6 @@ import type { CLIContext } from "@/cli/types.js";
 import { runCommand } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 import { getAppClient } from "@/core/clients/index.js";
-import { getBase44ApiUrl } from "@/core/config.js";
 import {
   ApiError,
   DependencyNotFoundError,
@@ -18,7 +17,7 @@ import { getAppConfig } from "@/core/project/app-config.js";
 import { getSiteUrl } from "@/core/site/api.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const EXEC_WRAPPER_PATH = join(__dirname, "../deno-runtime/exec.js");
+const EXEC_WRAPPER_PATH = join(__dirname, "../deno-runtime/exec.ts");
 
 function verifyDenoIsInstalled(): void {
   const result = spawnSync("deno", ["--version"]);
@@ -29,7 +28,7 @@ function verifyDenoIsInstalled(): void {
         hints: [
           {
             message:
-              "Install Deno: https://docs.deno.com/runtime/getting-started/installation/",
+              "Install Deno: https://docs.deno.com/runtime/getting_started/installation/",
           },
         ],
       },
@@ -51,6 +50,7 @@ function readStdin(): Promise<string> {
 
 interface ExecOptions {
   eval?: string;
+  stdin?: boolean;
 }
 
 async function execAction(
@@ -63,23 +63,24 @@ async function execAction(
 
   const hasFile = scriptArg !== undefined;
   const hasEval = options.eval !== undefined;
-  // Only consider stdin when no explicit input mode (file/eval) was given
-  const isStdinPipe = !hasFile && !hasEval && !process.stdin.isTTY;
+  const hasStdin = options.stdin === true;
 
-  if (hasFile && hasEval) {
+  const inputCount = [hasFile, hasEval, hasStdin].filter(Boolean).length;
+
+  if (inputCount > 1) {
     throw new InvalidInputError(
-      "Cannot use both a file path and -e flag. Provide only one input mode.",
+      "Cannot use more than one input mode. Provide only one of: file path, -e, or --stdin.",
     );
   }
 
-  if (!hasFile && !hasEval && !isStdinPipe) {
+  if (inputCount === 0) {
     throw new InvalidInputError(
-      "No script provided. Pass a file path, use -e for inline code, or pipe from stdin.",
+      "No script provided. Pass a file path, use -e for inline code, or use --stdin.",
       {
         hints: [
           { message: "File:  base44 exec ./script.ts" },
           { message: 'Eval:  base44 exec -e "console.log(1)"' },
-          { message: "Stdin: echo 'code' | base44 exec" },
+          { message: "Stdin: echo 'code' | base44 exec --stdin" },
         ],
       },
     );
@@ -97,34 +98,30 @@ async function execAction(
     scriptPath = `file://${tempFile}`;
   }
 
-  // Exchange the platform token for an app user token
+  // Exchange the platform token for an app user token, and fetch the app's
+  // published URL in parallel. Both are required to run the script.
   const appConfig = getAppConfig();
-  let appUserToken: string;
-  try {
-    const response = await getAppClient()
-      .get("auth/token")
-      .json<{ token: string }>();
-    appUserToken = response.token;
-  } catch (error) {
-    throw await ApiError.fromHttpError(
-      error,
-      "exchanging platform token for app user token",
-    );
-  }
-
-  // Fetch the app's published URL (subdomain) so the SDK can route
-  // function invocations through the app domain instead of the platform.
-  let appBaseUrl: string | undefined;
-  try {
-    appBaseUrl = await getSiteUrl();
-  } catch {
-    // Non-fatal: fall back to the platform API URL
-  }
+  const [appUserToken, appBaseUrl] = await Promise.all([
+    (async () => {
+      try {
+        const response = await getAppClient()
+          .get("auth/token")
+          .json<{ token: string }>();
+        return response.token;
+      } catch (error) {
+        throw await ApiError.fromHttpError(
+          error,
+          "exchanging platform token for app user token",
+        );
+      }
+    })(),
+    getSiteUrl(),
+  ]);
 
   // Copy the exec wrapper out of node_modules to a temp location.
   // Deno 2.x treats files inside node_modules as Node modules and
   // doesn't support npm: specifiers in them.
-  const tempWrapper = join(tmpdir(), `base44-exec-wrapper-${Date.now()}.js`);
+  const tempWrapper = join(tmpdir(), `base44-exec-wrapper-${Date.now()}.ts`);
   copyFileSync(EXEC_WRAPPER_PATH, tempWrapper);
 
   try {
@@ -144,8 +141,7 @@ async function execAction(
             SCRIPT_PATH: scriptPath,
             BASE44_APP_ID: appConfig.id,
             BASE44_ACCESS_TOKEN: appUserToken,
-            BASE44_API_URL: getBase44ApiUrl(),
-            ...(appBaseUrl ? { BASE44_APP_BASE_URL: appBaseUrl } : {}),
+            BASE44_APP_BASE_URL: appBaseUrl,
           },
           stdio: "inherit",
         },
@@ -181,6 +177,7 @@ export function getExecCommand(context: CLIContext): Command {
     )
     .argument("[script]", "Path to a .ts or .js script file")
     .option("-e, --eval <code>", "Evaluate inline code")
+    .option("--stdin", "Read script from stdin")
     .allowUnknownOption(true)
     .action(async (script: string | undefined, options: ExecOptions) => {
       // Collect everything after "--" as extra args for the Deno process

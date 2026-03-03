@@ -1,4 +1,4 @@
-import { watch } from "node:fs";
+import { copyFileSync, mkdirSync, watch } from "node:fs";
 import type { BuildConfig } from "bun";
 import chalk from "chalk";
 
@@ -34,15 +34,12 @@ const runAllBuilds = async () => {
     entrypoints: ["./deno-runtime/main.ts"],
     outdir: "./dist/deno-runtime",
   });
-  const denoExec = await runBuild({
-    entrypoints: ["./deno-runtime/exec.ts"],
-    outdir: "./dist/deno-runtime",
-    external: ["npm:@base44/sdk"],
-  });
+  // Deno runs TypeScript natively, so just copy exec.ts as-is (no bundling needed)
+  mkdirSync("./dist/deno-runtime", { recursive: true });
+  copyFileSync("./deno-runtime/exec.ts", "./dist/deno-runtime/exec.ts");
   return {
     cli,
     denoRuntime,
-    denoExec,
   };
 };
 
@@ -60,8 +57,8 @@ if (process.argv.includes("--watch")) {
     const time = new Date().toLocaleTimeString();
     console.log(chalk.dim(`[${time}]`), chalk.gray(`${filename} ${event}d`));
 
-    const { cli, denoRuntime, denoExec } = await runAllBuilds();
-    for (const result of [cli, denoRuntime, denoExec]) {
+    const { cli, denoRuntime } = await runAllBuilds();
+    for (const result of [cli, denoRuntime]) {
       if (result.success && result.outputs.length > 0) {
         console.log(
           chalk.green(`  ✓ Rebuilt`),
@@ -81,10 +78,10 @@ if (process.argv.includes("--watch")) {
   // Keep process alive
   await new Promise(() => {});
 } else {
-  const { cli, denoRuntime, denoExec } = await runAllBuilds();
+  const { cli, denoRuntime } = await runAllBuilds();
   console.log(chalk.green.bold(`\n✓ Build complete\n`));
   console.log(chalk.dim("  Output:"));
   console.log(`  ${formatOutput(cli.outputs)}`);
   console.log(`  ${formatOutput(denoRuntime.outputs)}`);
-  console.log(`  ${formatOutput(denoExec.outputs)}`);
+  console.log(`  ${chalk.cyan("./dist/deno-runtime/exec.ts")} (copied)`);
 }
