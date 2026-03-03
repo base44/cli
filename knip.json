@@ -1,7 +1,7 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "include": ["classMembers"],
-  "entry": ["src/cli/index.ts", "tests/**/testkit/index.ts"],
+  "entry": ["src/cli/index.ts", "src/cli/binary-entry.ts", "tests/**/testkit/index.ts"],
   "project": ["src/**/*.ts", "tests/**/*.ts"],
   "ignore": ["dist/**", "tests/fixtures/**"],
   "ignoreDependencies": ["@types/deno"]
