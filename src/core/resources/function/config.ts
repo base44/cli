@@ -1,6 +1,10 @@
 import { basename, dirname, join, relative } from "node:path";
 import { globby } from "globby";
-import { FUNCTION_CONFIG_FILE } from "@/core/consts.js";
+import {
+  ENTRY_FILE_GLOB,
+  ENTRY_IGNORE_DOT_PATHS,
+  FUNCTION_CONFIG_GLOB,
+} from "@/core/consts.js";
 import { InvalidInputError, SchemaValidationError } from "@/core/errors.js";
 import type {
   BackendFunction,
@@ -54,14 +58,15 @@ export async function readAllFunctions(
     return [];
   }
 
-  const configFiles = await globby(`**/${FUNCTION_CONFIG_FILE}`, {
+  const configFiles = await globby(FUNCTION_CONFIG_GLOB, {
     cwd: functionsDir,
     absolute: true,
   });
 
-  const entryFiles = await globby(`**/entry.{js,ts}`, {
+  const entryFiles = await globby(ENTRY_FILE_GLOB, {
     cwd: functionsDir,
     absolute: true,
+    ignore: ENTRY_IGNORE_DOT_PATHS,
   });
 
   const configFilesDirs = new Set(configFiles.map((f) => dirname(f)));
@@ -85,7 +90,7 @@ export async function readAllFunctions(
       const name = relative(functionsDir, functionDir).split(/[/\\]/).join("/");
       if (!name) {
         throw new InvalidInputError(
-          "entry.js/entry.ts must be inside a subfolder of the functions directory",
+          "entry.ts found directly in the functions directory — it must be inside a named subfolder",
           {
             hints: [
               {
@@ -106,7 +111,14 @@ export async function readAllFunctions(
   const names = new Set<string>();
   for (const fn of functions) {
     if (names.has(fn.name)) {
-      throw new Error(`Duplicate function name "${fn.name}"`);
+      throw new InvalidInputError(`Duplicate function name "${fn.name}"`, {
+        hints: [
+          {
+            message:
+              "Ensure each function has a unique name (or path for zero-config functions).",
+          },
+        ],
+      });
     }
     names.add(fn.name);
   }

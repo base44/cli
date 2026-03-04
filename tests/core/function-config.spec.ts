@@ -80,7 +80,7 @@ describe("readAllFunctions", () => {
       "function-discovery-entry-at-root",
     );
     await expect(readAllFunctions(functionsDir)).rejects.toThrow(
-      /entry\.js\/entry\.ts must be inside a subfolder/,
+      /must be inside a named subfolder/,
     );
   });
 
