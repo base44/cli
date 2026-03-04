@@ -64,10 +64,10 @@ export async function readAllFunctions(
     absolute: true,
   });
 
-  const configFilesDirs = new Set(configFiles.map(f => dirname(f)));
+  const configFilesDirs = new Set(configFiles.map((f) => dirname(f)));
 
   const indexFilesDirs = indexFiles.filter(
-    indexFile => !configFilesDirs.has(dirname(indexFile))
+    (indexFile) => !configFilesDirs.has(dirname(indexFile)),
   );
 
   const functionsFromConfig = await Promise.all(
