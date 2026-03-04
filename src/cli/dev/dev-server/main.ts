@@ -158,22 +158,22 @@ export async function createDevServer(
         path: join(dirname(project.configPath), project.functionsDir),
       },
     ],
-    async (name) => {
-      if (name === "functions") {
-        const { functions } = await options.loadResources();
-        const previousFunctionCount = functionManager.getFunctionNames().length;
-        functionManager.reload(functions);
-
-        const names = functionManager.getFunctionNames();
-        if (names.length > 0) {
-          devLogger.log(`Reloaded functions: ${names.sort().join(", ")}`);
-        } else if (previousFunctionCount > 0) {
-          devLogger.log("All functions removed");
-        }
-      }
-    },
     devLogger,
   );
+  base44ConfigWatcher.on("change", async (name) => {
+    if (name === "functions") {
+      const { functions } = await options.loadResources();
+      const previousFunctionCount = functionManager.getFunctionNames().length;
+      functionManager.reload(functions);
+
+      const names = functionManager.getFunctionNames();
+      if (names.length > 0) {
+        devLogger.log(`Reloaded functions: ${names.sort().join(", ")}`);
+      } else if (previousFunctionCount > 0) {
+        devLogger.log("All functions removed");
+      }
+    }
+  });
   await base44ConfigWatcher.start();
 
   const shutdown = () => {

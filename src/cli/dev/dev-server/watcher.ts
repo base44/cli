@@ -1,3 +1,4 @@
+import { EventEmitter } from "node:events";
 import { relative } from "node:path";
 import { type FSWatcher, watch } from "chokidar";
 import debounce from "lodash/debounce";
@@ -14,16 +15,21 @@ type WatchEntry = {
   path: string;
 };
 
-export class WatchBase44 {
+interface WatchBase44Events {
+  change: [name: WatchEntryName, relativePath: string];
+}
+
+export class WatchBase44 extends EventEmitter<WatchBase44Events> {
   private watchers: FSWatcher[] = [];
   private queueWaitForCreation: WatchEntry[] = [];
   private queueWaitForCreationTimeout: NodeJS.Timeout | null = null;
 
   constructor(
     private itemsToWatch: WatchEntry[],
-    private onChange: (subfolder: string, path: string) => Promise<void>,
     private logger: Logger,
-  ) {}
+  ) {
+    super();
+  }
 
   async start(): Promise<void> {
     if (this.watchers.length > 0 || this.queueWaitForCreation.length > 0) {
@@ -76,14 +82,7 @@ export class WatchBase44 {
 
   private watchTarget(item: WatchEntry): FSWatcher {
     const handler = debounce(async (_event: string, path: string) => {
-      try {
-        await this.onChange(item.name, relative(item.path, path));
-      } catch (err) {
-        this.logger.error(
-          `Reload failed for ${item.name}`,
-          err instanceof Error ? err : undefined,
-        );
-      }
+      this.emit("change", item.name, relative(item.path, path));
     }, WATCH_DEBOUNCE_MS);
 
     const watcher = watch(item.path, {
@@ -107,7 +106,7 @@ export class WatchBase44 {
     });
     watcher.on("error", (err) => {
       this.logger.error(
-        `[dev-server] Watch handler failed for ${item.path}`,
+        `Watch handler failed for ${item.path}`,
         err instanceof Error ? err : undefined,
       );
     });

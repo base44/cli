@@ -111,7 +111,7 @@ export class FunctionManager {
 
   stopAll(): void {
     for (const [name, { process }] of this.running) {
-      this.logger.log(`[dev-server] Stopping function: ${name}`);
+      this.logger.log(`Stopping function: ${name}`);
       process.kill();
     }
     this.running.clear();
@@ -124,9 +124,7 @@ export class FunctionManager {
   }
 
   private spawnFunction(func: BackendFunction, port: number): ChildProcess {
-    this.logger.log(
-      `[dev-server] Spawning function "${func.name}" on port ${port}`,
-    );
+    this.logger.log(`Spawning function "${func.name}" on port ${port}`);
 
     const process = spawn("deno", ["run", "--allow-all", WRAPPER_PATH], {
       env: {
@@ -163,15 +161,13 @@ export class FunctionManager {
       // In this case I'm assuming that it's happening as part of the reload mechanism.
       // In other words there is no need to log `code` information, if we ourselve killed the process.
       if (code !== null) {
-        this.logger.log(
-          `[dev-server] Function "${name}" exited with code ${code}`,
-        );
+        this.logger.log(`Function "${name}" exited with code ${code}`);
       }
       this.running.delete(name);
     });
 
     process.on("error", (error) => {
-      this.logger.error(`[dev-server] Function "${name}" error:`, error);
+      this.logger.error(`Function "${name}" error:`, error);
       this.running.delete(name);
     });
   }
