@@ -3,6 +3,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import getPort from "get-port";
+import { getAssetsDir } from "@/core/assets.js";
 import {
   DependencyNotFoundError,
   InternalError,
@@ -13,9 +14,9 @@ import type { Logger } from "../createDevLogger";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const WRAPPER_PATH =
-  globalThis.__BASE44_DENO_WRAPPER_PATH ??
-  join(__dirname, "../deno-runtime/main.js");
+const WRAPPER_PATH = getAssetsDir()
+  ? join(getAssetsDir()!, "deno-runtime", "main.js")
+  : join(__dirname, "../deno-runtime/main.js");
 
 const READY_TIMEOUT = 30000;
 

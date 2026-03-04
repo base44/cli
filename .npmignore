@@ -5,4 +5,4 @@ dist/**/*.map
 
 # Exclude standalone binaries and templates tarball (used only for Homebrew / direct downloads)
 dist/binaries/
-dist/templates.tar.gz
+dist/assets.tar.gz
