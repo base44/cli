@@ -161,17 +161,23 @@ export async function createDevServer(
     devLogger,
   );
   base44ConfigWatcher.on("change", async (name) => {
-    if (name === "functions") {
-      const { functions } = await options.loadResources();
-      const previousFunctionCount = functionManager.getFunctionNames().length;
-      functionManager.reload(functions);
+    try {
+      if (name === "functions") {
+        const { functions } = await options.loadResources();
+        const previousFunctionCount = functionManager.getFunctionNames().length;
+        functionManager.reload(functions);
 
-      const names = functionManager.getFunctionNames();
-      if (names.length > 0) {
-        devLogger.log(`Reloaded functions: ${names.sort().join(", ")}`);
-      } else if (previousFunctionCount > 0) {
-        devLogger.log("All functions removed");
+        const names = functionManager.getFunctionNames();
+        if (names.length > 0) {
+          devLogger.log(`Reloaded functions: ${names.sort().join(", ")}`);
+        } else if (previousFunctionCount > 0) {
+          devLogger.log("All functions removed");
+        }
       }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      devLogger.error(errorMessage);
     }
   });
   await base44ConfigWatcher.start();
