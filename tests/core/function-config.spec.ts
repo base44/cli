@@ -75,7 +75,10 @@ describe("readAllFunctions", () => {
   });
 
   it("throws when entry.ts is at functions root (empty name)", async () => {
-    const functionsDir = resolve(FIXTURES_DIR, "function-discovery-entry-at-root");
+    const functionsDir = resolve(
+      FIXTURES_DIR,
+      "function-discovery-entry-at-root",
+    );
     await expect(readAllFunctions(functionsDir)).rejects.toThrow(
       /entry\.js\/entry\.ts must be inside a subfolder/,
     );
