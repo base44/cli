@@ -17,6 +17,8 @@ export const theme = {
     header: chalk.dim,
     bold: chalk.bold,
     dim: chalk.dim,
+    error: chalk.red,
+    warn: chalk.yellow,
   },
   format: {
     errorContext(ctx: ErrorContext): string {
@@ -26,6 +28,9 @@ export const theme = {
         new Date().toISOString(),
       ].filter(Boolean);
       return chalk.dim(parts.join(" | "));
+    },
+    details(lines: string[]): string {
+      return lines.map((line) => `  • ${line}`).join("\n");
     },
     agentHints(hints: ErrorHint[]): string | null {
       if (hints.length === 0) {

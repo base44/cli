@@ -1,14 +1,38 @@
 import type { Server } from "node:http";
+import { dirname, join } from "node:path";
+import { log as clackLog } from "@clack/prompts";
 import cors from "cors";
 import express from "express";
 import getPort from "get-port";
 import { createProxyMiddleware } from "http-proxy-middleware";
+import { dir } from "tmp-promise";
+import { createDevLogger } from "@/cli/dev/createDevLogger.js";
+import { FunctionManager } from "@/cli/dev/dev-server/function-manager.js";
+import { createFunctionRouter } from "@/cli/dev/dev-server/routes/functions.js";
+import type { ProjectData } from "@/core/project/types.js";
+import { Database } from "./database.js";
+import {
+  type BroadcastEntityEvent,
+  broadcastEntityEvent,
+  createRealtimeServer,
+} from "./realtime.js";
+import { createEntityRoutes } from "./routes/entities.js";
+import {
+  createCustomIntegrationRoutes,
+  createIntegrationRoutes,
+} from "./routes/integrations.js";
+import { WatchBase44 } from "./watcher.js";
 
 const DEFAULT_PORT = 4400;
 const BASE44_APP_URL = "https://base44.app";
 
 interface DevServerOptions {
   port?: number;
+  loadResources: () => Promise<{
+    functions: ProjectData["functions"];
+    entities: ProjectData["entities"];
+    project: ProjectData["project"];
+  }>;
 }
 
 interface DevServerResult {
@@ -17,9 +41,13 @@ interface DevServerResult {
 }
 
 export async function createDevServer(
-  options: DevServerOptions = {},
+  options: DevServerOptions,
 ): Promise<DevServerResult> {
-  const port = options.port ?? (await getPort({ port: DEFAULT_PORT }));
+  const { port: userPort } = options;
+  const port = userPort ?? (await getPort({ port: DEFAULT_PORT }));
+  const baseUrl = `http://localhost:${port}`;
+
+  const { functions, entities, project } = await options.loadResources();
 
   const app = express();
 
@@ -46,12 +74,62 @@ export async function createDevServer(
     next();
   });
 
+  const devLogger = createDevLogger();
+
+  const functionManager = new FunctionManager(functions, devLogger);
+  const functionRoutes = createFunctionRouter(functionManager, devLogger);
+  app.use("/api/apps/:appId/functions", functionRoutes);
+
+  if (functionManager.getFunctionNames().length > 0) {
+    clackLog.info(
+      `Loaded functions: ${functionManager.getFunctionNames().join(", ")}`,
+    );
+  }
+
+  const db = new Database(entities);
+  if (db.getCollectionNames().length > 0) {
+    clackLog.info(`Loaded entities: ${db.getCollectionNames().join(", ")}`);
+  }
+
+  // Socket.IO is attached after the HTTP server starts; entity routes receive
+  // a broadcast callback that becomes a no-op until the server is ready.
+  let emitEntityEvent: BroadcastEntityEvent = () => {};
+  const entityRoutes = createEntityRoutes(
+    db,
+    devLogger,
+    remoteProxy,
+    (...args) => emitEntityEvent(...args),
+  );
+  app.use("/api/apps/:appId/entities", entityRoutes);
+
+  const { path: mediaFilesDir } = await dir();
+
+  // Serve uploaded files statically
+  app.use("/media", express.static(mediaFilesDir));
+
+  const integrationRoutes = createIntegrationRoutes(
+    mediaFilesDir,
+    baseUrl,
+    remoteProxy,
+    devLogger,
+  );
+  app.use("/api/apps/:appId/integration-endpoints", integrationRoutes);
+
+  const customIntegrationRoutes = createCustomIntegrationRoutes(
+    remoteProxy,
+    devLogger,
+  );
+  app.use("/api/apps/:appId/integrations/custom", customIntegrationRoutes);
+
   app.use((req, res, next) => {
-    return remoteProxy(req, res, next);
+    devLogger.warn(
+      `"${req.originalUrl}" is not supported in local development, passing call to production`,
+    );
+    remoteProxy(req, res, next);
   });
 
-  return new Promise((resolve, reject) => {
-    const server = app.listen(port, "127.0.0.1", (err) => {
+  const server = await new Promise<Server>((resolve, reject) => {
+    const s = app.listen(port, "127.0.0.1", (err) => {
       if (err) {
         if ("code" in err && err.code === "EADDRINUSE") {
           reject(
@@ -63,11 +141,55 @@ export async function createDevServer(
           reject(err);
         }
       } else {
-        resolve({
-          port,
-          server,
-        });
+        resolve(s);
       }
     });
   });
+
+  const io = createRealtimeServer(server);
+  emitEntityEvent = (appId, entityName, event) => {
+    broadcastEntityEvent(io, appId, entityName, event);
+  };
+
+  const base44ConfigWatcher = new WatchBase44(
+    [
+      {
+        name: "functions",
+        path: join(dirname(project.configPath), project.functionsDir),
+      },
+    ],
+    devLogger,
+  );
+  base44ConfigWatcher.on("change", async (name) => {
+    try {
+      if (name === "functions") {
+        const { functions } = await options.loadResources();
+        const previousFunctionCount = functionManager.getFunctionNames().length;
+        functionManager.reload(functions);
+
+        const names = functionManager.getFunctionNames();
+        if (names.length > 0) {
+          devLogger.log(`Reloaded functions: ${names.sort().join(", ")}`);
+        } else if (previousFunctionCount > 0) {
+          devLogger.log("All functions removed");
+        }
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      devLogger.error(errorMessage);
+    }
+  });
+  await base44ConfigWatcher.start();
+
+  const shutdown = () => {
+    base44ConfigWatcher.close();
+    io.close();
+    functionManager.stopAll();
+    server.close();
+  };
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
+
+  return { port, server };
 }

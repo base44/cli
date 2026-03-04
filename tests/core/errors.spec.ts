@@ -357,4 +357,275 @@ describe("formatApiError", () => {
   it("returns string as-is when input is a plain string", () => {
     expect(formatApiError("plain error string")).toBe("plain error string");
   });
+
+  it("does not include extra_data.errors in formatted message", () => {
+    const error = {
+      message: "Validation failed",
+      extra_data: {
+        errors: [{ name: "fn1", message: "too long" }],
+      },
+    };
+
+    expect(formatApiError(error)).toBe("Validation failed");
+  });
+
+  it("returns detail when message is null", () => {
+    const error = { message: null, detail: "fallback detail" };
+
+    expect(formatApiError(error)).toBe("fallback detail");
+  });
+});
+
+describe("ApiError.details", () => {
+  it("stores details from options", () => {
+    const error = new ApiError("Function deployment errors", {
+      details: ["'fn1': syntax error", "'fn2': invalid import"],
+    });
+
+    expect(error.details).toEqual([
+      "'fn1': syntax error",
+      "'fn2': invalid import",
+    ]);
+  });
+
+  it("defaults to empty array when no details provided", () => {
+    const error = new ApiError("Error", { statusCode: 500 });
+
+    expect(error.details).toEqual([]);
+  });
+});
+
+describe("ApiError.fromHttpError with extra_data.errors", () => {
+  it("populates details from 422 response with name+message errors", async () => {
+    const { HTTPError } = await import("ky");
+    const responseBody = {
+      message: "Validation failed",
+      detail: null,
+      extra_data: {
+        errors: [
+          { name: "fn1", message: "Minimum interval is 5 minutes" },
+          { name: "fn2", message: "Minimum interval is 5 minutes" },
+        ],
+      },
+    };
+    const response = new Response(JSON.stringify(responseBody), {
+      status: 422,
+      statusText: "Unprocessable Entity",
+    });
+    const request = new Request("https://api.base44.com/v1/functions", {
+      method: "PUT",
+    });
+
+    const httpError = new HTTPError(response, request, {} as never);
+    const apiError = await ApiError.fromHttpError(
+      httpError,
+      "deploying functions",
+    );
+
+    expect(apiError.statusCode).toBe(422);
+    expect(apiError.message).toContain("Validation failed");
+    expect(apiError.message).not.toContain("Minimum interval");
+    expect(apiError.details).toEqual([
+      "fn1: Minimum interval is 5 minutes",
+      "fn2: Minimum interval is 5 minutes",
+    ]);
+  });
+
+  it("drops errors gracefully when items have unexpected shapes", async () => {
+    const { HTTPError } = await import("ky");
+    const responseBody = {
+      message: "Validation failed",
+      extra_data: { errors: [123, "plain string", { bad: "shape" }] },
+    };
+    const response = new Response(JSON.stringify(responseBody), {
+      status: 422,
+      statusText: "Unprocessable Entity",
+    });
+    const request = new Request("https://api.base44.com/v1/functions", {
+      method: "PUT",
+    });
+
+    const httpError = new HTTPError(response, request, {} as never);
+    const apiError = await ApiError.fromHttpError(httpError, "deploying");
+
+    expect(apiError.details).toEqual([]);
+  });
+
+  it("returns empty details for response without extra_data", async () => {
+    const { HTTPError } = await import("ky");
+    const responseBody = { message: "Not Found" };
+    const response = new Response(JSON.stringify(responseBody), {
+      status: 404,
+      statusText: "Not Found",
+    });
+    const request = new Request("https://api.base44.com/v1/apps/123", {
+      method: "GET",
+    });
+
+    const httpError = new HTTPError(response, request, {} as never);
+    const apiError = await ApiError.fromHttpError(httpError, "fetching app");
+
+    expect(apiError.details).toEqual([]);
+  });
+
+  it("returns empty details for non-JSON response", async () => {
+    const { HTTPError } = await import("ky");
+    const response = new Response("Internal Server Error", {
+      status: 500,
+      statusText: "Internal Server Error",
+    });
+    const request = new Request("https://api.base44.com/v1/deploy", {
+      method: "POST",
+    });
+
+    const httpError = new HTTPError(response, request, {} as never);
+    const apiError = await ApiError.fromHttpError(httpError, "deploying");
+
+    expect(apiError.details).toEqual([]);
+  });
+
+  it("returns empty details for plain Error", async () => {
+    const apiError = await ApiError.fromHttpError(
+      new Error("Network timeout"),
+      "connecting",
+    );
+
+    expect(apiError.details).toEqual([]);
+  });
+});
+
+describe("ApiError default hints by status code", () => {
+  it("provides validation hint for 422", () => {
+    const error = new ApiError("Unprocessable", { statusCode: 422 });
+
+    expect(error.hints).toHaveLength(1);
+    expect(error.hints[0].message).toContain("validation error");
+  });
+
+  it("provides precondition hint for 428", () => {
+    const error = new ApiError("Precondition", { statusCode: 428 });
+
+    expect(error.hints).toHaveLength(1);
+    expect(error.hints[0].message).toContain("precondition");
+  });
+
+  it("provides rejection hint for 400", () => {
+    const error = new ApiError("Bad request", { statusCode: 400 });
+
+    expect(error.hints).toHaveLength(1);
+    expect(error.hints[0].message).toContain("rejected the request");
+  });
+
+  it("provides network hint for unknown status codes", () => {
+    const error = new ApiError("Error", { statusCode: 502 });
+
+    expect(error.hints).toHaveLength(1);
+    expect(error.hints[0].message).toContain("network");
+  });
+});
+
+describe("ApiError reason-based hints via fromHttpError", () => {
+  it("provides requires_backend_platform_app hints from extra_data.reason", async () => {
+    const { HTTPError } = await import("ky");
+    const responseBody = {
+      message: "Forbidden",
+      extra_data: { reason: "requires_backend_platform_app" },
+    };
+    const response = new Response(JSON.stringify(responseBody), {
+      status: 403,
+      statusText: "Forbidden",
+    });
+    const request = new Request("https://api.base44.com/v1/test", {
+      method: "GET",
+    });
+
+    const httpError = new HTTPError(response, request, {} as never);
+    const apiError = await ApiError.fromHttpError(httpError, "testing");
+
+    expect(apiError.hints).toHaveLength(2);
+    expect(apiError.hints[0].message).toContain("base44 link");
+    expect(apiError.hints[1].message).toContain("docs.base44.com");
+  });
+
+  it("falls back to default hints for unknown reason", async () => {
+    const { HTTPError } = await import("ky");
+    const responseBody = {
+      message: "Error",
+      extra_data: { reason: "unknown_reason" },
+    };
+    const response = new Response(JSON.stringify(responseBody), {
+      status: 403,
+      statusText: "Forbidden",
+    });
+    const request = new Request("https://api.base44.com/v1/test", {
+      method: "GET",
+    });
+
+    const httpError = new HTTPError(response, request, {} as never);
+    const apiError = await ApiError.fromHttpError(httpError, "testing");
+
+    expect(apiError.hints[0].message).toContain("permission");
+  });
+
+  it("falls back to default hints when reason is absent", async () => {
+    const { HTTPError } = await import("ky");
+    const responseBody = { message: "Error", extra_data: {} };
+    const response = new Response(JSON.stringify(responseBody), {
+      status: 401,
+      statusText: "Unauthorized",
+    });
+    const request = new Request("https://api.base44.com/v1/test", {
+      method: "GET",
+    });
+
+    const httpError = new HTTPError(response, request, {} as never);
+    const apiError = await ApiError.fromHttpError(httpError, "testing");
+
+    expect(apiError.hints.some((h) => h.command === "base44 login")).toBe(true);
+  });
+
+  it("returns empty details for malformed extra_data.errors", async () => {
+    const { HTTPError } = await import("ky");
+    const responseBody = {
+      message: "Error",
+      extra_data: { errors: [123, true, null] },
+    };
+    const response = new Response(JSON.stringify(responseBody), {
+      status: 422,
+      statusText: "Unprocessable Entity",
+    });
+    const request = new Request("https://api.base44.com/v1/test", {
+      method: "POST",
+    });
+
+    const httpError = new HTTPError(response, request, {} as never);
+    const apiError = await ApiError.fromHttpError(httpError, "testing");
+
+    expect(apiError.details).toEqual([]);
+  });
+
+  it("preserves reason-based hints when extra_data.errors is malformed", async () => {
+    const { HTTPError } = await import("ky");
+    const responseBody = {
+      message: "Forbidden",
+      extra_data: {
+        reason: "requires_backend_platform_app",
+        errors: [123, { bad: "shape" }],
+      },
+    };
+    const response = new Response(JSON.stringify(responseBody), {
+      status: 403,
+      statusText: "Forbidden",
+    });
+    const request = new Request("https://api.base44.com/v1/test", {
+      method: "POST",
+    });
+
+    const httpError = new HTTPError(response, request, {} as never);
+    const apiError = await ApiError.fromHttpError(httpError, "testing");
+
+    expect(apiError.hints).toHaveLength(2);
+    expect(apiError.hints[0].message).toContain("base44 link");
+    expect(apiError.details).toEqual([]);
+  });
 });

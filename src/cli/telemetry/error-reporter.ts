@@ -46,13 +46,6 @@ export class ErrorReporter {
   }
 
   /**
-   * Get the session ID for this CLI execution.
-   */
-  getSessionId(): string {
-    return this.sessionId;
-  }
-
-  /**
    * Set context for error reporting. Can be called multiple times to add/update context.
    */
   setContext(context: ErrorContext): void {
@@ -79,6 +72,7 @@ export class ErrorReporter {
             api_request_method: error.requestMethod,
             api_request_body: error.requestBody,
             api_response_body: error.responseBody,
+            api_request_id: error.requestId,
           }
         : {};
 

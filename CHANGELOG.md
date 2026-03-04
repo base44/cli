@@ -1,6 +1,101 @@
 # Changelog
 
 
+## [0.0.37] - 2026-03-02
+
+### Added
+
+- Show the base44 secret command in help menu (#356)
+- Include x-request-id in ApiError and error reporter (#346)
+- CLI Local Dev - Media (#339)
+- Add functions pull (#331)
+
+### Changed
+
+- Improve Errors - Changed system to user errors, and display validation errors returned from the server (#355)
+- Migrate base44 deploy to per-function API (#338)
+
+## [0.0.36] - 2026-02-25
+
+### Added
+
+- Secrets list, set, and delete commands (#321)
+- CLI local dev support for entities (#279)
+
+### Changed
+
+- Hide secrets command from help output (#333)
+
+### Fixed
+
+- Fixed eject command when there are no options (#332)
+
+## [0.0.34] - 2026-02-23
+
+### Added
+
+- `base44 logs` command for fetching function runtime logs (#225)
+
+### Docs
+
+- Add authoring agent instructions topic guide (#286)
+
+## [0.0.33] - 2026-02-19
+
+### Added
+
+- CLI local dev functions support (#249)
+- Automated error reporter GitHub Action (#267)
+- MIT License (#257)
+
+### Changed
+
+- Update CLI status from alpha to beta (#248)
+- Refactor AGENTS.md to a new docs structure (#253)
+- Add `isNonInteractive` to CLIContext for aligned behavior (#254)
+- Align CLI schemas with backend (#252)
+- Bump clack version to latest with small fixes (#264)
+- Knip include classMember (#263)
+
+### Fixed
+
+- Reauthorization issue (#250)
+- Remove PII from error reports (#269)
+
+## [0.0.32] - 2026-02-16
+
+### Added
+
+- OAuth connector resource with `base44 connectors` commands (#189)
+- Connector pull command to sync connectors from remote (#214)
+- Connectors integration in unified `base44 deploy` command (#211)
+- Allow skipping OAuth with Esc key in connector setup (#217)
+- `ConnectorTypeRegistry` to generated types (#236)
+- `limit` parameter to listProjects API call (#245)
+- `type` command shown in the help menu (#244)
+- Knip dead code detection setup (#239)
+- Readme update workflow (#209)
+
+### Changed
+
+- CLI local dev full proxy support (#226)
+- Trailing comma standard enforcement (#230)
+- Biome linting on save (#227)
+- Change global timeout to request-specific timeouts (#243)
+- Extend request timeouts to 3 minutes (#242)
+- Remove agent name pattern validation (#231)
+
+## [0.0.31] - 2026-02-10
+
+### Added
+
+- `base44 eject` command to eject project from Base44 (#220)
+
+### Fixed
+
+- Wrap name registries with quotes for safety (#223)
+- Use `npm install -g base44@latest` instead of `npm update -g base44` for upgrade notification (#222)
+
 ## [0.0.30] - 2026-02-09
 
 ### Added

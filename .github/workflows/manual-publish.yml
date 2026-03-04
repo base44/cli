@@ -57,9 +57,18 @@ jobs:
         run: npm install -g npm@latest
 
       - name: Setup Bun
+        id: setup-bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ steps.setup-bun.outputs.bun-version }}-${{ hashFiles('**/bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-${{ steps.setup-bun.outputs.bun-version }}-
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -100,14 +109,16 @@ jobs:
             echo "Previous tag date: $PREV_TAG_DATE"
           fi
 
-      - name: Generate Changelog
-        if: github.event.inputs.update_changelog == 'true' && github.event.inputs.dry_run == 'false' && steps.prev-tag.outputs.tag != ''
+      - name: Generate Changelog & Release Summary
+        if: steps.prev-tag.outputs.tag != ''
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
-            Generate a changelog entry for version ${{ env.NEW_VERSION }} (release date: today).
+            Generate release notes for version ${{ env.NEW_VERSION }} (release date: today).
             Previous version tag: ${{ steps.prev-tag.outputs.tag }}
+            Update changelog: ${{ github.event.inputs.update_changelog }}
+            Dry run: ${{ github.event.inputs.dry_run }}
 
             ## Instructions
 
@@ -123,7 +134,9 @@ jobs:
                - **Fixed** - bug fixes
                - **Removed** - removed features
 
-            4. Update CHANGELOG.md by inserting the new entry AFTER `## [Unreleased]`.
+            4. If "Update changelog" above is "true" AND "Dry run" is "false", update CHANGELOG.md by inserting the new entry AFTER `## [Unreleased]`. Do NOT edit CHANGELOG.md during dry runs.
+
+            5. **Always** write a file called `release-summary.md` with a concise, media-sharable summary of user-facing changes. This is what gets shared in Slack/social — keep it tight.
 
             ## Rules
 
@@ -131,7 +144,7 @@ jobs:
             - Include PR numbers: "Added foo feature (#123)"
             - Use ISO date: YYYY-MM-DD
 
-            ## Example
+            ## CHANGELOG.md example
 
             ```markdown
             ## [0.0.8] - 2026-01-19
@@ -142,9 +155,32 @@ jobs:
             ### Fixed
             - Various small fixes (#60)
             ```
+
+            ## release-summary.md format
+
+            The summary must follow this exact format. Only include sections that have items.
+            If the release is only bug fixes or internal changes, collapse to a single line.
+
+            Format for releases with notable features:
+            ```
+            📦 base44 v0.0.8
+
+            ✨ New
+              • Non-interactive mode for `create` command (#67)
+
+            🐛 Fixes
+              • Fixed deploy crash on empty projects (#60)
+            ```
+
+            Format for internal-only releases:
+            ```
+            📦 base44 v0.0.8
+
+            🔧 Bug fixes and internal improvements
+            ```
           claude_args: |
-            --model claude-3-5-haiku-latest
-            --allowedTools Bash(git log:*),Bash(gh pr:*),Read(*),Edit(CHANGELOG.md)
+            --model claude-haiku-4-5
+            --allowedTools "Bash(git log:*),Bash(gh pr:*),Read,Edit(CHANGELOG.md),Write(release-summary.md)"
 
       - name: Build package
         run: bun run build
@@ -218,6 +254,13 @@ jobs:
             ### NPM Tag: ${{ github.event.inputs.npm_tag }}
           draft: false
           prerelease: false
+
+      - name: Release summary
+        if: steps.prev-tag.outputs.tag != ''
+        run: |
+          if [ -f release-summary.md ]; then
+            cat release-summary.md | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Generate token for skills repo
         if: github.event.inputs.dry_run == 'false' && github.event.inputs.notify_skills_repo == 'true'

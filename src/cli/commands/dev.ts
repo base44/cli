@@ -1,8 +1,9 @@
 import { Command } from "commander";
-import { createDevServer } from "@/cli/dev/dev-server/main";
+import { createDevServer } from "@/cli/dev/dev-server/main.js";
+import type { CLIContext } from "@/cli/types.js";
 import { runCommand, theme } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
-import type { CLIContext } from "../types.js";
+import { readProjectConfig } from "@/core/project/config.js";
 
 interface DevOptions {
   port?: string;
@@ -10,7 +11,13 @@ interface DevOptions {
 
 async function devAction(options: DevOptions): Promise<RunCommandResult> {
   const port = options.port ? Number(options.port) : undefined;
-  const { port: resolvedPort } = await createDevServer({ port });
+  const { port: resolvedPort } = await createDevServer({
+    port,
+    loadResources: async () => {
+      const { functions, entities, project } = await readProjectConfig();
+      return { functions, entities, project };
+    },
+  });
 
   return {
     outroMessage: `Dev server is available at ${theme.colors.links(`http://localhost:${resolvedPort}`)}`,

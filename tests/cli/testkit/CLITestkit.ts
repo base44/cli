@@ -17,6 +17,7 @@ interface CLIContext {
     setContext: (context: Record<string, unknown>) => void;
     getErrorContext: () => { sessionId?: string; appId?: string };
   };
+  isNonInteractive: boolean;
 }
 
 /** Type for the bundled program module */
@@ -138,6 +139,7 @@ export class CLITestkit {
         setContext: () => {},
         getErrorContext: () => ({ sessionId: "test-session" }),
       },
+      isNonInteractive: true,
     };
     const program = createProgram(mockContext);
 

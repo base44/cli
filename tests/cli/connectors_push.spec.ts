@@ -99,7 +99,7 @@ describe("connectors push command", () => {
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("needs authorization");
-    t.expectResult(result).toContain("Skipped OAuth in CI");
+    t.expectResult(result).toContain("Skipped OAuth in non-interactive mode");
   });
 
   it("shows error for different_user response", async () => {
