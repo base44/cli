@@ -1,4 +1,4 @@
-import { basename, dirname, join } from "node:path";
+import { basename, dirname, join, relative } from "node:path";
 import { globby } from "globby";
 import { FUNCTION_CONFIG_FILE } from "@/core/consts.js";
 import { InvalidInputError, SchemaValidationError } from "@/core/errors.js";
@@ -38,7 +38,7 @@ async function readFunction(configPath: string): Promise<BackendFunction> {
     );
   }
 
-  const filePaths = await globby("*.{js,ts,json}", {
+  const filePaths = await globby("**/*.{js,ts,json}", {
     cwd: functionDir,
     absolute: true,
   });
@@ -54,20 +54,20 @@ export async function readAllFunctions(
     return [];
   }
 
-  const configFiles = await globby(`*/${FUNCTION_CONFIG_FILE}`, {
+  const configFiles = await globby(`**/${FUNCTION_CONFIG_FILE}`, {
     cwd: functionsDir,
     absolute: true,
   });
 
-  const indexFiles = await globby(`*/index.{js,ts}`, {
+  const entryFiles = await globby(`**/entry.{js,ts}`, {
     cwd: functionsDir,
     absolute: true,
   });
 
   const configFilesDirs = new Set(configFiles.map((f) => dirname(f)));
 
-  const indexFilesDirs = indexFiles.filter(
-    (indexFile) => !configFilesDirs.has(dirname(indexFile)),
+  const entryFilesWithoutConfig = entryFiles.filter(
+    (entryFile) => !configFilesDirs.has(dirname(entryFile)),
   );
 
   const functionsFromConfig = await Promise.all(
@@ -75,17 +75,29 @@ export async function readAllFunctions(
   );
 
   const functionsWithoutConfig = await Promise.all(
-    indexFilesDirs.map(async (functionFile) => {
-      const functionDir = dirname(functionFile);
-      const filePaths = await globby("*.{js,ts,json}", {
+    entryFilesWithoutConfig.map(async (entryFile) => {
+      const functionDir = dirname(entryFile);
+      const filePaths = await globby("**/*.{js,ts,json}", {
         cwd: functionDir,
         absolute: true,
       });
 
-      const name = basename(functionDir);
-      const entry = basename(functionFile);
+      const name = relative(functionsDir, functionDir).split(/[/\\]/).join("/");
+      if (!name) {
+        throw new InvalidInputError(
+          "entry.js/entry.ts must be inside a subfolder of the functions directory",
+          {
+            hints: [
+              {
+                message: `Move ${entryFile} into a subfolder (e.g. functions/myFunc/entry.ts)`,
+              },
+            ],
+          },
+        );
+      }
+      const entry = basename(entryFile);
 
-      return { name, entry, entryPath: functionFile, filePaths };
+      return { name, entry, entryPath: entryFile, filePaths };
     }),
   );
 

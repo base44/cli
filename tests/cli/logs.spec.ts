@@ -55,6 +55,22 @@ describe("logs command", () => {
     t.expectResult(result).toContain("Hello world");
   });
 
+  it("fetches logs for path-named (zero-config) function", async () => {
+    await t.givenLoggedInWithProject(fixture("with-zero-config-functions"));
+    t.api.mockFunctionLogs("foo/bar", [
+      {
+        time: "2024-01-15T10:30:00.000Z",
+        level: "info",
+        message: "Path-named function log",
+      },
+    ]);
+
+    const result = await t.run("logs", "--function", "foo/bar");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Path-named function log");
+  });
+
   it("shows no functions message when project has no functions", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
 

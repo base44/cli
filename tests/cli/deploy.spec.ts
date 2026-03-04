@@ -72,6 +72,23 @@ describe("deploy command (unified)", () => {
     t.expectResult(result).toContain("Deployment completed");
   });
 
+  it("deploys zero-config functions (path-based names) with unified deploy", async () => {
+    await t.givenLoggedInWithProject(fixture("with-zero-config-functions"));
+    t.api.mockEntitiesPush({ created: [], updated: [], deleted: [] });
+    t.api.mockFunctionsPush({
+      deployed: ["foo/bar", "foo/kfir/hello", "stam", "custom-name"],
+      deleted: [],
+      errors: null,
+    });
+    t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
+    t.api.mockConnectorsList({ integrations: [] });
+
+    const result = await t.run("deploy", "-y");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Deployment completed");
+  });
+
   it("deploys entities, functions, and site together", async () => {
     await t.givenLoggedInWithProject(fixture("full-project"));
     t.api.mockEntitiesPush({ created: ["Task"], updated: [], deleted: [] });
