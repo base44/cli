@@ -8,8 +8,7 @@
  *   2. Cross-compile for each platform with `bun build --compile`
  *   3. Generate SHA256 checksums
  */
-import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import chalk from "chalk";
 
@@ -93,9 +92,9 @@ console.log(chalk.dim("  Generating checksums..."));
 
 for (const { output } of TARGETS) {
   const filePath = join(BINARIES_DIR, output);
-  const hash = createHash("sha256")
-    .update(readFileSync(filePath))
-    .digest("hex");
+  const hasher = new Bun.CryptoHasher("sha256");
+  hasher.update(await Bun.file(filePath).arrayBuffer());
+  const hash = hasher.digest("hex");
   writeFileSync(join(BINARIES_DIR, `${output}.sha256`), `${hash}  ${output}\n`);
 }
 
