@@ -8,9 +8,26 @@
  *   2. Cross-compile for each platform with `bun build --compile`
  *   3. Generate SHA256 checksums
  */
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { readdirSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import chalk from "chalk";
+
+async function archiveDirectory(dir: string): Promise<Bun.Archive> {
+  const files: Record<string, Blob> = {};
+  function walk(currentDir: string, prefix = "") {
+    for (const entry of readdirSync(currentDir, { withFileTypes: true })) {
+      const fullPath = join(currentDir, entry.name);
+      const archivePath = prefix ? `${prefix}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) {
+        walk(fullPath, archivePath);
+      } else {
+        files[archivePath] = Bun.file(fullPath);
+      }
+    }
+  }
+  walk(dir);
+  return new Bun.Archive(files, { compress: "gzip" });
+}
 
 const TARGETS = [
   { target: "bun-darwin-arm64", output: "base44-darwin-arm64" },
@@ -43,14 +60,8 @@ for (const required of ["dist/cli/index.js", "dist/deno-runtime/main.js"]) {
 // ---------------------------------------------------------------------------
 console.log(chalk.dim("  Creating templates.tar.gz..."));
 const tarball = join(DIST, "templates.tar.gz");
-const proc = Bun.spawnSync(["tar", "-czf", tarball, "-C", join(ROOT, "templates"), "."], {
-  cwd: ROOT,
-});
-if (!proc.success) {
-  console.error(chalk.red("\n✗ Failed to create templates tarball\n"));
-  console.error(proc.stderr.toString());
-  process.exit(1);
-}
+const archive = await archiveDirectory(join(ROOT, "templates"));
+await Bun.write(tarball, archive);
 
 // ---------------------------------------------------------------------------
 // 2. Compile binaries

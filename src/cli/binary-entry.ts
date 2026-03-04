@@ -6,11 +6,9 @@
  * The npm distribution uses bin/run.js instead — this file is only used
  * for the compiled binary path.
  */
-import { createReadStream, existsSync, mkdirSync } from "node:fs";
-import { homedir, tmpdir } from "node:os";
+import { existsSync, mkdirSync } from "node:fs";
+import { homedir } from "node:os";
 import { join } from "node:path";
-import { pipeline } from "node:stream/promises";
-import { extract } from "tar";
 // @ts-expect-error -- import attributes with type "file" are a Bun-specific feature
 import denoWrapper from "../../dist/deno-runtime/main.js" with { type: "file" };
 // Bun embeds these files into the compiled binary.
@@ -35,10 +33,9 @@ const denoWrapperPath = join(denoWrapperDir, "main.js");
 // so the rest of the CLI can access these files normally.
 if (!existsSync(templatesDir)) {
   mkdirSync(templatesDir, { recursive: true });
-  // Copy tarball from $bunfs to a real temp file, then extract
-  const tmpTarball = join(tmpdir(), `base44-templates-${VERSION}.tar.gz`);
-  await Bun.write(tmpTarball, Bun.file(templatesTarball));
-  await pipeline(createReadStream(tmpTarball), extract({ cwd: templatesDir }));
+  const bytes = await Bun.file(templatesTarball).bytes();
+  const archive = new Bun.Archive(bytes);
+  await archive.extract(templatesDir);
 }
 
 if (!existsSync(denoWrapperPath)) {
