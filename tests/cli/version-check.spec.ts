@@ -26,6 +26,27 @@ describe("upgrade notification", () => {
     t.expectResult(result).toNotContain("Update available!");
   });
 
+  it("displays upgrade notification in a bordered box", async () => {
+    t.givenLatestVersion("1.0.0");
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+
+    const result = await t.run("whoami");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("┌");
+    t.expectResult(result).toContain("└");
+  });
+
+  it("includes agent hints in upgrade notification", async () => {
+    t.givenLatestVersion("1.0.0");
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+
+    const result = await t.run("whoami");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("[Agent Hints]");
+  });
+
   it("does not display notification when check is not overridden", async () => {
     // Opt into real npm version check (default is null which skips it)
     t.givenLatestVersion(undefined);
