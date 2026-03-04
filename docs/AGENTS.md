@@ -31,7 +31,7 @@ src/
 
 ### Distribution
 
-Zero-dependency npm package. All runtime dependencies are bundled into `dist/index.js` at build time. Every dependency goes in `devDependencies`. Users only download the bundled code.
+Zero-dependency npm package. All runtime dependencies are bundled into `dist/index.js` at build time. Every dependency goes in `devDependencies`. Users only download the bundled code. Standalone binaries are also built for Homebrew / direct download via `bun run build:binaries` (see [Binary distribution](binary-distribution.md)).
 
 ### Path Alias
 
@@ -80,3 +80,4 @@ Read these when working on the relevant area:
 - **[Telemetry & error reporting](telemetry.md)** - PostHog `ErrorReporter`, what's captured, disabling
 - **[Writing & maintaining docs](writing-docs.md)** - Progressive disclosure, style rules, keywords, adding new topic guides
 - **[Authoring agent instructions](authoring-agent-instructions.md)** - Skills, CLAUDE.md, AGENTS.md, subagent definitions, progressive disclosure
+- **[Binary distribution](binary-distribution.md)** - Standalone binaries, Homebrew formula, asset embedding, `bun build --compile`
