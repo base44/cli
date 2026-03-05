@@ -15,9 +15,6 @@ function formatUpgradeBox(info: UpgradeInfo): string {
       `Update available! ${info.currentVersion} → ${bold(info.latestVersion)}`,
     ),
     shinyOrange(`Run: ${bold(UPGRADE_COMMAND)}`),
-    "",
-    "[Agent Hints]",
-    `  Run: ${UPGRADE_COMMAND}`,
   ];
 
   const maxVisualWidth = Math.max(...lines.map((l) => stripAnsi(l).length));
