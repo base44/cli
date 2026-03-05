@@ -57,10 +57,7 @@ describe("deploy command (unified)", () => {
   it("deploys entities and functions together", async () => {
     await t.givenLoggedInWithProject(fixture("with-functions-and-entities"));
     t.api.mockEntitiesPush({ created: ["Order"], updated: [], deleted: [] });
-    t.api.mockSingleFunctionDeploy({
-      status: "deployed",
-      duration_ms: 3000,
-    });
+    t.api.mockSingleFunctionDeploy({ status: "deployed" });
     t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
     t.api.mockConnectorsList({ integrations: [] });
 
@@ -73,10 +70,7 @@ describe("deploy command (unified)", () => {
   it("deploys entities, functions, and site together", async () => {
     await t.givenLoggedInWithProject(fixture("full-project"));
     t.api.mockEntitiesPush({ created: ["Task"], updated: [], deleted: [] });
-    t.api.mockSingleFunctionDeploy({
-      status: "deployed",
-      duration_ms: 2000,
-    });
+    t.api.mockSingleFunctionDeploy({ status: "deployed" });
     t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
     t.api.mockConnectorsList({ integrations: [] });
     t.api.mockSiteDeploy({ app_url: "https://full-project.base44.app" });

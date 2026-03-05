@@ -27,12 +27,13 @@ export interface SingleFunctionDeployResult {
   name: string;
   status: "deployed" | "unchanged" | "error";
   error?: string | null;
-  durationMs?: number | null;
+  durationMs?: number;
 }
 
 async function deployOne(
   fn: BackendFunction,
 ): Promise<SingleFunctionDeployResult> {
+  const start = Date.now();
   try {
     const functionWithCode = await loadFunctionCode(fn);
     const response = await deploySingleFunction(functionWithCode.name, {
@@ -43,7 +44,7 @@ async function deployOne(
     return {
       name: functionWithCode.name,
       status: response.status,
-      durationMs: response.duration_ms,
+      durationMs: Date.now() - start,
     };
   } catch (error) {
     return {

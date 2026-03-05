@@ -24,10 +24,7 @@ describe("functions deploy command", () => {
 
   it("deploys functions successfully", async () => {
     await t.givenLoggedInWithProject(fixture("with-functions-and-entities"));
-    t.api.mockSingleFunctionDeploy({
-      status: "deployed",
-      duration_ms: 4500,
-    });
+    t.api.mockSingleFunctionDeploy({ status: "deployed" });
 
     const result = await t.run("functions", "deploy");
 
@@ -50,10 +47,7 @@ describe("functions deploy command", () => {
 
   it("deploys specific function by name", async () => {
     await t.givenLoggedInWithProject(fixture("with-functions-and-entities"));
-    t.api.mockSingleFunctionDeploy({
-      status: "deployed",
-      duration_ms: 3000,
-    });
+    t.api.mockSingleFunctionDeploy({ status: "deployed" });
 
     const result = await t.run("functions", "deploy", "process-order");
 

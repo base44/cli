@@ -40,7 +40,6 @@ interface FunctionsPushResponse {
 
 interface SingleFunctionDeployResponse {
   status: "deployed" | "unchanged";
-  duration_ms?: number | null;
 }
 
 interface FunctionsListResponse {
