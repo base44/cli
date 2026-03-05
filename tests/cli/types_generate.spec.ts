@@ -70,6 +70,25 @@ describe("types generate command", () => {
     expect(tsconfigObj.include).toContain("base44/.types/*.d.ts");
   });
 
+  it("generates FunctionNameRegistry with path-named (zero-config) functions", async () => {
+    await t.givenLoggedInWithProject(fixture("with-zero-config-functions"));
+
+    const result = await t.run("types", "generate");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Generated");
+
+    const typesContent = await t.readProjectFile("base44/.types/types.d.ts");
+    expect(typesContent).not.toBeNull();
+    expect(typesContent).toContain("FunctionNameRegistry");
+    // Zero-config path-based names
+    expect(typesContent).toContain('"foo/bar": true');
+    expect(typesContent).toContain('"foo/kfir/hello": true');
+    expect(typesContent).toContain('"stam": true');
+    // Config-based name from with-config folder
+    expect(typesContent).toContain('"custom-name": true');
+  });
+
   it("handles empty project with no resources", async () => {
     // Given an empty project (no entities, agents, or functions)
     await t.givenLoggedInWithProject(fixture("basic"));

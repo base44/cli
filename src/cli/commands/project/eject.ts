@@ -3,7 +3,7 @@ import type { Option } from "@clack/prompts";
 import { cancel, confirm, isCancel, log, select, text } from "@clack/prompts";
 import { Command } from "commander";
 import { execa } from "execa";
-import kebabCase from "lodash.kebabcase";
+import kebabCase from "lodash/kebabCase";
 import { deployAction } from "@/cli/commands/project/deploy.js";
 import { CLIExitError } from "@/cli/errors.js";
 import type { CLIContext } from "@/cli/types.js";
@@ -59,7 +59,10 @@ async function eject(options: EjectOptions): Promise<RunCommandResult> {
     selectedProject = foundProject;
     log.info(`Selected project: ${theme.styles.bold(selectedProject.name)}`);
   } else {
-    // Interactive: show project selection prompt
+    if (ejectableProjects.length === 0) {
+      return { outroMessage: "No projects available to eject." };
+    }
+
     const projectOptions: Option<Project>[] = ejectableProjects.map((p) => ({
       value: p,
       label: p.name,

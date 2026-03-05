@@ -117,7 +117,7 @@ jobs:
 
             Before analyzing, gather context:
 
-            1. **Previous error reports**: Run `gh issue list --label error-report --limit 5 --json number,title,body,createdAt` to get the last few daily reports. Read through them to identify errors that keep recurring across multiple days. If an error appeared in previous reports too, mark it as **recurring** and note how many consecutive days it has appeared.
+            1. **Previous error reports**: Run `gh issue list --label error-report --state all --limit 5 --json number,title,body,createdAt` to get the last few daily reports. Read through them to identify errors that keep recurring across multiple days. If an error appeared in previous reports too, mark it as **recurring** and note how many consecutive days it has appeared.
 
             2. **Existing GitHub issues**: For each unique error you find in the data, search for existing open issues that might already track it:
                - Run `gh issue list --state open --search "<error_code or key phrase from the error message>" --json number,title,labels,assignees --limit 5`

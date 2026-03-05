@@ -29,6 +29,9 @@ export const theme = {
       ].filter(Boolean);
       return chalk.dim(parts.join(" | "));
     },
+    details(lines: string[]): string {
+      return lines.map((line) => `  • ${line}`).join("\n");
+    },
     agentHints(hints: ErrorHint[]): string | null {
       if (hints.length === 0) {
         return null;

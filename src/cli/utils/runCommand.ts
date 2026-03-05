@@ -31,6 +31,11 @@ interface RunCommandOptions {
 
 export interface RunCommandResult {
   outroMessage?: string;
+  /**
+   * Raw text to write to stdout after the command UI (intro/outro) finishes.
+   * Useful for commands that produce machine-readable or pipeable output.
+   */
+  stdout?: string;
 }
 
 /**
@@ -65,15 +70,12 @@ export async function runCommand(
   options: RunCommandOptions | undefined,
   context: CLIContext,
 ): Promise<void> {
-  console.log();
-
   if (options?.fullBanner) {
     await printBanner(context.isNonInteractive);
     intro("");
   } else {
     intro(theme.colors.base44OrangeBackground(" Base 44 "));
   }
-
   await printUpgradeNotificationIfAvailable();
 
   try {
@@ -102,31 +104,39 @@ export async function runCommand(
       context.errorReporter.setContext({ appId: appConfig.id });
     }
 
-    const { outroMessage } = await commandFn();
-    outro(outroMessage || "");
+    const result = await commandFn();
+    outro(result.outroMessage || "");
+
+    if (result.stdout) {
+      process.stdout.write(result.stdout);
+    }
   } catch (error) {
-    // Display error message
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    log.error(errorMessage);
+    displayError(error);
 
-    // Show stack trace if DEBUG mode
-    if (process.env.DEBUG === "1" && error instanceof Error && error.stack) {
-      log.error(theme.styles.dim(error.stack));
-    }
-
-    // Display hints if this is a CLIError with hints
-    if (isCLIError(error)) {
-      const hints = theme.format.agentHints(error.hints);
-      if (hints) {
-        log.error(hints);
-      }
-    }
-
-    // Get error context and display in outro
     const errorContext = context.errorReporter.getErrorContext();
     outro(theme.format.errorContext(errorContext));
 
     // Re-throw for runCLI to handle (error reporting, exit code)
     throw error;
+  }
+}
+
+function displayError(error: unknown): void {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  log.error(errorMessage);
+
+  if (isCLIError(error)) {
+    if (error.details.length > 0) {
+      log.info(theme.format.details(error.details));
+    }
+
+    const hints = theme.format.agentHints(error.hints);
+    if (hints) {
+      log.error(hints);
+    }
+  }
+
+  if (process.env.DEBUG === "1" && error instanceof Error && error.stack) {
+    log.error(theme.styles.dim(error.stack));
   }
 }

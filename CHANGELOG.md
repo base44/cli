@@ -1,5 +1,55 @@
 # Changelog
 
+## [0.0.38] - 2026-03-05
+
+### Added
+
+- Zero config for functions (#246)
+- Watching and reloading functions (#353)
+
+### Fixed
+
+- Increase secrets set timeout to match functions push (#361)
+- Expand README check trigger and fix lychee format (#360)
+
+## [0.0.37] - 2026-03-02
+
+### Added
+
+- Show the base44 secret command in help menu (#356)
+- Include x-request-id in ApiError and error reporter (#346)
+- CLI Local Dev - Media (#339)
+- Add functions pull (#331)
+
+### Changed
+
+- Improve Errors - Changed system to user errors, and display validation errors returned from the server (#355)
+- Migrate base44 deploy to per-function API (#338)
+
+## [0.0.36] - 2026-02-25
+
+### Added
+
+- Secrets list, set, and delete commands (#321)
+- CLI local dev support for entities (#279)
+
+### Changed
+
+- Hide secrets command from help output (#333)
+
+### Fixed
+
+- Fixed eject command when there are no options (#332)
+
+## [0.0.34] - 2026-02-23
+
+### Added
+
+- `base44 logs` command for fetching function runtime logs (#225)
+
+### Docs
+
+- Add authoring agent instructions topic guide (#286)
 
 ## [0.0.33] - 2026-02-19
 

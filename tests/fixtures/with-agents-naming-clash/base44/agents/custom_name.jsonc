@@ -1,0 +1,6 @@
+// Agent stored with a custom filename (not matching its name slug)
+{
+  "name": "support_agent",
+  "description": "Helps users",
+  "instructions": "Be helpful"
+}

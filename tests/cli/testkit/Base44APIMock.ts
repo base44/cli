@@ -71,6 +71,24 @@ interface AgentsFetchResponse {
   total: number;
 }
 
+interface FunctionLogEntry {
+  time: string;
+  level: "info" | "warning" | "error" | "debug";
+  message: string;
+}
+
+type FunctionLogsResponse = FunctionLogEntry[];
+
+type SecretsListResponse = Record<string, string>;
+
+interface SecretsSetResponse {
+  success: boolean;
+}
+
+interface SecretsDeleteResponse {
+  success: boolean;
+}
+
 interface ConnectorsListResponse {
   integrations: Array<{
     integration_type: string;
@@ -87,10 +105,6 @@ interface ConnectorSetResponse {
   error?: "different_user";
   error_message?: string;
   other_user_email?: string;
-}
-
-interface ConnectorOAuthStatusResponse {
-  status: "ACTIVE" | "FAILED" | "PENDING";
 }
 
 interface ConnectorRemoveResponse {
@@ -302,6 +316,49 @@ export class Base44APIMock {
     return this;
   }
 
+  /** Mock GET /api/apps/{appId}/functions-mgmt/{functionName}/logs - Fetch function logs */
+  mockFunctionLogs(functionName: string, response: FunctionLogsResponse): this {
+    this.handlers.push(
+      http.get(
+        `${BASE_URL}/api/apps/${this.appId}/functions-mgmt/${functionName}/logs`,
+        () => HttpResponse.json(response),
+      ),
+    );
+    return this;
+  }
+
+  // ─── SECRETS ENDPOINTS ──────────────────────────────────────
+
+  /** Mock GET /api/apps/{appId}/secrets - List secrets */
+  mockSecretsList(response: SecretsListResponse): this {
+    this.handlers.push(
+      http.get(`${BASE_URL}/api/apps/${this.appId}/secrets`, () =>
+        HttpResponse.json(response),
+      ),
+    );
+    return this;
+  }
+
+  /** Mock POST /api/apps/{appId}/secrets - Set secrets */
+  mockSecretsSet(response: SecretsSetResponse): this {
+    this.handlers.push(
+      http.post(`${BASE_URL}/api/apps/${this.appId}/secrets`, () =>
+        HttpResponse.json(response),
+      ),
+    );
+    return this;
+  }
+
+  /** Mock DELETE /api/apps/{appId}/secrets - Delete secret */
+  mockSecretsDelete(response: SecretsDeleteResponse): this {
+    this.handlers.push(
+      http.delete(`${BASE_URL}/api/apps/${this.appId}/secrets`, () =>
+        HttpResponse.json(response),
+      ),
+    );
+    return this;
+  }
+
   // ─── GENERAL ENDPOINTS ─────────────────────────────────────
 
   /** Mock POST /api/apps - Create new app */
@@ -430,6 +487,32 @@ export class Base44APIMock {
       `/api/apps/${this.appId}/agent-configs`,
       error,
     );
+  }
+
+  /** Mock function logs to return an error */
+  mockFunctionLogsError(functionName: string, error: ErrorResponse): this {
+    return this.mockError(
+      "get",
+      `/api/apps/${this.appId}/functions-mgmt/${functionName}/logs`,
+      error,
+    );
+  }
+
+  /** Mock token endpoint to return an error (for auth failure testing) */
+
+  /** Mock secrets list to return an error */
+  mockSecretsListError(error: ErrorResponse): this {
+    return this.mockError("get", `/api/apps/${this.appId}/secrets`, error);
+  }
+
+  /** Mock secrets set to return an error */
+  mockSecretsSetError(error: ErrorResponse): this {
+    return this.mockError("post", `/api/apps/${this.appId}/secrets`, error);
+  }
+
+  /** Mock secrets delete to return an error */
+  mockSecretsDeleteError(error: ErrorResponse): this {
+    return this.mockError("delete", `/api/apps/${this.appId}/secrets`, error);
   }
 
   /** Mock connectors list to return an error */
