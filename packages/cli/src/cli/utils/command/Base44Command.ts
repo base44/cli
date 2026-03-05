@@ -108,6 +108,7 @@ export class Base44Command extends Command {
   /** @public - called by Commander internally via command dispatch */
   override action(
     // biome-ignore lint/suspicious/noExplicitAny: must match Commander.js action() signature
+    // biome-ignore lint/suspicious/noConfusingVoidType: must match Commander.js action() signature
     fn: (...args: any[]) => void | Promise<void | RunCommandResult>,
   ): this {
     // biome-ignore lint/suspicious/noExplicitAny: must match Commander.js action() signature
