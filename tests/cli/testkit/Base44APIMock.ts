@@ -38,6 +38,21 @@ interface FunctionsPushResponse {
   errors: Array<{ name: string; message: string }> | null;
 }
 
+interface SingleFunctionDeployResponse {
+  status: "deployed" | "unchanged";
+  duration_ms?: number | null;
+}
+
+interface FunctionsListResponse {
+  functions: Array<{
+    name: string;
+    deployment_id: string;
+    entry: string;
+    files: Array<{ path: string; content: string }>;
+    automations: Array<{ name: string; type: string; is_active: boolean }>;
+  }>;
+}
+
 interface SiteDeployResponse {
   app_url: string;
 }
@@ -165,10 +180,42 @@ export class Base44APIMock {
     return this;
   }
 
-  /** Mock PUT /api/apps/{appId}/backend-functions - Push functions */
+  /** Mock PUT /api/apps/{appId}/backend-functions - Push functions (batch) */
   mockFunctionsPush(response: FunctionsPushResponse): this {
     this.handlers.push(
       http.put(`${BASE_URL}/api/apps/${this.appId}/backend-functions`, () =>
+        HttpResponse.json(response),
+      ),
+    );
+    return this;
+  }
+
+  /** Mock PUT /api/apps/{appId}/backend-functions/{name} - Deploy single function */
+  mockSingleFunctionDeploy(response: SingleFunctionDeployResponse): this {
+    this.handlers.push(
+      http.put(
+        `${BASE_URL}/api/apps/${this.appId}/backend-functions/:name`,
+        () => HttpResponse.json(response),
+      ),
+    );
+    return this;
+  }
+
+  /** Mock DELETE /api/apps/{appId}/backend-functions/{name} - Delete single function */
+  mockSingleFunctionDelete(): this {
+    this.handlers.push(
+      http.delete(
+        `${BASE_URL}/api/apps/${this.appId}/backend-functions/:name`,
+        () => new HttpResponse(null, { status: 204 }),
+      ),
+    );
+    return this;
+  }
+
+  /** Mock GET /api/apps/{appId}/backend-functions - List deployed functions */
+  mockFunctionsList(response: FunctionsListResponse): this {
+    this.handlers.push(
+      http.get(`${BASE_URL}/api/apps/${this.appId}/backend-functions`, () =>
         HttpResponse.json(response),
       ),
     );
@@ -318,10 +365,37 @@ export class Base44APIMock {
     );
   }
 
-  /** Mock functions push to return an error */
+  /** Mock functions push to return an error (batch) */
   mockFunctionsPushError(error: ErrorResponse): this {
     return this.mockError(
       "put",
+      `/api/apps/${this.appId}/backend-functions`,
+      error,
+    );
+  }
+
+  /** Mock single function deploy to return an error */
+  mockSingleFunctionDeployError(error: ErrorResponse): this {
+    return this.mockError(
+      "put",
+      `/api/apps/${this.appId}/backend-functions/:name`,
+      error,
+    );
+  }
+
+  /** Mock single function delete to return an error */
+  mockSingleFunctionDeleteError(error: ErrorResponse): this {
+    return this.mockError(
+      "delete",
+      `/api/apps/${this.appId}/backend-functions/:name`,
+      error,
+    );
+  }
+
+  /** Mock functions list to return an error */
+  mockFunctionsListError(error: ErrorResponse): this {
+    return this.mockError(
+      "get",
       `/api/apps/${this.appId}/backend-functions`,
       error,
     );

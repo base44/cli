@@ -24,29 +24,80 @@ describe("functions deploy command", () => {
 
   it("deploys functions successfully", async () => {
     await t.givenLoggedInWithProject(fixture("with-functions-and-entities"));
-    t.api.mockFunctionsPush({
-      deployed: ["process-order"],
-      deleted: [],
-      errors: null,
+    t.api.mockSingleFunctionDeploy({
+      status: "deployed",
+      duration_ms: 4500,
     });
 
     const result = await t.run("functions", "deploy");
 
     t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain("Functions deployed successfully");
-    t.expectResult(result).toContain("Deployed: process-order");
+    t.expectResult(result).toContain("Deploying process-order");
+    t.expectResult(result).toContain("deployed");
+    t.expectResult(result).toContain("1/1 deployed");
   });
 
-  it("fails when API returns error", async () => {
+  it("reports unchanged function", async () => {
     await t.givenLoggedInWithProject(fixture("with-functions-and-entities"));
-    t.api.mockFunctionsPushError({
+    t.api.mockSingleFunctionDeploy({ status: "unchanged" });
+
+    const result = await t.run("functions", "deploy");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("unchanged");
+    t.expectResult(result).toContain("1/1 deployed");
+  });
+
+  it("deploys specific function by name", async () => {
+    await t.givenLoggedInWithProject(fixture("with-functions-and-entities"));
+    t.api.mockSingleFunctionDeploy({
+      status: "deployed",
+      duration_ms: 3000,
+    });
+
+    const result = await t.run("functions", "deploy", "process-order");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Deploying process-order");
+    t.expectResult(result).toContain("1/1 deployed");
+  });
+
+  it("fails when function name not found in project", async () => {
+    await t.givenLoggedInWithProject(fixture("with-functions-and-entities"));
+
+    const result = await t.run("functions", "deploy", "nonexistent");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("not found in project");
+  });
+
+  it("reports error when API fails for a function", async () => {
+    await t.givenLoggedInWithProject(fixture("with-functions-and-entities"));
+    t.api.mockSingleFunctionDeployError({
       status: 400,
       body: { error: "Invalid function code" },
     });
 
     const result = await t.run("functions", "deploy");
 
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("error");
+    t.expectResult(result).toContain("1 error");
+  });
+
+  it("rejects --force with specific function names", async () => {
+    await t.givenLoggedInWithProject(fixture("with-functions-and-entities"));
+
+    const result = await t.run(
+      "functions",
+      "deploy",
+      "process-order",
+      "--force",
+    );
+
     t.expectResult(result).toFail();
-    t.expectResult(result).toContain("Invalid function code");
+    t.expectResult(result).toContain(
+      "--force cannot be used when specifying function names",
+    );
   });
 });

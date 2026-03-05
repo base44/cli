@@ -35,7 +35,6 @@ describe("deploy command (unified)", () => {
     const result = await t.run("deploy", "-y");
 
     t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain("Deployment completed");
     t.expectResult(result).toContain("App deployed successfully");
   });
 
@@ -52,16 +51,15 @@ describe("deploy command (unified)", () => {
     const result = await t.run("deploy", "--yes");
 
     t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain("Deployment completed");
+    t.expectResult(result).toContain("App deployed successfully");
   });
 
   it("deploys entities and functions together", async () => {
     await t.givenLoggedInWithProject(fixture("with-functions-and-entities"));
     t.api.mockEntitiesPush({ created: ["Order"], updated: [], deleted: [] });
-    t.api.mockFunctionsPush({
-      deployed: ["process-order"],
-      deleted: [],
-      errors: null,
+    t.api.mockSingleFunctionDeploy({
+      status: "deployed",
+      duration_ms: 3000,
     });
     t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
     t.api.mockConnectorsList({ integrations: [] });
@@ -69,13 +67,16 @@ describe("deploy command (unified)", () => {
     const result = await t.run("deploy", "-y");
 
     t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain("Deployment completed");
+    t.expectResult(result).toContain("App deployed successfully");
   });
 
   it("deploys entities, functions, and site together", async () => {
     await t.givenLoggedInWithProject(fixture("full-project"));
     t.api.mockEntitiesPush({ created: ["Task"], updated: [], deleted: [] });
-    t.api.mockFunctionsPush({ deployed: ["hello"], deleted: [], errors: null });
+    t.api.mockSingleFunctionDeploy({
+      status: "deployed",
+      duration_ms: 2000,
+    });
     t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
     t.api.mockConnectorsList({ integrations: [] });
     t.api.mockSiteDeploy({ app_url: "https://full-project.base44.app" });
@@ -83,14 +84,13 @@ describe("deploy command (unified)", () => {
     const result = await t.run("deploy", "-y");
 
     t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain("Deployment completed");
+    t.expectResult(result).toContain("App deployed successfully");
     t.expectResult(result).toContain("https://full-project.base44.app");
   });
 
   it("deploys agents successfully with -y flag", async () => {
     await t.givenLoggedInWithProject(fixture("with-agents"));
     t.api.mockEntitiesPush({ created: [], updated: [], deleted: [] });
-    t.api.mockFunctionsPush({ deployed: [], deleted: [], errors: null });
     t.api.mockAgentsPush({
       created: ["customer_support", "order_assistant", "data_analyst"],
       updated: [],
@@ -101,14 +101,12 @@ describe("deploy command (unified)", () => {
     const result = await t.run("deploy", "-y");
 
     t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain("Deployment completed");
     t.expectResult(result).toContain("App deployed successfully");
   });
 
   it("deploys agents and entities together", async () => {
     await t.givenLoggedInWithProject(fixture("with-agents"));
     t.api.mockEntitiesPush({ created: [], updated: [], deleted: [] });
-    t.api.mockFunctionsPush({ deployed: [], deleted: [], errors: null });
     t.api.mockAgentsPush({
       created: ["customer_support"],
       updated: ["order_assistant"],
@@ -119,13 +117,12 @@ describe("deploy command (unified)", () => {
     const result = await t.run("deploy", "-y");
 
     t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain("Deployment completed");
+    t.expectResult(result).toContain("App deployed successfully");
   });
 
   it("deploys connectors successfully with -y flag", async () => {
     await t.givenLoggedInWithProject(fixture("with-connectors"));
     t.api.mockEntitiesPush({ created: [], updated: [], deleted: [] });
-    t.api.mockFunctionsPush({ deployed: [], deleted: [], errors: null });
     t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
     t.api.mockConnectorsList({ integrations: [] });
     t.api.mockConnectorSet({
@@ -137,14 +134,12 @@ describe("deploy command (unified)", () => {
     const result = await t.run("deploy", "-y");
 
     t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain("Deployment completed");
     t.expectResult(result).toContain("3 connectors");
   });
 
   it("shows OAuth info when connectors need authorization with -y flag", async () => {
     await t.givenLoggedInWithProject(fixture("with-connectors"));
     t.api.mockEntitiesPush({ created: [], updated: [], deleted: [] });
-    t.api.mockFunctionsPush({ deployed: [], deleted: [], errors: null });
     t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
     t.api.mockConnectorsList({ integrations: [] });
     t.api.mockConnectorSet({
@@ -156,7 +151,6 @@ describe("deploy command (unified)", () => {
     const result = await t.run("deploy", "-y");
 
     t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain("Deployment completed");
     t.expectResult(result).toContain("require authorization");
     t.expectResult(result).toContain("base44 connectors push");
   });
