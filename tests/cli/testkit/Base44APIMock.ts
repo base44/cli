@@ -210,6 +210,16 @@ export class Base44APIMock {
     return this;
   }
 
+  /** Mock GET /api/apps/{appId}/auth/token - Exchange platform token for app user token */
+  mockAuthToken(token: string): this {
+    this.handlers.push(
+      http.get(`${BASE_URL}/api/apps/${this.appId}/auth/token`, () =>
+        HttpResponse.json({ token }),
+      ),
+    );
+    return this;
+  }
+
   /** Mock PUT /api/apps/{appId}/agent-configs - Push agents */
   mockAgentsPush(response: AgentsPushResponse): this {
     this.handlers.push(

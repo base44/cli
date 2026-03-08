@@ -1,13 +1,10 @@
 import type { ChildProcess } from "node:child_process";
-import { spawn, spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import getPort from "get-port";
-import {
-  DependencyNotFoundError,
-  InternalError,
-  InvalidInputError,
-} from "@/core/errors.js";
+import { InternalError, InvalidInputError } from "@/core/errors.js";
+import { verifyDenoInstalled } from "@/core/exec/index.js";
 import type { BackendFunction } from "@/core/resources/function/schema.js";
 import type { Logger } from "../createDevLogger";
 
@@ -34,16 +31,7 @@ export class FunctionManager {
     this.logger = logger;
 
     if (functions.length > 0) {
-      this.verifyDenoIsInstalled();
-    }
-  }
-
-  private verifyDenoIsInstalled(): void {
-    const result = spawnSync("deno", ["--version"]);
-    if (result.error) {
-      throw new DependencyNotFoundError("Deno is required to run functions", {
-        hints: [{ message: "Install Deno from https://deno.com/download" }],
-      });
+      verifyDenoInstalled();
     }
   }
 

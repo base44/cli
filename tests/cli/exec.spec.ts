@@ -11,7 +11,7 @@ describe("exec command", () => {
     t.expectResult(result).toContain("Run a script with the Base44 SDK");
     t.expectResult(result).toContain("[script]");
     t.expectResult(result).toContain("-e, --eval");
-    t.expectResult(result).toContain("--stdin");
+    t.expectResult(result).toContain("or - for stdin");
   });
 
   it("fails when not in a project directory", async () => {
@@ -42,5 +42,16 @@ describe("exec command", () => {
     const result = await t.run("exec", "-e", "console.log(1)");
 
     t.expectResult(result).toFail();
+  });
+
+  it("executes inline code successfully with -e flag", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+    t.api.mockAuthToken("test-app-token");
+    t.api.mockSiteUrl({ url: "https://test-app.base44.app" });
+
+    // Note: script output goes directly to terminal (stdio: inherit), not captured here
+    const result = await t.run("exec", "-e", "console.log('hello from exec')");
+
+    t.expectResult(result).toSucceed();
   });
 });
