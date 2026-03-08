@@ -2,7 +2,7 @@ import { dirname, join } from "node:path";
 import ejs from "ejs";
 import frontmatter from "front-matter";
 import { globby } from "globby";
-import { getTemplatesDir, getTemplatesIndexPath } from "@/core/config.js";
+import { getTemplatesDir, getTemplatesIndexPath } from "@/core/assets.js";
 import { SchemaValidationError } from "@/core/errors.js";
 import type { Template } from "@/core/project/schema.js";
 import { TemplatesConfigSchema } from "@/core/project/schema.js";
@@ -18,8 +18,8 @@ interface TemplateFrontmatter {
   outputFileName?: string;
 }
 
-export async function listTemplates(assetsDir?: string): Promise<Template[]> {
-  const indexPath = getTemplatesIndexPath(assetsDir);
+export async function listTemplates(): Promise<Template[]> {
+  const indexPath = getTemplatesIndexPath();
   const parsed = await readJsonFile(indexPath);
   const result = TemplatesConfigSchema.safeParse(parsed);
 
@@ -44,9 +44,8 @@ export async function renderTemplate(
   template: Template,
   destPath: string,
   data: TemplateData,
-  assetsDir?: string,
 ): Promise<void> {
-  const templateDir = join(getTemplatesDir(assetsDir), template.path);
+  const templateDir = join(getTemplatesDir(), template.path);
 
   // Get all files in the template directory
   const files = await globby("**/*", {

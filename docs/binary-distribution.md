@@ -27,21 +27,25 @@ bun run package:binaries # Archive, checksum, and clean up raw binaries
 
 `bin/binary-entry.ts` is the entry point for compiled binaries (npm uses `bin/run.js` instead).
 
-It embeds a single `assets.tar.gz` into the binary using Bun's `import ... with { type: "file" }` syntax. At runtime, this resolves to a path inside Bun's virtual `$bunfs` filesystem, which only `Bun.file()` can read. On first run per version, the entry point extracts the tarball to `~/.base44/assets/<version>/` and calls `runCLI({ assetsDir })` so the CLI receives the extracted path via **CLIContext.assetsDir**.
+It embeds a single `assets.tar.gz` into the binary using Bun's `import ... with { type: "file" }` syntax. At runtime, this resolves to a path inside Bun's virtual `$bunfs` filesystem, which only `Bun.file()` can read. On first run per version, the entry point extracts the tarball to `~/.base44/assets/<version>/`.
 
 ## Asset Path Resolution
 
-The assets directory is provided via **CLIContext.assetsDir**. The binary entry passes it into `runCLI({ assetsDir })`; the npm path calls `runCLI()` with no args, so `context.assetsDir` is undefined. Core and CLI code accept an optional `assetsDir` and fall back to `__dirname`-relative paths when it's undefined (e.g. `dist/assets/templates`, `dist/assets/deno-runtime`):
+Both npm and binary distributions use the same standard location: **`~/.base44/assets/<version>/`**.
+
+- **Binary**: `bin/binary-entry.ts` extracts the embedded tarball there on first run.
+- **npm**: `runCLI()` copies from `dist/assets/` to the same location on first run via `ensureNpmAssets()`.
+
+Asset getters in `src/core/assets.ts` are zero-argument functions that compute paths from the version embedded at build time:
 
 ```typescript
-// src/core/config.ts
-export function getTemplatesDir(assetsDir?: string): string {
-  if (assetsDir) return join(assetsDir, "templates");
-  return join(__dirname, "../assets/templates");
+// src/core/assets.ts
+export function getTemplatesDir(): string {
+  return join(ASSETS_DIR, "templates");
 }
 ```
 
-Commands that need asset paths (e.g. create, dev) receive `context` and pass `context.assetsDir` into these helpers. Adding new asset types only requires putting them under **dist/assets/** and wiring the build; **build-binaries.ts** collects the whole `dist/assets/` folder with no per-item list.
+No `assetsDir` parameter is passed through CLIContext or function signatures. Adding new asset types only requires putting them under **dist/assets/** and wiring the build; **build-binaries.ts** collects the whole `dist/assets/` folder with no per-item list.
 
 ## Homebrew Formula
 

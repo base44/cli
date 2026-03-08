@@ -1,6 +1,5 @@
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import {
   PROJECT_SUBDIR,
   TYPES_FILENAME,
@@ -11,30 +10,12 @@ import {
   TestOverridesSchema,
 } from "@/core/project/schema.js";
 
-// After bundling, import.meta.url points to dist/cli/index.js
-// Templates live under dist/assets/templates/
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
 function getBase44GlobalDir(): string {
   return join(homedir(), ".base44");
 }
 
 export function getAuthFilePath(): string {
   return join(getBase44GlobalDir(), "auth", "auth.json");
-}
-
-export function getTemplatesDir(assetsDir?: string): string {
-  if (assetsDir) return join(assetsDir, "templates");
-  return join(__dirname, "../assets/templates");
-}
-
-export function getTemplatesIndexPath(assetsDir?: string): string {
-  return join(getTemplatesDir(assetsDir), "templates.json");
-}
-
-export function getDenoWrapperPath(assetsDir?: string): string {
-  if (assetsDir) return join(assetsDir, "deno-runtime", "main.js");
-  return join(__dirname, "../assets/deno-runtime/main.js");
 }
 
 export function getAppConfigPath(projectRoot: string): string {

@@ -37,4 +37,4 @@ if (!process.stdin.isTTY || !process.stdout.isTTY) {
 }
 
 const { runCLI } = await import("../src/cli/index.js");
-await runCLI({ assetsDir });
+await runCLI();
