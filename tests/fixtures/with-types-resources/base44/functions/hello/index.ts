@@ -1,3 +1,1 @@
-export default function hello() {
-  return "Hello, World!";
-}
+Deno.serve((req: Request) => new Response("ok"));

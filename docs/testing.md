@@ -41,6 +41,7 @@ tests/
 ├── core/                          # Core module unit tests
 │   ├── agents.spec.ts
 │   ├── errors.spec.ts
+│   ├── function-config.spec.ts    # Function discovery (zero-config, path names, config wins)
 │   └── project.spec.ts
 └── fixtures/                      # Test project directories
     ├── basic/                     # Minimal linked project
@@ -48,6 +49,10 @@ tests/
     ├── with-agents/               # Project with agents
     ├── with-connectors/           # Project with connectors
     ├── with-functions-and-entities/
+    ├── function-discovery/        # Zero-config + config-based functions (path names, config wins)
+    ├── function-discovery-entry-at-root/  # Error: entry at root
+    ├── duplicate-function-names/  # Error: duplicate function names
+    ├── with-zero-config-functions/  # Full project: zero-config + path-named functions (CLI integration)
     ├── with-site/                 # Project with site config
     ├── full-project/              # All resources combined
     ├── no-app-config/             # Unlinked project (no .app.jsonc)

@@ -3,6 +3,7 @@
  * Automatically handles token refresh and retry on 401 responses.
  */
 
+import { randomUUID } from "node:crypto";
 import type { KyRequest, KyResponse, NormalizedOptions } from "ky";
 import ky from "ky";
 import {
@@ -63,12 +64,17 @@ async function handleUnauthorized(
   }
 
   // Mark this request as retried and retry with new token.
+  // Preserve X-Request-ID so the retry is traced as the same logical request.
   // Clone the request before passing to ky — `new Request(request, init)` transfers
   // (consumes) the original request's body, which would leave the outer ky's preserved
   // request in an unusable state if this inner call fails and the outer ky tries to retry.
   retriedRequests.add(request);
+  const requestId = request.headers.get("X-Request-ID");
   return ky(request.clone() as Request, {
-    headers: { Authorization: `Bearer ${newAccessToken}` },
+    headers: {
+      ...(requestId && { "X-Request-ID": requestId }),
+      Authorization: `Bearer ${newAccessToken}`,
+    },
   });
 }
 
@@ -86,6 +92,9 @@ export const base44Client = ky.create({
   },
   hooks: {
     beforeRequest: [
+      (request) => {
+        request.headers.set("X-Request-ID", randomUUID());
+      },
       captureRequestBody,
       async (request) => {
         try {

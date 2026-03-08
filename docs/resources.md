@@ -52,6 +52,16 @@ export const entityResource: Resource<Entity> = {
 8. Register in `src/core/project/config.ts` (add to `readProjectConfig`)
 9. Add typed field to `ProjectData` interface
 
+## Backend functions (project layout)
+
+Functions are read from the project's functions directory (e.g. `base44/functions/` or path from `config.jsonc`). Two discovery modes:
+
+**Config-based:** A folder that contains `function.jsonc` (or `function.json`) is a function. The config defines `name`, `entry` (path to the handler file), and optional `automations`. The config file can live at any depth under the functions dir (e.g. `functions/foo/bar/function.jsonc`). All `*.js`, `*.ts`, and `*.json` files in that folder and subfolders are included when deploying.
+
+**Zero-config:** A folder that contains `entry.js` or `entry.ts` and has no `function.jsonc` in the same folder is also a function. The function name is the path from the functions root to that folder (e.g. `functions/foo/bar/hello/entry.ts` → name `foo/bar/hello`). File collection is recursive: all `**/*.{js,ts,json}` under that folder are included.
+
+If both exist in the same folder (e.g. `function.jsonc` and `entry.ts`), the config wins: the function is loaded from the config and the name/entry come from the config file. Duplicate function names (same path or same config name) cause an error.
+
 ## Site Module (Not a Resource)
 
 The site module at `src/core/site/` handles deploying built frontend files. It follows a different pattern than resources:

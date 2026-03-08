@@ -78,5 +78,8 @@ coverage/
 *.seed
 *.pid.lock
 
+# Error report summaries (generated, do not commit)
+error-reports/
+
 # Worktrees
 .worktrees/
