@@ -43,6 +43,7 @@ export async function setSecrets(
   try {
     response = await appClient.post("secrets", {
       json: secrets,
+      timeout: false,
     });
   } catch (error) {
     throw await ApiError.fromHttpError(error, "setting secrets");

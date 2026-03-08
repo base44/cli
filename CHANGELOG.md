@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.0.38] - 2026-03-05
+
+### Added
+
+- Zero config for functions (#246)
+- Watching and reloading functions (#353)
+
+### Fixed
+
+- Increase secrets set timeout to match functions push (#361)
+- Expand README check trigger and fix lychee format (#360)
 
 ## [0.0.37] - 2026-03-02
 

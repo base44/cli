@@ -1,4 +1,5 @@
 import type { Server } from "node:http";
+import { dirname, join } from "node:path";
 import { log as clackLog } from "@clack/prompts";
 import cors from "cors";
 import express from "express";
@@ -20,6 +21,7 @@ import {
   createCustomIntegrationRoutes,
   createIntegrationRoutes,
 } from "./routes/integrations.js";
+import { WatchBase44 } from "./watcher.js";
 
 const DEFAULT_PORT = 4400;
 const BASE44_APP_URL = "https://base44.app";
@@ -45,7 +47,7 @@ export async function createDevServer(
   const port = userPort ?? (await getPort({ port: DEFAULT_PORT }));
   const baseUrl = `http://localhost:${port}`;
 
-  const { functions, entities } = await options.loadResources();
+  const { functions, entities, project } = await options.loadResources();
 
   const app = express();
 
@@ -75,17 +77,17 @@ export async function createDevServer(
   const devLogger = createDevLogger();
 
   const functionManager = new FunctionManager(functions, devLogger);
+  const functionRoutes = createFunctionRouter(functionManager, devLogger);
+  app.use("/api/apps/:appId/functions", functionRoutes);
 
   if (functionManager.getFunctionNames().length > 0) {
     clackLog.info(
       `Loaded functions: ${functionManager.getFunctionNames().join(", ")}`,
     );
-
-    const functionRoutes = createFunctionRouter(functionManager, devLogger);
-    app.use("/api/apps/:appId/functions", functionRoutes);
   }
 
-  const db = new Database(entities);
+  const db = new Database();
+  db.load(entities);
   if (db.getCollectionNames().length > 0) {
     clackLog.info(`Loaded entities: ${db.getCollectionNames().join(", ")}`);
   }
@@ -127,8 +129,8 @@ export async function createDevServer(
     remoteProxy(req, res, next);
   });
 
-  return new Promise((resolve, reject) => {
-    const server = app.listen(port, "127.0.0.1", (err) => {
+  const server = await new Promise<Server>((resolve, reject) => {
+    const s = app.listen(port, "127.0.0.1", (err) => {
       if (err) {
         if ("code" in err && err.code === "EADDRINUSE") {
           reject(
@@ -140,24 +142,68 @@ export async function createDevServer(
           reject(err);
         }
       } else {
-        const io = createRealtimeServer(server);
-        emitEntityEvent = (appId, entityName, event) => {
-          broadcastEntityEvent(io, appId, entityName, event);
-        };
-
-        const shutdown = () => {
-          io.close();
-          functionManager.stopAll();
-          server.close();
-        };
-        process.on("SIGINT", shutdown);
-        process.on("SIGTERM", shutdown);
-
-        resolve({
-          port,
-          server,
-        });
+        resolve(s);
       }
     });
   });
+
+  const io = createRealtimeServer(server);
+  emitEntityEvent = (appId, entityName, event) => {
+    broadcastEntityEvent(io, appId, entityName, event);
+  };
+
+  const base44ConfigWatcher = new WatchBase44(
+    {
+      functions: join(dirname(project.configPath), project.functionsDir),
+      entities: join(dirname(project.configPath), project.entitiesDir),
+    },
+    devLogger,
+  );
+  base44ConfigWatcher.on("change", async (name) => {
+    try {
+      const { functions, entities } = await options.loadResources();
+
+      if (name === "functions") {
+        const previousFunctionCount = functionManager.getFunctionNames().length;
+        functionManager.reload(functions);
+
+        const names = functionManager.getFunctionNames();
+        if (names.length > 0) {
+          devLogger.log(`Reloaded functions: ${names.sort().join(", ")}`);
+        } else if (previousFunctionCount > 0) {
+          devLogger.log("All functions removed");
+        }
+      }
+
+      if (name === "entities") {
+        const previousEntityCount = db.getCollectionNames().length;
+        db.dropAll();
+        if (previousEntityCount > 0) {
+          devLogger.log("Entities directory changed, clearing data...");
+        }
+        db.load(entities);
+        if (db.getCollectionNames().length > 0) {
+          devLogger.log(
+            `Loaded entities: ${db.getCollectionNames().join(", ")}`,
+          );
+        }
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      devLogger.error(errorMessage);
+    }
+  });
+  await base44ConfigWatcher.start();
+
+  const shutdown = () => {
+    base44ConfigWatcher.close();
+    io.close();
+    functionManager.stopAll();
+    server.close();
+  };
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
+
+  return { port, server };
 }

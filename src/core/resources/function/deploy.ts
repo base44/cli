@@ -1,4 +1,4 @@
-import { basename } from "node:path";
+import { dirname, relative } from "node:path";
 import { deployFunctions } from "@/core/resources/function/api.js";
 import type {
   BackendFunction,
@@ -11,10 +11,12 @@ import { readTextFile } from "@/core/utils/fs.js";
 async function loadFunctionCode(
   fn: BackendFunction,
 ): Promise<FunctionWithCode> {
+  const functionDir = dirname(fn.entryPath);
   const loadedFiles: FunctionFile[] = await Promise.all(
     fn.filePaths.map(async (filePath) => {
       const content = await readTextFile(filePath);
-      return { path: basename(filePath), content };
+      const path = relative(functionDir, filePath).split(/[/\\]/).join("/");
+      return { path, content };
     }),
   );
   return { ...fn, files: loadedFiles };

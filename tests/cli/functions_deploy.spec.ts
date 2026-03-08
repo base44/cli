@@ -37,6 +37,39 @@ describe("functions deploy command", () => {
     t.expectResult(result).toContain("Deployed: process-order");
   });
 
+  it("deploys zero-config and path-named functions successfully", async () => {
+    await t.givenLoggedInWithProject(fixture("with-zero-config-functions"));
+    t.api.mockFunctionsPush({
+      deployed: ["foo/bar", "foo/kfir/hello", "stam", "custom-name"],
+      deleted: [],
+      errors: null,
+    });
+
+    const result = await t.run("functions", "deploy");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Functions deployed successfully");
+    t.expectResult(result).toContain("Deployed: foo/bar");
+    t.expectResult(result).toContain("foo/kfir/hello");
+    t.expectResult(result).toContain("custom-name");
+  });
+
+  it("does not collect zero-config functions whose path contains a dot", async () => {
+    await t.givenLoggedInWithProject(fixture("with-zero-config-functions"));
+    t.api.mockFunctionsPush({
+      deployed: ["foo/bar", "foo/kfir/hello", "stam", "custom-name"],
+      deleted: [],
+      errors: null,
+    });
+
+    const result = await t.run("functions", "deploy");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Deployed: foo/bar");
+    t.expectResult(result).toNotContain("all.products");
+    t.expectResult(result).toNotContain("getProducts/all.products");
+  });
+
   it("fails when API returns error", async () => {
     await t.givenLoggedInWithProject(fixture("with-functions-and-entities"));
     t.api.mockFunctionsPushError({
