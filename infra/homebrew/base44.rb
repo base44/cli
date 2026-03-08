@@ -14,27 +14,26 @@ class Base44 < Formula
 
   on_macos do
     if Hardware::CPU.arm?
-      url "https://github.com/base44/cli/releases/download/v#{version}/base44-darwin-arm64"
+      url "https://github.com/base44/cli/releases/download/v#{version}/base44-darwin-arm64.tar.gz"
       sha256 "PLACEHOLDER_DARWIN_ARM64"
     else
-      url "https://github.com/base44/cli/releases/download/v#{version}/base44-darwin-x64"
+      url "https://github.com/base44/cli/releases/download/v#{version}/base44-darwin-x64.tar.gz"
       sha256 "PLACEHOLDER_DARWIN_X64"
     end
   end
 
   on_linux do
     if Hardware::CPU.arm?
-      url "https://github.com/base44/cli/releases/download/v#{version}/base44-linux-arm64"
+      url "https://github.com/base44/cli/releases/download/v#{version}/base44-linux-arm64.tar.gz"
       sha256 "PLACEHOLDER_LINUX_ARM64"
     else
-      url "https://github.com/base44/cli/releases/download/v#{version}/base44-linux-x64"
+      url "https://github.com/base44/cli/releases/download/v#{version}/base44-linux-x64.tar.gz"
       sha256 "PLACEHOLDER_LINUX_X64"
     end
   end
 
   def install
-    binary_name = stable.url.split("/").last
-    bin.install binary_name => "base44"
+    bin.install "base44"
   end
 
   test do

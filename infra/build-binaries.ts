@@ -6,14 +6,14 @@
  * Steps:
  *   1. Create dist/assets.tar.gz from dist/assets/ (templates + deno-runtime)
  *   2. Cross-compile for each platform with `bun build --compile`
- *   3. Generate SHA256 checksums
+ *
+ * After this, run `bun run package:binaries` to archive and checksum.
  */
 import {
   readFileSync,
   readdirSync,
   existsSync,
   mkdirSync,
-  writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
 import chalk from "chalk";
@@ -112,22 +112,9 @@ for (const { target, output } of TARGETS) {
 }
 
 // ---------------------------------------------------------------------------
-// 3. Generate SHA256 checksums
-// ---------------------------------------------------------------------------
-console.log(chalk.dim("  Generating checksums..."));
-
-for (const { output } of TARGETS) {
-  const filePath = join(BINARIES_DIR, output);
-  const hasher = new Bun.CryptoHasher("sha256");
-  hasher.update(await Bun.file(filePath).arrayBuffer());
-  const hash = hasher.digest("hex");
-  writeFileSync(join(BINARIES_DIR, `${output}.sha256`), `${hash}  ${output}\n`);
-}
-
-// ---------------------------------------------------------------------------
 // Done
 // ---------------------------------------------------------------------------
-console.log(chalk.green.bold("\n✓ Binaries built\n"));
+console.log(chalk.green.bold("\n✓ Binaries compiled\n"));
 console.log(chalk.dim("  Output:"));
 for (const { output } of TARGETS) {
   const filePath = join(BINARIES_DIR, output);

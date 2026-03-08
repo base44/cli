@@ -1,20 +1,26 @@
 # Binary Distribution
 
-**Keywords:** binary, binaries, homebrew, brew, standalone, compile, bun build, assets, templates, deno-runtime, checksums
+**Keywords:** binary, binaries, homebrew, brew, standalone, compile, bun build, assets, templates, deno-runtime, checksums, archive, tar.gz
 
 The CLI is distributed in two ways: as an npm package (`base44`) and as standalone compiled binaries for Homebrew / direct download.
 
 ## How It Works
 
-`infra/build-binaries.ts` builds self-contained executables using `bun build --compile`. The script:
+The binary release pipeline has two steps:
 
-1. Creates `dist/assets.tar.gz` from the single **dist/assets/** folder (templates + deno-runtime)
-2. Cross-compiles for 5 targets (macOS arm64/x64, Linux arm64/x64, Windows x64)
-3. Generates SHA256 checksums for each binary
+1. **`infra/build-binaries.ts`** — compiles self-contained executables using `bun build --compile`:
+   - Creates `dist/assets.tar.gz` from **dist/assets/** (templates + deno-runtime)
+   - Cross-compiles for 5 targets (macOS arm64/x64, Linux arm64/x64, Windows x64)
+
+2. **`infra/package-binaries.ts`** — packages each binary for release:
+   - Wraps each binary (renamed to `base44` / `base44.exe`) and `README.md` in a `.tar.gz` archive
+   - Deletes the raw binary
+   - Generates SHA256 checksums for each archive
 
 ```bash
-bun run build          # Must run first — produces dist/cli/ and dist/assets/
-bun run build:binaries # Then compile standalone binaries into dist/binaries/
+bun run build            # Must run first — produces dist/cli/ and dist/assets/
+bun run build:binaries   # Compile standalone binaries into dist/binaries/
+bun run package:binaries # Archive, checksum, and clean up raw binaries
 ```
 
 ## Binary Entry Point
@@ -39,14 +45,15 @@ Commands that need asset paths (e.g. create, dev) receive `context` and pass `co
 
 ## Homebrew Formula
 
-`infra/homebrew/base44.rb` is a reference template for the Homebrew tap. It downloads the correct binary for the user's platform from GitHub Releases. Copy it to the `homebrew-tap` repo and update version + SHA256 values on each release.
+`infra/homebrew/base44.rb` is a reference template for the Homebrew tap. It downloads the `.tar.gz` archive for the user's platform from GitHub Releases. Homebrew auto-extracts the tarball, so the install block simply does `bin.install "base44"`. Copy it to the `homebrew-tap` repo and update version + SHA256 values on each release.
 
 ## CI Integration
 
-The `manual-publish.yml` workflow builds binaries after `bun run build` and uploads them to the GitHub Release. Binaries are excluded from the npm package via `.npmignore`.
+The `manual-publish.yml` workflow runs `build:binaries` then `package:binaries` after `bun run build`, and uploads the resulting `.tar.gz` and `.sha256` files to the GitHub Release. Binaries are excluded from the npm package via `.npmignore`.
 
 ## Rules
 
 1. **Run `bun run build` before `bun run build:binaries`** — the binary build depends on `dist/cli/` and `dist/assets/`
-2. **Keep binaries out of npm** — `dist/binaries/` and `dist/assets.tar.gz` must stay in `.npmignore`
-3. **Update the Homebrew formula** when adding new platforms or changing binary names
+2. **Run `bun run package:binaries` after `bun run build:binaries`** — archives the raw executables
+3. **Keep binaries out of npm** — `dist/binaries/` and `dist/assets.tar.gz` must stay in `.npmignore`
+4. **Update the Homebrew formula** when adding new platforms or changing binary names

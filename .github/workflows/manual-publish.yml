@@ -188,6 +188,9 @@ jobs:
       - name: Build standalone binaries
         run: bun run build:binaries
 
+      - name: Package binaries for release
+        run: bun run package:binaries
+
       - name: Upload sourcemaps to PostHog
         if: github.event.inputs.dry_run == 'false'
         uses: PostHog/upload-source-maps@v0.4.6
