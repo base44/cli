@@ -3,6 +3,7 @@
  * Automatically handles token refresh and retry on 401 responses.
  */
 
+import { randomUUID } from "node:crypto";
 import type { KyRequest, KyResponse, NormalizedOptions } from "ky";
 import ky from "ky";
 import {
@@ -86,6 +87,9 @@ export const base44Client = ky.create({
   },
   hooks: {
     beforeRequest: [
+      (request) => {
+        request.headers.set("X-Request-ID", randomUUID());
+      },
       captureRequestBody,
       async (request) => {
         try {
