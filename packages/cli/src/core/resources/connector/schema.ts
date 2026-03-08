@@ -214,7 +214,7 @@ const ConnectionConfigFieldSchema = z.object({
 });
 
 const AvailableIntegrationSchema = z.object({
-  integration_type: z.string(),
+  integration_type: z.string().min(1),
   display_name: z.string(),
   description: z.string(),
   notes: z.string().nullable(),
@@ -248,6 +248,3 @@ export const ListAvailableIntegrationsResponseSchema = z
 export type ListAvailableIntegrationsResponse = z.infer<
   typeof ListAvailableIntegrationsResponseSchema
 >;
-
-type AvailableIntegration =
-  ListAvailableIntegrationsResponse["availableIntegrations"][number];
