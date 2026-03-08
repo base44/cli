@@ -4,6 +4,7 @@
  * These endpoints don't need Authorization headers - they use client_id + tokens in body.
  */
 
+import { randomUUID } from "node:crypto";
 import ky from "ky";
 import { getBase44ApiUrl } from "@/core/config.js";
 
@@ -11,5 +12,12 @@ export const oauthClient = ky.create({
   prefixUrl: getBase44ApiUrl(),
   headers: {
     "User-Agent": "Base44 CLI",
+  },
+  hooks: {
+    beforeRequest: [
+      (request) => {
+        request.headers.set("X-Request-ID", randomUUID());
+      },
+    ],
   },
 });
