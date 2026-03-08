@@ -6,7 +6,7 @@ Resources are project-specific collections (entities, functions, agents, connect
 
 ## Resource Interface
 
-Defined in `src/core/resources/types.ts`:
+Defined in `packages/cli/src/resources/types.ts`:
 
 ```typescript
 export interface Resource<T> {
@@ -19,7 +19,7 @@ The `push` method handles empty arrays gracefully (returns early without making 
 
 ## Resource Implementation
 
-Each resource follows a consistent file structure inside `src/core/resources/<name>/`:
+Each resource follows a consistent file structure inside `packages/cli/src/core/resources/<name>/`:
 
 ```
 <name>/
@@ -42,14 +42,14 @@ export const entityResource: Resource<Entity> = {
 
 ## Adding a New Resource
 
-1. Create folder: `src/core/resources/<name>/`
+1. Create folder: `packages/cli/src/core/resources/<name>/`
 2. Add `schema.ts` with Zod schemas
 3. Add `config.ts` with file reading logic
 4. Add `resource.ts` implementing `Resource<T>`
 5. Add `api.ts` for API calls
 6. Add `index.ts` barrel exports
-7. Update `src/core/resources/index.ts` to export the new resource
-8. Register in `src/core/project/config.ts` (add to `readProjectConfig`)
+7. Update `packages/cli/src/core/resources/index.ts` to export the new resource
+8. Register in `packages/cli/src/core/project/config.ts` (add to `readProjectConfig`)
 9. Add typed field to `ProjectData` interface
 
 ## Backend functions (project layout)
@@ -64,7 +64,7 @@ If both exist in the same folder (e.g. `function.jsonc` and `entry.ts`), the con
 
 ## Site Module (Not a Resource)
 
-The site module at `src/core/site/` handles deploying built frontend files. It follows a different pattern than resources:
+The site module at `packages/cli/src/core/site/` handles deploying built frontend files. It follows a different pattern than resources:
 
 - Reads built artifacts (JS, CSS, HTML) from the output directory
 - Gets configuration from `site.outputDirectory` in project config
