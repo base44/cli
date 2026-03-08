@@ -1,10 +1,14 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import { json, Router } from "express";
 import multer from "multer";
 import type { Logger } from "../../createDevLogger.js";
+
+export function createFileToken(fileUri: string): string {
+  return createHash("sha256").update(fileUri).digest("hex");
+}
 
 /**
  * Creates routes for Core and installable package integrations.
@@ -19,10 +23,14 @@ export function createIntegrationRoutes(
   const router = Router({ mergeParams: true });
   const parseBody = json();
 
-  // Ensure files directory exists
+  const privateFilesDir = path.join(mediaFilesDir, "private");
   fs.mkdirSync(mediaFilesDir, { recursive: true });
+  fs.mkdirSync(privateFilesDir, { recursive: true });
 
-  // Configure multer storage for file uploads
+  // File size limitation is 50 MB
+  // https://docs.base44.com/Building-your-app/Using-media#sharing-media-on-your-live-app
+  const MAX_FILE_SIZE = 50 * 1024 * 1024;
+
   const storage = multer.diskStorage({
     destination: mediaFilesDir,
     filename: (_req, file, cb) => {
@@ -31,10 +39,19 @@ export function createIntegrationRoutes(
     },
   });
 
-  // File size limitation is 50 MB
-  // https://docs.base44.com/Building-your-app/Using-media#sharing-media-on-your-live-app
-  const MAX_FILE_SIZE = 50 * 1024 * 1024;
+  const privateStorage = multer.diskStorage({
+    destination: privateFilesDir,
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname);
+      cb(null, `${randomUUID()}${ext}`);
+    },
+  });
+
   const upload = multer({ storage, limits: { fileSize: MAX_FILE_SIZE } });
+  const privateUpload = multer({
+    storage: privateStorage,
+    limits: { fileSize: MAX_FILE_SIZE },
+  });
 
   router.post(
     "/Core/UploadFile",
@@ -49,14 +66,18 @@ export function createIntegrationRoutes(
     },
   );
 
-  router.post("/Core/UploadPrivateFile", upload.single("file"), (req, res) => {
-    if (!req.file) {
-      res.status(400).json({ error: "No file uploaded" });
-      return;
-    }
-    const file_uri = req.file.filename;
-    res.json({ file_uri });
-  });
+  router.post(
+    "/Core/UploadPrivateFile",
+    privateUpload.single("file"),
+    (req, res) => {
+      if (!req.file) {
+        res.status(400).json({ error: "No file uploaded" });
+        return;
+      }
+      const file_uri = req.file.filename;
+      res.json({ file_uri });
+    },
+  );
 
   router.post("/Core/CreateFileSignedUrl", parseBody, (req, res) => {
     const { file_uri } = req.body;
@@ -64,8 +85,8 @@ export function createIntegrationRoutes(
       res.status(400).json({ error: "file_uri is required" });
       return;
     }
-    const signature = randomUUID();
-    const signed_url = `${baseUrl}/media/${file_uri}?signature=${signature}`;
+    const token = createFileToken(file_uri);
+    const signed_url = `${baseUrl}/media/private/${file_uri}?token=${token}`;
     res.json({ signed_url });
   });
 
