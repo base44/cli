@@ -189,6 +189,17 @@ export class Base44APIMock {
     return this;
   }
 
+  /** Mock DELETE /api/apps/{appId}/backend-functions/{name} - Delete single function */
+  mockSingleFunctionDelete(): this {
+    this.handlers.push(
+      http.delete(
+        `${BASE_URL}/api/apps/${this.appId}/backend-functions/:name`,
+        () => new HttpResponse(null, { status: 204 }),
+      ),
+    );
+    return this;
+  }
+
   /** Mock POST /api/apps/{appId}/deploy-dist - Deploy site */
   mockSiteDeploy(response: SiteDeployResponse): this {
     this.handlers.push(
@@ -380,6 +391,15 @@ export class Base44APIMock {
     return this.mockError(
       "put",
       `/api/apps/${this.appId}/backend-functions`,
+      error,
+    );
+  }
+
+  /** Mock single function delete to return an error */
+  mockSingleFunctionDeleteError(error: ErrorResponse): this {
+    return this.mockError(
+      "delete",
+      `/api/apps/${this.appId}/backend-functions/:name`,
       error,
     );
   }
