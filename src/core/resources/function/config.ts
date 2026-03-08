@@ -28,9 +28,15 @@ async function readFunctionConfig(configPath: string): Promise<FunctionConfig> {
   return result.data;
 }
 
-async function readFunction(configPath: string): Promise<BackendFunction> {
+async function readFunction(
+  configPath: string,
+  functionsDir: string,
+): Promise<BackendFunction> {
   const config = await readFunctionConfig(configPath);
   const functionDir = dirname(configPath);
+  const name =
+    config.name ??
+    relative(functionsDir, functionDir).split(/[/\\]/).join("/");
   const entryPath = join(functionDir, config.entry);
 
   if (!(await pathExists(entryPath))) {
@@ -47,7 +53,7 @@ async function readFunction(configPath: string): Promise<BackendFunction> {
     absolute: true,
   });
 
-  const functionData: BackendFunction = { ...config, entryPath, filePaths };
+  const functionData: BackendFunction = { ...config, name, entryPath, filePaths };
   return functionData;
 }
 
@@ -76,7 +82,7 @@ export async function readAllFunctions(
   );
 
   const functionsFromConfig = await Promise.all(
-    configFiles.map((configPath) => readFunction(configPath)),
+    configFiles.map((configPath) => readFunction(configPath, functionsDir)),
   );
 
   const functionsWithoutConfig = await Promise.all(
