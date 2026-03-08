@@ -9,6 +9,7 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { runCLI } from "../src/cli/index.js";
 // Bun embeds this file into the compiled binary.
 // At runtime, it resolves to a path inside the $bunfs virtual filesystem.
 // Only Bun.file() can read these paths — Node.js fs APIs and external
@@ -36,5 +37,4 @@ if (!process.stdin.isTTY || !process.stdout.isTTY) {
   process.env.CI = "true";
 }
 
-const { runCLI } = await import("../src/cli/index.js");
 await runCLI();

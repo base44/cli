@@ -1,3 +1,4 @@
+import { cpSync, existsSync, readFileSync } from "node:fs";
 import { access, cp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,6 +11,7 @@ import { CLIResultMatcher } from "./CLIResultMatcher.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DIST_INDEX_PATH = join(__dirname, "../../../dist/cli/index.js");
+const DIST_ASSETS_DIR = join(__dirname, "../../../dist/assets");
 
 /** Type for CLIContext */
 interface CLIContext {
@@ -115,6 +117,9 @@ export class CLITestkit {
 
     // Set testkit environment variables
     Object.assign(process.env, this.env);
+
+    // Ensure assets are available at the expected location (simulates ensureNpmAssets)
+    this.ensureTestAssets();
 
     // Setup output capture
     const { stdout, stderr, stdoutSpy, stderrSpy } = this.setupOutputCapture();
@@ -249,6 +254,21 @@ export class CLITestkit {
     }) as typeof process.exit;
 
     return { exitState, originalExit };
+  }
+
+  /**
+   * Copy dist/assets/ to the test HOME's expected location.
+   * This simulates what ensureNpmAssets() does in production, since
+   * tests bypass runCLI() and call createProgram() directly.
+   */
+  private ensureTestAssets(): void {
+    if (!existsSync(DIST_ASSETS_DIR)) return;
+    const pkgPath = join(__dirname, "../../../package.json");
+    const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
+    const assetsTarget = join(this.tempDir, ".base44", "assets", pkg.version);
+    if (!existsSync(assetsTarget)) {
+      cpSync(DIST_ASSETS_DIR, assetsTarget, { recursive: true });
+    }
   }
 
   // ─── THEN METHODS ─────────────────────────────────────────────

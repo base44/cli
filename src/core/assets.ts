@@ -5,10 +5,6 @@ import packageJson from "../../package.json";
 
 const ASSETS_DIR = join(homedir(), ".base44", "assets", packageJson.version);
 
-export function getAssetsDir(): string {
-  return ASSETS_DIR;
-}
-
 export function getTemplatesDir(): string {
   return join(ASSETS_DIR, "templates");
 }
