@@ -5,7 +5,11 @@ import { ErrorReporter } from "./telemetry/error-reporter.js";
 import { addCommandInfoToErrorReporter } from "./telemetry/index.js";
 import type { CLIContext } from "./types.js";
 
-async function runCLI(): Promise<void> {
+interface RunCLIOptions {
+  assetsDir?: string;
+}
+
+async function runCLI(options?: RunCLIOptions): Promise<void> {
   // Create error reporter - single instance for the CLI session
   const errorReporter = new ErrorReporter();
 
@@ -14,7 +18,11 @@ async function runCLI(): Promise<void> {
 
   // Create context for dependency injection
   const isNonInteractive = !process.stdin.isTTY || !process.stdout.isTTY;
-  const context: CLIContext = { errorReporter, isNonInteractive };
+  const context: CLIContext = {
+    errorReporter,
+    isNonInteractive,
+    assetsDir: options?.assetsDir,
+  };
 
   // Create program with injected context
   const program = createProgram(context);

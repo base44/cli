@@ -18,15 +18,16 @@ interface TemplateFrontmatter {
   outputFileName?: string;
 }
 
-export async function listTemplates(): Promise<Template[]> {
-  const parsed = await readJsonFile(getTemplatesIndexPath());
+export async function listTemplates(assetsDir?: string): Promise<Template[]> {
+  const indexPath = getTemplatesIndexPath(assetsDir);
+  const parsed = await readJsonFile(indexPath);
   const result = TemplatesConfigSchema.safeParse(parsed);
 
   if (!result.success) {
     throw new SchemaValidationError(
       "Invalid templates configuration",
       result.error,
-      getTemplatesIndexPath(),
+      indexPath,
     );
   }
 
@@ -43,8 +44,9 @@ export async function renderTemplate(
   template: Template,
   destPath: string,
   data: TemplateData,
+  assetsDir?: string,
 ): Promise<void> {
-  const templateDir = join(getTemplatesDir(), template.path);
+  const templateDir = join(getTemplatesDir(assetsDir), template.path);
 
   // Get all files in the template directory
   const files = await globby("**/*", {

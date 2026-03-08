@@ -28,6 +28,7 @@ const BASE44_APP_URL = "https://base44.app";
 
 interface DevServerOptions {
   port?: number;
+  denoWrapperPath: string;
   loadResources: () => Promise<{
     functions: ProjectData["functions"];
     entities: ProjectData["entities"];
@@ -76,7 +77,11 @@ export async function createDevServer(
 
   const devLogger = createDevLogger();
 
-  const functionManager = new FunctionManager(functions, devLogger);
+  const functionManager = new FunctionManager(
+    functions,
+    devLogger,
+    options.denoWrapperPath,
+  );
   const functionRoutes = createFunctionRouter(functionManager, devLogger);
   app.use("/api/apps/:appId/functions", functionRoutes);
 

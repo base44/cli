@@ -33,8 +33,11 @@ interface CreateOptions {
   skills?: boolean;
 }
 
-async function getTemplateById(templateId: string): Promise<Template> {
-  const templates = await listTemplates();
+async function getTemplateById(
+  templateId: string,
+  assetsDir?: string,
+): Promise<Template> {
+  const templates = await listTemplates(assetsDir);
   const template = templates.find((t) => t.id === templateId);
   if (!template) {
     const validIds = templates.map((t) => t.id).join(", ");
@@ -55,8 +58,9 @@ function validateNonInteractiveFlags(command: Command): void {
 
 async function createInteractive(
   options: CreateOptions,
+  assetsDir?: string,
 ): Promise<RunCommandResult> {
-  const templates = await listTemplates();
+  const templates = await listTemplates(assetsDir);
   const templateOptions: Option<Template>[] = templates.map((t) => ({
     value: t,
     label: t.name,
@@ -100,50 +104,61 @@ async function createInteractive(
     },
   );
 
-  return await executeCreate({
-    template: result.template,
-    name: result.name,
-    projectPath: result.projectPath as string,
-    deploy: options.deploy,
-    skills: options.skills,
-    isInteractive: true,
-  });
+  return await executeCreate(
+    {
+      template: result.template,
+      name: result.name,
+      projectPath: result.projectPath as string,
+      deploy: options.deploy,
+      skills: options.skills,
+      isInteractive: true,
+    },
+    assetsDir,
+  );
 }
 
 async function createNonInteractive(
   options: CreateOptions,
+  assetsDir?: string,
 ): Promise<RunCommandResult> {
   const template = await getTemplateById(
     options.template ?? DEFAULT_TEMPLATE_ID,
+    assetsDir,
   );
 
-  return await executeCreate({
-    template,
-    name: options.name!,
-    projectPath: options.path!,
-    deploy: options.deploy,
-    skills: options.skills,
-    isInteractive: false,
-  });
+  return await executeCreate(
+    {
+      template,
+      name: options.name!,
+      projectPath: options.path!,
+      deploy: options.deploy,
+      skills: options.skills,
+      isInteractive: false,
+    },
+    assetsDir,
+  );
 }
 
-async function executeCreate({
-  template,
-  name: rawName,
-  description,
-  projectPath,
-  deploy,
-  skills,
-  isInteractive,
-}: {
-  template: Template;
-  name: string;
-  description?: string;
-  projectPath: string;
-  deploy?: boolean;
-  skills?: boolean;
-  isInteractive: boolean;
-}): Promise<RunCommandResult> {
+async function executeCreate(
+  {
+    template,
+    name: rawName,
+    description,
+    projectPath,
+    deploy,
+    skills,
+    isInteractive,
+  }: {
+    template: Template;
+    name: string;
+    description?: string;
+    projectPath: string;
+    deploy?: boolean;
+    skills?: boolean;
+    isInteractive: boolean;
+  },
+  assetsDir?: string,
+): Promise<RunCommandResult> {
   const name = rawName.trim();
   const resolvedPath = resolve(projectPath);
 
@@ -155,6 +170,7 @@ async function executeCreate({
         description: description?.trim(),
         path: resolvedPath,
         template,
+        assetsDir,
       });
     },
     {
@@ -297,13 +313,20 @@ export function getCreateCommand(context: CLIContext): Command {
       if (isNonInteractive) {
         await runCommand(
           () =>
-            createNonInteractive({ name: options.name ?? name, ...options }),
+            createNonInteractive(
+              { name: options.name ?? name, ...options },
+              context.assetsDir,
+            ),
           { requireAuth: true, requireAppConfig: false },
           context,
         );
       } else {
         await runCommand(
-          () => createInteractive({ name, ...options }),
+          () =>
+            createInteractive(
+              { name, ...options },
+              context.assetsDir,
+            ),
           { fullBanner: true, requireAuth: true, requireAppConfig: false },
           context,
         );

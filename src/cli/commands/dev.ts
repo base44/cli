@@ -3,16 +3,21 @@ import { createDevServer } from "@/cli/dev/dev-server/main.js";
 import type { CLIContext } from "@/cli/types.js";
 import { runCommand, theme } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
+import { getDenoWrapperPath } from "@/core/config.js";
 import { readProjectConfig } from "@/core/project/config.js";
 
 interface DevOptions {
   port?: string;
 }
 
-async function devAction(options: DevOptions): Promise<RunCommandResult> {
+async function devAction(
+  options: DevOptions,
+  context: CLIContext,
+): Promise<RunCommandResult> {
   const port = options.port ? Number(options.port) : undefined;
   const { port: resolvedPort } = await createDevServer({
     port,
+    denoWrapperPath: getDenoWrapperPath(context.assetsDir),
     loadResources: async () => {
       const { functions, entities, project } = await readProjectConfig();
       return { functions, entities, project };
@@ -30,7 +35,7 @@ export function getDevCommand(context: CLIContext): Command {
     .option("-p, --port <number>", "Port for the development server")
     .action(async (options: DevOptions) => {
       await runCommand(
-        () => devAction(options),
+        () => devAction(options, context),
         { requireAuth: true },
         context,
       );

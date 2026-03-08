@@ -1,10 +1,10 @@
 /**
  * Build standalone binaries for Homebrew / direct download distribution.
  *
- * Prerequisites: run `bun run build` first so that dist/cli/ and dist/deno-runtime/ exist.
+ * Prerequisites: run `bun run build` first so that dist/cli/ and dist/assets/ exist.
  *
  * Steps:
- *   1. Create dist/assets.tar.gz from templates/ and dist/deno-runtime/
+ *   1. Create dist/assets.tar.gz from dist/assets/ (templates + deno-runtime)
  *   2. Cross-compile for each platform with `bun build --compile`
  *   3. Generate SHA256 checksums
  */
@@ -20,7 +20,7 @@ function collectFiles(
   function walk(currentDir: string, prefix: string) {
     for (const entry of readdirSync(currentDir, { withFileTypes: true })) {
       const fullPath = join(currentDir, entry.name);
-      const archivePath = `${prefix}/${entry.name}`;
+      const archivePath = prefix ? `${prefix}/${entry.name}` : entry.name;
       if (entry.isDirectory()) {
         walk(fullPath, archivePath);
       } else {
@@ -49,7 +49,11 @@ const WINDOWS_ICON = join(ROOT, "infra", "base44.ico");
 // ---------------------------------------------------------------------------
 // Verify prerequisites
 // ---------------------------------------------------------------------------
-for (const required of ["dist/cli/index.js", "dist/deno-runtime/main.js"]) {
+for (const required of [
+  "dist/cli/index.js",
+  "dist/assets/templates/templates.json",
+  "dist/assets/deno-runtime/main.js",
+]) {
   if (!existsSync(join(ROOT, required))) {
     console.error(
       chalk.red(`\n✗ Missing ${required} — run \`bun run build\` first.\n`),
@@ -59,13 +63,12 @@ for (const required of ["dist/cli/index.js", "dist/deno-runtime/main.js"]) {
 }
 
 // ---------------------------------------------------------------------------
-// 1. Create unified assets tarball (templates + deno-runtime)
+// 1. Create unified assets tarball from dist/assets/
 // ---------------------------------------------------------------------------
 console.log(chalk.dim("  Creating assets.tar.gz..."));
 const tarball = join(DIST, "assets.tar.gz");
 const files: Record<string, Blob> = {};
-collectFiles(join(ROOT, "templates"), "templates", files);
-collectFiles(join(DIST, "deno-runtime"), "deno-runtime", files);
+collectFiles(join(DIST, "assets"), "", files);
 const archive = new Bun.Archive(files, { compress: "gzip" });
 await Bun.write(tarball, archive);
 

@@ -32,7 +32,7 @@ const runAllBuilds = async () => {
   });
   const denoRuntime = await runBuild({
     entrypoints: ["./deno-runtime/main.ts"],
-    outdir: "./dist/deno-runtime",
+    outdir: "./dist/assets/deno-runtime",
   });
   return {
     cli,

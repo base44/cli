@@ -16,7 +16,6 @@ import { join } from "node:path";
 // @ts-expect-error -- import attributes with type "file" are a Bun-specific feature
 import assetsTarball from "../../dist/assets.tar.gz" with { type: "file" };
 import packageJson from "../../package.json";
-import { setAssetsDir } from "../core/assets.js";
 
 const VERSION = packageJson.version;
 
@@ -32,14 +31,10 @@ if (!existsSync(assetsDir)) {
   await archive.extract(assetsDir);
 }
 
-// Tell core modules where to find the extracted assets
-// instead of the (non-existent) __dirname-relative paths.
-setAssetsDir(assetsDir);
-
 // Disable Clack spinners and animations in non-interactive environments.
 if (!process.stdin.isTTY || !process.stdout.isTTY) {
   process.env.CI = "true";
 }
 
 const { runCLI } = await import("./index.js");
-await runCLI();
+await runCLI({ assetsDir });

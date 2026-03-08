@@ -10,6 +10,7 @@ interface CreateProjectOptions {
   description?: string;
   path: string;
   template: Template;
+  assetsDir?: string;
 }
 
 interface CreateProjectResult {
@@ -37,7 +38,7 @@ async function assertProjectNotExists(dirPath: string): Promise<void> {
 export async function createProjectFiles(
   options: CreateProjectOptions,
 ): Promise<CreateProjectResult> {
-  const { name, description, path: basePath, template } = options;
+  const { name, description, path: basePath, template, assetsDir } = options;
 
   await assertProjectNotExists(basePath);
 
@@ -45,11 +46,7 @@ export async function createProjectFiles(
   const { projectId } = await createProject(name, description);
 
   // Render the template to the destination path
-  await renderTemplate(template, basePath, {
-    name,
-    description,
-    projectId,
-  });
+  await renderTemplate(template, basePath, { name, description, projectId }, assetsDir);
 
   return {
     projectId,

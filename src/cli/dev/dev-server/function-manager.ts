@@ -1,9 +1,6 @@
 import type { ChildProcess } from "node:child_process";
 import { spawn, spawnSync } from "node:child_process";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import getPort from "get-port";
-import { getAssetsDir } from "@/core/assets.js";
 import {
   DependencyNotFoundError,
   InternalError,
@@ -11,12 +8,6 @@ import {
 } from "@/core/errors.js";
 import type { BackendFunction } from "@/core/resources/function/schema.js";
 import type { Logger } from "../createDevLogger";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
-const WRAPPER_PATH = getAssetsDir()
-  ? join(getAssetsDir()!, "deno-runtime", "main.js")
-  : join(__dirname, "../deno-runtime/main.js");
 
 const READY_TIMEOUT = 30000;
 
@@ -31,10 +22,16 @@ export class FunctionManager {
   private running: Map<string, RunningFunction> = new Map();
   private starting: Map<string, Promise<number>> = new Map();
   private logger: Logger;
+  private wrapperPath: string;
 
-  constructor(functions: BackendFunction[], logger: Logger) {
+  constructor(
+    functions: BackendFunction[],
+    logger: Logger,
+    wrapperPath: string,
+  ) {
     this.functions = new Map(functions.map((f) => [f.name, f]));
     this.logger = logger;
+    this.wrapperPath = wrapperPath;
 
     if (functions.length > 0) {
       this.verifyDenoIsInstalled();
@@ -129,7 +126,7 @@ export class FunctionManager {
   private spawnFunction(func: BackendFunction, port: number): ChildProcess {
     this.logger.log(`Spawning function "${func.name}" on port ${port}`);
 
-    const process = spawn("deno", ["run", "--allow-all", WRAPPER_PATH], {
+    const process = spawn("deno", ["run", "--allow-all", this.wrapperPath], {
       env: {
         ...globalThis.process.env,
         FUNCTION_PATH: func.entryPath,
