@@ -70,6 +70,7 @@ export async function deleteSecret(
   try {
     response = await appClient.delete("secrets", {
       searchParams: { secret_name: name },
+      timeout: false,
     });
   } catch (error) {
     throw await ApiError.fromHttpError(error, "deleting secret");
