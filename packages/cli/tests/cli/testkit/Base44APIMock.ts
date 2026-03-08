@@ -38,6 +38,16 @@ interface FunctionsPushResponse {
   errors: Array<{ name: string; message: string }> | null;
 }
 
+interface FunctionsListResponse {
+  functions: Array<{
+    name: string;
+    deployment_id: string;
+    entry: string;
+    files: Array<{ path: string; content: string }>;
+    automations: Array<{ name: string; type: string; is_active: boolean }>;
+  }>;
+}
+
 interface SiteDeployResponse {
   app_url: string;
 }
@@ -183,6 +193,16 @@ export class Base44APIMock {
   mockFunctionsPush(response: FunctionsPushResponse): this {
     this.handlers.push(
       http.put(`${BASE_URL}/api/apps/${this.appId}/backend-functions`, () =>
+        HttpResponse.json(response),
+      ),
+    );
+    return this;
+  }
+
+  /** Mock GET /api/apps/{appId}/backend-functions - List deployed functions */
+  mockFunctionsList(response: FunctionsListResponse): this {
+    this.handlers.push(
+      http.get(`${BASE_URL}/api/apps/${this.appId}/backend-functions`, () =>
         HttpResponse.json(response),
       ),
     );
@@ -379,6 +399,15 @@ export class Base44APIMock {
   mockFunctionsPushError(error: ErrorResponse): this {
     return this.mockError(
       "put",
+      `/api/apps/${this.appId}/backend-functions`,
+      error,
+    );
+  }
+
+  /** Mock functions list to return an error */
+  mockFunctionsListError(error: ErrorResponse): this {
+    return this.mockError(
+      "get",
       `/api/apps/${this.appId}/backend-functions`,
       error,
     );
