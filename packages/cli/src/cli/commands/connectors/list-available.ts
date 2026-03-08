@@ -6,7 +6,7 @@ import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 import { listAvailableIntegrations } from "@/core/resources/connector/index.js";
 
 async function listAvailableAction(): Promise<RunCommandResult> {
-  const { availableIntegrations } = await runTask(
+  const { integrations } = await runTask(
     "Fetching available integrations from Base44",
     async () => {
       return await listAvailableIntegrations();
@@ -17,18 +17,18 @@ async function listAvailableAction(): Promise<RunCommandResult> {
     },
   );
 
-  if (availableIntegrations.length === 0) {
+  if (integrations.length === 0) {
     return { outroMessage: "No available integrations found." };
   }
 
-  for (const integration of availableIntegrations) {
-    log.info(
-      `${theme.styles.bold(integration.displayName)} ${theme.styles.dim(`(${integration.integrationType})`)}${integration.description ? `\n  ${theme.styles.dim(integration.description)}` : ""}`,
-    );
+  for (const i of integrations) {
+    const label = `${theme.styles.bold(i.displayName)} ${theme.styles.dim(`(${i.integrationType})`)}`;
+    const desc = i.description ? `\n  ${theme.styles.dim(i.description)}` : "";
+    log.info(label + desc);
   }
 
   return {
-    outroMessage: `Found ${availableIntegrations.length} available integrations.`,
+    outroMessage: `Found ${integrations.length} available integrations.`,
   };
 }
 

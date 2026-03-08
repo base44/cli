@@ -217,22 +217,18 @@ const AvailableIntegrationSchema = z.object({
   integration_type: z.string().min(1),
   display_name: z.string(),
   description: z.string(),
-  notes: z.string().nullable(),
-  usage_guide: z.string().nullable(),
   connection_config_fields: z.array(ConnectionConfigFieldSchema),
 });
 
 export const ListAvailableIntegrationsResponseSchema = z
   .object({
-    available_integrations: z.array(AvailableIntegrationSchema),
+    integrations: z.array(AvailableIntegrationSchema),
   })
   .transform((data) => ({
-    availableIntegrations: data.available_integrations.map((i) => ({
+    integrations: data.integrations.map((i) => ({
       integrationType: i.integration_type,
       displayName: i.display_name,
       description: i.description,
-      notes: i.notes,
-      usageGuide: i.usage_guide,
       connectionConfigFields: i.connection_config_fields.map((f) => ({
         name: f.name,
         displayName: f.display_name,

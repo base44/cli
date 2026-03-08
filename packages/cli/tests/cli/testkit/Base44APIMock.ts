@@ -99,12 +99,10 @@ interface ConnectorRemoveResponse {
 }
 
 interface AvailableIntegrationsListResponse {
-  available_integrations: Array<{
+  integrations: Array<{
     integration_type: string;
     display_name: string;
     description: string;
-    notes: string | null;
-    usage_guide: string | null;
     connection_config_fields: Array<{
       name: string;
       display_name: string;

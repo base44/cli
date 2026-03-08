@@ -7,21 +7,17 @@ describe("connectors list-available command", () => {
   it("lists available integrations", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
     t.api.mockAvailableIntegrationsList({
-      available_integrations: [
+      integrations: [
         {
           integration_type: "slack",
           display_name: "Slack",
           description: "Connect to Slack workspaces",
-          notes: null,
-          usage_guide: null,
           connection_config_fields: [],
         },
         {
           integration_type: "gmail",
           display_name: "Gmail",
           description: "Access Gmail accounts",
-          notes: "Requires OAuth consent",
-          usage_guide: null,
           connection_config_fields: [
             {
               name: "client_id",
@@ -50,7 +46,7 @@ describe("connectors list-available command", () => {
   it("handles empty list", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
     t.api.mockAvailableIntegrationsList({
-      available_integrations: [],
+      integrations: [],
     });
 
     const result = await t.run("connectors", "list-available");
