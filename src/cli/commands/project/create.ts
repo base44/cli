@@ -322,11 +322,7 @@ export function getCreateCommand(context: CLIContext): Command {
         );
       } else {
         await runCommand(
-          () =>
-            createInteractive(
-              { name, ...options },
-              context.assetsDir,
-            ),
+          () => createInteractive({ name, ...options }, context.assetsDir),
           { fullBanner: true, requireAuth: true, requireAppConfig: false },
           context,
         );
