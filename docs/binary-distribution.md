@@ -19,7 +19,7 @@ bun run build:binaries # Then compile standalone binaries into dist/binaries/
 
 ## Binary Entry Point
 
-`src/cli/binary-entry.ts` is the entry point for compiled binaries (npm uses `bin/run.js` instead).
+`bin/binary-entry.ts` is the entry point for compiled binaries (npm uses `bin/run.js` instead).
 
 It embeds a single `assets.tar.gz` into the binary using Bun's `import ... with { type: "file" }` syntax. At runtime, this resolves to a path inside Bun's virtual `$bunfs` filesystem, which only `Bun.file()` can read. On first run per version, the entry point extracts the tarball to `~/.base44/assets/<version>/` and calls `runCLI({ assetsDir })` so the CLI receives the extracted path via **CLIContext.assetsDir**.
 

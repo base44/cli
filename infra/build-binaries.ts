@@ -43,7 +43,7 @@ const TARGETS = [
 const ROOT = join(import.meta.dir, "..");
 const DIST = join(ROOT, "dist");
 const BINARIES_DIR = join(DIST, "binaries");
-const ENTRY = join(ROOT, "src", "cli", "binary-entry.ts");
+const ENTRY = join(ROOT, "bin", "binary-entry.ts");
 const WINDOWS_ICON = join(ROOT, "infra", "base44.ico");
 
 // ---------------------------------------------------------------------------

@@ -14,8 +14,8 @@ import { join } from "node:path";
 // Only Bun.file() can read these paths — Node.js fs APIs and external
 // processes cannot access them directly.
 // @ts-expect-error -- import attributes with type "file" are a Bun-specific feature
-import assetsTarball from "../../dist/assets.tar.gz" with { type: "file" };
-import packageJson from "../../package.json";
+import assetsTarball from "../dist/assets.tar.gz" with { type: "file" };
+import packageJson from "../package.json";
 
 const VERSION = packageJson.version;
 
@@ -36,5 +36,5 @@ if (!process.stdin.isTTY || !process.stdout.isTTY) {
   process.env.CI = "true";
 }
 
-const { runCLI } = await import("./index.js");
+const { runCLI } = await import("../src/cli/index.js");
 await runCLI({ assetsDir });
