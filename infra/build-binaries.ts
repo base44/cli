@@ -8,15 +8,21 @@
  *   2. Cross-compile for each platform with `bun build --compile`
  *   3. Generate SHA256 checksums
  */
-import { readdirSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
+import {
+  readFileSync,
+  readdirSync,
+  existsSync,
+  mkdirSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import chalk from "chalk";
 
 function collectFiles(
   dir: string,
   rootPrefix: string,
-  out: Record<string, Blob> = {},
-): Record<string, Blob> {
+  out: Record<string, Uint8Array> = {},
+): Record<string, Uint8Array> {
   function walk(currentDir: string, prefix: string) {
     for (const entry of readdirSync(currentDir, { withFileTypes: true })) {
       const fullPath = join(currentDir, entry.name);
@@ -24,7 +30,7 @@ function collectFiles(
       if (entry.isDirectory()) {
         walk(fullPath, archivePath);
       } else {
-        out[archivePath] = Bun.file(fullPath);
+        out[archivePath] = readFileSync(fullPath);
       }
     }
   }
@@ -67,7 +73,7 @@ for (const required of [
 // ---------------------------------------------------------------------------
 console.log(chalk.dim("  Creating assets.tar.gz..."));
 const tarball = join(DIST, "assets.tar.gz");
-const files: Record<string, Blob> = {};
+const files: Record<string, Uint8Array> = {};
 collectFiles(join(DIST, "assets"), "", files);
 const archive = new Bun.Archive(files, { compress: "gzip" });
 await Bun.write(tarball, archive);
