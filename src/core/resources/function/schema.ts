@@ -74,12 +74,13 @@ const AutomationSchema = z.union([
 ]);
 
 export const FunctionConfigSchema = z.object({
-  name: FunctionNameSchema,
+  name: FunctionNameSchema.optional(),
   entry: z.string().min(1, "Entry point cannot be empty"),
   automations: z.array(AutomationSchema).optional(),
 });
 
 const BackendFunctionSchema = FunctionConfigSchema.extend({
+  name: FunctionNameSchema,
   entryPath: z.string().min(1, "Entry path cannot be empty"),
   filePaths: z.array(z.string()).min(1, "Function must have at least one file"),
 });

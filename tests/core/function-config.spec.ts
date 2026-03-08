@@ -16,13 +16,14 @@ describe("readAllFunctions", () => {
     const functionsDir = resolve(FIXTURES_DIR, "function-discovery");
     const result = await readAllFunctions(functionsDir);
 
-    expect(result).toHaveLength(4); // foo/bar, foo/kfir/hello, stam, with-config (config-based)
+    expect(result).toHaveLength(5); // foo/bar, foo/kfir/hello, stam, with-config (config-based), no-name-in-config (config-based, no name)
 
     const names = result.map((f) => f.name).sort();
     expect(names).toContain("foo/bar");
     expect(names).toContain("foo/kfir/hello");
     expect(names).toContain("stam");
     expect(names).toContain("custom-name");
+    expect(names).toContain("no-name-in-config");
 
     const fooBar = result.find((f) => f.name === "foo/bar");
     expect(fooBar).toBeDefined();
@@ -44,6 +45,16 @@ describe("readAllFunctions", () => {
     expect(withConfig?.entryPath).toContain("with-config/entry.ts");
     // Name comes from config, not path "with-config"
     expect(withConfig?.name).toBe("custom-name");
+  });
+
+  it("uses path-based name when function.jsonc omits the name field", async () => {
+    const functionsDir = resolve(FIXTURES_DIR, "function-discovery");
+    const result = await readAllFunctions(functionsDir);
+
+    const noName = result.find((f) => f.name === "no-name-in-config");
+    expect(noName).toBeDefined();
+    expect(noName?.entry).toBe("entry.ts");
+    expect(noName?.entryPath).toContain("no-name-in-config/entry.ts");
   });
 
   it("includes files recursively in filePaths for zero-config functions", async () => {
