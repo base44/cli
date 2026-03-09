@@ -1,1 +1,1 @@
-# Base44 CLI Monorepo
+/Users/artemdem/Development/aaa-base44/cli/packages/cli/README.md
