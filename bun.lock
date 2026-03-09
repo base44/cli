@@ -5,17 +5,17 @@
     "": {
       "name": "base44-cli",
       "devDependencies": {
+        "@biomejs/biome": "^2.0.0",
         "knip": "^5.83.1",
       },
     },
     "packages/cli": {
       "name": "base44",
-      "version": "0.0.40",
+      "version": "0.0.41",
       "bin": {
         "base44": "./bin/run.js",
       },
       "devDependencies": {
-        "@biomejs/biome": "^2.0.0",
         "@clack/prompts": "^1.0.1",
         "@seald-io/nedb": "^4.1.2",
         "@types/bun": "^1.2.15",
