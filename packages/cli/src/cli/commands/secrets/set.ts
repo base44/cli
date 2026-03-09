@@ -41,15 +41,13 @@ function validateInput(command: Command): void {
   const hasEnvFile = Boolean(envFile);
 
   if (!hasEntries && !hasEnvFile) {
-    throw new InvalidInputError(
+    command.error(
       "Provide KEY=VALUE pairs or use --env-file. Example: base44 secrets set KEY1=VALUE1 KEY2=VALUE2",
     );
   }
 
   if (hasEntries && hasEnvFile) {
-    throw new InvalidInputError(
-      "Provide KEY=VALUE pairs or --env-file, but not both.",
-    );
+    command.error("Provide KEY=VALUE pairs or --env-file, but not both.");
   }
 }
 

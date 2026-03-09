@@ -1,4 +1,4 @@
-import { Command, Option } from "commander";
+import { Command, InvalidArgumentError, Option } from "commander";
 import type { CLIContext } from "@/cli/types.js";
 import { runCommand } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
@@ -222,7 +222,7 @@ export function getLogsCommand(context: CLIContext): Command {
       (v) => {
         const n = Number.parseInt(v, 10);
         if (Number.isNaN(n) || n < 1 || n > 1000) {
-          throw new InvalidInputError(
+          throw new InvalidArgumentError(
             `Invalid limit: "${v}". Must be a number between 1 and 1000.`,
           );
         }

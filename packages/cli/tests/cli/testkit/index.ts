@@ -134,7 +134,6 @@ export function setupCLITests(): TestContext {
   };
 }
 
-export { Base44APIMock } from "./Base44APIMock.js";
 export { BinaryAPIServer } from "./BinaryAPIServer.js";
 export type { CLIResult } from "./CLIResultMatcher.js";
 export { CLIResultMatcher } from "./CLIResultMatcher.js";
