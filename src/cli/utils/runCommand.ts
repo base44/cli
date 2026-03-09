@@ -116,7 +116,6 @@ export async function runCommand(
     }
   } catch (error) {
     displayError(error);
-    await printUpgradeNotification(upgradeCheckPromise);
 
     const errorContext = context.errorReporter.getErrorContext();
     outro(theme.format.errorContext(errorContext));
