@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execa } from "execa";
 import { dir } from "tmp-promise";
-import { BinaryAPIServer } from "./BinaryAPIServer.js";
+import { TestAPIServer } from "./TestAPIServer.js";
 import type { CLIResult } from "./CLIResultMatcher.js";
 import { CLIResultMatcher } from "./CLIResultMatcher.js";
 
@@ -42,12 +42,12 @@ export class CLITestkit {
   private testOverrides: TestOverrides = { latestVersion: null };
 
   /** Real HTTP server for Base44 API endpoints */
-  readonly api: BinaryAPIServer;
+  readonly api: TestAPIServer;
 
   private constructor(
     tempDir: string,
     cleanupFn: () => Promise<void>,
-    api: BinaryAPIServer,
+    api: TestAPIServer,
   ) {
     this.tempDir = tempDir;
     this.cleanupFn = cleanupFn;
@@ -61,7 +61,7 @@ export class CLITestkit {
   /** Factory method - creates isolated test environment */
   static async create(appId = "test-app-id"): Promise<CLITestkit> {
     const { path, cleanup } = await dir({ unsafeCleanup: true });
-    const api = new BinaryAPIServer(appId);
+    const api = new TestAPIServer(appId);
     await api.start();
     return new CLITestkit(path, cleanup, api);
   }

@@ -153,7 +153,7 @@ interface RouteEntry {
  *
  * @example
  * ```typescript
- * const server = new BinaryAPIServer("my-app-id");
+ * const server = new TestAPIServer("my-app-id");
  * await server.start();
  *
  * server.mockEntitiesPush({ created: ["User"], updated: [], deleted: [] });
@@ -164,7 +164,7 @@ interface RouteEntry {
  * await server.stop();
  * ```
  */
-export class BinaryAPIServer {
+export class TestAPIServer {
   private pendingRoutes: RouteEntry[] = [];
   private app: express.Application;
   private server: Server | null = null;

@@ -134,7 +134,7 @@ export function setupCLITests(): TestContext {
   };
 }
 
-export { BinaryAPIServer } from "./BinaryAPIServer.js";
+export { TestAPIServer } from "./TestAPIServer.js";
 export type { CLIResult } from "./CLIResultMatcher.js";
 export { CLIResultMatcher } from "./CLIResultMatcher.js";
 // Re-export types and classes that tests might need
