@@ -120,9 +120,11 @@ jobs:
 
       - name: Build standalone binaries
         run: bun run build:binaries
+        working-directory: ${{ env.CLI_PACKAGE_DIR }}
 
       - name: Package binaries for release
         run: bun run package:binaries
+        working-directory: ${{ env.CLI_PACKAGE_DIR }}
 
       - name: Upload sourcemaps to PostHog
         if: github.event.inputs.dry_run == 'false'
@@ -208,7 +210,7 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
         run: |
-          for file in dist/binaries/base44-*; do
+          for file in ${{ env.CLI_PACKAGE_DIR }}/dist/binaries/base44-*; do
             echo "Uploading $file..."
             gh release upload "v${{ env.NEW_VERSION }}" "$file" --clobber
           done

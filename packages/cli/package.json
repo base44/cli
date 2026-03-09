@@ -23,9 +23,7 @@
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"build:binaries": "bun run infra/build-binaries.ts",
-		"package:binaries": "bun run infra/package-binaries.ts",
-		"knip": "knip",
-		"knip:fix": "knip --fix"
+		"package:binaries": "bun run infra/package-binaries.ts"
 	},
 	"keywords": [
 		"base44",
