@@ -52,9 +52,7 @@ describe("functions list command", () => {
           deployment_id: "d1",
           entry: "index.ts",
           files: [{ path: "index.ts", content: "" }],
-          automations: [
-            { name: "auto1", type: "scheduled", is_active: true },
-          ],
+          automations: [{ name: "auto1", type: "scheduled", is_active: true }],
         },
       ],
     });
