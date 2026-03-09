@@ -66,7 +66,6 @@
 		"http-proxy-middleware": "^3.0.5",
 		"json-schema-to-typescript": "^15.0.4",
 		"json5": "^2.2.3",
-		"knip": "^5.83.1",
 		"ky": "^1.14.2",
 		"lodash": "^4.17.23",
 		"msw": "^2.12.10",

@@ -201,8 +201,8 @@ jobs:
 
             **Stack trace**: (only show frames from `packages/cli/src/` — skip generic entry points like `runCLI`, `parseAsync`)
             ```
-            at specificFunction (src/path/to/file.ts:NN:NN)
-            at callerFunction (src/path/to/other.ts:NN:NN)
+            at specificFunction (packages/cli/src/path/to/file.ts:NN:NN)
+            at callerFunction (packages/cli/src/path/to/other.ts:NN:NN)
             ```
 
             **Root cause**: (what you found in the code — include a code snippet)
