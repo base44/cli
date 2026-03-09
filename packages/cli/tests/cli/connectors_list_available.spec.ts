@@ -37,9 +37,9 @@ describe("connectors list-available command", () => {
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Slack");
-    t.expectResult(result).toContain("type: slack");
+    t.expectResult(result).toContain("integrationType: slack");
     t.expectResult(result).toContain("Gmail");
-    t.expectResult(result).toContain("type: gmail");
+    t.expectResult(result).toContain("integrationType: gmail");
     t.expectResult(result).toContain("name: client_id");
     t.expectResult(result).toContain("displayName: Client ID");
     t.expectResult(result).toContain("Found 2 available integrations");
