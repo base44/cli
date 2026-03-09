@@ -60,6 +60,7 @@ The CLI will guide you through project setup. For step-by-step tutorials, see th
 | [`secrets list`](https://docs.base44.com/developers/references/cli/commands/secrets-list) | List project secret names |
 | [`secrets set`](https://docs.base44.com/developers/references/cli/commands/secrets-set) | Set one or more project secrets |
 | [`secrets delete`](https://docs.base44.com/developers/references/cli/commands/secrets-delete) | Delete a project secret |
+| `sso setup` | Configure SSO identity provider for the app |
 | [`site deploy`](https://docs.base44.com/developers/references/cli/commands/site-deploy) | Deploy built site files to Base44 hosting |
 | [`site open`](https://docs.base44.com/developers/references/cli/commands/site-open) | Open the published site in your browser |
 | [`types generate`](https://docs.base44.com/developers/references/cli/commands/types-generate) | Generate TypeScript types from project resources |

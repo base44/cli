@@ -13,6 +13,7 @@ import { getLinkCommand } from "@/cli/commands/project/link.js";
 import { getLogsCommand } from "@/cli/commands/project/logs.js";
 import { getSecretsCommand } from "@/cli/commands/secrets/index.js";
 import { getSiteCommand } from "@/cli/commands/site/index.js";
+import { getSSOCommand } from "@/cli/commands/sso/index.js";
 import { getTypesCommand } from "@/cli/commands/types/index.js";
 import packageJson from "../../package.json";
 import { getDevCommand } from "./commands/dev.js";
@@ -59,6 +60,9 @@ export function createProgram(context: CLIContext): Command {
 
   // Register secrets commands
   program.addCommand(getSecretsCommand(context));
+
+  // Register SSO commands
+  program.addCommand(getSSOCommand(context));
 
   // Register site commands
   program.addCommand(getSiteCommand(context));

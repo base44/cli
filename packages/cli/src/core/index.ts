@@ -1,4 +1,5 @@
 export * from "./auth/index.js";
+export * from "./auth-config/index.js";
 export * from "./clients/index.js";
 export * from "./config.js";
 export * from "./consts.js";
