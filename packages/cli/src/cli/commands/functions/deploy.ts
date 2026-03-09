@@ -55,10 +55,6 @@ export function getDeployCommand(context: CLIContext): Command {
   return new Command("deploy")
     .description("Deploy local functions to Base44")
     .action(async () => {
-      await runCommand(
-        deployFunctionsAction,
-        { requireAuth: true },
-        context,
-      );
+      await runCommand(deployFunctionsAction, { requireAuth: true }, context);
     });
 }

@@ -8,7 +8,7 @@ import {
   writeJsonFile,
 } from "@/core/utils/fs.js";
 
-export interface WriteFunctionsResult {
+interface WriteFunctionsResult {
   written: string[];
   skipped: string[];
 }
