@@ -5,10 +5,13 @@
   "author": "",
   "license": "MIT",
   "scripts": {
+    "lint": "biome check packages/*/src packages/*/tests",
+    "lint:fix": "biome check --write packages/*/src packages/*/tests",
     "knip": "knip",
     "knip:fix": "knip --fix"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.0.0",
     "knip": "^5.83.1"
   },
   "workspaces": [
