@@ -229,15 +229,7 @@ export const ListAvailableIntegrationsResponseSchema = z
       integrationType: i.integration_type,
       displayName: i.display_name,
       description: i.description,
-      connectionConfigFields: i.connection_config_fields.map((f) => ({
-        name: f.name,
-        displayName: f.display_name,
-        description: f.description,
-        placeholder: f.placeholder,
-        required: f.required,
-        validationPattern: f.validation_pattern,
-        validationError: f.validation_error,
-      })),
+      connectionConfigFields: i.connection_config_fields,
     })),
   }));
 

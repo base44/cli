@@ -1,4 +1,6 @@
+import { log } from "@clack/prompts";
 import { Command } from "commander";
+import { stringify } from "yaml";
 import type { CLIContext } from "@/cli/types.js";
 import { runCommand, runTask } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
@@ -20,9 +22,20 @@ async function listAvailableAction(): Promise<RunCommandResult> {
     return { outroMessage: "No available integrations found." };
   }
 
+  for (const i of integrations) {
+    const data: Record<string, unknown> = {
+      type: i.integrationType,
+      description: i.description,
+    };
+    if (i.connectionConfigFields.length > 0) {
+      data.connection_config_fields = i.connectionConfigFields;
+    }
+    const yaml = stringify(data, { indent: 2 }).trimEnd();
+    log.info(`${i.displayName}\n  ${yaml.replace(/\n/g, "\n  ")}`);
+  }
+
   return {
     outroMessage: `Found ${integrations.length} available integrations.`,
-    stdout: `${JSON.stringify(integrations, null, 2)}\n`,
   };
 }
 
