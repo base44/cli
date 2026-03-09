@@ -41,7 +41,7 @@ describe("connectors list-available command", () => {
     t.expectResult(result).toContain("Gmail");
     t.expectResult(result).toContain("type: gmail");
     t.expectResult(result).toContain("name: client_id");
-    t.expectResult(result).toContain("display_name: Client ID");
+    t.expectResult(result).toContain("displayName: Client ID");
     t.expectResult(result).toContain("Found 2 available integrations");
   });
 
