@@ -146,10 +146,11 @@ interface RouteEntry {
 // ─── SERVER CLASS ────────────────────────────────────────────
 
 /**
- * Real HTTP server that replaces MSW for binary integration tests.
+ * Lightweight Express HTTP server used in integration tests to simulate the Base44 API.
  *
- * Exposes the same `mock*` interface as `Base44APIMock` so test files
- * are unchanged when switching between in-process and binary modes.
+ * Each test registers expected responses via `mock*` helpers, calls `apply()` to
+ * activate the routes, then spawns the CLI binary with `BASE44_API_URL` pointed at
+ * this server so all HTTP traffic is intercepted locally.
  *
  * @example
  * ```typescript
