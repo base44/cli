@@ -64,6 +64,11 @@ jobs:
           EOF
           )" --allowedTools "Read,Glob,Grep,Write(README.md),Edit(README.md)"
 
+      - name: Debug - check README after Claude
+        run: |
+          echo "=== git diff README.md after Claude step ==="
+          git diff README.md || true
+
       - name: Restore lychee cache
         uses: actions/cache@v4
         with:
@@ -88,6 +93,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          echo "=== git status ==="
+          git status
+          echo "=== git diff README.md ==="
+          git diff README.md || true
+
           if git diff --quiet README.md; then
             echo "No README changes to commit"
             exit 0
