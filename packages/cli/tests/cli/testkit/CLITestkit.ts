@@ -3,15 +3,21 @@ import { access, cp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Command } from "commander";
+import { execa } from "execa";
 import { dir } from "tmp-promise";
 import { vi } from "vitest";
 import { Base44APIMock } from "./Base44APIMock.js";
+import { BinaryAPIServer } from "./BinaryAPIServer.js";
 import type { CLIResult } from "./CLIResultMatcher.js";
 import { CLIResultMatcher } from "./CLIResultMatcher.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DIST_INDEX_PATH = join(__dirname, "../../../dist/cli/index.js");
 const DIST_ASSETS_DIR = join(__dirname, "../../../dist/assets");
+const BIN_RUN_PATH = join(__dirname, "../../../bin/run.js");
+
+/** When true, tests spawn the real binary instead of importing in-process */
+const BINARY_TEST_MODE = process.env.BINARY_TEST_MODE === "1";
 
 /** Type for CLIContext */
 interface CLIContext {
@@ -42,17 +48,18 @@ export class CLITestkit {
   // Default latestVersion to null to skip npm version check in tests
   private testOverrides: TestOverrides = { latestVersion: null };
 
-  /** Typed API mock for Base44 endpoints */
-  readonly api: Base44APIMock;
+  /** Typed API mock for Base44 endpoints (MSW in-process or Express HTTP) */
+  readonly api: Base44APIMock | BinaryAPIServer;
 
   private constructor(
     tempDir: string,
     cleanupFn: () => Promise<void>,
     appId: string,
+    api: Base44APIMock | BinaryAPIServer,
   ) {
     this.tempDir = tempDir;
     this.cleanupFn = cleanupFn;
-    this.api = new Base44APIMock(appId);
+    this.api = api;
     // Set HOME to temp dir for auth file isolation
     // Set CI to prevent browser opens during tests
     // Disable telemetry to prevent error reporting during tests
@@ -62,7 +69,13 @@ export class CLITestkit {
   /** Factory method - creates isolated test environment */
   static async create(appId = "test-app-id"): Promise<CLITestkit> {
     const { path, cleanup } = await dir({ unsafeCleanup: true });
-    return new CLITestkit(path, cleanup, appId);
+    const api = BINARY_TEST_MODE
+      ? new BinaryAPIServer(appId)
+      : new Base44APIMock(appId);
+    if (api instanceof BinaryAPIServer) {
+      await api.start();
+    }
+    return new CLITestkit(path, cleanup, appId, api);
   }
 
   /** Get the temp directory path */
@@ -108,6 +121,41 @@ export class CLITestkit {
 
   /** Execute CLI command */
   async run(...args: string[]): Promise<CLIResult> {
+    if (this.api instanceof BinaryAPIServer) {
+      return this.runBinary(args);
+    }
+    return this.runInProcess(args);
+  }
+
+  /** Spawn the real binary as a subprocess */
+  private async runBinary(args: string[]): Promise<CLIResult> {
+    this.setupEnvOverrides();
+
+    const env: Record<string, string> = {
+      ...this.env,
+      BASE44_API_URL: (this.api as BinaryAPIServer).baseUrl,
+      PATH: process.env.PATH ?? "",
+    };
+
+    // Register all pending mock routes before spawning the binary
+    (this.api as BinaryAPIServer).apply();
+
+    const result = await execa("node", [BIN_RUN_PATH, ...args], {
+      cwd: this.projectDir ?? this.tempDir,
+      env,
+      reject: false,
+      all: false,
+    });
+
+    return {
+      stdout: result.stdout,
+      stderr: result.stderr,
+      exitCode: result.exitCode ?? 1,
+    };
+  }
+
+  /** Import and run CLI in-process (original behavior) */
+  private async runInProcess(args: string[]): Promise<CLIResult> {
     // Setup mocks
     this.setupCwdMock();
     this.setupEnvOverrides();
@@ -317,6 +365,9 @@ export class CLITestkit {
   // ─── CLEANUP ──────────────────────────────────────────────────
 
   async cleanup(): Promise<void> {
+    if (this.api instanceof BinaryAPIServer) {
+      await this.api.stop();
+    }
     await this.cleanupFn();
   }
 }

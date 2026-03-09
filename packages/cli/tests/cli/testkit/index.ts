@@ -6,6 +6,8 @@ import { CLITestkit } from "./CLITestkit.js";
 
 const FIXTURES_DIR = resolve(__dirname, "../../fixtures");
 
+const BINARY_TEST_MODE = process.env.BINARY_TEST_MODE === "1";
+
 export const mswServer = setupServer();
 
 /** Resolve a fixture path by name */
@@ -93,7 +95,9 @@ export function setupCLITests(): TestContext {
   };
 
   beforeAll(() => {
-    mswServer.listen({ onUnhandledRequest: "bypass" });
+    if (!BINARY_TEST_MODE) {
+      mswServer.listen({ onUnhandledRequest: "bypass" });
+    }
   });
 
   beforeEach(async () => {
@@ -101,7 +105,9 @@ export function setupCLITests(): TestContext {
   });
 
   afterEach(async () => {
-    mswServer.resetHandlers();
+    if (!BINARY_TEST_MODE) {
+      mswServer.resetHandlers();
+    }
     if (currentKit) {
       await currentKit.cleanup();
       currentKit = null;
@@ -109,7 +115,9 @@ export function setupCLITests(): TestContext {
   });
 
   afterAll(() => {
-    mswServer.close();
+    if (!BINARY_TEST_MODE) {
+      mswServer.close();
+    }
   });
 
   // Default user for givenLoggedInWithProject
@@ -147,6 +155,7 @@ export function setupCLITests(): TestContext {
 }
 
 export { Base44APIMock } from "./Base44APIMock.js";
+export { BinaryAPIServer } from "./BinaryAPIServer.js";
 export type { CLIResult } from "./CLIResultMatcher.js";
 export { CLIResultMatcher } from "./CLIResultMatcher.js";
 // Re-export types and classes that tests might need
