@@ -2,10 +2,10 @@ import { log } from "@clack/prompts";
 import { Command } from "commander";
 import type { CLIContext } from "@/cli/types.js";
 import {
-  YAML_INDENT,
   formatYaml,
   runCommand,
   runTask,
+  YAML_INDENT,
 } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 import { listAvailableIntegrations } from "@/core/resources/connector/index.js";

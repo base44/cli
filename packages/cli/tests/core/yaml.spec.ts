@@ -3,10 +3,11 @@ import { formatYaml } from "../../src/cli/utils/yaml.js";
 
 describe("formatYaml", () => {
   it("formats a simple object as YAML", () => {
-    const result = formatYaml({ name: "slack", description: "Slack connector" });
-    expect(result).toBe(
-      "name: slack\ndescription: Slack connector",
-    );
+    const result = formatYaml({
+      name: "slack",
+      description: "Slack connector",
+    });
+    expect(result).toBe("name: slack\ndescription: Slack connector");
   });
 
   it("strips null values by default", () => {
