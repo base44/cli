@@ -1,14 +1,9 @@
 import { resolve } from "node:path";
-import { setupServer } from "msw/node";
-import { afterAll, afterEach, beforeAll, beforeEach } from "vitest";
+import { afterEach, beforeEach } from "vitest";
 import type { CLIResult, CLIResultMatcher } from "./CLIResultMatcher.js";
 import { CLITestkit } from "./CLITestkit.js";
 
 const FIXTURES_DIR = resolve(__dirname, "../../fixtures");
-
-const BINARY_TEST_MODE = process.env.BINARY_TEST_MODE === "1";
-
-export const mswServer = setupServer();
 
 /** Resolve a fixture path by name */
 export function fixture(name: string): string {
@@ -94,29 +89,14 @@ export function setupCLITests(): TestContext {
     return currentKit;
   };
 
-  beforeAll(() => {
-    if (!BINARY_TEST_MODE) {
-      mswServer.listen({ onUnhandledRequest: "bypass" });
-    }
-  });
-
   beforeEach(async () => {
     currentKit = await CLITestkit.create();
   });
 
   afterEach(async () => {
-    if (!BINARY_TEST_MODE) {
-      mswServer.resetHandlers();
-    }
     if (currentKit) {
       await currentKit.cleanup();
       currentKit = null;
-    }
-  });
-
-  afterAll(() => {
-    if (!BINARY_TEST_MODE) {
-      mswServer.close();
     }
   });
 

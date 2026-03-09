@@ -1,38 +1,31 @@
-import { cpSync, existsSync, readFileSync } from "node:fs";
 import { access, cp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Command } from "commander";
 import { execa } from "execa";
 import { dir } from "tmp-promise";
-import { vi } from "vitest";
-import { Base44APIMock } from "./Base44APIMock.js";
 import { BinaryAPIServer } from "./BinaryAPIServer.js";
 import type { CLIResult } from "./CLIResultMatcher.js";
 import { CLIResultMatcher } from "./CLIResultMatcher.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const DIST_INDEX_PATH = join(__dirname, "../../../dist/cli/index.js");
-const DIST_ASSETS_DIR = join(__dirname, "../../../dist/assets");
-const BIN_RUN_PATH = join(__dirname, "../../../bin/run.js");
 
-/** When true, tests spawn the real binary instead of importing in-process */
-const BINARY_TEST_MODE = process.env.BINARY_TEST_MODE === "1";
-
-/** Type for CLIContext */
-interface CLIContext {
-  errorReporter: {
-    setContext: (context: Record<string, unknown>) => void;
-    getErrorContext: () => { sessionId?: string; appId?: string };
-  };
-  isNonInteractive: boolean;
+/** Resolve the platform-specific compiled binary path */
+function getBinaryPath(): string {
+  const platform =
+    process.platform === "win32"
+      ? "windows"
+      : process.platform === "darwin"
+        ? "darwin"
+        : "linux";
+  const arch = process.arch === "arm64" ? "arm64" : "x64";
+  const ext = process.platform === "win32" ? ".exe" : "";
+  return join(
+    __dirname,
+    `../../../dist/binaries/base44-${platform}-${arch}${ext}`,
+  );
 }
 
-/** Type for the bundled program module */
-interface ProgramModule {
-  createProgram: (context: CLIContext) => Command;
-  CLIExitError: new (code: number) => Error & { code: number };
-}
+const BINARY_PATH = getBinaryPath();
 
 /** Test overrides that get serialized to BASE44_CLI_TEST_OVERRIDES */
 interface TestOverrides {
@@ -48,14 +41,13 @@ export class CLITestkit {
   // Default latestVersion to null to skip npm version check in tests
   private testOverrides: TestOverrides = { latestVersion: null };
 
-  /** Typed API mock for Base44 endpoints (MSW in-process or Express HTTP) */
-  readonly api: Base44APIMock | BinaryAPIServer;
+  /** Real HTTP server for Base44 API endpoints */
+  readonly api: BinaryAPIServer;
 
   private constructor(
     tempDir: string,
     cleanupFn: () => Promise<void>,
-    appId: string,
-    api: Base44APIMock | BinaryAPIServer,
+    api: BinaryAPIServer,
   ) {
     this.tempDir = tempDir;
     this.cleanupFn = cleanupFn;
@@ -69,13 +61,9 @@ export class CLITestkit {
   /** Factory method - creates isolated test environment */
   static async create(appId = "test-app-id"): Promise<CLITestkit> {
     const { path, cleanup } = await dir({ unsafeCleanup: true });
-    const api = BINARY_TEST_MODE
-      ? new BinaryAPIServer(appId)
-      : new Base44APIMock(appId);
-    if (api instanceof BinaryAPIServer) {
-      await api.start();
-    }
-    return new CLITestkit(path, cleanup, appId, api);
+    const api = new BinaryAPIServer(appId);
+    await api.start();
+    return new CLITestkit(path, cleanup, api);
   }
 
   /** Get the temp directory path */
@@ -119,28 +107,20 @@ export class CLITestkit {
 
   // ─── WHEN METHODS ─────────────────────────────────────────────
 
-  /** Execute CLI command */
+  /** Spawn the real compiled binary and execute the CLI command */
   async run(...args: string[]): Promise<CLIResult> {
-    if (this.api instanceof BinaryAPIServer) {
-      return this.runBinary(args);
-    }
-    return this.runInProcess(args);
-  }
-
-  /** Spawn the real binary as a subprocess */
-  private async runBinary(args: string[]): Promise<CLIResult> {
     this.setupEnvOverrides();
 
     const env: Record<string, string> = {
       ...this.env,
-      BASE44_API_URL: (this.api as BinaryAPIServer).baseUrl,
+      BASE44_API_URL: this.api.baseUrl,
       PATH: process.env.PATH ?? "",
     };
 
     // Register all pending mock routes before spawning the binary
-    (this.api as BinaryAPIServer).apply();
+    this.api.apply();
 
-    const result = await execa("node", [BIN_RUN_PATH, ...args], {
+    const result = await execa(BINARY_PATH, args, {
       cwd: this.projectDir ?? this.tempDir,
       env,
       reject: false,
@@ -154,92 +134,7 @@ export class CLITestkit {
     };
   }
 
-  /** Import and run CLI in-process (original behavior) */
-  private async runInProcess(args: string[]): Promise<CLIResult> {
-    // Setup mocks
-    this.setupCwdMock();
-    this.setupEnvOverrides();
-
-    // Save original env values for cleanup
-    const originalEnv = this.captureEnvSnapshot();
-
-    // Set testkit environment variables
-    Object.assign(process.env, this.env);
-
-    // Ensure assets are available at the expected location (simulates ensureNpmAssets)
-    this.ensureTestAssets();
-
-    // Setup output capture
-    const { stdout, stderr, stdoutSpy, stderrSpy } = this.setupOutputCapture();
-
-    // Setup process.exit mock
-    const { exitState, originalExit } = this.setupExitMock();
-
-    // Apply all API mocks before running
-    this.api.apply();
-
-    // Reset module state to ensure test isolation
-    vi.resetModules();
-
-    // Import CLI module fresh after reset
-    const { createProgram, CLIExitError } = (await import(
-      DIST_INDEX_PATH
-    )) as ProgramModule;
-
-    // Create a mock context for tests (telemetry is disabled via env var anyway)
-    const mockContext: CLIContext = {
-      errorReporter: {
-        setContext: () => {},
-        getErrorContext: () => ({ sessionId: "test-session" }),
-      },
-      isNonInteractive: true,
-    };
-    const program = createProgram(mockContext);
-
-    const buildResult = (exitCode: number): CLIResult => ({
-      stdout: stdout.join(""),
-      stderr: stderr.join(""),
-      exitCode,
-    });
-
-    try {
-      await program.parseAsync(["node", "base44", ...args]);
-      return buildResult(0);
-    } catch (e) {
-      // process.exit() was called - our mock throws after capturing the code
-      // This catches Commander's exits for --help, --version, unknown options
-      if (exitState.code !== null) {
-        return buildResult(exitState.code);
-      }
-      // CLI's clean exit mechanism (user cancellation, etc.)
-      if (e instanceof CLIExitError) {
-        return buildResult(e.code);
-      }
-      // Any other error = command failed with exit code 1
-      // Capture error message in stderr for test assertions
-      const errorMessage =
-        e instanceof Error ? (e.stack ?? e.message) : String(e);
-      stderr.push(errorMessage);
-      return buildResult(1);
-    } finally {
-      // Restore process.exit
-      process.exit = originalExit;
-      // Restore environment variables
-      this.restoreEnvSnapshot(originalEnv);
-      // Restore mocks
-      stdoutSpy.mockRestore();
-      stderrSpy.mockRestore();
-      vi.restoreAllMocks();
-    }
-  }
-
   // ─── PRIVATE HELPERS ───────────────────────────────────────────
-
-  private setupCwdMock(): void {
-    if (this.projectDir) {
-      vi.spyOn(process, "cwd").mockReturnValue(this.projectDir);
-    }
-  }
 
   private setupEnvOverrides(): void {
     if (this.projectDir) {
@@ -250,72 +145,6 @@ export class CLITestkit {
     }
     if (Object.keys(this.testOverrides).length > 0) {
       this.env.BASE44_CLI_TEST_OVERRIDES = JSON.stringify(this.testOverrides);
-    }
-  }
-
-  private captureEnvSnapshot(): Record<string, string | undefined> {
-    const snapshot: Record<string, string | undefined> = {};
-    for (const key of Object.keys(this.env)) {
-      snapshot[key] = process.env[key];
-    }
-    return snapshot;
-  }
-
-  private restoreEnvSnapshot(
-    snapshot: Record<string, string | undefined>,
-  ): void {
-    for (const key of Object.keys(snapshot)) {
-      if (snapshot[key] === undefined) {
-        delete process.env[key];
-      } else {
-        process.env[key] = snapshot[key];
-      }
-    }
-  }
-
-  private setupOutputCapture() {
-    const stdout: string[] = [];
-    const stderr: string[] = [];
-
-    const stdoutSpy = vi
-      .spyOn(process.stdout, "write")
-      .mockImplementation((chunk) => {
-        stdout.push(String(chunk));
-        return true;
-      });
-    const stderrSpy = vi
-      .spyOn(process.stderr, "write")
-      .mockImplementation((chunk) => {
-        stderr.push(String(chunk));
-        return true;
-      });
-
-    return { stdout, stderr, stdoutSpy, stderrSpy };
-  }
-
-  private setupExitMock() {
-    const exitState = { code: null as number | null };
-    const originalExit = process.exit;
-    process.exit = ((code?: number) => {
-      exitState.code = code ?? 0;
-      throw new Error(`process.exit called with ${code}`);
-    }) as typeof process.exit;
-
-    return { exitState, originalExit };
-  }
-
-  /**
-   * Copy dist/assets/ to the test HOME's expected location.
-   * This simulates what ensureNpmAssets() does in production, since
-   * tests bypass runCLI() and call createProgram() directly.
-   */
-  private ensureTestAssets(): void {
-    if (!existsSync(DIST_ASSETS_DIR)) return;
-    const pkgPath = join(__dirname, "../../../package.json");
-    const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
-    const assetsTarget = join(this.tempDir, ".base44", "assets", pkg.version);
-    if (!existsSync(assetsTarget)) {
-      cpSync(DIST_ASSETS_DIR, assetsTarget, { recursive: true });
     }
   }
 
@@ -365,9 +194,7 @@ export class CLITestkit {
   // ─── CLEANUP ──────────────────────────────────────────────────
 
   async cleanup(): Promise<void> {
-    if (this.api instanceof BinaryAPIServer) {
-      await this.api.stop();
-    }
+    await this.api.stop();
     await this.cleanupFn();
   }
 }

@@ -163,10 +163,6 @@ export class BinaryAPIServer {
     return `http://localhost:${this._port}`;
   }
 
-  get port(): number {
-    return this._port;
-  }
-
   // ─── LIFECYCLE ───────────────────────────────────────────
 
   async start(): Promise<void> {
@@ -388,16 +384,20 @@ export class BinaryAPIServer {
     );
   }
 
-  // ─── ERROR RESPONSES ─────────────────────────────────────
-
-  mockError(
-    method: "get" | "post" | "put" | "delete",
+  /**
+   * Register a custom Express handler for advanced scenarios (e.g. stateful
+   * responses that change behaviour across retries).
+   */
+  mockRoute(
+    method: Method,
     path: string,
-    error: ErrorResponse,
+    handler: (req: express.Request, res: express.Response) => void,
   ): this {
-    const fullPath = path.startsWith("/") ? path : `/${path}`;
-    return this.addErrorRoute(method.toUpperCase() as Method, fullPath, error);
+    this.pendingRoutes.push({ method, path, handler });
+    return this;
   }
+
+  // ─── ERROR RESPONSES ─────────────────────────────────────
 
   mockEntitiesPushError(error: ErrorResponse): this {
     return this.addErrorRoute(
