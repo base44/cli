@@ -5,18 +5,10 @@ import { checkForUpgrade } from "@/cli/utils/version-check.js";
 
 const UPGRADE_COMMAND = "npm install -g base44@latest";
 
-/**
- * Starts the upgrade check in the background. Returns a promise that
- * resolves to upgrade info (or null). Never rejects.
- */
 export function startUpgradeCheck(): Promise<UpgradeInfo | null> {
   return checkForUpgrade().catch(() => null);
 }
 
-/**
- * Awaits the upgrade check and prints a bordered notification if an
- * upgrade is available. Should be called just before `outro()`.
- */
 export async function printUpgradeNotification(
   upgradeCheckPromise: Promise<UpgradeInfo | null>,
 ): Promise<void> {
@@ -38,7 +30,5 @@ export async function printUpgradeNotification(
 
       box(message);
     }
-  } catch {
-    // Silently ignore errors
-  }
+  } catch {}
 }
