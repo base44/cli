@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - "packages/cli/src/cli/**"
-      - "README.md"
+      - "packages/cli/README.md"
   workflow_dispatch:
 
 concurrency:
@@ -43,7 +43,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           claude -p "$(cat <<'EOF'
-          You are checking whether README.md is still accurate after changes on main.
+          You are checking whether packages/cli/README.md is still accurate after changes on main.
 
           GROUND TRUTH (read from the repo):
           1. Read packages/cli/src/cli/program.ts to get all registered commands. Note which are registered with { hidden: true } — those should NOT appear in the README command table.
@@ -52,22 +52,17 @@ jobs:
              - The .description() string for each command/subcommand
           3. Read packages/cli/package.json for: the "name" field (install command) and "engines"."node" if present (Node.js requirement).
 
-          COMPARE AGAINST README.md:
+          COMPARE AGAINST packages/cli/README.md:
           - Command table: Every non-hidden command/subcommand must be listed. Use the descriptions from the codebase as the basis for the description in the table. They don't need to match exactly. They should be concise and user-friendly. If a description already exists, only change it if it's factually incorrect. Remove any row for a command that no longer exists.
           - Installation section: Package name and Node version mentioned must match package.json.
           - Quick start: The example commands (e.g. base44 login, base44 create) must still exist as commands in the codebase.
 
           RULES:
           1. If everything matches, do nothing further and exit.
-          2. If you find discrepancies: Edit README.md with the correct content. Do NOT commit or push — a later step handles that.
-          3. Only modify README.md. Do not touch any other file.
+          2. If you find discrepancies: Edit packages/cli/README.md with the correct content. Do NOT commit or push — a later step handles that.
+          3. Only modify packages/cli/README.md. Do not touch any other file.
           EOF
-          )" --allowedTools "Read,Glob,Grep,Write(README.md),Edit(README.md)"
-
-      - name: Debug - check README after Claude
-        run: |
-          echo "=== git diff README.md after Claude step ==="
-          git diff README.md || true
+          )" --allowedTools "Read,Glob,Grep,Write(packages/cli/README.md),Edit(packages/cli/README.md)"
 
       - name: Restore lychee cache
         uses: actions/cache@v4
@@ -80,25 +75,20 @@ jobs:
         id: lychee
         uses: lycheeverse/lychee-action@v2
         with:
-          args: --verbose --no-progress --cache --max-cache-age 1d README.md
+          args: --verbose --no-progress --cache --max-cache-age 1d packages/cli/README.md
           output: .lychee-results.json
           format: json
           fail: false
           jobSummary: true
 
       - name: Remove broken links from README
-        run: bun .github/scripts/fix-broken-links.ts .lychee-results.json README.md
+        run: bun .github/scripts/fix-broken-links.ts .lychee-results.json packages/cli/README.md
 
       - name: Create PR with README changes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "=== git status ==="
-          git status
-          echo "=== git diff README.md ==="
-          git diff README.md || true
-
-          if git diff --quiet README.md; then
+          if git diff --quiet packages/cli/README.md; then
             echo "No README changes to commit"
             exit 0
           fi
@@ -107,7 +97,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b "$BRANCH"
-          git add README.md
+          git add packages/cli/README.md
           git commit -m "docs: sync README with codebase"
           git push origin "$BRANCH"
 
