@@ -76,7 +76,7 @@ jobs:
         if: steps.check-errors.outputs.has_errors == 'true'
         uses: anthropics/claude-code-action@v1
         with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: |
             You are an error triage engineer for the Base44 CLI (a TypeScript CLI tool built with Commander.js).
             Your task: analyze the error data from the last ${{ steps.time-range.outputs.hours }} hours and produce a GitHub issue report.
