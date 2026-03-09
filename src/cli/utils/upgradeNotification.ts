@@ -13,9 +13,12 @@ function formatUpgradeMessage(info: UpgradeInfo): string {
   const { shinyOrange } = theme.colors;
   const { bold } = theme.styles;
 
-  return shinyOrange(
-    `Update available! ${info.currentVersion} → ${bold(info.latestVersion)}  Run: ${bold(UPGRADE_COMMAND)}`,
-  );
+  return [
+    shinyOrange(
+      `Update available! ${info.currentVersion} → ${bold(info.latestVersion)}`,
+    ),
+    shinyOrange(`Run: ${bold(UPGRADE_COMMAND)}`),
+  ].join("\n");
 }
 
 export async function printUpgradeNotification(
