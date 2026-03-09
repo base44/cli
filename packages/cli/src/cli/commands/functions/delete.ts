@@ -2,8 +2,8 @@ import { log } from "@clack/prompts";
 import { Command } from "commander";
 import type { CLIContext } from "@/cli/types.js";
 import { runCommand, theme } from "@/cli/utils/index.js";
-import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 import { parseNames } from "@/cli/utils/parseNames.js";
+import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 import { ApiError, InvalidInputError } from "@/core/errors.js";
 import { deleteSingleFunction } from "@/core/resources/function/api.js";
 
@@ -17,7 +17,9 @@ async function deleteFunctionsAction(
   const total = names.length;
 
   for (const name of names) {
-    log.step(theme.styles.dim(`[${completed + 1}/${total}] Deleting ${name}...`));
+    log.step(
+      theme.styles.dim(`[${completed + 1}/${total}] Deleting ${name}...`),
+    );
     try {
       await deleteSingleFunction(name);
       log.success(`${name.padEnd(25)} deleted`);
@@ -27,7 +29,9 @@ async function deleteFunctionsAction(
         log.warn(`${name.padEnd(25)} not found`);
         notFound++;
       } else {
-        log.error(`${name.padEnd(25)} error: ${error instanceof Error ? error.message : String(error)}`);
+        log.error(
+          `${name.padEnd(25)} error: ${error instanceof Error ? error.message : String(error)}`,
+        );
         errors++;
       }
     }
@@ -56,7 +60,9 @@ export function getDeleteCommand(context: CLIContext): Command {
         () => {
           const names = parseNames(rawNames);
           if (names.length === 0) {
-            throw new InvalidInputError("At least one function name is required");
+            throw new InvalidInputError(
+              "At least one function name is required",
+            );
           }
           return deleteFunctionsAction(names);
         },
