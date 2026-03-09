@@ -98,6 +98,23 @@ interface ConnectorRemoveResponse {
   integration_type: string;
 }
 
+interface AvailableIntegrationsListResponse {
+  integrations: Array<{
+    integration_type: string;
+    display_name: string;
+    description: string;
+    connection_config_fields: Array<{
+      name: string;
+      display_name: string;
+      description: string;
+      placeholder: string;
+      required: boolean;
+      validation_pattern?: string | null;
+      validation_error?: string | null;
+    }>;
+  }>;
+}
+
 interface CreateAppResponse {
   id: string;
   name: string;
@@ -343,6 +360,16 @@ export class BinaryAPIServer {
     );
   }
 
+  mockAvailableIntegrationsList(
+    response: AvailableIntegrationsListResponse,
+  ): this {
+    return this.addRoute(
+      "GET",
+      `/api/apps/${this.appId}/external-auth/available-integrations`,
+      response,
+    );
+  }
+
   mockFunctionLogs(functionName: string, response: FunctionLogsResponse): this {
     return this.addRoute(
       "GET",
@@ -483,6 +510,14 @@ export class BinaryAPIServer {
     return this.addErrorRoute(
       "PUT",
       `/api/apps/${this.appId}/external-auth/integrations/:type`,
+      error,
+    );
+  }
+
+  mockAvailableIntegrationsListError(error: ErrorResponse): this {
+    return this.addErrorRoute(
+      "GET",
+      `/api/apps/${this.appId}/external-auth/available-integrations`,
       error,
     );
   }
