@@ -4,7 +4,7 @@ import { Command } from "commander";
 import type { CLIContext } from "@/cli/types.js";
 import { readProjectConfig } from "@/core/index.js";
 import {
-  listConnectors,
+  pullAllConnectors,
   writeConnectors,
 } from "@/core/resources/connector/index.js";
 import { runCommand, runTask } from "../../utils/index.js";
@@ -19,7 +19,7 @@ async function pullConnectorsAction(): Promise<RunCommandResult> {
   const remoteConnectors = await runTask(
     "Fetching connectors from Base44",
     async () => {
-      return await listConnectors();
+      return await pullAllConnectors();
     },
     {
       successMessage: "Connectors fetched successfully",
@@ -30,10 +30,7 @@ async function pullConnectorsAction(): Promise<RunCommandResult> {
   const { written, deleted } = await runTask(
     "Syncing connector files",
     async () => {
-      return await writeConnectors(
-        connectorsDir,
-        remoteConnectors.integrations,
-      );
+      return await writeConnectors(connectorsDir, remoteConnectors);
     },
     {
       successMessage: "Connector files synced successfully",
@@ -52,7 +49,7 @@ async function pullConnectorsAction(): Promise<RunCommandResult> {
   }
 
   return {
-    outroMessage: `Pulled ${remoteConnectors.integrations.length} connectors to ${connectorsDir}`,
+    outroMessage: `Pulled ${remoteConnectors.length} connectors to ${connectorsDir}`,
   };
 }
 

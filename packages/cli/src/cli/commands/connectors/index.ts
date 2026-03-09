@@ -5,7 +5,7 @@ import { getConnectorsPushCommand } from "./push.js";
 
 export function getConnectorsCommand(context: CLIContext): Command {
   return new Command("connectors")
-    .description("Manage project connectors (OAuth integrations)")
+    .description("Manage project connectors")
     .addCommand(getConnectorsPullCommand(context))
     .addCommand(getConnectorsPushCommand(context));
 }

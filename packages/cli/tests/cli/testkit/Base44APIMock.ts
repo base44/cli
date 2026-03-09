@@ -98,6 +98,20 @@ interface ConnectorRemoveResponse {
   integration_type: string;
 }
 
+interface StripeInstallResponse {
+  already_installed: boolean;
+  claim_url: string | null;
+}
+
+interface StripeStatusResponse {
+  stripe_mode: "sandbox" | "live" | null;
+  sandbox_claim_url?: string | null;
+}
+
+interface StripeRemoveResponse {
+  success: boolean;
+}
+
 interface CreateAppResponse {
   id: string;
   name: string;
@@ -281,6 +295,37 @@ export class Base44APIMock {
     return this;
   }
 
+  // ─── STRIPE ENDPOINTS ─────────────────────────────────────
+
+  mockStripeInstall(response: StripeInstallResponse): this {
+    this.handlers.push(
+      http.post(
+        `${BASE_URL}/api/apps/${this.appId}/payments/stripe/install`,
+        () => HttpResponse.json(response),
+      ),
+    );
+    return this;
+  }
+
+  mockStripeStatus(response: StripeStatusResponse): this {
+    this.handlers.push(
+      http.get(
+        `${BASE_URL}/api/apps/${this.appId}/payments/stripe/status`,
+        () => HttpResponse.json(response),
+      ),
+    );
+    return this;
+  }
+
+  mockStripeRemove(response: StripeRemoveResponse): this {
+    this.handlers.push(
+      http.delete(`${BASE_URL}/api/apps/${this.appId}/payments/stripe`, () =>
+        HttpResponse.json(response),
+      ),
+    );
+    return this;
+  }
+
   // ─── SECRETS ENDPOINTS ──────────────────────────────────────
 
   /** Mock GET /api/apps/{appId}/secrets - List secrets */
@@ -311,6 +356,14 @@ export class Base44APIMock {
       ),
     );
     return this;
+  }
+
+  mockStripeInstallError(error: ErrorResponse): this {
+    return this.mockError(
+      "post",
+      `/api/apps/${this.appId}/payments/stripe/install`,
+      error,
+    );
   }
 
   // ─── GENERAL ENDPOINTS ─────────────────────────────────────
