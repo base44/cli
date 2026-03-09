@@ -3,7 +3,7 @@ import type { Request, RequestHandler, Response, Router } from "express";
 import { Router as createRouter, json } from "express";
 import { nanoid } from "nanoid";
 import type { Logger } from "../../createDevLogger.js";
-import type { Database } from "../database.js";
+import type { Database } from "../db/database.js";
 import type { BroadcastEntityEvent, EntityEventType } from "../realtime.js";
 
 interface EntityParams {
@@ -207,8 +207,17 @@ export function createEntityRoutes(
       try {
         const now = new Date().toISOString();
         const { _id, ...body } = req.body;
+
+        const filteredBody = db.prepareRecord(entityName, body);
+        const validation = db.validate(entityName, filteredBody);
+
+        if (validation.hasError) {
+          res.status(422).json(validation.error);
+          return;
+        }
+
         const record = {
-          ...body,
+          ...filteredBody,
           id: nanoid(),
           created_date: now,
           updated_date: now,
@@ -239,12 +248,24 @@ export function createEntityRoutes(
 
       try {
         const now = new Date().toISOString();
-        const records = req.body.map((item: Record<string, unknown>) => ({
-          ...item,
-          id: nanoid(),
-          created_date: now,
-          updated_date: now,
-        }));
+        const records = [];
+
+        for (const record of req.body) {
+          const filteredRecord = db.prepareRecord(entityName, record);
+          const validation = db.validate(entityName, filteredRecord);
+
+          if (validation.hasError) {
+            res.status(422).json(validation.error);
+            return;
+          }
+
+          records.push({
+            ...filteredRecord,
+            id: nanoid(),
+            created_date: now,
+            updated_date: now,
+          });
+        }
 
         const inserted = stripInternalFields(
           await collection.insertAsync(records),
@@ -266,8 +287,16 @@ export function createEntityRoutes(
       const { id: _id, created_date: _created_date, ...body } = req.body;
 
       try {
+        const filteredBody = db.prepareRecord(entityName, body, true);
+        const validation = db.validate(entityName, filteredBody, true);
+
+        if (validation.hasError) {
+          res.status(422).json(validation.error);
+          return;
+        }
+
         const updateData = {
-          ...body,
+          ...filteredBody,
           updated_date: new Date().toISOString(),
         };
 

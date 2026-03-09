@@ -107,7 +107,7 @@ const FieldRLSSchema = z.looseObject({
 });
 
 const PropertyDefinitionSchema: z.ZodType<unknown> = z.looseObject({
-  type: z.string().optional(),
+  type: z.string(),
   title: z.string().optional(),
   description: z.string().optional(),
   minLength: z.number().int().min(0).optional(),
