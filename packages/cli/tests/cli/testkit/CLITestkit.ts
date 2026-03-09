@@ -3,9 +3,9 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execa } from "execa";
 import { dir } from "tmp-promise";
-import { TestAPIServer } from "./TestAPIServer.js";
 import type { CLIResult } from "./CLIResultMatcher.js";
 import { CLIResultMatcher } from "./CLIResultMatcher.js";
+import { TestAPIServer } from "./TestAPIServer.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
