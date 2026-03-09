@@ -17,14 +17,14 @@ The Base44 CLI (`base44` npm package) is a TypeScript command-line tool for crea
 
 The codebase has two layers with a clear separation of concerns:
 
-- **`src/core/`** - SDK layer: pure business logic with no UI or CLI concerns. Handles resources, auth, API clients, project config, site deployment, error classes, and utilities.
-- **`src/cli/`** - Presentation layer: CLI commands, user interaction, theming, telemetry, and wiring. Depends on `core/`, never the reverse.
-- **`bin/`** - Entry points: `run.js` (production, Node.js) and `dev.ts` (development, Bun runs TypeScript directly).
-- **`templates/`** - Project scaffolding templates for `base44 create`.
-- **`tests/`** - CLI integration tests (`cli/`), core unit tests (`core/`), and test fixtures (`fixtures/`).
+- **`packages/cli/src/core/`** - SDK layer: pure business logic with no UI or CLI concerns. Handles resources, auth, API clients, project config, site deployment, error classes, and utilities.
+- **`packages/cli/src/cli/`** - Presentation layer: CLI commands, user interaction, theming, telemetry, and wiring. Depends on `core/`, never the reverse.
+- **`packages/cli/bin/`** - Entry points: `run.js` (production, Node.js) and `dev.ts` (development, Bun runs TypeScript directly).
+- **`packages/cli/templates/`** - Project scaffolding templates for `base44 create`.
+- **`packages/cli/tests/`** - CLI integration tests (`cli/`), core unit tests (`core/`), and test fixtures (`fixtures/`).
 
 ```
-src/
+packages/cli/src/
 ├── core/           # SDK: auth, clients, project, resources (entity/function/agent/connector), site, errors, utils
 └── cli/            # UI: commands, telemetry, utils (runCommand, runTask, theme, banner)
 ```
@@ -35,7 +35,7 @@ Zero-dependency npm package. All runtime dependencies are bundled into `dist/ind
 
 ### Path Alias
 
-`@/*` resolves to `./src/*` (defined in `tsconfig.json`). Always use `.js` extensions in imports (ES Modules).
+`@/*` resolves to `./packages/cli/src/*` (defined in `packages/cli/tsconfig.json`). Always use `.js` extensions in imports (ES Modules).
 
 ## Development Commands
 

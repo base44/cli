@@ -2,7 +2,7 @@
 
 **Keywords:** API, HTTP, ky, base44Client, getAppClient, oauthClient, token refresh, snake_case, camelCase, Zod transform, schema.ts
 
-The CLI uses `ky` HTTP clients from `src/core/clients/`. There are three clients for different contexts.
+The CLI uses `ky` HTTP clients from `packages/cli/src/core/clients/`. There are three clients for different contexts.
 
 ## Authenticated API Calls (Most Common)
 
@@ -34,7 +34,7 @@ const response = await oauthClient.post("oauth/device/code", {
 });
 ```
 
-Used only in `src/core/auth/api.ts` for the device code flow.
+Used only in `packages/cli/src/core/auth/api.ts` for the device code flow.
 
 ## Token Refresh
 
@@ -69,7 +69,7 @@ export type Project = z.infer<typeof ProjectSchema>;
 **Important**:
 - `z.infer<typeof Schema>` gives the **transformed** type (camelCase)
 - Test mocks should use **snake_case** (matching the real API); Zod handles the transformation
-- See `src/core/auth/schema.ts` and `src/core/site/schema.ts` for more examples
+- See `packages/cli/src/core/auth/schema.ts` and `packages/cli/src/core/site/schema.ts` for more examples
 
 ## API Error Handling Pattern
 

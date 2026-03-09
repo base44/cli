@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   fixBrokenLinks,
   parseBrokenUrls,
-} from "../../.github/scripts/fix-broken-links.js";
+} from "../../../../.github/scripts/fix-broken-links.js";
 
 function createTempFiles(
   lycheeResults: object,

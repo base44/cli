@@ -1,91 +1,17 @@
 {
-  "name": "base44",
-  "version": "0.0.40",
-  "description": "Base44 CLI - Unified interface for managing Base44 applications",
-  "type": "module",
-  "bin": {
-    "base44": "./bin/run.js"
-  },
-  "files": [
-    "dist/cli",
-    "dist/assets",
-    "bin"
-  ],
+  "name": "base44-cli",
+  "version": "1.0.0",
+  "description": "Base44 Monorepo",
+  "author": "",
+  "license": "MIT",
   "scripts": {
-    "build": "bun run clean && mkdir -p dist/assets && cp -r templates dist/assets/ && bun run infra/build.ts",
-    "build:watch": "bun run clean && mkdir -p dist/assets && cp -r templates dist/assets/ && bun run infra/build.ts --watch",
-    "typecheck": "tsc --noEmit",
-    "dev": "./bin/dev.ts",
-    "start": "./bin/run.js",
-    "clean": "rm -rf dist && mkdir -p dist",
-    "lint": "biome check src tests",
-    "lint:fix": "biome check --write src tests",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "build:binaries": "bun run infra/build-binaries.ts",
-    "package:binaries": "bun run infra/package-binaries.ts",
     "knip": "knip",
     "knip:fix": "knip --fix"
   },
-  "keywords": [
-    "base44",
-    "cli",
-    "command-line"
-  ],
-  "author": "",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/base44/cli"
-  },
   "devDependencies": {
-    "@biomejs/biome": "^2.0.0",
-    "@clack/prompts": "^1.0.1",
-    "@seald-io/nedb": "^4.1.2",
-    "@types/bun": "^1.2.15",
-    "@types/common-tags": "^1.8.4",
-    "@types/cors": "^2.8.19",
-    "@types/deno": "^2.5.0",
-    "@types/ejs": "^3.1.5",
-    "@types/express": "^5.0.6",
-    "@types/json-schema": "^7.0.15",
-    "@types/lodash": "^4.17.24",
-    "@types/multer": "^2.0.0",
-    "@types/node": "^22.10.5",
-    "@vercel/detect-agent": "^1.1.0",
-    "chalk": "^5.6.2",
-    "chokidar": "^5.0.0",
-    "commander": "^12.1.0",
-    "common-tags": "^1.8.2",
-    "cors": "^2.8.5",
-    "dotenv": "17.3.1",
-    "ejs": "^3.1.10",
-    "execa": "^9.6.1",
-    "express": "^5.0.1",
-    "front-matter": "^4.0.2",
-    "get-port": "^7.1.0",
-    "globby": "^16.1.0",
-    "http-proxy-middleware": "^3.0.5",
-    "json-schema-to-typescript": "^15.0.4",
-    "json5": "^2.2.3",
-    "knip": "^5.83.1",
-    "ky": "^1.14.2",
-    "lodash": "^4.17.23",
-    "msw": "^2.12.10",
-    "multer": "^2.0.0",
-    "nanoid": "^5.1.6",
-    "open": "^11.0.0",
-    "p-wait-for": "^6.0.0",
-    "posthog-node": "5.21.2",
-    "socket.io": "^4.8.3",
-    "strip-ansi": "^7.1.2",
-    "tar": "^7.5.4",
-    "tmp-promise": "^3.0.3",
-    "typescript": "^5.7.2",
-    "vitest": "^4.0.16",
-    "zod": "^4.3.5"
+    "knip": "^5.83.1"
   },
-  "engines": {
-    "node": ">=20.19.0"
-  }
+  "workspaces": [
+    "packages/*"
+  ]
 }

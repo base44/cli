@@ -130,9 +130,9 @@ jobs:
                Note: `exception_list` is truncated to ~1500 chars — this should include the most relevant top frames.
             2. **Include the error message and stack trace from PostHog** in the report. Show `exception_message` and the top 3-5 frames from `exception_list`. These are the actual errors users hit.
             3. **Build a PostHog link** for each error using the `issue_id` field (NOT fingerprint): `https://us.posthog.com/project/${{ vars.POSTHOG_PROJECT_ID }}/error_tracking/<issue_id>`. Include this link in the report so readers can drill into PostHog for full details. If `issue_id` is null/empty, omit the link.
-            4. Use the stack trace frames to find the relevant source files in this repository (under `src/`). Map the frame `filename` and `lineno` to actual source files using Grep/Glob.
+            4. Use the stack trace frames to find the relevant source files in this repository (under `packages/cli/src/`). Map the frame `filename` and `lineno` to actual source files using Grep/Glob.
             5. **Read those source files** and understand WHY the error happened. This is critical — you MUST read the actual source code, not guess.
-            6. **Include code snippets** in the report for every error. Show the exact lines from `src/` that caused or are related to the error. Use the `// src/path/to/file.ts:NN` format.
+            6. **Include code snippets** in the report for every error. Show the exact lines from `packages/cli/src/` that caused or are related to the error. Use the `// packages/cli/src/path/to/file.ts:NN` format.
             7. Check if the error is a known pattern or a real bug.
 
             Each error in the report must have BOTH: (a) the error/stack trace from PostHog data, and (b) the relevant source code from the repo.
@@ -199,15 +199,15 @@ jobs:
             ErrorType: message
             ```
 
-            **Stack trace**: (only show frames from `src/` — skip generic entry points like `runCLI`, `parseAsync`)
+            **Stack trace**: (only show frames from `packages/cli/src/` — skip generic entry points like `runCLI`, `parseAsync`)
             ```
-            at specificFunction (src/path/to/file.ts:NN:NN)
-            at callerFunction (src/path/to/other.ts:NN:NN)
+            at specificFunction (packages/cli/src/path/to/file.ts:NN:NN)
+            at callerFunction (packages/cli/src/path/to/other.ts:NN:NN)
             ```
 
             **Root cause**: (what you found in the code — include a code snippet)
             ```typescript
-            // src/path/to/file.ts:NN
+            // packages/cli/src/path/to/file.ts:NN
             <the relevant code>
             ```
 
@@ -250,7 +250,7 @@ jobs:
             ## Action items
 
             Numbered list of concrete next steps, most important first:
-            1. **[critical/high/medium]** `src/path/to/file.ts:NN` — what to change and why
+            1. **[critical/high/medium]** `packages/cli/src/path/to/file.ts:NN` — what to change and why
             ```
 
             If there are zero errors worth reporting, do NOT create an issue. Instead just print "No significant errors to report."
@@ -260,7 +260,7 @@ jobs:
             - **Be concise.** Don't pad. An engineer should scan this in 2 minutes and know what to do.
             - **Every error in the data must appear** in the report — either in "Errors requiring action", "Backend issues", or "User errors". Don't silently drop error groups.
             - **Code snippets are mandatory** for errors in "Errors requiring action". Show the actual code that threw or is relevant, not the generic error handler.
-            - **Stack traces: skip boilerplate frames.** `runCLI`, `Command.parseAsync`, `Command._parseCommand` are entry-point noise. Only show frames from `src/` that point to the actual error origin.
+            - **Stack traces: skip boilerplate frames.** `runCLI`, `Command.parseAsync`, `Command._parseCommand` are entry-point noise. Only show frames from `packages/cli/src/` that point to the actual error origin.
             - **Don't show irrelevant code.** If the only code you can find is the generic catch block in `index.ts`, say "root cause not found" — don't pretend it's the root cause.
             - **Suggestions must be concrete.** "Investigate X" is not actionable. "In `src/path/file.ts:42`, add a timeout parameter to the fetch call" is.
             - **No "Expected/Actual behavior" sections** — they just repeat "What happened". Keep it tight.

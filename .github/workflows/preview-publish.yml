@@ -7,6 +7,9 @@ on:
 jobs:
   publish-preview:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/cli
 
     steps:
       - name: Checkout code
@@ -20,6 +23,7 @@ jobs:
 
       - name: Update npm
         run: npm install -g npm@latest
+        working-directory: .
 
       - name: Setup Bun
         id: setup-bun
@@ -37,6 +41,7 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
+        working-directory: .
 
       - name: Build package
         run: bun run build

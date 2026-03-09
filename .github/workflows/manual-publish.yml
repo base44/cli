@@ -29,6 +29,9 @@ on:
         default: true
         type: boolean
 
+env:
+  CLI_PACKAGE_DIR: packages/cli
+
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -86,12 +89,14 @@ jobs:
 
       - name: Bump version
         if: steps.check-version.outputs.bump_version == 'true'
+        working-directory: ${{ env.CLI_PACKAGE_DIR }}
         run: |
           npm version ${{ steps.check-version.outputs.version_type }} --no-git-tag-version
           echo "NEW_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
 
       - name: Set version manually
         if: steps.check-version.outputs.bump_version == 'false'
+        working-directory: ${{ env.CLI_PACKAGE_DIR }}
         run: |
           npm version ${{ github.event.inputs.version }} --no-git-tag-version
           echo "NEW_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
@@ -111,23 +116,27 @@ jobs:
 
       - name: Build package
         run: bun run build
+        working-directory: ${{ env.CLI_PACKAGE_DIR }}
 
       - name: Build standalone binaries
         run: bun run build:binaries
+        working-directory: ${{ env.CLI_PACKAGE_DIR }}
 
       - name: Package binaries for release
         run: bun run package:binaries
+        working-directory: ${{ env.CLI_PACKAGE_DIR }}
 
       - name: Upload sourcemaps to PostHog
         if: github.event.inputs.dry_run == 'false'
         uses: PostHog/upload-source-maps@v0.4.6
         with:
-          directory: ./dist/cli
+          directory: ./${{ env.CLI_PACKAGE_DIR }}/dist/cli
           env-id: ${{ vars.POSTHOG_PROJECT_ID }}
           cli-token: ${{ secrets.POSTHOG_CLI_API_KEY }}
           version: ${{ env.NEW_VERSION }}
 
       - name: Show package info
+        working-directory: ${{ env.CLI_PACKAGE_DIR }}
         run: |
           echo "Package name: $(node -p "require('./package.json').name")"
           echo "Version: ${{ env.NEW_VERSION }}"
@@ -136,11 +145,13 @@ jobs:
 
       - name: Publish to NPM
         if: github.event.inputs.dry_run == 'false'
+        working-directory: ${{ env.CLI_PACKAGE_DIR }}
         run: |
           npm publish --tag ${{ github.event.inputs.npm_tag }}
 
       - name: Dry run publish
         if: github.event.inputs.dry_run == 'true'
+        working-directory: ${{ env.CLI_PACKAGE_DIR }}
         run: |
           npm publish --dry-run --tag ${{ github.event.inputs.npm_tag }}
 
@@ -153,7 +164,7 @@ jobs:
           git config --local user.name "GitHub Action"
           # Re-configure git remote to use the App token for push
           git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
-          git add package.json
+          git add ${{ env.CLI_PACKAGE_DIR }}/package.json
           # Add CHANGELOG.md only if changelog update was requested
           if [[ "${{ github.event.inputs.update_changelog }}" == "true" ]]; then
             git add CHANGELOG.md
@@ -199,7 +210,7 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
         run: |
-          for file in dist/binaries/base44-*; do
+          for file in ${{ env.CLI_PACKAGE_DIR }}/dist/binaries/base44-*; do
             echo "Uploading $file..."
             gh release upload "v${{ env.NEW_VERSION }}" "$file" --clobber
           done

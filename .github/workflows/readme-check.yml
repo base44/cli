@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "src/cli/**"
+      - "packages/cli/src/cli/**"
       - "README.md"
   workflow_dispatch:
 
@@ -45,11 +45,11 @@ jobs:
           You are checking whether README.md is still accurate after changes on main.
 
           GROUND TRUTH (read from the repo):
-          1. Read src/cli/program.ts to get all registered commands. Note which are registered with { hidden: true } — those should NOT appear in the README command table.
-          2. For each command, read the corresponding factory file under src/cli/commands/ to get:
+          1. Read packages/cli/src/cli/program.ts to get all registered commands. Note which are registered with { hidden: true } — those should NOT appear in the README command table.
+          2. For each command, read the corresponding factory file under packages/cli/src/cli/commands/ to get:
              - Command name and subcommand names (e.g. "dashboard open", "site deploy")
              - The .description() string for each command/subcommand
-          3. Read package.json for: the "name" field (install command) and "engines"."node" if present (Node.js requirement).
+          3. Read packages/cli/package.json for: the "name" field (install command) and "engines"."node" if present (Node.js requirement).
 
           COMPARE AGAINST README.md:
           - Command table: Every non-hidden command/subcommand must be listed. Use the descriptions from the codebase as the basis for the description in the table. They don't need to match exactly. They should be concise and user-friendly. If a description already exists, only change it if it's factually incorrect. Remove any row for a command that no longer exists.
