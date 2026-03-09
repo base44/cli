@@ -23,9 +23,6 @@ export async function printUpgradeNotification(
           `Update available! ${upgradeInfo.currentVersion} → ${bold(upgradeInfo.latestVersion)}`,
         ),
         shinyOrange(`Run: ${bold(UPGRADE_COMMAND)}`),
-        "",
-        "[Agent Hints]",
-        `  Run: ${UPGRADE_COMMAND}`,
       ].join("\n");
 
       box(message);
