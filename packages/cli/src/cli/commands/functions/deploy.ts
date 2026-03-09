@@ -1,16 +1,75 @@
 import { log } from "@clack/prompts";
 import { Command } from "commander";
 import type { CLIContext } from "@/cli/types.js";
-import { runCommand, runTask } from "@/cli/utils/index.js";
+import { formatDeployResult } from "@/cli/utils/formatDeployResult.js";
+import { runCommand } from "@/cli/utils/index.js";
+import { parseNames } from "@/cli/utils/parseNames.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
-import { ApiError } from "@/core/errors.js";
+import { theme } from "@/cli/utils/theme.js";
+import { InvalidInputError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/index.js";
-import { pushFunctions } from "@/core/resources/function/index.js";
+import {
+  deployFunctionsSequentially,
+  type PruneResult,
+  pruneRemovedFunctions,
+  type SingleFunctionDeployResult,
+} from "@/core/resources/function/deploy.js";
+import type { BackendFunction } from "@/core/resources/function/schema.js";
 
-async function deployFunctionsAction(): Promise<RunCommandResult> {
+function resolveFunctionsToDeploy(
+  names: string[],
+  allFunctions: BackendFunction[],
+): BackendFunction[] {
+  if (names.length === 0) return allFunctions;
+
+  const notFound = names.filter((n) => !allFunctions.some((f) => f.name === n));
+  if (notFound.length > 0) {
+    throw new InvalidInputError(
+      `Function${notFound.length > 1 ? "s" : ""} not found in project: ${notFound.join(", ")}`,
+    );
+  }
+  return allFunctions.filter((f) => names.includes(f.name));
+}
+
+function formatPruneResults(pruneResults: PruneResult[]): void {
+  for (const pruneResult of pruneResults) {
+    if (pruneResult.deleted) {
+      log.success(`${pruneResult.name.padEnd(25)} deleted`);
+    } else {
+      log.error(`${pruneResult.name.padEnd(25)} error: ${pruneResult.error}`);
+    }
+  }
+
+  if (pruneResults.length > 0) {
+    const pruned = pruneResults.filter((r) => r.deleted).length;
+    log.info(`${pruned} function${pruned !== 1 ? "s" : ""} removed`);
+  }
+}
+
+function buildDeploySummary(results: SingleFunctionDeployResult[]): string {
+  const deployed = results.filter((r) => r.status !== "error").length;
+  const failed = results.filter((r) => r.status === "error").length;
+
+  const parts: string[] = [];
+  if (deployed > 0) parts.push(`${deployed}/${results.length} deployed`);
+  if (failed > 0) parts.push(`${failed} error${failed !== 1 ? "s" : ""}`);
+  return parts.join(", ") || "No functions deployed";
+}
+
+async function deployFunctionsAction(
+  names: string[],
+  options: { force?: boolean },
+): Promise<RunCommandResult> {
+  if (options.force && names.length > 0) {
+    throw new InvalidInputError(
+      "--force cannot be used when specifying function names",
+    );
+  }
+
   const { functions } = await readProjectConfig();
+  const toDeploy = resolveFunctionsToDeploy(names, functions);
 
-  if (functions.length === 0) {
+  if (toDeploy.length === 0) {
     return {
       outroMessage:
         "No functions found. Create functions in the 'functions' directory.",
@@ -18,43 +77,51 @@ async function deployFunctionsAction(): Promise<RunCommandResult> {
   }
 
   log.info(
-    `Found ${functions.length} ${functions.length === 1 ? "function" : "functions"} to deploy`,
+    `Found ${toDeploy.length} ${toDeploy.length === 1 ? "function" : "functions"} to deploy`,
   );
 
-  const result = await runTask(
-    "Deploying functions to Base44",
-    async () => {
-      return await pushFunctions(functions);
-    },
-    {
-      successMessage: "Functions deployed successfully",
-      errorMessage: "Failed to deploy functions",
-    },
-  );
+  let completed = 0;
+  const total = toDeploy.length;
 
-  if (result.deployed.length > 0) {
-    log.success(`Deployed: ${result.deployed.join(", ")}`);
-  }
-  if (result.deleted.length > 0) {
-    log.warn(`Deleted: ${result.deleted.join(", ")}`);
-  }
-  if (result.errors && result.errors.length > 0) {
-    throw new ApiError("Function deployment errors", {
-      details: result.errors.map((e) => `'${e.name}': ${e.message}`),
-      hints: [
-        { message: "Check the function code for syntax errors" },
-        { message: "Ensure all imports are valid" },
-      ],
-    });
+  const results = await deployFunctionsSequentially(toDeploy, {
+    onStart: (startNames) => {
+      const label =
+        startNames.length === 1
+          ? startNames[0]
+          : `${startNames.length} functions`;
+      log.step(
+        theme.styles.dim(`[${completed + 1}/${total}] Deploying ${label}...`),
+      );
+    },
+    onResult: (result) => {
+      completed++;
+      formatDeployResult(result);
+    },
+  });
+
+  if (options.force) {
+    log.info("Removing remote functions not found locally...");
+    const allLocalNames = functions.map((f) => f.name);
+    const pruneResults = await pruneRemovedFunctions(allLocalNames);
+    formatPruneResults(pruneResults);
   }
 
-  return { outroMessage: "Functions deployed to Base44" };
+  return { outroMessage: buildDeploySummary(results) };
 }
 
 export function getDeployCommand(context: CLIContext): Command {
   return new Command("deploy")
-    .description("Deploy local functions to Base44")
-    .action(async () => {
-      await runCommand(deployFunctionsAction, { requireAuth: true }, context);
+    .description("Deploy functions to Base44")
+    .argument("[names...]", "Function names to deploy (deploys all if omitted)")
+    .option("--force", "Delete remote functions not found locally")
+    .action(async (rawNames: string[], options: { force?: boolean }) => {
+      await runCommand(
+        () => {
+          const names = parseNames(rawNames);
+          return deployFunctionsAction(names, options);
+        },
+        { requireAuth: true },
+        context,
+      );
     });
 }

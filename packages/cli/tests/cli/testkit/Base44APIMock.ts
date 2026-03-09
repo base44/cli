@@ -38,6 +38,10 @@ interface FunctionsPushResponse {
   errors: Array<{ name: string; message: string }> | null;
 }
 
+interface SingleFunctionDeployResponse {
+  status: "deployed" | "unchanged";
+}
+
 interface FunctionsListResponse {
   functions: Array<{
     name: string;
@@ -204,6 +208,17 @@ export class Base44APIMock {
     this.handlers.push(
       http.get(`${BASE_URL}/api/apps/${this.appId}/backend-functions`, () =>
         HttpResponse.json(response),
+      ),
+    );
+    return this;
+  }
+
+  /** Mock PUT /api/apps/{appId}/backend-functions/{name} - Deploy single function */
+  mockSingleFunctionDeploy(response: SingleFunctionDeployResponse): this {
+    this.handlers.push(
+      http.put(
+        `${BASE_URL}/api/apps/${this.appId}/backend-functions/:name`,
+        () => HttpResponse.json(response),
       ),
     );
     return this;
@@ -400,6 +415,15 @@ export class Base44APIMock {
     return this.mockError(
       "put",
       `/api/apps/${this.appId}/backend-functions`,
+      error,
+    );
+  }
+
+  /** Mock single function deploy to return an error */
+  mockSingleFunctionDeployError(error: ErrorResponse): this {
+    return this.mockError(
+      "put",
+      `/api/apps/${this.appId}/backend-functions/:name`,
       error,
     );
   }
