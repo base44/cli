@@ -5,12 +5,8 @@ import {
   promptOAuthFlows,
 } from "@/cli/commands/connectors/oauth-prompt.js";
 import type { CLIContext } from "@/cli/types.js";
-import {
-  getDashboardUrl,
-  runCommand,
-  runTask,
-  theme,
-} from "@/cli/utils/index.js";
+import { formatDeployResult } from "@/cli/utils/formatDeployResult.js";
+import { getDashboardUrl, runCommand, theme } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 import {
   deployAll,
@@ -80,16 +76,24 @@ export async function deployAction(
     log.info(`Deploying:\n${summaryLines.join("\n")}`);
   }
 
-  const result = await runTask(
-    "Deploying your app...",
-    async () => {
-      return await deployAll(projectData);
+  // Deploy resources with per-function progress
+  let functionCompleted = 0;
+  const functionTotal = functions.length;
+
+  const result = await deployAll(projectData, {
+    onFunctionStart: (names) => {
+      const label = names.length === 1 ? names[0] : `${names.length} functions`;
+      log.step(
+        theme.styles.dim(
+          `[${functionCompleted + 1}/${functionTotal}] Deploying ${label}...`,
+        ),
+      );
     },
-    {
-      successMessage: theme.colors.base44Orange("Deployment completed"),
-      errorMessage: "Deployment failed",
+    onFunctionResult: (r) => {
+      functionCompleted++;
+      formatDeployResult(r);
     },
-  );
+  });
 
   // Handle connector OAuth flows
   const needsOAuth = filterPendingOAuth(result.connectorResults ?? []);
