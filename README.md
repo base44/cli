@@ -1,1 +1,1 @@
-/Users/artemdem/Development/aaa-base44/cli/packages/cli/README.md
+./packages/cli/README.md
