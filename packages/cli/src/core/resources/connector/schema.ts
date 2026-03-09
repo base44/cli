@@ -214,6 +214,8 @@ const ConnectionConfigFieldSchema = z.object({
 });
 
 const AvailableIntegrationSchema = z.object({
+  // Uses z.string() instead of IntegrationTypeSchema — the API may return
+  // integration types not yet known to the CLI.
   integration_type: z.string().min(1),
   display_name: z.string(),
   description: z.string(),

@@ -69,6 +69,17 @@ describe("connectors list-available command", () => {
     t.expectResult(result).toFail();
   });
 
+  it("fails when API returns invalid data", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+    t.api.mockAvailableIntegrationsList({
+      integrations: [{ bad: "data" }],
+    } as any);
+
+    const result = await t.run("connectors", "list-available");
+
+    t.expectResult(result).toFail();
+  });
+
   it("fails when not in a project directory", async () => {
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
 
