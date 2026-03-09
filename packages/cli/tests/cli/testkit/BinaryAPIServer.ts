@@ -235,23 +235,6 @@ export class BinaryAPIServer {
     return this;
   }
 
-  private addBinaryRoute(
-    method: Method,
-    path: string,
-    data: Uint8Array,
-    contentType: string,
-  ): this {
-    this.pendingRoutes.push({
-      method,
-      path,
-      handler: (_req, res) => {
-        res.setHeader("Content-Type", contentType);
-        res.status(200).send(Buffer.from(data));
-      },
-    });
-    return this;
-  }
-
   private addErrorRoute(
     method: Method,
     path: string,
@@ -403,12 +386,15 @@ export class BinaryAPIServer {
   }
 
   mockProjectEject(tarContent: Uint8Array = new Uint8Array()): this {
-    return this.addBinaryRoute(
-      "GET",
-      `/api/apps/${this.appId}/eject`,
-      tarContent,
-      "application/gzip",
-    );
+    this.pendingRoutes.push({
+      method: "GET",
+      path: `/api/apps/${this.appId}/eject`,
+      handler: (_req, res) => {
+        res.setHeader("Content-Type", "application/gzip");
+        res.status(200).send(Buffer.from(tarContent));
+      },
+    });
+    return this;
   }
 
   /**
