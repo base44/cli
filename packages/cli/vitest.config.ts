@@ -6,8 +6,7 @@ export default defineConfig({
     environment: "node",
     globals: true,
     include: ["tests/**/*.spec.ts"],
-    globalSetup: ["./tests/globalSetup.ts"],
-    testTimeout: 30000,
+testTimeout: 30000,
     mockReset: true,
     silent: true, // Suppress stdout/stderr from tests (CLI output is very noisy)
   },
