@@ -39,7 +39,7 @@ jobs:
 
       - name: Run Claude README Check
         env:
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           claude -p "$(cat <<'EOF'
           You are checking whether README.md is still accurate after changes on main.
