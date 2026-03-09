@@ -9,23 +9,25 @@ export function startUpgradeCheck(): Promise<UpgradeInfo | null> {
   return checkForUpgrade().catch(() => null);
 }
 
+function formatUpgradeMessage(info: UpgradeInfo): string {
+  const { shinyOrange } = theme.colors;
+  const { bold } = theme.styles;
+
+  return [
+    shinyOrange(
+      `Update available! ${info.currentVersion} → ${bold(info.latestVersion)}`,
+    ),
+    shinyOrange(`Run: ${bold(UPGRADE_COMMAND)}`),
+  ].join("\n");
+}
+
 export async function printUpgradeNotification(
   upgradeCheckPromise: Promise<UpgradeInfo | null>,
 ): Promise<void> {
   try {
     const upgradeInfo = await upgradeCheckPromise;
     if (upgradeInfo) {
-      const { shinyOrange } = theme.colors;
-      const { bold } = theme.styles;
-
-      const message = [
-        shinyOrange(
-          `Update available! ${upgradeInfo.currentVersion} → ${bold(upgradeInfo.latestVersion)}`,
-        ),
-        shinyOrange(`Run: ${bold(UPGRADE_COMMAND)}`),
-      ].join("\n");
-
-      box(message);
+      box(formatUpgradeMessage(upgradeInfo));
     }
   } catch {}
 }
