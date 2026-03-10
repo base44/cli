@@ -3,11 +3,13 @@ import { Command } from "commander";
 import type { CLIContext } from "@/cli/types.js";
 import { runCommand, runTask, theme } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
+import { getConnectorsUrl } from "@/cli/utils/urls.js";
 import { readProjectConfig } from "@/core/index.js";
 import {
   type ConnectorSyncResult,
   type IntegrationType,
   pushConnectors,
+  type StripeSyncResult,
 } from "@/core/resources/connector/index.js";
 import {
   filterPendingOAuth,
@@ -21,36 +23,56 @@ function printSummary(
 ): void {
   const synced: IntegrationType[] = [];
   const added: IntegrationType[] = [];
+  let provisioned: StripeSyncResult | undefined;
   const removed: IntegrationType[] = [];
   const skipped: IntegrationType[] = [];
-  const failed: { type: IntegrationType; error?: string }[] = [];
+  const failed: { type: IntegrationType; error: string }[] = [];
 
   for (const r of results) {
-    const oauthStatus = oauthOutcomes.get(r.type);
-
-    if (r.action === "synced") {
-      synced.push(r.type);
-    } else if (r.action === "removed") {
-      removed.push(r.type);
-    } else if (r.action === "error") {
-      failed.push({ type: r.type, error: r.error });
-    } else if (r.action === "needs_oauth") {
-      if (oauthStatus === "ACTIVE") {
-        added.push(r.type);
-      } else if (oauthStatus === "SKIPPED") {
-        skipped.push(r.type);
-      } else if (oauthStatus === "PENDING") {
-        failed.push({ type: r.type, error: "authorization timed out" });
-      } else if (oauthStatus === "FAILED") {
-        failed.push({ type: r.type, error: "authorization failed" });
-      } else {
-        failed.push({ type: r.type, error: "needs authorization" });
+    switch (r.action) {
+      case "provisioned":
+        provisioned = r;
+        break;
+      case "synced":
+        synced.push(r.type);
+        break;
+      case "removed":
+        removed.push(r.type);
+        break;
+      case "error":
+        failed.push({ type: r.type, error: r.error });
+        break;
+      case "needs_oauth": {
+        const oauthStatus = oauthOutcomes.get(r.type);
+        if (oauthStatus === "ACTIVE") {
+          added.push(r.type);
+        } else if (oauthStatus === "SKIPPED") {
+          skipped.push(r.type);
+        } else if (oauthStatus === "PENDING") {
+          failed.push({ type: r.type, error: "authorization timed out" });
+        } else if (oauthStatus === "FAILED") {
+          failed.push({ type: r.type, error: "authorization failed" });
+        } else {
+          failed.push({ type: r.type, error: "needs authorization" });
+        }
+        break;
       }
     }
   }
 
   log.info(theme.styles.bold("Summary:"));
 
+  if (provisioned) {
+    log.success("Stripe sandbox provisioned");
+    if (provisioned.claimUrl) {
+      log.info(
+        `  Claim your Stripe sandbox: ${theme.colors.links(provisioned.claimUrl)}`,
+      );
+    }
+    log.info(
+      `  Connectors dashboard: ${theme.colors.links(getConnectorsUrl())}`,
+    );
+  }
   if (synced.length > 0) {
     log.success(`Synced: ${synced.join(", ")}`);
   }
@@ -64,7 +86,7 @@ function printSummary(
     log.warn(`Skipped: ${skipped.join(", ")}`);
   }
   for (const r of failed) {
-    log.error(`Failed: ${r.type}${r.error ? ` - ${r.error}` : ""}`);
+    log.error(`Failed: ${r.type} - ${r.error}`);
   }
 }
 

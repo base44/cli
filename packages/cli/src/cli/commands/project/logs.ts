@@ -161,7 +161,18 @@ async function getAllFunctionNames(): Promise<string[]> {
   return functions.map((fn) => fn.name);
 }
 
+function validateLimit(limit: string | undefined): void {
+  if (limit === undefined) return;
+  const n = Number.parseInt(limit, 10);
+  if (Number.isNaN(n) || n < 1 || n > 1000) {
+    throw new InvalidInputError(
+      `Invalid limit: "${limit}". Must be a number between 1 and 1000.`,
+    );
+  }
+}
+
 async function logsAction(options: LogsOptions): Promise<RunCommandResult> {
+  validateLimit(options.limit);
   const specifiedFunctions = parseFunctionNames(options.function);
 
   // Always read project functions so we can list them in error messages
@@ -216,19 +227,7 @@ export function getLogsCommand(context: CLIContext): Command {
         .choices([...LogLevelSchema.options])
         .hideHelp(),
     )
-    .option(
-      "-n, --limit <n>",
-      "Results per page (1-1000, default: 50)",
-      (v) => {
-        const n = Number.parseInt(v, 10);
-        if (Number.isNaN(n) || n < 1 || n > 1000) {
-          throw new InvalidInputError(
-            `Invalid limit: "${v}". Must be a number between 1 and 1000.`,
-          );
-        }
-        return v;
-      },
-    )
+    .option("-n, --limit <n>", "Results per page (1-1000, default: 50)")
     .addOption(
       new Option("--order <order>", "Sort order").choices(["asc", "desc"]),
     )

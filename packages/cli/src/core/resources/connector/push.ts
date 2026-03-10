@@ -4,14 +4,31 @@ import type {
   IntegrationType,
   SetConnectorResponse,
 } from "./schema.js";
+import { STRIPE_CONNECTOR_TYPE } from "./schema.js";
+import { syncStripeConnector } from "./stripe.js";
 
-export interface ConnectorSyncResult {
+type SharedSyncResult =
+  | { type: IntegrationType; action: "synced" }
+  | { type: IntegrationType; action: "removed" }
+  | { type: IntegrationType; action: "error"; error: string };
+
+export type OAuthSyncResult = {
   type: IntegrationType;
-  action: "synced" | "removed" | "needs_oauth" | "error";
-  redirectUrl?: string;
+  action: "needs_oauth";
+  redirectUrl: string;
   connectionId?: string;
-  error?: string;
-}
+};
+
+export type StripeSyncResult = {
+  type: "stripe";
+  action: "provisioned";
+  claimUrl?: string;
+};
+
+export type ConnectorSyncResult =
+  | SharedSyncResult
+  | OAuthSyncResult
+  | StripeSyncResult;
 
 interface PushConnectorsResponse {
   results: ConnectorSyncResult[];
@@ -20,6 +37,27 @@ interface PushConnectorsResponse {
 export async function pushConnectors(
   connectors: ConnectorResource[],
 ): Promise<PushConnectorsResponse> {
+  const stripeConnector = connectors.find(
+    (c) => c.type === STRIPE_CONNECTOR_TYPE,
+  );
+  const oauthConnectors = connectors.filter(
+    (c) => c.type !== STRIPE_CONNECTOR_TYPE,
+  );
+
+  const oauthResults = await syncOAuthConnectors(oauthConnectors);
+  const stripeResult = await syncStripeConnector(stripeConnector);
+
+  const results = [...oauthResults];
+  if (stripeResult) {
+    results.push(stripeResult);
+  }
+
+  return { results };
+}
+
+async function syncOAuthConnectors(
+  connectors: ConnectorResource[],
+): Promise<ConnectorSyncResult[]> {
   const results: ConnectorSyncResult[] = [];
   const upstream = await listConnectors();
   const localTypes = new Set(connectors.map((c) => c.type));
@@ -60,7 +98,7 @@ export async function pushConnectors(
     }
   }
 
-  return { results };
+  return results;
 }
 
 function getConnectorSyncResult(
