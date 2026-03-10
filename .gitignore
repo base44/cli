@@ -83,3 +83,6 @@ error-reports/
 
 # Worktrees
 .worktrees/
+
+# Claude Code
+.claude/worktrees/
