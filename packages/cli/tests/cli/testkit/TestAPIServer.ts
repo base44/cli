@@ -300,18 +300,6 @@ export class TestAPIServer {
     );
   }
 
-  /** Mock DELETE /api/apps/{appId}/backend-functions/{name} - Delete single function */
-  mockSingleFunctionDelete(): this {
-    this.pendingRoutes.push({
-      method: "DELETE",
-      path: `/api/apps/${this.appId}/backend-functions/:name`,
-      handler: (_req, res) => {
-        res.status(204).end();
-      },
-    });
-    return this;
-  }
-
   mockSiteDeploy(response: SiteDeployResponse): this {
     return this.addRoute(
       "POST",
@@ -465,15 +453,6 @@ export class TestAPIServer {
     return this.addErrorRoute(
       "GET",
       `/api/apps/${this.appId}/backend-functions`,
-      error,
-    );
-  }
-
-  /** Mock single function delete to return an error */
-  mockSingleFunctionDeleteError(error: ErrorResponse): this {
-    return this.addErrorRoute(
-      "DELETE",
-      `/api/apps/${this.appId}/backend-functions/:name`,
       error,
     );
   }
