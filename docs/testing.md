@@ -1,9 +1,10 @@
 # Writing Tests
 
-**Keywords:** test, vitest, testkit, setupCLITests, fixture, mock, Given/When/Then, BASE44_CLI_TEST_OVERRIDES, build before test, binary, TestAPIServer, Express
+**Keywords:** test, vitest, testkit, setupCLITests, fixture, mock, Given/When/Then, BASE44_CLI_TEST_OVERRIDES, CLI_TEST_RUNNER, build before test, binary, npm, TestAPIServer, Express
 
 ## Table of Contents
 
+- [Test Runner Modes](#test-runner-modes)
 - [How Testing Works](#how-testing-works)
 - [Test Structure](#test-structure)
 - [Writing a Test](#writing-a-test)
@@ -14,21 +15,37 @@
 
 ---
 
-**Build before testing**: Tests spawn the compiled binary, so always build both the bundle and binaries:
+## Test Runner Modes
+
+Tests can run against two different executables, controlled by the `CLI_TEST_RUNNER` env var:
+
+| Mode | Env var | Build required | What it tests |
+|------|---------|----------------|---------------|
+| **npm** (default) | `CLI_TEST_RUNNER=npm` | `bun run build` | The JS bundle via `node bin/run.js` (what npm users get) |
+| **binary** | `CLI_TEST_RUNNER=binary` | `bun run build && bun run build:binaries` | The compiled standalone binary (what Homebrew users get) |
 
 ```bash
-bun run build && bun run build:binaries && bun run test
+# Quick local iteration (npm mode, default)
+bun run build && bun run test
+
+# Explicit npm mode
+bun run build && bun run test:npm
+
+# Binary mode
+bun run build && bun run build:binaries && bun run test:binary
 ```
+
+CI runs both modes in parallel via matrix strategy.
 
 ## How Testing Works
 
-Tests spawn the **real compiled binary** as a child process and communicate via stdout/stderr/exit code. A lightweight **Express HTTP server** (`TestAPIServer`) runs locally to simulate the Base44 API — the binary is pointed at it via `BASE44_API_URL`.
+Tests spawn the CLI as a **child process** and communicate via stdout/stderr/exit code. A lightweight **Express HTTP server** (`TestAPIServer`) runs locally to simulate the Base44 API — the CLI is pointed at it via `BASE44_API_URL`.
 
 This means:
 - Tests exercise the full CLI pipeline (argument parsing, error handling, output formatting)
-- **`vi.mock()` won't work** — the binary is a standalone executable, not an in-process import
+- **`vi.mock()` won't work** — the CLI runs as a separate process, not an in-process import
 - Use the **`BASE44_CLI_TEST_OVERRIDES` env var** for injecting test behavior (see below)
-- Always `bun run build && bun run build:binaries` before `bun run test` to ensure the binary is fresh
+- Always build before testing (see [Test Runner Modes](#test-runner-modes))
 - Tests always run with `CI=true` (no TTY), so browser opens and animations are skipped
 
 ## Test Structure
@@ -339,7 +356,7 @@ function getTestOverride(): MyType | undefined {
 
 ## Testing Rules
 
-1. **Build first** -- Always `bun run build && bun run build:binaries` before `bun run test`
+1. **Build first** -- Always `bun run build` before testing; add `bun run build:binaries` for binary mode
 2. **Use fixtures** -- Don't create project structures in tests; use `tests/fixtures/`
 3. **Fixtures need `.app.jsonc`** -- Add `base44/.app.jsonc` with `{ "id": "test-app-id" }`
 4. **Interactive prompts can't be tested** -- Only test via non-interactive flags

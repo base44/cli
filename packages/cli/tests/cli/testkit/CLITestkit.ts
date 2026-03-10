@@ -8,6 +8,12 @@ import { CLIResultMatcher } from "./CLIResultMatcher.js";
 import { TestAPIServer } from "./TestAPIServer.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const CLI_ROOT = join(__dirname, "../../..");
+
+type TestRunnerMode = "npm" | "binary";
+
+const TEST_RUNNER: TestRunnerMode =
+  (process.env.CLI_TEST_RUNNER as TestRunnerMode) || "npm";
 
 /** Resolve the platform-specific compiled binary path */
 function getBinaryPath(): string {
@@ -19,13 +25,13 @@ function getBinaryPath(): string {
         : "linux";
   const arch = process.arch === "arm64" ? "arm64" : "x64";
   const ext = process.platform === "win32" ? ".exe" : "";
-  return join(
-    __dirname,
-    `../../../dist/binaries/base44-${platform}-${arch}${ext}`,
-  );
+  return join(CLI_ROOT, `dist/binaries/base44-${platform}-${arch}${ext}`);
 }
 
-const BINARY_PATH = getBinaryPath();
+/** Resolve the npm entry point (node bin/run.js) */
+function getNpmEntryPath(): string {
+  return join(CLI_ROOT, "bin/run.js");
+}
 
 /** Test overrides that get serialized to BASE44_CLI_TEST_OVERRIDES */
 interface TestOverrides {
@@ -107,7 +113,7 @@ export class CLITestkit {
 
   // ─── WHEN METHODS ─────────────────────────────────────────────
 
-  /** Spawn the real compiled binary and execute the CLI command */
+  /** Spawn the CLI as a child process and execute the command */
   async run(...args: string[]): Promise<CLIResult> {
     this.setupEnvOverrides();
 
@@ -117,10 +123,14 @@ export class CLITestkit {
       PATH: process.env.PATH ?? "",
     };
 
-    // Register all pending mock routes before spawning the binary
     this.api.apply();
 
-    const result = await execa(BINARY_PATH, args, {
+    const execArgs =
+      TEST_RUNNER === "binary"
+        ? { file: getBinaryPath(), args }
+        : { file: "node", args: [getNpmEntryPath(), ...args] };
+
+    const result = await execa(execArgs.file, execArgs.args, {
       cwd: this.projectDir ?? this.tempDir,
       env,
       reject: false,

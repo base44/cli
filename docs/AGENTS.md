@@ -42,11 +42,13 @@ Zero-dependency npm package. All runtime dependencies are bundled into `dist/ind
 ```bash
 bun install            # Install dependencies
 bun run build          # Bundle to dist/index.js + copy templates
-bun run build:binaries # Compile standalone binaries (required before tests)
+bun run build:binaries # Compile standalone binaries (for binary test mode)
 bun run typecheck      # tsc --noEmit
 bun run dev            # Run bin/dev.ts (no build needed, Bun runs TS directly)
 bun run start          # Run bin/run.js (requires build first)
-bun run test           # Run tests with vitest (use `bun run test`, not `bun test`)
+bun run test           # Run tests in npm mode (default; use `bun run test`, not `bun test`)
+bun run test:npm       # Run tests against node bin/run.js (needs build)
+bun run test:binary    # Run tests against compiled binary (needs build + build:binaries)
 bun run lint           # Biome - lint and format check
 bun run lint:fix       # Biome - auto-fix
 ```

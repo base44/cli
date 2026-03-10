@@ -9,6 +9,9 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        runner: [npm, binary]
     defaults:
       run:
         working-directory: packages/cli
@@ -39,8 +42,8 @@ jobs:
         run: bun run build
 
       - name: Build binaries
+        if: matrix.runner == 'binary'
         run: bun run build:binaries
 
       - name: Run tests
-        run: bun run test
-
+        run: bun run test:${{ matrix.runner }}

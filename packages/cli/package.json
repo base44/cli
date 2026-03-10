@@ -19,6 +19,8 @@
     "start": "./bin/run.js",
     "clean": "rm -rf dist && mkdir -p dist",
     "test": "vitest run",
+    "test:npm": "CLI_TEST_RUNNER=npm vitest run",
+    "test:binary": "CLI_TEST_RUNNER=binary vitest run",
     "test:watch": "vitest",
     "lint": "cd ../.. && bun run lint",
     "lint:fix": "cd ../.. && bun run lint:fix",
