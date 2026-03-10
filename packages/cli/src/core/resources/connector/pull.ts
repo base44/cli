@@ -1,11 +1,12 @@
-import { getStripeStatus, listConnectors } from "./api.js";
+import { listConnectors } from "./api.js";
 import type { ConnectorResource } from "./schema.js";
 import { STRIPE_CONNECTOR_TYPE } from "./schema.js";
+import { isStripeInstalled } from "./stripe.js";
 
 export async function pullAllConnectors(): Promise<ConnectorResource[]> {
-  const [oauthResponse, stripeStatus] = await Promise.all([
+  const [oauthResponse, stripeInstalled] = await Promise.all([
     listConnectors(),
-    getStripeStatus(),
+    isStripeInstalled(),
   ]);
 
   const connectors: ConnectorResource[] = oauthResponse.integrations.map(
@@ -15,7 +16,7 @@ export async function pullAllConnectors(): Promise<ConnectorResource[]> {
     }),
   );
 
-  if (stripeStatus.stripeMode !== null) {
+  if (stripeInstalled) {
     connectors.push({ type: STRIPE_CONNECTOR_TYPE, scopes: [] });
   }
 

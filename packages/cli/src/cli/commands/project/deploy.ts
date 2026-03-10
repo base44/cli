@@ -99,11 +99,9 @@ export async function deployAction(
   // Handle connector-specific post-deploy flows
   const connectorResults = result.connectorResults ?? [];
   await handleOAuthConnectors(connectorResults, options);
-  const stripeResult = connectorResults.find(
-    (r): r is StripeSyncResult => r.action === "provisioned",
-  );
-  if (stripeResult) {
-    printStripeResult(stripeResult);
+  const stripeResult = connectorResults.find((r) => r.type === "stripe");
+  if (stripeResult?.action === "provisioned") {
+    printStripeResult(stripeResult as StripeSyncResult);
   }
 
   log.message(
