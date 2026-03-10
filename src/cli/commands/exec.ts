@@ -22,57 +22,19 @@ function readStdin(): Promise<string> {
   });
 }
 
-interface ExecOptions {
-  eval?: string;
-}
-
-function validateInput(command: Command): void {
-  const [scriptArg] = command.args;
-  const { eval: evalCode } = command.opts<ExecOptions>();
-
-  const hasStdin = scriptArg === "-";
-  const hasFile = scriptArg !== undefined && !hasStdin;
-  const hasEval = evalCode !== undefined;
-
-  const inputCount = [hasFile, hasEval, hasStdin].filter(Boolean).length;
-
-  if (inputCount > 1) {
-    throw new InvalidInputError(
-      "Cannot use more than one input mode. Provide only one of: file path, -e, or -.",
-    );
+async function execAction(extraArgs: string[]): Promise<RunCommandResult> {
+  if (process.stdin.isTTY) {
+    throw new InvalidInputError("No input provided. Pipe a script to stdin.", {
+      hints: [
+        { message: "File:  cat ./script.ts | base44 exec" },
+        { message: 'Eval:  echo "console.log(1)" | base44 exec' },
+      ],
+    });
   }
 
-  if (inputCount === 0) {
-    throw new InvalidInputError(
-      "No script provided. Pass a file path, use -e for inline code, or - for stdin.",
-      {
-        hints: [
-          { message: "File:  base44 exec ./script.ts" },
-          { message: 'Eval:  base44 exec -e "console.log(1)"' },
-          { message: "Stdin: echo 'code' | base44 exec -" },
-        ],
-      },
-    );
-  }
-}
-
-async function execAction(
-  scriptArg: string | undefined,
-  options: ExecOptions,
-  extraArgs: string[],
-): Promise<RunCommandResult> {
-  const hasStdin = scriptArg === "-";
-  const hasFile = scriptArg !== undefined && !hasStdin;
-
-  let code: string | undefined;
-  if (hasStdin) {
-    code = await readStdin();
-  } else if (options.eval !== undefined) {
-    code = options.eval;
-  }
+  const code = await readStdin();
 
   const { exitCode } = await runScript({
-    filePath: hasFile ? scriptArg : undefined,
     code,
     extraArgs,
     execWrapperPath: EXEC_WRAPPER_PATH,
@@ -90,18 +52,14 @@ export function getExecCommand(context: CLIContext): Command {
     .description(
       "Run a script with the Base44 SDK pre-authenticated as the current user",
     )
-    .argument("[script]", "Path to a .ts/.js file, or - for stdin")
-    .option("-e, --eval <code>", "Evaluate inline code")
-    .allowUnknownOption(true)
-    .hook("preAction", validateInput)
-    .action(async (script: string | undefined, options: ExecOptions) => {
+    .action(async () => {
       // Collect everything after "--" as extra args for the Deno process
       const dashIndex = process.argv.indexOf("--");
       const extraArgs =
         dashIndex !== -1 ? process.argv.slice(dashIndex + 1) : [];
 
       await runCommand(
-        () => execAction(script, options, extraArgs),
+        () => execAction(extraArgs),
         { requireAuth: true },
         context,
       );

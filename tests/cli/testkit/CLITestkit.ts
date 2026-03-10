@@ -1,4 +1,5 @@
 import { access, cp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { Readable } from "node:stream";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Command } from "commander";
@@ -39,6 +40,7 @@ export class CLITestkit {
   private projectDir?: string;
   // Default latestVersion to null to skip npm version check in tests
   private testOverrides: TestOverrides = { latestVersion: null };
+  private stdinContent: string | undefined = undefined;
 
   /** Typed API mock for Base44 endpoints */
   readonly api: Base44APIMock;
@@ -102,6 +104,11 @@ export class CLITestkit {
     this.testOverrides.latestVersion = version;
   }
 
+  /** Simulate piped stdin for the next run() call */
+  givenStdin(content: string): void {
+    this.stdinContent = content;
+  }
+
   // ─── WHEN METHODS ─────────────────────────────────────────────
 
   /** Execute CLI command */
@@ -121,6 +128,9 @@ export class CLITestkit {
 
     // Setup process.exit mock
     const { exitState, originalExit } = this.setupExitMock();
+
+    // Setup stdin mock if content was provided via givenStdin()
+    const stdinCleanup = this.setupStdinMock();
 
     // Apply all API mocks before running
     this.api.apply();
@@ -171,6 +181,8 @@ export class CLITestkit {
     } finally {
       // Restore process.exit
       process.exit = originalExit;
+      // Restore stdin
+      stdinCleanup();
       // Restore environment variables
       this.restoreEnvSnapshot(originalEnv);
       // Restore mocks
@@ -249,6 +261,47 @@ export class CLITestkit {
     }) as typeof process.exit;
 
     return { exitState, originalExit };
+  }
+
+  private setupStdinMock(): () => void {
+    const content = this.stdinContent;
+    this.stdinContent = undefined;
+
+    const originalStdinDescriptor = Object.getOwnPropertyDescriptor(
+      process,
+      "stdin",
+    );
+
+    const mockStdin = new Readable({ read() {} });
+
+    if (content !== undefined) {
+      // Simulate piped input: not a TTY, push content then EOF
+      Object.defineProperty(mockStdin, "isTTY", {
+        value: false,
+        configurable: true,
+      });
+      // Push synchronously so it's buffered before listeners attach
+      mockStdin.push(content);
+      mockStdin.push(null);
+    } else {
+      // Simulate interactive terminal: isTTY = true, no data
+      Object.defineProperty(mockStdin, "isTTY", {
+        value: true,
+        configurable: true,
+      });
+    }
+
+    Object.defineProperty(process, "stdin", {
+      value: mockStdin,
+      configurable: true,
+      writable: true,
+    });
+
+    return () => {
+      if (originalStdinDescriptor) {
+        Object.defineProperty(process, "stdin", originalStdinDescriptor);
+      }
+    };
   }
 
   // ─── THEN METHODS ─────────────────────────────────────────────
