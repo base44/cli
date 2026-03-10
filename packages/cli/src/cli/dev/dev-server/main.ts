@@ -19,6 +19,7 @@ import {
 import { createEntityRoutes } from "./routes/entities.js";
 import {
   createCustomIntegrationRoutes,
+  createFileToken,
   createIntegrationRoutes,
 } from "./routes/integrations.js";
 import { WatchBase44 } from "./watcher.js";
@@ -110,7 +111,25 @@ export async function createDevServer(
 
   const { path: mediaFilesDir } = await dir();
 
-  // Serve uploaded files statically
+  app.use("/media/private/:fileUri", (req, res, next) => {
+    const { fileUri } = req.params;
+    const token = req.query.token as string | undefined;
+    if (!token) {
+      res.status(401).json({ error: "Missing token" });
+      return;
+    }
+    const expectedToken = createFileToken(fileUri);
+    if (token !== expectedToken) {
+      res.status(400).json({
+        error: "InvalidJWT",
+        message: "signature verification failed",
+        statusCode: "400",
+      });
+      return;
+    }
+    next();
+  });
+
   app.use("/media", express.static(mediaFilesDir));
 
   const integrationRoutes = createIntegrationRoutes(
