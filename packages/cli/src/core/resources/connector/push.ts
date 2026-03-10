@@ -23,7 +23,7 @@ export type OAuthSyncResult = {
   type: IntegrationType;
   action: "needs_oauth";
   redirectUrl: string;
-  connectionId: string;
+  connectionId?: string;
 };
 
 export type StripeSyncResult = {
@@ -119,7 +119,7 @@ async function syncStripeConnector(
       : null;
   }
 
-  const isRemoteInstalled = remoteStatus.stripe_mode !== null;
+  const isRemoteInstalled = remoteStatus.stripeMode !== null;
   const needsInstall = localStripe && !isRemoteInstalled;
   const alreadySynced = localStripe && isRemoteInstalled;
   const needsRemoval = !localStripe && isRemoteInstalled;
@@ -152,7 +152,7 @@ async function fetchStripeRemoteStatus(): Promise<
 async function handleStripeInstall(): Promise<ConnectorSyncResult> {
   try {
     const result = await installStripe();
-    return stripeProvisioned(result.claim_url ?? undefined);
+    return stripeProvisioned(result.claimUrl ?? undefined);
   } catch (err) {
     return stripeError(err instanceof Error ? err.message : String(err));
   }
@@ -206,7 +206,7 @@ function getConnectorSyncResult(
       type,
       action: "needs_oauth",
       redirectUrl: response.redirectUrl,
-      connectionId: response.connectionId ?? "",
+      connectionId: response.connectionId ?? undefined,
     };
   }
 

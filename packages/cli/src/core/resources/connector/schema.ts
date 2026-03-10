@@ -214,17 +214,27 @@ export type RemoveConnectorResponse = z.infer<
 
 export const STRIPE_CONNECTOR_TYPE = "stripe" as const;
 
-export const InstallStripeResponseSchema = z.object({
-  already_installed: z.boolean(),
-  claim_url: z.string().nullable(),
-});
+export const InstallStripeResponseSchema = z
+  .object({
+    already_installed: z.boolean(),
+    claim_url: z.string().nullable(),
+  })
+  .transform((data) => ({
+    alreadyInstalled: data.already_installed,
+    claimUrl: data.claim_url,
+  }));
 
 export type InstallStripeResponse = z.infer<typeof InstallStripeResponseSchema>;
 
-export const StripeStatusResponseSchema = z.object({
-  stripe_mode: z.enum(["sandbox", "live"]).nullable(),
-  sandbox_claim_url: z.string().nullable().optional(),
-});
+export const StripeStatusResponseSchema = z
+  .object({
+    stripe_mode: z.enum(["sandbox", "live"]).nullable(),
+    sandbox_claim_url: z.string().nullable().optional(),
+  })
+  .transform((data) => ({
+    stripeMode: data.stripe_mode,
+    sandboxClaimUrl: data.sandbox_claim_url,
+  }));
 
 export type StripeStatusResponse = z.infer<typeof StripeStatusResponseSchema>;
 

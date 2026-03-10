@@ -300,8 +300,8 @@ describe("pushConnectors", () => {
     vi.resetAllMocks();
     mockListConnectors.mockResolvedValue({ integrations: [] });
     mockGetStripeStatus.mockResolvedValue({
-      stripe_mode: null,
-      sandbox_claim_url: null,
+      stripeMode: null,
+      sandboxClaimUrl: null,
     });
   });
 
@@ -599,8 +599,8 @@ describe("pushConnectors", () => {
     it("installs Stripe when local exists and remote is not installed", async () => {
       const local: ConnectorResource[] = [{ type: "stripe", scopes: [] }];
       mockInstallStripe.mockResolvedValue({
-        already_installed: false,
-        claim_url: null,
+        alreadyInstalled: false,
+        claimUrl: null,
       });
 
       const result = await pushConnectors(local);
@@ -614,8 +614,8 @@ describe("pushConnectors", () => {
     it("returns provisioned with claimUrl when Stripe install provides one", async () => {
       const local: ConnectorResource[] = [{ type: "stripe", scopes: [] }];
       mockInstallStripe.mockResolvedValue({
-        already_installed: false,
-        claim_url: "https://connect.stripe.com/setup/claim/xxx",
+        alreadyInstalled: false,
+        claimUrl: "https://connect.stripe.com/setup/claim/xxx",
       });
 
       const result = await pushConnectors(local);
@@ -632,8 +632,8 @@ describe("pushConnectors", () => {
     it("returns synced when local Stripe exists and remote is already installed", async () => {
       const local: ConnectorResource[] = [{ type: "stripe", scopes: [] }];
       mockGetStripeStatus.mockResolvedValue({
-        stripe_mode: "sandbox",
-        sandbox_claim_url: null,
+        stripeMode: "sandbox",
+        sandboxClaimUrl: null,
       });
 
       const result = await pushConnectors(local);
@@ -644,8 +644,8 @@ describe("pushConnectors", () => {
 
     it("removes Stripe when no local Stripe but remote is installed", async () => {
       mockGetStripeStatus.mockResolvedValue({
-        stripe_mode: "sandbox",
-        sandbox_claim_url: null,
+        stripeMode: "sandbox",
+        sandboxClaimUrl: null,
       });
       mockRemoveStripe.mockResolvedValue({ success: true });
 
@@ -668,8 +668,8 @@ describe("pushConnectors", () => {
 
     it("returns error when Stripe removal fails", async () => {
       mockGetStripeStatus.mockResolvedValue({
-        stripe_mode: "live",
-        sandbox_claim_url: null,
+        stripeMode: "live",
+        sandboxClaimUrl: null,
       });
       mockRemoveStripe.mockRejectedValue(new Error("Stripe remove failed"));
 
@@ -725,8 +725,8 @@ describe("pushConnectors", () => {
         otherUserEmail: null,
       });
       mockInstallStripe.mockResolvedValue({
-        already_installed: false,
-        claim_url: "https://connect.stripe.com/setup/claim/xxx",
+        alreadyInstalled: false,
+        claimUrl: "https://connect.stripe.com/setup/claim/xxx",
       });
 
       const result = await pushConnectors(local);
@@ -764,8 +764,8 @@ describe("pullAllConnectors", () => {
       ],
     });
     mockGetStripeStatus.mockResolvedValue({
-      stripe_mode: null,
-      sandbox_claim_url: null,
+      stripeMode: null,
+      sandboxClaimUrl: null,
     });
 
     const result = await pullAllConnectors();
@@ -787,8 +787,8 @@ describe("pullAllConnectors", () => {
       ],
     });
     mockGetStripeStatus.mockResolvedValue({
-      stripe_mode: "sandbox",
-      sandbox_claim_url: null,
+      stripeMode: "sandbox",
+      sandboxClaimUrl: null,
     });
 
     const result = await pullAllConnectors();
@@ -802,8 +802,8 @@ describe("pullAllConnectors", () => {
   it("returns only Stripe when no OAuth connectors exist", async () => {
     mockListConnectors.mockResolvedValue({ integrations: [] });
     mockGetStripeStatus.mockResolvedValue({
-      stripe_mode: "live",
-      sandbox_claim_url: null,
+      stripeMode: "live",
+      sandboxClaimUrl: null,
     });
 
     const result = await pullAllConnectors();
@@ -814,8 +814,8 @@ describe("pullAllConnectors", () => {
   it("returns empty array when no connectors exist remotely", async () => {
     mockListConnectors.mockResolvedValue({ integrations: [] });
     mockGetStripeStatus.mockResolvedValue({
-      stripe_mode: null,
-      sandbox_claim_url: null,
+      stripeMode: null,
+      sandboxClaimUrl: null,
     });
 
     const result = await pullAllConnectors();
@@ -833,8 +833,8 @@ describe("pullAllConnectors", () => {
   it("throws when listConnectors fails", async () => {
     mockListConnectors.mockRejectedValue(new Error("List API error"));
     mockGetStripeStatus.mockResolvedValue({
-      stripe_mode: null,
-      sandbox_claim_url: null,
+      stripeMode: null,
+      sandboxClaimUrl: null,
     });
 
     await expect(pullAllConnectors()).rejects.toThrow("List API error");

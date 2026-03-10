@@ -15,7 +15,7 @@ export async function pullAllConnectors(): Promise<ConnectorResource[]> {
     }),
   );
 
-  if (stripeStatus.stripe_mode !== null) {
+  if (stripeStatus.stripeMode !== null) {
     connectors.push({ type: STRIPE_CONNECTOR_TYPE, scopes: [] });
   }
 

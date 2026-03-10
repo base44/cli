@@ -56,6 +56,10 @@ async function runOAuthFlowWithSkip(
           finalStatus = "SKIPPED";
           return true;
         }
+        if (!connector.connectionId) {
+          finalStatus = "FAILED";
+          return true;
+        }
         const response = await getOAuthStatus(
           connector.type,
           connector.connectionId,
