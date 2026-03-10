@@ -1,12 +1,9 @@
 import { resolve } from "node:path";
-import { setupServer } from "msw/node";
-import { afterAll, afterEach, beforeAll, beforeEach } from "vitest";
+import { afterEach, beforeEach } from "vitest";
 import type { CLIResult, CLIResultMatcher } from "./CLIResultMatcher.js";
 import { CLITestkit } from "./CLITestkit.js";
 
 const FIXTURES_DIR = resolve(__dirname, "../../fixtures");
-
-export const mswServer = setupServer();
 
 /** Resolve a fixture path by name */
 export function fixture(name: string): string {
@@ -92,24 +89,15 @@ export function setupCLITests(): TestContext {
     return currentKit;
   };
 
-  beforeAll(() => {
-    mswServer.listen({ onUnhandledRequest: "bypass" });
-  });
-
   beforeEach(async () => {
     currentKit = await CLITestkit.create();
   });
 
   afterEach(async () => {
-    mswServer.resetHandlers();
     if (currentKit) {
       await currentKit.cleanup();
       currentKit = null;
     }
-  });
-
-  afterAll(() => {
-    mswServer.close();
   });
 
   // Default user for givenLoggedInWithProject
@@ -146,8 +134,8 @@ export function setupCLITests(): TestContext {
   };
 }
 
-export { Base44APIMock } from "./Base44APIMock.js";
 export type { CLIResult } from "./CLIResultMatcher.js";
 export { CLIResultMatcher } from "./CLIResultMatcher.js";
 // Re-export types and classes that tests might need
 export { CLITestkit } from "./CLITestkit.js";
+export { TestAPIServer } from "./TestAPIServer.js";
