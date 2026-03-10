@@ -202,3 +202,47 @@ export const RemoveConnectorResponseSchema = z
 export type RemoveConnectorResponse = z.infer<
   typeof RemoveConnectorResponseSchema
 >;
+
+const ConnectionConfigFieldSchema = z.object({
+  name: z.string(),
+  display_name: z.string(),
+  description: z.string(),
+  placeholder: z.string(),
+  required: z.boolean(),
+  validation_pattern: z.string().nullable().optional(),
+  validation_error: z.string().nullable().optional(),
+});
+
+const AvailableIntegrationSchema = z.object({
+  // Uses z.string() instead of IntegrationTypeSchema — the API may return
+  // integration types not yet known to the CLI.
+  integration_type: z.string().min(1),
+  display_name: z.string(),
+  description: z.string(),
+  connection_config_fields: z.array(ConnectionConfigFieldSchema),
+});
+
+export const ListAvailableIntegrationsResponseSchema = z
+  .object({
+    integrations: z.array(AvailableIntegrationSchema),
+  })
+  .transform((data) => ({
+    integrations: data.integrations.map((i) => ({
+      integrationType: i.integration_type,
+      displayName: i.display_name,
+      description: i.description,
+      connectionConfigFields: i.connection_config_fields.map((f) => ({
+        name: f.name,
+        displayName: f.display_name,
+        description: f.description,
+        placeholder: f.placeholder,
+        required: f.required,
+        validationPattern: f.validation_pattern,
+        validationError: f.validation_error,
+      })),
+    })),
+  }));
+
+export type ListAvailableIntegrationsResponse = z.infer<
+  typeof ListAvailableIntegrationsResponseSchema
+>;

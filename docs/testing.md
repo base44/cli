@@ -1,41 +1,59 @@
 # Writing Tests
 
-**Keywords:** test, vitest, testkit, setupCLITests, fixture, mock, Given/When/Then, BASE44_CLI_TEST_OVERRIDES, build before test, MSW
+**Keywords:** test, vitest, testkit, setupCLITests, fixture, mock, Given/When/Then, BASE44_CLI_TEST_OVERRIDES, CLI_TEST_RUNNER, build before test, binary, npm, TestAPIServer, Express
 
 ## Table of Contents
 
+- [Test Runner Modes](#test-runner-modes)
 - [How Testing Works](#how-testing-works)
 - [Test Structure](#test-structure)
 - [Writing a Test](#writing-a-test)
 - [Testkit API](#testkit-api) (Given / When / Then / File Assertions / Utilities)
-- [API Mocks](#api-mocks) (Entity / Function / Agent / Site / Connector / Auth / Project / Generic)
+- [API Mocks](#api-mocks) (Entity / Function / Agent / Site / Connector / Auth / Project / Custom Routes)
 - [Test Overrides](#test-overrides-base44_cli_test_overrides) (Adding a New Override)
 - [Testing Rules](#testing-rules)
 
 ---
 
-**Build before testing**: Tests import the bundled `dist/index.js`, so always run:
+## Test Runner Modes
+
+Tests can run against two different executables, controlled by the `CLI_TEST_RUNNER` env var:
+
+| Mode | Env var | Build required | What it tests |
+|------|---------|----------------|---------------|
+| **npm** (default) | `CLI_TEST_RUNNER=npm` | `bun run build` | The JS bundle via `node bin/run.js` (what npm users get) |
+| **binary** | `CLI_TEST_RUNNER=binary` | `bun run build && bun run build:binaries` | The compiled standalone binary (what Homebrew users get) |
 
 ```bash
+# Quick local iteration (npm mode, default)
 bun run build && bun run test
+
+# Explicit npm mode
+bun run build && bun run test:npm
+
+# Binary mode
+bun run build && bun run build:binaries && bun run test:binary
 ```
+
+CI runs both modes in parallel via matrix strategy.
 
 ## How Testing Works
 
-Tests use **MSW (Mock Service Worker)** to intercept HTTP requests. The testkit wraps MSW and provides a typed API for mocking Base44 endpoints. Tests run the actual bundled CLI code (from `dist/`), not source files.
+Tests spawn the CLI as a **child process** and communicate via stdout/stderr/exit code. A lightweight **Express HTTP server** (`TestAPIServer`) runs locally to simulate the Base44 API — the CLI is pointed at it via `BASE44_API_URL`.
 
 This means:
-- **`vi.mock()` won't work** with path aliases like `@/some/path.js` (they're resolved in the bundle)
-- Use the **`BASE44_CLI_TEST_OVERRIDES` env var** for mocking behavior instead (see below)
-- Always `bun run build` before `bun run test` to ensure the bundle is fresh
-- Tests always run with `isNonInteractive: true` (no TTY), so browser opens and animations are skipped
+- Tests exercise the full CLI pipeline (argument parsing, error handling, output formatting)
+- **`vi.mock()` won't work** — the CLI runs as a separate process, not an in-process import
+- Use the **`BASE44_CLI_TEST_OVERRIDES` env var** for injecting test behavior (see below)
+- Always build before testing (see [Test Runner Modes](#test-runner-modes))
+- Tests always run with `CI=true` (no TTY), so browser opens and animations are skipped
 
 ## Test Structure
 
 ```
 tests/
 ├── cli/                           # CLI integration tests
-│   ├── testkit/                   # Test utilities (CLITestkit, Base44APIMock)
+│   ├── testkit/                   # Test utilities (CLITestkit, TestAPIServer)
 │   ├── <command>.spec.ts          # e.g., login.spec.ts, deploy.spec.ts
 │   └── <parent>_<sub>.spec.ts     # e.g., entities_push.spec.ts
 ├── core/                          # Core module unit tests
@@ -91,7 +109,7 @@ describe("<command> command", () => {
 
     // Then
     t.expectResult(result).toFail();
-    t.expectResult(result).toContainInStderr("Server error");
+    t.expectResult(result).toContain("Server error");
   });
 });
 ```
@@ -100,7 +118,7 @@ describe("<command> command", () => {
 
 ### Setup
 
-`setupCLITests()` -- Call inside `describe()`, returns test context `t`. Handles MSW server lifecycle, temp directory creation/cleanup, and test isolation automatically.
+`setupCLITests()` -- Call inside `describe()`, returns test context `t`. Handles `TestAPIServer` lifecycle, temp directory creation/cleanup, and test isolation automatically via `beforeEach`/`afterEach`.
 
 ### Given (Setup State)
 
@@ -148,15 +166,10 @@ interface CLIResult {
 // Exit code assertions
 t.expectResult(result).toSucceed();              // exitCode === 0
 t.expectResult(result).toFail();                 // exitCode !== 0
-t.expectResult(result).toHaveExitCode(2);        // Specific exit code
 
 // Output assertions (searches both stdout + stderr)
 t.expectResult(result).toContain("Success");
 t.expectResult(result).toNotContain("Error");
-
-// Targeted output assertions
-t.expectResult(result).toContainInStdout("Created entity");
-t.expectResult(result).toContainInStderr("Server error");
 ```
 
 ### File Assertions
@@ -181,7 +194,7 @@ t.getTempDir()            // Get the temp directory path (isolated per test)
 
 ## API Mocks
 
-The `t.api` object provides typed mocks for all Base44 API endpoints. Mock methods are chainable.
+The `t.api` object (`TestAPIServer`) provides typed mocks for all Base44 API endpoints. Each test gets its own Express server on a random port. Mock methods are chainable.
 
 ### Entity Mocks
 
@@ -228,10 +241,11 @@ t.api.mockConnectorSet({
   connection_id: "conn-123",
   already_authorized: false,
 });
-t.api.mockConnectorOAuthStatus({ status: "ACTIVE" });
 t.api.mockConnectorRemove({ status: "removed", integration_type: "googlecalendar" });
+t.api.mockAvailableIntegrationsList({ integrations: [...] });
 t.api.mockConnectorsListError({ status: 500, body: { error: "Server error" } });
 t.api.mockConnectorSetError({ status: 401, body: { error: "Unauthorized" } });
+t.api.mockAvailableIntegrationsListError({ status: 500, body: { error: "Server error" } });
 ```
 
 ### Auth Mocks
@@ -251,8 +265,6 @@ t.api.mockToken({
   token_type: "Bearer",
 });
 t.api.mockUserInfo({ email: "test@example.com", name: "Test User" });
-t.api.mockTokenError({ status: 401, body: { error: "invalid_grant" } });
-t.api.mockUserInfoError({ status: 401, body: { error: "Unauthorized" } });
 ```
 
 ### Project Mocks
@@ -266,14 +278,33 @@ t.api.mockListProjects([
 t.api.mockProjectEject(tarContentAsUint8Array);
 ```
 
-### Generic Error Mock
-
-For endpoints without a specific error helper:
+### Secrets Mocks
 
 ```typescript
-t.api.mockError("get", "/api/apps/test-app-id/some-endpoint", {
-  status: 500,
-  body: { error: "Something went wrong" },
+t.api.mockSecretsList({ SECRET_KEY: "***" });
+t.api.mockSecretsSet({ success: true });
+t.api.mockSecretsDelete({ success: true });
+t.api.mockSecretsListError({ status: 500, body: { error: "Server error" } });
+t.api.mockSecretsSetError({ status: 500, body: { error: "Server error" } });
+t.api.mockSecretsDeleteError({ status: 500, body: { error: "Server error" } });
+```
+
+### Function Logs Mocks
+
+```typescript
+t.api.mockFunctionLogs("my-function", [
+  { time: "2025-01-01T00:00:00Z", level: "info", message: "Hello" },
+]);
+t.api.mockFunctionLogsError("my-function", { status: 500, body: { error: "Server error" } });
+```
+
+### Custom Route Mock
+
+For advanced scenarios (e.g. stateful responses across retries):
+
+```typescript
+t.api.mockRoute("PUT", `/api/apps/${appId}/entity-schemas`, (req, res) => {
+  res.status(200).json({ created: [], updated: [], deleted: [] });
 });
 ```
 
@@ -281,7 +312,7 @@ t.api.mockError("get", "/api/apps/test-app-id/some-endpoint", {
 
 ## Test Overrides (`BASE44_CLI_TEST_OVERRIDES`)
 
-For behaviors that can't be mocked via MSW (like filesystem-based config loading), the CLI uses a centralized JSON override mechanism.
+For behaviors that can't be mocked via the API server (like filesystem-based config loading), the CLI uses a centralized JSON override mechanism.
 
 **Current overrides:**
 - `appConfig` -- Mock app configuration (id, projectRoot). Set automatically by `givenProject()`
@@ -325,9 +356,10 @@ function getTestOverride(): MyType | undefined {
 
 ## Testing Rules
 
-1. **Build first** -- Always `bun run build` before `bun run test`
+1. **Build first** -- Always `bun run build` before testing; add `bun run build:binaries` for binary mode
 2. **Use fixtures** -- Don't create project structures in tests; use `tests/fixtures/`
 3. **Fixtures need `.app.jsonc`** -- Add `base44/.app.jsonc` with `{ "id": "test-app-id" }`
 4. **Interactive prompts can't be tested** -- Only test via non-interactive flags
 5. **Use test overrides** -- Extend `BASE44_CLI_TEST_OVERRIDES` for new testable behaviors; don't create new env vars
 6. **Mock snake_case, code camelCase** -- API mocks use snake_case keys matching the real API
+7. **Errors inside `runCommand` are displayed** -- Validation that needs to show error messages to users must run inside `runCommand`'s callback, not in Commander `preAction` hooks or option parser callbacks
