@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { isDeepStrictEqual } from "node:util";
 import type { FunctionInfo } from "@/core/resources/function/schema.js";
 import {
   pathExists,
@@ -74,9 +75,7 @@ async function isFunctionUnchanged(
     if (localConfig.entry !== fn.entry) {
       return false;
     }
-    const localAuto = JSON.stringify(localConfig.automations ?? []);
-    const remoteAuto = JSON.stringify(fn.automations);
-    if (localAuto !== remoteAuto) {
+    if (!isDeepStrictEqual(localConfig.automations ?? [], fn.automations)) {
       return false;
     }
   } catch {
