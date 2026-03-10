@@ -112,6 +112,23 @@ interface StripeRemoveResponse {
   success: boolean;
 }
 
+interface AvailableIntegrationsListResponse {
+  integrations: Array<{
+    integration_type: string;
+    display_name: string;
+    description: string;
+    connection_config_fields: Array<{
+      name: string;
+      display_name: string;
+      description: string;
+      placeholder: string;
+      required: boolean;
+      validation_pattern?: string | null;
+      validation_error?: string | null;
+    }>;
+  }>;
+}
+
 interface CreateAppResponse {
   id: string;
   name: string;
@@ -268,6 +285,19 @@ export class Base44APIMock {
             other_user_email: null,
             ...response,
           }),
+      ),
+    );
+    return this;
+  }
+
+  /** Mock GET /api/apps/{appId}/external-auth/available-integrations - List available integrations */
+  mockAvailableIntegrationsList(
+    response: AvailableIntegrationsListResponse,
+  ): this {
+    this.handlers.push(
+      http.get(
+        `${BASE_URL}/api/apps/${this.appId}/external-auth/available-integrations`,
+        () => HttpResponse.json(response),
       ),
     );
     return this;
@@ -500,6 +530,15 @@ export class Base44APIMock {
     return this.mockError(
       "get",
       `/api/apps/${this.appId}/external-auth/list`,
+      error,
+    );
+  }
+
+  /** Mock available integrations list to return an error */
+  mockAvailableIntegrationsListError(error: ErrorResponse): this {
+    return this.mockError(
+      "get",
+      `/api/apps/${this.appId}/external-auth/available-integrations`,
       error,
     );
   }

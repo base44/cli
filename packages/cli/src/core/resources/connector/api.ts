@@ -4,6 +4,7 @@ import { ApiError, SchemaValidationError } from "@/core/errors.js";
 import type {
   InstallStripeResponse,
   IntegrationType,
+  ListAvailableIntegrationsResponse,
   ListConnectorsResponse,
   OAuthStatusResponse,
   RemoveConnectorResponse,
@@ -13,6 +14,7 @@ import type {
 } from "./schema.js";
 import {
   InstallStripeResponseSchema,
+  ListAvailableIntegrationsResponseSchema,
   ListConnectorsResponseSchema,
   OAuthStatusResponseSchema,
   RemoveConnectorResponseSchema,
@@ -94,6 +96,30 @@ export async function getOAuthStatus(
   }
 
   const result = OAuthStatusResponseSchema.safeParse(await response.json());
+
+  if (!result.success) {
+    throw new SchemaValidationError(
+      "Invalid response from server",
+      result.error,
+    );
+  }
+
+  return result.data;
+}
+
+export async function listAvailableIntegrations(): Promise<ListAvailableIntegrationsResponse> {
+  const appClient = getAppClient();
+
+  let response: KyResponse;
+  try {
+    response = await appClient.get("external-auth/available-integrations");
+  } catch (error) {
+    throw await ApiError.fromHttpError(error, "listing available integrations");
+  }
+
+  const result = ListAvailableIntegrationsResponseSchema.safeParse(
+    await response.json(),
+  );
 
   if (!result.success) {
     throw new SchemaValidationError(
