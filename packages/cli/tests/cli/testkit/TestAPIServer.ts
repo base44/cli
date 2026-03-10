@@ -292,13 +292,6 @@ export class TestAPIServer {
   }
 
   /** Mock GET /api/apps/{appId}/backend-functions - List deployed functions */
-  mockFunctionsList(response: FunctionsListResponse): this {
-    return this.addRoute(
-      "GET",
-      `/api/apps/${this.appId}/backend-functions`,
-      response,
-    );
-  }
 
   /** Mock DELETE /api/apps/{appId}/backend-functions/{name} - Delete single function */
   mockSingleFunctionDelete(): this {
@@ -461,13 +454,6 @@ export class TestAPIServer {
   }
 
   /** Mock functions list to return an error */
-  mockFunctionsListError(error: ErrorResponse): this {
-    return this.addErrorRoute(
-      "GET",
-      `/api/apps/${this.appId}/backend-functions`,
-      error,
-    );
-  }
 
   /** Mock single function delete to return an error */
   mockSingleFunctionDeleteError(error: ErrorResponse): this {

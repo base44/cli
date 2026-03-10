@@ -1,10 +1,8 @@
-import { log } from "@clack/prompts";
 import { Command } from "commander";
 import type { CLIContext } from "@/cli/types.js";
-import { runCommand, theme } from "@/cli/utils/index.js";
-import { parseNames } from "@/cli/utils/parseNames.js";
+import { runCommand, runTask } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
-import { ApiError, InvalidInputError } from "@/core/errors.js";
+import { ApiError } from "@/core/errors.js";
 import { deleteSingleFunction } from "@/core/resources/function/api.js";
 
 async function deleteFunctionsAction(
@@ -13,29 +11,21 @@ async function deleteFunctionsAction(
   let deleted = 0;
   let notFound = 0;
   let errors = 0;
-  let completed = 0;
-  const total = names.length;
 
   for (const name of names) {
-    log.step(
-      theme.styles.dim(`[${completed + 1}/${total}] Deleting ${name}...`),
-    );
     try {
-      await deleteSingleFunction(name);
-      log.success(`${name.padEnd(25)} deleted`);
+      await runTask(`Deleting ${name}...`, () => deleteSingleFunction(name), {
+        successMessage: `${name} deleted`,
+        errorMessage: `Failed to delete ${name}`,
+      });
       deleted++;
     } catch (error) {
       if (error instanceof ApiError && error.statusCode === 404) {
-        log.warn(`${name.padEnd(25)} not found`);
         notFound++;
       } else {
-        log.error(
-          `${name.padEnd(25)} error: ${error instanceof Error ? error.message : String(error)}`,
-        );
         errors++;
       }
     }
-    completed++;
   }
 
   if (names.length === 1) {
@@ -44,6 +34,7 @@ async function deleteFunctionsAction(
     return { outroMessage: `Failed to delete "${names[0]}"` };
   }
 
+  const total = names.length;
   const parts: string[] = [];
   if (deleted > 0) parts.push(`${deleted}/${total} deleted`);
   if (notFound > 0) parts.push(`${notFound} not found`);
@@ -51,21 +42,30 @@ async function deleteFunctionsAction(
   return { outroMessage: parts.join(", ") };
 }
 
+/** Parse names from variadic CLI args, supporting comma-separated values. */
+function parseNames(args: string[]): string[] {
+  return args
+    .flatMap((arg) => arg.split(","))
+    .map((n) => n.trim())
+    .filter(Boolean);
+}
+
+function validateNames(command: Command): void {
+  const names = parseNames(command.args);
+  if (names.length === 0) {
+    command.error("At least one function name is required");
+  }
+}
+
 export function getDeleteCommand(context: CLIContext): Command {
   return new Command("delete")
     .description("Delete deployed functions")
     .argument("<names...>", "Function names to delete")
+    .hook("preAction", validateNames)
     .action(async (rawNames: string[]) => {
+      const names = parseNames(rawNames);
       await runCommand(
-        () => {
-          const names = parseNames(rawNames);
-          if (names.length === 0) {
-            throw new InvalidInputError(
-              "At least one function name is required",
-            );
-          }
-          return deleteFunctionsAction(names);
-        },
+        () => deleteFunctionsAction(names),
         { requireAuth: true },
         context,
       );

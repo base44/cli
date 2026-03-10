@@ -21,8 +21,8 @@ describe("functions delete command", () => {
     const result = await t.run("functions", "delete", "func-a", "func-b");
 
     t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain("Deleting func-a");
-    t.expectResult(result).toContain("Deleting func-b");
+    t.expectResult(result).toContain("func-a deleted");
+    t.expectResult(result).toContain("func-b deleted");
     t.expectResult(result).toContain("2/2 deleted");
   });
 
@@ -49,7 +49,7 @@ describe("functions delete command", () => {
     const result = await t.run("functions", "delete", "my-func");
 
     t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain("error");
+    t.expectResult(result).toContain("Failed to delete");
   });
 
   it("fails when not in a project directory", async () => {
