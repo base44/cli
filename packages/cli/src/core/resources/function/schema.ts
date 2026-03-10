@@ -93,19 +93,33 @@ export const DeployFunctionsResponseSchema = z.object({
     .nullable(),
 });
 
-const FunctionAutomationInfoSchema = z.object({
-  name: z.string(),
-  type: z.string(),
-  is_active: z.boolean(),
-});
+const FunctionAutomationInfoSchema = z
+  .object({
+    name: z.string(),
+    type: z.string(),
+    is_active: z.boolean(),
+  })
+  .transform((data) => ({
+    name: data.name,
+    type: data.type,
+    isActive: data.is_active,
+  }));
 
-const FunctionInfoSchema = z.object({
-  name: z.string(),
-  deployment_id: z.string(),
-  entry: z.string(),
-  files: z.array(FunctionFileSchema),
-  automations: z.array(FunctionAutomationInfoSchema),
-});
+const FunctionInfoSchema = z
+  .object({
+    name: z.string(),
+    deployment_id: z.string(),
+    entry: z.string(),
+    files: z.array(FunctionFileSchema),
+    automations: z.array(FunctionAutomationInfoSchema),
+  })
+  .transform((data) => ({
+    name: data.name,
+    deploymentId: data.deployment_id,
+    entry: data.entry,
+    files: data.files,
+    automations: data.automations,
+  }));
 
 export const ListFunctionsResponseSchema = z.object({
   functions: z.array(FunctionInfoSchema),
