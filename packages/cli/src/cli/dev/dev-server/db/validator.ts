@@ -47,11 +47,7 @@ export class Validator {
 
   applyDefaults(record: EntityRecord, entitySchema: Entity): EntityRecord {
     const result: EntityRecord = {};
-    for (const [key, property] of Object.entries(entitySchema.properties) as [
-      string,
-      // biome-ignore lint/suspicious/noExplicitAny: we don't need to write types for everything in `dev`
-      any,
-    ]) {
+    for (const [key, property] of Object.entries(entitySchema.properties)) {
       if (property.default !== undefined) {
         result[key] = property.default;
       }
@@ -119,10 +115,16 @@ export class Validator {
 
   private validateValue(
     value: unknown,
-    property: PropertyDefinition,
+    property: PropertyDefinition | undefined,
     fieldPath: string,
   ): ValidationResponse {
-    const propertyType = property?.type;
+    // Silently ignore fields not defined in the schema.
+    // The expectation is that `filterFields()` will run before.
+    if (!property) {
+      return { hasError: false };
+    }
+
+    const propertyType = property.type;
     if (!fieldTypes.includes(propertyType)) {
       return {
         hasError: true,

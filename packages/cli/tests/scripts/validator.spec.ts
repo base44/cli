@@ -335,6 +335,15 @@ describe("Validator", () => {
         });
       });
 
+      it("should silently ignore fields not defined in the schema", () => {
+        const schema = makeEntity({ name: { type: "string" } });
+        const record: EntityRecord = { name: "Alice", extra: "not in schema" };
+
+        const result = validator.validate(record, schema);
+
+        expect(result.hasError).toBe(false);
+      });
+
       it("should fail for unsupported field type", () => {
         const schema = makeEntity({ field: { type: "date" } });
 
