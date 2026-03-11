@@ -298,9 +298,9 @@ export function getCreateCommand(context: CLIContext): Command {
       "after",
       `
 Examples:
-  $ base44 create my-app                                       Create with defaults
-  $ base44 create my-app --template backend-and-client          Full-stack project
-  $ base44 create my-app --path ./my-app --deploy               Create and deploy`,
+  $ base44 create my-app                                         Creates a base44 project at ./my-app
+  $ base44 create my-todo-app --template backend-and-client      Creates a base44 backend-and-client project at ./my-todo-app
+  $ base44 create my-app --path ./projects/my-app --deploy       Creates a base44 project at ./project/my-app and deploys it`,
     )
     .hook("preAction", validateNonInteractiveFlags)
     .action(async (name: string | undefined, options: CreateOptions) => {
