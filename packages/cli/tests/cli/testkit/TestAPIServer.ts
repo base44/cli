@@ -81,7 +81,7 @@ interface FunctionsListResponse {
     deployment_id: string;
     entry: string;
     files: Array<{ path: string; content: string }>;
-    automations: Array<{ name: string; type: string; is_active: boolean }>;
+    automations: Record<string, unknown>[];
   }>;
 }
 

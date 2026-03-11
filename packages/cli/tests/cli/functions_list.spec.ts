@@ -52,7 +52,23 @@ describe("functions list command", () => {
           deployment_id: "d1",
           entry: "index.ts",
           files: [{ path: "index.ts", content: "" }],
-          automations: [{ name: "auto1", type: "scheduled", is_active: true }],
+          automations: [
+            {
+              name: "daily-cron",
+              type: "scheduled",
+              schedule_mode: "recurring",
+              schedule_type: "cron",
+              cron_expression: "0 9 * * *",
+              is_active: true,
+            },
+            {
+              name: "on-order-create",
+              type: "entity",
+              entity_name: "orders",
+              event_types: ["create", "update"],
+              is_active: true,
+            },
+          ],
         },
       ],
     });
@@ -61,7 +77,7 @@ describe("functions list command", () => {
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("func-a");
-    t.expectResult(result).toContain("1 automation");
+    t.expectResult(result).toContain("2 automations");
     t.expectResult(result).toContain("1 function on remote");
   });
 
