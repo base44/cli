@@ -129,7 +129,7 @@ export class Validator {
       return {
         hasError: true,
         error: this.createValidationError(
-          `Error in field ${fieldPath}: Input should be a valid ${propertyType}`,
+          `Error in field ${fieldPath}: Unsupported field type ${propertyType}`,
         ),
       };
     }

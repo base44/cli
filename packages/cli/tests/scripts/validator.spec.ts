@@ -351,7 +351,7 @@ describe("Validator", () => {
 
         expect(result.hasError).toBe(true);
         if (result.hasError) {
-          expect(result.error.message).toContain("date");
+          expect(result.error.message).toContain("Unsupported field type date");
         }
       });
     });
