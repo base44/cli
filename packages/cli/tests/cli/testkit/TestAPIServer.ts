@@ -38,16 +38,6 @@ interface FunctionsPushResponse {
   errors: Array<{ name: string; message: string }> | null;
 }
 
-interface FunctionsListResponse {
-  functions: Array<{
-    name: string;
-    deployment_id: string;
-    entry: string;
-    files: Array<{ path: string; content: string }>;
-    automations: Array<{ name: string; type: string; is_active: boolean }>;
-  }>;
-}
-
 interface SiteDeployResponse {
   app_url: string;
 }
@@ -83,6 +73,16 @@ interface SecretsSetResponse {
 
 interface SecretsDeleteResponse {
   success: boolean;
+}
+
+interface FunctionsListResponse {
+  functions: Array<{
+    name: string;
+    deployment_id: string;
+    entry: string;
+    files: Array<{ path: string; content: string }>;
+    automations: Record<string, unknown>[];
+  }>;
 }
 
 interface ConnectorsListResponse {
@@ -291,7 +291,6 @@ export class TestAPIServer {
     );
   }
 
-  /** Mock GET /api/apps/{appId}/backend-functions - List deployed functions */
   mockFunctionsList(response: FunctionsListResponse): this {
     return this.addRoute(
       "GET",
@@ -448,7 +447,6 @@ export class TestAPIServer {
     );
   }
 
-  /** Mock functions list to return an error */
   mockFunctionsListError(error: ErrorResponse): this {
     return this.addErrorRoute(
       "GET",

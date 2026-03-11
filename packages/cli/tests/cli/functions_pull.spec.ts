@@ -178,14 +178,24 @@ describe("functions pull command", () => {
     t.api.mockFunctionsList({
       functions: [
         {
-          name: "scheduled-func",
+          name: "automated-func",
           deployment_id: "d1",
           entry: "index.ts",
           files: [{ path: "index.ts", content: "Deno.serve(() => {})" }],
           automations: [
             {
-              name: "daily-run",
+              name: "daily-cron",
               type: "scheduled",
+              schedule_mode: "recurring",
+              schedule_type: "cron",
+              cron_expression: "0 9 * * *",
+              is_active: true,
+            },
+            {
+              name: "on-order-create",
+              type: "entity",
+              entity_name: "orders",
+              event_types: ["create", "update"],
               is_active: true,
             },
           ],
@@ -197,10 +207,14 @@ describe("functions pull command", () => {
 
     t.expectResult(result).toSucceed();
     const config = await t.readProjectFile(
-      "base44/functions/scheduled-func/function.jsonc",
+      "base44/functions/automated-func/function.jsonc",
     );
     expect(config).toContain("automations");
-    expect(config).toContain("daily-run");
+    expect(config).toContain("daily-cron");
+    expect(config).toContain("cron_expression");
+    expect(config).toContain("on-order-create");
+    expect(config).toContain("entity_name");
+    expect(config).toContain("orders");
   });
 
   it("skips unchanged functions on second pull", async () => {
