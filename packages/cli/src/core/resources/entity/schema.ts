@@ -106,7 +106,7 @@ const FieldRLSSchema = z.looseObject({
   delete: RLSRuleSchema.optional(),
 });
 
-const PropertyDefinitionSchema: z.ZodType<unknown> = z.looseObject({
+const PropertyDefinitionSchema = z.looseObject({
   type: z.string(),
   title: z.string().optional(),
   description: z.string().optional(),
@@ -122,15 +122,15 @@ const PropertyDefinitionSchema: z.ZodType<unknown> = z.looseObject({
   $ref: z.string().optional(),
   rls: FieldRLSSchema.optional(),
   required: z.array(z.string()).optional(),
-  get items(): z.ZodOptional<z.ZodType<unknown>> {
+  get items() {
     return PropertyDefinitionSchema.optional();
   },
-  get properties(): z.ZodOptional<
-    z.ZodRecord<z.ZodString, z.ZodType<unknown>>
-  > {
+  get properties() {
     return z.record(z.string(), PropertyDefinitionSchema).optional();
   },
 });
+
+export type PropertyDefinition = z.infer<typeof PropertyDefinitionSchema>;
 
 export const EntitySchema = z.looseObject({
   type: z.literal("object").default("object"),

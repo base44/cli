@@ -1,4 +1,7 @@
-import type { Entity } from "@/core/resources/entity/schema.js";
+import type {
+  Entity,
+  PropertyDefinition,
+} from "@/core/resources/entity/schema.js";
 
 export type EntityRecord = Record<string, unknown>;
 
@@ -104,8 +107,7 @@ export class Validator {
     entitySchema: Entity,
   ): ValidationResponse {
     for (const [key, value] of Object.entries(record)) {
-      // biome-ignore lint/suspicious/noExplicitAny: we don't need to write types for everything in `dev`
-      const property = entitySchema.properties[key] as any;
+      const property = entitySchema.properties[key];
       const result = this.validateValue(value, property, key);
       if (result.hasError) return result;
     }
@@ -117,8 +119,7 @@ export class Validator {
 
   private validateValue(
     value: unknown,
-    // biome-ignore lint/suspicious/noExplicitAny: we don't need to write types for everything in `dev`
-    property: any,
+    property: PropertyDefinition,
     fieldPath: string,
   ): ValidationResponse {
     const propertyType = property?.type;
