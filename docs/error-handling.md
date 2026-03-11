@@ -2,7 +2,7 @@
 
 **Keywords:** error, CLIError, UserError, SystemError, ApiError, hints, SchemaValidationError, CLIExitError, error code, process.exit
 
-The CLI uses a structured error hierarchy to provide clear, actionable error messages with hints for users and AI agents. All error classes live in `src/core/errors.ts`.
+The CLI uses a structured error hierarchy to provide clear, actionable error messages with hints for users and AI agents. All error classes live in `packages/cli/src/core/errors.ts`.
 
 ## Error Hierarchy
 
