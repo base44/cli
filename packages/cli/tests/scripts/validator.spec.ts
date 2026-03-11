@@ -211,6 +211,130 @@ describe("Validator", () => {
         expect(result.hasError).toBe(false);
       });
 
+      describe("array items validation", () => {
+        it("should pass for array with valid string items", () => {
+          const schema = makeEntity({
+            tags: { type: "array", items: { type: "string" } },
+          });
+
+          const result = validator.validate({ tags: ["a", "b"] }, schema);
+
+          expect(result.hasError).toBe(false);
+        });
+
+        it("should fail when array item has wrong type", () => {
+          const schema = makeEntity({
+            tags: { type: "array", items: { type: "string" } },
+          });
+
+          const result = validator.validate({ tags: ["a", 42] }, schema);
+
+          expect(result.hasError).toBe(true);
+          if (result.hasError) {
+            expect(result.error.message).toContain("tags[1]");
+            expect(result.error.message).toContain("string");
+          }
+        });
+
+        // This one is temporary, and is here only because poduction is not there yet.
+        it("should skip item validation when items is not defined", () => {
+          const schema = makeEntity({ tags: { type: "array" } });
+
+          const result = validator.validate({ tags: [1, "mixed", true] }, schema);
+
+          expect(result.hasError).toBe(false);
+        });
+
+        it("should validate array of objects recursively", () => {
+          const schema = makeEntity({
+            entries: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  name: { type: "string" },
+                  count: { type: "integer" },
+                },
+              },
+            },
+          });
+
+          const passing = validator.validate(
+            { entries: [{ name: "x", count: 1 }] },
+            schema,
+          );
+          expect(passing.hasError).toBe(false);
+
+          const failing = validator.validate(
+            { entries: [{ name: "x", count: 1.5 }] },
+            schema,
+          );
+          expect(failing.hasError).toBe(true);
+          if (failing.hasError) {
+            expect(failing.error.message).toContain("entries[0].count");
+            expect(failing.error.message).toContain("integer");
+          }
+        });
+      });
+
+      describe("object properties validation", () => {
+        it("should validate nested object properties", () => {
+          const schema = makeEntity({
+            data: {
+              type: "object",
+              properties: {
+                name: { type: "string" },
+                count: { type: "integer" },
+              },
+            },
+          });
+
+          const passing = validator.validate(
+            { data: { name: "x", count: 1 } },
+            schema,
+          );
+          expect(passing.hasError).toBe(false);
+
+          const failing = validator.validate(
+            { data: { name: 123 } },
+            schema,
+          );
+          expect(failing.hasError).toBe(true);
+          if (failing.hasError) {
+            expect(failing.error.message).toContain("data.name");
+            expect(failing.error.message).toContain("string");
+          }
+        });
+
+        // This one is temporary, and is here only because poduction is not there yet.
+        it("should skip property validation when properties is not defined", () => {
+          const schema = makeEntity({ meta: { type: "object" } });
+
+          const result = validator.validate(
+            { meta: { anything: 123, goes: true } },
+            schema,
+          );
+
+          expect(result.hasError).toBe(false);
+        });
+
+        it("should ignore keys not in the schema properties", () => {
+          const schema = makeEntity({
+            data: {
+              type: "object",
+              properties: { name: { type: "string" } },
+            },
+          });
+
+          const result = validator.validate(
+            { data: { name: "ok", extra: 999 } },
+            schema,
+          );
+
+          expect(result.hasError).toBe(false);
+        });
+      });
+
       it("should fail for unsupported field type", () => {
         const schema = makeEntity({ field: { type: "date" } });
 

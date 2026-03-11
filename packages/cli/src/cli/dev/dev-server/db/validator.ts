@@ -106,51 +106,98 @@ export class Validator {
     for (const [key, value] of Object.entries(record)) {
       // biome-ignore lint/suspicious/noExplicitAny: we don't need to write types for everything in `dev`
       const property = entitySchema.properties[key] as any;
-      const propertyType = property?.type;
-      if (!fieldTypes.includes(propertyType)) {
-        return {
-          hasError: true,
-          error: this.createValidationError(
-            `Error in field ${key}: Input should be a valid ${propertyType}`,
-          ),
-        };
-      }
-      switch (propertyType) {
-        case "array":
-          if (!Array.isArray(value)) {
-            return {
-              hasError: true,
-              error: this.createValidationError(
-                `Error in field ${key}: Input should be a valid array`,
-              ),
-            };
-          }
-          break;
-        case "integer":
-          if (!Number.isInteger(value)) {
-            return {
-              hasError: true,
-              error: this.createValidationError(
-                `Error in field ${key}: Input should be a valid integer`,
-              ),
-            };
-          }
-          break;
-        default:
-          if (typeof value !== propertyType) {
-            return {
-              hasError: true,
-              error: this.createValidationError(
-                `Error in field ${key}: Input should be a valid ${propertyType}`,
-              ),
-            };
-          }
-      }
+      const result = this.validateValue(value, property, key);
+      if (result.hasError) return result;
     }
 
     return {
       hasError: false,
     };
+  }
+
+  private validateValue(
+    value: unknown,
+    // biome-ignore lint/suspicious/noExplicitAny: we don't need to write types for everything in `dev`
+    property: any,
+    fieldPath: string,
+  ): ValidationResponse {
+    const propertyType = property?.type;
+    if (!fieldTypes.includes(propertyType)) {
+      return {
+        hasError: true,
+        error: this.createValidationError(
+          `Error in field ${fieldPath}: Input should be a valid ${propertyType}`,
+        ),
+      };
+    }
+
+    switch (propertyType) {
+      case "array":
+        if (!Array.isArray(value)) {
+          return {
+            hasError: true,
+            error: this.createValidationError(
+              `Error in field ${fieldPath}: Input should be a valid array`,
+            ),
+          };
+        }
+        if (property.items) {
+          for (let i = 0; i < value.length; i++) {
+            const itemResult = this.validateValue(
+              value[i],
+              property.items,
+              `${fieldPath}[${i}]`,
+            );
+            if (itemResult.hasError) return itemResult;
+          }
+        }
+        break;
+      case "object":
+        if (typeof value !== "object" || value === null || Array.isArray(value)) {
+          return {
+            hasError: true,
+            error: this.createValidationError(
+              `Error in field ${fieldPath}: Input should be a valid object`,
+            ),
+          };
+        }
+        if (property.properties) {
+          for (const [subKey, subValue] of Object.entries(
+            value as Record<string, unknown>,
+          )) {
+            if (property.properties[subKey]) {
+              const subResult = this.validateValue(
+                subValue,
+                property.properties[subKey],
+                `${fieldPath}.${subKey}`,
+              );
+              if (subResult.hasError) return subResult;
+            }
+          }
+        }
+        break;
+      case "integer":
+        if (!Number.isInteger(value)) {
+          return {
+            hasError: true,
+            error: this.createValidationError(
+              `Error in field ${fieldPath}: Input should be a valid integer`,
+            ),
+          };
+        }
+        break;
+      default:
+        if (typeof value !== propertyType) {
+          return {
+            hasError: true,
+            error: this.createValidationError(
+              `Error in field ${fieldPath}: Input should be a valid ${propertyType}`,
+            ),
+          };
+        }
+    }
+
+    return { hasError: false };
   }
 
   private validateRequiredFields(
