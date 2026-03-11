@@ -49,7 +49,9 @@ function validateNonInteractiveFlags(command: Command): void {
   const { path } = command.opts<CreateOptions>();
 
   if (path && !command.args.length) {
-    command.error("Non-interactive mode requires all flags: --name, --path");
+    command.error(
+      "--path requires a project name argument. Usage: base44 create <name> --path <path>",
+    );
   }
 }
 
@@ -113,6 +115,8 @@ async function createInteractive(
 async function createNonInteractive(
   options: CreateOptions,
 ): Promise<RunCommandResult> {
+  log.info(`Creating a new project at ${resolve(options.path!)}`);
+
   const template = await getTemplateById(
     options.template ?? DEFAULT_TEMPLATE_ID,
   );
@@ -290,8 +294,20 @@ export function getCreateCommand(context: CLIContext): Command {
     )
     .option("--deploy", "Build and deploy the site")
     .option("--no-skills", "Skip AI agent skills installation")
+    .addHelpText(
+      "after",
+      `
+Examples:
+  $ base44 create my-app                                         Creates a base44 project at ./my-app
+  $ base44 create my-todo-app --template backend-and-client      Creates a base44 backend-and-client project at ./my-todo-app
+  $ base44 create my-app --path ./projects/my-app --deploy       Creates a base44 project at ./project/my-app and deploys it`,
+    )
     .hook("preAction", validateNonInteractiveFlags)
     .action(async (name: string | undefined, options: CreateOptions) => {
+      if (name && !options.path) {
+        options.path = `./${kebabCase(name)}`;
+      }
+
       const isNonInteractive = !!(options.name ?? name) && !!options.path;
 
       if (isNonInteractive) {
