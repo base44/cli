@@ -15,7 +15,6 @@ The binary release pipeline has two steps:
 2. **`infra/package-binaries.ts`** — packages each binary for release:
    - Wraps each binary (renamed to `base44` / `base44.exe`) and `README.md` in a `.tar.gz` archive
    - Deletes the raw binary
-   - Generates SHA256 checksums for each archive
 
 ```bash
 bun run build            # Must run first — produces dist/cli/ and dist/assets/
@@ -49,11 +48,23 @@ No `assetsDir` parameter is passed through CLIContext or function signatures. Ad
 
 ## Homebrew Formula
 
-`infra/homebrew/base44.rb` is a reference template for the Homebrew tap. It downloads the `.tar.gz` archive for the user's platform from GitHub Releases. Homebrew auto-extracts the tarball, so the install block simply does `bin.install "base44"`. Copy it to the `homebrew-tap` repo and update version + SHA256 values on each release.
+`infra/homebrew/base44.rb` is a template for the Homebrew tap formula. It downloads the `.tar.gz` archive for the user's platform from GitHub Releases. Homebrew auto-extracts the tarball, so the install block simply does `bin.install "base44"`.
+
+The template uses `PLACEHOLDER_*` SHA256 values that are replaced automatically by CI on each release. The rendered formula is pushed to the [base44/homebrew-tap](https://github.com/base44/homebrew-tap) repository at `Formula/base44.rb`.
+
+Users install with:
+```bash
+brew install base44/tap/base44
+```
 
 ## CI Integration
 
-The `manual-publish.yml` workflow runs `build:binaries` then `package:binaries` after `bun run build`, and uploads the resulting `.tar.gz` and `.sha256` files to the GitHub Release. Binaries are excluded from the npm package via `.npmignore`.
+The `manual-publish.yml` workflow runs `build:binaries` then `package:binaries` after `bun run build`, and uploads the resulting `.tar.gz` files to the GitHub Release. Binaries are excluded from the npm package via `.npmignore`.
+
+For `latest` tag releases (not beta/alpha), the workflow also updates the Homebrew tap automatically:
+1. Computes SHA256 checksums for each platform archive
+2. Renders the formula template with the new version and checksums
+3. Pushes the updated formula to `base44/homebrew-tap`
 
 ## Rules
 

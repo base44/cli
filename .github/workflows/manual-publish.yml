@@ -18,11 +18,6 @@ on:
         required: false
         default: false
         type: boolean
-      update_changelog:
-        description: "Update CHANGELOG.md with release notes"
-        required: false
-        default: false
-        type: boolean
       notify_skills_repo:
         description: "Notify the skills repo about the release"
         required: false
@@ -214,6 +209,42 @@ jobs:
             echo "Uploading $file..."
             gh release upload "v${{ env.NEW_VERSION }}" "$file" --clobber
           done
+
+      - name: Update Homebrew Tap
+        if: github.event.inputs.dry_run == 'false' && github.event.inputs.npm_tag == 'latest'
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+        run: |
+          VERSION="${{ env.NEW_VERSION }}"
+          BINARIES_DIR="${{ env.CLI_PACKAGE_DIR }}/dist/binaries"
+
+          SHA_DARWIN_ARM64=$(shasum -a 256 "$BINARIES_DIR/base44-darwin-arm64.tar.gz" | awk '{print $1}')
+          SHA_DARWIN_X64=$(shasum -a 256 "$BINARIES_DIR/base44-darwin-x64.tar.gz" | awk '{print $1}')
+          SHA_LINUX_ARM64=$(shasum -a 256 "$BINARIES_DIR/base44-linux-arm64.tar.gz" | awk '{print $1}')
+          SHA_LINUX_X64=$(shasum -a 256 "$BINARIES_DIR/base44-linux-x64.tar.gz" | awk '{print $1}')
+
+          cp "${{ env.CLI_PACKAGE_DIR }}/infra/homebrew/base44.rb" /tmp/base44.rb
+          sed -i 's/version ".*"/version "'"$VERSION"'"/' /tmp/base44.rb
+          sed -i "s/PLACEHOLDER_DARWIN_ARM64/$SHA_DARWIN_ARM64/" /tmp/base44.rb
+          sed -i "s/PLACEHOLDER_DARWIN_X64/$SHA_DARWIN_X64/" /tmp/base44.rb
+          sed -i "s/PLACEHOLDER_LINUX_ARM64/$SHA_LINUX_ARM64/" /tmp/base44.rb
+          sed -i "s/PLACEHOLDER_LINUX_X64/$SHA_LINUX_X64/" /tmp/base44.rb
+
+          rm -rf /tmp/homebrew-tap
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/base44/homebrew-tap.git" /tmp/homebrew-tap
+          mkdir -p /tmp/homebrew-tap/Formula
+          cp /tmp/base44.rb /tmp/homebrew-tap/Formula/base44.rb
+
+          cd /tmp/homebrew-tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/base44.rb
+          if git diff --cached --quiet; then
+            echo "Homebrew formula already up to date"
+            exit 0
+          fi
+          git commit -m "Update base44 to ${VERSION}"
+          git push origin master
 
       - name: Release summary
         if: steps.prev-tag.outputs.tag != ''
