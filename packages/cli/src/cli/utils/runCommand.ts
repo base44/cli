@@ -108,7 +108,8 @@ export async function runCommand(
     }
 
     const result = await commandFn();
-    await printUpgradeNotification(upgradeCheckPromise);
+    await printUpgradeNotification(upgradeCheckPromise, context.distribution);
+
     outro(result.outroMessage || "");
 
     if (result.stdout) {
