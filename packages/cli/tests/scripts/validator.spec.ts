@@ -240,7 +240,10 @@ describe("Validator", () => {
         it("should skip item validation when items is not defined", () => {
           const schema = makeEntity({ tags: { type: "array" } });
 
-          const result = validator.validate({ tags: [1, "mixed", true] }, schema);
+          const result = validator.validate(
+            { tags: [1, "mixed", true] },
+            schema,
+          );
 
           expect(result.hasError).toBe(false);
         });
@@ -295,10 +298,7 @@ describe("Validator", () => {
           );
           expect(passing.hasError).toBe(false);
 
-          const failing = validator.validate(
-            { data: { name: 123 } },
-            schema,
-          );
+          const failing = validator.validate({ data: { name: 123 } }, schema);
           expect(failing.hasError).toBe(true);
           if (failing.hasError) {
             expect(failing.error.message).toContain("data.name");

@@ -153,7 +153,11 @@ export class Validator {
         }
         break;
       case "object":
-        if (typeof value !== "object" || value === null || Array.isArray(value)) {
+        if (
+          typeof value !== "object" ||
+          value === null ||
+          Array.isArray(value)
+        ) {
           return {
             hasError: true,
             error: this.createValidationError(
