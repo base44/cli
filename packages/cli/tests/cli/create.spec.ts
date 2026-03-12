@@ -13,7 +13,7 @@ describe("create command", () => {
     const result = await t.run("create", "--path", "./my-project");
 
     t.expectResult(result).toFail();
-    t.expectResult(result).toContain("Non-interactive mode requires all flags");
+    t.expectResult(result).toContain("--path requires a project name argument");
   });
 
   it("creates project in non-interactive mode", async () => {
@@ -34,6 +34,17 @@ describe("create command", () => {
     t.expectResult(result).toContain("Project created successfully");
     t.expectResult(result).toContain("My New Project");
     t.expectResult(result).toContain("new-project-id");
+  });
+
+  it("infers path from name when --path is not provided", async () => {
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    t.api.mockCreateApp({ id: "inferred-path-id", name: "My App" });
+
+    const result = await t.run("create", "My App", "--no-skills");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Creating a new project at");
+    t.expectResult(result).toContain("Project created successfully");
   });
 
   it("creates project with custom template", async () => {

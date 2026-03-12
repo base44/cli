@@ -7,6 +7,7 @@ describe("connectors push command", () => {
   it("shows message when no local connectors found", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
     t.api.mockConnectorsList({ integrations: [] });
+    t.api.mockStripeStatus({ stripe_mode: null });
 
     const result = await t.run("connectors", "push");
 
@@ -26,6 +27,7 @@ describe("connectors push command", () => {
   it("finds and lists connectors in project", async () => {
     await t.givenLoggedInWithProject(fixture("with-connectors"));
     t.api.mockConnectorsList({ integrations: [] });
+    t.api.mockStripeStatus({ stripe_mode: null });
     t.api.mockConnectorSet({
       redirect_url: null,
       connection_id: null,
@@ -41,6 +43,7 @@ describe("connectors push command", () => {
   it("displays synced connectors with checkmark", async () => {
     await t.givenLoggedInWithProject(fixture("with-connectors"));
     t.api.mockConnectorsList({ integrations: [] });
+    t.api.mockStripeStatus({ stripe_mode: null });
     t.api.mockConnectorSet({
       redirect_url: null,
       connection_id: null,
@@ -62,6 +65,7 @@ describe("connectors push command", () => {
         { integration_type: "slack", status: "active", scopes: ["chat:write"] },
       ],
     });
+    t.api.mockStripeStatus({ stripe_mode: null });
     t.api.mockConnectorRemove({ status: "removed", integration_type: "slack" });
 
     const result = await t.run("connectors", "push");
@@ -74,6 +78,7 @@ describe("connectors push command", () => {
   it("displays error when sync fails", async () => {
     await t.givenLoggedInWithProject(fixture("with-connectors"));
     t.api.mockConnectorsList({ integrations: [] });
+    t.api.mockStripeStatus({ stripe_mode: null });
     t.api.mockConnectorSetError({
       status: 500,
       body: { error: "Server error" },
@@ -89,6 +94,7 @@ describe("connectors push command", () => {
   it("shows needs authorization when redirect_url is returned", async () => {
     await t.givenLoggedInWithProject(fixture("with-connectors"));
     t.api.mockConnectorsList({ integrations: [] });
+    t.api.mockStripeStatus({ stripe_mode: null });
     t.api.mockConnectorSet({
       redirect_url: "https://accounts.google.com/oauth",
       connection_id: "conn_123",
@@ -105,6 +111,7 @@ describe("connectors push command", () => {
   it("shows error for different_user response", async () => {
     await t.givenLoggedInWithProject(fixture("with-connectors"));
     t.api.mockConnectorsList({ integrations: [] });
+    t.api.mockStripeStatus({ stripe_mode: null });
     t.api.mockConnectorSet({
       redirect_url: null,
       connection_id: null,
@@ -118,5 +125,79 @@ describe("connectors push command", () => {
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Already connected by another user");
+  });
+
+  describe("stripe", () => {
+    it("shows provisioned output with claim URL on fresh install", async () => {
+      await t.givenLoggedInWithProject(fixture("with-stripe-connector"));
+      t.api.mockConnectorsList({ integrations: [] });
+      t.api.mockStripeStatus({ stripe_mode: null });
+      t.api.mockConnectorSet({
+        redirect_url: null,
+        connection_id: null,
+        already_authorized: true,
+      });
+      t.api.mockStripeInstall({
+        already_installed: false,
+        claim_url: "https://connect.stripe.com/setup/claim/xxx",
+      });
+
+      const result = await t.run("connectors", "push");
+
+      t.expectResult(result).toSucceed();
+      t.expectResult(result).toContain("Found 2 connectors to push");
+      t.expectResult(result).toContain("Stripe sandbox provisioned");
+      t.expectResult(result).toContain("connect.stripe.com/setup/claim/xxx");
+      t.expectResult(result).toContain("Connectors dashboard");
+    });
+
+    it("shows synced when Stripe is already installed", async () => {
+      await t.givenLoggedInWithProject(fixture("with-stripe-connector"));
+      t.api.mockConnectorsList({ integrations: [] });
+      t.api.mockStripeStatus({ stripe_mode: "sandbox" });
+      t.api.mockConnectorSet({
+        redirect_url: null,
+        connection_id: null,
+        already_authorized: true,
+      });
+
+      const result = await t.run("connectors", "push");
+
+      t.expectResult(result).toSucceed();
+      t.expectResult(result).toContain("Synced: slack, stripe");
+    });
+
+    it("shows removed when Stripe is removed locally", async () => {
+      await t.givenLoggedInWithProject(fixture("basic"));
+      t.api.mockConnectorsList({ integrations: [] });
+      t.api.mockStripeStatus({ stripe_mode: "sandbox" });
+      t.api.mockStripeRemove({ success: true });
+
+      const result = await t.run("connectors", "push");
+
+      t.expectResult(result).toSucceed();
+      t.expectResult(result).toContain("Removed:");
+      t.expectResult(result).toContain("stripe");
+    });
+
+    it("shows error when Stripe install fails", async () => {
+      await t.givenLoggedInWithProject(fixture("with-stripe-connector"));
+      t.api.mockConnectorsList({ integrations: [] });
+      t.api.mockStripeStatus({ stripe_mode: null });
+      t.api.mockConnectorSet({
+        redirect_url: null,
+        connection_id: null,
+        already_authorized: true,
+      });
+      t.api.mockStripeInstallError({
+        status: 500,
+        body: { error: "Stripe install failed" },
+      });
+
+      const result = await t.run("connectors", "push");
+
+      t.expectResult(result).toSucceed();
+      t.expectResult(result).toContain("Failed: stripe");
+    });
   });
 });

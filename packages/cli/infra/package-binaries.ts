@@ -6,9 +6,8 @@
  * Steps:
  *   1. Wrap each binary + README.md in a .tar.gz archive
  *   2. Delete the raw binary
- *   3. Generate SHA256 checksums for each archive
  */
-import { readFileSync, existsSync, unlinkSync, writeFileSync } from "node:fs";
+import { readFileSync, existsSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import chalk from "chalk";
 
@@ -58,23 +57,6 @@ for (const { output } of TARGETS) {
   );
   await Bun.write(archivePath, archive);
   unlinkSync(binaryPath);
-}
-
-// ---------------------------------------------------------------------------
-// 2. Generate SHA256 checksums
-// ---------------------------------------------------------------------------
-console.log(chalk.dim("  Generating checksums..."));
-
-for (const { output } of TARGETS) {
-  const archiveName = `${output.replace(/\.exe$/, "")}.tar.gz`;
-  const archivePath = join(BINARIES_DIR, archiveName);
-  const hasher = new Bun.CryptoHasher("sha256");
-  hasher.update(readFileSync(archivePath));
-  const hash = hasher.digest("hex");
-  writeFileSync(
-    join(BINARIES_DIR, `${archiveName}.sha256`),
-    `${hash}  ${archiveName}\n`,
-  );
 }
 
 // ---------------------------------------------------------------------------

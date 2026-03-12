@@ -77,6 +77,11 @@ const GoogleBigQueryConnectorSchema = z.object({
   scopes: z.array(z.string()).default([]),
 });
 
+const StripeConnectorSchema = z.object({
+  type: z.literal("stripe"),
+  scopes: z.array(z.string()).default([]),
+});
+
 const CustomTypeSchema = z
   .string()
   .min(1)
@@ -101,6 +106,7 @@ export const ConnectorResourceSchema = z.union([
   HubspotConnectorSchema,
   LinkedInConnectorSchema,
   TikTokConnectorSchema,
+  StripeConnectorSchema,
   GenericConnectorSchema,
 ]);
 
@@ -120,6 +126,7 @@ const KnownIntegrationTypes = [
   "hubspot",
   "linkedin",
   "tiktok",
+  "stripe",
 ] as const;
 
 export const IntegrationTypeSchema = z.union([
@@ -202,6 +209,42 @@ export const RemoveConnectorResponseSchema = z
 export type RemoveConnectorResponse = z.infer<
   typeof RemoveConnectorResponseSchema
 >;
+
+// ─── STRIPE-SPECIFIC SCHEMAS ─────────────────────────────────
+
+export const STRIPE_CONNECTOR_TYPE = "stripe" as const;
+
+export const InstallStripeResponseSchema = z
+  .object({
+    already_installed: z.boolean(),
+    claim_url: z.string().nullable(),
+  })
+  .transform((data) => ({
+    alreadyInstalled: data.already_installed,
+    claimUrl: data.claim_url,
+  }));
+
+export type InstallStripeResponse = z.infer<typeof InstallStripeResponseSchema>;
+
+export const StripeStatusResponseSchema = z
+  .object({
+    stripe_mode: z.enum(["sandbox", "live"]).nullable(),
+    sandbox_claim_url: z.string().nullable().optional(),
+  })
+  .transform((data) => ({
+    stripeMode: data.stripe_mode,
+    sandboxClaimUrl: data.sandbox_claim_url,
+  }));
+
+export type StripeStatusResponse = z.infer<typeof StripeStatusResponseSchema>;
+
+export const RemoveStripeResponseSchema = z.object({
+  success: z.boolean(),
+});
+
+export type RemoveStripeResponse = z.infer<typeof RemoveStripeResponseSchema>;
+
+// ─── LIST AVAILABLE INTEGRATIONS ─────────────────────────────
 
 const ConnectionConfigFieldSchema = z.object({
   name: z.string(),

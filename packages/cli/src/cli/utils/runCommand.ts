@@ -3,7 +3,10 @@ import { login } from "@/cli/commands/auth/login-flow.js";
 import type { CLIContext } from "@/cli/types.js";
 import { printBanner } from "@/cli/utils/banner.js";
 import { theme } from "@/cli/utils/theme.js";
-import { printUpgradeNotificationIfAvailable } from "@/cli/utils/upgradeNotification.js";
+import {
+  printUpgradeNotification,
+  startUpgradeCheck,
+} from "@/cli/utils/upgradeNotification.js";
 import { isLoggedIn, readAuth } from "@/core/auth/index.js";
 import { isCLIError } from "@/core/errors.js";
 import { initAppConfig } from "@/core/project/index.js";
@@ -76,7 +79,7 @@ export async function runCommand(
   } else {
     intro(theme.colors.base44OrangeBackground(" Base 44 "));
   }
-  await printUpgradeNotificationIfAvailable();
+  const upgradeCheckPromise = startUpgradeCheck();
 
   try {
     // Check authentication if required
@@ -105,6 +108,8 @@ export async function runCommand(
     }
 
     const result = await commandFn();
+    await printUpgradeNotification(upgradeCheckPromise, context.distribution);
+
     outro(result.outroMessage || "");
 
     if (result.stdout) {

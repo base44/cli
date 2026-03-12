@@ -6,10 +6,12 @@ import type {
   FunctionLogFilters,
   FunctionLogsResponse,
   FunctionWithCode,
+  ListFunctionsResponse,
 } from "@/core/resources/function/schema.js";
 import {
   DeployFunctionsResponseSchema,
   FunctionLogsResponseSchema,
+  ListFunctionsResponseSchema,
 } from "@/core/resources/function/schema.js";
 
 function toDeployPayloadItem(fn: FunctionWithCode) {
@@ -120,5 +122,25 @@ export async function fetchFunctionLogs(
     );
   }
 
+  return result.data;
+}
+
+export async function listDeployedFunctions(): Promise<ListFunctionsResponse> {
+  const appClient = getAppClient();
+
+  let response: KyResponse;
+  try {
+    response = await appClient.get("backend-functions", { timeout: 30_000 });
+  } catch (error) {
+    throw await ApiError.fromHttpError(error, "listing deployed functions");
+  }
+
+  const result = ListFunctionsResponseSchema.safeParse(await response.json());
+  if (!result.success) {
+    throw new SchemaValidationError(
+      "Invalid response from server",
+      result.error,
+    );
+  }
   return result.data;
 }
