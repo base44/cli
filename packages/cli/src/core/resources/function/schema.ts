@@ -119,6 +119,7 @@ export type FunctionFile = z.infer<typeof FunctionFileSchema>;
 export type DeployFunctionsResponse = z.infer<
   typeof DeployFunctionsResponseSchema
 >;
+export type FunctionInfo = z.infer<typeof FunctionInfoSchema>;
 export type ListFunctionsResponse = z.infer<typeof ListFunctionsResponseSchema>;
 
 export type FunctionWithCode = Omit<BackendFunction, "filePaths"> & {
