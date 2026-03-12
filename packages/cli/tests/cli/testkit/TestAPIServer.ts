@@ -75,6 +75,16 @@ interface SecretsDeleteResponse {
   success: boolean;
 }
 
+interface FunctionsListResponse {
+  functions: Array<{
+    name: string;
+    deployment_id: string;
+    entry: string;
+    files: Array<{ path: string; content: string }>;
+    automations: Record<string, unknown>[];
+  }>;
+}
+
 interface ConnectorsListResponse {
   integrations: Array<{
     integration_type: string;
@@ -295,6 +305,14 @@ export class TestAPIServer {
     );
   }
 
+  mockFunctionsList(response: FunctionsListResponse): this {
+    return this.addRoute(
+      "GET",
+      `/api/apps/${this.appId}/backend-functions`,
+      response,
+    );
+  }
+
   mockSiteDeploy(response: SiteDeployResponse): this {
     return this.addRoute(
       "POST",
@@ -464,6 +482,14 @@ export class TestAPIServer {
   mockFunctionsPushError(error: ErrorResponse): this {
     return this.addErrorRoute(
       "PUT",
+      `/api/apps/${this.appId}/backend-functions`,
+      error,
+    );
+  }
+
+  mockFunctionsListError(error: ErrorResponse): this {
+    return this.addErrorRoute(
+      "GET",
       `/api/apps/${this.appId}/backend-functions`,
       error,
     );
