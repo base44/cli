@@ -4,15 +4,24 @@ import {
   filterPendingOAuth,
   promptOAuthFlows,
 } from "@/cli/commands/connectors/oauth-prompt.js";
+import { formatDeployResult } from "@/cli/commands/functions/formatDeployResult.js";
 import type { CLIContext } from "@/cli/types.js";
-import { formatDeployResult } from "@/cli/utils/formatDeployResult.js";
-import { getDashboardUrl, runCommand, theme } from "@/cli/utils/index.js";
+import {
+  getConnectorsUrl,
+  getDashboardUrl,
+  runCommand,
+  theme,
+} from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 import {
   deployAll,
   hasResourcesToDeploy,
   readProjectConfig,
 } from "@/core/project/index.js";
+import type {
+  ConnectorSyncResult,
+  StripeSyncResult,
+} from "@/core/resources/connector/index.js";
 
 interface DeployOptions {
   yes?: boolean;
@@ -95,21 +104,12 @@ export async function deployAction(
     },
   });
 
-  // Handle connector OAuth flows
-  const needsOAuth = filterPendingOAuth(result.connectorResults ?? []);
-  if (needsOAuth.length > 0) {
-    const oauthOutcomes = await promptOAuthFlows(needsOAuth, {
-      skipPrompt: options.yes || options.isNonInteractive,
-    });
-
-    const allAuthorized =
-      oauthOutcomes.size > 0 &&
-      [...oauthOutcomes.values()].every((s) => s === "ACTIVE");
-    if (!allAuthorized) {
-      log.info(
-        "Some connectors still require authorization. Run 'base44 connectors push' or open the links above in your browser.",
-      );
-    }
+  // Handle connector-specific post-deploy flows
+  const connectorResults = result.connectorResults ?? [];
+  await handleOAuthConnectors(connectorResults, options);
+  const stripeResult = connectorResults.find((r) => r.type === "stripe");
+  if (stripeResult?.action === "provisioned") {
+    printStripeResult(stripeResult as StripeSyncResult);
   }
 
   log.message(
@@ -141,4 +141,33 @@ export function getDeployCommand(context: CLIContext): Command {
         context,
       );
     });
+}
+
+async function handleOAuthConnectors(
+  connectorResults: ConnectorSyncResult[],
+  options: DeployOptions,
+): Promise<void> {
+  const needsOAuth = filterPendingOAuth(connectorResults);
+  if (needsOAuth.length === 0) return;
+
+  const oauthOutcomes = await promptOAuthFlows(needsOAuth, {
+    skipPrompt: options.yes || options.isNonInteractive,
+  });
+
+  const allAuthorized =
+    oauthOutcomes.size > 0 &&
+    [...oauthOutcomes.values()].every((s) => s === "ACTIVE");
+  if (!allAuthorized) {
+    log.info(
+      "Some connectors still require authorization. Run 'base44 connectors push' or open the links above in your browser.",
+    );
+  }
+}
+
+function printStripeResult(r: StripeSyncResult): void {
+  log.success("Stripe sandbox provisioned");
+  if (r.claimUrl) {
+    log.info(`  Claim your Stripe sandbox: ${theme.colors.links(r.claimUrl)}`);
+  }
+  log.info(`  Connectors dashboard: ${theme.colors.links(getConnectorsUrl())}`);
 }

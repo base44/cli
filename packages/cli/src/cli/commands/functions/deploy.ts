@@ -1,9 +1,9 @@
 import { log } from "@clack/prompts";
 import { Command } from "commander";
+import { formatDeployResult } from "@/cli/commands/functions/formatDeployResult.js";
+import { parseNames } from "@/cli/commands/functions/parseNames.js";
 import type { CLIContext } from "@/cli/types.js";
-import { formatDeployResult } from "@/cli/utils/formatDeployResult.js";
 import { runCommand } from "@/cli/utils/index.js";
-import { parseNames } from "@/cli/utils/parseNames.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 import { theme } from "@/cli/utils/theme.js";
 import { InvalidInputError } from "@/core/errors.js";
@@ -47,11 +47,13 @@ function formatPruneResults(pruneResults: PruneResult[]): void {
 }
 
 function buildDeploySummary(results: SingleFunctionDeployResult[]): string {
-  const deployed = results.filter((r) => r.status !== "error").length;
+  const deployed = results.filter((r) => r.status === "deployed").length;
+  const unchanged = results.filter((r) => r.status === "unchanged").length;
   const failed = results.filter((r) => r.status === "error").length;
 
   const parts: string[] = [];
-  if (deployed > 0) parts.push(`${deployed}/${results.length} deployed`);
+  if (deployed > 0) parts.push(`${deployed} deployed`);
+  if (unchanged > 0) parts.push(`${unchanged} unchanged`);
   if (failed > 0) parts.push(`${failed} error${failed !== 1 ? "s" : ""}`);
   return parts.join(", ") || "No functions deployed";
 }

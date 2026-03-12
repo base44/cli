@@ -34,11 +34,9 @@ function parseEntries(entries: string[]): Record<string, string> {
   return secrets;
 }
 
-function validateInput(command: Command): void {
-  const entries = command.args;
-  const { envFile } = command.opts<{ envFile?: string }>();
+function validateInput(entries: string[], options: { envFile?: string }): void {
   const hasEntries = entries.length > 0;
-  const hasEnvFile = Boolean(envFile);
+  const hasEnvFile = Boolean(options.envFile);
 
   if (!hasEntries && !hasEnvFile) {
     throw new InvalidInputError(
@@ -57,6 +55,8 @@ async function setSecretsAction(
   entries: string[],
   options: { envFile?: string },
 ): Promise<RunCommandResult> {
+  validateInput(entries, options);
+
   let secrets: Record<string, string>;
 
   if (options.envFile) {
@@ -95,7 +95,6 @@ export function getSecretsSetCommand(context: CLIContext): Command {
     .description("Set one or more secrets (KEY=VALUE format)")
     .argument("[entries...]", "KEY=VALUE pairs (e.g. KEY1=VALUE1 KEY2=VALUE2)")
     .option("--env-file <path>", "Path to .env file")
-    .hook("preAction", validateInput)
     .action(async (entries: string[], options: { envFile?: string }) => {
       await runCommand(
         () => setSecretsAction(entries, options),

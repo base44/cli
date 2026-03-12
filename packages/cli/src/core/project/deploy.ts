@@ -43,7 +43,7 @@ interface DeployAllResult {
   connectorResults?: ConnectorSyncResult[];
 }
 
-export interface DeployAllOptions {
+interface DeployAllOptions {
   onFunctionStart?: (names: string[]) => void;
   onFunctionResult?: (result: SingleFunctionDeployResult) => void;
 }
