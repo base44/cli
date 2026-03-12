@@ -37,4 +37,4 @@ if (!process.stdin.isTTY || !process.stdout.isTTY) {
   process.env.CI = "true";
 }
 
-await runCLI();
+await runCLI({ distribution: "binary" });

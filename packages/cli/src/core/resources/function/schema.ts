@@ -88,25 +88,13 @@ export const DeploySingleFunctionResponseSchema = z.object({
   status: z.enum(["deployed", "unchanged"]),
 });
 
-const FunctionAutomationInfoSchema = z
-  .object({
-    name: z.string(),
-    type: z.string(),
-    is_active: z.boolean(),
-  })
-  .transform((data) => ({
-    name: data.name,
-    type: data.type,
-    isActive: data.is_active,
-  }));
-
 const FunctionInfoSchema = z
   .object({
     name: z.string(),
     deployment_id: z.string(),
     entry: z.string(),
     files: z.array(FunctionFileSchema),
-    automations: z.array(FunctionAutomationInfoSchema),
+    automations: z.array(AutomationSchema),
   })
   .transform((data) => ({
     name: data.name,

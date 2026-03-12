@@ -6,11 +6,15 @@ import { readAuth } from "@/core/auth/index.js";
 import { CLIExitError } from "./errors.js";
 import { ErrorReporter } from "./telemetry/error-reporter.js";
 import { addCommandInfoToErrorReporter } from "./telemetry/index.js";
-import type { CLIContext } from "./types.js";
+import type { CLIContext, Distribution } from "./types.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-async function runCLI(): Promise<void> {
+interface RunCLIOptions {
+  distribution?: Distribution;
+}
+
+async function runCLI(options?: RunCLIOptions): Promise<void> {
   ensureNpmAssets(join(__dirname, "../assets"));
 
   // Create error reporter - single instance for the CLI session
@@ -24,6 +28,7 @@ async function runCLI(): Promise<void> {
   const context: CLIContext = {
     errorReporter,
     isNonInteractive,
+    distribution: options?.distribution ?? "npm",
   };
 
   // Create program with injected context

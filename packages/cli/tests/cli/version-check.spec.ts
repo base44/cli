@@ -13,7 +13,6 @@ describe("upgrade notification", () => {
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Update available!");
     t.expectResult(result).toContain("1.0.0");
-    t.expectResult(result).toContain("npm install -g base44@latest");
   });
 
   it("does not display notification when version is current", async () => {

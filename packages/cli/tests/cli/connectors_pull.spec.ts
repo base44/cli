@@ -7,6 +7,7 @@ describe("connectors pull command", () => {
   it("syncs when remote has no connectors", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
     t.api.mockConnectorsList({ integrations: [] });
+    t.api.mockStripeStatus({ stripe_mode: null });
 
     const result = await t.run("connectors", "pull");
 
@@ -40,6 +41,7 @@ describe("connectors pull command", () => {
         },
       ],
     });
+    t.api.mockStripeStatus({ stripe_mode: null });
 
     const result = await t.run("connectors", "pull");
 
@@ -59,5 +61,25 @@ describe("connectors pull command", () => {
     const result = await t.run("connectors", "pull");
 
     t.expectResult(result).toFail();
+  });
+
+  it("pulls Stripe connector when Stripe is installed remotely", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+    t.api.mockConnectorsList({
+      integrations: [
+        {
+          integration_type: "slack",
+          status: "active",
+          scopes: ["chat:write"],
+        },
+      ],
+    });
+    t.api.mockStripeStatus({ stripe_mode: "sandbox" });
+
+    const result = await t.run("connectors", "pull");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Written: slack, stripe");
+    t.expectResult(result).toContain("Pulled 2 connectors");
   });
 });

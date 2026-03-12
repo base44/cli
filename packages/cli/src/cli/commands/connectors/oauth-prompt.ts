@@ -6,6 +6,7 @@ import type {
   ConnectorOAuthStatus,
   ConnectorSyncResult,
   IntegrationType,
+  OAuthSyncResult,
 } from "@/core/resources/connector/index.js";
 import { getOAuthStatus } from "@/core/resources/connector/index.js";
 
@@ -14,17 +15,11 @@ const POLL_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
 
 export type OAuthFlowStatus = ConnectorOAuthStatus | "SKIPPED";
 
-type PendingOAuthResult = ConnectorSyncResult & {
-  redirectUrl: string;
-  connectionId: string;
-};
-
 export function filterPendingOAuth(
   results: ConnectorSyncResult[],
-): PendingOAuthResult[] {
+): OAuthSyncResult[] {
   return results.filter(
-    (r): r is PendingOAuthResult =>
-      r.action === "needs_oauth" && !!r.redirectUrl && !!r.connectionId,
+    (r): r is OAuthSyncResult => r.action === "needs_oauth" && !!r.connectionId,
   );
 }
 
@@ -38,7 +33,7 @@ interface OAuthPromptOptions {
  * so Ctrl+C/Esc skips the current connector instead of killing the process.
  */
 async function runOAuthFlowWithSkip(
-  connector: PendingOAuthResult,
+  connector: OAuthSyncResult,
 ): Promise<OAuthFlowStatus> {
   await open(connector.redirectUrl);
 
@@ -59,6 +54,10 @@ async function runOAuthFlowWithSkip(
       async () => {
         if (skipped) {
           finalStatus = "SKIPPED";
+          return true;
+        }
+        if (!connector.connectionId) {
+          finalStatus = "FAILED";
           return true;
         }
         const response = await getOAuthStatus(
@@ -103,7 +102,7 @@ async function runOAuthFlowWithSkip(
  * the prompt was skipped / declined.
  */
 export async function promptOAuthFlows(
-  pending: PendingOAuthResult[],
+  pending: OAuthSyncResult[],
   options?: OAuthPromptOptions,
 ): Promise<Map<IntegrationType, OAuthFlowStatus>> {
   const outcomes = new Map<IntegrationType, OAuthFlowStatus>();

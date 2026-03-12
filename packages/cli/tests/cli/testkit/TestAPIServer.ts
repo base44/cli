@@ -112,6 +112,20 @@ interface ConnectorRemoveResponse {
   integration_type: string;
 }
 
+interface StripeInstallResponse {
+  already_installed: boolean;
+  claim_url: string | null;
+}
+
+interface StripeStatusResponse {
+  stripe_mode: "sandbox" | "live" | null;
+  sandbox_claim_url?: string | null;
+}
+
+interface StripeRemoveResponse {
+  success: boolean;
+}
+
 interface AvailableIntegrationsListResponse {
   integrations: Array<{
     integration_type: string;
@@ -303,6 +317,18 @@ export class TestAPIServer {
     );
   }
 
+  /** Mock DELETE /api/apps/{appId}/backend-functions/{name} - Delete single function */
+  mockSingleFunctionDelete(): this {
+    this.pendingRoutes.push({
+      method: "DELETE",
+      path: `/api/apps/${this.appId}/backend-functions/:name`,
+      handler: (_req, res) => {
+        res.status(204).end();
+      },
+    });
+    return this;
+  }
+
   /** Mock PUT /api/apps/{appId}/backend-functions/{name} - Deploy single function */
   mockSingleFunctionDeploy(response: SingleFunctionDeployResponse): this {
     return this.addRoute(
@@ -381,6 +407,32 @@ export class TestAPIServer {
     return this.addRoute(
       "GET",
       `/api/apps/${this.appId}/external-auth/available-integrations`,
+      response,
+    );
+  }
+
+  // ─── STRIPE ENDPOINTS ──────────────────────────────────────
+
+  mockStripeInstall(response: StripeInstallResponse): this {
+    return this.addRoute(
+      "POST",
+      `/api/apps/${this.appId}/payments/stripe/install`,
+      response,
+    );
+  }
+
+  mockStripeStatus(response: StripeStatusResponse): this {
+    return this.addRoute(
+      "GET",
+      `/api/apps/${this.appId}/payments/stripe/status`,
+      response,
+    );
+  }
+
+  mockStripeRemove(response: StripeRemoveResponse): this {
+    return this.addRoute(
+      "DELETE",
+      `/api/apps/${this.appId}/payments/stripe`,
       response,
     );
   }
@@ -469,6 +521,15 @@ export class TestAPIServer {
     );
   }
 
+  /** Mock single function delete to return an error */
+  mockSingleFunctionDeleteError(error: ErrorResponse): this {
+    return this.addErrorRoute(
+      "DELETE",
+      `/api/apps/${this.appId}/backend-functions/:name`,
+      error,
+    );
+  }
+
   mockSiteDeployError(error: ErrorResponse): this {
     return this.addErrorRoute(
       "POST",
@@ -537,6 +598,14 @@ export class TestAPIServer {
     return this.addErrorRoute(
       "PUT",
       `/api/apps/${this.appId}/external-auth/integrations/:type`,
+      error,
+    );
+  }
+
+  mockStripeInstallError(error: ErrorResponse): this {
+    return this.addErrorRoute(
+      "POST",
+      `/api/apps/${this.appId}/payments/stripe/install`,
       error,
     );
   }

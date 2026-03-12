@@ -1,10 +1,10 @@
-# Homebrew formula for the Base44 CLI.
+# Homebrew formula template for the Base44 CLI.
 #
-# This is a reference template. Copy it to your homebrew-tap repository
-# at Formula/base44.rb and update the version + SHA256 values on each release.
+# CI renders this template with real version + SHA256 values and pushes it
+# to base44/homebrew-tap via infra/homebrew/update-tap.sh.
 #
 # Users install with:
-#   brew install <org>/tap/base44
+#   brew install base44/tap/base44
 #
 class Base44 < Formula
   desc "CLI for creating, managing, and deploying Base44 applications"
