@@ -24,144 +24,134 @@ describe("functions deploy command", () => {
 
   it("deploys functions successfully", async () => {
     await t.givenLoggedInWithProject(fixture("with-functions-and-entities"));
-    t.api.mockFunctionsPush({
-      deployed: ["process-order"],
-      deleted: [],
-      errors: null,
-    });
+    t.api.mockSingleFunctionDeploy({ status: "deployed" });
 
     const result = await t.run("functions", "deploy");
 
     t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain("Functions deployed successfully");
-    t.expectResult(result).toContain("Deployed: process-order");
+    t.expectResult(result).toContain("Deploying process-order");
+    t.expectResult(result).toContain("deployed");
+    t.expectResult(result).toContain("1 deployed");
+  });
+
+  it("reports unchanged function", async () => {
+    await t.givenLoggedInWithProject(fixture("with-functions-and-entities"));
+    t.api.mockSingleFunctionDeploy({ status: "unchanged" });
+
+    const result = await t.run("functions", "deploy");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("unchanged");
+    t.expectResult(result).toContain("1 unchanged");
   });
 
   it("deploys zero-config and path-named functions successfully", async () => {
     await t.givenLoggedInWithProject(fixture("with-zero-config-functions"));
-    t.api.mockFunctionsPush({
-      deployed: ["foo/bar", "foo/kfir/hello", "stam", "custom-name"],
-      deleted: [],
-      errors: null,
-    });
+    t.api.mockSingleFunctionDeploy({ status: "deployed" });
 
     const result = await t.run("functions", "deploy");
 
     t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain("Functions deployed successfully");
-    t.expectResult(result).toContain("Deployed: foo/bar");
+    t.expectResult(result).toContain("foo/bar");
     t.expectResult(result).toContain("foo/kfir/hello");
     t.expectResult(result).toContain("custom-name");
+    t.expectResult(result).toContain("stam");
   });
 
   it("does not collect zero-config functions whose path contains a dot", async () => {
     await t.givenLoggedInWithProject(fixture("with-zero-config-functions"));
-    t.api.mockFunctionsPush({
-      deployed: ["foo/bar", "foo/kfir/hello", "stam", "custom-name"],
-      deleted: [],
-      errors: null,
-    });
+    t.api.mockSingleFunctionDeploy({ status: "deployed" });
 
     const result = await t.run("functions", "deploy");
 
     t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain("Deployed: foo/bar");
     t.expectResult(result).toNotContain("all.products");
     t.expectResult(result).toNotContain("getProducts/all.products");
   });
 
-  it("fails when API returns error", async () => {
+  it("deploys specific function by name", async () => {
     await t.givenLoggedInWithProject(fixture("with-functions-and-entities"));
-    t.api.mockFunctionsPushError({
+    t.api.mockSingleFunctionDeploy({ status: "deployed" });
+
+    const result = await t.run("functions", "deploy", "process-order");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Deploying process-order");
+    t.expectResult(result).toContain("1 deployed");
+  });
+
+  it("fails when function name not found in project", async () => {
+    await t.givenLoggedInWithProject(fixture("with-functions-and-entities"));
+
+    const result = await t.run("functions", "deploy", "nonexistent");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("not found in project");
+  });
+
+  it("reports error when API fails for a function", async () => {
+    await t.givenLoggedInWithProject(fixture("with-functions-and-entities"));
+    t.api.mockSingleFunctionDeployError({
       status: 400,
       body: { error: "Invalid function code" },
     });
 
     const result = await t.run("functions", "deploy");
 
-    t.expectResult(result).toFail();
-    t.expectResult(result).toContain("Invalid function code");
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("error");
+    t.expectResult(result).toContain("1 error");
   });
 
-  it("shows per-function errors from successful response with errors array", async () => {
+  it("reports validation error from 422 response", async () => {
     await t.givenLoggedInWithProject(fixture("with-functions-and-entities"));
-    t.api.mockFunctionsPush({
-      deployed: [],
-      deleted: [],
-      errors: [{ name: "process-order", message: "Syntax error on line 42" }],
-    });
-
-    const result = await t.run("functions", "deploy");
-
-    t.expectResult(result).toFail();
-    t.expectResult(result).toContain(
-      "'process-order': Syntax error on line 42",
-    );
-    t.expectResult(result).toContain(
-      "Check the function code for syntax errors",
-    );
-  });
-
-  it("shows validation errors from 422 response with extra_data.errors", async () => {
-    await t.givenLoggedInWithProject(fixture("with-functions-and-entities"));
-    t.api.mockFunctionsPushError({
+    t.api.mockSingleFunctionDeployError({
       status: 422,
       body: {
-        message: "Validation failed",
-        detail: null,
-        extra_data: {
-          errors: [
-            {
-              name: "myFunc",
-              message:
-                "Minimum interval for minute-based schedules is 5 minutes.",
-            },
-          ],
-        },
+        message: "Minimum interval for minute-based schedules is 5 minutes.",
       },
-    });
-
-    const result = await t.run("functions", "deploy");
-
-    t.expectResult(result).toFail();
-    t.expectResult(result).toContain("Validation failed");
-    t.expectResult(result).toContain("myFunc");
-    t.expectResult(result).toContain(
-      "Minimum interval for minute-based schedules is 5 minutes.",
-    );
-  });
-
-  it("shows too-many-functions error from 422 response", async () => {
-    await t.givenLoggedInWithProject(fixture("with-functions-and-entities"));
-    t.api.mockFunctionsPushError({
-      status: 422,
-      body: {
-        message: "Too many functions. Maximum is 50, got 51.",
-        detail: null,
-      },
-    });
-
-    const result = await t.run("functions", "deploy");
-
-    t.expectResult(result).toFail();
-    t.expectResult(result).toContain(
-      "Too many functions. Maximum is 50, got 51.",
-    );
-    t.expectResult(result).toContain("validation error");
-  });
-
-  it("shows deployed and deleted functions together", async () => {
-    await t.givenLoggedInWithProject(fixture("with-functions-and-entities"));
-    t.api.mockFunctionsPush({
-      deployed: ["process-order"],
-      deleted: ["old-handler"],
-      errors: null,
     });
 
     const result = await t.run("functions", "deploy");
 
     t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain("Deployed: process-order");
-    t.expectResult(result).toContain("Deleted: old-handler");
+    t.expectResult(result).toContain("error");
+    t.expectResult(result).toContain(
+      "Minimum interval for minute-based schedules is 5 minutes.",
+    );
+  });
+
+  it("reports too-many-functions error from 422 response", async () => {
+    await t.givenLoggedInWithProject(fixture("with-functions-and-entities"));
+    t.api.mockSingleFunctionDeployError({
+      status: 422,
+      body: {
+        message: "Maximum of 50 functions per app reached.",
+      },
+    });
+
+    const result = await t.run("functions", "deploy");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("error");
+    t.expectResult(result).toContain(
+      "Maximum of 50 functions per app reached.",
+    );
+  });
+
+  it("rejects --force with specific function names", async () => {
+    await t.givenLoggedInWithProject(fixture("with-functions-and-entities"));
+
+    const result = await t.run(
+      "functions",
+      "deploy",
+      "process-order",
+      "--force",
+    );
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain(
+      "--force cannot be used when specifying function names",
+    );
   });
 });

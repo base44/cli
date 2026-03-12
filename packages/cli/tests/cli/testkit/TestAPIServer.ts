@@ -75,13 +75,17 @@ interface SecretsDeleteResponse {
   success: boolean;
 }
 
+interface SingleFunctionDeployResponse {
+  status: "deployed" | "unchanged";
+}
+
 interface FunctionsListResponse {
   functions: Array<{
     name: string;
     deployment_id: string;
     entry: string;
     files: Array<{ path: string; content: string }>;
-    automations: Record<string, unknown>[];
+    automations: Array<{ name: string; type: string; is_active: boolean }>;
   }>;
 }
 
@@ -325,6 +329,15 @@ export class TestAPIServer {
     return this;
   }
 
+  /** Mock PUT /api/apps/{appId}/backend-functions/{name} - Deploy single function */
+  mockSingleFunctionDeploy(response: SingleFunctionDeployResponse): this {
+    return this.addRoute(
+      "PUT",
+      `/api/apps/${this.appId}/backend-functions/:name`,
+      response,
+    );
+  }
+
   mockSiteDeploy(response: SiteDeployResponse): this {
     return this.addRoute(
       "POST",
@@ -491,18 +504,19 @@ export class TestAPIServer {
     );
   }
 
-  mockFunctionsPushError(error: ErrorResponse): this {
+  mockFunctionsListError(error: ErrorResponse): this {
     return this.addErrorRoute(
-      "PUT",
+      "GET",
       `/api/apps/${this.appId}/backend-functions`,
       error,
     );
   }
 
-  mockFunctionsListError(error: ErrorResponse): this {
+  /** Mock single function deploy to return an error */
+  mockSingleFunctionDeployError(error: ErrorResponse): this {
     return this.addErrorRoute(
-      "GET",
-      `/api/apps/${this.appId}/backend-functions`,
+      "PUT",
+      `/api/apps/${this.appId}/backend-functions/:name`,
       error,
     );
   }
