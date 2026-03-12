@@ -7,8 +7,10 @@ import { theme } from "@/cli/utils/theme.js";
 import { listDeployedFunctions } from "@/core/resources/function/api.js";
 
 async function listFunctionsAction(): Promise<RunCommandResult> {
-  const { functions } = await runTask("Fetching functions...", async () =>
-    listDeployedFunctions(),
+  const { functions } = await runTask(
+    "Fetching functions...",
+    async () => listDeployedFunctions(),
+    { errorMessage: "Failed to fetch functions" },
   );
 
   if (functions.length === 0) {
