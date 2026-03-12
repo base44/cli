@@ -31,6 +31,7 @@ describe("deploy command (unified)", () => {
     });
     t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
     t.api.mockConnectorsList({ integrations: [] });
+    t.api.mockStripeStatus({ stripe_mode: null });
 
     const result = await t.run("deploy", "-y");
 
@@ -48,6 +49,7 @@ describe("deploy command (unified)", () => {
     });
     t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
     t.api.mockConnectorsList({ integrations: [] });
+    t.api.mockStripeStatus({ stripe_mode: null });
 
     const result = await t.run("deploy", "--yes");
 
@@ -65,6 +67,7 @@ describe("deploy command (unified)", () => {
     });
     t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
     t.api.mockConnectorsList({ integrations: [] });
+    t.api.mockStripeStatus({ stripe_mode: null });
 
     const result = await t.run("deploy", "-y");
 
@@ -95,6 +98,7 @@ describe("deploy command (unified)", () => {
     t.api.mockFunctionsPush({ deployed: ["hello"], deleted: [], errors: null });
     t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
     t.api.mockConnectorsList({ integrations: [] });
+    t.api.mockStripeStatus({ stripe_mode: null });
     t.api.mockSiteDeploy({ app_url: "https://full-project.base44.app" });
 
     const result = await t.run("deploy", "-y");
@@ -114,6 +118,7 @@ describe("deploy command (unified)", () => {
       deleted: [],
     });
     t.api.mockConnectorsList({ integrations: [] });
+    t.api.mockStripeStatus({ stripe_mode: null });
 
     const result = await t.run("deploy", "-y");
 
@@ -132,6 +137,7 @@ describe("deploy command (unified)", () => {
       deleted: [],
     });
     t.api.mockConnectorsList({ integrations: [] });
+    t.api.mockStripeStatus({ stripe_mode: null });
 
     const result = await t.run("deploy", "-y");
 
@@ -145,6 +151,7 @@ describe("deploy command (unified)", () => {
     t.api.mockFunctionsPush({ deployed: [], deleted: [], errors: null });
     t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
     t.api.mockConnectorsList({ integrations: [] });
+    t.api.mockStripeStatus({ stripe_mode: null });
     t.api.mockConnectorSet({
       redirect_url: null,
       connection_id: null,
@@ -164,6 +171,7 @@ describe("deploy command (unified)", () => {
     t.api.mockFunctionsPush({ deployed: [], deleted: [], errors: null });
     t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
     t.api.mockConnectorsList({ integrations: [] });
+    t.api.mockStripeStatus({ stripe_mode: null });
     t.api.mockConnectorSet({
       redirect_url: "https://accounts.google.com/oauth",
       connection_id: "conn_123",
@@ -176,5 +184,32 @@ describe("deploy command (unified)", () => {
     t.expectResult(result).toContain("Deployment completed");
     t.expectResult(result).toContain("require authorization");
     t.expectResult(result).toContain("base44 connectors push");
+  });
+
+  it("shows Stripe provisioned output when Stripe connector is deployed", async () => {
+    await t.givenLoggedInWithProject(fixture("with-stripe-connector"));
+    t.api.mockEntitiesPush({ created: [], updated: [], deleted: [] });
+    t.api.mockFunctionsPush({ deployed: [], deleted: [], errors: null });
+    t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
+    t.api.mockConnectorsList({ integrations: [] });
+    t.api.mockStripeStatus({ stripe_mode: null });
+    t.api.mockConnectorSet({
+      redirect_url: null,
+      connection_id: null,
+      already_authorized: true,
+    });
+    t.api.mockStripeInstall({
+      already_installed: false,
+      claim_url: "https://connect.stripe.com/setup/claim/xxx",
+    });
+
+    const result = await t.run("deploy", "-y");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Deployment completed");
+    t.expectResult(result).toContain("2 connectors");
+    t.expectResult(result).toContain("Stripe sandbox provisioned");
+    t.expectResult(result).toContain("connect.stripe.com/setup/claim/xxx");
+    t.expectResult(result).toContain("Connectors dashboard");
   });
 });

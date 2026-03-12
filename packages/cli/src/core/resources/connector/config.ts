@@ -89,12 +89,12 @@ export async function readAllConnectors(
 
 export async function writeConnectors(
   connectorsDir: string,
-  remoteConnectors: { integrationType: string; scopes: string[] }[],
+  remoteConnectors: ConnectorResource[],
 ): Promise<{ written: string[]; deleted: string[] }> {
   const entries = await readConnectorFiles(connectorsDir);
   const typeToEntry = buildTypeToEntryMap(entries);
 
-  const newTypes = new Set(remoteConnectors.map((c) => c.integrationType));
+  const newTypes = new Set(remoteConnectors.map((c) => c.type));
 
   const deleted: string[] = [];
   for (const [type, entry] of typeToEntry) {
@@ -106,24 +106,17 @@ export async function writeConnectors(
 
   const written: string[] = [];
   for (const connector of remoteConnectors) {
-    const existing = typeToEntry.get(connector.integrationType);
-    const localConnector: ConnectorResource = {
-      type: connector.integrationType,
-      scopes: connector.scopes,
-    };
+    const existing = typeToEntry.get(connector.type);
 
-    if (existing && isDeepStrictEqual(existing.data, localConnector)) {
+    if (existing && isDeepStrictEqual(existing.data, connector)) {
       continue;
     }
 
     const filePath =
       existing?.filePath ??
-      join(
-        connectorsDir,
-        `${connector.integrationType}.${CONFIG_FILE_EXTENSION}`,
-      );
-    await writeJsonFile(filePath, localConnector);
-    written.push(connector.integrationType);
+      join(connectorsDir, `${connector.type}.${CONFIG_FILE_EXTENSION}`);
+    await writeJsonFile(filePath, connector);
+    written.push(connector.type);
   }
 
   return { written, deleted };

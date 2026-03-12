@@ -53,6 +53,17 @@ export async function deployFunctions(
   return result.data;
 }
 
+export async function deleteSingleFunction(name: string): Promise<void> {
+  const appClient = getAppClient();
+  try {
+    await appClient.delete(`backend-functions/${encodeURIComponent(name)}`, {
+      timeout: 60_000,
+    });
+  } catch (error) {
+    throw await ApiError.fromHttpError(error, `deleting function "${name}"`);
+  }
+}
+
 // ─── FUNCTION LOGS API ──────────────────────────────────────
 
 /**

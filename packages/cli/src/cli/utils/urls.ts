@@ -12,3 +12,8 @@ export function getDashboardUrl(projectId?: string): string {
   const id = projectId ?? getAppConfig().id;
   return `${getBase44ApiUrl()}/apps/${id}/editor/workspace/overview`;
 }
+
+export function getConnectorsUrl(projectId?: string): string {
+  const id = projectId ?? getAppConfig().id;
+  return `${getBase44ApiUrl()}/apps/${id}/editor/workspace/app-connections`;
+}

@@ -8,6 +8,7 @@ import {
   readAllConnectors,
   writeConnectors,
 } from "../../src/core/resources/connector/config.js";
+import { pullAllConnectors } from "../../src/core/resources/connector/pull.js";
 import { pushConnectors } from "../../src/core/resources/connector/push.js";
 import type { ConnectorResource } from "../../src/core/resources/connector/schema.js";
 
@@ -70,11 +71,11 @@ describe("writeConnectors", () => {
     try {
       const remoteConnectors = [
         {
-          integrationType: "gmail",
+          type: "gmail",
           scopes: ["https://mail.google.com/"],
         },
         {
-          integrationType: "slack",
+          type: "slack",
           scopes: ["chat:write", "channels:read"],
         },
       ];
@@ -106,11 +107,11 @@ describe("writeConnectors", () => {
     try {
       const initialConnectors = [
         {
-          integrationType: "gmail",
+          type: "gmail",
           scopes: ["https://mail.google.com/"],
         },
         {
-          integrationType: "slack",
+          type: "slack",
           scopes: ["chat:write"],
         },
       ];
@@ -118,7 +119,7 @@ describe("writeConnectors", () => {
 
       const { written, deleted } = await writeConnectors(tmpDir, [
         {
-          integrationType: "gmail",
+          type: "gmail",
           scopes: ["https://mail.google.com/"],
         },
       ]);
@@ -140,7 +141,7 @@ describe("writeConnectors", () => {
     try {
       const initialConnectors = [
         {
-          integrationType: "gmail",
+          type: "gmail",
           scopes: ["https://mail.google.com/"],
         },
       ];
@@ -169,7 +170,7 @@ describe("writeConnectors", () => {
 
       const remoteConnectors = [
         {
-          integrationType: "slack",
+          type: "slack",
           scopes: ["chat:write", "channels:read"],
         },
       ];
@@ -209,7 +210,7 @@ describe("writeConnectors", () => {
 
       const remoteConnectors = [
         {
-          integrationType: "gmail",
+          type: "gmail",
           scopes: ["https://mail.google.com/"],
         },
       ];
@@ -238,7 +239,7 @@ describe("writeConnectors", () => {
 
       const remoteConnectors = [
         {
-          integrationType: "slack",
+          type: "slack",
           scopes: ["chat:write"],
         },
       ];
@@ -265,7 +266,7 @@ describe("writeConnectors", () => {
     try {
       const remoteConnectors = [
         {
-          integrationType: "notion",
+          type: "notion",
           scopes: [] as string[],
         },
       ];
@@ -290,11 +291,18 @@ describe("writeConnectors", () => {
 const mockListConnectors = vi.mocked(api.listConnectors);
 const mockSetConnector = vi.mocked(api.setConnector);
 const mockRemoveConnector = vi.mocked(api.removeConnector);
+const mockGetStripeStatus = vi.mocked(api.getStripeStatus);
+const mockInstallStripe = vi.mocked(api.installStripe);
+const mockRemoveStripe = vi.mocked(api.removeStripe);
 
 describe("pushConnectors", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mockListConnectors.mockResolvedValue({ integrations: [] });
+    mockGetStripeStatus.mockResolvedValue({
+      stripeMode: null,
+      sandboxClaimUrl: null,
+    });
   });
 
   it("returns empty results when no local or upstream connectors", async () => {
@@ -585,5 +593,250 @@ describe("pushConnectors", () => {
       { type: "gmail", action: "synced" },
       { type: "slack", action: "synced" },
     ]);
+  });
+
+  describe("stripe", () => {
+    it("installs Stripe when local exists and remote is not installed", async () => {
+      const local: ConnectorResource[] = [{ type: "stripe", scopes: [] }];
+      mockInstallStripe.mockResolvedValue({
+        alreadyInstalled: false,
+        claimUrl: null,
+      });
+
+      const result = await pushConnectors(local);
+
+      expect(mockInstallStripe).toHaveBeenCalledOnce();
+      expect(result.results).toEqual([
+        { type: "stripe", action: "provisioned" },
+      ]);
+    });
+
+    it("returns provisioned with claimUrl when Stripe install provides one", async () => {
+      const local: ConnectorResource[] = [{ type: "stripe", scopes: [] }];
+      mockInstallStripe.mockResolvedValue({
+        alreadyInstalled: false,
+        claimUrl: "https://connect.stripe.com/setup/claim/xxx",
+      });
+
+      const result = await pushConnectors(local);
+
+      expect(result.results).toEqual([
+        {
+          type: "stripe",
+          action: "provisioned",
+          claimUrl: "https://connect.stripe.com/setup/claim/xxx",
+        },
+      ]);
+    });
+
+    it("returns synced when local Stripe exists and remote is already installed", async () => {
+      const local: ConnectorResource[] = [{ type: "stripe", scopes: [] }];
+      mockGetStripeStatus.mockResolvedValue({
+        stripeMode: "sandbox",
+        sandboxClaimUrl: null,
+      });
+
+      const result = await pushConnectors(local);
+
+      expect(mockInstallStripe).not.toHaveBeenCalled();
+      expect(result.results).toEqual([{ type: "stripe", action: "synced" }]);
+    });
+
+    it("removes Stripe when no local Stripe but remote is installed", async () => {
+      mockGetStripeStatus.mockResolvedValue({
+        stripeMode: "sandbox",
+        sandboxClaimUrl: null,
+      });
+      mockRemoveStripe.mockResolvedValue({ success: true });
+
+      const result = await pushConnectors([]);
+
+      expect(mockRemoveStripe).toHaveBeenCalledOnce();
+      expect(result.results).toEqual([{ type: "stripe", action: "removed" }]);
+    });
+
+    it("returns error when Stripe install fails", async () => {
+      const local: ConnectorResource[] = [{ type: "stripe", scopes: [] }];
+      mockInstallStripe.mockRejectedValue(new Error("Stripe install timeout"));
+
+      const result = await pushConnectors(local);
+
+      expect(result.results).toEqual([
+        { type: "stripe", action: "error", error: "Stripe install timeout" },
+      ]);
+    });
+
+    it("returns error when Stripe removal fails", async () => {
+      mockGetStripeStatus.mockResolvedValue({
+        stripeMode: "live",
+        sandboxClaimUrl: null,
+      });
+      mockRemoveStripe.mockRejectedValue(new Error("Stripe remove failed"));
+
+      const result = await pushConnectors([]);
+
+      expect(result.results).toEqual([
+        { type: "stripe", action: "error", error: "Stripe remove failed" },
+      ]);
+    });
+
+    it("returns error when getStripeStatus fails and local Stripe exists", async () => {
+      const local: ConnectorResource[] = [{ type: "stripe", scopes: [] }];
+      mockGetStripeStatus.mockRejectedValue(new Error("Status check failed"));
+
+      const result = await pushConnectors(local);
+
+      expect(result.results).toEqual([
+        {
+          type: "stripe",
+          action: "error",
+          error: "Failed to check Stripe integration status",
+        },
+      ]);
+    });
+
+    it("returns no Stripe result when getStripeStatus fails and no local Stripe", async () => {
+      mockGetStripeStatus.mockRejectedValue(new Error("Status check failed"));
+
+      const result = await pushConnectors([]);
+
+      expect(result.results).toEqual([]);
+    });
+
+    it("returns no Stripe result when no local and no remote Stripe", async () => {
+      const result = await pushConnectors([]);
+
+      expect(mockInstallStripe).not.toHaveBeenCalled();
+      expect(mockRemoveStripe).not.toHaveBeenCalled();
+      expect(result.results).toEqual([]);
+    });
+
+    it("handles OAuth and Stripe connectors together", async () => {
+      const local: ConnectorResource[] = [
+        { type: "gmail", scopes: ["https://mail.google.com/"] },
+        { type: "stripe", scopes: [] },
+      ];
+      mockSetConnector.mockResolvedValue({
+        redirectUrl: null,
+        connectionId: null,
+        alreadyAuthorized: true,
+        error: null,
+        errorMessage: null,
+        otherUserEmail: null,
+      });
+      mockInstallStripe.mockResolvedValue({
+        alreadyInstalled: false,
+        claimUrl: "https://connect.stripe.com/setup/claim/xxx",
+      });
+
+      const result = await pushConnectors(local);
+
+      expect(mockSetConnector).toHaveBeenCalledWith("gmail", [
+        "https://mail.google.com/",
+      ]);
+      expect(mockInstallStripe).toHaveBeenCalledOnce();
+      expect(result.results).toEqual([
+        { type: "gmail", action: "synced" },
+        {
+          type: "stripe",
+          action: "provisioned",
+          claimUrl: "https://connect.stripe.com/setup/claim/xxx",
+        },
+      ]);
+    });
+  });
+});
+
+describe("pullAllConnectors", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it("returns only OAuth connectors when Stripe is not installed", async () => {
+    mockListConnectors.mockResolvedValue({
+      integrations: [
+        {
+          integrationType: "gmail",
+          status: "active",
+          scopes: ["https://mail.google.com/"],
+          userEmail: undefined,
+        },
+      ],
+    });
+    mockGetStripeStatus.mockResolvedValue({
+      stripeMode: null,
+      sandboxClaimUrl: null,
+    });
+
+    const result = await pullAllConnectors();
+
+    expect(result).toEqual([
+      { type: "gmail", scopes: ["https://mail.google.com/"] },
+    ]);
+  });
+
+  it("includes Stripe connector when remote has Stripe installed", async () => {
+    mockListConnectors.mockResolvedValue({
+      integrations: [
+        {
+          integrationType: "slack",
+          status: "active",
+          scopes: ["chat:write"],
+          userEmail: undefined,
+        },
+      ],
+    });
+    mockGetStripeStatus.mockResolvedValue({
+      stripeMode: "sandbox",
+      sandboxClaimUrl: null,
+    });
+
+    const result = await pullAllConnectors();
+
+    expect(result).toEqual([
+      { type: "slack", scopes: ["chat:write"] },
+      { type: "stripe", scopes: [] },
+    ]);
+  });
+
+  it("returns only Stripe when no OAuth connectors exist", async () => {
+    mockListConnectors.mockResolvedValue({ integrations: [] });
+    mockGetStripeStatus.mockResolvedValue({
+      stripeMode: "live",
+      sandboxClaimUrl: null,
+    });
+
+    const result = await pullAllConnectors();
+
+    expect(result).toEqual([{ type: "stripe", scopes: [] }]);
+  });
+
+  it("returns empty array when no connectors exist remotely", async () => {
+    mockListConnectors.mockResolvedValue({ integrations: [] });
+    mockGetStripeStatus.mockResolvedValue({
+      stripeMode: null,
+      sandboxClaimUrl: null,
+    });
+
+    const result = await pullAllConnectors();
+
+    expect(result).toEqual([]);
+  });
+
+  it("throws when getStripeStatus fails", async () => {
+    mockListConnectors.mockResolvedValue({ integrations: [] });
+    mockGetStripeStatus.mockRejectedValue(new Error("Stripe API error"));
+
+    await expect(pullAllConnectors()).rejects.toThrow("Stripe API error");
+  });
+
+  it("throws when listConnectors fails", async () => {
+    mockListConnectors.mockRejectedValue(new Error("List API error"));
+    mockGetStripeStatus.mockResolvedValue({
+      stripeMode: null,
+      sandboxClaimUrl: null,
+    });
+
+    await expect(pullAllConnectors()).rejects.toThrow("List API error");
   });
 });
