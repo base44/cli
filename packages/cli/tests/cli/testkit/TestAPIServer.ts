@@ -79,13 +79,62 @@ interface SingleFunctionDeployResponse {
   status: "deployed" | "unchanged";
 }
 
+interface AutomationBase {
+  name: string;
+  description?: string | null;
+  function_args?: Record<string, unknown> | null;
+  is_active?: boolean;
+}
+
+interface ScheduledOneTimeAutomation extends AutomationBase {
+  type: "scheduled";
+  schedule_mode: "one-time";
+  one_time_date: string;
+}
+
+interface ScheduledCronAutomation extends AutomationBase {
+  type: "scheduled";
+  schedule_mode: "recurring";
+  schedule_type: "cron";
+  cron_expression: string;
+  ends_type?: "never" | "on" | "after";
+  ends_on_date?: string | null;
+  ends_after_count?: number | null;
+}
+
+interface ScheduledSimpleAutomation extends AutomationBase {
+  type: "scheduled";
+  schedule_mode: "recurring";
+  schedule_type: "simple";
+  repeat_unit: "minutes" | "hours" | "days" | "weeks" | "months";
+  repeat_interval?: number;
+  start_time?: string | null;
+  repeat_on_days?: number[] | null;
+  repeat_on_day_of_month?: number | null;
+  ends_type?: "never" | "on" | "after";
+  ends_on_date?: string | null;
+  ends_after_count?: number | null;
+}
+
+interface EntityAutomation extends AutomationBase {
+  type: "entity";
+  entity_name: string;
+  event_types: Array<"create" | "update" | "delete">;
+}
+
+type AutomationData =
+  | ScheduledOneTimeAutomation
+  | ScheduledCronAutomation
+  | ScheduledSimpleAutomation
+  | EntityAutomation;
+
 interface FunctionsListResponse {
   functions: Array<{
     name: string;
     deployment_id: string;
     entry: string;
     files: Array<{ path: string; content: string }>;
-    automations: Array<{ name: string; type: string; is_active: boolean }>;
+    automations: AutomationData[];
   }>;
 }
 
