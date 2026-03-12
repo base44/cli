@@ -452,14 +452,6 @@ export class TestAPIServer {
     );
   }
 
-  mockFunctionsPushError(error: ErrorResponse): this {
-    return this.addErrorRoute(
-      "PUT",
-      `/api/apps/${this.appId}/backend-functions`,
-      error,
-    );
-  }
-
   mockFunctionsListError(error: ErrorResponse): this {
     return this.addErrorRoute(
       "GET",

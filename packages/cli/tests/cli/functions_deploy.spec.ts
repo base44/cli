@@ -31,7 +31,7 @@ describe("functions deploy command", () => {
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Deploying process-order");
     t.expectResult(result).toContain("deployed");
-    t.expectResult(result).toContain("1/1 deployed");
+    t.expectResult(result).toContain("1 deployed");
   });
 
   it("reports unchanged function", async () => {
@@ -42,7 +42,7 @@ describe("functions deploy command", () => {
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("unchanged");
-    t.expectResult(result).toContain("1/1 deployed");
+    t.expectResult(result).toContain("1 unchanged");
   });
 
   it("deploys zero-config and path-named functions successfully", async () => {
@@ -77,7 +77,7 @@ describe("functions deploy command", () => {
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Deploying process-order");
-    t.expectResult(result).toContain("1/1 deployed");
+    t.expectResult(result).toContain("1 deployed");
   });
 
   it("fails when function name not found in project", async () => {

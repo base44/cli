@@ -11,7 +11,7 @@ import type {
 } from "@/core/resources/function/schema.js";
 import { readTextFile } from "@/core/utils/fs.js";
 
-export async function loadFunctionCode(
+async function loadFunctionCode(
   fn: BackendFunction,
 ): Promise<FunctionWithCode> {
   const functionDir = dirname(fn.entryPath);
