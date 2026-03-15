@@ -68,7 +68,7 @@ async function pullFunctionsAction(
 export function getPullCommand(context: CLIContext): Command {
   return new Command("pull")
     .description("Pull deployed functions from Base44")
-    .argument("[name]", "Pull a single function by name")
+    .argument("[name]", "Function name to pull (pulls all if omitted)")
     .action(async (name: string | undefined) => {
       await runCommand(
         () => pullFunctionsAction(name),
