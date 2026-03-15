@@ -84,24 +84,35 @@ export interface PruneResult {
 
 export async function pruneRemovedFunctions(
   localFunctionNames: string[],
+  options?: {
+    onStart?: (total: number) => void;
+    onBeforeDelete?: (name: string) => void;
+    onResult?: (result: PruneResult) => void;
+  },
 ): Promise<PruneResult[]> {
   const remote = await listDeployedFunctions();
   const localSet = new Set(localFunctionNames);
   const toDelete = remote.functions.filter((f) => !localSet.has(f.name));
 
+  options?.onStart?.(toDelete.length);
+
   const results: PruneResult[] = [];
 
   for (const fn of toDelete) {
+    options?.onBeforeDelete?.(fn.name);
+    let result: PruneResult;
     try {
       await deleteSingleFunction(fn.name);
-      results.push({ name: fn.name, deleted: true });
+      result = { name: fn.name, deleted: true };
     } catch (error) {
-      results.push({
+      result = {
         name: fn.name,
         deleted: false,
         error: error instanceof Error ? error.message : String(error),
-      });
+      };
     }
+    results.push(result);
+    options?.onResult?.(result);
   }
 
   return results;

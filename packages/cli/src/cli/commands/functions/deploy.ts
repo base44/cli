@@ -31,18 +31,18 @@ function resolveFunctionsToDeploy(
   return allFunctions.filter((f) => names.includes(f.name));
 }
 
-function formatPruneResults(pruneResults: PruneResult[]): void {
-  for (const pruneResult of pruneResults) {
-    if (pruneResult.deleted) {
-      log.success(`${pruneResult.name.padEnd(25)} deleted`);
-    } else {
-      log.error(`${pruneResult.name.padEnd(25)} error: ${pruneResult.error}`);
-    }
+function formatPruneResult(pruneResult: PruneResult): void {
+  if (pruneResult.deleted) {
+    log.success(`${pruneResult.name.padEnd(25)} deleted`);
+  } else {
+    log.error(`${pruneResult.name.padEnd(25)} error: ${pruneResult.error}`);
   }
+}
 
+function formatPruneSummary(pruneResults: PruneResult[]): void {
   if (pruneResults.length > 0) {
     const pruned = pruneResults.filter((r) => r.deleted).length;
-    log.info(`${pruned} function${pruned !== 1 ? "s" : ""} removed`);
+    log.info(`${pruned} deleted`);
   }
 }
 
@@ -102,10 +102,29 @@ async function deployFunctionsAction(
   });
 
   if (options.force) {
-    log.info("Removing remote functions not found locally...");
     const allLocalNames = functions.map((f) => f.name);
-    const pruneResults = await pruneRemovedFunctions(allLocalNames);
-    formatPruneResults(pruneResults);
+    let pruneCompleted = 0;
+    let pruneTotal = 0;
+    const pruneResults = await pruneRemovedFunctions(allLocalNames, {
+      onStart: (total) => {
+        pruneTotal = total;
+        if (total > 0) {
+          log.info(
+            `Found ${total} remote ${total === 1 ? "function" : "functions"} to delete`,
+          );
+        }
+      },
+      onBeforeDelete: (name) => {
+        pruneCompleted++;
+        log.step(
+          theme.styles.dim(
+            `[${pruneCompleted}/${pruneTotal}] Deleting ${name}...`,
+          ),
+        );
+      },
+      onResult: formatPruneResult,
+    });
+    formatPruneSummary(pruneResults);
   }
 
   return { outroMessage: buildDeploySummary(results) };
