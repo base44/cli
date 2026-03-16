@@ -1,8 +1,8 @@
 # Adding & Modifying CLI Commands
 
-**Keywords:** command, factory pattern, CLIContext, isNonInteractive, Base44Command, runTask, spinner, theming, chalk, program.ts, register, banner, intro, outro
+**Keywords:** command, factory pattern, Base44Command, isNonInteractive, runTask, spinner, theming, chalk, program.ts, register, banner, intro, outro
 
-Commands live in `src/cli/commands/<domain>/`. They use a **factory pattern** with dependency injection via `CLIContext`.
+Commands live in `src/cli/commands/<domain>/`. They use a **factory pattern** — each file exports a function that returns a `Base44Command`.
 
 ## Command File Template
 
@@ -10,7 +10,6 @@ Commands live in `src/cli/commands/<domain>/`. They use a **factory pattern** wi
 // src/cli/commands/<domain>/<action>.ts
 import { log } from "@clack/prompts";
 import type { Command } from "commander";
-import type { CLIContext } from "@/cli/types.js";
 import { Base44Command, type RunCommandResult, runTask, theme } from "@/cli/utils/index.js";
 
 async function myAction(): Promise<RunCommandResult> {
@@ -31,8 +30,8 @@ async function myAction(): Promise<RunCommandResult> {
   return { outroMessage: `Created ${theme.styles.bold(result.name)}` };
 }
 
-export function getMyCommand(context: CLIContext): Command {
-  return new Base44Command("<name>", context)
+export function getMyCommand(): Command {
+  return new Base44Command("<name>")
     .description("<description>")
     .option("-f, --flag", "Some flag")
     .action(myAction);
@@ -41,21 +40,21 @@ export function getMyCommand(context: CLIContext): Command {
 
 **Key rules**:
 - Export a **factory function** (`getMyCommand`), not a static command instance
-- The factory receives `CLIContext` (contains `errorReporter`, `isNonInteractive`, `distribution`)
+- Factory functions take **no parameters** — context is injected automatically (see below)
 - Use `Base44Command` instead of `Command` — it automatically handles intro/outro, auth, app config, and error display
 - Commands must NOT call `intro()` or `outro()` directly
 - The action function must return `RunCommandResult` with an `outroMessage`
 
 ## Base44Command Options
 
-Pass options as the third argument to the constructor:
+Pass options as the second argument to the constructor:
 
 ```typescript
-new Base44Command("my-cmd", context)                                         // All defaults
-new Base44Command("my-cmd", context, { requireAuth: false })                 // Skip auth check
-new Base44Command("my-cmd", context, { requireAppConfig: false })            // Skip app config loading
-new Base44Command("my-cmd", context, { fullBanner: true })                   // ASCII art banner
-new Base44Command("my-cmd", context, { requireAuth: false, requireAppConfig: false })
+new Base44Command("my-cmd")                                         // All defaults
+new Base44Command("my-cmd", { requireAuth: false })                 // Skip auth check
+new Base44Command("my-cmd", { requireAppConfig: false })            // Skip app config loading
+new Base44Command("my-cmd", { fullBanner: true })                   // ASCII art banner
+new Base44Command("my-cmd", { requireAuth: false, requireAppConfig: false })
 ```
 
 | Option | Default | Description |
@@ -64,7 +63,7 @@ new Base44Command("my-cmd", context, { requireAuth: false, requireAppConfig: fal
 | `requireAppConfig` | `true` | Load `.app.jsonc` and cache for sync access via `getAppConfig()` |
 | `fullBanner` | `false` | Show ASCII art banner instead of simple intro tag |
 
-When `context.isNonInteractive` is `true` (CI, piped output), all clack UI (intro, outro, themed errors) is automatically skipped. Errors go to stderr as plain text.
+When the CLI runs in non-interactive mode (CI, piped output), all clack UI (intro, outro, themed errors) is automatically skipped. Errors go to stderr as plain text.
 
 ## Registering a Command
 
@@ -74,10 +73,10 @@ Add the import and registration in `src/cli/program.ts`:
 import { getMyCommand } from "@/cli/commands/<domain>/<action>.js";
 
 // Inside createProgram(context):
-program.addCommand(getMyCommand(context));
+program.addCommand(getMyCommand());
 ```
 
-## CLIContext (Dependency Injection)
+## CLIContext (Automatic Injection)
 
 ```typescript
 export interface CLIContext {
@@ -88,19 +87,19 @@ export interface CLIContext {
 ```
 
 - Created once in `runCLI()` at startup
-- `isNonInteractive` is `true` when stdin/stdout are not a TTY (e.g., CI, piped output, AI agents). Use it to skip interactive prompts, browser opens, and animations. Also controls quiet mode — when true, all clack UI is suppressed.
-- Passed to `createProgram(context)`, which passes it to each command factory
+- Injected into every `Base44Command` automatically via a program-level `preAction` hook in `createProgram()` — command files never handle context directly
+- `isNonInteractive` is `true` when stdin/stdout are not a TTY (e.g., CI, piped output, AI agents). Controls quiet mode — when true, all clack UI is suppressed.
 
 ### Using `isNonInteractive`
 
-Pass `context.isNonInteractive` to your action when the command has interactive behavior (browser opens, confirmation prompts, animations):
+When a command needs to check `isNonInteractive` (e.g., to skip browser opens or confirmation prompts), access it from the command instance. Commander passes the command as the last argument to action handlers:
 
 ```typescript
-export function getMyCommand(context: CLIContext): Command {
-  return new Base44Command("open", context)
+export function getMyCommand(): Command {
+  return new Base44Command("open")
     .description("Open something in browser")
-    .action(async () => {
-      return await myAction(context.isNonInteractive);
+    .action(async (_options: unknown, command: Base44Command) => {
+      return await myAction(command.isNonInteractive);
     });
 }
 
@@ -182,8 +181,8 @@ function validateInput(command: Command): void {
   }
 }
 
-export function getMyCommand(context: CLIContext): Command {
-  return new Base44Command("my-cmd", context)
+export function getMyCommand(): Command {
+  return new Base44Command("my-cmd")
     .argument("[entries...]", "Input entries")
     .option("--flag-a <value>", "Alternative input")
     .hook("preAction", validateInput)
@@ -197,8 +196,9 @@ Access `command.args` for positional arguments and `command.opts()` for options 
 
 ## Rules (Command-Specific)
 
-- **Command factory pattern** - Commands export `getXCommand(context)` functions, not static instances
-- **Use `Base44Command`** - All commands use `new Base44Command(name, context, options)` instead of `new Command()`. The lifecycle (intro, auth, config, outro, error handling) is automatic.
+- **Command factory pattern** - Commands export `getXCommand()` functions (no parameters), not static instances
+- **Use `Base44Command`** - All commands use `new Base44Command(name, options?)` instead of `new Command()`. The lifecycle (intro, auth, config, outro, error handling) is automatic.
+- **No context plumbing** - Context is injected automatically. Command files should never import `CLIContext`.
 - **Task wrapper** - Use `runTask()` for async operations with spinners
 - **Use theme for styling** - Never use `chalk` directly; import `theme` from `@/cli/utils/` and use semantic names
 - **Use fs.ts utilities** - Always use `@/core/utils/fs.js` for file operations
