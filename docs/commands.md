@@ -10,7 +10,8 @@ Commands live in `src/cli/commands/<domain>/`. They use a **factory pattern** â€
 // src/cli/commands/<domain>/<action>.ts
 import { log } from "@clack/prompts";
 import type { Command } from "commander";
-import { Base44Command, type RunCommandResult, runTask, theme } from "@/cli/utils/index.js";
+import type { RunCommandResult } from "@/cli/types.js";
+import { Base44Command, runTask, theme } from "@/cli/utils/index.js";
 
 async function myAction(): Promise<RunCommandResult> {
   const result = await runTask(
@@ -109,6 +110,32 @@ async function myAction(isNonInteractive: boolean): Promise<RunCommandResult> {
 }
 ```
 
+### Guarding Interactive Commands
+
+Commands that use interactive prompts (`select`, `text`, `confirm`, `group` from `@clack/prompts`) **must** guard against non-interactive environments. If the user didn't provide enough flags to skip all prompts, error early:
+
+```typescript
+export function getMyCommand(): Command {
+  return new Base44Command("my-cmd", { requireAppConfig: false })
+    .option("-n, --name <name>", "Project name")
+    .option("-p, --path <path>", "Project path")
+    .action(async (options: MyOptions, command: Base44Command) => {
+      const skipPrompts = !!options.name && !!options.path;
+      if (!skipPrompts && command.isNonInteractive) {
+        throw new InvalidInputError(
+          "--name and --path are required in non-interactive mode",
+        );
+      }
+      if (skipPrompts) {
+        return await createNonInteractive(options);
+      }
+      return await createInteractive(options);
+    });
+}
+```
+
+Commands that only use `log.*` (display-only, no input) don't need this guard. See `project/create.ts`, `project/link.ts`, and `project/eject.ts` for real examples.
+
 ## runTask (Async Operations with Spinners)
 
 Use `runTask()` for any async operation that takes time:
@@ -195,9 +222,10 @@ Access `command.args` for positional arguments and `command.opts()` for options 
 ## Rules (Command-Specific)
 
 - **Command factory pattern** - Commands export `getXCommand()` functions (no parameters), not static instances
-- **Use `Base44Command`** - All commands use `new Base44Command(name, options?)` instead of `new Command()`. The lifecycle (intro, auth, config, outro, error handling) is automatic.
+- **Use `Base44Command`** - All commands use `new Base44Command(name, options?)`
 - **No context plumbing** - Context is injected automatically. Command files should never import `CLIContext`.
 - **Task wrapper** - Use `runTask()` for async operations with spinners
 - **Use theme for styling** - Never use `chalk` directly; import `theme` from `@/cli/utils/` and use semantic names
 - **Use fs.ts utilities** - Always use `@/core/utils/fs.js` for file operations
+- **Guard interactive prompts** - Commands using `select`, `text`, `confirm`, or `group` from `@clack/prompts` must check `command.isNonInteractive` and throw `InvalidInputError` if required flags are missing. Never let prompts hang in CI.
 - **Consistent copy across related commands** - User-facing messages (errors, success, hints) for commands in the same group should use consistent language and structure. When writing validation errors, outro messages, or spinner text, check sibling commands for parity so the product voice stays coherent.
