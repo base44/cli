@@ -7,7 +7,10 @@ import {
   showThemedError,
 } from "@/cli/utils/command/display.js";
 import { ensureAppConfig, ensureAuth } from "@/cli/utils/command/middleware.js";
-import { startUpgradeCheck } from "@/cli/utils/upgradeNotification.js";
+import {
+  formatPlainUpgradeMessage,
+  startUpgradeCheck,
+} from "@/cli/utils/upgradeNotification.js";
 
 interface Base44CommandOptions {
   /**
@@ -135,10 +138,16 @@ export class Base44Command extends Command {
           );
         } else {
           if (result.outroMessage) {
-            process.stderr.write(`${result.outroMessage}\n`);
+            process.stdout.write(`${result.outroMessage}\n`);
           }
           if (result.stdout) {
             process.stdout.write(result.stdout);
+          }
+          const upgradeInfo = await upgradeCheckPromise;
+          if (upgradeInfo) {
+            process.stderr.write(
+              `${formatPlainUpgradeMessage(upgradeInfo, this.context.distribution)}\n`,
+            );
           }
         }
       } catch (error) {
