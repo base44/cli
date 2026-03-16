@@ -4,6 +4,17 @@ import { fixture, setupCLITests } from "./testkit/index.js";
 describe("site deploy command", () => {
   const t = setupCLITests();
 
+  it("fails when --yes is not provided in non-interactive mode", async () => {
+    await t.givenLoggedInWithProject(fixture("with-site"));
+
+    const result = await t.run("site", "deploy");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain(
+      "--yes is required in non-interactive mode",
+    );
+  });
+
   it("fails when no site configuration found", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
 

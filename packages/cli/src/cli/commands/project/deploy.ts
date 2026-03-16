@@ -12,6 +12,7 @@ import {
   getDashboardUrl,
   theme,
 } from "@/cli/utils/index.js";
+import { InvalidInputError } from "@/core/errors.js";
 import {
   deployAll,
   hasResourcesToDeploy,
@@ -130,6 +131,11 @@ export function getDeployCommand(): Command {
     )
     .option("-y, --yes", "Skip confirmation prompt")
     .action(async (options: DeployOptions, command: Base44Command) => {
+      if (command.isNonInteractive && !options.yes) {
+        throw new InvalidInputError(
+          "--yes is required in non-interactive mode",
+        );
+      }
       return await deployAction({
         ...options,
         isNonInteractive: command.isNonInteractive,

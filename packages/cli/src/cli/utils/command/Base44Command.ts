@@ -90,8 +90,8 @@ export class Base44Command extends Command {
    * Whether the CLI is running in non-interactive mode (CI, piped output).
    * Available for action functions that need to adjust behavior
    * (e.g. skip browser opens, skip confirmation prompts).
+   * @public
    */
-  /** @public */
   get isNonInteractive(): boolean {
     return this._context?.isNonInteractive ?? false;
   }

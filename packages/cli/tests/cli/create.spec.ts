@@ -7,6 +7,16 @@ describe("create command", () => {
 
   // ─── NON-INTERACTIVE MODE ─────────────────────────────────────
 
+  it("fails when name and path are missing in non-interactive mode", async () => {
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    t.api.mockCreateApp({ id: "app-123", name: "test" });
+
+    const result = await t.run("create");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("required in non-interactive mode");
+  });
+
   it("fails when --path is provided without name argument", async () => {
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
 
