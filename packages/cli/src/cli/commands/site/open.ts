@@ -1,6 +1,7 @@
 import type { Command } from "commander";
 import open from "open";
-import { Base44Command, type RunCommandResult } from "@/cli/utils/index.js";
+import type { RunCommandResult } from "@/cli/types.js";
+import { Base44Command } from "@/cli/utils/index.js";
 import { getSiteUrl } from "@/core/site/index.js";
 
 async function openAction(

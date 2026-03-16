@@ -1,10 +1,7 @@
 import type { Command } from "commander";
 import { createDevServer } from "@/cli/dev/dev-server/main.js";
-import {
-  Base44Command,
-  type RunCommandResult,
-  theme,
-} from "@/cli/utils/index.js";
+import type { RunCommandResult } from "@/cli/types.js";
+import { Base44Command, theme } from "@/cli/utils/index.js";
 import { getDenoWrapperPath } from "@/core/assets.js";
 import { readProjectConfig } from "@/core/project/config.js";
 

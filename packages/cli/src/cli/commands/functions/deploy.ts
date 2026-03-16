@@ -2,11 +2,8 @@ import { log } from "@clack/prompts";
 import type { Command } from "commander";
 import { formatDeployResult } from "@/cli/commands/functions/formatDeployResult.js";
 import { parseNames } from "@/cli/commands/functions/parseNames.js";
-import {
-  Base44Command,
-  type RunCommandResult,
-  theme,
-} from "@/cli/utils/index.js";
+import type { RunCommandResult } from "@/cli/types.js";
+import { Base44Command, theme } from "@/cli/utils/index.js";
 import { InvalidInputError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/index.js";
 import {

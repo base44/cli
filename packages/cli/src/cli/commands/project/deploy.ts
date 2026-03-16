@@ -5,11 +5,11 @@ import {
   promptOAuthFlows,
 } from "@/cli/commands/connectors/oauth-prompt.js";
 import { formatDeployResult } from "@/cli/commands/functions/formatDeployResult.js";
+import type { RunCommandResult } from "@/cli/types.js";
 import {
   Base44Command,
   getConnectorsUrl,
   getDashboardUrl,
-  type RunCommandResult,
   theme,
 } from "@/cli/utils/index.js";
 import {

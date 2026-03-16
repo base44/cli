@@ -1,15 +1,13 @@
 import { Command } from "commander";
-import type { CLIContext } from "@/cli/types.js";
+import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import {
-  type RunCommandResult,
-  showError,
-  showIntro,
-  showOutro,
+  showCommandEnd,
+  showCommandStart,
+  showPlainError,
+  showThemedError,
 } from "@/cli/utils/command/display.js";
 import { ensureAppConfig, ensureAuth } from "@/cli/utils/command/middleware.js";
 import { startUpgradeCheck } from "@/cli/utils/upgradeNotification.js";
-
-export type { RunCommandResult } from "@/cli/utils/command/display.js";
 
 interface Base44CommandOptions {
   /**
@@ -105,8 +103,8 @@ export class Base44Command extends Command {
   }
 
   /** @public - called by Commander internally via command dispatch */
-  // biome-ignore lint/suspicious/noExplicitAny: must match Commander.js action() signature
   override action(
+    // biome-ignore lint/suspicious/noExplicitAny: must match Commander.js action() signature
     fn: (...args: any[]) => void | Promise<void | RunCommandResult>,
   ): this {
     // biome-ignore lint/suspicious/noExplicitAny: must match Commander.js action() signature
@@ -114,10 +112,7 @@ export class Base44Command extends Command {
       const quiet = this.context.isNonInteractive;
 
       if (!quiet) {
-        await showIntro(
-          this._commandOptions.fullBanner,
-          this.context.isNonInteractive,
-        );
+        await showCommandStart(this._commandOptions.fullBanner);
       }
 
       const upgradeCheckPromise = startUpgradeCheck();
@@ -133,16 +128,25 @@ export class Base44Command extends Command {
         const result = ((await fn(...args)) ?? {}) as RunCommandResult;
 
         if (!quiet) {
-          await showOutro(
+          await showCommandEnd(
             result,
             upgradeCheckPromise,
             this.context.distribution,
           );
-        } else if (result.stdout) {
-          process.stdout.write(result.stdout);
+        } else {
+          if (result.outroMessage) {
+            process.stderr.write(`${result.outroMessage}\n`);
+          }
+          if (result.stdout) {
+            process.stdout.write(result.stdout);
+          }
         }
       } catch (error) {
-        showError(error, this.context, quiet);
+        if (quiet) {
+          showPlainError(error);
+        } else {
+          showThemedError(error, this.context);
+        }
         throw error;
       }
     });

@@ -1,9 +1,6 @@
 import type { Command } from "commander";
-import {
-  Base44Command,
-  type RunCommandResult,
-  theme,
-} from "@/cli/utils/index.js";
+import type { RunCommandResult } from "@/cli/types.js";
+import { Base44Command, theme } from "@/cli/utils/index.js";
 import { readAuth } from "@/core/auth/index.js";
 
 async function whoami(): Promise<RunCommandResult> {

@@ -1,9 +1,9 @@
 import { log } from "@clack/prompts";
 import type { Command } from "commander";
+import type { RunCommandResult } from "@/cli/types.js";
 import {
   Base44Command,
   formatYaml,
-  type RunCommandResult,
   runTask,
   YAML_INDENT,
 } from "@/cli/utils/index.js";

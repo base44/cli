@@ -1,10 +1,7 @@
 import { log } from "@clack/prompts";
 import { Command } from "commander";
-import {
-  Base44Command,
-  type RunCommandResult,
-  runTask,
-} from "@/cli/utils/index.js";
+import type { RunCommandResult } from "@/cli/types.js";
+import { Base44Command, runTask } from "@/cli/utils/index.js";
 import { readProjectConfig } from "@/core/index.js";
 import { pushEntities } from "@/core/resources/entity/index.js";
 

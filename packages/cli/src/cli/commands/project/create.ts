@@ -4,11 +4,11 @@ import { confirm, group, isCancel, log, select, text } from "@clack/prompts";
 import { Argument, type Command } from "commander";
 import { execa } from "execa";
 import kebabCase from "lodash/kebabCase";
+import type { RunCommandResult } from "@/cli/types.js";
 import {
   Base44Command,
   getDashboardUrl,
   onPromptCancel,
-  type RunCommandResult,
   runTask,
   theme,
 } from "@/cli/utils/index.js";

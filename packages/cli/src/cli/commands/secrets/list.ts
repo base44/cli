@@ -1,10 +1,7 @@
 import { log } from "@clack/prompts";
 import type { Command } from "commander";
-import {
-  Base44Command,
-  type RunCommandResult,
-  runTask,
-} from "@/cli/utils/index.js";
+import type { RunCommandResult } from "@/cli/types.js";
+import { Base44Command, runTask } from "@/cli/utils/index.js";
 import { listSecrets } from "@/core/resources/secret/index.js";
 
 async function listSecretsAction(): Promise<RunCommandResult> {

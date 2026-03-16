@@ -1,10 +1,7 @@
 import type { Command } from "commander";
 import open from "open";
-import {
-  Base44Command,
-  getDashboardUrl,
-  type RunCommandResult,
-} from "@/cli/utils/index.js";
+import type { RunCommandResult } from "@/cli/types.js";
+import { Base44Command, getDashboardUrl } from "@/cli/utils/index.js";
 
 async function openDashboard(
   isNonInteractive: boolean,

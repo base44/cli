@@ -1,6 +1,6 @@
 import { log } from "@clack/prompts";
 import pWaitFor from "p-wait-for";
-import type { RunCommandResult } from "@/cli/utils/index.js";
+import type { RunCommandResult } from "@/cli/types.js";
 import { runTask } from "@/cli/utils/index.js";
 import { theme } from "@/cli/utils/theme.js";
 import type {

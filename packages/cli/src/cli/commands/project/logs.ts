@@ -1,6 +1,7 @@
 import type { Command } from "commander";
 import { Option } from "commander";
-import { Base44Command, type RunCommandResult } from "@/cli/utils/index.js";
+import type { RunCommandResult } from "@/cli/types.js";
+import { Base44Command } from "@/cli/utils/index.js";
 import { ApiError, InvalidInputError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/index.js";
 import type {

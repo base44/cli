@@ -1,29 +1,17 @@
 import { intro, log, outro } from "@clack/prompts";
-import type { CLIContext } from "@/cli/types.js";
+import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { printBanner } from "@/cli/utils/banner.js";
 import { theme } from "@/cli/utils/theme.js";
 import { printUpgradeNotification } from "@/cli/utils/upgradeNotification.js";
 import type { UpgradeInfo } from "@/cli/utils/version-check.js";
 import { isCLIError } from "@/core/errors.js";
 
-export interface RunCommandResult {
-  outroMessage?: string;
-  /**
-   * Raw text to write to stdout after the command UI (intro/outro) finishes.
-   * Useful for commands that produce machine-readable or pipeable output.
-   */
-  stdout?: string;
-}
-
 /**
- * Show the intro banner or simple tag.
+ * Show the command start UI: intro banner or simple tag.
  */
-export async function showIntro(
-  fullBanner: boolean,
-  isNonInteractive: boolean,
-): Promise<void> {
+export async function showCommandStart(fullBanner: boolean): Promise<void> {
   if (fullBanner) {
-    await printBanner(isNonInteractive);
+    await printBanner();
     intro("");
   } else {
     intro(theme.colors.base44OrangeBackground(" Base 44 "));
@@ -31,9 +19,9 @@ export async function showIntro(
 }
 
 /**
- * Show the outro: upgrade notification, outro message, and optional stdout.
+ * Show the command end UI: upgrade notification, outro message, and stdout.
  */
-export async function showOutro(
+export async function showCommandEnd(
   result: RunCommandResult,
   upgradeCheckPromise: Promise<UpgradeInfo | null>,
   distribution: CLIContext["distribution"],
@@ -47,27 +35,9 @@ export async function showOutro(
 }
 
 /**
- * Display an error to the user.
- *
- * When `quiet` is true (non-interactive / CI), writes a plain error message
- * to stderr without clack formatting or ASCII codes.
- * When `quiet` is false, uses clack log and themed formatting.
+ * Display an error with clack-themed formatting (interactive mode).
  */
-export function showError(
-  error: unknown,
-  context: CLIContext,
-  quiet: boolean,
-): void {
-  if (quiet) {
-    showPlainError(error);
-  } else {
-    showThemedError(error);
-    const errorContext = context.errorReporter.getErrorContext();
-    outro(theme.format.errorContext(errorContext));
-  }
-}
-
-function showThemedError(error: unknown): void {
+export function showThemedError(error: unknown, context: CLIContext): void {
   const errorMessage = error instanceof Error ? error.message : String(error);
   log.error(errorMessage);
 
@@ -85,9 +55,15 @@ function showThemedError(error: unknown): void {
   if (process.env.DEBUG === "1" && error instanceof Error && error.stack) {
     log.error(theme.styles.dim(error.stack));
   }
+
+  const errorContext = context.errorReporter.getErrorContext();
+  outro(theme.format.errorContext(errorContext));
 }
 
-function showPlainError(error: unknown): void {
+/**
+ * Display an error as plain text to stderr (non-interactive / CI mode).
+ */
+export function showPlainError(error: unknown): void {
   const errorMessage = error instanceof Error ? error.message : String(error);
   process.stderr.write(`Error: ${errorMessage}\n`);
 

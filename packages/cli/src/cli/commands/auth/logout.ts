@@ -1,5 +1,6 @@
 import type { Command } from "commander";
-import { Base44Command, type RunCommandResult } from "@/cli/utils/index.js";
+import type { RunCommandResult } from "@/cli/types.js";
+import { Base44Command } from "@/cli/utils/index.js";
 import { deleteAuth } from "@/core/auth/index.js";
 
 async function logout(): Promise<RunCommandResult> {

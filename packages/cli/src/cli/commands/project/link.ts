@@ -2,11 +2,11 @@ import type { Option } from "@clack/prompts";
 import { cancel, group, isCancel, log, select, text } from "@clack/prompts";
 import type { Command } from "commander";
 import { CLIExitError } from "@/cli/errors.js";
+import type { RunCommandResult } from "@/cli/types.js";
 import {
   Base44Command,
   getDashboardUrl,
   onPromptCancel,
-  type RunCommandResult,
   runTask,
   theme,
 } from "@/cli/utils/index.js";

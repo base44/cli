@@ -40,8 +40,7 @@ export function getMyCommand(): Command {
 
 **Key rules**:
 - Export a **factory function** (`getMyCommand`), not a static command instance
-- Factory functions take **no parameters** — context is injected automatically (see below)
-- Use `Base44Command` instead of `Command` — it automatically handles intro/outro, auth, app config, and error display
+- Use `Base44Command` class
 - Commands must NOT call `intro()` or `outro()` directly
 - The action function must return `RunCommandResult` with an `outroMessage`
 
@@ -87,7 +86,6 @@ export interface CLIContext {
 ```
 
 - Created once in `runCLI()` at startup
-- Injected into every `Base44Command` automatically via a program-level `preAction` hook in `createProgram()` — command files never handle context directly
 - `isNonInteractive` is `true` when stdin/stdout are not a TTY (e.g., CI, piped output, AI agents). Controls quiet mode — when true, all clack UI is suppressed.
 
 ### Using `isNonInteractive`

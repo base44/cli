@@ -6,12 +6,8 @@ import { execa } from "execa";
 import kebabCase from "lodash/kebabCase";
 import { deployAction } from "@/cli/commands/project/deploy.js";
 import { CLIExitError } from "@/cli/errors.js";
-import {
-  Base44Command,
-  type RunCommandResult,
-  runTask,
-  theme,
-} from "@/cli/utils/index.js";
+import type { RunCommandResult } from "@/cli/types.js";
+import { Base44Command, runTask, theme } from "@/cli/utils/index.js";
 import type { Project } from "@/core/index.js";
 import {
   createProject,
