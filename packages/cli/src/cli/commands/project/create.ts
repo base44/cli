@@ -305,19 +305,38 @@ Examples:
   $ base44 create my-app --path ./projects/my-app --deploy       Creates a base44 project at ./project/my-app and deploys it`,
     )
     .hook("preAction", validateNonInteractiveFlags)
-    .action(async (name: string | undefined, options: CreateOptions) => {
-      if (name && !options.path) {
-        options.path = `./${kebabCase(name)}`;
-      }
+    .action(
+      async (
+        name: string | undefined,
+        options: CreateOptions,
+        command: Base44Command,
+      ) => {
+        if (name && !options.path) {
+          options.path = `./${kebabCase(name)}`;
+        }
 
-      const isNonInteractive = !!(options.name ?? name) && !!options.path;
+        const skipPrompts = !!(options.name ?? name) && !!options.path;
 
-      if (isNonInteractive) {
-        return await createNonInteractive({
-          name: options.name ?? name,
-          ...options,
-        });
-      }
-      return await createInteractive({ name, ...options });
-    });
+        if (!skipPrompts && command.isNonInteractive) {
+          throw new InvalidInputError(
+            "Project name and --path are required in non-interactive mode",
+            {
+              hints: [
+                {
+                  message: "Usage: base44 create <name> --path <path>",
+                },
+              ],
+            },
+          );
+        }
+
+        if (skipPrompts) {
+          return await createNonInteractive({
+            name: options.name ?? name,
+            ...options,
+          });
+        }
+        return await createInteractive({ name, ...options });
+      },
+    );
 }
