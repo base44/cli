@@ -36,19 +36,10 @@ interface Base44CommandOptions {
  * A Command subclass that automatically wraps the action with the Base44
  * lifecycle: intro/banner, auth check, app config, outro, and error handling.
  *
- * Command authors use this instead of `new Command()` and never need to
- * manage the lifecycle manually. It runs transparently inside `.action()`.
- *
- * Context is injected automatically via a program-level `preAction` hook
- * in `createProgram()`. Command files do not need to handle context at all.
- *
  * When `isNonInteractive` is true (CI / piped output), all clack UI
  * (intro, outro, themed errors) is skipped. Errors go to stderr as plain text.
  * Action functions that need this value can access it via `command.isNonInteractive`
  * (Commander passes the command instance as the last argument to action handlers).
- *
- * **Important**: Commands should NOT call `intro()` or `outro()` directly.
- * Commands can return an optional `outroMessage` and `stdout` via `RunCommandResult`.
  *
  * @param name - The command name (e.g. "deploy", "login")
  * @param options - Optional configuration to override defaults
