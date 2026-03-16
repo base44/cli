@@ -1,12 +1,14 @@
 import { resolve } from "node:path";
 import { log } from "@clack/prompts";
-import { Command } from "commander";
-import type { CLIContext } from "@/cli/types.js";
+import type { Command } from "commander";
+import {
+  Base44Command,
+  type RunCommandResult,
+  runTask,
+} from "@/cli/utils/index.js";
 import { InvalidInputError } from "@/core/errors.js";
 import { setSecrets } from "@/core/resources/secret/index.js";
 import { parseEnvFile } from "@/core/utils/index.js";
-import { runCommand, runTask } from "../../utils/index.js";
-import type { RunCommandResult } from "../../utils/runCommand.js";
 
 function parseEntries(entries: string[]): Record<string, string> {
   const secrets: Record<string, string> = {};
@@ -90,16 +92,12 @@ async function setSecretsAction(
   };
 }
 
-export function getSecretsSetCommand(context: CLIContext): Command {
-  return new Command("set")
+export function getSecretsSetCommand(): Command {
+  return new Base44Command("set")
     .description("Set one or more secrets (KEY=VALUE format)")
     .argument("[entries...]", "KEY=VALUE pairs (e.g. KEY1=VALUE1 KEY2=VALUE2)")
     .option("--env-file <path>", "Path to .env file")
     .action(async (entries: string[], options: { envFile?: string }) => {
-      await runCommand(
-        () => setSecretsAction(entries, options),
-        { requireAuth: true },
-        context,
-      );
+      return await setSecretsAction(entries, options);
     });
 }

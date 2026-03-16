@@ -1,13 +1,12 @@
 import { Command } from "commander";
-import type { CLIContext } from "@/cli/types.js";
 import { getConnectorsListAvailableCommand } from "./list-available.js";
 import { getConnectorsPullCommand } from "./pull.js";
 import { getConnectorsPushCommand } from "./push.js";
 
-export function getConnectorsCommand(context: CLIContext): Command {
+export function getConnectorsCommand(): Command {
   return new Command("connectors")
     .description("Manage project connectors (OAuth integrations)")
-    .addCommand(getConnectorsListAvailableCommand(context))
-    .addCommand(getConnectorsPullCommand(context))
-    .addCommand(getConnectorsPushCommand(context));
+    .addCommand(getConnectorsListAvailableCommand())
+    .addCommand(getConnectorsPullCommand())
+    .addCommand(getConnectorsPushCommand());
 }

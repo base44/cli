@@ -1,18 +1,17 @@
 import { confirm, isCancel, log } from "@clack/prompts";
-import { Command } from "commander";
+import type { Command } from "commander";
 import {
   filterPendingOAuth,
   promptOAuthFlows,
 } from "@/cli/commands/connectors/oauth-prompt.js";
 import { formatDeployResult } from "@/cli/commands/functions/formatDeployResult.js";
-import type { CLIContext } from "@/cli/types.js";
 import {
+  Base44Command,
   getConnectorsUrl,
   getDashboardUrl,
-  runCommand,
+  type RunCommandResult,
   theme,
 } from "@/cli/utils/index.js";
-import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 import {
   deployAll,
   hasResourcesToDeploy,
@@ -124,22 +123,17 @@ export async function deployAction(
   return { outroMessage: "App deployed successfully" };
 }
 
-export function getDeployCommand(context: CLIContext): Command {
-  return new Command("deploy")
+export function getDeployCommand(): Command {
+  return new Base44Command("deploy")
     .description(
       "Deploy all project resources (entities, functions, agents, connectors, and site)",
     )
     .option("-y, --yes", "Skip confirmation prompt")
-    .action(async (options: DeployOptions) => {
-      await runCommand(
-        () =>
-          deployAction({
-            ...options,
-            isNonInteractive: context.isNonInteractive,
-          }),
-        { requireAuth: true },
-        context,
-      );
+    .action(async (options: DeployOptions, command: Base44Command) => {
+      return await deployAction({
+        ...options,
+        isNonInteractive: command.isNonInteractive,
+      });
     });
 }
 

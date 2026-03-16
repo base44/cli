@@ -1,10 +1,12 @@
 import { log } from "@clack/prompts";
-import { Command } from "commander";
-import type { CLIContext } from "@/cli/types.js";
+import type { Command } from "commander";
+import {
+  Base44Command,
+  type RunCommandResult,
+  runTask,
+} from "@/cli/utils/index.js";
 import { readProjectConfig } from "@/core/index.js";
 import { pushAgents } from "@/core/resources/agent/index.js";
-import { runCommand, runTask } from "../../utils/index.js";
-import type { RunCommandResult } from "../../utils/runCommand.js";
 
 async function pushAgentsAction(): Promise<RunCommandResult> {
   const { agents } = await readProjectConfig();
@@ -39,12 +41,10 @@ async function pushAgentsAction(): Promise<RunCommandResult> {
   return { outroMessage: "Agents pushed to Base44" };
 }
 
-export function getAgentsPushCommand(context: CLIContext): Command {
-  return new Command("push")
+export function getAgentsPushCommand(): Command {
+  return new Base44Command("push")
     .description(
       "Push local agents to Base44 (replaces all remote agent configs)",
     )
-    .action(async () => {
-      await runCommand(pushAgentsAction, { requireAuth: true }, context);
-    });
+    .action(pushAgentsAction);
 }

@@ -1,9 +1,11 @@
 import { log } from "@clack/prompts";
-import { Command } from "commander";
-import type { CLIContext } from "@/cli/types.js";
-import { runCommand, runTask } from "@/cli/utils/index.js";
-import type { RunCommandResult } from "@/cli/utils/runCommand.js";
-import { theme } from "@/cli/utils/theme.js";
+import type { Command } from "commander";
+import {
+  Base44Command,
+  type RunCommandResult,
+  runTask,
+  theme,
+} from "@/cli/utils/index.js";
 import { listDeployedFunctions } from "@/core/resources/function/api.js";
 
 async function listFunctionsAction(): Promise<RunCommandResult> {
@@ -33,10 +35,8 @@ async function listFunctionsAction(): Promise<RunCommandResult> {
   };
 }
 
-export function getListCommand(context: CLIContext): Command {
-  return new Command("list")
+export function getListCommand(): Command {
+  return new Base44Command("list")
     .description("List all deployed functions")
-    .action(async () => {
-      await runCommand(listFunctionsAction, { requireAuth: true }, context);
-    });
+    .action(listFunctionsAction);
 }

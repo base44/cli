@@ -1,14 +1,16 @@
 import { dirname, join } from "node:path";
 import { log } from "@clack/prompts";
-import { Command } from "commander";
-import type { CLIContext } from "@/cli/types.js";
+import type { Command } from "commander";
+import {
+  Base44Command,
+  type RunCommandResult,
+  runTask,
+} from "@/cli/utils/index.js";
 import { readProjectConfig } from "@/core/index.js";
 import {
   pullAllConnectors,
   writeConnectors,
 } from "@/core/resources/connector/index.js";
-import { runCommand, runTask } from "../../utils/index.js";
-import type { RunCommandResult } from "../../utils/runCommand.js";
 
 async function pullConnectorsAction(): Promise<RunCommandResult> {
   const { project } = await readProjectConfig();
@@ -53,12 +55,10 @@ async function pullConnectorsAction(): Promise<RunCommandResult> {
   };
 }
 
-export function getConnectorsPullCommand(context: CLIContext): Command {
-  return new Command("pull")
+export function getConnectorsPullCommand(): Command {
+  return new Base44Command("pull")
     .description(
       "Pull connectors from Base44 to local files (replaces all local connector configs)",
     )
-    .action(async () => {
-      await runCommand(pullConnectorsAction, { requireAuth: true }, context);
-    });
+    .action(pullConnectorsAction);
 }

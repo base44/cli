@@ -1,8 +1,10 @@
-import { Command } from "commander";
+import type { Command } from "commander";
 import open from "open";
-import type { CLIContext } from "@/cli/types.js";
-import { getDashboardUrl, runCommand } from "@/cli/utils/index.js";
-import type { RunCommandResult } from "@/cli/utils/runCommand.js";
+import {
+  Base44Command,
+  getDashboardUrl,
+  type RunCommandResult,
+} from "@/cli/utils/index.js";
 
 async function openDashboard(
   isNonInteractive: boolean,
@@ -16,14 +18,10 @@ async function openDashboard(
   return { outroMessage: `Dashboard opened at ${dashboardUrl}` };
 }
 
-export function getDashboardOpenCommand(context: CLIContext): Command {
-  return new Command("open")
+export function getDashboardOpenCommand(): Command {
+  return new Base44Command("open")
     .description("Open the app dashboard in your browser")
-    .action(async () => {
-      await runCommand(
-        () => openDashboard(context.isNonInteractive),
-        { requireAuth: true },
-        context,
-      );
+    .action(async (_options: unknown, command: Base44Command) => {
+      return await openDashboard(command.isNonInteractive);
     });
 }

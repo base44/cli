@@ -14,6 +14,7 @@ import { getLogsCommand } from "@/cli/commands/project/logs.js";
 import { getSecretsCommand } from "@/cli/commands/secrets/index.js";
 import { getSiteCommand } from "@/cli/commands/site/index.js";
 import { getTypesCommand } from "@/cli/commands/types/index.js";
+import { Base44Command } from "@/cli/utils/index.js";
 import packageJson from "../../package.json";
 import { getDevCommand } from "./commands/dev.js";
 import { getEjectCommand } from "./commands/project/eject.js";
@@ -33,44 +34,51 @@ export function createProgram(context: CLIContext): Command {
     sortSubcommands: true,
   });
 
+  // Inject CLIContext into all Base44Command instances before action runs
+  program.hook("preAction", (_, actionCommand) => {
+    if (actionCommand instanceof Base44Command) {
+      actionCommand.setContext(context);
+    }
+  });
+
   // Register authentication commands
-  program.addCommand(getLoginCommand(context));
-  program.addCommand(getWhoamiCommand(context));
-  program.addCommand(getLogoutCommand(context));
+  program.addCommand(getLoginCommand());
+  program.addCommand(getWhoamiCommand());
+  program.addCommand(getLogoutCommand());
 
   // Register project commands
-  program.addCommand(getCreateCommand(context));
-  program.addCommand(getDashboardCommand(context));
-  program.addCommand(getDeployCommand(context));
-  program.addCommand(getLinkCommand(context));
-  program.addCommand(getEjectCommand(context));
+  program.addCommand(getCreateCommand());
+  program.addCommand(getDashboardCommand());
+  program.addCommand(getDeployCommand());
+  program.addCommand(getLinkCommand());
+  program.addCommand(getEjectCommand());
 
   // Register entities commands
-  program.addCommand(getEntitiesPushCommand(context));
+  program.addCommand(getEntitiesPushCommand());
 
   // Register agents commands
-  program.addCommand(getAgentsCommand(context));
+  program.addCommand(getAgentsCommand());
 
   // Register connectors commands
-  program.addCommand(getConnectorsCommand(context));
+  program.addCommand(getConnectorsCommand());
 
   // Register functions commands
-  program.addCommand(getFunctionsCommand(context));
+  program.addCommand(getFunctionsCommand());
 
   // Register secrets commands
-  program.addCommand(getSecretsCommand(context));
+  program.addCommand(getSecretsCommand());
 
   // Register site commands
-  program.addCommand(getSiteCommand(context));
+  program.addCommand(getSiteCommand());
 
   // Register types command
-  program.addCommand(getTypesCommand(context));
+  program.addCommand(getTypesCommand());
 
   // Register development commands
-  program.addCommand(getDevCommand(context), { hidden: true });
+  program.addCommand(getDevCommand(), { hidden: true });
 
   // Register logs command
-  program.addCommand(getLogsCommand(context), { hidden: true });
+  program.addCommand(getLogsCommand(), { hidden: true });
 
   return program;
 }
