@@ -260,7 +260,13 @@ export function getLinkCommand(): Command {
       "Project ID to link to an existing project (skips selection prompt)",
     )
     .hook("preAction", validateNonInteractiveFlags)
-    .action(async (options: LinkOptions) => {
+    .action(async (options: LinkOptions, command: Base44Command) => {
+      const skipPrompts = !!options.create || !!options.projectId;
+      if (!skipPrompts && command.isNonInteractive) {
+        throw new InvalidInputError(
+          "Either --create --name <name> or --projectId <id> is required in non-interactive mode",
+        );
+      }
       return await link(options);
     });
 }

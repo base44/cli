@@ -178,6 +178,16 @@ export function getEjectCommand(): Command {
     )
     .option("-y, --yes", "Skip confirmation prompts")
     .action(async (options: EjectOptions, command: Base44Command) => {
+      if (command.isNonInteractive && !options.projectId) {
+        throw new InvalidInputError(
+          "--project-id is required in non-interactive mode",
+        );
+      }
+      if (command.isNonInteractive && !options.path) {
+        throw new InvalidInputError(
+          "--path is required in non-interactive mode",
+        );
+      }
       return await eject({
         ...options,
         isNonInteractive: command.isNonInteractive,
