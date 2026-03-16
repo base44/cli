@@ -10,7 +10,7 @@ import { createDevLogger } from "@/cli/dev/createDevLogger.js";
 import { FunctionManager } from "@/cli/dev/dev-server/function-manager.js";
 import { createFunctionRouter } from "@/cli/dev/dev-server/routes/functions.js";
 import type { ProjectData } from "@/core/project/types.js";
-import { Database } from "./database.js";
+import { Database } from "./db/database.js";
 import {
   type BroadcastEntityEvent,
   broadcastEntityEvent,

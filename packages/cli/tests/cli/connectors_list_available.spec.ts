@@ -73,6 +73,7 @@ describe("connectors list-available command", () => {
     await t.givenLoggedInWithProject(fixture("basic"));
     t.api.mockAvailableIntegrationsList({
       integrations: [{ bad: "data" }],
+      // biome-ignore lint/suspicious/noExplicitAny: this is a test
     } as any);
 
     const result = await t.run("connectors", "list-available");
