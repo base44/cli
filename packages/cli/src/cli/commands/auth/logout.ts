@@ -9,7 +9,10 @@ async function logout(): Promise<RunCommandResult> {
 }
 
 export function getLogoutCommand(): Command {
-  return new Base44Command("logout", { requireAppConfig: false })
+  return new Base44Command("logout", {
+    requireAuth: false,
+    requireAppConfig: false,
+  })
     .description("Logout from current device")
     .action(logout);
 }
