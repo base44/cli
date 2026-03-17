@@ -9,7 +9,7 @@ import {
 import { listAvailableIntegrations } from "@/core/resources/connector/index.js";
 
 async function listAvailableAction({
-  logger,
+  log: logger,
 }: CLIContext): Promise<RunCommandResult> {
   const { integrations } = await runTask(
     "Fetching available integrations from Base44",

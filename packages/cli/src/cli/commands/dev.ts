@@ -10,7 +10,7 @@ interface DevOptions {
 }
 
 async function devAction(
-  { logger }: CLIContext,
+  { log: logger }: CLIContext,
   options: DevOptions,
 ): Promise<RunCommandResult> {
   const port = options.port ? Number(options.port) : undefined;

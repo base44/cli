@@ -30,7 +30,7 @@ interface DeployOptions {
 }
 
 export async function deployAction(
-  { isNonInteractive, logger }: CLIContext,
+  { isNonInteractive, log: logger }: CLIContext,
   options: DeployOptions = {},
 ): Promise<RunCommandResult> {
   if (isNonInteractive && !options.yes) {

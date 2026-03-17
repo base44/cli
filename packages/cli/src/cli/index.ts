@@ -32,7 +32,7 @@ async function runCLI(options?: RunCLIOptions): Promise<void> {
     errorReporter,
     isNonInteractive,
     distribution: options?.distribution ?? "npm",
-    logger,
+    log: logger,
   };
 
   // Create program with injected context

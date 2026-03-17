@@ -5,7 +5,7 @@ import { readProjectConfig } from "@/core/index.js";
 import { pushAgents } from "@/core/resources/agent/index.js";
 
 async function pushAgentsAction({
-  logger,
+  log: logger,
 }: CLIContext): Promise<RunCommandResult> {
   const { agents } = await readProjectConfig();
 

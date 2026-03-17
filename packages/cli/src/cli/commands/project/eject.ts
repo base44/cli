@@ -31,7 +31,7 @@ async function eject(
   ctx: CLIContext,
   options: EjectOptions,
 ): Promise<RunCommandResult> {
-  const { logger, isNonInteractive } = ctx;
+  const { log: logger, isNonInteractive } = ctx;
 
   if (isNonInteractive && !options.projectId) {
     throw new InvalidInputError(

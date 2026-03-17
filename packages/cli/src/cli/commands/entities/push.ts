@@ -5,7 +5,7 @@ import { readProjectConfig } from "@/core/index.js";
 import { pushEntities } from "@/core/resources/entity/index.js";
 
 async function pushEntitiesAction({
-  logger,
+  log: logger,
 }: CLIContext): Promise<RunCommandResult> {
   const { entities } = await readProjectConfig();
 

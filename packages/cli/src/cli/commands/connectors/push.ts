@@ -92,7 +92,7 @@ function printSummary(
 
 async function pushConnectorsAction({
   isNonInteractive,
-  logger,
+  log: logger,
 }: CLIContext): Promise<RunCommandResult> {
   const { connectors } = await readProjectConfig();
 

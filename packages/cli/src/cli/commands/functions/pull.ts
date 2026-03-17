@@ -7,7 +7,7 @@ import { listDeployedFunctions } from "@/core/resources/function/api.js";
 import { writeFunctions } from "@/core/resources/function/pull.js";
 
 async function pullFunctionsAction(
-  { logger }: CLIContext,
+  { log: logger }: CLIContext,
   name: string | undefined,
 ): Promise<RunCommandResult> {
   const { project } = await readProjectConfig();

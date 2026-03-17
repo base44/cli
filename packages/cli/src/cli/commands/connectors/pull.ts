@@ -9,7 +9,7 @@ import {
 } from "@/core/resources/connector/index.js";
 
 async function pullConnectorsAction({
-  logger,
+  log: logger,
 }: CLIContext): Promise<RunCommandResult> {
   const { project } = await readProjectConfig();
 

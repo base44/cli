@@ -130,7 +130,7 @@ async function link(
   ctx: CLIContext,
   options: LinkOptions,
 ): Promise<RunCommandResult> {
-  const { logger, isNonInteractive } = ctx;
+  const { log: logger, isNonInteractive } = ctx;
 
   const skipPrompts = !!options.create || !!options.projectId;
   if (!skipPrompts && isNonInteractive) {

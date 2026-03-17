@@ -101,7 +101,9 @@ async function saveAuthData(
  * Execute the login flow (device code authentication).
  * This function is separate from the command to avoid circular dependencies.
  */
-export async function login({ logger }: CLIContext): Promise<RunCommandResult> {
+export async function login({
+  log: logger,
+}: CLIContext): Promise<RunCommandResult> {
   const deviceCodeResponse = await generateAndDisplayDeviceCode(logger);
 
   const token = await waitForAuthentication(

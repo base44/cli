@@ -4,7 +4,7 @@ import { Base44Command, runTask, theme } from "@/cli/utils/index.js";
 import { listDeployedFunctions } from "@/core/resources/function/api.js";
 
 async function listFunctionsAction({
-  logger,
+  log: logger,
 }: CLIContext): Promise<RunCommandResult> {
   const { functions } = await runTask(
     "Fetching functions...",

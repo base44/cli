@@ -295,7 +295,7 @@ async function executeCreate(
 }
 
 async function createAction(
-  { logger, isNonInteractive }: CLIContext,
+  { log: logger, isNonInteractive }: CLIContext,
   name: string | undefined,
   options: CreateOptions,
 ): Promise<RunCommandResult> {

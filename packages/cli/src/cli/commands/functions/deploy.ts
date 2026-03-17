@@ -57,7 +57,7 @@ function buildDeploySummary(results: SingleFunctionDeployResult[]): string {
 }
 
 async function deployFunctionsAction(
-  { logger }: CLIContext,
+  { log: logger }: CLIContext,
   names: string[],
   options: { force?: boolean },
 ): Promise<RunCommandResult> {

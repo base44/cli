@@ -11,7 +11,7 @@ export async function ensureAuth(ctx: CLIContext): Promise<void> {
   const loggedIn = await isLoggedIn();
 
   if (!loggedIn) {
-    ctx.logger.info("You need to login first to continue.");
+    ctx.log.info("You need to login first to continue.");
     await login(ctx);
   }
 

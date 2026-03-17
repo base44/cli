@@ -7,7 +7,7 @@ export interface CLIContext {
   errorReporter: ErrorReporter;
   isNonInteractive: boolean;
   distribution: Distribution;
-  logger: Logger;
+  log: Logger;
 }
 
 export interface RunCommandResult {

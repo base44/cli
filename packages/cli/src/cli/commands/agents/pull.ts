@@ -6,7 +6,7 @@ import { readProjectConfig } from "@/core/index.js";
 import { fetchAgents, writeAgents } from "@/core/resources/agent/index.js";
 
 async function pullAgentsAction({
-  logger,
+  log: logger,
 }: CLIContext): Promise<RunCommandResult> {
   const { project } = await readProjectConfig();
 

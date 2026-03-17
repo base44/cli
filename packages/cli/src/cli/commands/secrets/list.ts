@@ -4,7 +4,7 @@ import { Base44Command, runTask } from "@/cli/utils/index.js";
 import { listSecrets } from "@/core/resources/secret/index.js";
 
 async function listSecretsAction({
-  logger,
+  log: logger,
 }: CLIContext): Promise<RunCommandResult> {
   const secrets = await runTask(
     "Fetching secrets from Base44",

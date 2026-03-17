@@ -50,7 +50,7 @@ function validateInput(entries: string[], options: { envFile?: string }): void {
 }
 
 async function setSecretsAction(
-  { logger }: CLIContext,
+  { log: logger }: CLIContext,
   entries: string[],
   options: { envFile?: string },
 ): Promise<RunCommandResult> {
