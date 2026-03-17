@@ -1,7 +1,7 @@
 import type { Command } from "commander";
-import type { RunCommandResult } from "@/cli/types.js";
+import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, runTask, theme } from "@/cli/utils/index.js";
-import type { Logger } from "@/cli/utils/logger/types.js";
+import type { Logger } from "@/cli/utils/logger/types.js"; // used by printSummary helper
 import { getConnectorsUrl } from "@/cli/utils/urls.js";
 import { readProjectConfig } from "@/core/index.js";
 import {
@@ -90,10 +90,10 @@ function printSummary(
   }
 }
 
-async function pushConnectorsAction(
-  isNonInteractive: boolean,
-  logger: Logger,
-): Promise<RunCommandResult> {
+async function pushConnectorsAction({
+  isNonInteractive,
+  logger,
+}: CLIContext): Promise<RunCommandResult> {
   const { connectors } = await readProjectConfig();
 
   if (connectors.length === 0) {
@@ -139,10 +139,5 @@ export function getConnectorsPushCommand(): Command {
     .description(
       "Push local connectors to Base44 (overwrites connectors on Base44)",
     )
-    .action(async (_options: unknown, command: Base44Command) => {
-      return await pushConnectorsAction(
-        command.isNonInteractive,
-        command.logger,
-      );
-    });
+    .action(pushConnectorsAction);
 }

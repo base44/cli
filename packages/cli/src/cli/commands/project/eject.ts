@@ -6,9 +6,8 @@ import { execa } from "execa";
 import kebabCase from "lodash/kebabCase";
 import { deployAction } from "@/cli/commands/project/deploy.js";
 import { CLIExitError } from "@/cli/errors.js";
-import type { RunCommandResult } from "@/cli/types.js";
+import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, runTask, theme } from "@/cli/utils/index.js";
-import type { Logger } from "@/cli/utils/logger/types.js";
 import type { Project } from "@/core/index.js";
 import {
   createProject,
@@ -26,13 +25,23 @@ interface EjectOptions {
   path?: string;
   projectId?: string;
   yes?: boolean;
-  isNonInteractive?: boolean;
 }
 
 async function eject(
+  ctx: CLIContext,
   options: EjectOptions,
-  logger: Logger,
 ): Promise<RunCommandResult> {
+  const { logger, isNonInteractive } = ctx;
+
+  if (isNonInteractive && !options.projectId) {
+    throw new InvalidInputError(
+      "--project-id is required in non-interactive mode",
+    );
+  }
+  if (isNonInteractive && !options.path) {
+    throw new InvalidInputError("--path is required in non-interactive mode");
+  }
+
   const projects = await listProjects();
   const ejectableProjects = projects.filter(
     (p) => p.isManagedSourceCode !== false,
@@ -165,7 +174,7 @@ async function eject(
         },
       );
 
-      await deployAction({ yes: true, projectRoot: resolvedPath, logger });
+      await deployAction(ctx, { yes: true, projectRoot: resolvedPath });
     }
   }
 
@@ -181,20 +190,5 @@ export function getEjectCommand(): Command {
       "Project ID to eject (skips interactive selection)",
     )
     .option("-y, --yes", "Skip confirmation prompts")
-    .action(async (options: EjectOptions, command: Base44Command) => {
-      if (command.isNonInteractive && !options.projectId) {
-        throw new InvalidInputError(
-          "--project-id is required in non-interactive mode",
-        );
-      }
-      if (command.isNonInteractive && !options.path) {
-        throw new InvalidInputError(
-          "--path is required in non-interactive mode",
-        );
-      }
-      return await eject(
-        { ...options, isNonInteractive: command.isNonInteractive },
-        command.logger,
-      );
-    });
+    .action(eject);
 }

@@ -1,15 +1,16 @@
 import { dirname, join } from "node:path";
 import type { Command } from "commander";
-import type { RunCommandResult } from "@/cli/types.js";
+import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, runTask } from "@/cli/utils/index.js";
-import type { Logger } from "@/cli/utils/logger/types.js";
 import { readProjectConfig } from "@/core/index.js";
 import {
   pullAllConnectors,
   writeConnectors,
 } from "@/core/resources/connector/index.js";
 
-async function pullConnectorsAction(logger: Logger): Promise<RunCommandResult> {
+async function pullConnectorsAction({
+  logger,
+}: CLIContext): Promise<RunCommandResult> {
   const { project } = await readProjectConfig();
 
   const configDir = dirname(project.configPath);
@@ -57,7 +58,5 @@ export function getConnectorsPullCommand(): Command {
     .description(
       "Pull connectors from Base44 to local files (replaces all local connector configs)",
     )
-    .action((_options: unknown, command: Base44Command) =>
-      pullConnectorsAction(command.logger),
-    );
+    .action(pullConnectorsAction);
 }

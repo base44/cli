@@ -1,10 +1,11 @@
 import type { Command } from "commander";
-import type { RunCommandResult } from "@/cli/types.js";
+import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, runTask, theme } from "@/cli/utils/index.js";
-import type { Logger } from "@/cli/utils/logger/types.js";
 import { listDeployedFunctions } from "@/core/resources/function/api.js";
 
-async function listFunctionsAction(logger: Logger): Promise<RunCommandResult> {
+async function listFunctionsAction({
+  logger,
+}: CLIContext): Promise<RunCommandResult> {
   const { functions } = await runTask(
     "Fetching functions...",
     async () => listDeployedFunctions(),
@@ -34,7 +35,5 @@ async function listFunctionsAction(logger: Logger): Promise<RunCommandResult> {
 export function getListCommand(): Command {
   return new Base44Command("list")
     .description("List all deployed functions")
-    .action((_options: unknown, command: Base44Command) =>
-      listFunctionsAction(command.logger),
-    );
+    .action(listFunctionsAction);
 }

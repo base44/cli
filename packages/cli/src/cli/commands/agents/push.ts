@@ -1,11 +1,12 @@
 import type { Command } from "commander";
-import type { RunCommandResult } from "@/cli/types.js";
+import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, runTask } from "@/cli/utils/index.js";
-import type { Logger } from "@/cli/utils/logger/types.js";
 import { readProjectConfig } from "@/core/index.js";
 import { pushAgents } from "@/core/resources/agent/index.js";
 
-async function pushAgentsAction(logger: Logger): Promise<RunCommandResult> {
+async function pushAgentsAction({
+  logger,
+}: CLIContext): Promise<RunCommandResult> {
   const { agents } = await readProjectConfig();
 
   logger.info(
@@ -43,7 +44,5 @@ export function getAgentsPushCommand(): Command {
     .description(
       "Push local agents to Base44 (replaces all remote agent configs)",
     )
-    .action((_options: unknown, command: Base44Command) =>
-      pushAgentsAction(command.logger),
-    );
+    .action(pushAgentsAction);
 }

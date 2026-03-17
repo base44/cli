@@ -7,7 +7,6 @@ import {
   showPlainError,
   showThemedError,
 } from "@/cli/utils/command/render.js";
-import type { Logger } from "@/cli/utils/logger/types.js";
 import {
   formatPlainUpgradeMessage,
   startUpgradeCheck,
@@ -40,30 +39,26 @@ interface Base44CommandOptions {
  *
  * When `isNonInteractive` is true (CI / piped output), all clack UI
  * (intro, outro, themed errors) is skipped. Errors go to stderr as plain text.
- * Action functions that need this value can access it via `command.isNonInteractive`
- * (Commander passes the command instance as the last argument to action handlers).
+ *
+ * Action functions receive `CLIContext` as their first argument (injected by
+ * this class), followed by Commander's normal positional args, options, and
+ * command instance. Destructure what you need:
  *
  * @param name - The command name (e.g. "deploy", "login")
  * @param options - Optional configuration to override defaults
  *
  * @example
- * // Standard command (auth required, loads app config)
- * new Base44Command("deploy")
+ * // Action function receives CLIContext first, then Commander args
+ * async function myAction({ logger }: CLIContext, options: MyOptions): Promise<RunCommandResult> {
+ *   logger.info("Doing something...");
+ *   return { outroMessage: "Done!" };
+ * }
  *
- * @example
- * // Skip auth and app config (e.g. login command)
- * new Base44Command("login", { requireAuth: false, requireAppConfig: false })
- *
- * @example
- * // Full usage in a command file
  * export function getMyCommand(): Command {
  *   return new Base44Command("my-command")
  *     .description("Does something")
  *     .option("-f, --flag", "Some flag")
- *     .action(async (options) => {
- *       // ... business logic ...
- *       return { outroMessage: "Done!" };
- *     });
+ *     .action(myAction);
  * }
  */
 export class Base44Command extends Command {
@@ -87,25 +82,6 @@ export class Base44Command extends Command {
     this._context = context;
   }
 
-  /**
-   * Whether the CLI is running in non-interactive mode (CI, piped output).
-   * Available for action functions that need to adjust behavior
-   * (e.g. skip browser opens, skip confirmation prompts).
-   * @public
-   */
-  get isNonInteractive(): boolean {
-    return this._context?.isNonInteractive ?? false;
-  }
-
-  /**
-   * Logger instance for command output. Uses clack-styled output in
-   * interactive mode and plain stderr text in non-interactive mode.
-   * @public
-   */
-  get logger(): Logger {
-    return this.context.logger;
-  }
-
   private get context(): CLIContext {
     if (!this._context) {
       throw new Error(
@@ -115,10 +91,15 @@ export class Base44Command extends Command {
     return this._context;
   }
 
-  /** @public - called by Commander internally via command dispatch */
+  /**
+   * Register an action that receives `CLIContext` as its first argument,
+   * followed by Commander's positional args, options, and command instance.
+   * Use the `CommandAction` type for action function signatures.
+   * @public
+   */
   override action(
     // biome-ignore lint/suspicious/noExplicitAny: must match Commander.js action() signature
-    fn: (...args: any[]) => void | Promise<void | RunCommandResult>,
+    fn: (context: CLIContext, ...args: any[]) => any,
   ): this {
     // biome-ignore lint/suspicious/noExplicitAny: must match Commander.js action() signature
     return super.action(async (...args: any[]) => {
@@ -132,13 +113,14 @@ export class Base44Command extends Command {
 
       try {
         if (this._commandOptions.requireAuth) {
-          await ensureAuth(this.context.errorReporter, this.context.logger);
+          await ensureAuth(this.context);
         }
         if (this._commandOptions.requireAppConfig) {
-          await ensureAppConfig(this.context.errorReporter);
+          await ensureAppConfig(this.context);
         }
 
-        const result = ((await fn(...args)) ?? {}) as RunCommandResult;
+        const result = ((await fn(this.context, ...args)) ??
+          {}) as RunCommandResult;
 
         if (!quiet) {
           await showCommandEnd(

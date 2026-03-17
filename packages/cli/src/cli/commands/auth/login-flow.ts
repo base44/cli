@@ -1,7 +1,7 @@
 import pWaitFor from "p-wait-for";
-import type { RunCommandResult } from "@/cli/types.js";
+import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { runTask } from "@/cli/utils/index.js";
-import type { Logger } from "@/cli/utils/logger/types.js";
+import type { Logger } from "@/cli/utils/logger/types.js"; // used by internal helpers
 import { theme } from "@/cli/utils/theme.js";
 import type {
   DeviceCodeResponse,
@@ -101,7 +101,7 @@ async function saveAuthData(
  * Execute the login flow (device code authentication).
  * This function is separate from the command to avoid circular dependencies.
  */
-export async function login(logger: Logger): Promise<RunCommandResult> {
+export async function login({ logger }: CLIContext): Promise<RunCommandResult> {
   const deviceCodeResponse = await generateAndDisplayDeviceCode(logger);
 
   const token = await waitForAuthentication(

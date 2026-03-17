@@ -1,12 +1,13 @@
 import { dirname, join } from "node:path";
 import type { Command } from "commander";
-import type { RunCommandResult } from "@/cli/types.js";
+import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, runTask } from "@/cli/utils/index.js";
-import type { Logger } from "@/cli/utils/logger/types.js";
 import { readProjectConfig } from "@/core/index.js";
 import { fetchAgents, writeAgents } from "@/core/resources/agent/index.js";
 
-async function pullAgentsAction(logger: Logger): Promise<RunCommandResult> {
+async function pullAgentsAction({
+  logger,
+}: CLIContext): Promise<RunCommandResult> {
   const { project } = await readProjectConfig();
 
   const configDir = dirname(project.configPath);
@@ -54,7 +55,5 @@ export function getAgentsPullCommand(): Command {
     .description(
       "Pull agents from Base44 to local files (replaces all local agent configs)",
     )
-    .action((_options: unknown, command: Base44Command) =>
-      pullAgentsAction(command.logger),
-    );
+    .action(pullAgentsAction);
 }

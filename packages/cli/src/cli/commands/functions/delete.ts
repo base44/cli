@@ -1,10 +1,11 @@
 import type { Command } from "commander";
-import type { RunCommandResult } from "@/cli/types.js";
+import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, runTask } from "@/cli/utils/index.js";
 import { ApiError } from "@/core/errors.js";
 import { deleteSingleFunction } from "@/core/resources/function/api.js";
 
 async function deleteFunctionsAction(
+  _ctx: CLIContext,
   names: string[],
 ): Promise<RunCommandResult> {
   let deleted = 0;
@@ -61,8 +62,8 @@ export function getDeleteCommand(): Command {
     .description("Delete deployed functions")
     .argument("<names...>", "Function names to delete")
     .hook("preAction", validateNames)
-    .action(async (rawNames: string[]) => {
+    .action(async (ctx: CLIContext, rawNames: string[]) => {
       const names = parseNames(rawNames);
-      return deleteFunctionsAction(names);
+      return deleteFunctionsAction(ctx, names);
     });
 }

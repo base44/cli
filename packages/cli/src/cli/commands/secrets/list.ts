@@ -1,10 +1,11 @@
 import type { Command } from "commander";
-import type { RunCommandResult } from "@/cli/types.js";
+import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, runTask } from "@/cli/utils/index.js";
-import type { Logger } from "@/cli/utils/logger/types.js";
 import { listSecrets } from "@/core/resources/secret/index.js";
 
-async function listSecretsAction(logger: Logger): Promise<RunCommandResult> {
+async function listSecretsAction({
+  logger,
+}: CLIContext): Promise<RunCommandResult> {
   const secrets = await runTask(
     "Fetching secrets from Base44",
     async () => {
@@ -34,7 +35,5 @@ async function listSecretsAction(logger: Logger): Promise<RunCommandResult> {
 export function getSecretsListCommand(): Command {
   return new Base44Command("list")
     .description("List secret names")
-    .action((_options: unknown, command: Base44Command) =>
-      listSecretsAction(command.logger),
-    );
+    .action(listSecretsAction);
 }

@@ -1,15 +1,14 @@
 import { dirname, join } from "node:path";
 import type { Command } from "commander";
-import type { RunCommandResult } from "@/cli/types.js";
+import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, runTask } from "@/cli/utils/index.js";
-import type { Logger } from "@/cli/utils/logger/types.js";
 import { readProjectConfig } from "@/core/index.js";
 import { listDeployedFunctions } from "@/core/resources/function/api.js";
 import { writeFunctions } from "@/core/resources/function/pull.js";
 
 async function pullFunctionsAction(
+  { logger }: CLIContext,
   name: string | undefined,
-  logger: Logger,
 ): Promise<RunCommandResult> {
   const { project } = await readProjectConfig();
 
@@ -69,13 +68,5 @@ export function getPullCommand(): Command {
   return new Base44Command("pull")
     .description("Pull deployed functions from Base44")
     .argument("[name]", "Function name to pull (pulls all if omitted)")
-    .action(
-      async (
-        name: string | undefined,
-        _options: unknown,
-        command: Base44Command,
-      ) => {
-        return pullFunctionsAction(name, command.logger);
-      },
-    );
+    .action(pullFunctionsAction);
 }

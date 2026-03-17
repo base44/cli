@@ -4,7 +4,7 @@ import { confirm, group, isCancel, select, text } from "@clack/prompts";
 import { Argument, type Command } from "commander";
 import { execa } from "execa";
 import kebabCase from "lodash/kebabCase";
-import type { RunCommandResult } from "@/cli/types.js";
+import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import {
   Base44Command,
   getDashboardUrl,
@@ -12,7 +12,7 @@ import {
   runTask,
   theme,
 } from "@/cli/utils/index.js";
-import type { Logger } from "@/cli/utils/logger/types.js";
+import type { Logger } from "@/cli/utils/logger/types.js"; // used by internal helpers
 import { InvalidInputError } from "@/core/errors.js";
 import { deploySite, isDirEmpty, pushEntities } from "@/core/index.js";
 import type { Template } from "@/core/project/index.js";
@@ -294,6 +294,39 @@ async function executeCreate(
   return { outroMessage: "Your project is set up and ready to use" };
 }
 
+async function createAction(
+  { logger, isNonInteractive }: CLIContext,
+  name: string | undefined,
+  options: CreateOptions,
+): Promise<RunCommandResult> {
+  if (name && !options.path) {
+    options.path = `./${kebabCase(name)}`;
+  }
+
+  const skipPrompts = !!(options.name ?? name) && !!options.path;
+
+  if (!skipPrompts && isNonInteractive) {
+    throw new InvalidInputError(
+      "Project name and --path are required in non-interactive mode",
+      {
+        hints: [
+          {
+            message: "Usage: base44 create <name> --path <path>",
+          },
+        ],
+      },
+    );
+  }
+
+  if (skipPrompts) {
+    return await createNonInteractive(
+      { name: options.name ?? name, ...options },
+      logger,
+    );
+  }
+  return await createInteractive({ name, ...options }, logger);
+}
+
 export function getCreateCommand(): Command {
   return new Base44Command("create", {
     requireAppConfig: false,
@@ -317,41 +350,5 @@ Examples:
   $ base44 create my-app --path ./projects/my-app --deploy       Creates a base44 project at ./project/my-app and deploys it`,
     )
     .hook("preAction", validateNonInteractiveFlags)
-    .action(
-      async (
-        name: string | undefined,
-        options: CreateOptions,
-        command: Base44Command,
-      ) => {
-        if (name && !options.path) {
-          options.path = `./${kebabCase(name)}`;
-        }
-
-        const skipPrompts = !!(options.name ?? name) && !!options.path;
-
-        if (!skipPrompts && command.isNonInteractive) {
-          throw new InvalidInputError(
-            "Project name and --path are required in non-interactive mode",
-            {
-              hints: [
-                {
-                  message: "Usage: base44 create <name> --path <path>",
-                },
-              ],
-            },
-          );
-        }
-
-        if (skipPrompts) {
-          return await createNonInteractive(
-            {
-              name: options.name ?? name,
-              ...options,
-            },
-            command.logger,
-          );
-        }
-        return await createInteractive({ name, ...options }, command.logger);
-      },
-    );
+    .action(createAction);
 }

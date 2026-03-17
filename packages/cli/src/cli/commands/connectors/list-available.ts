@@ -1,15 +1,16 @@
 import type { Command } from "commander";
-import type { RunCommandResult } from "@/cli/types.js";
+import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import {
   Base44Command,
   formatYaml,
   runTask,
   YAML_INDENT,
 } from "@/cli/utils/index.js";
-import type { Logger } from "@/cli/utils/logger/types.js";
 import { listAvailableIntegrations } from "@/core/resources/connector/index.js";
 
-async function listAvailableAction(logger: Logger): Promise<RunCommandResult> {
+async function listAvailableAction({
+  logger,
+}: CLIContext): Promise<RunCommandResult> {
   const { integrations } = await runTask(
     "Fetching available integrations from Base44",
     async () => {
@@ -39,7 +40,5 @@ async function listAvailableAction(logger: Logger): Promise<RunCommandResult> {
 export function getConnectorsListAvailableCommand(): Command {
   return new Base44Command("list-available")
     .description("List all available integration types")
-    .action((_options: unknown, command: Base44Command) =>
-      listAvailableAction(command.logger),
-    );
+    .action(listAvailableAction);
 }

@@ -5,14 +5,14 @@ import {
   promptOAuthFlows,
 } from "@/cli/commands/connectors/oauth-prompt.js";
 import { formatDeployResult } from "@/cli/commands/functions/formatDeployResult.js";
-import type { RunCommandResult } from "@/cli/types.js";
+import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import {
   Base44Command,
   getConnectorsUrl,
   getDashboardUrl,
   theme,
 } from "@/cli/utils/index.js";
-import type { Logger } from "@/cli/utils/logger/types.js";
+import type { Logger } from "@/cli/utils/logger/types.js"; // used by helper functions
 import { InvalidInputError } from "@/core/errors.js";
 import {
   deployAll,
@@ -27,14 +27,16 @@ import type {
 interface DeployOptions {
   yes?: boolean;
   projectRoot?: string;
-  isNonInteractive?: boolean;
-  logger?: Logger;
 }
 
 export async function deployAction(
-  options: DeployOptions,
+  { isNonInteractive, logger }: CLIContext,
+  options: DeployOptions = {},
 ): Promise<RunCommandResult> {
-  const logger = options.logger!;
+  if (isNonInteractive && !options.yes) {
+    throw new InvalidInputError("--yes is required in non-interactive mode");
+  }
+
   const projectData = await readProjectConfig(options.projectRoot);
 
   if (!hasResourcesToDeploy(projectData)) {
@@ -109,7 +111,12 @@ export async function deployAction(
 
   // Handle connector-specific post-deploy flows
   const connectorResults = result.connectorResults ?? [];
-  await handleOAuthConnectors(connectorResults, options, logger);
+  await handleOAuthConnectors(
+    connectorResults,
+    isNonInteractive,
+    options,
+    logger,
+  );
   const stripeResult = connectorResults.find((r) => r.type === "stripe");
   if (stripeResult?.action === "provisioned") {
     printStripeResult(stripeResult as StripeSyncResult, logger);
@@ -133,22 +140,12 @@ export function getDeployCommand(): Command {
       "Deploy all project resources (entities, functions, agents, connectors, and site)",
     )
     .option("-y, --yes", "Skip confirmation prompt")
-    .action(async (options: DeployOptions, command: Base44Command) => {
-      if (command.isNonInteractive && !options.yes) {
-        throw new InvalidInputError(
-          "--yes is required in non-interactive mode",
-        );
-      }
-      return await deployAction({
-        ...options,
-        isNonInteractive: command.isNonInteractive,
-        logger: command.logger,
-      });
-    });
+    .action(deployAction);
 }
 
 async function handleOAuthConnectors(
   connectorResults: ConnectorSyncResult[],
+  isNonInteractive: boolean,
   options: DeployOptions,
   logger: Logger,
 ): Promise<void> {
@@ -156,7 +153,7 @@ async function handleOAuthConnectors(
   if (needsOAuth.length === 0) return;
 
   const oauthOutcomes = await promptOAuthFlows(needsOAuth, logger, {
-    skipPrompt: options.yes || options.isNonInteractive,
+    skipPrompt: options.yes || isNonInteractive,
   });
 
   const allAuthorized =

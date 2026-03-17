@@ -1,11 +1,12 @@
 import { Command } from "commander";
-import type { RunCommandResult } from "@/cli/types.js";
+import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, runTask } from "@/cli/utils/index.js";
-import type { Logger } from "@/cli/utils/logger/types.js";
 import { readProjectConfig } from "@/core/index.js";
 import { pushEntities } from "@/core/resources/entity/index.js";
 
-async function pushEntitiesAction(logger: Logger): Promise<RunCommandResult> {
+async function pushEntitiesAction({
+  logger,
+}: CLIContext): Promise<RunCommandResult> {
   const { entities } = await readProjectConfig();
 
   if (entities.length === 0) {
@@ -46,8 +47,6 @@ export function getEntitiesPushCommand(): Command {
     .addCommand(
       new Base44Command("push")
         .description("Push local entities to Base44")
-        .action((_options: unknown, command: Base44Command) =>
-          pushEntitiesAction(command.logger),
-        ),
+        .action(pushEntitiesAction),
     );
 }
