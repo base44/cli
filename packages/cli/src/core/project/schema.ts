@@ -19,6 +19,12 @@ const SiteConfigSchema = z.object({
   installCommand: z.string().optional(),
 });
 
+export const VisibilitySchema = z.enum(["public", "private"], {
+  error: 'Invalid visibility value. Allowed values: "public", "private"',
+});
+
+export type Visibility = z.infer<typeof VisibilitySchema>;
+
 export const ProjectConfigSchema = z.object({
   name: z
     .string({
@@ -26,6 +32,7 @@ export const ProjectConfigSchema = z.object({
     })
     .min(1, "App name cannot be empty"),
   description: z.string().optional(),
+  visibility: VisibilitySchema.optional(),
   site: SiteConfigSchema.optional(),
   entitiesDir: z.string().optional().default("entities"),
   functionsDir: z.string().optional().default("functions"),

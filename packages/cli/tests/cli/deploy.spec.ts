@@ -197,3 +197,64 @@ describe("deploy command (unified)", () => {
     t.expectResult(result).toContain("Connectors dashboard");
   });
 });
+
+describe("deploy command — visibility sync", () => {
+  const t = setupCLITests();
+
+  it('sends PATCH to update visibility when config has visibility: "public"', async () => {
+    // Given
+    await t.givenLoggedInWithProject(fixture("with-visibility"));
+    t.api.mockEntitiesPush({ created: ["Item"], updated: [], deleted: [] });
+    t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
+    t.api.mockConnectorsList({ integrations: [] });
+    t.api.mockUpdateAppVisibility({
+      id: "test-app-id",
+      public_settings: "public_without_login",
+    });
+
+    // When
+    const result = await t.run("deploy", "-y");
+
+    // Then
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("App deployed successfully");
+  });
+
+  it("fails deploy when visibility PATCH returns an API error", async () => {
+    // Given
+    await t.givenLoggedInWithProject(fixture("with-visibility"));
+    t.api.mockEntitiesPush({ created: ["Item"], updated: [], deleted: [] });
+    t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
+    t.api.mockConnectorsList({ integrations: [] });
+    t.api.mockUpdateAppVisibilityError({
+      status: 403,
+      body: { error: "Forbidden" },
+    });
+
+    // When
+    const result = await t.run("deploy", "-y");
+
+    // Then
+    t.expectResult(result).toFail();
+  });
+
+  it("does not send PATCH when visibility is omitted from config", async () => {
+    // Given — use fixture without visibility (with-entities has no visibility field)
+    await t.givenLoggedInWithProject(fixture("with-entities"));
+    t.api.mockEntitiesPush({
+      created: ["Customer", "Product"],
+      updated: [],
+      deleted: [],
+    });
+    t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
+    t.api.mockConnectorsList({ integrations: [] });
+    // No mockUpdateAppVisibility registered — PATCH must NOT be called
+
+    // When
+    const result = await t.run("deploy", "-y");
+
+    // Then
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("App deployed successfully");
+  });
+});

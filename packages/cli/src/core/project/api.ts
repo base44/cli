@@ -2,9 +2,9 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { KyResponse } from "ky";
 import { extract } from "tar";
-import { base44Client } from "@/core/clients/index.js";
+import { base44Client, getAppClient } from "@/core/clients/index.js";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";
-import type { ProjectsResponse } from "@/core/project/schema.js";
+import type { ProjectsResponse, Visibility } from "@/core/project/schema.js";
 import {
   CreateProjectResponseSchema,
   ProjectsResponseSchema,
@@ -19,7 +19,7 @@ export async function createProject(projectName: string, description?: string) {
         name: projectName,
         user_description: description ?? `Backend for '${projectName}'`,
         is_managed_source_code: false,
-        public_settings: "public_without_login",
+        public_settings: "private",
       },
     });
   } catch (error) {
@@ -38,6 +38,26 @@ export async function createProject(projectName: string, description?: string) {
   return {
     projectId: result.data.id,
   };
+}
+
+const VISIBILITY_TO_PUBLIC_SETTINGS: Record<Visibility, string> = {
+  public: "public_without_login",
+  private: "private",
+};
+
+export async function updateProjectVisibility(
+  visibility: Visibility,
+): Promise<void> {
+  const appClient = getAppClient();
+  try {
+    await appClient.patch("", {
+      json: {
+        public_settings: VISIBILITY_TO_PUBLIC_SETTINGS[visibility],
+      },
+    });
+  } catch (error) {
+    throw await ApiError.fromHttpError(error, "updating project visibility");
+  }
 }
 
 export async function listProjects(): Promise<ProjectsResponse> {

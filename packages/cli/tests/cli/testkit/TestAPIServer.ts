@@ -204,6 +204,11 @@ interface ListProjectsResponse {
   is_managed_source_code?: boolean;
 }
 
+interface UpdateAppVisibilityResponse {
+  id: string;
+  public_settings: string;
+}
+
 interface ErrorResponse {
   status: number;
   body?: unknown;
@@ -211,7 +216,7 @@ interface ErrorResponse {
 
 // ─── ROUTE HANDLER TYPES ─────────────────────────────────────
 
-type Method = "GET" | "POST" | "PUT" | "DELETE";
+type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 interface RouteEntry {
   method: Method;
@@ -289,6 +294,7 @@ export class TestAPIServer {
         | "get"
         | "post"
         | "put"
+        | "patch"
         | "delete";
       this.app[method](entry.path, entry.handler);
     }
@@ -509,6 +515,16 @@ export class TestAPIServer {
   }
 
   // ─── GENERAL ENDPOINTS ───────────────────────────────────
+
+  /** Mock PATCH /api/apps/{appId}/ - Update app visibility */
+  mockUpdateAppVisibility(response: UpdateAppVisibilityResponse): this {
+    return this.addRoute("PATCH", `/api/apps/${this.appId}/`, response);
+  }
+
+  /** Mock PATCH /api/apps/{appId}/ - Update app visibility error */
+  mockUpdateAppVisibilityError(error: ErrorResponse): this {
+    return this.addErrorRoute("PATCH", `/api/apps/${this.appId}/`, error);
+  }
 
   mockCreateApp(response: CreateAppResponse): this {
     return this.addRoute("POST", "/api/apps", response);

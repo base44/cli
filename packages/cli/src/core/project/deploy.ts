@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import { updateProjectVisibility } from "@/core/project/api.js";
 import type { ProjectData } from "@/core/project/types.js";
 import { agentResource } from "@/core/resources/agent/index.js";
 import {
@@ -68,6 +69,10 @@ export async function deployAll(
   });
   await agentResource.push(agents);
   const { results: connectorResults } = await pushConnectors(connectors);
+
+  if (project.visibility) {
+    await updateProjectVisibility(project.visibility);
+  }
 
   if (project.site?.outputDirectory) {
     const outputDir = resolve(project.root, project.site.outputDirectory);
