@@ -7,14 +7,14 @@ import { ApiError, DependencyNotFoundError } from "@/core/errors.js";
 import { getAppConfig } from "@/core/project/app-config.js";
 import { getSiteUrl } from "@/core/site/api.js";
 
-export interface RunScriptOptions {
+interface RunScriptOptions {
   filePath?: string;
   code?: string;
   extraArgs?: string[];
   execWrapperPath: string;
 }
 
-export interface RunScriptResult {
+interface RunScriptResult {
   exitCode: number;
 }
 
@@ -35,7 +35,7 @@ export function verifyDenoInstalled(): void {
   }
 }
 
-export async function getUserAppToken(): Promise<string> {
+async function getUserAppToken(): Promise<string> {
   try {
     const response = await getAppClient()
       .get("auth/token")

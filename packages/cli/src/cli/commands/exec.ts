@@ -23,16 +23,25 @@ function readStdin(): Promise<string> {
 }
 
 async function execAction(extraArgs: string[]): Promise<RunCommandResult> {
-  if (process.stdin.isTTY) {
-    throw new InvalidInputError("No input provided. Pipe a script to stdin.", {
+  const noInputError = new InvalidInputError(
+    "No input provided. Pipe a script to stdin.",
+    {
       hints: [
         { message: "File:  cat ./script.ts | base44 exec" },
         { message: 'Eval:  echo "console.log(1)" | base44 exec' },
       ],
-    });
+    },
+  );
+
+  if (process.stdin.isTTY) {
+    throw noInputError;
   }
 
   const code = await readStdin();
+
+  if (!code.trim()) {
+    throw noInputError;
+  }
 
   const { exitCode } = await runScript({
     code,

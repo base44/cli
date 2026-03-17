@@ -144,7 +144,7 @@ export class CLITestkit {
       env,
       reject: false,
       all: false,
-      ...(stdinContent !== undefined ? { input: stdinContent } : {}),
+      input: stdinContent ?? "",
     });
 
     return {

@@ -1,5 +1,5 @@
 import type { ChildProcess } from "node:child_process";
-import { spawn, spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import getPort from "get-port";
 import { InternalError, InvalidInputError } from "@/core/errors.js";
 import { verifyDenoInstalled } from "@/core/exec/index.js";

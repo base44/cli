@@ -342,7 +342,9 @@ export class TestAPIServer {
 
   /** Mock GET /api/apps/{appId}/auth/token - Exchange platform token for app user token */
   mockAuthToken(token: string): this {
-    return this.addRoute("GET", `/api/apps/${this.appId}/auth/token`, { token });
+    return this.addRoute("GET", `/api/apps/${this.appId}/auth/token`, {
+      token,
+    });
   }
 
   // ─── APP-SCOPED ENDPOINTS ────────────────────────────────
@@ -543,11 +545,7 @@ export class TestAPIServer {
     path: string,
     error: ErrorResponse,
   ): this {
-    return this.addErrorRoute(
-      method.toUpperCase() as Method,
-      path,
-      error,
-    );
+    return this.addErrorRoute(method.toUpperCase() as Method, path, error);
   }
 
   /**
