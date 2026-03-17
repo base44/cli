@@ -18,16 +18,14 @@ on:
         required: false
         default: false
         type: boolean
-      update_changelog:
-        description: "Update CHANGELOG.md with release notes"
-        required: false
-        default: false
-        type: boolean
       notify_skills_repo:
         description: "Notify the skills repo about the release"
         required: false
         default: true
         type: boolean
+
+env:
+  CLI_PACKAGE_DIR: packages/cli
 
 jobs:
   publish:
@@ -40,6 +38,7 @@ jobs:
         with:
           app-id: ${{ vars.BASE44_GITHUB_ACTIONS_APP_ID }}
           private-key: ${{ secrets.BASE44_GITHUB_ACTIONS_APP_PRIVATE_KEY }}
+          owner: base44
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -73,128 +72,35 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Check if version needs to be bumped
-        id: check-version
-        run: |
-          if [[ "${{ github.event.inputs.version }}" =~ ^(patch|minor|major)$ ]]; then
-            echo "bump_version=true" >> $GITHUB_OUTPUT
-            echo "version_type=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
-          else
-            echo "bump_version=false" >> $GITHUB_OUTPUT
-            echo "version_type=" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Bump version
-        if: steps.check-version.outputs.bump_version == 'true'
-        run: |
-          npm version ${{ steps.check-version.outputs.version_type }} --no-git-tag-version
-          echo "NEW_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
-
-      - name: Set version manually
-        if: steps.check-version.outputs.bump_version == 'false'
+      - name: Set version
+        working-directory: ${{ env.CLI_PACKAGE_DIR }}
         run: |
           npm version ${{ github.event.inputs.version }} --no-git-tag-version
           echo "NEW_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
 
-      - name: Get previous release tag
-        id: prev-tag
-        run: |
-          PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-          echo "tag=$PREV_TAG" >> $GITHUB_OUTPUT
-          echo "Previous tag: $PREV_TAG"
-          if [[ -n "$PREV_TAG" ]]; then
-            # Get the date of the previous tag in ISO format for filtering PRs
-            PREV_TAG_DATE=$(git log -1 --format=%aI "$PREV_TAG")
-            echo "date=$PREV_TAG_DATE" >> $GITHUB_OUTPUT
-            echo "Previous tag date: $PREV_TAG_DATE"
-          fi
-
-      - name: Generate Changelog & Release Summary
-        if: steps.prev-tag.outputs.tag != ''
-        uses: anthropics/claude-code-action@v1
-        with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          prompt: |
-            Generate release notes for version ${{ env.NEW_VERSION }} (release date: today).
-            Previous version tag: ${{ steps.prev-tag.outputs.tag }}
-            Update changelog: ${{ github.event.inputs.update_changelog }}
-            Dry run: ${{ github.event.inputs.dry_run }}
-
-            ## Instructions
-
-            1. Get commits since last release:
-               `git log ${{ steps.prev-tag.outputs.tag }}..HEAD --pretty=format:"%s (%h)" --no-merges`
-
-            2. Get merged PRs since last release:
-               `gh pr list --state merged --search "merged:>${{ steps.prev-tag.outputs.date }}" --json number,title,mergedAt --limit 20`
-
-            3. Categorize changes (only include sections with changes):
-               - **Added** - new features
-               - **Changed** - changes in existing functionality
-               - **Fixed** - bug fixes
-               - **Removed** - removed features
-
-            4. If "Update changelog" above is "true" AND "Dry run" is "false", update CHANGELOG.md by inserting the new entry AFTER `## [Unreleased]`. Do NOT edit CHANGELOG.md during dry runs.
-
-            5. **Always** write a file called `release-summary.md` with a concise, media-sharable summary of user-facing changes. This is what gets shared in Slack/social — keep it tight.
-
-            ## Rules
-
-            - EXCLUDE: changelog commits, version bumps ("chore: bump version", "chore: release")
-            - Include PR numbers: "Added foo feature (#123)"
-            - Use ISO date: YYYY-MM-DD
-
-            ## CHANGELOG.md example
-
-            ```markdown
-            ## [0.0.8] - 2026-01-19
-
-            ### Added
-            - Non-interactive mode for `create` command (#67)
-
-            ### Fixed
-            - Various small fixes (#60)
-            ```
-
-            ## release-summary.md format
-
-            The summary must follow this exact format. Only include sections that have items.
-            If the release is only bug fixes or internal changes, collapse to a single line.
-
-            Format for releases with notable features:
-            ```
-            📦 base44 v0.0.8
-
-            ✨ New
-              • Non-interactive mode for `create` command (#67)
-
-            🐛 Fixes
-              • Fixed deploy crash on empty projects (#60)
-            ```
-
-            Format for internal-only releases:
-            ```
-            📦 base44 v0.0.8
-
-            🔧 Bug fixes and internal improvements
-            ```
-          claude_args: |
-            --model claude-haiku-4-5
-            --allowedTools "Bash(git log:*),Bash(gh pr:*),Read,Edit(CHANGELOG.md),Write(release-summary.md)"
-
       - name: Build package
         run: bun run build
+        working-directory: ${{ env.CLI_PACKAGE_DIR }}
+
+      - name: Build standalone binaries
+        run: bun run build:binaries
+        working-directory: ${{ env.CLI_PACKAGE_DIR }}
+
+      - name: Package binaries for release
+        run: bun run package:binaries
+        working-directory: ${{ env.CLI_PACKAGE_DIR }}
 
       - name: Upload sourcemaps to PostHog
         if: github.event.inputs.dry_run == 'false'
         uses: PostHog/upload-source-maps@v0.4.6
         with:
-          directory: ./dist/cli
+          directory: ./${{ env.CLI_PACKAGE_DIR }}/dist/cli
           env-id: ${{ vars.POSTHOG_PROJECT_ID }}
           cli-token: ${{ secrets.POSTHOG_CLI_API_KEY }}
           version: ${{ env.NEW_VERSION }}
 
       - name: Show package info
+        working-directory: ${{ env.CLI_PACKAGE_DIR }}
         run: |
           echo "Package name: $(node -p "require('./package.json').name")"
           echo "Version: ${{ env.NEW_VERSION }}"
@@ -202,14 +108,9 @@ jobs:
           echo "Dry run: ${{ github.event.inputs.dry_run }}"
 
       - name: Publish to NPM
-        if: github.event.inputs.dry_run == 'false'
+        working-directory: ${{ env.CLI_PACKAGE_DIR }}
         run: |
-          npm publish --tag ${{ github.event.inputs.npm_tag }}
-
-      - name: Dry run publish
-        if: github.event.inputs.dry_run == 'true'
-        run: |
-          npm publish --dry-run --tag ${{ github.event.inputs.npm_tag }}
+          npm publish --tag ${{ github.event.inputs.npm_tag }} ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
 
       - name: Create Git tag
         if: github.event.inputs.dry_run == 'false'
@@ -218,71 +119,54 @@ jobs:
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          # Re-configure git remote to use the App token for push
           git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
-          git add package.json
-          # Add CHANGELOG.md only if changelog update was requested
-          if [[ "${{ github.event.inputs.update_changelog }}" == "true" ]]; then
-            git add CHANGELOG.md
-          fi
+          git add ${{ env.CLI_PACKAGE_DIR }}/package.json
           git commit -m "chore: release v${{ env.NEW_VERSION }}"
           git tag v${{ env.NEW_VERSION }}
           git push origin HEAD:${{ github.ref }}
           git push origin v${{ env.NEW_VERSION }}
 
-      - name: Create Release
+      - name: Create GitHub Release and upload binaries
         if: github.event.inputs.dry_run == 'false'
-        id: create-release
-        uses: actions/create-release@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: v${{ env.NEW_VERSION }}
-          release_name: Release v${{ env.NEW_VERSION }}
-          body: |
-            ## What's Changed
-
-            This release includes the latest updates to the Base44 CLI.
-
-            ### Installation
-
-            ```bash
-            npm install base44@${{ github.event.inputs.npm_tag }}
-            ```
-
-            ### Version: ${{ env.NEW_VERSION }}
-            ### NPM Tag: ${{ github.event.inputs.npm_tag }}
-          draft: false
-          prerelease: false
-
-      - name: Release summary
-        if: steps.prev-tag.outputs.tag != ''
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
         run: |
-          if [ -f release-summary.md ]; then
-            cat release-summary.md | tee -a "$GITHUB_STEP_SUMMARY"
-          fi
+          RELEASE_URL=$(gh release create "v${{ env.NEW_VERSION }}" \
+            --title "Release v${{ env.NEW_VERSION }}" \
+            --notes "## Installation
 
-      - name: Generate token for skills repo
-        if: github.event.inputs.dry_run == 'false' && github.event.inputs.notify_skills_repo == 'true'
-        id: skills-token
-        uses: actions/create-github-app-token@v2
-        with:
-          app-id: ${{ vars.BASE44_GITHUB_ACTIONS_APP_ID }}
-          private-key: ${{ secrets.BASE44_GITHUB_ACTIONS_APP_PRIVATE_KEY }}
-          owner: base44
-          repositories: skills
+          **npm:**
+          \`\`\`bash
+          npm install -g base44@${{ github.event.inputs.npm_tag }}
+          \`\`\`
+
+          **Homebrew:**
+          \`\`\`bash
+          brew install base44/tap/base44
+          \`\`\`
+
+          **Version:** ${{ env.NEW_VERSION }}
+          **NPM Tag:** ${{ github.event.inputs.npm_tag }}" \
+            ${{ env.CLI_PACKAGE_DIR }}/dist/binaries/base44-*.tar.gz)
+          echo "RELEASE_URL=$RELEASE_URL" >> $GITHUB_ENV
+
+      - name: Update Homebrew Tap
+        if: github.event.inputs.dry_run == 'false' && github.event.inputs.npm_tag == 'latest'
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+        run: bash ${{ env.CLI_PACKAGE_DIR }}/infra/homebrew/update-tap.sh "${{ env.NEW_VERSION }}" "${{ env.CLI_PACKAGE_DIR }}/dist/binaries"
 
       - name: Notify skills repo
         if: github.event.inputs.dry_run == 'false' && github.event.inputs.notify_skills_repo == 'true'
         uses: peter-evans/repository-dispatch@v4
         with:
-          token: ${{ steps.skills-token.outputs.token }}
+          token: ${{ steps.generate-token.outputs.token }}
           repository: base44/skills
           event-type: cli-release
           client-payload: |
             {
               "version": "v${{ env.NEW_VERSION }}",
-              "release_url": "${{ steps.create-release.outputs.html_url }}",
+              "release_url": "${{ env.RELEASE_URL }}",
               "release_name": "Release v${{ env.NEW_VERSION }}"
             }
 

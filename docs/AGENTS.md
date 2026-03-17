@@ -17,37 +17,40 @@ The Base44 CLI (`base44` npm package) is a TypeScript command-line tool for crea
 
 The codebase has two layers with a clear separation of concerns:
 
-- **`src/core/`** - SDK layer: pure business logic with no UI or CLI concerns. Handles resources, auth, API clients, project config, site deployment, error classes, and utilities.
-- **`src/cli/`** - Presentation layer: CLI commands, user interaction, theming, telemetry, and wiring. Depends on `core/`, never the reverse.
-- **`bin/`** - Entry points: `run.js` (production, Node.js) and `dev.ts` (development, Bun runs TypeScript directly).
-- **`templates/`** - Project scaffolding templates for `base44 create`.
-- **`tests/`** - CLI integration tests (`cli/`), core unit tests (`core/`), and test fixtures (`fixtures/`).
+- **`packages/cli/src/core/`** - SDK layer: pure business logic with no UI or CLI concerns. Handles resources, auth, API clients, project config, site deployment, error classes, and utilities.
+- **`packages/cli/src/cli/`** - Presentation layer: CLI commands, user interaction, theming, telemetry, and wiring. Depends on `core/`, never the reverse.
+- **`packages/cli/bin/`** - Entry points: `run.js` (production, Node.js) and `dev.ts` (development, Bun runs TypeScript directly).
+- **`packages/cli/templates/`** - Project scaffolding templates for `base44 create`.
+- **`packages/cli/tests/`** - CLI integration tests (`cli/`), core unit tests (`core/`), and test fixtures (`fixtures/`).
 
 ```
-src/
+packages/cli/src/
 ├── core/           # SDK: auth, clients, project, resources (entity/function/agent/connector), site, errors, utils
 └── cli/            # UI: commands, telemetry, utils (runCommand, runTask, theme, banner)
 ```
 
 ### Distribution
 
-Zero-dependency npm package. All runtime dependencies are bundled into `dist/index.js` at build time. Every dependency goes in `devDependencies`. Users only download the bundled code.
+Zero-dependency npm package. All runtime dependencies are bundled into `dist/index.js` at build time. Every dependency goes in `devDependencies`. Users only download the bundled code. Standalone binaries are also built for Homebrew / direct download via `bun run build:binaries` (see [Binary distribution](binary-distribution.md)).
 
 ### Path Alias
 
-`@/*` resolves to `./src/*` (defined in `tsconfig.json`). Always use `.js` extensions in imports (ES Modules).
+`@/*` resolves to `./packages/cli/src/*` (defined in `packages/cli/tsconfig.json`). Always use `.js` extensions in imports (ES Modules).
 
 ## Development Commands
 
 ```bash
-bun install        # Install dependencies
-bun run build      # Bundle to dist/index.js + copy templates
-bun run typecheck  # tsc --noEmit
-bun run dev        # Run bin/dev.ts (no build needed, Bun runs TS directly)
-bun run start      # Run bin/run.js (requires build first)
-bun run test       # Run tests with vitest (use `bun run test`, not `bun test`)
-bun run lint       # Biome - lint and format check
-bun run lint:fix   # Biome - auto-fix
+bun install            # Install dependencies
+bun run build          # Bundle to dist/index.js + copy templates
+bun run build:binaries # Compile standalone binaries (for binary test mode)
+bun run typecheck      # tsc --noEmit
+bun run dev            # Run bin/dev.ts (no build needed, Bun runs TS directly)
+bun run start          # Run bin/run.js (requires build first)
+bun run test           # Run tests in npm mode (default; use `bun run test`, not `bun test`)
+bun run test:npm       # Run tests against node bin/run.js (needs build)
+bun run test:binary    # Run tests against compiled binary (needs build + build:binaries)
+bun run lint           # Biome - lint and format check
+bun run lint:fix       # Biome - auto-fix
 ```
 
 **Prerequisites**: Bun (`curl -fsSL https://bun.sh/install | bash`), Node.js >= 20.19.0 (for npm publishing).
@@ -80,3 +83,4 @@ Read these when working on the relevant area:
 - **[Telemetry & error reporting](telemetry.md)** - PostHog `ErrorReporter`, what's captured, disabling
 - **[Writing & maintaining docs](writing-docs.md)** - Progressive disclosure, style rules, keywords, adding new topic guides
 - **[Authoring agent instructions](authoring-agent-instructions.md)** - Skills, CLAUDE.md, AGENTS.md, subagent definitions, progressive disclosure
+- **[Binary distribution](binary-distribution.md)** - Standalone binaries, Homebrew formula, asset embedding, `bun build --compile`
