@@ -494,6 +494,39 @@ export class TestAPIServer {
     );
   }
 
+  mockFunctionLogsStream(
+    functionName: string,
+    entries: FunctionLogsResponse,
+  ): this {
+    this.pendingRoutes.push({
+      method: "GET",
+      path: `/api/apps/${this.appId}/functions-mgmt/${functionName}/logs/stream`,
+      handler: (_req, res) => {
+        res.writeHead(200, {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        });
+        for (const entry of entries) {
+          res.write(`data: ${JSON.stringify(entry)}\n\n`);
+        }
+        res.end();
+      },
+    });
+    return this;
+  }
+
+  mockFunctionLogsStreamError(
+    functionName: string,
+    error: ErrorResponse,
+  ): this {
+    return this.addErrorRoute(
+      "GET",
+      `/api/apps/${this.appId}/functions-mgmt/${functionName}/logs/stream`,
+      error,
+    );
+  }
+
   // ─── SECRETS ENDPOINTS ───────────────────────────────────
 
   mockSecretsList(response: SecretsListResponse): this {
