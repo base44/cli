@@ -24,7 +24,5 @@ export function getSecretsDeleteCommand(): Command {
   return new Base44Command("delete")
     .description("Delete a secret")
     .argument("<key>", "Secret name to delete")
-    .action(async (key: string) => {
-      return await deleteSecretAction(key);
-    });
+    .action(deleteSecretAction);
 }

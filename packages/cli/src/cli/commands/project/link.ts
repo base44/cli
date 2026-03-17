@@ -264,7 +264,7 @@ export function getLinkCommand(): Command {
       const skipPrompts = !!options.create || !!options.projectId;
       if (!skipPrompts && command.isNonInteractive) {
         throw new InvalidInputError(
-          "Either --create --name <name> or --projectId <id> is required in non-interactive mode",
+          "--create with --name, or --projectId, is required in non-interactive mode",
         );
       }
       return await link(options);

@@ -231,7 +231,5 @@ export function getLogsCommand(): Command {
     .addOption(
       new Option("--order <order>", "Sort order").choices(["asc", "desc"]),
     )
-    .action(async (options: LogsOptions) => {
-      return await logsAction(options);
-    });
+    .action(logsAction);
 }

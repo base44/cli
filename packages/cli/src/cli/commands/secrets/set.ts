@@ -94,7 +94,5 @@ export function getSecretsSetCommand(): Command {
     .description("Set one or more secrets (KEY=VALUE format)")
     .argument("[entries...]", "KEY=VALUE pairs (e.g. KEY1=VALUE1 KEY2=VALUE2)")
     .option("--env-file <path>", "Path to .env file")
-    .action(async (entries: string[], options: { envFile?: string }) => {
-      return await setSecretsAction(entries, options);
-    });
+    .action(setSecretsAction);
 }

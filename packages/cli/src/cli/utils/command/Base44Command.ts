@@ -1,12 +1,12 @@
 import { Command } from "commander";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
+import { ensureAppConfig, ensureAuth } from "@/cli/utils/command/middleware.js";
 import {
   showCommandEnd,
   showCommandStart,
   showPlainError,
   showThemedError,
-} from "@/cli/utils/command/display.js";
-import { ensureAppConfig, ensureAuth } from "@/cli/utils/command/middleware.js";
+} from "@/cli/utils/command/render.js";
 import {
   formatPlainUpgradeMessage,
   startUpgradeCheck,

@@ -68,7 +68,5 @@ export function getPullCommand(): Command {
   return new Base44Command("pull")
     .description("Pull deployed functions from Base44")
     .argument("[name]", "Function name to pull (pulls all if omitted)")
-    .action(async (name: string | undefined) => {
-      return pullFunctionsAction(name);
-    });
+    .action(pullFunctionsAction);
 }

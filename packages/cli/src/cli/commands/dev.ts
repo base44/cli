@@ -29,7 +29,5 @@ export function getDevCommand(): Command {
   return new Base44Command("dev")
     .description("Start the development server")
     .option("-p, --port <number>", "Port for the development server")
-    .action(async (options: DevOptions) => {
-      return await devAction(options);
-    });
+    .action(devAction);
 }
