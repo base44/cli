@@ -1,5 +1,5 @@
 import type { Option } from "@clack/prompts";
-import { cancel, group, isCancel, log, select, text } from "@clack/prompts";
+import { cancel, group, isCancel, select, text } from "@clack/prompts";
 import type { Command } from "commander";
 import { CLIExitError } from "@/cli/errors.js";
 import type { RunCommandResult } from "@/cli/types.js";
@@ -10,6 +10,7 @@ import {
   runTask,
   theme,
 } from "@/cli/utils/index.js";
+import type { Logger } from "@/cli/utils/logger/types.js";
 import {
   ConfigExistsError,
   ConfigNotFoundError,
@@ -126,7 +127,10 @@ async function promptForExistingProject(
   return selectedProject;
 }
 
-async function link(options: LinkOptions): Promise<RunCommandResult> {
+async function link(
+  options: LinkOptions,
+  logger: Logger,
+): Promise<RunCommandResult> {
   const projectRoot = await findProjectRoot();
 
   if (!projectRoot) {
@@ -238,7 +242,7 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
     finalProjectId = projectId;
   }
 
-  log.message(
+  logger.message(
     `${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(finalProjectId))}`,
   );
   return { outroMessage: "Project linked" };
@@ -267,6 +271,6 @@ export function getLinkCommand(): Command {
           "--create with --name, or --projectId, is required in non-interactive mode",
         );
       }
-      return await link(options);
+      return await link(options, command.logger);
     });
 }

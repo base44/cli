@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import type { Option } from "@clack/prompts";
-import { cancel, confirm, isCancel, log, select, text } from "@clack/prompts";
+import { cancel, confirm, isCancel, select, text } from "@clack/prompts";
 import type { Command } from "commander";
 import { execa } from "execa";
 import kebabCase from "lodash/kebabCase";
@@ -8,6 +8,7 @@ import { deployAction } from "@/cli/commands/project/deploy.js";
 import { CLIExitError } from "@/cli/errors.js";
 import type { RunCommandResult } from "@/cli/types.js";
 import { Base44Command, runTask, theme } from "@/cli/utils/index.js";
+import type { Logger } from "@/cli/utils/logger/types.js";
 import type { Project } from "@/core/index.js";
 import {
   createProject,
@@ -28,7 +29,10 @@ interface EjectOptions {
   isNonInteractive?: boolean;
 }
 
-async function eject(options: EjectOptions): Promise<RunCommandResult> {
+async function eject(
+  options: EjectOptions,
+  logger: Logger,
+): Promise<RunCommandResult> {
   const projects = await listProjects();
   const ejectableProjects = projects.filter(
     (p) => p.isManagedSourceCode !== false,
@@ -56,7 +60,7 @@ async function eject(options: EjectOptions): Promise<RunCommandResult> {
     }
 
     selectedProject = foundProject;
-    log.info(`Selected project: ${theme.styles.bold(selectedProject.name)}`);
+    logger.info(`Selected project: ${theme.styles.bold(selectedProject.name)}`);
   } else {
     if (ejectableProjects.length === 0) {
       return { outroMessage: "No projects available to eject." };
@@ -161,7 +165,7 @@ async function eject(options: EjectOptions): Promise<RunCommandResult> {
         },
       );
 
-      await deployAction({ yes: true, projectRoot: resolvedPath });
+      await deployAction({ yes: true, projectRoot: resolvedPath, logger });
     }
   }
 
@@ -188,9 +192,9 @@ export function getEjectCommand(): Command {
           "--path is required in non-interactive mode",
         );
       }
-      return await eject({
-        ...options,
-        isNonInteractive: command.isNonInteractive,
-      });
+      return await eject(
+        { ...options, isNonInteractive: command.isNonInteractive },
+        command.logger,
+      );
     });
 }

@@ -1,6 +1,6 @@
 # Adding & Modifying CLI Commands
 
-**Keywords:** command, factory pattern, Base44Command, isNonInteractive, runTask, spinner, theming, chalk, program.ts, register, banner, intro, outro
+**Keywords:** command, factory pattern, Base44Command, isNonInteractive, Logger, runTask, spinner, theming, chalk, program.ts, register, banner, intro, outro
 
 Commands live in `src/cli/commands/<domain>/`. They use a **factory pattern** — each file exports a function that returns a `Base44Command`.
 
@@ -8,12 +8,12 @@ Commands live in `src/cli/commands/<domain>/`. They use a **factory pattern** �
 
 ```typescript
 // src/cli/commands/<domain>/<action>.ts
-import { log } from "@clack/prompts";
 import type { Command } from "commander";
 import type { RunCommandResult } from "@/cli/types.js";
 import { Base44Command, runTask, theme } from "@/cli/utils/index.js";
+import type { Logger } from "@/cli/utils/logger/types.js";
 
-async function myAction(): Promise<RunCommandResult> {
+async function myAction(logger: Logger): Promise<RunCommandResult> {
   const result = await runTask(
     "Doing something...",
     async () => {
@@ -26,7 +26,7 @@ async function myAction(): Promise<RunCommandResult> {
     }
   );
 
-  log.success("Operation completed!");
+  logger.success("Operation completed!");
 
   return { outroMessage: `Created ${theme.styles.bold(result.name)}` };
 }
@@ -35,7 +35,9 @@ export function getMyCommand(): Command {
   return new Base44Command("<name>")
     .description("<description>")
     .option("-f, --flag", "Some flag")
-    .action(myAction);
+    .action((_options: unknown, command: Base44Command) =>
+      myAction(command.logger),
+    );
 }
 ```
 
@@ -44,6 +46,7 @@ export function getMyCommand(): Command {
 - Use `Base44Command` class
 - Commands must NOT call `intro()` or `outro()` directly
 - The action function must return `RunCommandResult` with an `outroMessage`
+- Use `command.logger` for output — never import `log` from `@clack/prompts` directly
 
 ## Base44Command Options
 
@@ -83,11 +86,13 @@ export interface CLIContext {
   errorReporter: ErrorReporter;
   isNonInteractive: boolean;
   distribution: Distribution;
+  logger: Logger;
 }
 ```
 
 - Created once in `runCLI()` at startup
 - `isNonInteractive` is `true` when stdin/stdout are not a TTY (e.g., CI, piped output, AI agents). Controls quiet mode — when true, all clack UI is suppressed.
+- `logger` is a `Logger` instance — `ClackLogger` in interactive mode, `SimpleLogger` in non-interactive mode. Commands access it via `command.logger`.
 
 ### Using `isNonInteractive`
 
@@ -153,7 +158,7 @@ const result = await runTask(
 );
 ```
 
-Avoid manual try/catch with `log.message` for async operations -- use `runTask()` instead.
+Avoid manual try/catch with `logger.message` for async operations -- use `runTask()` instead.
 
 ### Subprocess Logging
 
@@ -224,6 +229,7 @@ Access `command.args` for positional arguments and `command.opts()` for options 
 - **Command factory pattern** - Commands export `getXCommand()` functions (no parameters), not static instances
 - **Use `Base44Command`** - All commands use `new Base44Command(name, options?)`
 - **No context plumbing** - Context is injected automatically. Command files should never import `CLIContext`.
+- **Use `command.logger` for output** - Never import `log` from `@clack/prompts` in command files. Use `command.logger` (or pass the logger to helper functions) so output works correctly in both interactive and non-interactive modes.
 - **Task wrapper** - Use `runTask()` for async operations with spinners
 - **Use theme for styling** - Never use `chalk` directly; import `theme` from `@/cli/utils/` and use semantic names
 - **Use fs.ts utilities** - Always use `@/core/utils/fs.js` for file operations

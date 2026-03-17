@@ -1,4 +1,4 @@
-import { confirm, isCancel, log } from "@clack/prompts";
+import { confirm, isCancel } from "@clack/prompts";
 import type { Command } from "commander";
 import {
   filterPendingOAuth,
@@ -12,6 +12,7 @@ import {
   getDashboardUrl,
   theme,
 } from "@/cli/utils/index.js";
+import type { Logger } from "@/cli/utils/logger/types.js";
 import { InvalidInputError } from "@/core/errors.js";
 import {
   deployAll,
@@ -27,11 +28,13 @@ interface DeployOptions {
   yes?: boolean;
   projectRoot?: string;
   isNonInteractive?: boolean;
+  logger?: Logger;
 }
 
 export async function deployAction(
   options: DeployOptions,
 ): Promise<RunCommandResult> {
+  const logger = options.logger!;
   const projectData = await readProjectConfig(options.projectRoot);
 
   if (!hasResourcesToDeploy(projectData)) {
@@ -70,7 +73,7 @@ export async function deployAction(
 
   // Confirmation prompt
   if (!options.yes) {
-    log.warn(
+    logger.warn(
       `This will update your Base44 app with:\n${summaryLines.join("\n")}`,
     );
 
@@ -82,7 +85,7 @@ export async function deployAction(
       return { outroMessage: "Deployment cancelled" };
     }
   } else {
-    log.info(`Deploying:\n${summaryLines.join("\n")}`);
+    logger.info(`Deploying:\n${summaryLines.join("\n")}`);
   }
 
   // Deploy resources with per-function progress
@@ -92,7 +95,7 @@ export async function deployAction(
   const result = await deployAll(projectData, {
     onFunctionStart: (names) => {
       const label = names.length === 1 ? names[0] : `${names.length} functions`;
-      log.step(
+      logger.step(
         theme.styles.dim(
           `[${functionCompleted + 1}/${functionTotal}] Deploying ${label}...`,
         ),
@@ -100,23 +103,23 @@ export async function deployAction(
     },
     onFunctionResult: (r) => {
       functionCompleted++;
-      formatDeployResult(r);
+      formatDeployResult(r, logger);
     },
   });
 
   // Handle connector-specific post-deploy flows
   const connectorResults = result.connectorResults ?? [];
-  await handleOAuthConnectors(connectorResults, options);
+  await handleOAuthConnectors(connectorResults, options, logger);
   const stripeResult = connectorResults.find((r) => r.type === "stripe");
   if (stripeResult?.action === "provisioned") {
-    printStripeResult(stripeResult as StripeSyncResult);
+    printStripeResult(stripeResult as StripeSyncResult, logger);
   }
 
-  log.message(
+  logger.message(
     `${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl())}`,
   );
   if (result.appUrl) {
-    log.message(
+    logger.message(
       `${theme.styles.header("App URL")}: ${theme.colors.links(result.appUrl)}`,
     );
   }
@@ -139,6 +142,7 @@ export function getDeployCommand(): Command {
       return await deployAction({
         ...options,
         isNonInteractive: command.isNonInteractive,
+        logger: command.logger,
       });
     });
 }
@@ -146,11 +150,12 @@ export function getDeployCommand(): Command {
 async function handleOAuthConnectors(
   connectorResults: ConnectorSyncResult[],
   options: DeployOptions,
+  logger: Logger,
 ): Promise<void> {
   const needsOAuth = filterPendingOAuth(connectorResults);
   if (needsOAuth.length === 0) return;
 
-  const oauthOutcomes = await promptOAuthFlows(needsOAuth, {
+  const oauthOutcomes = await promptOAuthFlows(needsOAuth, logger, {
     skipPrompt: options.yes || options.isNonInteractive,
   });
 
@@ -158,16 +163,20 @@ async function handleOAuthConnectors(
     oauthOutcomes.size > 0 &&
     [...oauthOutcomes.values()].every((s) => s === "ACTIVE");
   if (!allAuthorized) {
-    log.info(
+    logger.info(
       "Some connectors still require authorization. Run 'base44 connectors push' or open the links above in your browser.",
     );
   }
 }
 
-function printStripeResult(r: StripeSyncResult): void {
-  log.success("Stripe sandbox provisioned");
+function printStripeResult(r: StripeSyncResult, logger: Logger): void {
+  logger.success("Stripe sandbox provisioned");
   if (r.claimUrl) {
-    log.info(`  Claim your Stripe sandbox: ${theme.colors.links(r.claimUrl)}`);
+    logger.info(
+      `  Claim your Stripe sandbox: ${theme.colors.links(r.claimUrl)}`,
+    );
   }
-  log.info(`  Connectors dashboard: ${theme.colors.links(getConnectorsUrl())}`);
+  logger.info(
+    `  Connectors dashboard: ${theme.colors.links(getConnectorsUrl())}`,
+  );
 }

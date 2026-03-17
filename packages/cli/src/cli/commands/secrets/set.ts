@@ -1,8 +1,8 @@
 import { resolve } from "node:path";
-import { log } from "@clack/prompts";
 import type { Command } from "commander";
 import type { RunCommandResult } from "@/cli/types.js";
 import { Base44Command, runTask } from "@/cli/utils/index.js";
+import type { Logger } from "@/cli/utils/logger/types.js";
 import { InvalidInputError } from "@/core/errors.js";
 import { setSecrets } from "@/core/resources/secret/index.js";
 import { parseEnvFile } from "@/core/utils/index.js";
@@ -53,6 +53,7 @@ function validateInput(entries: string[], options: { envFile?: string }): void {
 async function setSecretsAction(
   entries: string[],
   options: { envFile?: string },
+  logger: Logger,
 ): Promise<RunCommandResult> {
   validateInput(entries, options);
 
@@ -82,7 +83,7 @@ async function setSecretsAction(
     },
   );
 
-  log.info(`Set: ${names.join(", ")}`);
+  logger.info(`Set: ${names.join(", ")}`);
 
   return {
     outroMessage: "Secrets set successfully.",
@@ -94,5 +95,13 @@ export function getSecretsSetCommand(): Command {
     .description("Set one or more secrets (KEY=VALUE format)")
     .argument("[entries...]", "KEY=VALUE pairs (e.g. KEY1=VALUE1 KEY2=VALUE2)")
     .option("--env-file <path>", "Path to .env file")
-    .action(setSecretsAction);
+    .action(
+      async (
+        entries: string[],
+        options: { envFile?: string },
+        command: Base44Command,
+      ) => {
+        return await setSecretsAction(entries, options, command.logger);
+      },
+    );
 }

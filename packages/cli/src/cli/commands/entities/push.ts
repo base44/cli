@@ -1,11 +1,11 @@
-import { log } from "@clack/prompts";
 import { Command } from "commander";
 import type { RunCommandResult } from "@/cli/types.js";
 import { Base44Command, runTask } from "@/cli/utils/index.js";
+import type { Logger } from "@/cli/utils/logger/types.js";
 import { readProjectConfig } from "@/core/index.js";
 import { pushEntities } from "@/core/resources/entity/index.js";
 
-async function pushEntitiesAction(): Promise<RunCommandResult> {
+async function pushEntitiesAction(logger: Logger): Promise<RunCommandResult> {
   const { entities } = await readProjectConfig();
 
   if (entities.length === 0) {
@@ -13,7 +13,7 @@ async function pushEntitiesAction(): Promise<RunCommandResult> {
   }
 
   const entityNames = entities.map((e) => e.name).join(", ");
-  log.info(`Found ${entities.length} entities to push: ${entityNames}`);
+  logger.info(`Found ${entities.length} entities to push: ${entityNames}`);
 
   const result = await runTask(
     "Pushing entities to Base44",
@@ -28,13 +28,13 @@ async function pushEntitiesAction(): Promise<RunCommandResult> {
 
   // Print the results
   if (result.created.length > 0) {
-    log.success(`Created: ${result.created.join(", ")}`);
+    logger.success(`Created: ${result.created.join(", ")}`);
   }
   if (result.updated.length > 0) {
-    log.success(`Updated: ${result.updated.join(", ")}`);
+    logger.success(`Updated: ${result.updated.join(", ")}`);
   }
   if (result.deleted.length > 0) {
-    log.warn(`Deleted: ${result.deleted.join(", ")}`);
+    logger.warn(`Deleted: ${result.deleted.join(", ")}`);
   }
 
   return { outroMessage: "Entities pushed to Base44" };
@@ -46,6 +46,8 @@ export function getEntitiesPushCommand(): Command {
     .addCommand(
       new Base44Command("push")
         .description("Push local entities to Base44")
-        .action(pushEntitiesAction),
+        .action((_options: unknown, command: Base44Command) =>
+          pushEntitiesAction(command.logger),
+        ),
     );
 }

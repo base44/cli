@@ -1,4 +1,3 @@
-import { log } from "@clack/prompts";
 import type { Command } from "commander";
 import type { RunCommandResult } from "@/cli/types.js";
 import {
@@ -7,9 +6,10 @@ import {
   runTask,
   YAML_INDENT,
 } from "@/cli/utils/index.js";
+import type { Logger } from "@/cli/utils/logger/types.js";
 import { listAvailableIntegrations } from "@/core/resources/connector/index.js";
 
-async function listAvailableAction(): Promise<RunCommandResult> {
+async function listAvailableAction(logger: Logger): Promise<RunCommandResult> {
   const { integrations } = await runTask(
     "Fetching available integrations from Base44",
     async () => {
@@ -28,7 +28,7 @@ async function listAvailableAction(): Promise<RunCommandResult> {
   for (const { displayName, ...rest } of integrations) {
     const yaml = formatYaml(rest);
     const pad = " ".repeat(YAML_INDENT);
-    log.info(`${displayName}\n${pad}${yaml.replace(/\n/g, `\n${pad}`)}`);
+    logger.info(`${displayName}\n${pad}${yaml.replace(/\n/g, `\n${pad}`)}`);
   }
 
   return {
@@ -39,5 +39,7 @@ async function listAvailableAction(): Promise<RunCommandResult> {
 export function getConnectorsListAvailableCommand(): Command {
   return new Base44Command("list-available")
     .description("List all available integration types")
-    .action(listAvailableAction);
+    .action((_options: unknown, command: Base44Command) =>
+      listAvailableAction(command.logger),
+    );
 }

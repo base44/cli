@@ -1,14 +1,14 @@
-import { log } from "@clack/prompts";
 import type { Command } from "commander";
 import type { RunCommandResult } from "@/cli/types.js";
 import { Base44Command, runTask } from "@/cli/utils/index.js";
+import type { Logger } from "@/cli/utils/logger/types.js";
 import { readProjectConfig } from "@/core/index.js";
 import { pushAgents } from "@/core/resources/agent/index.js";
 
-async function pushAgentsAction(): Promise<RunCommandResult> {
+async function pushAgentsAction(logger: Logger): Promise<RunCommandResult> {
   const { agents } = await readProjectConfig();
 
-  log.info(
+  logger.info(
     agents.length === 0
       ? "No local agents found - this will delete all remote agents"
       : `Found ${agents.length} agents to push`,
@@ -26,13 +26,13 @@ async function pushAgentsAction(): Promise<RunCommandResult> {
   );
 
   if (result.created.length > 0) {
-    log.success(`Created: ${result.created.join(", ")}`);
+    logger.success(`Created: ${result.created.join(", ")}`);
   }
   if (result.updated.length > 0) {
-    log.success(`Updated: ${result.updated.join(", ")}`);
+    logger.success(`Updated: ${result.updated.join(", ")}`);
   }
   if (result.deleted.length > 0) {
-    log.warn(`Deleted: ${result.deleted.join(", ")}`);
+    logger.warn(`Deleted: ${result.deleted.join(", ")}`);
   }
 
   return { outroMessage: "Agents pushed to Base44" };
@@ -43,5 +43,7 @@ export function getAgentsPushCommand(): Command {
     .description(
       "Push local agents to Base44 (replaces all remote agent configs)",
     )
-    .action(pushAgentsAction);
+    .action((_options: unknown, command: Base44Command) =>
+      pushAgentsAction(command.logger),
+    );
 }

@@ -1,7 +1,8 @@
-import { confirm, isCancel, log, spinner } from "@clack/prompts";
+import { confirm, isCancel, spinner } from "@clack/prompts";
 import open from "open";
 import pWaitFor, { TimeoutError } from "p-wait-for";
 import { theme } from "@/cli/utils/index.js";
+import type { Logger } from "@/cli/utils/logger/types.js";
 import type {
   ConnectorOAuthStatus,
   ConnectorSyncResult,
@@ -103,6 +104,7 @@ async function runOAuthFlowWithSkip(
  */
 export async function promptOAuthFlows(
   pending: OAuthSyncResult[],
+  logger: Logger,
   options?: OAuthPromptOptions,
 ): Promise<Map<IntegrationType, OAuthFlowStatus>> {
   const outcomes = new Map<IntegrationType, OAuthFlowStatus>();
@@ -111,11 +113,13 @@ export async function promptOAuthFlows(
     return outcomes;
   }
 
-  log.warn(
+  logger.warn(
     `${pending.length} connector(s) require authorization in your browser:`,
   );
   for (const connector of pending) {
-    log.info(`  ${connector.type}: ${theme.styles.dim(connector.redirectUrl)}`);
+    logger.info(
+      `  ${connector.type}: ${theme.styles.dim(connector.redirectUrl)}`,
+    );
   }
 
   if (options?.skipPrompt) {
@@ -132,11 +136,11 @@ export async function promptOAuthFlows(
 
   for (const connector of pending) {
     try {
-      log.info(`Opening browser for ${connector.type}...`);
+      logger.info(`Opening browser for ${connector.type}...`);
       const status = await runOAuthFlowWithSkip(connector);
       outcomes.set(connector.type, status);
     } catch (err) {
-      log.error(
+      logger.error(
         `Failed to authorize ${connector.type}: ${err instanceof Error ? err.message : String(err)}`,
       );
       outcomes.set(connector.type, "FAILED");

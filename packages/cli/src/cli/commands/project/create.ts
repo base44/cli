@@ -1,6 +1,6 @@
 import { basename, join, resolve } from "node:path";
 import type { Option } from "@clack/prompts";
-import { confirm, group, isCancel, log, select, text } from "@clack/prompts";
+import { confirm, group, isCancel, select, text } from "@clack/prompts";
 import { Argument, type Command } from "commander";
 import { execa } from "execa";
 import kebabCase from "lodash/kebabCase";
@@ -12,6 +12,7 @@ import {
   runTask,
   theme,
 } from "@/cli/utils/index.js";
+import type { Logger } from "@/cli/utils/logger/types.js";
 import { InvalidInputError } from "@/core/errors.js";
 import { deploySite, isDirEmpty, pushEntities } from "@/core/index.js";
 import type { Template } from "@/core/project/index.js";
@@ -56,6 +57,7 @@ function validateNonInteractiveFlags(command: Command): void {
 
 async function createInteractive(
   options: CreateOptions,
+  logger: Logger,
 ): Promise<RunCommandResult> {
   const templates = await listTemplates();
   const templateOptions: Option<Template>[] = templates.map((t) => ({
@@ -101,52 +103,62 @@ async function createInteractive(
     },
   );
 
-  return await executeCreate({
-    template: result.template,
-    name: result.name,
-    projectPath: result.projectPath as string,
-    deploy: options.deploy,
-    skills: options.skills,
-    isInteractive: true,
-  });
+  return await executeCreate(
+    {
+      template: result.template,
+      name: result.name,
+      projectPath: result.projectPath as string,
+      deploy: options.deploy,
+      skills: options.skills,
+      isInteractive: true,
+    },
+    logger,
+  );
 }
 
 async function createNonInteractive(
   options: CreateOptions,
+  logger: Logger,
 ): Promise<RunCommandResult> {
-  log.info(`Creating a new project at ${resolve(options.path!)}`);
+  logger.info(`Creating a new project at ${resolve(options.path!)}`);
 
   const template = await getTemplateById(
     options.template ?? DEFAULT_TEMPLATE_ID,
   );
 
-  return await executeCreate({
-    template,
-    name: options.name!,
-    projectPath: options.path!,
-    deploy: options.deploy,
-    skills: options.skills,
-    isInteractive: false,
-  });
+  return await executeCreate(
+    {
+      template,
+      name: options.name!,
+      projectPath: options.path!,
+      deploy: options.deploy,
+      skills: options.skills,
+      isInteractive: false,
+    },
+    logger,
+  );
 }
 
-async function executeCreate({
-  template,
-  name: rawName,
-  description,
-  projectPath,
-  deploy,
-  skills,
-  isInteractive,
-}: {
-  template: Template;
-  name: string;
-  description?: string;
-  projectPath: string;
-  deploy?: boolean;
-  skills?: boolean;
-  isInteractive: boolean;
-}): Promise<RunCommandResult> {
+async function executeCreate(
+  {
+    template,
+    name: rawName,
+    description,
+    projectPath,
+    deploy,
+    skills,
+    isInteractive,
+  }: {
+    template: Template;
+    name: string;
+    description?: string;
+    projectPath: string;
+    deploy?: boolean;
+    skills?: boolean;
+    isInteractive: boolean;
+  },
+  logger: Logger,
+): Promise<RunCommandResult> {
   const name = rawName.trim();
   const resolvedPath = resolve(projectPath);
 
@@ -266,15 +278,15 @@ async function executeCreate({
     }
   }
 
-  log.message(
+  logger.message(
     `${theme.styles.header("Project")}: ${theme.colors.base44Orange(name)}`,
   );
-  log.message(
+  logger.message(
     `${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(projectId))}`,
   );
 
   if (finalAppUrl) {
-    log.message(
+    logger.message(
       `${theme.styles.header("Site")}: ${theme.colors.links(finalAppUrl)}`,
     );
   }
@@ -331,12 +343,15 @@ Examples:
         }
 
         if (skipPrompts) {
-          return await createNonInteractive({
-            name: options.name ?? name,
-            ...options,
-          });
+          return await createNonInteractive(
+            {
+              name: options.name ?? name,
+              ...options,
+            },
+            command.logger,
+          );
         }
-        return await createInteractive({ name, ...options });
+        return await createInteractive({ name, ...options }, command.logger);
       },
     );
 }

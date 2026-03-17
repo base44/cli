@@ -1,14 +1,15 @@
 import { dirname, join } from "node:path";
-import { log } from "@clack/prompts";
 import type { Command } from "commander";
 import type { RunCommandResult } from "@/cli/types.js";
 import { Base44Command, runTask } from "@/cli/utils/index.js";
+import type { Logger } from "@/cli/utils/logger/types.js";
 import { readProjectConfig } from "@/core/index.js";
 import { listDeployedFunctions } from "@/core/resources/function/api.js";
 import { writeFunctions } from "@/core/resources/function/pull.js";
 
 async function pullFunctionsAction(
   name: string | undefined,
+  logger: Logger,
 ): Promise<RunCommandResult> {
   const { project } = await readProjectConfig();
 
@@ -53,10 +54,10 @@ async function pullFunctionsAction(
   );
 
   for (const name of written) {
-    log.success(`${name.padEnd(25)} written`);
+    logger.success(`${name.padEnd(25)} written`);
   }
   for (const name of skipped) {
-    log.info(`${name.padEnd(25)} unchanged`);
+    logger.info(`${name.padEnd(25)} unchanged`);
   }
 
   return {
@@ -68,5 +69,13 @@ export function getPullCommand(): Command {
   return new Base44Command("pull")
     .description("Pull deployed functions from Base44")
     .argument("[name]", "Function name to pull (pulls all if omitted)")
-    .action(pullFunctionsAction);
+    .action(
+      async (
+        name: string | undefined,
+        _options: unknown,
+        command: Base44Command,
+      ) => {
+        return pullFunctionsAction(name, command.logger);
+      },
+    );
 }

@@ -1,9 +1,9 @@
-import { log } from "@clack/prompts";
 import type { Command } from "commander";
 import { formatDeployResult } from "@/cli/commands/functions/formatDeployResult.js";
 import { parseNames } from "@/cli/commands/functions/parseNames.js";
 import type { RunCommandResult } from "@/cli/types.js";
 import { Base44Command, theme } from "@/cli/utils/index.js";
+import type { Logger } from "@/cli/utils/logger/types.js";
 import { InvalidInputError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/index.js";
 import {
@@ -29,18 +29,18 @@ function resolveFunctionsToDeploy(
   return allFunctions.filter((f) => names.includes(f.name));
 }
 
-function formatPruneResult(pruneResult: PruneResult): void {
+function formatPruneResult(pruneResult: PruneResult, logger: Logger): void {
   if (pruneResult.deleted) {
-    log.success(`${pruneResult.name.padEnd(25)} deleted`);
+    logger.success(`${pruneResult.name.padEnd(25)} deleted`);
   } else {
-    log.error(`${pruneResult.name.padEnd(25)} error: ${pruneResult.error}`);
+    logger.error(`${pruneResult.name.padEnd(25)} error: ${pruneResult.error}`);
   }
 }
 
-function formatPruneSummary(pruneResults: PruneResult[]): void {
+function formatPruneSummary(pruneResults: PruneResult[], logger: Logger): void {
   if (pruneResults.length > 0) {
     const pruned = pruneResults.filter((r) => r.deleted).length;
-    log.info(`${pruned} deleted`);
+    logger.info(`${pruned} deleted`);
   }
 }
 
@@ -59,6 +59,7 @@ function buildDeploySummary(results: SingleFunctionDeployResult[]): string {
 async function deployFunctionsAction(
   names: string[],
   options: { force?: boolean },
+  logger: Logger,
 ): Promise<RunCommandResult> {
   if (options.force && names.length > 0) {
     throw new InvalidInputError(
@@ -76,7 +77,7 @@ async function deployFunctionsAction(
     };
   }
 
-  log.info(
+  logger.info(
     `Found ${toDeploy.length} ${toDeploy.length === 1 ? "function" : "functions"} to deploy`,
   );
 
@@ -89,13 +90,13 @@ async function deployFunctionsAction(
         startNames.length === 1
           ? startNames[0]
           : `${startNames.length} functions`;
-      log.step(
+      logger.step(
         theme.styles.dim(`[${completed + 1}/${total}] Deploying ${label}...`),
       );
     },
     onResult: (result) => {
       completed++;
-      formatDeployResult(result);
+      formatDeployResult(result, logger);
     },
   });
 
@@ -107,22 +108,22 @@ async function deployFunctionsAction(
       onStart: (total) => {
         pruneTotal = total;
         if (total > 0) {
-          log.info(
+          logger.info(
             `Found ${total} remote ${total === 1 ? "function" : "functions"} to delete`,
           );
         }
       },
       onBeforeDelete: (name) => {
         pruneCompleted++;
-        log.step(
+        logger.step(
           theme.styles.dim(
             `[${pruneCompleted}/${pruneTotal}] Deleting ${name}...`,
           ),
         );
       },
-      onResult: formatPruneResult,
+      onResult: (r) => formatPruneResult(r, logger),
     });
-    formatPruneSummary(pruneResults);
+    formatPruneSummary(pruneResults, logger);
   }
 
   return { outroMessage: buildDeploySummary(results) };
@@ -133,8 +134,14 @@ export function getDeployCommand(): Command {
     .description("Deploy functions to Base44")
     .argument("[names...]", "Function names to deploy (deploys all if omitted)")
     .option("--force", "Delete remote functions not found locally")
-    .action(async (rawNames: string[], options: { force?: boolean }) => {
-      const names = parseNames(rawNames);
-      return deployFunctionsAction(names, options);
-    });
+    .action(
+      async (
+        rawNames: string[],
+        options: { force?: boolean },
+        command: Base44Command,
+      ) => {
+        const names = parseNames(rawNames);
+        return deployFunctionsAction(names, options, command.logger);
+      },
+    );
 }

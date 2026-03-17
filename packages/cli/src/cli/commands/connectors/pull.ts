@@ -1,15 +1,15 @@
 import { dirname, join } from "node:path";
-import { log } from "@clack/prompts";
 import type { Command } from "commander";
 import type { RunCommandResult } from "@/cli/types.js";
 import { Base44Command, runTask } from "@/cli/utils/index.js";
+import type { Logger } from "@/cli/utils/logger/types.js";
 import { readProjectConfig } from "@/core/index.js";
 import {
   pullAllConnectors,
   writeConnectors,
 } from "@/core/resources/connector/index.js";
 
-async function pullConnectorsAction(): Promise<RunCommandResult> {
+async function pullConnectorsAction(logger: Logger): Promise<RunCommandResult> {
   const { project } = await readProjectConfig();
 
   const configDir = dirname(project.configPath);
@@ -38,13 +38,13 @@ async function pullConnectorsAction(): Promise<RunCommandResult> {
   );
 
   if (written.length > 0) {
-    log.success(`Written: ${written.join(", ")}`);
+    logger.success(`Written: ${written.join(", ")}`);
   }
   if (deleted.length > 0) {
-    log.warn(`Deleted: ${deleted.join(", ")}`);
+    logger.warn(`Deleted: ${deleted.join(", ")}`);
   }
   if (written.length === 0 && deleted.length === 0) {
-    log.info("All connectors are already up to date");
+    logger.info("All connectors are already up to date");
   }
 
   return {
@@ -57,5 +57,7 @@ export function getConnectorsPullCommand(): Command {
     .description(
       "Pull connectors from Base44 to local files (replaces all local connector configs)",
     )
-    .action(pullConnectorsAction);
+    .action((_options: unknown, command: Base44Command) =>
+      pullConnectorsAction(command.logger),
+    );
 }

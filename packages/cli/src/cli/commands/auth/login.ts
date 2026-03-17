@@ -8,5 +8,7 @@ export function getLoginCommand(): Command {
     requireAppConfig: false,
   })
     .description("Authenticate with Base44")
-    .action(login);
+    .action((_options: unknown, command: Base44Command) =>
+      login(command.logger),
+    );
 }

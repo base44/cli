@@ -1,4 +1,5 @@
 import type { ErrorReporter } from "./telemetry/error-reporter.js";
+import type { Logger } from "./utils/logger/types.js";
 
 export type Distribution = "npm" | "binary";
 
@@ -6,6 +7,7 @@ export interface CLIContext {
   errorReporter: ErrorReporter;
   isNonInteractive: boolean;
   distribution: Distribution;
+  logger: Logger;
 }
 
 export interface RunCommandResult {

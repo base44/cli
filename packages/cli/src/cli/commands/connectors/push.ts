@@ -1,7 +1,7 @@
-import { log } from "@clack/prompts";
 import type { Command } from "commander";
 import type { RunCommandResult } from "@/cli/types.js";
 import { Base44Command, runTask, theme } from "@/cli/utils/index.js";
+import type { Logger } from "@/cli/utils/logger/types.js";
 import { getConnectorsUrl } from "@/cli/utils/urls.js";
 import { readProjectConfig } from "@/core/index.js";
 import {
@@ -19,6 +19,7 @@ import {
 function printSummary(
   results: ConnectorSyncResult[],
   oauthOutcomes: Map<IntegrationType, OAuthFlowStatus>,
+  logger: Logger,
 ): void {
   const synced: IntegrationType[] = [];
   const added: IntegrationType[] = [];
@@ -59,48 +60,49 @@ function printSummary(
     }
   }
 
-  log.info(theme.styles.bold("Summary:"));
+  logger.info(theme.styles.bold("Summary:"));
 
   if (provisioned) {
-    log.success("Stripe sandbox provisioned");
+    logger.success("Stripe sandbox provisioned");
     if (provisioned.claimUrl) {
-      log.info(
+      logger.info(
         `  Claim your Stripe sandbox: ${theme.colors.links(provisioned.claimUrl)}`,
       );
     }
-    log.info(
+    logger.info(
       `  Connectors dashboard: ${theme.colors.links(getConnectorsUrl())}`,
     );
   }
   if (synced.length > 0) {
-    log.success(`Synced: ${synced.join(", ")}`);
+    logger.success(`Synced: ${synced.join(", ")}`);
   }
   if (added.length > 0) {
-    log.success(`Added: ${added.join(", ")}`);
+    logger.success(`Added: ${added.join(", ")}`);
   }
   if (removed.length > 0) {
-    log.info(theme.styles.dim(`Removed: ${removed.join(", ")}`));
+    logger.info(theme.styles.dim(`Removed: ${removed.join(", ")}`));
   }
   if (skipped.length > 0) {
-    log.warn(`Skipped: ${skipped.join(", ")}`);
+    logger.warn(`Skipped: ${skipped.join(", ")}`);
   }
   for (const r of failed) {
-    log.error(`Failed: ${r.type} - ${r.error}`);
+    logger.error(`Failed: ${r.type} - ${r.error}`);
   }
 }
 
 async function pushConnectorsAction(
   isNonInteractive: boolean,
+  logger: Logger,
 ): Promise<RunCommandResult> {
   const { connectors } = await readProjectConfig();
 
   if (connectors.length === 0) {
-    log.info(
+    logger.info(
       "No local connectors found - checking for remote connectors to remove",
     );
   } else {
     const connectorNames = connectors.map((c) => c.type).join(", ");
-    log.info(
+    logger.info(
       `Found ${connectors.length} connectors to push: ${connectorNames}`,
     );
   }
@@ -115,7 +117,7 @@ async function pushConnectorsAction(
   const needsOAuth = filterPendingOAuth(results);
   let outroMessage = "Connectors pushed to Base44";
 
-  const oauthOutcomes = await promptOAuthFlows(needsOAuth, {
+  const oauthOutcomes = await promptOAuthFlows(needsOAuth, logger, {
     skipPrompt: isNonInteractive,
   });
 
@@ -128,7 +130,7 @@ async function pushConnectorsAction(
       : "Some connectors still require authorization. Run 'base44 connectors push' or open the links above to authorize.";
   }
 
-  printSummary(results, oauthOutcomes);
+  printSummary(results, oauthOutcomes, logger);
   return { outroMessage };
 }
 
@@ -138,6 +140,9 @@ export function getConnectorsPushCommand(): Command {
       "Push local connectors to Base44 (overwrites connectors on Base44)",
     )
     .action(async (_options: unknown, command: Base44Command) => {
-      return await pushConnectorsAction(command.isNonInteractive);
+      return await pushConnectorsAction(
+        command.isNonInteractive,
+        command.logger,
+      );
     });
 }

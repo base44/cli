@@ -7,6 +7,8 @@ import { CLIExitError } from "./errors.js";
 import { ErrorReporter } from "./telemetry/error-reporter.js";
 import { addCommandInfoToErrorReporter } from "./telemetry/index.js";
 import type { CLIContext, Distribution } from "./types.js";
+import { ClackLogger } from "./utils/logger/ClackLogger.js";
+import { SimpleLogger } from "./utils/logger/SimpleLogger.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -25,10 +27,12 @@ async function runCLI(options?: RunCLIOptions): Promise<void> {
 
   // Create context for dependency injection
   const isNonInteractive = !process.stdin.isTTY || !process.stdout.isTTY;
+  const logger = isNonInteractive ? new SimpleLogger() : new ClackLogger();
   const context: CLIContext = {
     errorReporter,
     isNonInteractive,
     distribution: options?.distribution ?? "npm",
+    logger,
   };
 
   // Create program with injected context

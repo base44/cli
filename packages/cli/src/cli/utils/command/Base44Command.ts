@@ -7,6 +7,7 @@ import {
   showPlainError,
   showThemedError,
 } from "@/cli/utils/command/render.js";
+import type { Logger } from "@/cli/utils/logger/types.js";
 import {
   formatPlainUpgradeMessage,
   startUpgradeCheck,
@@ -96,6 +97,15 @@ export class Base44Command extends Command {
     return this._context?.isNonInteractive ?? false;
   }
 
+  /**
+   * Logger instance for command output. Uses clack-styled output in
+   * interactive mode and plain stderr text in non-interactive mode.
+   * @public
+   */
+  get logger(): Logger {
+    return this.context.logger;
+  }
+
   private get context(): CLIContext {
     if (!this._context) {
       throw new Error(
@@ -122,7 +132,7 @@ export class Base44Command extends Command {
 
       try {
         if (this._commandOptions.requireAuth) {
-          await ensureAuth(this.context.errorReporter);
+          await ensureAuth(this.context.errorReporter, this.context.logger);
         }
         if (this._commandOptions.requireAppConfig) {
           await ensureAppConfig(this.context.errorReporter);
