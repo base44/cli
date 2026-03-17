@@ -53,7 +53,7 @@ const WINDOWS_ICON = join(ROOT, "infra", "base44.ico");
 for (const required of [
 	"dist/cli/index.js",
 	"dist/assets/templates/templates.json",
-	"dist/assets/deno-runtime/main.js",
+	"dist/assets/deno-runtime/main.ts",
 ]) {
 	if (!existsSync(join(ROOT, required))) {
 		console.error(

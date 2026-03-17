@@ -1,4 +1,4 @@
-import { watch } from "node:fs";
+import { watch, copyFileSync, mkdirSync } from "node:fs";
 import type { BuildConfig } from "bun";
 import chalk from "chalk";
 
@@ -25,18 +25,22 @@ const runBuild = async (config: BuildConfig) => {
   return result;
 };
 
+const copyDenoRuntime = () => {
+  const outDir = "./dist/assets/deno-runtime";
+  mkdirSync(outDir, { recursive: true });
+  copyFileSync("./deno-runtime/main.ts", `${outDir}/main.ts`);
+  return `${outDir}/main.ts`;
+};
+
 const runAllBuilds = async () => {
   const cli = await runBuild({
     entrypoints: ["./src/cli/index.ts"],
     outdir: "./dist/cli",
   });
-  const denoRuntime = await runBuild({
-    entrypoints: ["./deno-runtime/main.ts"],
-    outdir: "./dist/assets/deno-runtime",
-  });
+  const denoRuntimePath = copyDenoRuntime();
   return {
     cli,
-    denoRuntime,
+    denoRuntimePath,
   };
 };
 
@@ -54,16 +58,19 @@ if (process.argv.includes("--watch")) {
     const time = new Date().toLocaleTimeString();
     console.log(chalk.dim(`[${time}]`), chalk.gray(`${filename} ${event}d`));
 
-    const { cli, denoRuntime } = await runAllBuilds();
-    for (const result of [cli, denoRuntime]) {
-      if (result.success && result.outputs.length > 0) {
-        console.log(
-          chalk.green(`  ✓ Rebuilt`),
-          chalk.dim(`→`),
-          formatOutput(result.outputs),
-        );
-      }
+    const { cli, denoRuntimePath } = await runAllBuilds();
+    if (cli.success && cli.outputs.length > 0) {
+      console.log(
+        chalk.green(`  ✓ Rebuilt`),
+        chalk.dim(`→`),
+        formatOutput(cli.outputs),
+      );
     }
+    console.log(
+      chalk.green(`  ✓ Copied`),
+      chalk.dim(`→`),
+      chalk.cyan(denoRuntimePath),
+    );
   };
 
   await runAllBuilds();
@@ -75,9 +82,9 @@ if (process.argv.includes("--watch")) {
   // Keep process alive
   await new Promise(() => {});
 } else {
-  const { cli, denoRuntime } = await runAllBuilds();
+  const { cli, denoRuntimePath } = await runAllBuilds();
   console.log(chalk.green.bold(`\n✓ Build complete\n`));
   console.log(chalk.dim("  Output:"));
   console.log(`  ${formatOutput(cli.outputs)}`);
-  console.log(`  ${formatOutput(denoRuntime.outputs)}`);
+  console.log(`  ${chalk.cyan(denoRuntimePath)}`);
 }
