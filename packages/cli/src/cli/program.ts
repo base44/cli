@@ -1,5 +1,6 @@
 import { Command } from "commander";
 import { getAgentsCommand } from "@/cli/commands/agents/index.js";
+import { getAuthCommand } from "@/cli/commands/auth/index.js";
 import { getLoginCommand } from "@/cli/commands/auth/login.js";
 import { getLogoutCommand } from "@/cli/commands/auth/logout.js";
 import { getWhoamiCommand } from "@/cli/commands/auth/whoami.js";
@@ -68,6 +69,9 @@ export function createProgram(context: CLIContext): Command {
 
   // Register secrets commands
   program.addCommand(getSecretsCommand());
+
+  // Register auth config commands
+  program.addCommand(getAuthCommand(context));
 
   // Register site commands
   program.addCommand(getSiteCommand());
