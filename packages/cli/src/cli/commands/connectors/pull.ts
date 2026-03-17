@@ -9,7 +9,7 @@ import {
 } from "@/core/resources/connector/index.js";
 
 async function pullConnectorsAction({
-  log: logger,
+  log,
 }: CLIContext): Promise<RunCommandResult> {
   const { project } = await readProjectConfig();
 
@@ -39,13 +39,13 @@ async function pullConnectorsAction({
   );
 
   if (written.length > 0) {
-    logger.success(`Written: ${written.join(", ")}`);
+    log.success(`Written: ${written.join(", ")}`);
   }
   if (deleted.length > 0) {
-    logger.warn(`Deleted: ${deleted.join(", ")}`);
+    log.warn(`Deleted: ${deleted.join(", ")}`);
   }
   if (written.length === 0 && deleted.length === 0) {
-    logger.info("All connectors are already up to date");
+    log.info("All connectors are already up to date");
   }
 
   return {

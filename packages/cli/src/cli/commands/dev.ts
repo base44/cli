@@ -10,12 +10,12 @@ interface DevOptions {
 }
 
 async function devAction(
-  { log: logger }: CLIContext,
+  { log }: CLIContext,
   options: DevOptions,
 ): Promise<RunCommandResult> {
   const port = options.port ? Number(options.port) : undefined;
   const { port: resolvedPort } = await createDevServer({
-    logger,
+    log,
     port,
     denoWrapperPath: getDenoWrapperPath(),
     loadResources: async () => {

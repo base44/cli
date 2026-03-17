@@ -5,7 +5,7 @@ import { readProjectConfig } from "@/core/index.js";
 import { pushEntities } from "@/core/resources/entity/index.js";
 
 async function pushEntitiesAction({
-  log: logger,
+  log,
 }: CLIContext): Promise<RunCommandResult> {
   const { entities } = await readProjectConfig();
 
@@ -14,7 +14,7 @@ async function pushEntitiesAction({
   }
 
   const entityNames = entities.map((e) => e.name).join(", ");
-  logger.info(`Found ${entities.length} entities to push: ${entityNames}`);
+  log.info(`Found ${entities.length} entities to push: ${entityNames}`);
 
   const result = await runTask(
     "Pushing entities to Base44",
@@ -29,13 +29,13 @@ async function pushEntitiesAction({
 
   // Print the results
   if (result.created.length > 0) {
-    logger.success(`Created: ${result.created.join(", ")}`);
+    log.success(`Created: ${result.created.join(", ")}`);
   }
   if (result.updated.length > 0) {
-    logger.success(`Updated: ${result.updated.join(", ")}`);
+    log.success(`Updated: ${result.updated.join(", ")}`);
   }
   if (result.deleted.length > 0) {
-    logger.warn(`Deleted: ${result.deleted.join(", ")}`);
+    log.warn(`Deleted: ${result.deleted.join(", ")}`);
   }
 
   return { outroMessage: "Entities pushed to Base44" };

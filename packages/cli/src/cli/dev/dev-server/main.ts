@@ -28,7 +28,7 @@ const DEFAULT_PORT = 4400;
 const BASE44_APP_URL = "https://base44.app";
 
 interface DevServerOptions {
-  logger: Logger;
+  log: Logger;
   port?: number;
   denoWrapperPath: string;
   loadResources: () => Promise<{
@@ -88,7 +88,7 @@ export async function createDevServer(
   app.use("/api/apps/:appId/functions", functionRoutes);
 
   if (functionManager.getFunctionNames().length > 0) {
-    options.logger.info(
+    options.log.info(
       `Loaded functions: ${functionManager.getFunctionNames().join(", ")}`,
     );
   }
@@ -96,9 +96,7 @@ export async function createDevServer(
   const db = new Database();
   db.load(entities);
   if (db.getCollectionNames().length > 0) {
-    options.logger.info(
-      `Loaded entities: ${db.getCollectionNames().join(", ")}`,
-    );
+    options.log.info(`Loaded entities: ${db.getCollectionNames().join(", ")}`);
   }
 
   // Socket.IO is attached after the HTTP server starts; entity routes receive

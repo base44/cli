@@ -8,17 +8,17 @@ function formatDuration(ms: number): string {
 
 export function formatDeployResult(
   result: SingleFunctionDeployResult,
-  logger: Logger,
+  log: Logger,
 ): void {
   const label = result.name.padEnd(25);
   if (result.status === "deployed") {
     const timing = result.durationMs
       ? theme.styles.dim(` (${formatDuration(result.durationMs)})`)
       : "";
-    logger.success(`${label} deployed${timing}`);
+    log.success(`${label} deployed${timing}`);
   } else if (result.status === "unchanged") {
-    logger.success(`${label} unchanged`);
+    log.success(`${label} unchanged`);
   } else {
-    logger.error(`${label} error: ${result.error}`);
+    log.error(`${label} error: ${result.error}`);
   }
 }

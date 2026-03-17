@@ -29,18 +29,18 @@ function resolveFunctionsToDeploy(
   return allFunctions.filter((f) => names.includes(f.name));
 }
 
-function formatPruneResult(pruneResult: PruneResult, logger: Logger): void {
+function formatPruneResult(pruneResult: PruneResult, log: Logger): void {
   if (pruneResult.deleted) {
-    logger.success(`${pruneResult.name.padEnd(25)} deleted`);
+    log.success(`${pruneResult.name.padEnd(25)} deleted`);
   } else {
-    logger.error(`${pruneResult.name.padEnd(25)} error: ${pruneResult.error}`);
+    log.error(`${pruneResult.name.padEnd(25)} error: ${pruneResult.error}`);
   }
 }
 
-function formatPruneSummary(pruneResults: PruneResult[], logger: Logger): void {
+function formatPruneSummary(pruneResults: PruneResult[], log: Logger): void {
   if (pruneResults.length > 0) {
     const pruned = pruneResults.filter((r) => r.deleted).length;
-    logger.info(`${pruned} deleted`);
+    log.info(`${pruned} deleted`);
   }
 }
 
@@ -57,7 +57,7 @@ function buildDeploySummary(results: SingleFunctionDeployResult[]): string {
 }
 
 async function deployFunctionsAction(
-  { log: logger }: CLIContext,
+  { log }: CLIContext,
   names: string[],
   options: { force?: boolean },
 ): Promise<RunCommandResult> {
@@ -77,7 +77,7 @@ async function deployFunctionsAction(
     };
   }
 
-  logger.info(
+  log.info(
     `Found ${toDeploy.length} ${toDeploy.length === 1 ? "function" : "functions"} to deploy`,
   );
 
@@ -90,13 +90,13 @@ async function deployFunctionsAction(
         startNames.length === 1
           ? startNames[0]
           : `${startNames.length} functions`;
-      logger.step(
+      log.step(
         theme.styles.dim(`[${completed + 1}/${total}] Deploying ${label}...`),
       );
     },
     onResult: (result) => {
       completed++;
-      formatDeployResult(result, logger);
+      formatDeployResult(result, log);
     },
   });
 
@@ -108,22 +108,22 @@ async function deployFunctionsAction(
       onStart: (total) => {
         pruneTotal = total;
         if (total > 0) {
-          logger.info(
+          log.info(
             `Found ${total} remote ${total === 1 ? "function" : "functions"} to delete`,
           );
         }
       },
       onBeforeDelete: (name) => {
         pruneCompleted++;
-        logger.step(
+        log.step(
           theme.styles.dim(
             `[${pruneCompleted}/${pruneTotal}] Deleting ${name}...`,
           ),
         );
       },
-      onResult: (r) => formatPruneResult(r, logger),
+      onResult: (r) => formatPruneResult(r, log),
     });
-    formatPruneSummary(pruneResults, logger);
+    formatPruneSummary(pruneResults, log);
   }
 
   return { outroMessage: buildDeploySummary(results) };

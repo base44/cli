@@ -5,11 +5,11 @@ import { readProjectConfig } from "@/core/index.js";
 import { pushAgents } from "@/core/resources/agent/index.js";
 
 async function pushAgentsAction({
-  log: logger,
+  log,
 }: CLIContext): Promise<RunCommandResult> {
   const { agents } = await readProjectConfig();
 
-  logger.info(
+  log.info(
     agents.length === 0
       ? "No local agents found - this will delete all remote agents"
       : `Found ${agents.length} agents to push`,
@@ -27,13 +27,13 @@ async function pushAgentsAction({
   );
 
   if (result.created.length > 0) {
-    logger.success(`Created: ${result.created.join(", ")}`);
+    log.success(`Created: ${result.created.join(", ")}`);
   }
   if (result.updated.length > 0) {
-    logger.success(`Updated: ${result.updated.join(", ")}`);
+    log.success(`Updated: ${result.updated.join(", ")}`);
   }
   if (result.deleted.length > 0) {
-    logger.warn(`Deleted: ${result.deleted.join(", ")}`);
+    log.warn(`Deleted: ${result.deleted.join(", ")}`);
   }
 
   return { outroMessage: "Agents pushed to Base44" };

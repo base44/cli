@@ -49,8 +49,8 @@ interface Base44CommandOptions {
  *
  * @example
  * // Action function receives CLIContext first, then Commander args
- * async function myAction({ logger }: CLIContext, options: MyOptions): Promise<RunCommandResult> {
- *   logger.info("Doing something...");
+ * async function myAction({ log }: CLIContext, options: MyOptions): Promise<RunCommandResult> {
+ *   log.info("Doing something...");
  *   return { outroMessage: "Done!" };
  * }
  *

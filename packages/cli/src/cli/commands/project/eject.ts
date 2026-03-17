@@ -31,7 +31,7 @@ async function eject(
   ctx: CLIContext,
   options: EjectOptions,
 ): Promise<RunCommandResult> {
-  const { log: logger, isNonInteractive } = ctx;
+  const { log, isNonInteractive } = ctx;
 
   if (isNonInteractive && !options.projectId) {
     throw new InvalidInputError(
@@ -69,7 +69,7 @@ async function eject(
     }
 
     selectedProject = foundProject;
-    logger.info(`Selected project: ${theme.styles.bold(selectedProject.name)}`);
+    log.info(`Selected project: ${theme.styles.bold(selectedProject.name)}`);
   } else {
     if (ejectableProjects.length === 0) {
       return { outroMessage: "No projects available to eject." };

@@ -19,7 +19,7 @@ import {
 function printSummary(
   results: ConnectorSyncResult[],
   oauthOutcomes: Map<IntegrationType, OAuthFlowStatus>,
-  logger: Logger,
+  log: Logger,
 ): void {
   const synced: IntegrationType[] = [];
   const added: IntegrationType[] = [];
@@ -60,49 +60,49 @@ function printSummary(
     }
   }
 
-  logger.info(theme.styles.bold("Summary:"));
+  log.info(theme.styles.bold("Summary:"));
 
   if (provisioned) {
-    logger.success("Stripe sandbox provisioned");
+    log.success("Stripe sandbox provisioned");
     if (provisioned.claimUrl) {
-      logger.info(
+      log.info(
         `  Claim your Stripe sandbox: ${theme.colors.links(provisioned.claimUrl)}`,
       );
     }
-    logger.info(
+    log.info(
       `  Connectors dashboard: ${theme.colors.links(getConnectorsUrl())}`,
     );
   }
   if (synced.length > 0) {
-    logger.success(`Synced: ${synced.join(", ")}`);
+    log.success(`Synced: ${synced.join(", ")}`);
   }
   if (added.length > 0) {
-    logger.success(`Added: ${added.join(", ")}`);
+    log.success(`Added: ${added.join(", ")}`);
   }
   if (removed.length > 0) {
-    logger.info(theme.styles.dim(`Removed: ${removed.join(", ")}`));
+    log.info(theme.styles.dim(`Removed: ${removed.join(", ")}`));
   }
   if (skipped.length > 0) {
-    logger.warn(`Skipped: ${skipped.join(", ")}`);
+    log.warn(`Skipped: ${skipped.join(", ")}`);
   }
   for (const r of failed) {
-    logger.error(`Failed: ${r.type} - ${r.error}`);
+    log.error(`Failed: ${r.type} - ${r.error}`);
   }
 }
 
 async function pushConnectorsAction({
   isNonInteractive,
-  log: logger,
+  log,
 }: CLIContext): Promise<RunCommandResult> {
   const { connectors } = await readProjectConfig();
 
   if (connectors.length === 0) {
-    logger.info(
+    log.info(
       "No local connectors found - checking for remote connectors to remove",
     );
   } else {
     const connectorNames = connectors.map((c) => c.type).join(", ");
-    logger.info(
+    log.info(
       `Found ${connectors.length} connectors to push: ${connectorNames}`,
     );
   }
@@ -117,7 +117,7 @@ async function pushConnectorsAction({
   const needsOAuth = filterPendingOAuth(results);
   let outroMessage = "Connectors pushed to Base44";
 
-  const oauthOutcomes = await promptOAuthFlows(needsOAuth, logger, {
+  const oauthOutcomes = await promptOAuthFlows(needsOAuth, log, {
     skipPrompt: isNonInteractive,
   });
 
@@ -130,7 +130,7 @@ async function pushConnectorsAction({
       : "Some connectors still require authorization. Run 'base44 connectors push' or open the links above to authorize.";
   }
 
-  printSummary(results, oauthOutcomes, logger);
+  printSummary(results, oauthOutcomes, log);
   return { outroMessage };
 }
 

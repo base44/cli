@@ -30,7 +30,7 @@ interface DeployOptions {
 }
 
 export async function deployAction(
-  { isNonInteractive, log: logger }: CLIContext,
+  { isNonInteractive, log }: CLIContext,
   options: DeployOptions = {},
 ): Promise<RunCommandResult> {
   if (isNonInteractive && !options.yes) {
@@ -75,7 +75,7 @@ export async function deployAction(
 
   // Confirmation prompt
   if (!options.yes) {
-    logger.warn(
+    log.warn(
       `This will update your Base44 app with:\n${summaryLines.join("\n")}`,
     );
 
@@ -87,7 +87,7 @@ export async function deployAction(
       return { outroMessage: "Deployment cancelled" };
     }
   } else {
-    logger.info(`Deploying:\n${summaryLines.join("\n")}`);
+    log.info(`Deploying:\n${summaryLines.join("\n")}`);
   }
 
   // Deploy resources with per-function progress
@@ -97,7 +97,7 @@ export async function deployAction(
   const result = await deployAll(projectData, {
     onFunctionStart: (names) => {
       const label = names.length === 1 ? names[0] : `${names.length} functions`;
-      logger.step(
+      log.step(
         theme.styles.dim(
           `[${functionCompleted + 1}/${functionTotal}] Deploying ${label}...`,
         ),
@@ -105,28 +105,23 @@ export async function deployAction(
     },
     onFunctionResult: (r) => {
       functionCompleted++;
-      formatDeployResult(r, logger);
+      formatDeployResult(r, log);
     },
   });
 
   // Handle connector-specific post-deploy flows
   const connectorResults = result.connectorResults ?? [];
-  await handleOAuthConnectors(
-    connectorResults,
-    isNonInteractive,
-    options,
-    logger,
-  );
+  await handleOAuthConnectors(connectorResults, isNonInteractive, options, log);
   const stripeResult = connectorResults.find((r) => r.type === "stripe");
   if (stripeResult?.action === "provisioned") {
-    printStripeResult(stripeResult as StripeSyncResult, logger);
+    printStripeResult(stripeResult as StripeSyncResult, log);
   }
 
-  logger.message(
+  log.message(
     `${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl())}`,
   );
   if (result.appUrl) {
-    logger.message(
+    log.message(
       `${theme.styles.header("App URL")}: ${theme.colors.links(result.appUrl)}`,
     );
   }
@@ -147,12 +142,12 @@ async function handleOAuthConnectors(
   connectorResults: ConnectorSyncResult[],
   isNonInteractive: boolean,
   options: DeployOptions,
-  logger: Logger,
+  log: Logger,
 ): Promise<void> {
   const needsOAuth = filterPendingOAuth(connectorResults);
   if (needsOAuth.length === 0) return;
 
-  const oauthOutcomes = await promptOAuthFlows(needsOAuth, logger, {
+  const oauthOutcomes = await promptOAuthFlows(needsOAuth, log, {
     skipPrompt: options.yes || isNonInteractive,
   });
 
@@ -160,20 +155,16 @@ async function handleOAuthConnectors(
     oauthOutcomes.size > 0 &&
     [...oauthOutcomes.values()].every((s) => s === "ACTIVE");
   if (!allAuthorized) {
-    logger.info(
+    log.info(
       "Some connectors still require authorization. Run 'base44 connectors push' or open the links above in your browser.",
     );
   }
 }
 
-function printStripeResult(r: StripeSyncResult, logger: Logger): void {
-  logger.success("Stripe sandbox provisioned");
+function printStripeResult(r: StripeSyncResult, log: Logger): void {
+  log.success("Stripe sandbox provisioned");
   if (r.claimUrl) {
-    logger.info(
-      `  Claim your Stripe sandbox: ${theme.colors.links(r.claimUrl)}`,
-    );
+    log.info(`  Claim your Stripe sandbox: ${theme.colors.links(r.claimUrl)}`);
   }
-  logger.info(
-    `  Connectors dashboard: ${theme.colors.links(getConnectorsUrl())}`,
-  );
+  log.info(`  Connectors dashboard: ${theme.colors.links(getConnectorsUrl())}`);
 }

@@ -104,7 +104,7 @@ async function runOAuthFlowWithSkip(
  */
 export async function promptOAuthFlows(
   pending: OAuthSyncResult[],
-  logger: Logger,
+  log: Logger,
   options?: OAuthPromptOptions,
 ): Promise<Map<IntegrationType, OAuthFlowStatus>> {
   const outcomes = new Map<IntegrationType, OAuthFlowStatus>();
@@ -113,13 +113,11 @@ export async function promptOAuthFlows(
     return outcomes;
   }
 
-  logger.warn(
+  log.warn(
     `${pending.length} connector(s) require authorization in your browser:`,
   );
   for (const connector of pending) {
-    logger.info(
-      `  ${connector.type}: ${theme.styles.dim(connector.redirectUrl)}`,
-    );
+    log.info(`  ${connector.type}: ${theme.styles.dim(connector.redirectUrl)}`);
   }
 
   if (options?.skipPrompt) {
@@ -136,11 +134,11 @@ export async function promptOAuthFlows(
 
   for (const connector of pending) {
     try {
-      logger.info(`Opening browser for ${connector.type}...`);
+      log.info(`Opening browser for ${connector.type}...`);
       const status = await runOAuthFlowWithSkip(connector);
       outcomes.set(connector.type, status);
     } catch (err) {
-      logger.error(
+      log.error(
         `Failed to authorize ${connector.type}: ${err instanceof Error ? err.message : String(err)}`,
       );
       outcomes.set(connector.type, "FAILED");

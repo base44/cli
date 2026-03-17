@@ -16,7 +16,7 @@ import {
 } from "@/core/auth/index.js";
 
 async function generateAndDisplayDeviceCode(
-  logger: Logger,
+  log: Logger,
 ): Promise<DeviceCodeResponse> {
   const deviceCodeResponse = await runTask(
     "Generating device code...",
@@ -29,7 +29,7 @@ async function generateAndDisplayDeviceCode(
     },
   );
 
-  logger.info(
+  log.info(
     `Verification code: ${theme.styles.bold(deviceCodeResponse.userCode)}` +
       `\nPlease confirm this code at: ${deviceCodeResponse.verificationUri}`,
   );
@@ -101,10 +101,8 @@ async function saveAuthData(
  * Execute the login flow (device code authentication).
  * This function is separate from the command to avoid circular dependencies.
  */
-export async function login({
-  log: logger,
-}: CLIContext): Promise<RunCommandResult> {
-  const deviceCodeResponse = await generateAndDisplayDeviceCode(logger);
+export async function login({ log }: CLIContext): Promise<RunCommandResult> {
+  const deviceCodeResponse = await generateAndDisplayDeviceCode(log);
 
   const token = await waitForAuthentication(
     deviceCodeResponse.deviceCode,

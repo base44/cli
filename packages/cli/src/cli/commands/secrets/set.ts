@@ -50,7 +50,7 @@ function validateInput(entries: string[], options: { envFile?: string }): void {
 }
 
 async function setSecretsAction(
-  { log: logger }: CLIContext,
+  { log }: CLIContext,
   entries: string[],
   options: { envFile?: string },
 ): Promise<RunCommandResult> {
@@ -82,7 +82,7 @@ async function setSecretsAction(
     },
   );
 
-  logger.info(`Set: ${names.join(", ")}`);
+  log.info(`Set: ${names.join(", ")}`);
 
   return {
     outroMessage: "Secrets set successfully.",

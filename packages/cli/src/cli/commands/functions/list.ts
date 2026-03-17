@@ -4,7 +4,7 @@ import { Base44Command, runTask, theme } from "@/cli/utils/index.js";
 import { listDeployedFunctions } from "@/core/resources/function/api.js";
 
 async function listFunctionsAction({
-  log: logger,
+  log,
 }: CLIContext): Promise<RunCommandResult> {
   const { functions } = await runTask(
     "Fetching functions...",
@@ -24,7 +24,7 @@ async function listFunctionsAction({
             ` (${automationCount} automation${automationCount > 1 ? "s" : ""})`,
           )
         : "";
-    logger.message(`  ${fn.name}${automationLabel}`);
+    log.message(`  ${fn.name}${automationLabel}`);
   }
 
   return {

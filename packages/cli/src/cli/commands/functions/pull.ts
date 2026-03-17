@@ -7,7 +7,7 @@ import { listDeployedFunctions } from "@/core/resources/function/api.js";
 import { writeFunctions } from "@/core/resources/function/pull.js";
 
 async function pullFunctionsAction(
-  { log: logger }: CLIContext,
+  { log }: CLIContext,
   name: string | undefined,
 ): Promise<RunCommandResult> {
   const { project } = await readProjectConfig();
@@ -53,10 +53,10 @@ async function pullFunctionsAction(
   );
 
   for (const name of written) {
-    logger.success(`${name.padEnd(25)} written`);
+    log.success(`${name.padEnd(25)} written`);
   }
   for (const name of skipped) {
-    logger.info(`${name.padEnd(25)} unchanged`);
+    log.info(`${name.padEnd(25)} unchanged`);
   }
 
   return {

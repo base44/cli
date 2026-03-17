@@ -9,7 +9,7 @@ import {
 import { listAvailableIntegrations } from "@/core/resources/connector/index.js";
 
 async function listAvailableAction({
-  log: logger,
+  log,
 }: CLIContext): Promise<RunCommandResult> {
   const { integrations } = await runTask(
     "Fetching available integrations from Base44",
@@ -29,7 +29,7 @@ async function listAvailableAction({
   for (const { displayName, ...rest } of integrations) {
     const yaml = formatYaml(rest);
     const pad = " ".repeat(YAML_INDENT);
-    logger.info(`${displayName}\n${pad}${yaml.replace(/\n/g, `\n${pad}`)}`);
+    log.info(`${displayName}\n${pad}${yaml.replace(/\n/g, `\n${pad}`)}`);
   }
 
   return {

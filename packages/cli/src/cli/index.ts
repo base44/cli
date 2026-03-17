@@ -27,12 +27,12 @@ async function runCLI(options?: RunCLIOptions): Promise<void> {
 
   // Create context for dependency injection
   const isNonInteractive = !process.stdin.isTTY || !process.stdout.isTTY;
-  const logger = isNonInteractive ? new SimpleLogger() : new ClackLogger();
+  const log = isNonInteractive ? new SimpleLogger() : new ClackLogger();
   const context: CLIContext = {
     errorReporter,
     isNonInteractive,
     distribution: options?.distribution ?? "npm",
-    log: logger,
+    log,
   };
 
   // Create program with injected context

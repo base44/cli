@@ -130,7 +130,7 @@ async function link(
   ctx: CLIContext,
   options: LinkOptions,
 ): Promise<RunCommandResult> {
-  const { log: logger, isNonInteractive } = ctx;
+  const { log, isNonInteractive } = ctx;
 
   const skipPrompts = !!options.create || !!options.projectId;
   if (!skipPrompts && isNonInteractive) {
@@ -250,7 +250,7 @@ async function link(
     finalProjectId = projectId;
   }
 
-  logger.message(
+  log.message(
     `${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(finalProjectId))}`,
   );
   return { outroMessage: "Project linked" };

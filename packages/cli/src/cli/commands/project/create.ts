@@ -57,7 +57,7 @@ function validateNonInteractiveFlags(command: Command): void {
 
 async function createInteractive(
   options: CreateOptions,
-  logger: Logger,
+  log: Logger,
 ): Promise<RunCommandResult> {
   const templates = await listTemplates();
   const templateOptions: Option<Template>[] = templates.map((t) => ({
@@ -112,15 +112,15 @@ async function createInteractive(
       skills: options.skills,
       isInteractive: true,
     },
-    logger,
+    log,
   );
 }
 
 async function createNonInteractive(
   options: CreateOptions,
-  logger: Logger,
+  log: Logger,
 ): Promise<RunCommandResult> {
-  logger.info(`Creating a new project at ${resolve(options.path!)}`);
+  log.info(`Creating a new project at ${resolve(options.path!)}`);
 
   const template = await getTemplateById(
     options.template ?? DEFAULT_TEMPLATE_ID,
@@ -135,7 +135,7 @@ async function createNonInteractive(
       skills: options.skills,
       isInteractive: false,
     },
-    logger,
+    log,
   );
 }
 
@@ -157,7 +157,7 @@ async function executeCreate(
     skills?: boolean;
     isInteractive: boolean;
   },
-  logger: Logger,
+  log: Logger,
 ): Promise<RunCommandResult> {
   const name = rawName.trim();
   const resolvedPath = resolve(projectPath);
@@ -278,15 +278,15 @@ async function executeCreate(
     }
   }
 
-  logger.message(
+  log.message(
     `${theme.styles.header("Project")}: ${theme.colors.base44Orange(name)}`,
   );
-  logger.message(
+  log.message(
     `${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(projectId))}`,
   );
 
   if (finalAppUrl) {
-    logger.message(
+    log.message(
       `${theme.styles.header("Site")}: ${theme.colors.links(finalAppUrl)}`,
     );
   }
@@ -295,7 +295,7 @@ async function executeCreate(
 }
 
 async function createAction(
-  { log: logger, isNonInteractive }: CLIContext,
+  { log, isNonInteractive }: CLIContext,
   name: string | undefined,
   options: CreateOptions,
 ): Promise<RunCommandResult> {
@@ -321,10 +321,10 @@ async function createAction(
   if (skipPrompts) {
     return await createNonInteractive(
       { name: options.name ?? name, ...options },
-      logger,
+      log,
     );
   }
-  return await createInteractive({ name, ...options }, logger);
+  return await createInteractive({ name, ...options }, log);
 }
 
 export function getCreateCommand(): Command {
