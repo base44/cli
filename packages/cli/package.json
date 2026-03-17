@@ -9,6 +9,7 @@
   "files": [
     "dist/cli",
     "dist/assets",
+    "dist/deno-runtime",
     "bin"
   ],
   "scripts": {
