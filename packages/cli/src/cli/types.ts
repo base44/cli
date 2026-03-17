@@ -10,18 +10,6 @@ export interface CLIContext {
   logger: Logger;
 }
 
-/**
- * Type for Base44Command action functions.
- * CLIContext is always injected as the first argument by Base44Command,
- * followed by Commander's positional args, options, and command instance.
- */
-export type CommandAction = (
-  ctx: CLIContext,
-  // biome-ignore lint/suspicious/noExplicitAny: Commander passes variable positional args after CLIContext
-  ...args: any[]
-  // biome-ignore lint/suspicious/noConfusingVoidType: void is the standard return for functions that don't return a value
-) => void | Promise<undefined | RunCommandResult>;
-
 export interface RunCommandResult {
   outroMessage?: string;
   /**

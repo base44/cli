@@ -97,10 +97,8 @@ export class Base44Command extends Command {
    * Use the `CommandAction` type for action function signatures.
    * @public
    */
-  override action(
-    // biome-ignore lint/suspicious/noExplicitAny: must match Commander.js action() signature
-    fn: (context: CLIContext, ...args: any[]) => any,
-  ): this {
+  // biome-ignore lint/suspicious/noExplicitAny: must match Commander.js action() signature
+  override action(fn: (ctx: CLIContext, ...args: any[]) => any): this {
     // biome-ignore lint/suspicious/noExplicitAny: must match Commander.js action() signature
     return super.action(async (...args: any[]) => {
       const quiet = this.context.isNonInteractive;
