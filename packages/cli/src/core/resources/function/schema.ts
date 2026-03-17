@@ -128,11 +128,13 @@ export const LogLevelSchema = z.enum(["info", "warning", "error", "debug"]);
 
 export type LogLevel = z.infer<typeof LogLevelSchema>;
 
-const FunctionLogEntrySchema = z.object({
+export const FunctionLogEntrySchema = z.object({
   time: z.string(),
   level: LogLevelSchema,
   message: z.string(),
 });
+
+export type FunctionLogEntry = z.infer<typeof FunctionLogEntrySchema>;
 
 export const FunctionLogsResponseSchema = z.array(FunctionLogEntrySchema);
 
@@ -144,4 +146,8 @@ export interface FunctionLogFilters {
   level?: LogLevel;
   limit?: number;
   order?: "asc" | "desc";
+}
+
+export interface StreamLogFilters {
+  level?: LogLevel;
 }
