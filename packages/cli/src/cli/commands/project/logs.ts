@@ -1,3 +1,4 @@
+import { log } from "@clack/prompts";
 import { Command, Option } from "commander";
 import type { CLIContext } from "@/cli/types.js";
 import { runCommand } from "@/cli/utils/index.js";
@@ -5,13 +6,16 @@ import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 import { ApiError, InvalidInputError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/index.js";
 import type {
+  FunctionLogEntry,
   FunctionLogFilters,
   FunctionLogsResponse,
   LogLevel,
+  StreamLogFilters,
 } from "@/core/resources/function/index.js";
 import {
   fetchFunctionLogs,
   LogLevelSchema,
+  streamFunctionLogs,
 } from "@/core/resources/function/index.js";
 
 interface LogsOptions {
@@ -22,6 +26,7 @@ interface LogsOptions {
   limit?: string;
   order?: string;
   json?: boolean;
+  tail?: boolean;
 }
 
 /**
@@ -171,6 +176,131 @@ function validateLimit(limit: string | undefined): void {
   }
 }
 
+function validateTailFlags(options: LogsOptions): void {
+  if (!options.tail) return;
+
+  const incompatible: [string, string | undefined][] = [
+    ["--since", options.since],
+    ["--until", options.until],
+    ["--limit", options.limit],
+    ["--order", options.order],
+  ];
+
+  for (const [flag, value] of incompatible) {
+    if (value !== undefined) {
+      throw new InvalidInputError(`Cannot use ${flag} with --tail`);
+    }
+  }
+}
+
+function formatStreamEntry(
+  entry: FunctionLogEntry,
+  functionName: string,
+  json: boolean,
+): string {
+  if (json) {
+    return JSON.stringify({
+      source: functionName,
+      time: entry.time,
+      level: entry.level,
+      message: entry.message,
+    });
+  }
+  const normalized = normalizeLogEntry(entry, functionName);
+  return formatEntry(normalized);
+}
+
+async function consumeStream(
+  functionName: string,
+  filters: StreamLogFilters,
+  signal: AbortSignal,
+  json: boolean,
+): Promise<"ended" | "aborted"> {
+  try {
+    for await (const entry of streamFunctionLogs(
+      functionName,
+      filters,
+      signal,
+    )) {
+      process.stdout.write(`${formatStreamEntry(entry, functionName, json)}\n`);
+    }
+    return "ended";
+  } catch (error) {
+    if (signal.aborted) return "aborted";
+    throw error;
+  }
+}
+
+async function tailAction(options: LogsOptions): Promise<RunCommandResult> {
+  validateTailFlags(options);
+
+  const specifiedFunctions = parseFunctionNames(options.function);
+  const allProjectFunctions = await getAllFunctionNames();
+  const functionNames =
+    specifiedFunctions.length > 0 ? specifiedFunctions : allProjectFunctions;
+
+  if (functionNames.length === 0) {
+    return { outroMessage: "No functions found in this project." };
+  }
+
+  const filters: StreamLogFilters = {};
+  if (options.level) {
+    filters.level = options.level as LogLevel;
+  }
+
+  const json = options.json ?? false;
+  const functionList = functionNames.join(", ");
+  log.info(`Tailing logs for ${functionList}... (Ctrl+C to stop)`);
+
+  const controller = new AbortController();
+  const onSigint = () => controller.abort();
+  process.on("SIGINT", onSigint);
+
+  let userAborted = false;
+
+  try {
+    if (functionNames.length === 1) {
+      const result = await consumeStream(
+        functionNames[0],
+        filters,
+        controller.signal,
+        json,
+      );
+      userAborted = result === "aborted";
+    } else {
+      const results = await Promise.allSettled(
+        functionNames.map((fn) =>
+          consumeStream(fn, filters, controller.signal, json),
+        ),
+      );
+
+      const allFailed = results.every((r) => r.status === "rejected");
+
+      if (allFailed && !controller.signal.aborted) {
+        const firstError = results.find(
+          (r) => r.status === "rejected",
+        ) as PromiseRejectedResult;
+        throw firstError.reason;
+      }
+
+      for (let i = 0; i < results.length; i++) {
+        const result = results[i];
+        if (result.status === "rejected" && !controller.signal.aborted) {
+          log.warn(`Connection lost for function '${functionNames[i]}'`);
+        }
+      }
+
+      userAborted = controller.signal.aborted;
+    }
+  } finally {
+    process.removeListener("SIGINT", onSigint);
+  }
+
+  return {
+    outroMessage: userAborted ? "Stream closed" : "Stream ended",
+  };
+}
+
 async function logsAction(options: LogsOptions): Promise<RunCommandResult> {
   validateLimit(options.limit);
   const specifiedFunctions = parseFunctionNames(options.function);
@@ -207,7 +337,9 @@ async function logsAction(options: LogsOptions): Promise<RunCommandResult> {
 
 export function getLogsCommand(context: CLIContext): Command {
   return new Command("logs")
-    .description("Fetch function logs for this app")
+    .description(
+      "Fetch function logs for this app (use --tail to stream in real-time)",
+    )
     .option(
       "--function <names>",
       "Filter by function name(s), comma-separated. If omitted, fetches logs for all project functions",
@@ -231,11 +363,12 @@ export function getLogsCommand(context: CLIContext): Command {
     .addOption(
       new Option("--order <order>", "Sort order").choices(["asc", "desc"]),
     )
+    .option("--json", "Output raw JSON")
+    .option("-f, --tail", "Stream logs in real-time")
     .action(async (options: LogsOptions) => {
-      await runCommand(
-        () => logsAction(options),
-        { requireAuth: true },
-        context,
-      );
+      const action = options.tail
+        ? () => tailAction(options)
+        : () => logsAction(options);
+      await runCommand(action, { requireAuth: true }, context);
     });
 }
