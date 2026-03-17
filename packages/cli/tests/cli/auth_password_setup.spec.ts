@@ -1,13 +1,38 @@
 import { describe, it } from "vitest";
-import { setupCLITests } from "./testkit/index.js";
+import { fixture, setupCLITests } from "./testkit/index.js";
 
 describe("auth password-login command", () => {
   const t = setupCLITests();
 
+  it("fails when no flag is provided", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+
+    const result = await t.run("auth", "password-login");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("Missing required flag");
+    t.expectResult(result).toContain("--enable");
+    t.expectResult(result).toContain("--disable");
+  });
+
+  it("fails when both --enable and --disable are provided", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+
+    const result = await t.run(
+      "auth",
+      "password-login",
+      "--enable",
+      "--disable",
+    );
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("Conflicting flags");
+  });
+
   it("fails when not in a project directory", async () => {
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
 
-    const result = await t.run("auth", "password-login");
+    const result = await t.run("auth", "password-login", "--enable");
 
     t.expectResult(result).toFail();
     t.expectResult(result).toContain("No Base44 project found");
