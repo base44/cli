@@ -17,7 +17,9 @@ function readStdin(): Promise<string> {
   });
 }
 
-async function execAction(): Promise<RunCommandResult> {
+async function execAction(
+  isNonInteractive: boolean,
+): Promise<RunCommandResult> {
   const noInputError = new InvalidInputError(
     "No input provided. Pipe a script to stdin.",
     {
@@ -28,7 +30,7 @@ async function execAction(): Promise<RunCommandResult> {
     },
   );
 
-  if (process.stdin.isTTY) {
+  if (!isNonInteractive) {
     throw noInputError;
   }
 
@@ -52,5 +54,7 @@ export function getExecCommand(): Command {
     .description(
       "Run a script with the Base44 SDK pre-authenticated as the current user",
     )
-    .action(execAction);
+    .action(async (_options: unknown, command: Base44Command) => {
+      return await execAction(command.isNonInteractive);
+    });
 }
