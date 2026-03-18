@@ -1,5 +1,79 @@
 # Changelog
 
+## [0.0.46] - 2026-03-18
+
+### Added
+
+- `base44 exec` command (#357)
+- Use TypeScript directly for Deno runtime, skip bundling (#386)
+
+### Changed
+
+- Use Commander.js classes for base44 commands (#420)
+
+## [0.0.45] - 2026-03-16
+
+### Added
+
+- Functions commands: list, delete, pull, deploy, and unified deploy (#412)
+- Schema validation while running `base44 dev` (#395)
+
+### Changed
+
+- Refactor `base44 create` command to be more flexible (#407)
+- Make upgrade notification non-blocking and use bordered box (#365)
+- Move cursor command to claude commands (#417)
+
+### Removed
+
+- Revert simplified root README to monorepo overview (#405)
+
+## [0.0.43] - 2026-03-11
+
+### Changed
+
+- Update Homebrew tap (#404)
+
+## [0.0.42] - 2026-03-11
+
+### Added
+
+- Stripe connector support (#251)
+- `connectors list-available` command (#367)
+- Binary test mode to testkit for real binary testing (#394)
+- Token support for private files (#379)
+
+### Changed
+
+- Move Biome configuration to monorepo root (#389)
+
+## [0.0.41] - 2026-03-09
+
+### Changed
+
+- Migrate to monorepo structure (#372)
+
+## [0.0.40] - 2026-03-08
+
+### Changed
+
+- Update npm package `files` field
+
+## [0.0.39] - 2026-03-08
+
+### Added
+
+- Standalone binary builds for Homebrew distribution (#362)
+- Entity watching in `base44 dev` (#364)
+
+### Changed
+
+- Generate a new request ID for each request (#376)
+
+### Fixed
+
+- Disable timeout for delete secret request (#375)
+
 ## [0.0.38] - 2026-03-05
 
 ### Added
@@ -19,12 +93,10 @@
 - Show the base44 secret command in help menu (#356)
 - Include x-request-id in ApiError and error reporter (#346)
 - CLI Local Dev - Media (#339)
-- Add functions pull (#331)
 
 ### Changed
 
 - Improve Errors - Changed system to user errors, and display validation errors returned from the server (#355)
-- Migrate base44 deploy to per-function API (#338)
 
 ## [0.0.36] - 2026-02-25
 
