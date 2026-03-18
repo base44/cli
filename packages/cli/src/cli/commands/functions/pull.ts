@@ -1,9 +1,8 @@
 import { dirname, join } from "node:path";
 import { log } from "@clack/prompts";
-import { Command } from "commander";
-import type { CLIContext } from "@/cli/types.js";
-import { runCommand, runTask } from "@/cli/utils/index.js";
-import type { RunCommandResult } from "@/cli/utils/runCommand.js";
+import type { Command } from "commander";
+import type { RunCommandResult } from "@/cli/types.js";
+import { Base44Command, runTask } from "@/cli/utils/index.js";
 import { readProjectConfig } from "@/core/index.js";
 import { listDeployedFunctions } from "@/core/resources/function/api.js";
 import { writeFunctions } from "@/core/resources/function/pull.js";
@@ -65,15 +64,9 @@ async function pullFunctionsAction(
   };
 }
 
-export function getPullCommand(context: CLIContext): Command {
-  return new Command("pull")
+export function getPullCommand(): Command {
+  return new Base44Command("pull")
     .description("Pull deployed functions from Base44")
     .argument("[name]", "Function name to pull (pulls all if omitted)")
-    .action(async (name: string | undefined) => {
-      await runCommand(
-        () => pullFunctionsAction(name),
-        { requireAuth: true },
-        context,
-      );
-    });
+    .action(pullFunctionsAction);
 }

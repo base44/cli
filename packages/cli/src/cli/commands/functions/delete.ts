@@ -1,7 +1,6 @@
-import { Command } from "commander";
-import type { CLIContext } from "@/cli/types.js";
-import { runCommand, runTask } from "@/cli/utils/index.js";
-import type { RunCommandResult } from "@/cli/utils/runCommand.js";
+import type { Command } from "commander";
+import type { RunCommandResult } from "@/cli/types.js";
+import { Base44Command, runTask } from "@/cli/utils/index.js";
 import { ApiError } from "@/core/errors.js";
 import { deleteSingleFunction } from "@/core/resources/function/api.js";
 
@@ -57,17 +56,13 @@ function validateNames(command: Command): void {
   }
 }
 
-export function getDeleteCommand(context: CLIContext): Command {
-  return new Command("delete")
+export function getDeleteCommand(): Command {
+  return new Base44Command("delete")
     .description("Delete deployed functions")
     .argument("<names...>", "Function names to delete")
     .hook("preAction", validateNames)
     .action(async (rawNames: string[]) => {
       const names = parseNames(rawNames);
-      await runCommand(
-        () => deleteFunctionsAction(names),
-        { requireAuth: true },
-        context,
-      );
+      return deleteFunctionsAction(names);
     });
 }

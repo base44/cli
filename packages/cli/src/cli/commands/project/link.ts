@@ -1,16 +1,15 @@
 import type { Option } from "@clack/prompts";
 import { cancel, group, isCancel, log, select, text } from "@clack/prompts";
-import { Command } from "commander";
+import type { Command } from "commander";
 import { CLIExitError } from "@/cli/errors.js";
-import type { CLIContext } from "@/cli/types.js";
+import type { RunCommandResult } from "@/cli/types.js";
 import {
+  Base44Command,
   getDashboardUrl,
   onPromptCancel,
-  runCommand,
   runTask,
   theme,
 } from "@/cli/utils/index.js";
-import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 import {
   ConfigExistsError,
   ConfigNotFoundError,
@@ -245,8 +244,8 @@ async function link(options: LinkOptions): Promise<RunCommandResult> {
   return { outroMessage: "Project linked" };
 }
 
-export function getLinkCommand(context: CLIContext): Command {
-  return new Command("link")
+export function getLinkCommand(): Command {
+  return new Base44Command("link", { requireAppConfig: false })
     .description(
       "Link a local project to a Base44 project (create new or link existing)",
     )
@@ -261,11 +260,13 @@ export function getLinkCommand(context: CLIContext): Command {
       "Project ID to link to an existing project (skips selection prompt)",
     )
     .hook("preAction", validateNonInteractiveFlags)
-    .action(async (options: LinkOptions) => {
-      await runCommand(
-        () => link(options),
-        { requireAuth: true, requireAppConfig: false },
-        context,
-      );
+    .action(async (options: LinkOptions, command: Base44Command) => {
+      const skipPrompts = !!options.create || !!options.projectId;
+      if (!skipPrompts && command.isNonInteractive) {
+        throw new InvalidInputError(
+          "--create with --name, or --projectId, is required in non-interactive mode",
+        );
+      }
+      return await link(options);
     });
 }

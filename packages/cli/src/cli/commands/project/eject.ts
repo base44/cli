@@ -1,14 +1,13 @@
 import { resolve } from "node:path";
 import type { Option } from "@clack/prompts";
 import { cancel, confirm, isCancel, log, select, text } from "@clack/prompts";
-import { Command } from "commander";
+import type { Command } from "commander";
 import { execa } from "execa";
 import kebabCase from "lodash/kebabCase";
 import { deployAction } from "@/cli/commands/project/deploy.js";
 import { CLIExitError } from "@/cli/errors.js";
-import type { CLIContext } from "@/cli/types.js";
-import { runCommand, runTask, theme } from "@/cli/utils/index.js";
-import type { RunCommandResult } from "@/cli/utils/runCommand.js";
+import type { RunCommandResult } from "@/cli/types.js";
+import { Base44Command, runTask, theme } from "@/cli/utils/index.js";
 import type { Project } from "@/core/index.js";
 import {
   createProject,
@@ -169,8 +168,8 @@ async function eject(options: EjectOptions): Promise<RunCommandResult> {
   return { outroMessage: "Your new project is set and ready to use" };
 }
 
-export function getEjectCommand(context: CLIContext): Command {
-  return new Command("eject")
+export function getEjectCommand(): Command {
+  return new Base44Command("eject", { requireAppConfig: false })
     .description("Download the code for an existing Base44 project")
     .option("-p, --path <path>", "Path where to write the project")
     .option(
@@ -178,11 +177,20 @@ export function getEjectCommand(context: CLIContext): Command {
       "Project ID to eject (skips interactive selection)",
     )
     .option("-y, --yes", "Skip confirmation prompts")
-    .action(async (options: EjectOptions) => {
-      await runCommand(
-        () => eject({ ...options, isNonInteractive: context.isNonInteractive }),
-        { requireAuth: true, requireAppConfig: false },
-        context,
-      );
+    .action(async (options: EjectOptions, command: Base44Command) => {
+      if (command.isNonInteractive && !options.projectId) {
+        throw new InvalidInputError(
+          "--project-id is required in non-interactive mode",
+        );
+      }
+      if (command.isNonInteractive && !options.path) {
+        throw new InvalidInputError(
+          "--path is required in non-interactive mode",
+        );
+      }
+      return await eject({
+        ...options,
+        isNonInteractive: command.isNonInteractive,
+      });
     });
 }

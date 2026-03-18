@@ -1,12 +1,12 @@
-import { Command } from "commander";
-import type { CLIContext } from "@/cli/types.js";
-import { runCommand } from "@/cli/utils/index.js";
+import type { Command } from "commander";
+import { Base44Command } from "@/cli/utils/index.js";
 import { login } from "./login-flow.js";
 
-export function getLoginCommand(context: CLIContext): Command {
-  return new Command("login")
+export function getLoginCommand(): Command {
+  return new Base44Command("login", {
+    requireAuth: false,
+    requireAppConfig: false,
+  })
     .description("Authenticate with Base44")
-    .action(async () => {
-      await runCommand(login, { requireAppConfig: false }, context);
-    });
+    .action(login);
 }

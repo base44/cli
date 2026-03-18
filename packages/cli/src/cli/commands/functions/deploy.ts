@@ -1,11 +1,9 @@
 import { log } from "@clack/prompts";
-import { Command } from "commander";
+import type { Command } from "commander";
 import { formatDeployResult } from "@/cli/commands/functions/formatDeployResult.js";
 import { parseNames } from "@/cli/commands/functions/parseNames.js";
-import type { CLIContext } from "@/cli/types.js";
-import { runCommand } from "@/cli/utils/index.js";
-import type { RunCommandResult } from "@/cli/utils/runCommand.js";
-import { theme } from "@/cli/utils/theme.js";
+import type { RunCommandResult } from "@/cli/types.js";
+import { Base44Command, theme } from "@/cli/utils/index.js";
 import { InvalidInputError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/index.js";
 import {
@@ -130,19 +128,13 @@ async function deployFunctionsAction(
   return { outroMessage: buildDeploySummary(results) };
 }
 
-export function getDeployCommand(context: CLIContext): Command {
-  return new Command("deploy")
+export function getDeployCommand(): Command {
+  return new Base44Command("deploy")
     .description("Deploy functions to Base44")
     .argument("[names...]", "Function names to deploy (deploys all if omitted)")
     .option("--force", "Delete remote functions not found locally")
     .action(async (rawNames: string[], options: { force?: boolean }) => {
-      await runCommand(
-        () => {
-          const names = parseNames(rawNames);
-          return deployFunctionsAction(names, options);
-        },
-        { requireAuth: true },
-        context,
-      );
+      const names = parseNames(rawNames);
+      return deployFunctionsAction(names, options);
     });
 }

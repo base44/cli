@@ -1,7 +1,6 @@
-import { Command } from "commander";
-import type { CLIContext } from "@/cli/types.js";
-import { runCommand, runTask } from "@/cli/utils/index.js";
-import type { RunCommandResult } from "@/cli/utils/runCommand.js";
+import type { Command } from "commander";
+import type { RunCommandResult } from "@/cli/types.js";
+import { Base44Command, runTask } from "@/cli/utils/index.js";
 import { readProjectConfig } from "@/core/index.js";
 import { generateTypesFile, updateProjectConfig } from "@/core/types/index.js";
 
@@ -24,16 +23,10 @@ async function generateTypesAction(): Promise<RunCommandResult> {
   };
 }
 
-export function getTypesGenerateCommand(context: CLIContext): Command {
-  return new Command("generate")
+export function getTypesGenerateCommand(): Command {
+  return new Base44Command("generate", { requireAuth: false })
     .description(
       "Generate TypeScript declaration file (types.d.ts) from project resources",
     )
-    .action(async () => {
-      await runCommand(
-        () => generateTypesAction(),
-        { requireAuth: false },
-        context,
-      );
-    });
+    .action(generateTypesAction);
 }

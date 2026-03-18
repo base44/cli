@@ -31,6 +31,24 @@ async function createTarFromFixture(fixturePath: string): Promise<Buffer> {
 describe("eject command", () => {
   const t = setupCLITests();
 
+  it("fails when --path is missing in non-interactive mode", async () => {
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    t.api.mockListProjects([
+      {
+        id: "app-1",
+        name: "Test",
+        is_managed_source_code: true,
+      },
+    ]);
+
+    const result = await t.run("eject", "--project-id", "app-1");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain(
+      "--path is required in non-interactive mode",
+    );
+  });
+
   it("fails when project ID not found", async () => {
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
     t.api.mockListProjects([

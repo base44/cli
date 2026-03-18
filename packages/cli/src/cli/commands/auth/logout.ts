@@ -1,7 +1,6 @@
-import { Command } from "commander";
-import type { CLIContext } from "@/cli/types.js";
-import { runCommand } from "@/cli/utils/index.js";
-import type { RunCommandResult } from "@/cli/utils/runCommand.js";
+import type { Command } from "commander";
+import type { RunCommandResult } from "@/cli/types.js";
+import { Base44Command } from "@/cli/utils/index.js";
 import { deleteAuth } from "@/core/auth/index.js";
 
 async function logout(): Promise<RunCommandResult> {
@@ -9,10 +8,11 @@ async function logout(): Promise<RunCommandResult> {
   return { outroMessage: "Logged out successfully" };
 }
 
-export function getLogoutCommand(context: CLIContext): Command {
-  return new Command("logout")
+export function getLogoutCommand(): Command {
+  return new Base44Command("logout", {
+    requireAuth: false,
+    requireAppConfig: false,
+  })
     .description("Logout from current device")
-    .action(async () => {
-      await runCommand(logout, { requireAppConfig: false }, context);
-    });
+    .action(logout);
 }

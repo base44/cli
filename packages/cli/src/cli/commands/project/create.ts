@@ -1,18 +1,17 @@
 import { basename, join, resolve } from "node:path";
 import type { Option } from "@clack/prompts";
 import { confirm, group, isCancel, log, select, text } from "@clack/prompts";
-import { Argument, Command } from "commander";
+import { Argument, type Command } from "commander";
 import { execa } from "execa";
 import kebabCase from "lodash/kebabCase";
-import type { CLIContext } from "@/cli/types.js";
+import type { RunCommandResult } from "@/cli/types.js";
 import {
+  Base44Command,
   getDashboardUrl,
   onPromptCancel,
-  runCommand,
   runTask,
   theme,
 } from "@/cli/utils/index.js";
-import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 import { InvalidInputError } from "@/core/errors.js";
 import { deploySite, isDirEmpty, pushEntities } from "@/core/index.js";
 import type { Template } from "@/core/project/index.js";
@@ -283,8 +282,11 @@ async function executeCreate({
   return { outroMessage: "Your project is set up and ready to use" };
 }
 
-export function getCreateCommand(context: CLIContext): Command {
-  return new Command("create")
+export function getCreateCommand(): Command {
+  return new Base44Command("create", {
+    requireAppConfig: false,
+    fullBanner: true,
+  })
     .description("Create a new Base44 project")
     .addArgument(new Argument("name", "Project name").argOptional())
     .option("-p, --path <path>", "Path where to create the project")
@@ -303,26 +305,38 @@ Examples:
   $ base44 create my-app --path ./projects/my-app --deploy       Creates a base44 project at ./project/my-app and deploys it`,
     )
     .hook("preAction", validateNonInteractiveFlags)
-    .action(async (name: string | undefined, options: CreateOptions) => {
-      if (name && !options.path) {
-        options.path = `./${kebabCase(name)}`;
-      }
+    .action(
+      async (
+        name: string | undefined,
+        options: CreateOptions,
+        command: Base44Command,
+      ) => {
+        if (name && !options.path) {
+          options.path = `./${kebabCase(name)}`;
+        }
 
-      const isNonInteractive = !!(options.name ?? name) && !!options.path;
+        const skipPrompts = !!(options.name ?? name) && !!options.path;
 
-      if (isNonInteractive) {
-        await runCommand(
-          () =>
-            createNonInteractive({ name: options.name ?? name, ...options }),
-          { requireAuth: true, requireAppConfig: false },
-          context,
-        );
-      } else {
-        await runCommand(
-          () => createInteractive({ name, ...options }),
-          { fullBanner: true, requireAuth: true, requireAppConfig: false },
-          context,
-        );
-      }
-    });
+        if (!skipPrompts && command.isNonInteractive) {
+          throw new InvalidInputError(
+            "Project name and --path are required in non-interactive mode",
+            {
+              hints: [
+                {
+                  message: "Usage: base44 create <name> --path <path>",
+                },
+              ],
+            },
+          );
+        }
+
+        if (skipPrompts) {
+          return await createNonInteractive({
+            name: options.name ?? name,
+            ...options,
+          });
+        }
+        return await createInteractive({ name, ...options });
+      },
+    );
 }

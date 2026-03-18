@@ -1,9 +1,8 @@
 import { log } from "@clack/prompts";
-import { Command } from "commander";
-import type { CLIContext } from "@/cli/types.js";
+import type { Command } from "commander";
+import type { RunCommandResult } from "@/cli/types.js";
+import { Base44Command, runTask } from "@/cli/utils/index.js";
 import { listSecrets } from "@/core/resources/secret/index.js";
-import { runCommand, runTask } from "../../utils/index.js";
-import type { RunCommandResult } from "../../utils/runCommand.js";
 
 async function listSecretsAction(): Promise<RunCommandResult> {
   const secrets = await runTask(
@@ -32,10 +31,8 @@ async function listSecretsAction(): Promise<RunCommandResult> {
   };
 }
 
-export function getSecretsListCommand(context: CLIContext): Command {
-  return new Command("list")
+export function getSecretsListCommand(): Command {
+  return new Base44Command("list")
     .description("List secret names")
-    .action(async () => {
-      await runCommand(listSecretsAction, { requireAuth: true }, context);
-    });
+    .action(listSecretsAction);
 }

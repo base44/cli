@@ -48,6 +48,17 @@ function formatUpgradeMessage(
   ].join("\n");
 }
 
+/**
+ * Format upgrade info as a plain-text one-liner for non-interactive / CI output.
+ */
+export function formatPlainUpgradeMessage(
+  info: UpgradeInfo,
+  distribution: Distribution,
+): string {
+  const instruction = getUpgradeInstruction(detectInstallMethod(distribution));
+  return `Update available: ${info.currentVersion} → ${info.latestVersion}. ${instruction}`;
+}
+
 export async function printUpgradeNotification(
   upgradeCheckPromise: Promise<UpgradeInfo | null>,
   distribution: Distribution,

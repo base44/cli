@@ -1,8 +1,7 @@
 import { log } from "@clack/prompts";
 import { Command } from "commander";
-import type { CLIContext } from "@/cli/types.js";
-import { runCommand, runTask } from "@/cli/utils/index.js";
-import type { RunCommandResult } from "@/cli/utils/runCommand.js";
+import type { RunCommandResult } from "@/cli/types.js";
+import { Base44Command, runTask } from "@/cli/utils/index.js";
 import { readProjectConfig } from "@/core/index.js";
 import { pushEntities } from "@/core/resources/entity/index.js";
 
@@ -41,14 +40,12 @@ async function pushEntitiesAction(): Promise<RunCommandResult> {
   return { outroMessage: "Entities pushed to Base44" };
 }
 
-export function getEntitiesPushCommand(context: CLIContext): Command {
+export function getEntitiesPushCommand(): Command {
   return new Command("entities")
     .description("Manage project entities")
     .addCommand(
-      new Command("push")
+      new Base44Command("push")
         .description("Push local entities to Base44")
-        .action(async () => {
-          await runCommand(pushEntitiesAction, { requireAuth: true }, context);
-        }),
+        .action(pushEntitiesAction),
     );
 }
