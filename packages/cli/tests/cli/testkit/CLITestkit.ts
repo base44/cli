@@ -189,8 +189,8 @@ export class CLITestkit {
 
     const stdout: string[] = [];
     const stderr: string[] = [];
-    let finished = false;
-    let stopped = false;
+    let finished: boolean = false;
+    let stoppedWithCode: number | undefined;
 
     child.stdout?.on("data", (chunk: Buffer) => {
       stdout.push(chunk.toString());
@@ -234,8 +234,9 @@ export class CLITestkit {
       },
 
       async stop() {
-        if (stopped) return buildResult(0);
-        stopped = true;
+        if (stoppedWithCode !== undefined) {
+          return buildResult(stoppedWithCode);
+        }
 
         if (!finished) {
           child.kill("SIGINT");
@@ -249,11 +250,8 @@ export class CLITestkit {
         }
 
         const result = await childPromise;
-        return {
-          stdout: stdout.join(""),
-          stderr: stderr.join(""),
-          exitCode: result.exitCode ?? 1,
-        };
+        stoppedWithCode = result.exitCode ?? 1;
+        return buildResult(stoppedWithCode);
       },
     };
 
