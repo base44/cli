@@ -2,8 +2,8 @@ import type { ChildProcess } from "node:child_process";
 import { spawn } from "node:child_process";
 import getPort from "get-port";
 import { InternalError, InvalidInputError } from "@/core/errors.js";
-import { verifyDenoInstalled } from "@/core/utils/index.js";
 import type { BackendFunction } from "@/core/resources/function/schema.js";
+import { verifyDenoInstalled } from "@/core/utils/index.js";
 import type { Logger } from "../createDevLogger";
 
 const READY_TIMEOUT = 30000;

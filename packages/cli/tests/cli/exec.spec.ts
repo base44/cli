@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import stripAnsi from "strip-ansi";
+import { describe, expect, it } from "vitest";
 import { fixture, setupCLITests } from "./testkit/index.js";
 
 describe("exec command", () => {

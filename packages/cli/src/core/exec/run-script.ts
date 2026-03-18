@@ -49,12 +49,7 @@ export async function runScript(
     const exitCode = await new Promise<number>((resolvePromise) => {
       const child = spawn(
         "deno",
-        [
-          "run",
-          "--allow-all",
-          "--node-modules-dir=auto",
-          tempWrapper.path,
-        ],
+        ["run", "--allow-all", "--node-modules-dir=auto", tempWrapper.path],
         {
           env: {
             ...process.env,

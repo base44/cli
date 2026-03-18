@@ -20,7 +20,7 @@ export async function getAppUserToken(): Promise<string> {
 export async function getSiteUrl(projectId?: string): Promise<string> {
   const id = projectId ?? getAppConfig().id;
 
-  let response;
+  let response: Response;
   try {
     response = await base44Client.get(`api/apps/platform/${id}/published-url`);
   } catch (error) {
