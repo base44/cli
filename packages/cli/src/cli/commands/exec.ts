@@ -25,7 +25,10 @@ async function execAction(
     {
       hints: [
         { message: "File:  cat ./script.ts | base44 exec" },
-        { message: 'Eval:  echo "console.log(1)" | base44 exec' },
+        {
+          message:
+            'Eval:  echo "const users = await base44.entities.User.list(); console.log(users)" | base44 exec',
+        },
       ],
     },
   );

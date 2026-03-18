@@ -14,7 +14,7 @@ describe("exec command", () => {
     expect(stripAnsi(result.stderr)).toBe(
       "Error: No input provided. Pipe a script to stdin.\n" +
         "  Hint: File:  cat ./script.ts | base44 exec\n" +
-        '  Hint: Eval:  echo "console.log(1)" | base44 exec',
+        '  Hint: Eval:  echo "const users = await base44.entities.User.list(); console.log(users)" | base44 exec',
     );
   });
 
