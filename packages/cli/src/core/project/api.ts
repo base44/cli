@@ -2,13 +2,15 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { KyResponse } from "ky";
 import { extract } from "tar";
-import { base44Client } from "@/core/clients/index.js";
+import { base44Client, getAppClient } from "@/core/clients/index.js";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";
+import { getAppConfig } from "@/core/project/app-config.js";
 import type { ProjectsResponse } from "@/core/project/schema.js";
 import {
   CreateProjectResponseSchema,
   ProjectsResponseSchema,
 } from "@/core/project/schema.js";
+import { PublishedUrlResponseSchema } from "@/core/site/schema.js";
 import { makeDirectory } from "@/core/utils/fs.js";
 
 export async function createProject(projectName: string, description?: string) {
@@ -82,4 +84,40 @@ export async function downloadProject(projectId: string, projectPath: string) {
 
   await makeDirectory(projectPath);
   await pipeline(nodeStream, extract({ cwd: projectPath }));
+}
+
+export async function getAppUserToken(): Promise<string> {
+  try {
+    const response = await getAppClient()
+      .get("auth/token")
+      .json<{ token: string }>();
+    return response.token;
+  } catch (error) {
+    throw await ApiError.fromHttpError(
+      error,
+      "exchanging platform token for app user token",
+    );
+  }
+}
+
+export async function getSiteUrl(projectId?: string): Promise<string> {
+  const id = projectId ?? getAppConfig().id;
+
+  let response: Response;
+  try {
+    response = await base44Client.get(`api/apps/platform/${id}/published-url`);
+  } catch (error) {
+    throw await ApiError.fromHttpError(error, "fetching site URL");
+  }
+
+  const result = PublishedUrlResponseSchema.safeParse(await response.json());
+
+  if (!result.success) {
+    throw new SchemaValidationError(
+      "Invalid response from server",
+      result.error,
+    );
+  }
+
+  return result.data.url;
 }

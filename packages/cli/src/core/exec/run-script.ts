@@ -2,12 +2,9 @@ import { spawn } from "node:child_process";
 import { copyFileSync, writeFileSync } from "node:fs";
 import { file } from "tmp-promise";
 import { getExecWrapperPath } from "@/core/assets.js";
+import { getAppUserToken, getSiteUrl } from "@/core/project/api.js";
 import { getAppConfig } from "@/core/project/app-config.js";
-import {
-  getAppUserToken,
-  getSiteUrl,
-  verifyDenoInstalled,
-} from "@/core/utils/index.js";
+import { verifyDenoInstalled } from "@/core/utils/index.js";
 
 interface RunScriptOptions {
   code: string;
