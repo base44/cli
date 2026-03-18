@@ -11,7 +11,6 @@ import { verifyDenoInstalled } from "@/core/utils/index.js";
 interface RunScriptOptions {
   filePath?: string;
   code?: string;
-  extraArgs?: string[];
   execWrapperPath: string;
 }
 
@@ -36,7 +35,7 @@ async function getUserAppToken(): Promise<string> {
 export async function runScript(
   options: RunScriptOptions,
 ): Promise<RunScriptResult> {
-  const { filePath, code, extraArgs = [], execWrapperPath } = options;
+  const { filePath, code, execWrapperPath } = options;
 
   verifyDenoInstalled("to run scripts with exec");
 
@@ -78,7 +77,6 @@ export async function runScript(
           "--allow-all",
           "--node-modules-dir=auto",
           tempWrapper.path,
-          ...extraArgs,
         ],
         {
           env: {

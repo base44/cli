@@ -38,12 +38,8 @@ async function execAction(): Promise<RunCommandResult> {
     throw noInputError;
   }
 
-  const dashIndex = process.argv.indexOf("--");
-  const extraArgs = dashIndex !== -1 ? process.argv.slice(dashIndex + 1) : [];
-
   const { exitCode } = await runScript({
     code,
-    extraArgs,
     execWrapperPath: getExecWrapperPath(),
   });
 
