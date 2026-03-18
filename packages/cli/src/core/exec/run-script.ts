@@ -1,11 +1,12 @@
-import { spawn, spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { copyFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { file } from "tmp-promise";
 import { getAppClient } from "@/core/clients/index.js";
-import { ApiError, DependencyNotFoundError } from "@/core/errors.js";
+import { ApiError } from "@/core/errors.js";
 import { getAppConfig } from "@/core/project/app-config.js";
 import { getSiteUrl } from "@/core/site/api.js";
+import { verifyDenoInstalled } from "@/core/utils/index.js";
 
 interface RunScriptOptions {
   filePath?: string;
@@ -16,23 +17,6 @@ interface RunScriptOptions {
 
 interface RunScriptResult {
   exitCode: number;
-}
-
-export function verifyDenoInstalled(): void {
-  const result = spawnSync("deno", ["--version"]);
-  if (result.error) {
-    throw new DependencyNotFoundError(
-      "Deno is required to run scripts with exec",
-      {
-        hints: [
-          {
-            message:
-              "Install Deno: https://docs.deno.com/runtime/getting_started/installation/",
-          },
-        ],
-      },
-    );
-  }
 }
 
 async function getUserAppToken(): Promise<string> {
@@ -54,7 +38,7 @@ export async function runScript(
 ): Promise<RunScriptResult> {
   const { filePath, code, extraArgs = [], execWrapperPath } = options;
 
-  verifyDenoInstalled();
+  verifyDenoInstalled("to run scripts with exec");
 
   const cleanupFns: (() => void)[] = [];
 

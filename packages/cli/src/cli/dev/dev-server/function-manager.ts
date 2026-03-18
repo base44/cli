@@ -2,7 +2,7 @@ import type { ChildProcess } from "node:child_process";
 import { spawn } from "node:child_process";
 import getPort from "get-port";
 import { InternalError, InvalidInputError } from "@/core/errors.js";
-import { verifyDenoInstalled } from "@/core/exec/index.js";
+import { verifyDenoInstalled } from "@/core/utils/index.js";
 import type { BackendFunction } from "@/core/resources/function/schema.js";
 import type { Logger } from "../createDevLogger";
 
@@ -31,7 +31,7 @@ export class FunctionManager {
     this.wrapperPath = wrapperPath;
 
     if (functions.length > 0) {
-      verifyDenoInstalled();
+      verifyDenoInstalled("to run backend functions locally");
     }
   }
 
