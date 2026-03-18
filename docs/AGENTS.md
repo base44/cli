@@ -83,4 +83,5 @@ Read these when working on the relevant area:
 - **[Telemetry & error reporting](telemetry.md)** - PostHog `ErrorReporter`, what's captured, disabling
 - **[Writing & maintaining docs](writing-docs.md)** - Progressive disclosure, style rules, keywords, adding new topic guides
 - **[Authoring agent instructions](authoring-agent-instructions.md)** - Skills, CLAUDE.md, AGENTS.md, subagent definitions, progressive disclosure
+- **[Agent-friendly CLI design](agent-friendly-design.md)** - Non-interactive flags, stdin input, secrets, idempotency, agent error patterns
 - **[Binary distribution](binary-distribution.md)** - Standalone binaries, Homebrew formula, asset embedding, `bun build --compile`
