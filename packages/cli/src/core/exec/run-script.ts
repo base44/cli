@@ -1,62 +1,39 @@
 import { spawn } from "node:child_process";
 import { copyFileSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { file } from "tmp-promise";
 import { getExecWrapperPath } from "@/core/assets.js";
-import { getAppClient } from "@/core/clients/index.js";
-import { ApiError } from "@/core/errors.js";
 import { getAppConfig } from "@/core/project/app-config.js";
-import { getSiteUrl } from "@/core/site/api.js";
-import { verifyDenoInstalled } from "@/core/utils/index.js";
+import {
+  getAppUserToken,
+  getSiteUrl,
+  verifyDenoInstalled,
+} from "@/core/utils/index.js";
 
 interface RunScriptOptions {
-  filePath?: string;
-  code?: string;
+  code: string;
 }
 
 interface RunScriptResult {
   exitCode: number;
 }
 
-async function getUserAppToken(): Promise<string> {
-  try {
-    const response = await getAppClient()
-      .get("auth/token")
-      .json<{ token: string }>();
-    return response.token;
-  } catch (error) {
-    throw await ApiError.fromHttpError(
-      error,
-      "exchanging platform token for app user token",
-    );
-  }
-}
-
 export async function runScript(
   options: RunScriptOptions,
 ): Promise<RunScriptResult> {
-  const { filePath, code } = options;
+  const { code } = options;
 
   verifyDenoInstalled("to run scripts with exec");
 
   const cleanupFns: (() => void)[] = [];
 
-  let scriptPath: string;
-
-  if (filePath) {
-    scriptPath = `file://${resolve(filePath)}`;
-  } else if (code !== undefined) {
-    const tempScript = await file({ postfix: ".ts" });
-    cleanupFns.push(tempScript.cleanup);
-    writeFileSync(tempScript.path, code, "utf-8");
-    scriptPath = `file://${tempScript.path}`;
-  } else {
-    throw new Error("Either filePath or code must be provided");
-  }
+  const tempScript = await file({ postfix: ".ts" });
+  cleanupFns.push(tempScript.cleanup);
+  writeFileSync(tempScript.path, code, "utf-8");
+  const scriptPath = `file://${tempScript.path}`;
 
   const appConfig = getAppConfig();
   const [appUserToken, appBaseUrl] = await Promise.all([
-    getUserAppToken(),
+    getAppUserToken(),
     getSiteUrl(),
   ]);
 
