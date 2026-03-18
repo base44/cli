@@ -57,6 +57,16 @@ export function getExecCommand(): Command {
     .description(
       "Run a script with the Base44 SDK pre-authenticated as the current user",
     )
+    .addHelpText(
+      "after",
+      `
+Examples:
+  Run a script file:
+    $ cat ./script.ts | base44 exec
+
+  Inline script:
+    $ echo "const users = await base44.entities.User.list()" | base44 exec`,
+    )
     .action(async (_options: unknown, command: Base44Command) => {
       return await execAction(command.isNonInteractive);
     });
