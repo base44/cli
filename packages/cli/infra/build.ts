@@ -29,7 +29,8 @@ const copyDenoRuntime = () => {
   const outDir = "./dist/assets/deno-runtime";
   mkdirSync(outDir, { recursive: true });
   copyFileSync("./deno-runtime/main.ts", `${outDir}/main.ts`);
-  return `${outDir}/main.ts`;
+  copyFileSync("./deno-runtime/exec.ts", `${outDir}/exec.ts`);
+  return outDir;
 };
 
 const runAllBuilds = async () => {
@@ -37,13 +38,10 @@ const runAllBuilds = async () => {
     entrypoints: ["./src/cli/index.ts"],
     outdir: "./dist/cli",
   });
-  const denoRuntimePath = copyDenoRuntime();
-  // Deno runs TypeScript natively, so just copy exec.ts as-is (no bundling needed)
-  mkdirSync("./dist/deno-runtime", { recursive: true });
-  copyFileSync("./deno-runtime/exec.ts", "./dist/deno-runtime/exec.ts");
+  const denoRuntimeDir = copyDenoRuntime();
   return {
     cli,
-    denoRuntimePath,
+    denoRuntimeDir,
   };
 };
 
@@ -61,7 +59,7 @@ if (process.argv.includes("--watch")) {
     const time = new Date().toLocaleTimeString();
     console.log(chalk.dim(`[${time}]`), chalk.gray(`${filename} ${event}d`));
 
-    const { cli, denoRuntimePath } = await runAllBuilds();
+    const { cli, denoRuntimeDir } = await runAllBuilds();
     if (cli.success && cli.outputs.length > 0) {
       console.log(
         chalk.green(`  ✓ Rebuilt`),
@@ -72,7 +70,7 @@ if (process.argv.includes("--watch")) {
     console.log(
       chalk.green(`  ✓ Copied`),
       chalk.dim(`→`),
-      chalk.cyan(denoRuntimePath),
+      chalk.cyan(denoRuntimeDir),
     );
   };
 
@@ -85,10 +83,9 @@ if (process.argv.includes("--watch")) {
   // Keep process alive
   await new Promise(() => {});
 } else {
-  const { cli, denoRuntimePath } = await runAllBuilds();
+  const { cli, denoRuntimeDir } = await runAllBuilds();
   console.log(chalk.green.bold(`\n✓ Build complete\n`));
   console.log(chalk.dim("  Output:"));
   console.log(`  ${formatOutput(cli.outputs)}`);
-  console.log(`  ${chalk.cyan(denoRuntimePath)}`);
-  console.log(`  ${chalk.cyan("./dist/deno-runtime/exec.ts")} (copied)`);
+  console.log(`  ${chalk.cyan(denoRuntimeDir)}`);
 }

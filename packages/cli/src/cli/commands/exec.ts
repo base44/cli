@@ -1,14 +1,10 @@
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { Command } from "commander";
 import type { CLIContext } from "@/cli/types.js";
 import { runCommand } from "@/cli/utils/index.js";
 import type { RunCommandResult } from "@/cli/utils/runCommand.js";
+import { getExecWrapperPath } from "@/core/assets.js";
 import { InvalidInputError } from "@/core/errors.js";
 import { runScript } from "@/core/exec/index.js";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const EXEC_WRAPPER_PATH = join(__dirname, "../deno-runtime/exec.ts");
 
 function readStdin(): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -46,7 +42,7 @@ async function execAction(extraArgs: string[]): Promise<RunCommandResult> {
   const { exitCode } = await runScript({
     code,
     extraArgs,
-    execWrapperPath: EXEC_WRAPPER_PATH,
+    execWrapperPath: getExecWrapperPath(),
   });
 
   if (exitCode !== 0) {
