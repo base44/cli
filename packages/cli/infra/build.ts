@@ -38,10 +38,10 @@ const runAllBuilds = async () => {
     entrypoints: ["./src/cli/index.ts"],
     outdir: "./dist/cli",
   });
-  const denoRuntimeDir = copyDenoRuntime();
+  const denoRuntimePath = copyDenoRuntime();
   return {
     cli,
-    denoRuntimeDir,
+    denoRuntimePath,
   };
 };
 
@@ -59,7 +59,7 @@ if (process.argv.includes("--watch")) {
     const time = new Date().toLocaleTimeString();
     console.log(chalk.dim(`[${time}]`), chalk.gray(`${filename} ${event}d`));
 
-    const { cli, denoRuntimeDir } = await runAllBuilds();
+    const { cli, denoRuntimePath } = await runAllBuilds();
     if (cli.success && cli.outputs.length > 0) {
       console.log(
         chalk.green(`  ✓ Rebuilt`),
@@ -70,7 +70,7 @@ if (process.argv.includes("--watch")) {
     console.log(
       chalk.green(`  ✓ Copied`),
       chalk.dim(`→`),
-      chalk.cyan(denoRuntimeDir),
+      chalk.cyan(denoRuntimePath),
     );
   };
 
@@ -83,9 +83,9 @@ if (process.argv.includes("--watch")) {
   // Keep process alive
   await new Promise(() => {});
 } else {
-  const { cli, denoRuntimeDir } = await runAllBuilds();
+  const { cli, denoRuntimePath } = await runAllBuilds();
   console.log(chalk.green.bold(`\n✓ Build complete\n`));
   console.log(chalk.dim("  Output:"));
   console.log(`  ${formatOutput(cli.outputs)}`);
-  console.log(`  ${chalk.cyan(denoRuntimeDir)}`);
+  console.log(`  ${chalk.cyan(denoRuntimePath)}`);
 }
