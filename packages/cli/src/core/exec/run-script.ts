@@ -3,10 +3,10 @@ import { copyFileSync, writeFileSync } from "node:fs";
 import { file } from "tmp-promise";
 import { getExecWrapperPath } from "@/core/assets.js";
 import { getAppUserToken, getSiteUrl } from "@/core/project/api.js";
-import { getAppConfig } from "@/core/project/app-config.js";
 import { verifyDenoInstalled } from "@/core/utils/index.js";
 
 interface RunScriptOptions {
+  appId: string;
   code: string;
 }
 
@@ -17,7 +17,7 @@ interface RunScriptResult {
 export async function runScript(
   options: RunScriptOptions,
 ): Promise<RunScriptResult> {
-  const { code } = options;
+  const { appId, code } = options;
 
   verifyDenoInstalled("to run scripts with exec");
 
@@ -28,7 +28,6 @@ export async function runScript(
   writeFileSync(tempScript.path, code, "utf-8");
   const scriptPath = `file://${tempScript.path}`;
 
-  const appConfig = getAppConfig();
   const [appUserToken, appBaseUrl] = await Promise.all([
     getAppUserToken(),
     getSiteUrl(),
@@ -51,7 +50,7 @@ export async function runScript(
           env: {
             ...process.env,
             SCRIPT_PATH: scriptPath,
-            BASE44_APP_ID: appConfig.id,
+            BASE44_APP_ID: appId,
             BASE44_ACCESS_TOKEN: appUserToken,
             BASE44_APP_BASE_URL: appBaseUrl,
           },
