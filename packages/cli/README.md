@@ -53,10 +53,15 @@ The CLI will guide you through project setup. For step-by-step tutorials, see th
 | [`whoami`](https://docs.base44.com/developers/references/cli/commands/whoami) | Display the current authenticated user |
 | [`agents pull`](https://docs.base44.com/developers/references/cli/commands/agents-pull) | Pull agents from Base44 to local files |
 | [`agents push`](https://docs.base44.com/developers/references/cli/commands/agents-push) | Push local agents to Base44 |
+| [`connectors list-available`](https://docs.base44.com/developers/references/cli/commands/connectors-list-available) | List all available integration types |
 | [`connectors pull`](https://docs.base44.com/developers/references/cli/commands/connectors-pull) | Pull connectors from Base44 to local files |
 | [`connectors push`](https://docs.base44.com/developers/references/cli/commands/connectors-push) | Push local connectors to Base44 |
 | [`entities push`](https://docs.base44.com/developers/references/cli/commands/entities-push) | Push local entities to Base44 |
+| `exec` | Run a script with the Base44 SDK pre-authenticated as the current user |
 | [`functions deploy`](https://docs.base44.com/developers/references/cli/commands/functions-deploy) | Deploy local functions to Base44 |
+| [`functions delete`](https://docs.base44.com/developers/references/cli/commands/functions-delete) | Delete deployed functions |
+| [`functions list`](https://docs.base44.com/developers/references/cli/commands/functions-list) | List all deployed functions |
+| [`functions pull`](https://docs.base44.com/developers/references/cli/commands/functions-pull) | Pull deployed functions from Base44 |
 | [`secrets list`](https://docs.base44.com/developers/references/cli/commands/secrets-list) | List project secret names |
 | [`secrets set`](https://docs.base44.com/developers/references/cli/commands/secrets-set) | Set one or more project secrets |
 | [`secrets delete`](https://docs.base44.com/developers/references/cli/commands/secrets-delete) | Delete a project secret |
