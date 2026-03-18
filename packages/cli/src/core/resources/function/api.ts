@@ -112,7 +112,7 @@ export async function fetchFunctionLogs(
 
   let response: KyResponse;
   try {
-    response = await appClient.get(`functions-mgmt/${functionName}/logs`, {
+    response = await appClient.get(`functions-mgmt/${encodeURIComponent(functionName)}/logs`, {
       searchParams,
     });
   } catch (error) {
