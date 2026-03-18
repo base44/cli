@@ -76,7 +76,7 @@ export function createProgram(context: CLIContext): Command {
   program.addCommand(getTypesCommand());
 
   // Register exec command
-  program.addCommand(getExecCommand(context));
+  program.addCommand(getExecCommand());
 
   // Register development commands
   program.addCommand(getDevCommand(), { hidden: true });

@@ -1,7 +1,6 @@
-import { Command } from "commander";
-import type { CLIContext } from "@/cli/types.js";
-import { runCommand } from "@/cli/utils/index.js";
-import type { RunCommandResult } from "@/cli/utils/runCommand.js";
+import type { Command } from "commander";
+import type { RunCommandResult } from "@/cli/types.js";
+import { Base44Command } from "@/cli/utils/index.js";
 import { getExecWrapperPath } from "@/core/assets.js";
 import { InvalidInputError } from "@/core/errors.js";
 import { runScript } from "@/core/exec/index.js";
@@ -18,7 +17,7 @@ function readStdin(): Promise<string> {
   });
 }
 
-async function execAction(extraArgs: string[]): Promise<RunCommandResult> {
+async function execAction(): Promise<RunCommandResult> {
   const noInputError = new InvalidInputError(
     "No input provided. Pipe a script to stdin.",
     {
@@ -39,6 +38,9 @@ async function execAction(extraArgs: string[]): Promise<RunCommandResult> {
     throw noInputError;
   }
 
+  const dashIndex = process.argv.indexOf("--");
+  const extraArgs = dashIndex !== -1 ? process.argv.slice(dashIndex + 1) : [];
+
   const { exitCode } = await runScript({
     code,
     extraArgs,
@@ -52,23 +54,10 @@ async function execAction(extraArgs: string[]): Promise<RunCommandResult> {
   return {};
 }
 
-export function getExecCommand(context: CLIContext): Command {
-  const cmd = new Command("exec")
+export function getExecCommand(): Command {
+  return new Base44Command("exec")
     .description(
       "Run a script with the Base44 SDK pre-authenticated as the current user",
     )
-    .action(async () => {
-      // Collect everything after "--" as extra args for the Deno process
-      const dashIndex = process.argv.indexOf("--");
-      const extraArgs =
-        dashIndex !== -1 ? process.argv.slice(dashIndex + 1) : [];
-
-      await runCommand(
-        () => execAction(extraArgs),
-        { requireAuth: true },
-        context,
-      );
-    });
-
-  return cmd;
+    .action(execAction);
 }
