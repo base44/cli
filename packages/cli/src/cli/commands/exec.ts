@@ -1,7 +1,6 @@
 import type { Command } from "commander";
 import type { RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
-import { getExecWrapperPath } from "@/core/assets.js";
 import { InvalidInputError } from "@/core/errors.js";
 import { runScript } from "@/core/exec/index.js";
 
@@ -38,10 +37,7 @@ async function execAction(): Promise<RunCommandResult> {
     throw noInputError;
   }
 
-  const { exitCode } = await runScript({
-    code,
-    execWrapperPath: getExecWrapperPath(),
-  });
+  const { exitCode } = await runScript({ code });
 
   if (exitCode !== 0) {
     process.exitCode = exitCode;

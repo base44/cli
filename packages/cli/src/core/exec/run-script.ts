@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { copyFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { file } from "tmp-promise";
+import { getExecWrapperPath } from "@/core/assets.js";
 import { getAppClient } from "@/core/clients/index.js";
 import { ApiError } from "@/core/errors.js";
 import { getAppConfig } from "@/core/project/app-config.js";
@@ -11,7 +12,6 @@ import { verifyDenoInstalled } from "@/core/utils/index.js";
 interface RunScriptOptions {
   filePath?: string;
   code?: string;
-  execWrapperPath: string;
 }
 
 interface RunScriptResult {
@@ -35,7 +35,7 @@ async function getUserAppToken(): Promise<string> {
 export async function runScript(
   options: RunScriptOptions,
 ): Promise<RunScriptResult> {
-  const { filePath, code, execWrapperPath } = options;
+  const { filePath, code } = options;
 
   verifyDenoInstalled("to run scripts with exec");
 
@@ -66,7 +66,7 @@ export async function runScript(
   // npm: specifiers in them.
   const tempWrapper = await file({ postfix: ".ts" });
   cleanupFns.push(tempWrapper.cleanup);
-  copyFileSync(execWrapperPath, tempWrapper.path);
+  copyFileSync(getExecWrapperPath(), tempWrapper.path);
 
   try {
     const exitCode = await new Promise<number>((resolvePromise) => {
