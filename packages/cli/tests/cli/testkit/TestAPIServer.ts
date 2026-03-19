@@ -496,7 +496,7 @@ export class TestAPIServer {
   mockFunctionLogs(functionName: string, response: FunctionLogsResponse): this {
     return this.addRoute(
       "GET",
-      `/api/apps/${this.appId}/functions-mgmt/${functionName}/logs`,
+      `/api/apps/${this.appId}/functions-mgmt/${encodeURIComponent(functionName)}/logs`,
       response,
     );
   }
@@ -632,7 +632,7 @@ export class TestAPIServer {
   mockFunctionLogsError(functionName: string, error: ErrorResponse): this {
     return this.addErrorRoute(
       "GET",
-      `/api/apps/${this.appId}/functions-mgmt/${functionName}/logs`,
+      `/api/apps/${this.appId}/functions-mgmt/${encodeURIComponent(functionName)}/logs`,
       error,
     );
   }
