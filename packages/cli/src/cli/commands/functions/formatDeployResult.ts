@@ -1,4 +1,4 @@
-import type { Logger } from "@/cli/utils/logger/types.js";
+import type { Logger } from "@base44-cli/logger";
 import { theme } from "@/cli/utils/theme.js";
 import type { SingleFunctionDeployResult } from "@/core/resources/function/deploy.js";
 

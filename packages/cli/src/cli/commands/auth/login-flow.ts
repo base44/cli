@@ -1,7 +1,7 @@
+import type { Logger } from "@base44-cli/logger";
 import pWaitFor from "p-wait-for";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { runTask } from "@/cli/utils/index.js";
-import type { Logger } from "@/cli/utils/logger/types.js"; // used by internal helpers
 import { theme } from "@/cli/utils/theme.js";
 import type {
   DeviceCodeResponse,

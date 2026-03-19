@@ -1,5 +1,6 @@
 import type { Server } from "node:http";
 import { dirname, join } from "node:path";
+import type { Logger } from "@base44-cli/logger";
 import cors from "cors";
 import express from "express";
 import getPort from "get-port";
@@ -8,7 +9,6 @@ import { dir } from "tmp-promise";
 import { createDevLogger } from "@/cli/dev/createDevLogger.js";
 import { FunctionManager } from "@/cli/dev/dev-server/function-manager.js";
 import { createFunctionRouter } from "@/cli/dev/dev-server/routes/functions.js";
-import type { Logger } from "@/cli/utils/logger/types.js";
 import type { ProjectData } from "@/core/project/types.js";
 import { Database } from "./db/database.js";
 import {

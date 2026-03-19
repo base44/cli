@@ -1,5 +1,6 @@
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { ClackLogger, SimpleLogger } from "@base44-cli/logger";
 import { createProgram } from "@/cli/program.js";
 import { ensureNpmAssets } from "@/core/assets.js";
 import { readAuth } from "@/core/auth/index.js";
@@ -7,8 +8,6 @@ import { CLIExitError } from "./errors.js";
 import { ErrorReporter } from "./telemetry/error-reporter.js";
 import { addCommandInfoToErrorReporter } from "./telemetry/index.js";
 import type { CLIContext, Distribution } from "./types.js";
-import { ClackLogger } from "./utils/logger/ClackLogger.js";
-import { SimpleLogger } from "./utils/logger/SimpleLogger.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 

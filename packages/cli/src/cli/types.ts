@@ -1,5 +1,5 @@
+import type { Logger } from "@base44-cli/logger";
 import type { ErrorReporter } from "./telemetry/error-reporter.js";
-import type { Logger } from "./utils/logger/types.js";
 
 export type Distribution = "npm" | "binary";
 

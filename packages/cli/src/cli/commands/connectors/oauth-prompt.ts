@@ -1,8 +1,8 @@
+import type { Logger } from "@base44-cli/logger";
 import { confirm, isCancel, spinner } from "@clack/prompts";
 import open from "open";
 import pWaitFor, { TimeoutError } from "p-wait-for";
 import { theme } from "@/cli/utils/index.js";
-import type { Logger } from "@/cli/utils/logger/types.js";
 import type {
   ConnectorOAuthStatus,
   ConnectorSyncResult,

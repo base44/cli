@@ -1,3 +1,4 @@
+import type { Logger } from "@base44-cli/logger";
 import { confirm, isCancel } from "@clack/prompts";
 import type { Command } from "commander";
 import {
@@ -12,7 +13,6 @@ import {
   getDashboardUrl,
   theme,
 } from "@/cli/utils/index.js";
-import type { Logger } from "@/cli/utils/logger/types.js"; // used by helper functions
 import { InvalidInputError } from "@/core/errors.js";
 import {
   deployAll,

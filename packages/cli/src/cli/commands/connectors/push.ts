@@ -1,7 +1,7 @@
+import type { Logger } from "@base44-cli/logger";
 import type { Command } from "commander";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, runTask, theme } from "@/cli/utils/index.js";
-import type { Logger } from "@/cli/utils/logger/types.js"; // used by printSummary helper
 import { getConnectorsUrl } from "@/cli/utils/urls.js";
 import { readProjectConfig } from "@/core/index.js";
 import {

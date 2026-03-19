@@ -1,4 +1,5 @@
 import { basename, join, resolve } from "node:path";
+import type { Logger } from "@base44-cli/logger";
 import type { Option } from "@clack/prompts";
 import { confirm, group, isCancel, select, text } from "@clack/prompts";
 import { Argument, type Command } from "commander";
@@ -12,7 +13,6 @@ import {
   runTask,
   theme,
 } from "@/cli/utils/index.js";
-import type { Logger } from "@/cli/utils/logger/types.js"; // used by internal helpers
 import { InvalidInputError } from "@/core/errors.js";
 import { deploySite, isDirEmpty, pushEntities } from "@/core/index.js";
 import type { Template } from "@/core/project/index.js";

@@ -39,6 +39,7 @@
     "url": "https://github.com/base44/cli"
   },
   "devDependencies": {
+    "@base44-cli/logger": "workspace:*",
     "@clack/prompts": "^1.0.1",
     "@seald-io/nedb": "^4.1.2",
     "@types/bun": "^1.2.15",
