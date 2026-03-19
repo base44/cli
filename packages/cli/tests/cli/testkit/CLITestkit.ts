@@ -46,6 +46,7 @@ export class CLITestkit {
   private projectDir?: string;
   // Default latestVersion to null to skip npm version check in tests
   private testOverrides: TestOverrides = { latestVersion: null };
+  private stdinContent: string | undefined = undefined;
 
   /** Real HTTP server for Base44 API endpoints */
   readonly api: TestAPIServer;
@@ -111,6 +112,11 @@ export class CLITestkit {
     this.testOverrides.latestVersion = version;
   }
 
+  /** Simulate piped stdin for the next run() call */
+  givenStdin(content: string): void {
+    this.stdinContent = content;
+  }
+
   // ─── WHEN METHODS ─────────────────────────────────────────────
 
   /** Spawn the CLI as a child process and execute the command */
@@ -130,11 +136,15 @@ export class CLITestkit {
         ? { file: getBinaryPath(), args }
         : { file: "node", args: [getNpmEntryPath(), ...args] };
 
+    const stdinContent = this.stdinContent;
+    this.stdinContent = undefined;
+
     const result = await execa(execArgs.file, execArgs.args, {
       cwd: this.projectDir ?? this.tempDir,
       env,
       reject: false,
       all: false,
+      input: stdinContent ?? "",
     });
 
     return {

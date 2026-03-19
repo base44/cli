@@ -34,6 +34,9 @@ export interface TestContext {
 
   givenLatestVersion: (version: string | null | undefined) => void;
 
+  /** Simulate piped stdin for the next run() call */
+  givenStdin: (content: string) => void;
+
   // ─── WHEN METHODS ──────────────────────────────────────────
 
   /** Execute CLI command */
@@ -116,6 +119,7 @@ export function setupCLITests(): TestContext {
       await getKit().givenProject(fixturePath);
     },
     givenLatestVersion: (version) => getKit().givenLatestVersion(version),
+    givenStdin: (content) => getKit().givenStdin(content),
 
     // When methods
     run: (...args) => getKit().run(...args),

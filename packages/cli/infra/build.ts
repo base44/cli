@@ -29,7 +29,8 @@ const copyDenoRuntime = () => {
   const outDir = "./dist/assets/deno-runtime";
   mkdirSync(outDir, { recursive: true });
   copyFileSync("./deno-runtime/main.ts", `${outDir}/main.ts`);
-  return `${outDir}/main.ts`;
+  copyFileSync("./deno-runtime/exec.ts", `${outDir}/exec.ts`);
+  return outDir;
 };
 
 const runAllBuilds = async () => {
