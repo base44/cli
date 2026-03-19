@@ -82,7 +82,7 @@ export function createProgram(context: CLIContext): Command {
   program.addCommand(getDevCommand(), { hidden: true });
 
   // Register logs command
-  program.addCommand(getLogsCommand(), { hidden: true });
+  program.addCommand(getLogsCommand());
 
   return program;
 }
