@@ -8,6 +8,8 @@ import { verifyDenoInstalled } from "@/core/utils/index.js";
 interface RunScriptOptions {
   appId: string;
   code: string;
+  admin?: boolean;
+  dataEnv?: string;
 }
 
 interface RunScriptResult {
@@ -17,7 +19,7 @@ interface RunScriptResult {
 export async function runScript(
   options: RunScriptOptions,
 ): Promise<RunScriptResult> {
-  const { appId, code } = options;
+  const { appId, code, admin, dataEnv } = options;
 
   verifyDenoInstalled("to run scripts with exec");
 
@@ -53,6 +55,8 @@ export async function runScript(
             BASE44_APP_ID: appId,
             BASE44_ACCESS_TOKEN: appUserToken,
             BASE44_APP_BASE_URL: appBaseUrl,
+            ...(admin ? { BASE44_ADMIN: "true" } : {}),
+            ...(dataEnv ? { BASE44_DATA_ENV: dataEnv } : {}),
           },
           stdio: "inherit",
         },
