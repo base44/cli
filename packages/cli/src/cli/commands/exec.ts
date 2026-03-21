@@ -84,7 +84,12 @@ Examples:
   Run with admin privileges (bypass RLS):
     $ echo "const all = await base44.entities.Task.list()" | base44 exec --admin`,
     )
-    .action(async (options: { admin?: boolean; env?: string }, command: Base44Command) => {
-      return await execAction(options, command.isNonInteractive);
-    });
+    .action(
+      async (
+        options: { admin?: boolean; env?: string },
+        command: Base44Command,
+      ) => {
+        return await execAction(options, command.isNonInteractive);
+      },
+    );
 }
