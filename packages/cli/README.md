@@ -46,7 +46,9 @@ The CLI will guide you through project setup. For step-by-step tutorials, see th
 | [`create`](https://docs.base44.com/developers/references/cli/commands/create) | Create a new Base44 project from a template |
 | [`deploy`](https://docs.base44.com/developers/references/cli/commands/deploy) | Deploy all project resources and site to Base44 |
 | [`eject`](https://docs.base44.com/developers/references/cli/commands/eject) | Download the code for an existing Base44 project |
+| [`exec`](https://docs.base44.com/developers/references/cli/commands/exec) | Run a script with the Base44 SDK pre-authenticated as the current user |
 | [`link`](https://docs.base44.com/developers/references/cli/commands/link) | Link a local project to a Base44 project |
+| [`logs`](https://docs.base44.com/developers/references/cli/commands/logs) | Fetch function logs for this app |
 | [`dashboard open`](https://docs.base44.com/developers/references/cli/commands/dashboard) | Open the app dashboard in your browser |
 | [`login`](https://docs.base44.com/developers/references/cli/commands/login) | Authenticate with Base44 |
 | [`logout`](https://docs.base44.com/developers/references/cli/commands/logout) | Sign out and clear stored credentials |
