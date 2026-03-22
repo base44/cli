@@ -44,6 +44,7 @@ jobs:
           # prompt: 'Update the pull request description to include a summary of changes.'
 
           # Allow Claude to run bun and gh commands
+          allowed_bots: 'base44-os-gremlins[bot]'
           claude_args: |
             --allowedTools "Bash(bun:*),Bash(gh pr:*),Bash(gh issue:*)",Bash(git:*)
 
