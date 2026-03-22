@@ -32,6 +32,17 @@ describe("ProjectConfigSchema visibility field", () => {
     }
   });
 
+  it('accepts visibility: "workspace"', () => {
+    const result = ProjectConfigSchema.safeParse({
+      name: "My App",
+      visibility: "workspace",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.visibility).toBe("workspace");
+    }
+  });
+
   it("rejects invalid visibility value with a clear error", () => {
     const result = ProjectConfigSchema.safeParse({
       name: "My App",

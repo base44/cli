@@ -45,6 +45,7 @@ export async function createProject(projectName: string, description?: string) {
 const VISIBILITY_TO_PUBLIC_SETTINGS: Record<Visibility, string> = {
   public: "public_without_login",
   private: "private_with_login",
+  workspace: "workspace_with_login",
 };
 
 export async function updateProjectVisibility(
