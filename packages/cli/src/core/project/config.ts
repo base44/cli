@@ -5,6 +5,7 @@ import { ConfigNotFoundError, SchemaValidationError } from "@/core/errors.js";
 import { ProjectConfigSchema } from "@/core/project/schema.js";
 import type { ProjectData, ProjectRoot } from "@/core/project/types.js";
 import { agentResource } from "@/core/resources/agent/index.js";
+import { authConfigResource } from "@/core/resources/auth-config/index.js";
 import { connectorResource } from "@/core/resources/connector/index.js";
 import { entityResource } from "@/core/resources/entity/index.js";
 import { functionResource } from "@/core/resources/function/index.js";
@@ -92,12 +93,14 @@ export async function readProjectConfig(
   const project = result.data;
   const configDir = dirname(configPath);
 
-  const [entities, functions, agents, connectors] = await Promise.all([
-    entityResource.readAll(join(configDir, project.entitiesDir)),
-    functionResource.readAll(join(configDir, project.functionsDir)),
-    agentResource.readAll(join(configDir, project.agentsDir)),
-    connectorResource.readAll(join(configDir, project.connectorsDir)),
-  ]);
+  const [entities, functions, agents, connectors, authConfig] =
+    await Promise.all([
+      entityResource.readAll(join(configDir, project.entitiesDir)),
+      functionResource.readAll(join(configDir, project.functionsDir)),
+      agentResource.readAll(join(configDir, project.agentsDir)),
+      connectorResource.readAll(join(configDir, project.connectorsDir)),
+      authConfigResource.readAll(join(configDir, project.authDir)),
+    ]);
 
   return {
     project: { ...project, root, configPath },
@@ -105,5 +108,6 @@ export async function readProjectConfig(
     functions,
     agents,
     connectors,
+    authConfig,
   };
 }

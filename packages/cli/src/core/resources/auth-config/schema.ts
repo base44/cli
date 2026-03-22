@@ -1,15 +1,5 @@
 import { z } from "zod";
 
-const KnownSSOProviders = [
-  "google",
-  "microsoft",
-  "github",
-  "okta",
-  "custom",
-] as const;
-
-type KnownSSOProvider = (typeof KnownSSOProviders)[number];
-
 const GoogleOAuthMode = z.enum(["default", "custom"]);
 
 /**
@@ -43,6 +33,22 @@ export const AuthConfigSchema = z
   }));
 
 export type AuthConfig = z.infer<typeof AuthConfigSchema>;
+
+/**
+ * Schema for validating local auth config files (camelCase, no transform).
+ */
+export const AuthConfigFileSchema = z.object({
+  enableUsernamePassword: z.boolean(),
+  enableGoogleLogin: z.boolean(),
+  enableMicrosoftLogin: z.boolean(),
+  enableFacebookLogin: z.boolean(),
+  enableAppleLogin: z.boolean(),
+  ssoProviderName: z.string().nullable(),
+  enableSSOLogin: z.boolean(),
+  googleOAuthMode: GoogleOAuthMode,
+  googleOAuthClientId: z.string().nullable(),
+  useWorkspaceSSO: z.boolean(),
+});
 
 /**
  * Schema for the app response — we only care about auth_config.

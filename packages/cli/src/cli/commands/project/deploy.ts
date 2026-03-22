@@ -45,7 +45,8 @@ export async function deployAction(
     };
   }
 
-  const { project, entities, functions, agents, connectors } = projectData;
+  const { project, entities, functions, agents, connectors, authConfig } =
+    projectData;
 
   // Build summary of what will be deployed
   const summaryLines: string[] = [];
@@ -68,6 +69,9 @@ export async function deployAction(
     summaryLines.push(
       `  - ${connectors.length} ${connectors.length === 1 ? "connector" : "connectors"}`,
     );
+  }
+  if (authConfig.length > 0) {
+    summaryLines.push("  - Auth config");
   }
   if (project.site?.outputDirectory) {
     summaryLines.push(`  - Site from ${project.site.outputDirectory}`);

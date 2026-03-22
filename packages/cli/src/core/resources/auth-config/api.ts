@@ -31,21 +31,17 @@ export async function getAuthConfig(): Promise<AuthConfig> {
 }
 
 /**
- * Updates the auth config for the app.
- * Merges the partial update with the current config via a read-modify-write cycle.
+ * Pushes the full auth config to the API.
  */
-async function updateAuthConfig(
-  updates: Partial<AuthConfig>,
+export async function pushAuthConfigToApi(
+  config: AuthConfig,
 ): Promise<AuthConfig> {
-  const current = await getAuthConfig();
-  const merged: AuthConfig = { ...current, ...updates };
-
   const { id } = getAppConfig();
 
   let response: KyResponse;
   try {
     response = await base44Client.put(`api/apps/${id}`, {
-      json: { auth_config: toAuthConfigPayload(merged) },
+      json: { auth_config: toAuthConfigPayload(config) },
     });
   } catch (error) {
     throw await ApiError.fromHttpError(error, "updating auth config");
@@ -75,11 +71,4 @@ export function hasAnyLoginMethod(config: AuthConfig): boolean {
     config.enableAppleLogin ||
     config.enableSSOLogin
   );
-}
-
-/**
- * Enables or disables username/password authentication.
- */
-export async function updatePasswordAuth(enable: boolean): Promise<AuthConfig> {
-  return await updateAuthConfig({ enableUsernamePassword: enable });
 }

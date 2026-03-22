@@ -1,4 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock project config
 vi.mock("../../src/core/project/index.js", () => ({
@@ -18,11 +21,18 @@ vi.mock("../../src/core/clients/index.js", () => ({
 
 import {
   hasAnyLoginMethod,
-  updatePasswordAuth,
-} from "../../src/core/auth-config/api.js";
-import type { AuthConfig } from "../../src/core/auth-config/schema.js";
+  pushAuthConfigToApi,
+} from "../../src/core/resources/auth-config/api.js";
+import {
+  readAuthConfig,
+  updateAuthConfigFile,
+  writeAuthConfig,
+} from "../../src/core/resources/auth-config/config.js";
+import { pullAuthConfig } from "../../src/core/resources/auth-config/pull.js";
+import { pushAuthConfig } from "../../src/core/resources/auth-config/push.js";
+import type { AuthConfig } from "../../src/core/resources/auth-config/schema.js";
 
-const DEFAULT_AUTH_CONFIG = {
+const DEFAULT_API_AUTH_CONFIG = {
   enable_username_password: true,
   enable_google_login: false,
   enable_microsoft_login: false,
@@ -39,25 +49,39 @@ function mockAppResponse(overrides: Record<string, unknown> = {}) {
   return {
     json: () =>
       Promise.resolve({
-        auth_config: { ...DEFAULT_AUTH_CONFIG, ...overrides },
+        auth_config: { ...DEFAULT_API_AUTH_CONFIG, ...overrides },
       }),
   };
 }
 
-describe("updatePasswordAuth", () => {
+const ALL_DISABLED: AuthConfig = {
+  enableUsernamePassword: false,
+  enableGoogleLogin: false,
+  enableMicrosoftLogin: false,
+  enableFacebookLogin: false,
+  enableAppleLogin: false,
+  ssoProviderName: null,
+  enableSSOLogin: false,
+  googleOAuthMode: "default",
+  googleOAuthClientId: null,
+  useWorkspaceSSO: false,
+};
+
+describe("pushAuthConfigToApi", () => {
   beforeEach(() => {
     vi.resetAllMocks();
   });
 
-  it("sends enable_username_password: true when enabling", async () => {
-    mockGet.mockResolvedValue(
-      mockAppResponse({ enable_username_password: false }),
-    );
+  it("sends the full config as snake_case payload", async () => {
+    const config: AuthConfig = {
+      ...ALL_DISABLED,
+      enableUsernamePassword: true,
+    };
     mockPut.mockResolvedValue(
       mockAppResponse({ enable_username_password: true }),
     );
 
-    const result = await updatePasswordAuth(true);
+    const result = await pushAuthConfigToApi(config);
 
     expect(result.enableUsernamePassword).toBe(true);
     const putCall = mockPut.mock.calls[0];
@@ -65,24 +89,11 @@ describe("updatePasswordAuth", () => {
     expect(payload.enable_username_password).toBe(true);
   });
 
-  it("sends enable_username_password: false when disabling", async () => {
-    mockGet.mockResolvedValue(
-      mockAppResponse({ enable_username_password: true }),
-    );
-    mockPut.mockResolvedValue(
-      mockAppResponse({ enable_username_password: false }),
-    );
-
-    const result = await updatePasswordAuth(false);
-
-    expect(result.enableUsernamePassword).toBe(false);
-    const putCall = mockPut.mock.calls[0];
-    const payload = putCall[1].json.auth_config;
-    expect(payload.enable_username_password).toBe(false);
-  });
-
   it("returns parsed AuthConfig from response", async () => {
-    mockGet.mockResolvedValue(mockAppResponse());
+    const config: AuthConfig = {
+      ...ALL_DISABLED,
+      enableUsernamePassword: true,
+    };
     mockPut.mockResolvedValue(
       mockAppResponse({
         enable_username_password: true,
@@ -90,7 +101,7 @@ describe("updatePasswordAuth", () => {
       }),
     );
 
-    const result = await updatePasswordAuth(true);
+    const result = await pushAuthConfigToApi(config);
 
     expect(result.enableUsernamePassword).toBe(true);
     expect(result.enableGoogleLogin).toBe(true);
@@ -98,46 +109,185 @@ describe("updatePasswordAuth", () => {
   });
 
   it("throws on HTTP failure", async () => {
-    mockGet.mockResolvedValue(mockAppResponse());
+    const config: AuthConfig = { ...ALL_DISABLED };
     mockPut.mockRejectedValue(new Error("Server error"));
 
-    await expect(updatePasswordAuth(true)).rejects.toThrow();
+    await expect(pushAuthConfigToApi(config)).rejects.toThrow();
   });
 });
 
 describe("hasAnyLoginMethod", () => {
-  const allDisabled: AuthConfig = {
-    enableUsernamePassword: false,
-    enableGoogleLogin: false,
-    enableMicrosoftLogin: false,
-    enableFacebookLogin: false,
-    enableAppleLogin: false,
-    ssoProviderName: null,
-    enableSSOLogin: false,
-    googleOAuthMode: "default",
-    googleOAuthClientId: null,
-    useWorkspaceSSO: false,
-  };
-
   it("returns true when only password is enabled", () => {
     expect(
-      hasAnyLoginMethod({ ...allDisabled, enableUsernamePassword: true }),
+      hasAnyLoginMethod({ ...ALL_DISABLED, enableUsernamePassword: true }),
     ).toBe(true);
   });
 
   it("returns true when only a social provider is enabled", () => {
-    expect(hasAnyLoginMethod({ ...allDisabled, enableGoogleLogin: true })).toBe(
-      true,
-    );
+    expect(
+      hasAnyLoginMethod({ ...ALL_DISABLED, enableGoogleLogin: true }),
+    ).toBe(true);
   });
 
   it("returns true when only SSO is enabled", () => {
-    expect(hasAnyLoginMethod({ ...allDisabled, enableSSOLogin: true })).toBe(
+    expect(hasAnyLoginMethod({ ...ALL_DISABLED, enableSSOLogin: true })).toBe(
       true,
     );
   });
 
   it("returns false when all methods are disabled", () => {
-    expect(hasAnyLoginMethod(allDisabled)).toBe(false);
+    expect(hasAnyLoginMethod(ALL_DISABLED)).toBe(false);
+  });
+});
+
+describe("readAuthConfig", () => {
+  let tempDir: string;
+
+  beforeEach(async () => {
+    tempDir = await mkdtemp(join(tmpdir(), "auth-config-test-"));
+  });
+
+  afterEach(async () => {
+    await rm(tempDir, { recursive: true, force: true });
+  });
+
+  it("returns empty array when file does not exist", async () => {
+    const result = await readAuthConfig(tempDir);
+    expect(result).toEqual([]);
+  });
+
+  it("returns [config] when file exists with valid content", async () => {
+    const { writeFile } = await import("node:fs/promises");
+    await writeFile(
+      join(tempDir, "config.jsonc"),
+      JSON.stringify(ALL_DISABLED),
+    );
+
+    const result = await readAuthConfig(tempDir);
+    expect(result).toEqual([ALL_DISABLED]);
+  });
+
+  it("throws on invalid file content", async () => {
+    const { writeFile } = await import("node:fs/promises");
+    await writeFile(
+      join(tempDir, "config.jsonc"),
+      JSON.stringify({ invalid: true }),
+    );
+
+    await expect(readAuthConfig(tempDir)).rejects.toThrow();
+  });
+});
+
+describe("writeAuthConfig", () => {
+  let tempDir: string;
+
+  beforeEach(async () => {
+    tempDir = await mkdtemp(join(tmpdir(), "auth-config-test-"));
+  });
+
+  afterEach(async () => {
+    await rm(tempDir, { recursive: true, force: true });
+  });
+
+  it("writes config file and returns written: true", async () => {
+    const result = await writeAuthConfig(tempDir, ALL_DISABLED);
+    expect(result.written).toBe(true);
+
+    const configs = await readAuthConfig(tempDir);
+    expect(configs).toEqual([ALL_DISABLED]);
+  });
+
+  it("skips write when content is unchanged", async () => {
+    await writeAuthConfig(tempDir, ALL_DISABLED);
+    const result = await writeAuthConfig(tempDir, ALL_DISABLED);
+    expect(result.written).toBe(false);
+  });
+
+  it("writes when content has changed", async () => {
+    await writeAuthConfig(tempDir, ALL_DISABLED);
+    const updated = { ...ALL_DISABLED, enableUsernamePassword: true };
+    const result = await writeAuthConfig(tempDir, updated);
+    expect(result.written).toBe(true);
+
+    const configs = await readAuthConfig(tempDir);
+    expect(configs[0].enableUsernamePassword).toBe(true);
+  });
+});
+
+describe("updateAuthConfigFile", () => {
+  let tempDir: string;
+
+  beforeEach(async () => {
+    tempDir = await mkdtemp(join(tmpdir(), "auth-config-test-"));
+  });
+
+  afterEach(async () => {
+    await rm(tempDir, { recursive: true, force: true });
+  });
+
+  it("creates file with defaults when it does not exist", async () => {
+    const result = await updateAuthConfigFile(tempDir, {
+      enableUsernamePassword: true,
+    });
+
+    expect(result.enableUsernamePassword).toBe(true);
+    expect(result.enableGoogleLogin).toBe(false);
+
+    const configs = await readAuthConfig(tempDir);
+    expect(configs[0].enableUsernamePassword).toBe(true);
+  });
+
+  it("merges updates into existing file", async () => {
+    await writeAuthConfig(tempDir, {
+      ...ALL_DISABLED,
+      enableGoogleLogin: true,
+    });
+
+    const result = await updateAuthConfigFile(tempDir, {
+      enableUsernamePassword: true,
+    });
+
+    expect(result.enableUsernamePassword).toBe(true);
+    expect(result.enableGoogleLogin).toBe(true);
+  });
+});
+
+describe("pullAuthConfig", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it("fetches auth config from API", async () => {
+    mockGet.mockResolvedValue(mockAppResponse());
+
+    const result = await pullAuthConfig();
+
+    expect(result.enableUsernamePassword).toBe(true);
+    expect(mockGet).toHaveBeenCalledWith("api/apps/test-app-id");
+  });
+});
+
+describe("pushAuthConfig", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it("does nothing when configs array is empty", async () => {
+    await pushAuthConfig([]);
+    expect(mockPut).not.toHaveBeenCalled();
+  });
+
+  it("pushes config to API when configs array has one item", async () => {
+    const config: AuthConfig = {
+      ...ALL_DISABLED,
+      enableUsernamePassword: true,
+    };
+    mockPut.mockResolvedValue(
+      mockAppResponse({ enable_username_password: true }),
+    );
+
+    await pushAuthConfig([config]);
+
+    expect(mockPut).toHaveBeenCalledTimes(1);
   });
 });

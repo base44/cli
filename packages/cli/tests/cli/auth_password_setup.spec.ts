@@ -53,4 +53,12 @@ describe("auth password-login command", () => {
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("password-login");
   });
+
+  it("shows pull and push in auth subcommands", async () => {
+    const result = await t.run("auth", "--help");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("pull");
+    t.expectResult(result).toContain("push");
+  });
 });
