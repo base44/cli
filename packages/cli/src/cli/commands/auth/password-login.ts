@@ -1,9 +1,8 @@
 import { dirname, join } from "node:path";
 import { log } from "@clack/prompts";
-import { Command } from "commander";
-import type { CLIContext } from "@/cli/types.js";
-import { runCommand, runTask } from "@/cli/utils/index.js";
-import type { RunCommandResult } from "@/cli/utils/runCommand.js";
+import type { Command } from "commander";
+import type { RunCommandResult } from "@/cli/types.js";
+import { Base44Command, runTask } from "@/cli/utils/index.js";
 import { InvalidInputError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/project/index.js";
 import {
@@ -77,16 +76,12 @@ async function passwordLoginAction(
   };
 }
 
-export function getPasswordLoginCommand(context: CLIContext): Command {
-  return new Command("password-login")
+export function getPasswordLoginCommand(): Command {
+  return new Base44Command("password-login")
     .description("Enable or disable username & password authentication")
     .option("--enable", "Enable password authentication")
     .option("--disable", "Disable password authentication")
     .action(async (options: PasswordLoginOptions) => {
-      await runCommand(
-        () => passwordLoginAction(options),
-        { requireAuth: true },
-        context,
-      );
+      return passwordLoginAction(options);
     });
 }

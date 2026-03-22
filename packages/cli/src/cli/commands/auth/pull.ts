@@ -1,9 +1,8 @@
 import { dirname, join } from "node:path";
 import { log } from "@clack/prompts";
-import { Command } from "commander";
-import type { CLIContext } from "@/cli/types.js";
-import { runCommand, runTask } from "@/cli/utils/index.js";
-import type { RunCommandResult } from "@/cli/utils/runCommand.js";
+import type { Command } from "commander";
+import type { RunCommandResult } from "@/cli/types.js";
+import { Base44Command, runTask } from "@/cli/utils/index.js";
 import { readProjectConfig } from "@/core/project/index.js";
 import {
   pullAuthConfig,
@@ -49,10 +48,8 @@ async function pullAuthAction(): Promise<RunCommandResult> {
   };
 }
 
-export function getAuthPullCommand(context: CLIContext): Command {
-  return new Command("pull")
+export function getAuthPullCommand(): Command {
+  return new Base44Command("pull")
     .description("Pull auth config from Base44 to local file")
-    .action(async () => {
-      await runCommand(pullAuthAction, { requireAuth: true }, context);
-    });
+    .action(pullAuthAction);
 }

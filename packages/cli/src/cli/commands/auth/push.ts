@@ -1,8 +1,7 @@
 import { log } from "@clack/prompts";
-import { Command } from "commander";
-import type { CLIContext } from "@/cli/types.js";
-import { runCommand, runTask } from "@/cli/utils/index.js";
-import type { RunCommandResult } from "@/cli/utils/runCommand.js";
+import type { Command } from "commander";
+import type { RunCommandResult } from "@/cli/types.js";
+import { Base44Command, runTask } from "@/cli/utils/index.js";
 import { readProjectConfig } from "@/core/project/index.js";
 import { pushAuthConfig } from "@/core/resources/auth-config/index.js";
 
@@ -33,10 +32,8 @@ async function pushAuthAction(): Promise<RunCommandResult> {
   };
 }
 
-export function getAuthPushCommand(context: CLIContext): Command {
-  return new Command("push")
+export function getAuthPushCommand(): Command {
+  return new Base44Command("push")
     .description("Push local auth config to Base44")
-    .action(async () => {
-      await runCommand(pushAuthAction, { requireAuth: true }, context);
-    });
+    .action(pushAuthAction);
 }
