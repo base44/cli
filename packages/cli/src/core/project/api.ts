@@ -2,8 +2,9 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { KyResponse } from "ky";
 import { extract } from "tar";
-import { base44Client, getAppClient } from "@/core/clients/index.js";
+import { base44Client } from "@/core/clients/index.js";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";
+import { getAppConfig } from "@/core/project/app-config.js";
 import type { ProjectsResponse, Visibility } from "@/core/project/schema.js";
 import {
   CreateProjectResponseSchema,
@@ -19,7 +20,7 @@ export async function createProject(projectName: string, description?: string) {
         name: projectName,
         user_description: description ?? `Backend for '${projectName}'`,
         is_managed_source_code: false,
-        public_settings: "private",
+        public_settings: "private_with_login",
       },
     });
   } catch (error) {
@@ -42,15 +43,15 @@ export async function createProject(projectName: string, description?: string) {
 
 const VISIBILITY_TO_PUBLIC_SETTINGS: Record<Visibility, string> = {
   public: "public_without_login",
-  private: "private",
+  private: "private_with_login",
 };
 
 export async function updateProjectVisibility(
   visibility: Visibility,
 ): Promise<void> {
-  const appClient = getAppClient();
+  const { id } = getAppConfig();
   try {
-    await appClient.patch("", {
+    await base44Client.put(`api/apps/${id}`, {
       json: {
         public_settings: VISIBILITY_TO_PUBLIC_SETTINGS[visibility],
       },

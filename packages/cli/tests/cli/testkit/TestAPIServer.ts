@@ -516,14 +516,14 @@ export class TestAPIServer {
 
   // ─── GENERAL ENDPOINTS ───────────────────────────────────
 
-  /** Mock PATCH /api/apps/{appId}/ - Update app visibility */
+  /** Mock PUT /api/apps/{appId} - Update app visibility */
   mockUpdateAppVisibility(response: UpdateAppVisibilityResponse): this {
-    return this.addRoute("PATCH", `/api/apps/${this.appId}/`, response);
+    return this.addRoute("PUT", `/api/apps/${this.appId}`, response);
   }
 
-  /** Mock PATCH /api/apps/{appId}/ - Update app visibility error */
+  /** Mock PUT /api/apps/{appId} - Update app visibility error */
   mockUpdateAppVisibilityError(error: ErrorResponse): this {
-    return this.addErrorRoute("PATCH", `/api/apps/${this.appId}/`, error);
+    return this.addErrorRoute("PUT", `/api/apps/${this.appId}`, error);
   }
 
   mockCreateApp(response: CreateAppResponse): this {

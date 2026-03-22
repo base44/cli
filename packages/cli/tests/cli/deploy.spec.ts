@@ -201,7 +201,7 @@ describe("deploy command (unified)", () => {
 describe("deploy command — visibility sync", () => {
   const t = setupCLITests();
 
-  it('sends PATCH to update visibility when config has visibility: "public"', async () => {
+  it('sends PUT to update visibility when config has visibility: "public"', async () => {
     // Given
     await t.givenLoggedInWithProject(fixture("with-visibility"));
     t.api.mockEntitiesPush({ created: ["Item"], updated: [], deleted: [] });
@@ -220,7 +220,7 @@ describe("deploy command — visibility sync", () => {
     t.expectResult(result).toContain("App deployed successfully");
   });
 
-  it("fails deploy when visibility PATCH returns an API error", async () => {
+  it("fails deploy when visibility PUT returns an API error", async () => {
     // Given
     await t.givenLoggedInWithProject(fixture("with-visibility"));
     t.api.mockEntitiesPush({ created: ["Item"], updated: [], deleted: [] });
@@ -238,7 +238,7 @@ describe("deploy command — visibility sync", () => {
     t.expectResult(result).toFail();
   });
 
-  it("does not send PATCH when visibility is omitted from config", async () => {
+  it("does not send PUT when visibility is omitted from config", async () => {
     // Given — use fixture without visibility (with-entities has no visibility field)
     await t.givenLoggedInWithProject(fixture("with-entities"));
     t.api.mockEntitiesPush({
@@ -248,7 +248,7 @@ describe("deploy command — visibility sync", () => {
     });
     t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
     t.api.mockConnectorsList({ integrations: [] });
-    // No mockUpdateAppVisibility registered — PATCH must NOT be called
+    // No mockUpdateAppVisibility registered — PUT must NOT be called
 
     // When
     const result = await t.run("deploy", "-y");
