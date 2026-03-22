@@ -14,6 +14,15 @@ export function createUserRouter(db: Database, logger: Logger): Router {
   const router = createRouter({ mergeParams: true });
   const parseBody = json();
 
+  router.use((req, res, next) => {
+    const auth = req.headers.authorization;
+    if (!auth || !auth.startsWith("Bearer ")) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    next();
+  });
+
   router.get("/:id", async (req: Request<{ id: string }>, res: Response) => {
     let result: Record<string, unknown> | undefined;
 
