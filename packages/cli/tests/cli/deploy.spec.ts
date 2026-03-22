@@ -4,6 +4,18 @@ import { fixture, setupCLITests } from "./testkit/index.js";
 describe("deploy command (unified)", () => {
   const t = setupCLITests();
 
+  it("fails when --yes is not provided in non-interactive mode", async () => {
+    await t.givenLoggedInWithProject(fixture("with-entities"));
+    t.api.mockEntitiesPush({ created: ["Task"], updated: [], deleted: [] });
+
+    const result = await t.run("deploy");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain(
+      "--yes is required in non-interactive mode",
+    );
+  });
+
   it("reports no resources when project is empty", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
 

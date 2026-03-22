@@ -1,12 +1,8 @@
 import type { KyResponse } from "ky";
-import { base44Client, getAppClient } from "@/core/clients/index.js";
+import { getAppClient } from "@/core/clients/index.js";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";
-import { getAppConfig } from "@/core/project/index.js";
 import type { DeployResponse } from "@/core/site/schema.js";
-import {
-  DeployResponseSchema,
-  PublishedUrlResponseSchema,
-} from "@/core/site/schema.js";
+import { DeployResponseSchema } from "@/core/site/schema.js";
 import { readFile } from "@/core/utils/fs.js";
 
 /**
@@ -43,26 +39,4 @@ export async function uploadSite(archivePath: string): Promise<DeployResponse> {
   }
 
   return result.data;
-}
-
-export async function getSiteUrl(projectId?: string): Promise<string> {
-  const id = projectId ?? getAppConfig().id;
-
-  let response: KyResponse;
-  try {
-    response = await base44Client.get(`api/apps/platform/${id}/published-url`);
-  } catch (error) {
-    throw await ApiError.fromHttpError(error, "fetching site URL");
-  }
-
-  const result = PublishedUrlResponseSchema.safeParse(await response.json());
-
-  if (!result.success) {
-    throw new SchemaValidationError(
-      "Invalid response from server",
-      result.error,
-    );
-  }
-
-  return result.data.url;
 }

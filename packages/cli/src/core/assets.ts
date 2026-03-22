@@ -14,7 +14,11 @@ export function getTemplatesIndexPath(): string {
 }
 
 export function getDenoWrapperPath(): string {
-  return join(ASSETS_DIR, "deno-runtime", "main.js");
+  return join(ASSETS_DIR, "deno-runtime", "main.ts");
+}
+
+export function getExecWrapperPath(): string {
+  return join(ASSETS_DIR, "deno-runtime", "exec.ts");
 }
 
 /**

@@ -1,8 +1,7 @@
 import { log } from "@clack/prompts";
-import { Command } from "commander";
-import type { CLIContext } from "@/cli/types.js";
-import { runCommand, runTask, theme } from "@/cli/utils/index.js";
-import type { RunCommandResult } from "@/cli/utils/runCommand.js";
+import type { Command } from "commander";
+import type { RunCommandResult } from "@/cli/types.js";
+import { Base44Command, runTask, theme } from "@/cli/utils/index.js";
 import { getConnectorsUrl } from "@/cli/utils/urls.js";
 import { readProjectConfig } from "@/core/index.js";
 import {
@@ -133,16 +132,12 @@ async function pushConnectorsAction(
   return { outroMessage };
 }
 
-export function getConnectorsPushCommand(context: CLIContext): Command {
-  return new Command("push")
+export function getConnectorsPushCommand(): Command {
+  return new Base44Command("push")
     .description(
       "Push local connectors to Base44 (overwrites connectors on Base44)",
     )
-    .action(async () => {
-      await runCommand(
-        () => pushConnectorsAction(context.isNonInteractive),
-        { requireAuth: true },
-        context,
-      );
+    .action(async (_options: unknown, command: Base44Command) => {
+      return await pushConnectorsAction(command.isNonInteractive);
     });
 }

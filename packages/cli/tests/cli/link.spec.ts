@@ -4,6 +4,15 @@ import { fixture, setupCLITests } from "./testkit/index.js";
 describe("link command", () => {
   const t = setupCLITests();
 
+  it("fails when neither --create nor --projectId in non-interactive mode", async () => {
+    await t.givenLoggedInWithProject(fixture("no-app-config"));
+
+    const result = await t.run("link");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("required in non-interactive mode");
+  });
+
   it("fails when not in a project directory", async () => {
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
 

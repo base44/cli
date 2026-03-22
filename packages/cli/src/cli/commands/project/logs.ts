@@ -1,7 +1,7 @@
-import { Command, Option } from "commander";
-import type { CLIContext } from "@/cli/types.js";
-import { runCommand } from "@/cli/utils/index.js";
-import type { RunCommandResult } from "@/cli/utils/runCommand.js";
+import type { Command } from "commander";
+import { Option } from "commander";
+import type { RunCommandResult } from "@/cli/types.js";
+import { Base44Command } from "@/cli/utils/index.js";
 import { ApiError, InvalidInputError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/index.js";
 import type {
@@ -205,8 +205,8 @@ async function logsAction(options: LogsOptions): Promise<RunCommandResult> {
   return { outroMessage: "Fetched logs", stdout: logsOutput };
 }
 
-export function getLogsCommand(context: CLIContext): Command {
-  return new Command("logs")
+export function getLogsCommand(): Command {
+  return new Base44Command("logs")
     .description("Fetch function logs for this app")
     .option(
       "--function <names>",
@@ -231,11 +231,5 @@ export function getLogsCommand(context: CLIContext): Command {
     .addOption(
       new Option("--order <order>", "Sort order").choices(["asc", "desc"]),
     )
-    .action(async (options: LogsOptions) => {
-      await runCommand(
-        () => logsAction(options),
-        { requireAuth: true },
-        context,
-      );
-    });
+    .action(logsAction);
 }

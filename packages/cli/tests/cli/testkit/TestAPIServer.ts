@@ -346,6 +346,13 @@ export class TestAPIServer {
     return this.addRoute("GET", "/oauth/userinfo", response);
   }
 
+  /** Mock GET /api/apps/{appId}/auth/token - Exchange platform token for app user token */
+  mockAuthToken(token: string): this {
+    return this.addRoute("GET", `/api/apps/${this.appId}/auth/token`, {
+      token,
+    });
+  }
+
   // ─── APP-SCOPED ENDPOINTS ────────────────────────────────
 
   mockEntitiesPush(response: EntitiesPushResponse): this {
@@ -495,7 +502,7 @@ export class TestAPIServer {
   mockFunctionLogs(functionName: string, response: FunctionLogsResponse): this {
     return this.addRoute(
       "GET",
-      `/api/apps/${this.appId}/functions-mgmt/${functionName}/logs`,
+      `/api/apps/${this.appId}/functions-mgmt/${encodeURIComponent(functionName)}/logs`,
       response,
     );
   }
@@ -544,6 +551,17 @@ export class TestAPIServer {
       },
     });
     return this;
+  }
+
+  /**
+   * Register a generic error response for any method/path combination.
+   */
+  mockError(
+    method: "get" | "post" | "put" | "delete",
+    path: string,
+    error: ErrorResponse,
+  ): this {
+    return this.addErrorRoute(method.toUpperCase() as Method, path, error);
   }
 
   /**
@@ -630,7 +648,7 @@ export class TestAPIServer {
   mockFunctionLogsError(functionName: string, error: ErrorResponse): this {
     return this.addErrorRoute(
       "GET",
-      `/api/apps/${this.appId}/functions-mgmt/${functionName}/logs`,
+      `/api/apps/${this.appId}/functions-mgmt/${encodeURIComponent(functionName)}/logs`,
       error,
     );
   }

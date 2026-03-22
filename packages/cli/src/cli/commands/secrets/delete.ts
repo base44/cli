@@ -1,8 +1,7 @@
-import { Command } from "commander";
-import type { CLIContext } from "@/cli/types.js";
+import type { Command } from "commander";
+import type { RunCommandResult } from "@/cli/types.js";
+import { Base44Command, runTask } from "@/cli/utils/index.js";
 import { deleteSecret } from "@/core/resources/secret/index.js";
-import { runCommand, runTask } from "../../utils/index.js";
-import type { RunCommandResult } from "../../utils/runCommand.js";
 
 async function deleteSecretAction(key: string): Promise<RunCommandResult> {
   await runTask(
@@ -21,15 +20,9 @@ async function deleteSecretAction(key: string): Promise<RunCommandResult> {
   };
 }
 
-export function getSecretsDeleteCommand(context: CLIContext): Command {
-  return new Command("delete")
+export function getSecretsDeleteCommand(): Command {
+  return new Base44Command("delete")
     .description("Delete a secret")
     .argument("<key>", "Secret name to delete")
-    .action(async (key: string) => {
-      await runCommand(
-        () => deleteSecretAction(key),
-        { requireAuth: true },
-        context,
-      );
-    });
+    .action(deleteSecretAction);
 }

@@ -1,13 +1,12 @@
 import { log } from "@clack/prompts";
-import { Command } from "commander";
-import type { CLIContext } from "@/cli/types.js";
+import type { Command } from "commander";
+import type { RunCommandResult } from "@/cli/types.js";
 import {
+  Base44Command,
   formatYaml,
-  runCommand,
   runTask,
   YAML_INDENT,
 } from "@/cli/utils/index.js";
-import type { RunCommandResult } from "@/cli/utils/runCommand.js";
 import { listAvailableIntegrations } from "@/core/resources/connector/index.js";
 
 async function listAvailableAction(): Promise<RunCommandResult> {
@@ -37,12 +36,8 @@ async function listAvailableAction(): Promise<RunCommandResult> {
   };
 }
 
-export function getConnectorsListAvailableCommand(
-  context: CLIContext,
-): Command {
-  return new Command("list-available")
+export function getConnectorsListAvailableCommand(): Command {
+  return new Base44Command("list-available")
     .description("List all available integration types")
-    .action(async () => {
-      await runCommand(listAvailableAction, { requireAuth: true }, context);
-    });
+    .action(listAvailableAction);
 }

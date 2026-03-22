@@ -1,10 +1,9 @@
 import { resolve } from "node:path";
 import { confirm, isCancel } from "@clack/prompts";
-import { Command } from "commander";
-import type { CLIContext } from "@/cli/types.js";
-import { runCommand, runTask } from "@/cli/utils/index.js";
-import type { RunCommandResult } from "@/cli/utils/runCommand.js";
-import { ConfigNotFoundError } from "@/core/errors.js";
+import type { Command } from "commander";
+import type { RunCommandResult } from "@/cli/types.js";
+import { Base44Command, runTask } from "@/cli/utils/index.js";
+import { ConfigNotFoundError, InvalidInputError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/project/index.js";
 import { deploySite } from "@/core/site/index.js";
 
@@ -53,19 +52,19 @@ async function deployAction(options: DeployOptions): Promise<RunCommandResult> {
   return { outroMessage: `Visit your site at: ${result.appUrl}` };
 }
 
-export function getSiteDeployCommand(context: CLIContext): Command {
-  return new Command("deploy")
+export function getSiteDeployCommand(): Command {
+  return new Base44Command("deploy")
     .description("Deploy built site files to Base44 hosting")
     .option("-y, --yes", "Skip confirmation prompt")
-    .action(async (options: DeployOptions) => {
-      await runCommand(
-        () =>
-          deployAction({
-            ...options,
-            isNonInteractive: context.isNonInteractive,
-          }),
-        { requireAuth: true },
-        context,
-      );
+    .action(async (options: DeployOptions, command: Base44Command) => {
+      if (command.isNonInteractive && !options.yes) {
+        throw new InvalidInputError(
+          "--yes is required in non-interactive mode",
+        );
+      }
+      return await deployAction({
+        ...options,
+        isNonInteractive: command.isNonInteractive,
+      });
     });
 }

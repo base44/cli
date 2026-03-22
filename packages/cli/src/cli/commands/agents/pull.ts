@@ -1,11 +1,10 @@
 import { dirname, join } from "node:path";
 import { log } from "@clack/prompts";
-import { Command } from "commander";
-import type { CLIContext } from "@/cli/types.js";
+import type { Command } from "commander";
+import type { RunCommandResult } from "@/cli/types.js";
+import { Base44Command, runTask } from "@/cli/utils/index.js";
 import { readProjectConfig } from "@/core/index.js";
 import { fetchAgents, writeAgents } from "@/core/resources/agent/index.js";
-import { runCommand, runTask } from "../../utils/index.js";
-import type { RunCommandResult } from "../../utils/runCommand.js";
 
 async function pullAgentsAction(): Promise<RunCommandResult> {
   const { project } = await readProjectConfig();
@@ -50,12 +49,10 @@ async function pullAgentsAction(): Promise<RunCommandResult> {
   };
 }
 
-export function getAgentsPullCommand(context: CLIContext): Command {
-  return new Command("pull")
+export function getAgentsPullCommand(): Command {
+  return new Base44Command("pull")
     .description(
       "Pull agents from Base44 to local files (replaces all local agent configs)",
     )
-    .action(async () => {
-      await runCommand(pullAgentsAction, { requireAuth: true }, context);
-    });
+    .action(pullAgentsAction);
 }
