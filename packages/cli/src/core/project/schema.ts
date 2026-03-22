@@ -20,7 +20,8 @@ const SiteConfigSchema = z.object({
 });
 
 export const VisibilitySchema = z.enum(["public", "private", "workspace"], {
-  error: 'Invalid visibility value. Allowed values: "public", "private", "workspace"',
+  error:
+    'Invalid visibility value. Allowed values: "public", "private", "workspace"',
 });
 
 export type Visibility = z.infer<typeof VisibilitySchema>;
