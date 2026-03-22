@@ -4,7 +4,10 @@ import { nanoid } from "nanoid";
 import type { Logger } from "@/cli/dev/createDevLogger.js";
 import { readAuth } from "@/core/index.js";
 import { type Database, USER_COLLECTION } from "../../db/database.js";
-import { EntityValidationError } from "../../db/validator.js";
+import {
+  type EntityRecord,
+  EntityValidationError,
+} from "../../db/validator.js";
 import { getNowISOTimestamp, stripInternalFields } from "../../utils.js";
 
 export function createUserRouter(db: Database, logger: Logger): Router {
@@ -69,6 +72,8 @@ export function createUserRouter(db: Database, logger: Logger): Router {
   router.put("/:id", parseBody, async (req: Request<{ id: string }>, res) => {
     // User is only allowed to update himself, not other users
     if (req.params.id === "me") {
+      // These fields are built-in in the schema, but user still can not update them using Entities API
+      const restrictedFields = ["full_name", "email", "role"];
       const userInfo = await readAuth();
       const collection = db.getCollection(USER_COLLECTION);
       const userRecord = await collection?.findOneAsync({
@@ -78,10 +83,16 @@ export function createUserRouter(db: Database, logger: Logger): Router {
         try {
           const { id: _id, created_date: _created_date, ...body } = req.body;
           const filteredBody = db.prepareRecord(USER_COLLECTION, body, true);
-          db.validate(USER_COLLECTION, filteredBody, true);
+          const allowedFields: EntityRecord = {};
+          for (const [key, property] of Object.entries(filteredBody)) {
+            if (!restrictedFields.includes(key)) {
+              allowedFields[key] = property;
+            }
+          }
+          db.validate(USER_COLLECTION, allowedFields, true);
 
           const updateData = {
-            ...filteredBody,
+            ...allowedFields,
             updated_date: new Date().toISOString(),
           };
 
