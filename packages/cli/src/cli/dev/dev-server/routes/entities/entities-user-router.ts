@@ -70,59 +70,59 @@ export function createUserRouter(db: Database, logger: Logger): Router {
   });
 
   router.put("/:id", parseBody, async (req: Request<{ id: string }>, res) => {
-    // User is only allowed to update himself, not other users
-    if (req.params.id === "me") {
-      // These fields are built-in in the schema, but user still can not update them using Entities API
-      const restrictedFields = ["full_name", "email", "role"];
-      const userInfo = await readAuth();
-      const collection = db.getCollection(USER_COLLECTION);
-      const userRecord = await collection?.findOneAsync({
-        email: userInfo.email,
-      });
-      if (userRecord) {
-        try {
-          const { id: _id, created_date: _created_date, ...body } = req.body;
-          const filteredBody = db.prepareRecord(USER_COLLECTION, body, true);
-          const allowedFields: EntityRecord = {};
-          for (const [key, property] of Object.entries(filteredBody)) {
-            if (!restrictedFields.includes(key)) {
-              allowedFields[key] = property;
-            }
+    // These fields are built-in in the schema, but user still can not update them using Entities API
+    const restrictedFields = ["full_name", "email", "role"];
+    const collection = db.getCollection(USER_COLLECTION);
+    const userInfo = await readAuth();
+    const userRecord =
+      req.params.id === "me"
+        ? await collection?.findOneAsync({
+            email: userInfo.email,
+          })
+        : await collection?.findOneAsync({
+            id: req.params.id,
+          });
+    if (userRecord) {
+      try {
+        const { id: _id, created_date: _created_date, ...body } = req.body;
+        const filteredBody = db.prepareRecord(USER_COLLECTION, body, true);
+        const allowedFields: EntityRecord = {};
+        for (const [key, property] of Object.entries(filteredBody)) {
+          if (!restrictedFields.includes(key)) {
+            allowedFields[key] = property;
           }
-          db.validate(USER_COLLECTION, allowedFields, true);
-
-          const updateData = {
-            ...allowedFields,
-            updated_date: new Date().toISOString(),
-          };
-
-          const updResult = await collection?.updateAsync(
-            { id: userRecord.id },
-            { $set: updateData },
-            { returnUpdatedDocs: true },
-          );
-
-          if (!updResult?.affectedDocuments) {
-            throw new Error(`Failed to update user`);
-          }
-
-          res.json(stripInternalFields(updResult.affectedDocuments));
-        } catch (error) {
-          if (error instanceof EntityValidationError) {
-            res.status(422).json(error.context);
-            return;
-          }
-          logger.error(
-            `Error in PUT /${USER_COLLECTION}/${req.params.id}:`,
-            error,
-          );
-          res.status(500).json({ error: "Internal server error" });
         }
-      } else {
-        res.status(404).json({ error: `User record not found` });
+        db.validate(USER_COLLECTION, allowedFields, true);
+
+        const updateData = {
+          ...allowedFields,
+          updated_date: new Date().toISOString(),
+        };
+
+        const updResult = await collection?.updateAsync(
+          { id: userRecord.id },
+          { $set: updateData },
+          { returnUpdatedDocs: true },
+        );
+
+        if (!updResult?.affectedDocuments) {
+          throw new Error(`Failed to update user`);
+        }
+
+        res.json(stripInternalFields(updResult.affectedDocuments));
+      } catch (error) {
+        if (error instanceof EntityValidationError) {
+          res.status(422).json(error.context);
+          return;
+        }
+        logger.error(
+          `Error in PUT /${USER_COLLECTION}/${req.params.id}:`,
+          error,
+        );
+        res.status(500).json({ error: "Internal server error" });
       }
     } else {
-      res.json({});
+      res.status(404).json({ error: `User record not found` });
     }
   });
 
