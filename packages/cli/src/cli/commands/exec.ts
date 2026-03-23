@@ -18,6 +18,7 @@ function readStdin(): Promise<string> {
 }
 
 async function execAction(
+  options: { admin?: boolean; env?: string },
   isNonInteractive: boolean,
 ): Promise<RunCommandResult> {
   const noInputError = new InvalidInputError(
@@ -43,7 +44,12 @@ async function execAction(
     throw noInputError;
   }
 
-  const { exitCode } = await runScript({ appId: getAppConfig().id, code });
+  const { exitCode } = await runScript({
+    appId: getAppConfig().id,
+    code,
+    admin: options.admin,
+    dataEnv: options.env,
+  });
 
   if (exitCode !== 0) {
     process.exitCode = exitCode;
@@ -57,6 +63,14 @@ export function getExecCommand(): Command {
     .description(
       "Run a script with the Base44 SDK pre-authenticated as the current user",
     )
+    .option(
+      "--admin",
+      "Run with admin privileges (bypass RLS). Requires app owner/editor role.",
+    )
+    .option(
+      "--env <environment>",
+      "Data environment to use (dev, share, or production). Defaults to production.",
+    )
     .addHelpText(
       "after",
       `
@@ -65,9 +79,17 @@ Examples:
     $ cat ./script.ts | base44 exec
 
   Inline script:
-    $ echo "const users = await base44.entities.User.list()" | base44 exec`,
+    $ echo "const users = await base44.entities.User.list()" | base44 exec
+
+  Run with admin privileges (bypass RLS):
+    $ echo "const all = await base44.entities.Task.list()" | base44 exec --admin`,
     )
-    .action(async (_options: unknown, command: Base44Command) => {
-      return await execAction(command.isNonInteractive);
-    });
+    .action(
+      async (
+        options: { admin?: boolean; env?: string },
+        command: Base44Command,
+      ) => {
+        return await execAction(options, command.isNonInteractive);
+      },
+    );
 }
