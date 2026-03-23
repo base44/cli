@@ -70,7 +70,7 @@ export async function deployAction(
       `  - ${connectors.length} ${connectors.length === 1 ? "connector" : "connectors"}`,
     );
   }
-  if (authConfig.length > 0) {
+  if (authConfig) {
     summaryLines.push("  - Auth config");
   }
   if (project.site?.outputDirectory) {

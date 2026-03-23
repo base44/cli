@@ -44,7 +44,7 @@ async function pullAuthAction(): Promise<RunCommandResult> {
   }
 
   return {
-    outroMessage: `Pulled auth config to ${authDir}`,
+    outroMessage: `Pulled auth config to ${authDir} (overwrites local file)`,
   };
 }
 

@@ -8,7 +8,7 @@ import { AuthConfigFileSchema } from "./schema.js";
 
 const AUTH_CONFIG_FILENAME = `config.${CONFIG_FILE_EXTENSION}`;
 
-const DEFAULT_AUTH_CONFIG: AuthConfig = {
+export const DEFAULT_AUTH_CONFIG: AuthConfig = {
   enableUsernamePassword: false,
   enableGoogleLogin: false,
   enableMicrosoftLogin: false,
@@ -27,13 +27,15 @@ function getAuthConfigPath(authDir: string): string {
 
 /**
  * Reads the auth config file from the given directory.
- * Returns [config] if the file exists, or [] if the directory or file doesn't exist.
+ * Returns the config if the file exists, or null if the directory or file doesn't exist.
  */
-export async function readAuthConfig(authDir: string): Promise<AuthConfig[]> {
+export async function readAuthConfig(
+  authDir: string,
+): Promise<AuthConfig | null> {
   const filePath = getAuthConfigPath(authDir);
 
   if (!(await pathExists(filePath))) {
-    return [];
+    return null;
   }
 
   const parsed = await readJsonFile(filePath);
@@ -47,7 +49,7 @@ export async function readAuthConfig(authDir: string): Promise<AuthConfig[]> {
     );
   }
 
-  return [result.data];
+  return result.data;
 }
 
 /**
@@ -72,20 +74,4 @@ export async function writeAuthConfig(
 
   await writeJsonFile(filePath, config);
   return { written: true };
-}
-
-/**
- * Updates the auth config file with a partial update.
- * If the file doesn't exist, creates it with default values and applies the updates.
- */
-export async function updateAuthConfigFile(
-  authDir: string,
-  updates: Partial<AuthConfig>,
-): Promise<AuthConfig> {
-  const existing = await readAuthConfig(authDir);
-  const current = existing[0] ?? DEFAULT_AUTH_CONFIG;
-  const merged: AuthConfig = { ...current, ...updates };
-
-  await writeJsonFile(getAuthConfigPath(authDir), merged);
-  return merged;
 }

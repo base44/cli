@@ -27,7 +27,7 @@ export function hasResourcesToDeploy(projectData: ProjectData): boolean {
   const hasFunctions = functions.length > 0;
   const hasAgents = agents.length > 0;
   const hasConnectors = connectors.length > 0;
-  const hasAuthConfig = authConfig.length > 0;
+  const hasAuthConfig = authConfig !== null;
 
   return (
     hasEntities ||
@@ -78,7 +78,9 @@ export async function deployAll(
     onResult: options?.onFunctionResult,
   });
   await agentResource.push(agents);
-  await pushAuthConfig(authConfig);
+  if (authConfig) {
+    await pushAuthConfig(authConfig);
+  }
   const { results: connectorResults } = await pushConnectors(connectors);
 
   if (project.site?.outputDirectory) {

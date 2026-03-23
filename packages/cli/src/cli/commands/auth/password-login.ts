@@ -6,63 +6,50 @@ import { Base44Command, runTask } from "@/cli/utils/index.js";
 import { InvalidInputError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/project/index.js";
 import {
+  DEFAULT_AUTH_CONFIG,
   hasAnyLoginMethod,
-  updateAuthConfigFile,
+  readAuthConfig,
+  writeAuthConfig,
 } from "@/core/resources/auth-config/index.js";
 
-interface PasswordLoginOptions {
-  enable?: true;
-  disable?: true;
-}
-
-function validateOptions(options: PasswordLoginOptions): void {
-  const errors: string[] = [];
-
-  if (!options.enable && !options.disable) {
-    errors.push("Missing required flag: specify --enable or --disable");
-  }
-  if (options.enable && options.disable) {
-    errors.push(
-      "Conflicting flags: --enable and --disable cannot be used together",
+function validateAction(
+  action: string,
+): asserts action is "enable" | "disable" {
+  if (action !== "enable" && action !== "disable") {
+    throw new InvalidInputError(
+      `Invalid action "${action}". Must be "enable" or "disable".`,
+      {
+        hints: [
+          {
+            message: "Enable password auth:  base44 auth password-login enable",
+            command: "base44 auth password-login enable",
+          },
+          {
+            message:
+              "Disable password auth: base44 auth password-login disable",
+            command: "base44 auth password-login disable",
+          },
+        ],
+      },
     );
   }
-
-  if (errors.length > 0) {
-    throw new InvalidInputError(errors.join("\n"), {
-      hints: [
-        {
-          message: "Enable password auth:  base44 auth password-login --enable",
-          command: "base44 auth password-login --enable",
-        },
-        {
-          message:
-            "Disable password auth: base44 auth password-login --disable",
-          command: "base44 auth password-login --disable",
-        },
-      ],
-    });
-  }
 }
 
-async function passwordLoginAction(
-  options: PasswordLoginOptions,
-): Promise<RunCommandResult> {
-  validateOptions(options);
+async function passwordLoginAction(action: string): Promise<RunCommandResult> {
+  validateAction(action);
 
-  const shouldEnable = !!options.enable;
+  const shouldEnable = action === "enable";
   const { project } = await readProjectConfig();
 
   const configDir = dirname(project.configPath);
   const authDir = join(configDir, project.authDir);
 
-  const updated = await runTask(
-    `${shouldEnable ? "Enabling" : "Disabling"} username & password authentication`,
-    async () => {
-      return await updateAuthConfigFile(authDir, {
-        enableUsernamePassword: shouldEnable,
-      });
-    },
-  );
+  const updated = await runTask("Updating local auth config", async () => {
+    const current = (await readAuthConfig(authDir)) ?? DEFAULT_AUTH_CONFIG;
+    const merged = { ...current, enableUsernamePassword: shouldEnable };
+    await writeAuthConfig(authDir, merged);
+    return merged;
+  });
 
   if (!shouldEnable && !hasAnyLoginMethod(updated)) {
     log.warn(
@@ -79,9 +66,8 @@ async function passwordLoginAction(
 export function getPasswordLoginCommand(): Command {
   return new Base44Command("password-login")
     .description("Enable or disable username & password authentication")
-    .option("--enable", "Enable password authentication")
-    .option("--disable", "Disable password authentication")
-    .action(async (options: PasswordLoginOptions) => {
-      return passwordLoginAction(options);
+    .argument("<enable|disable>", "enable or disable password authentication")
+    .action(async (action: string) => {
+      return passwordLoginAction(action);
     });
 }

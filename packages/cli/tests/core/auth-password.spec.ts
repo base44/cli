@@ -19,18 +19,17 @@ vi.mock("../../src/core/clients/index.js", () => ({
   },
 }));
 
-import {
-  hasAnyLoginMethod,
-  pushAuthConfigToApi,
-} from "../../src/core/resources/auth-config/api.js";
+import { pushAuthConfigToApi } from "../../src/core/resources/auth-config/api.js";
 import {
   readAuthConfig,
-  updateAuthConfigFile,
   writeAuthConfig,
 } from "../../src/core/resources/auth-config/config.js";
 import { pullAuthConfig } from "../../src/core/resources/auth-config/pull.js";
 import { pushAuthConfig } from "../../src/core/resources/auth-config/push.js";
-import type { AuthConfig } from "../../src/core/resources/auth-config/schema.js";
+import {
+  type AuthConfig,
+  hasAnyLoginMethod,
+} from "../../src/core/resources/auth-config/schema.js";
 
 const DEFAULT_API_AUTH_CONFIG = {
   enable_username_password: true,
@@ -151,12 +150,12 @@ describe("readAuthConfig", () => {
     await rm(tempDir, { recursive: true, force: true });
   });
 
-  it("returns empty array when file does not exist", async () => {
+  it("returns null when file does not exist", async () => {
     const result = await readAuthConfig(tempDir);
-    expect(result).toEqual([]);
+    expect(result).toBeNull();
   });
 
-  it("returns [config] when file exists with valid content", async () => {
+  it("returns config when file exists with valid content", async () => {
     const { writeFile } = await import("node:fs/promises");
     await writeFile(
       join(tempDir, "config.jsonc"),
@@ -164,7 +163,7 @@ describe("readAuthConfig", () => {
     );
 
     const result = await readAuthConfig(tempDir);
-    expect(result).toEqual([ALL_DISABLED]);
+    expect(result).toEqual(ALL_DISABLED);
   });
 
   it("throws on invalid file content", async () => {
@@ -193,8 +192,8 @@ describe("writeAuthConfig", () => {
     const result = await writeAuthConfig(tempDir, ALL_DISABLED);
     expect(result.written).toBe(true);
 
-    const configs = await readAuthConfig(tempDir);
-    expect(configs).toEqual([ALL_DISABLED]);
+    const config = await readAuthConfig(tempDir);
+    expect(config).toEqual(ALL_DISABLED);
   });
 
   it("skips write when content is unchanged", async () => {
@@ -209,46 +208,8 @@ describe("writeAuthConfig", () => {
     const result = await writeAuthConfig(tempDir, updated);
     expect(result.written).toBe(true);
 
-    const configs = await readAuthConfig(tempDir);
-    expect(configs[0].enableUsernamePassword).toBe(true);
-  });
-});
-
-describe("updateAuthConfigFile", () => {
-  let tempDir: string;
-
-  beforeEach(async () => {
-    tempDir = await mkdtemp(join(tmpdir(), "auth-config-test-"));
-  });
-
-  afterEach(async () => {
-    await rm(tempDir, { recursive: true, force: true });
-  });
-
-  it("creates file with defaults when it does not exist", async () => {
-    const result = await updateAuthConfigFile(tempDir, {
-      enableUsernamePassword: true,
-    });
-
-    expect(result.enableUsernamePassword).toBe(true);
-    expect(result.enableGoogleLogin).toBe(false);
-
-    const configs = await readAuthConfig(tempDir);
-    expect(configs[0].enableUsernamePassword).toBe(true);
-  });
-
-  it("merges updates into existing file", async () => {
-    await writeAuthConfig(tempDir, {
-      ...ALL_DISABLED,
-      enableGoogleLogin: true,
-    });
-
-    const result = await updateAuthConfigFile(tempDir, {
-      enableUsernamePassword: true,
-    });
-
-    expect(result.enableUsernamePassword).toBe(true);
-    expect(result.enableGoogleLogin).toBe(true);
+    const config = await readAuthConfig(tempDir);
+    expect(config?.enableUsernamePassword).toBe(true);
   });
 });
 
@@ -272,12 +233,12 @@ describe("pushAuthConfig", () => {
     vi.resetAllMocks();
   });
 
-  it("does nothing when configs array is empty", async () => {
-    await pushAuthConfig([]);
+  it("does nothing when config is null", async () => {
+    await pushAuthConfig(null);
     expect(mockPut).not.toHaveBeenCalled();
   });
 
-  it("pushes config to API when configs array has one item", async () => {
+  it("pushes config to API when config is provided", async () => {
     const config: AuthConfig = {
       ...ALL_DISABLED,
       enableUsernamePassword: true,
@@ -286,7 +247,7 @@ describe("pushAuthConfig", () => {
       mockAppResponse({ enable_username_password: true }),
     );
 
-    await pushAuthConfig([config]);
+    await pushAuthConfig(config);
 
     expect(mockPut).toHaveBeenCalledTimes(1);
   });

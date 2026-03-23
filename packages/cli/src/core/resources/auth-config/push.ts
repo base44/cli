@@ -3,12 +3,12 @@ import type { AuthConfig } from "./schema.js";
 
 /**
  * Pushes the auth config to the remote API.
- * If the array is empty, does nothing.
+ * If null, does nothing.
  */
-export async function pushAuthConfig(configs: AuthConfig[]): Promise<void> {
-  if (configs.length === 0) {
+export async function pushAuthConfig(config: AuthConfig | null): Promise<void> {
+  if (!config) {
     return;
   }
 
-  await pushAuthConfigToApi(configs[0]);
+  await pushAuthConfigToApi(config);
 }

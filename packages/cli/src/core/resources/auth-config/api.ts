@@ -58,17 +58,3 @@ export async function pushAuthConfigToApi(
 
   return result.data.authConfig;
 }
-
-/**
- * Returns true if at least one login method is enabled in the given config.
- */
-export function hasAnyLoginMethod(config: AuthConfig): boolean {
-  return (
-    config.enableUsernamePassword ||
-    config.enableGoogleLogin ||
-    config.enableMicrosoftLogin ||
-    config.enableFacebookLogin ||
-    config.enableAppleLogin ||
-    config.enableSSOLogin
-  );
-}
