@@ -1,14 +1,6 @@
 import { describe, it } from "vitest";
-import { fixture, type RunLiveHandle, setupCLITests } from "./testkit/index.js";
-
-const waitForDevServer = async (
-  runLiveHandle: RunLiveHandle,
-): Promise<string> => {
-  const pattern = /Dev server is available at (http\S+)/;
-  await runLiveHandle.waitForOutput(pattern);
-  const match = runLiveHandle.stdout.join("").match(pattern)!;
-  return match[1];
-};
+import { waitForDevServer } from "./testkit/dev-utils.js";
+import { fixture, setupCLITests } from "./testkit/index.js";
 
 describe("dev command", () => {
   const t = setupCLITests();
