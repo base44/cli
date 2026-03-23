@@ -1,10 +1,13 @@
 import type Datastore from "@seald-io/nedb";
-import type { Request, RequestHandler, Response, Router } from "express";
+import type { Request, Response, Router } from "express";
 import { Router as createRouter, json } from "express";
 import { nanoid } from "nanoid";
-import type { Logger } from "../../createDevLogger.js";
-import type { Database } from "../db/database.js";
-import type { BroadcastEntityEvent, EntityEventType } from "../realtime.js";
+import type { Logger } from "../../../createDevLogger.js";
+import type { Database } from "../../db/database.js";
+import { EntityValidationError } from "../../db/validator.js";
+import type { BroadcastEntityEvent, EntityEventType } from "../../realtime.js";
+import { stripInternalFields } from "../../utils.js";
+import { createUserRouter } from "./entities-user-router.js";
 
 interface EntityParams {
   appId: string;
@@ -51,28 +54,11 @@ function parseFields(
   return Object.keys(projection).length > 0 ? projection : undefined;
 }
 
-function stripInternalFields<T extends Record<string, unknown>>(
-  doc: T[],
-): Omit<T, "_id">[];
-function stripInternalFields<T extends Record<string, unknown>>(
-  doc: T,
-): Omit<T, "_id">;
-function stripInternalFields<T extends Record<string, unknown>>(
-  doc: T | T[],
-): Omit<T, "_id"> | Omit<T, "_id">[] {
-  if (Array.isArray(doc)) {
-    return doc.map((d) => stripInternalFields(d));
-  }
-  const { _id, ...rest } = doc;
-  return rest;
-}
-
-export function createEntityRoutes(
+export async function createEntityRoutes(
   db: Database,
   logger: Logger,
-  remoteProxy: RequestHandler,
   broadcast: BroadcastEntityEvent,
-): Router {
+): Promise<Router> {
   const router = createRouter({ mergeParams: true });
   const parseBody = json();
 
@@ -116,15 +102,8 @@ export function createEntityRoutes(
     broadcast(appId, entityName, createData(data));
   }
 
-  router.get("/User/:id", (req, res, next) => {
-    logger.warn(
-      `"${req.originalUrl}" is not supported in local development, passing call to production`,
-    );
-    // This is necessary because Express strips the router prefix from req.url,
-    // so without this the proxy would send just `/User/:id` instead of the full path.
-    req.url = req.originalUrl;
-    remoteProxy(req, res, next);
-  });
+  const userRouter = createUserRouter(db, logger);
+  router.use("/User", userRouter);
 
   router.get(
     "/:entityName/:id",
@@ -209,12 +188,7 @@ export function createEntityRoutes(
         const { _id, ...body } = req.body;
 
         const filteredBody = db.prepareRecord(entityName, body);
-        const validation = db.validate(entityName, filteredBody);
-
-        if (validation.hasError) {
-          res.status(422).json(validation.error);
-          return;
-        }
+        db.validate(entityName, filteredBody);
 
         const record = {
           ...filteredBody,
@@ -229,6 +203,10 @@ export function createEntityRoutes(
         emit(appId, entityName, "create", inserted);
         res.status(201).json(inserted);
       } catch (error) {
+        if (error instanceof EntityValidationError) {
+          res.status(422).json(error.context);
+          return;
+        }
         logger.error(`Error in POST /${entityName}:`, error);
         res.status(500).json({ error: "Internal server error" });
       }
@@ -252,12 +230,7 @@ export function createEntityRoutes(
 
         for (const record of req.body) {
           const filteredRecord = db.prepareRecord(entityName, record);
-          const validation = db.validate(entityName, filteredRecord);
-
-          if (validation.hasError) {
-            res.status(422).json(validation.error);
-            return;
-          }
+          db.validate(entityName, filteredRecord);
 
           records.push({
             ...filteredRecord,
@@ -273,6 +246,10 @@ export function createEntityRoutes(
         emit(appId, entityName, "create", inserted);
         res.status(201).json(inserted);
       } catch (error) {
+        if (error instanceof EntityValidationError) {
+          res.status(422).json(error.context);
+          return;
+        }
         logger.error(`Error in POST /${entityName}/bulk:`, error);
         res.status(500).json({ error: "Internal server error" });
       }
@@ -288,12 +265,7 @@ export function createEntityRoutes(
 
       try {
         const filteredBody = db.prepareRecord(entityName, body, true);
-        const validation = db.validate(entityName, filteredBody, true);
-
-        if (validation.hasError) {
-          res.status(422).json(validation.error);
-          return;
-        }
+        db.validate(entityName, filteredBody, true);
 
         const updateData = {
           ...filteredBody,
@@ -315,6 +287,10 @@ export function createEntityRoutes(
         emit(appId, entityName, "update", updated);
         res.json(updated);
       } catch (error) {
+        if (error instanceof EntityValidationError) {
+          res.status(422).json(error.context);
+          return;
+        }
         logger.error(`Error in PUT /${entityName}/${id}:`, error);
         res.status(500).json({ error: "Internal server error" });
       }

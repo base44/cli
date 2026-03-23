@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   type EntityRecord,
+  EntityValidationError,
   Validator,
 } from "../../src/cli/dev/dev-server/db/validator.js";
 import type { Entity } from "../../src/core/resources/entity/schema.js";
@@ -89,20 +90,21 @@ describe("Validator", () => {
     it("should pass when all required fields are present", () => {
       const schema = makeEntity({ name: { type: "string" } }, ["name"]);
 
-      const result = validator.validate({ name: "Alice" }, schema);
-
-      expect(result.hasError).toBe(false);
+      expect(() => validator.validate({ name: "Alice" }, schema)).not.toThrow();
     });
 
     it("should fail when a required field is missing", () => {
       const schema = makeEntity({ name: { type: "string" } }, ["name"]);
 
-      const result = validator.validate({}, schema);
-
-      expect(result.hasError).toBe(true);
-      if (result.hasError) {
-        expect(result.error.message).toContain("name");
-        expect(result.error.message).toContain("Field required");
+      expect(() => validator.validate({}, schema)).toThrow(
+        EntityValidationError,
+      );
+      try {
+        validator.validate({}, schema);
+      } catch (e) {
+        const err = e as EntityValidationError;
+        expect(err.context.message).toContain("name");
+        expect(err.context.message).toContain("Field required");
       }
     });
 
@@ -110,105 +112,116 @@ describe("Validator", () => {
       it("should pass for valid string field", () => {
         const schema = makeEntity({ name: { type: "string" } });
 
-        const result = validator.validate({ name: "Alice" }, schema);
-
-        expect(result.hasError).toBe(false);
+        expect(() =>
+          validator.validate({ name: "Alice" }, schema),
+        ).not.toThrow();
       });
 
       it("should fail when string field gets a number", () => {
         const schema = makeEntity({ name: { type: "string" } });
 
-        const result = validator.validate({ name: 123 }, schema);
-
-        expect(result.hasError).toBe(true);
-        if (result.hasError) {
-          expect(result.error.message).toContain("name");
-          expect(result.error.message).toContain("string");
+        expect(() => validator.validate({ name: 123 }, schema)).toThrow(
+          EntityValidationError,
+        );
+        try {
+          validator.validate({ name: 123 }, schema);
+        } catch (e) {
+          const err = e as EntityValidationError;
+          expect(err.context.message).toContain("name");
+          expect(err.context.message).toContain("string");
         }
       });
 
       it("passes for valid boolean field", () => {
         const schema = makeEntity({ active: { type: "boolean" } });
 
-        const result = validator.validate({ active: true }, schema);
-
-        expect(result.hasError).toBe(false);
+        expect(() =>
+          validator.validate({ active: true }, schema),
+        ).not.toThrow();
       });
 
       it("should fail when boolean field gets a string", () => {
         const schema = makeEntity({ active: { type: "boolean" } });
 
-        const result = validator.validate({ active: "yes" }, schema);
-
-        expect(result.hasError).toBe(true);
-        if (result.hasError) {
-          expect(result.error.message).toContain("boolean");
+        expect(() => validator.validate({ active: "yes" }, schema)).toThrow(
+          EntityValidationError,
+        );
+        try {
+          validator.validate({ active: "yes" }, schema);
+        } catch (e) {
+          const err = e as EntityValidationError;
+          expect(err.context.message).toContain("boolean");
         }
       });
 
       it("should pass for valid number field", () => {
         const schema = makeEntity({ score: { type: "number" } });
 
-        const result = validator.validate({ score: 3.14 }, schema);
-
-        expect(result.hasError).toBe(false);
+        expect(() => validator.validate({ score: 3.14 }, schema)).not.toThrow();
       });
 
       it("should pass for valid integer field", () => {
         const schema = makeEntity({ score: { type: "integer" } });
 
-        const result = validator.validate({ score: 3 }, schema);
-
-        expect(result.hasError).toBe(false);
+        expect(() => validator.validate({ score: 3 }, schema)).not.toThrow();
       });
 
       it("should fail for invalid integer field", () => {
         const schema = makeEntity({ score: { type: "integer" } });
 
-        const result = validator.validate({ score: 3.3333 }, schema);
-
-        expect(result.hasError).toBe(true);
-        if (result.hasError) {
-          expect(result.error.message).toContain("integer");
+        expect(() => validator.validate({ score: 3.3333 }, schema)).toThrow(
+          EntityValidationError,
+        );
+        try {
+          validator.validate({ score: 3.3333 }, schema);
+        } catch (e) {
+          const err = e as EntityValidationError;
+          expect(err.context.message).toContain("integer");
         }
       });
 
       it("should pass for valid array field", () => {
         const schema = makeEntity({ tags: { type: "array" } });
 
-        const result = validator.validate({ tags: ["a", "b"] }, schema);
-
-        expect(result.hasError).toBe(false);
+        expect(() =>
+          validator.validate({ tags: ["a", "b"] }, schema),
+        ).not.toThrow();
       });
 
       it("should fail when array field gets a non-array", () => {
         const schema = makeEntity({ tags: { type: "array" } });
 
-        const result = validator.validate({ tags: "not-array" }, schema);
-
-        expect(result.hasError).toBe(true);
-        if (result.hasError) {
-          expect(result.error.message).toContain("array");
+        expect(() => validator.validate({ tags: "not-array" }, schema)).toThrow(
+          EntityValidationError,
+        );
+        try {
+          validator.validate({ tags: "not-array" }, schema);
+        } catch (e) {
+          const err = e as EntityValidationError;
+          expect(err.context.message).toContain("array");
         }
       });
 
       it("should fail when array field gets a object", () => {
         const schema = makeEntity({ tags: { type: "array" } });
 
-        const result = validator.validate({ tags: {} }, schema);
-
-        expect(result.hasError).toBe(true);
-        if (result.hasError) {
-          expect(result.error.message).toContain("array");
+        expect(() => validator.validate({ tags: {} }, schema)).toThrow(
+          EntityValidationError,
+        );
+        try {
+          validator.validate({ tags: {} }, schema);
+        } catch (e) {
+          const err = e as EntityValidationError;
+          expect(err.context.message).toContain("array");
         }
       });
 
       it("should pass for valid object field", () => {
         const schema = makeEntity({ meta: { type: "object" } });
 
-        const result = validator.validate({ meta: { key: "val" } }, schema);
-
-        expect(result.hasError).toBe(false);
+        expect(() =>
+          validator.validate({ meta: { key: "val" } }, schema),
+        ).not.toThrow();
       });
 
       describe("array items validation", () => {
@@ -217,9 +230,9 @@ describe("Validator", () => {
             tags: { type: "array", items: { type: "string" } },
           });
 
-          const result = validator.validate({ tags: ["a", "b"] }, schema);
-
-          expect(result.hasError).toBe(false);
+          expect(() =>
+            validator.validate({ tags: ["a", "b"] }, schema),
+          ).not.toThrow();
         });
 
         it("should fail when array item has wrong type", () => {
@@ -227,12 +240,15 @@ describe("Validator", () => {
             tags: { type: "array", items: { type: "string" } },
           });
 
-          const result = validator.validate({ tags: ["a", 42] }, schema);
-
-          expect(result.hasError).toBe(true);
-          if (result.hasError) {
-            expect(result.error.message).toContain("tags[1]");
-            expect(result.error.message).toContain("string");
+          expect(() => validator.validate({ tags: ["a", 42] }, schema)).toThrow(
+            EntityValidationError,
+          );
+          try {
+            validator.validate({ tags: ["a", 42] }, schema);
+          } catch (e) {
+            const err = e as EntityValidationError;
+            expect(err.context.message).toContain("tags[1]");
+            expect(err.context.message).toContain("string");
           }
         });
 
@@ -240,12 +256,9 @@ describe("Validator", () => {
         it("should skip item validation when items is not defined", () => {
           const schema = makeEntity({ tags: { type: "array" } });
 
-          const result = validator.validate(
-            { tags: [1, "mixed", true] },
-            schema,
-          );
-
-          expect(result.hasError).toBe(false);
+          expect(() =>
+            validator.validate({ tags: [1, "mixed", true] }, schema),
+          ).not.toThrow();
         });
 
         it("should validate array of objects recursively", () => {
@@ -262,20 +275,25 @@ describe("Validator", () => {
             },
           });
 
-          const passing = validator.validate(
-            { entries: [{ name: "x", count: 1 }] },
-            schema,
-          );
-          expect(passing.hasError).toBe(false);
+          expect(() =>
+            validator.validate({ entries: [{ name: "x", count: 1 }] }, schema),
+          ).not.toThrow();
 
-          const failing = validator.validate(
-            { entries: [{ name: "x", count: 1.5 }] },
-            schema,
-          );
-          expect(failing.hasError).toBe(true);
-          if (failing.hasError) {
-            expect(failing.error.message).toContain("entries[0].count");
-            expect(failing.error.message).toContain("integer");
+          expect(() =>
+            validator.validate(
+              { entries: [{ name: "x", count: 1.5 }] },
+              schema,
+            ),
+          ).toThrow(EntityValidationError);
+          try {
+            validator.validate(
+              { entries: [{ name: "x", count: 1.5 }] },
+              schema,
+            );
+          } catch (e) {
+            const err = e as EntityValidationError;
+            expect(err.context.message).toContain("entries[0].count");
+            expect(err.context.message).toContain("integer");
           }
         });
       });
@@ -292,17 +310,19 @@ describe("Validator", () => {
             },
           });
 
-          const passing = validator.validate(
-            { data: { name: "x", count: 1 } },
-            schema,
-          );
-          expect(passing.hasError).toBe(false);
+          expect(() =>
+            validator.validate({ data: { name: "x", count: 1 } }, schema),
+          ).not.toThrow();
 
-          const failing = validator.validate({ data: { name: 123 } }, schema);
-          expect(failing.hasError).toBe(true);
-          if (failing.hasError) {
-            expect(failing.error.message).toContain("data.name");
-            expect(failing.error.message).toContain("string");
+          expect(() =>
+            validator.validate({ data: { name: 123 } }, schema),
+          ).toThrow(EntityValidationError);
+          try {
+            validator.validate({ data: { name: 123 } }, schema);
+          } catch (e) {
+            const err = e as EntityValidationError;
+            expect(err.context.message).toContain("data.name");
+            expect(err.context.message).toContain("string");
           }
         });
 
@@ -310,12 +330,9 @@ describe("Validator", () => {
         it("should skip property validation when properties is not defined", () => {
           const schema = makeEntity({ meta: { type: "object" } });
 
-          const result = validator.validate(
-            { meta: { anything: 123, goes: true } },
-            schema,
-          );
-
-          expect(result.hasError).toBe(false);
+          expect(() =>
+            validator.validate({ meta: { anything: 123, goes: true } }, schema),
+          ).not.toThrow();
         });
 
         it("should ignore keys not in the schema properties", () => {
@@ -326,12 +343,9 @@ describe("Validator", () => {
             },
           });
 
-          const result = validator.validate(
-            { data: { name: "ok", extra: 999 } },
-            schema,
-          );
-
-          expect(result.hasError).toBe(false);
+          expect(() =>
+            validator.validate({ data: { name: "ok", extra: 999 } }, schema),
+          ).not.toThrow();
         });
       });
 
@@ -339,19 +353,20 @@ describe("Validator", () => {
         const schema = makeEntity({ name: { type: "string" } });
         const record: EntityRecord = { name: "Alice", extra: "not in schema" };
 
-        const result = validator.validate(record, schema);
-
-        expect(result.hasError).toBe(false);
+        expect(() => validator.validate(record, schema)).not.toThrow();
       });
 
       it("should fail for unsupported field type", () => {
         const schema = makeEntity({ field: { type: "date" } });
 
-        const result = validator.validate({ field: "2024-01-01" }, schema);
-
-        expect(result.hasError).toBe(true);
-        if (result.hasError) {
-          expect(result.error.message).toContain("Unsupported field type date");
+        expect(() =>
+          validator.validate({ field: "2024-01-01" }, schema),
+        ).toThrow(EntityValidationError);
+        try {
+          validator.validate({ field: "2024-01-01" }, schema);
+        } catch (e) {
+          const err = e as EntityValidationError;
+          expect(err.context.message).toContain("Unsupported field type date");
         }
       });
     });
@@ -360,19 +375,20 @@ describe("Validator", () => {
       it("should skip required field check when partial is true", () => {
         const schema = makeEntity({ name: { type: "string" } }, ["name"]);
 
-        const result = validator.validate({}, schema, true);
-
-        expect(result.hasError).toBe(false);
+        expect(() => validator.validate({}, schema, true)).not.toThrow();
       });
 
       it("should still validate field types when partial is true", () => {
         const schema = makeEntity({ name: { type: "string" } }, ["name"]);
 
-        const result = validator.validate({ name: 123 }, schema, true);
-
-        expect(result.hasError).toBe(true);
-        if (result.hasError) {
-          expect(result.error.message).toContain("string");
+        expect(() => validator.validate({ name: 123 }, schema, true)).toThrow(
+          EntityValidationError,
+        );
+        try {
+          validator.validate({ name: 123 }, schema, true);
+        } catch (e) {
+          const err = e as EntityValidationError;
+          expect(err.context.message).toContain("string");
         }
       });
     });
@@ -381,11 +397,14 @@ describe("Validator", () => {
       it("should return properly shaped ValidationError", () => {
         const schema = makeEntity({ name: { type: "string" } }, ["name"]);
 
-        const result = validator.validate({}, schema);
-
-        expect(result.hasError).toBe(true);
-        if (result.hasError) {
-          expect(result.error).toEqual({
+        expect(() => validator.validate({}, schema)).toThrow(
+          EntityValidationError,
+        );
+        try {
+          validator.validate({}, schema);
+        } catch (e) {
+          const err = e as EntityValidationError;
+          expect(err.context).toEqual({
             error_type: "ValidationError",
             message: expect.stringContaining("name"),
             request_id: null,

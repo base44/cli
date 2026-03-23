@@ -16,7 +16,7 @@ import {
   broadcastEntityEvent,
   createRealtimeServer,
 } from "./realtime.js";
-import { createEntityRoutes } from "./routes/entities.js";
+import { createEntityRoutes } from "./routes/entities/entities-router.js";
 import {
   createCustomIntegrationRoutes,
   createFileToken,
@@ -94,7 +94,7 @@ export async function createDevServer(
   }
 
   const db = new Database();
-  db.load(entities);
+  await db.load(entities);
   if (db.getCollectionNames().length > 0) {
     options.log.info(`Loaded entities: ${db.getCollectionNames().join(", ")}`);
   }
@@ -102,11 +102,8 @@ export async function createDevServer(
   // Socket.IO is attached after the HTTP server starts; entity routes receive
   // a broadcast callback that becomes a no-op until the server is ready.
   let emitEntityEvent: BroadcastEntityEvent = () => {};
-  const entityRoutes = createEntityRoutes(
-    db,
-    devLogger,
-    remoteProxy,
-    (...args) => emitEntityEvent(...args),
+  const entityRoutes = await createEntityRoutes(db, devLogger, (...args) =>
+    emitEntityEvent(...args),
   );
   app.use("/api/apps/:appId/entities", entityRoutes);
 
@@ -206,7 +203,7 @@ export async function createDevServer(
         if (previousEntityCount > 0) {
           devLogger.log("Entities directory changed, clearing data...");
         }
-        db.load(entities);
+        await db.load(entities);
         if (db.getCollectionNames().length > 0) {
           devLogger.log(
             `Loaded entities: ${db.getCollectionNames().join(", ")}`,

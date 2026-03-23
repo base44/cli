@@ -12,9 +12,13 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.0.0",
+    "@types/jsonwebtoken": "^9.0.10",
     "knip": "^5.83.1"
   },
   "workspaces": [
     "packages/*"
-  ]
+  ],
+  "dependencies": {
+    "jsonwebtoken": "^9.0.3"
+  }
 }

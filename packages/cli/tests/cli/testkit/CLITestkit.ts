@@ -33,6 +33,14 @@ function getNpmEntryPath(): string {
   return join(CLI_ROOT, "bin/run.js");
 }
 
+/** Handle to a running CLI process started by `runLive()` */
+export interface RunLiveHandle {
+  readonly stdout: readonly string[];
+  readonly stderr: readonly string[];
+  waitForOutput(pattern: string | RegExp, timeoutMs?: number): Promise<void>;
+  stop(): Promise<CLIResult>;
+}
+
 /** Test overrides that get serialized to BASE44_CLI_TEST_OVERRIDES */
 interface TestOverrides {
   appConfig?: { id: string; projectRoot: string };
@@ -47,6 +55,7 @@ export class CLITestkit {
   // Default latestVersion to null to skip npm version check in tests
   private testOverrides: TestOverrides = { latestVersion: null };
   private stdinContent: string | undefined = undefined;
+  private liveHandles: RunLiveHandle[] = [];
 
   /** Real HTTP server for Base44 API endpoints */
   readonly api: TestAPIServer;
@@ -154,6 +163,102 @@ export class CLITestkit {
     };
   }
 
+  /** Start a long-running CLI command and return a live handle */
+  async runLive(...args: string[]): Promise<RunLiveHandle> {
+    this.setupEnvOverrides();
+
+    const env: Record<string, string> = {
+      ...this.env,
+      BASE44_API_URL: this.api.baseUrl,
+      PATH: process.env.PATH ?? "",
+    };
+
+    this.api.apply();
+
+    const execArgs =
+      TEST_RUNNER === "binary"
+        ? { file: getBinaryPath(), args }
+        : { file: "node", args: [getNpmEntryPath(), ...args] };
+
+    const child = execa(execArgs.file, execArgs.args, {
+      cwd: this.projectDir ?? this.tempDir,
+      env,
+      reject: false,
+      all: false,
+    });
+
+    const stdout: string[] = [];
+    const stderr: string[] = [];
+    let finished: boolean = false;
+    let stoppedWithCode: number | undefined;
+
+    child.stdout?.on("data", (chunk: Buffer) => {
+      stdout.push(chunk.toString());
+    });
+
+    child.stderr?.on("data", (chunk: Buffer) => {
+      stderr.push(chunk.toString());
+    });
+
+    const childPromise = child.then((result) => {
+      finished = true;
+      return result;
+    });
+
+    const buildResult = (exitCode: number): CLIResult => ({
+      stdout: stdout.join(""),
+      stderr: stderr.join(""),
+      exitCode,
+    });
+
+    const handle: RunLiveHandle = {
+      stdout,
+      stderr,
+
+      async waitForOutput(pattern, timeoutMs = 5000) {
+        const regex =
+          typeof pattern === "string" ? new RegExp(pattern) : pattern;
+        const start = Date.now();
+        while (Date.now() - start < timeoutMs) {
+          if (regex.test(stdout.join(""))) return;
+          if (finished) {
+            throw new Error(
+              `Process exited before output matched ${pattern}. stdout: ${stdout.join("")}`,
+            );
+          }
+          await new Promise((r) => setTimeout(r, 50));
+        }
+        throw new Error(
+          `Timed out waiting for output matching ${pattern} after ${timeoutMs}ms. stdout: ${stdout.join("")}`,
+        );
+      },
+
+      async stop() {
+        if (stoppedWithCode !== undefined) {
+          return buildResult(stoppedWithCode);
+        }
+
+        if (!finished) {
+          child.kill("SIGINT");
+          await Promise.race([
+            childPromise,
+            new Promise((r) => setTimeout(r, 3000)),
+          ]);
+          if (!finished) {
+            child.kill("SIGKILL");
+          }
+        }
+
+        const result = await childPromise;
+        stoppedWithCode = result.exitCode ?? 1;
+        return buildResult(stoppedWithCode);
+      },
+    };
+
+    this.liveHandles.push(handle);
+    return handle;
+  }
+
   // ─── PRIVATE HELPERS ───────────────────────────────────────────
 
   private setupEnvOverrides(): void {
@@ -214,6 +319,10 @@ export class CLITestkit {
   // ─── CLEANUP ──────────────────────────────────────────────────
 
   async cleanup(): Promise<void> {
+    for (const handle of this.liveHandles) {
+      await handle.stop();
+    }
+    this.liveHandles = [];
     await this.api.stop();
     await this.cleanupFn();
   }
