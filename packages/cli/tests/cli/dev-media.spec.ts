@@ -19,7 +19,7 @@ describe("media in dev", () => {
     );
 
     const uploadRes = await fetch(
-      `${url}/api/apps/test-app-id/integration-endpoints/Core/UploadFile`,
+      `${url}/api/apps/${t.kit.api.appId}/integration-endpoints/Core/UploadFile`,
       { method: "POST", body: form },
     );
     expect(uploadRes.status).toBe(200);
@@ -41,7 +41,6 @@ describe("media in dev", () => {
     const handle = await t.runLive("dev");
     const url = await waitForDevServer(handle);
 
-    // Upload a private file
     const form = new FormData();
     form.append(
       "file",
@@ -50,7 +49,7 @@ describe("media in dev", () => {
     );
 
     const uploadRes = await fetch(
-      `${url}/api/apps/test-app-id/integration-endpoints/Core/UploadPrivateFile`,
+      `${url}/api/apps/${t.kit.api.appId}/integration-endpoints/Core/UploadPrivateFile`,
       { method: "POST", body: form },
     );
     expect(uploadRes.status).toBe(200);
@@ -60,7 +59,7 @@ describe("media in dev", () => {
 
     // Get a signed URL for the private file
     const signedUrlRes = await fetch(
-      `${url}/api/apps/test-app-id/integration-endpoints/Core/CreateFileSignedUrl`,
+      `${url}/api/apps/${t.kit.api.appId}/integration-endpoints/Core/CreateFileSignedUrl`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
