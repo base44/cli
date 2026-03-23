@@ -46,17 +46,23 @@ The CLI will guide you through project setup. For step-by-step tutorials, see th
 | [`create`](https://docs.base44.com/developers/references/cli/commands/create) | Create a new Base44 project from a template |
 | [`deploy`](https://docs.base44.com/developers/references/cli/commands/deploy) | Deploy all project resources and site to Base44 |
 | [`eject`](https://docs.base44.com/developers/references/cli/commands/eject) | Download the code for an existing Base44 project |
+| [`exec`](https://docs.base44.com/developers/references/cli/commands/exec) | Run a script with the Base44 SDK pre-authenticated as the current user |
 | [`link`](https://docs.base44.com/developers/references/cli/commands/link) | Link a local project to a Base44 project |
+| [`logs`](https://docs.base44.com/developers/references/cli/commands/logs) | Fetch function logs for this app |
 | [`dashboard open`](https://docs.base44.com/developers/references/cli/commands/dashboard) | Open the app dashboard in your browser |
 | [`login`](https://docs.base44.com/developers/references/cli/commands/login) | Authenticate with Base44 |
 | [`logout`](https://docs.base44.com/developers/references/cli/commands/logout) | Sign out and clear stored credentials |
 | [`whoami`](https://docs.base44.com/developers/references/cli/commands/whoami) | Display the current authenticated user |
 | [`agents pull`](https://docs.base44.com/developers/references/cli/commands/agents-pull) | Pull agents from Base44 to local files |
 | [`agents push`](https://docs.base44.com/developers/references/cli/commands/agents-push) | Push local agents to Base44 |
+| [`connectors list-available`](https://docs.base44.com/developers/references/cli/commands/connectors-list-available) | List all available integration types |
 | [`connectors pull`](https://docs.base44.com/developers/references/cli/commands/connectors-pull) | Pull connectors from Base44 to local files |
 | [`connectors push`](https://docs.base44.com/developers/references/cli/commands/connectors-push) | Push local connectors to Base44 |
 | [`entities push`](https://docs.base44.com/developers/references/cli/commands/entities-push) | Push local entities to Base44 |
+| [`functions delete`](https://docs.base44.com/developers/references/cli/commands/functions-delete) | Delete deployed functions |
 | [`functions deploy`](https://docs.base44.com/developers/references/cli/commands/functions-deploy) | Deploy local functions to Base44 |
+| [`functions list`](https://docs.base44.com/developers/references/cli/commands/functions-list) | List all deployed functions |
+| [`functions pull`](https://docs.base44.com/developers/references/cli/commands/functions-pull) | Pull deployed functions from Base44 |
 | [`secrets list`](https://docs.base44.com/developers/references/cli/commands/secrets-list) | List project secret names |
 | [`secrets set`](https://docs.base44.com/developers/references/cli/commands/secrets-set) | Set one or more project secrets |
 | [`secrets delete`](https://docs.base44.com/developers/references/cli/commands/secrets-delete) | Delete a project secret |
