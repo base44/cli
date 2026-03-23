@@ -3,7 +3,6 @@
   "version": "0.0.1",
   "description": "Logger interface and implementations for Base44 CLI",
   "type": "module",
-  "main": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts"
   },
