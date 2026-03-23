@@ -6,7 +6,7 @@ describe("media in dev", () => {
   const t = setupCLITests();
 
   it("should upload public file and serve it", async () => {
-    await t.givenLoggedInWithProject(fixture("full-project"));
+    await t.givenLoggedInWithProject(fixture("basic"));
 
     const handle = await t.runLive("dev");
     const url = await waitForDevServer(handle);
@@ -36,7 +36,7 @@ describe("media in dev", () => {
   });
 
   it("should upload secret file and serve it with token", async () => {
-    await t.givenLoggedInWithProject(fixture("full-project"));
+    await t.givenLoggedInWithProject(fixture("basic"));
 
     const handle = await t.runLive("dev");
     const url = await waitForDevServer(handle);
