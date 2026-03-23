@@ -80,14 +80,16 @@ describe("media in dev", () => {
     expect(await fileRes.text()).toBe("secret content");
 
     // Fetch with wrong token returns 400
-    const badUrl = signed_url.replace(/token=.+$/, "token=invalid");
+    const badUrl = signed_url.replace(/([?&]token=)[^&]+/, "$1invalid");
     const badRes = await fetch(badUrl);
     expect(badRes.status).toBe(400);
     const badBody = (await badRes.json()) as { error: string };
     expect(badBody.error).toBe("InvalidJWT");
 
     // Fetch with no token returns 401
-    const noTokenUrl = signed_url.replace(/\?token=.+$/, "");
+    const urlWithToken = new URL(signed_url);
+    urlWithToken.searchParams.delete("token");
+    const noTokenUrl = urlWithToken.toString();
     const noTokenRes = await fetch(noTokenUrl);
     expect(noTokenRes.status).toBe(401);
     const noTokenBody = (await noTokenRes.json()) as { error: string };
