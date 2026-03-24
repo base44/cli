@@ -1,7 +1,7 @@
 import type { Logger } from "@base44-cli/logger";
 import type { Command } from "commander";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
-import { Base44Command, runTask, theme } from "@/cli/utils/index.js";
+import { Base44Command, theme } from "@/cli/utils/index.js";
 import { getConnectorsUrl } from "@/cli/utils/urls.js";
 import { readProjectConfig } from "@/core/index.js";
 import {
@@ -93,6 +93,7 @@ function printSummary(
 async function pushConnectorsAction({
   isNonInteractive,
   log,
+  runTask,
 }: CLIContext): Promise<RunCommandResult> {
   const { connectors } = await readProjectConfig();
 

@@ -1,11 +1,12 @@
 import type { Command } from "commander";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
-import { Base44Command, runTask } from "@/cli/utils/index.js";
+import { Base44Command } from "@/cli/utils/index.js";
 import { readProjectConfig } from "@/core/index.js";
 import { pushAgents } from "@/core/resources/agent/index.js";
 
 async function pushAgentsAction({
   log,
+  runTask,
 }: CLIContext): Promise<RunCommandResult> {
   const { agents } = await readProjectConfig();
 

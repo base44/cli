@@ -1,62 +1,52 @@
+import type { Logger } from "@base44-cli/logger";
 import { spinner } from "@clack/prompts";
 
-/**
- * Wraps an async operation with automatic spinner management.
- * The spinner is automatically started, and stopped on both success and error.
- *
- * @param startMessage - Message to show when spinner starts
- * @param operation - The async operation to execute. Receives an updateMessage function
- *                    to update the spinner text during long-running operations.
- * @param options - Optional configuration for success/error messages
- * @returns The result of the operation
- *
- * @example
- * // Simple usage
- * const data = await runTask(
- *   "Fetching data...",
- *   async () => {
- *     const response = await fetch(url);
- *     return response.json();
- *   },
- *   {
- *     successMessage: "Data fetched successfully",
- *     errorMessage: "Failed to fetch data",
- *   }
- * );
- *
- * @example
- * // With progress updates
- * const result = await runTask(
- *   "Processing files...",
- *   async (updateMessage) => {
- *     for (const file of files) {
- *       updateMessage(`Processing ${file.name}...`);
- *       await process(file);
- *     }
- *     return files.length;
- *   },
- *   { successMessage: "All files processed" }
- * );
- */
-export async function runTask<T>(
+export type RunTaskFn = <T>(
   startMessage: string,
   operation: (updateMessage: (message: string) => void) => Promise<T>,
   options?: {
     successMessage?: string;
     errorMessage?: string;
   },
-): Promise<T> {
-  const s = spinner();
-  s.start(startMessage);
+) => Promise<T>;
 
-  const updateMessage = (message: string) => s.message(message);
+/**
+ * Creates a RunTaskFn that uses clack spinner for interactive terminals.
+ */
+export function createInteractiveRunTask(): RunTaskFn {
+  return async (startMessage, operation, options) => {
+    const s = spinner();
+    s.start(startMessage);
 
-  try {
-    const result = await operation(updateMessage);
-    s.stop(options?.successMessage || startMessage);
-    return result;
-  } catch (error) {
-    s.error(options?.errorMessage || "Failed");
-    throw error;
-  }
+    const updateMessage = (message: string) => s.message(message);
+
+    try {
+      const result = await operation(updateMessage);
+      s.stop(options?.successMessage || startMessage);
+      return result;
+    } catch (error) {
+      s.error(options?.errorMessage || "Failed");
+      throw error;
+    }
+  };
+}
+
+/**
+ * Creates a RunTaskFn that delegates to the provided logger for non-interactive environments.
+ */
+export function createSimpleRunTask(log: Logger): RunTaskFn {
+  return async (startMessage, operation, options) => {
+    log.info(startMessage);
+
+    const updateMessage = (message: string) => log.info(message);
+
+    try {
+      const result = await operation(updateMessage);
+      log.success(options?.successMessage || startMessage);
+      return result;
+    } catch (error) {
+      log.error(options?.errorMessage || "Failed");
+      throw error;
+    }
+  };
 }

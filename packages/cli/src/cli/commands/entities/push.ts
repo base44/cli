@@ -1,11 +1,12 @@
 import { Command } from "commander";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
-import { Base44Command, runTask } from "@/cli/utils/index.js";
+import { Base44Command } from "@/cli/utils/index.js";
 import { readProjectConfig } from "@/core/index.js";
 import { pushEntities } from "@/core/resources/entity/index.js";
 
 async function pushEntitiesAction({
   log,
+  runTask,
 }: CLIContext): Promise<RunCommandResult> {
   const { entities } = await readProjectConfig();
 

@@ -7,7 +7,7 @@ import kebabCase from "lodash/kebabCase";
 import { deployAction } from "@/cli/commands/project/deploy.js";
 import { CLIExitError } from "@/cli/errors.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
-import { Base44Command, runTask, theme } from "@/cli/utils/index.js";
+import { Base44Command, theme } from "@/cli/utils/index.js";
 import type { Project } from "@/core/index.js";
 import {
   createProject,
@@ -31,7 +31,7 @@ async function eject(
   ctx: CLIContext,
   options: EjectOptions,
 ): Promise<RunCommandResult> {
-  const { log, isNonInteractive } = ctx;
+  const { log, runTask, isNonInteractive } = ctx;
 
   if (isNonInteractive && !options.projectId) {
     throw new InvalidInputError(

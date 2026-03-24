@@ -1,10 +1,11 @@
 import type { Command } from "commander";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
-import { Base44Command, runTask, theme } from "@/cli/utils/index.js";
+import { Base44Command, theme } from "@/cli/utils/index.js";
 import { listDeployedFunctions } from "@/core/resources/function/api.js";
 
 async function listFunctionsAction({
   log,
+  runTask,
 }: CLIContext): Promise<RunCommandResult> {
   const { functions } = await runTask(
     "Fetching functions...",

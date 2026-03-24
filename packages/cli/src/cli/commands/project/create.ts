@@ -1,5 +1,4 @@
 import { basename, join, resolve } from "node:path";
-import type { Logger } from "@base44-cli/logger";
 import type { Option } from "@clack/prompts";
 import { confirm, group, isCancel, select, text } from "@clack/prompts";
 import { Argument, type Command } from "commander";
@@ -10,7 +9,6 @@ import {
   Base44Command,
   getDashboardUrl,
   onPromptCancel,
-  runTask,
   theme,
 } from "@/cli/utils/index.js";
 import { InvalidInputError } from "@/core/errors.js";
@@ -57,7 +55,7 @@ function validateNonInteractiveFlags(command: Command): void {
 
 async function createInteractive(
   options: CreateOptions,
-  log: Logger,
+  ctx: Pick<CLIContext, "log" | "runTask">,
 ): Promise<RunCommandResult> {
   const templates = await listTemplates();
   const templateOptions: Option<Template>[] = templates.map((t) => ({
@@ -112,15 +110,15 @@ async function createInteractive(
       skills: options.skills,
       isInteractive: true,
     },
-    log,
+    ctx,
   );
 }
 
 async function createNonInteractive(
   options: CreateOptions,
-  log: Logger,
+  ctx: Pick<CLIContext, "log" | "runTask">,
 ): Promise<RunCommandResult> {
-  log.info(`Creating a new project at ${resolve(options.path!)}`);
+  ctx.log.info(`Creating a new project at ${resolve(options.path!)}`);
 
   const template = await getTemplateById(
     options.template ?? DEFAULT_TEMPLATE_ID,
@@ -135,7 +133,7 @@ async function createNonInteractive(
       skills: options.skills,
       isInteractive: false,
     },
-    log,
+    ctx,
   );
 }
 
@@ -157,7 +155,7 @@ async function executeCreate(
     skills?: boolean;
     isInteractive: boolean;
   },
-  log: Logger,
+  { log, runTask }: Pick<CLIContext, "log" | "runTask">,
 ): Promise<RunCommandResult> {
   const name = rawName.trim();
   const resolvedPath = resolve(projectPath);
@@ -295,7 +293,7 @@ async function executeCreate(
 }
 
 async function createAction(
-  { log, isNonInteractive }: CLIContext,
+  { log, runTask, isNonInteractive }: CLIContext,
   name: string | undefined,
   options: CreateOptions,
 ): Promise<RunCommandResult> {
@@ -318,13 +316,15 @@ async function createAction(
     );
   }
 
+  const ctx = { log, runTask };
+
   if (skipPrompts) {
     return await createNonInteractive(
       { name: options.name ?? name, ...options },
-      log,
+      ctx,
     );
   }
-  return await createInteractive({ name, ...options }, log);
+  return await createInteractive({ name, ...options }, ctx);
 }
 
 export function getCreateCommand(): Command {

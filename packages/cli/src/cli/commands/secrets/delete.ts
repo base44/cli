@@ -1,10 +1,10 @@
 import type { Command } from "commander";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
-import { Base44Command, runTask } from "@/cli/utils/index.js";
+import { Base44Command } from "@/cli/utils/index.js";
 import { deleteSecret } from "@/core/resources/secret/index.js";
 
 async function deleteSecretAction(
-  _ctx: CLIContext,
+  { runTask }: CLIContext,
   key: string,
 ): Promise<RunCommandResult> {
   await runTask(

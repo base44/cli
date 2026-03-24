@@ -1,7 +1,7 @@
 import { dirname, join } from "node:path";
 import type { Command } from "commander";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
-import { Base44Command, runTask } from "@/cli/utils/index.js";
+import { Base44Command } from "@/cli/utils/index.js";
 import { readProjectConfig } from "@/core/index.js";
 import {
   pullAllConnectors,
@@ -10,6 +10,7 @@ import {
 
 async function pullConnectorsAction({
   log,
+  runTask,
 }: CLIContext): Promise<RunCommandResult> {
   const { project } = await readProjectConfig();
 

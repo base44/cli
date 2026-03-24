@@ -1,15 +1,11 @@
 import type { Command } from "commander";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
-import {
-  Base44Command,
-  formatYaml,
-  runTask,
-  YAML_INDENT,
-} from "@/cli/utils/index.js";
+import { Base44Command, formatYaml, YAML_INDENT } from "@/cli/utils/index.js";
 import { listAvailableIntegrations } from "@/core/resources/connector/index.js";
 
 async function listAvailableAction({
   log,
+  runTask,
 }: CLIContext): Promise<RunCommandResult> {
   const { integrations } = await runTask(
     "Fetching available integrations from Base44",

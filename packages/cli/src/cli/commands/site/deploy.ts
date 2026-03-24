@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 import { confirm, isCancel } from "@clack/prompts";
 import type { Command } from "commander";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
-import { Base44Command, runTask } from "@/cli/utils/index.js";
+import { Base44Command } from "@/cli/utils/index.js";
 import { ConfigNotFoundError, InvalidInputError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/project/index.js";
 import { deploySite } from "@/core/site/index.js";
@@ -12,7 +12,7 @@ interface DeployOptions {
 }
 
 async function deployAction(
-  { isNonInteractive }: CLIContext,
+  { isNonInteractive, runTask }: CLIContext,
   options: DeployOptions,
 ): Promise<RunCommandResult> {
   if (isNonInteractive && !options.yes) {

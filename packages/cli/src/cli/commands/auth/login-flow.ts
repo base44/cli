@@ -1,7 +1,7 @@
 import type { Logger } from "@base44-cli/logger";
 import pWaitFor from "p-wait-for";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
-import { runTask } from "@/cli/utils/index.js";
+import type { RunTaskFn } from "@/cli/utils/runTask.js";
 import { theme } from "@/cli/utils/theme.js";
 import type {
   DeviceCodeResponse,
@@ -17,6 +17,7 @@ import {
 
 async function generateAndDisplayDeviceCode(
   log: Logger,
+  runTask: RunTaskFn,
 ): Promise<DeviceCodeResponse> {
   const deviceCodeResponse = await runTask(
     "Generating device code...",
@@ -41,6 +42,7 @@ async function waitForAuthentication(
   deviceCode: string,
   expiresIn: number,
   interval: number,
+  runTask: RunTaskFn,
 ): Promise<TokenResponse> {
   let tokenResponse: TokenResponse | undefined;
 
@@ -101,13 +103,17 @@ async function saveAuthData(
  * Execute the login flow (device code authentication).
  * This function is separate from the command to avoid circular dependencies.
  */
-export async function login({ log }: CLIContext): Promise<RunCommandResult> {
-  const deviceCodeResponse = await generateAndDisplayDeviceCode(log);
+export async function login({
+  log,
+  runTask,
+}: CLIContext): Promise<RunCommandResult> {
+  const deviceCodeResponse = await generateAndDisplayDeviceCode(log, runTask);
 
   const token = await waitForAuthentication(
     deviceCodeResponse.deviceCode,
     deviceCodeResponse.expiresIn,
     deviceCodeResponse.interval,
+    runTask,
   );
 
   const userInfo = await getUserInfo(token.accessToken);

@@ -1,12 +1,13 @@
 import { dirname, join } from "node:path";
 import type { Command } from "commander";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
-import { Base44Command, runTask } from "@/cli/utils/index.js";
+import { Base44Command } from "@/cli/utils/index.js";
 import { readProjectConfig } from "@/core/index.js";
 import { fetchAgents, writeAgents } from "@/core/resources/agent/index.js";
 
 async function pullAgentsAction({
   log,
+  runTask,
 }: CLIContext): Promise<RunCommandResult> {
   const { project } = await readProjectConfig();
 

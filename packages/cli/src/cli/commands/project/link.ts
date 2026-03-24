@@ -7,7 +7,6 @@ import {
   Base44Command,
   getDashboardUrl,
   onPromptCancel,
-  runTask,
   theme,
 } from "@/cli/utils/index.js";
 import {
@@ -130,7 +129,7 @@ async function link(
   ctx: CLIContext,
   options: LinkOptions,
 ): Promise<RunCommandResult> {
-  const { log, isNonInteractive } = ctx;
+  const { log, runTask, isNonInteractive } = ctx;
 
   const skipPrompts = !!options.create || !!options.projectId;
   if (!skipPrompts && isNonInteractive) {

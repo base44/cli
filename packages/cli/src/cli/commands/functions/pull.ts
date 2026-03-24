@@ -1,13 +1,13 @@
 import { dirname, join } from "node:path";
 import type { Command } from "commander";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
-import { Base44Command, runTask } from "@/cli/utils/index.js";
+import { Base44Command } from "@/cli/utils/index.js";
 import { readProjectConfig } from "@/core/index.js";
 import { listDeployedFunctions } from "@/core/resources/function/api.js";
 import { writeFunctions } from "@/core/resources/function/pull.js";
 
 async function pullFunctionsAction(
-  { log }: CLIContext,
+  { log, runTask }: CLIContext,
   name: string | undefined,
 ): Promise<RunCommandResult> {
   const { project } = await readProjectConfig();
