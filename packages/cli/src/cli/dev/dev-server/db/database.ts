@@ -5,7 +5,12 @@ import type { Entity } from "@/core/resources/entity/schema.js";
 import { getNowISOTimestamp } from "../utils.js";
 import { type EntityRecord, Validator } from "./validator.js";
 
+// Developer can't create collection with names that are not alphanumeric.
+const PRIVATE_COLLECTION_PREFIX = "$" as const;
+
 export const USER_COLLECTION = "user" as const;
+export const PRIVATE_USER_COLLECTION =
+  PRIVATE_COLLECTION_PREFIX + USER_COLLECTION;
 
 export class Database {
   private collections: Map<string, Datastore> = new Map();
@@ -35,6 +40,10 @@ export class Database {
 
     const collection = new Datastore();
     this.collections.set(USER_COLLECTION, collection);
+
+    // Private user collection will store data that is not accessible for the client.
+    // Data like password.
+    this.collections.set(PRIVATE_USER_COLLECTION, new Datastore());
 
     const userInfo = await readAuth();
     const now = getNowISOTimestamp();
@@ -84,8 +93,11 @@ export class Database {
     return this.collections.get(this.normalizeName(name));
   }
 
+  /** Returns public collection names: public = accessible to the user  */
   getCollectionNames(): string[] {
-    return Array.from(this.collections.keys());
+    return Array.from(this.collections.keys()).filter((name) => {
+      return !name.startsWith(PRIVATE_COLLECTION_PREFIX);
+    });
   }
 
   dropAll() {

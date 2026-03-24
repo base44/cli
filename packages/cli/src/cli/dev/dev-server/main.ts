@@ -16,6 +16,7 @@ import {
   broadcastEntityEvent,
   createRealtimeServer,
 } from "./realtime.js";
+import { createAuthRouter } from "./routes/auth-router.js";
 import { createEntityRoutes } from "./routes/entities/entities-router.js";
 import {
   createCustomIntegrationRoutes,
@@ -29,6 +30,7 @@ const BASE44_APP_URL = "https://base44.app";
 
 interface DevServerOptions {
   log: Logger;
+  cwd: string;
   port?: number;
   denoWrapperPath: string;
   loadResources: () => Promise<{
@@ -107,6 +109,9 @@ export async function createDevServer(
   );
   app.use("/api/apps/:appId/entities", entityRoutes);
 
+  const authRouter = createAuthRouter(db, devLogger);
+  app.use("/api/apps/:appId/auth", authRouter);
+
   const { path: mediaFilesDir } = await dir();
 
   app.use("/media/private/:fileUri", (req, res, next) => {
@@ -145,9 +150,12 @@ export async function createDevServer(
   app.use("/api/apps/:appId/integrations/custom", customIntegrationRoutes);
 
   app.use((req, res, next) => {
-    devLogger.warn(
-      `"${req.originalUrl}" is not supported in local development, passing call to production`,
-    );
+    // `analytics/track/batch` call is very common and makes logs unreadable while not providing informative value for the user
+    if (!req.originalUrl.endsWith("analytics/track/batch")) {
+      devLogger.warn(
+        `"${req.originalUrl}" is not supported in local development, passing call to production`,
+      );
+    }
     remoteProxy(req, res, next);
   });
 

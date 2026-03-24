@@ -10,51 +10,14 @@ import type {
   EntityEventType,
 } from "@/cli/dev/dev-server/realtime.js";
 import { stripInternalFields } from "@/cli/dev/dev-server/utils.js";
+import { InvalidInputError } from "@/core/errors.js";
+import { queryEntity } from "../../db/entity-queries.js";
 import { createUserRouter } from "./entities-user-router.js";
 
 interface EntityParams {
   appId: string;
   entityName: string;
   id?: string;
-}
-
-/**
- * Parse sort string into NeDB sort object.
- * "-field" → { field: -1 } (descending)
- * "field" → { field: 1 } (ascending)
- */
-function parseSort(
-  sort: string | undefined,
-): Record<string, 1 | -1> | undefined {
-  if (!sort) {
-    return undefined;
-  }
-
-  if (sort.startsWith("-")) {
-    return { [sort.slice(1)]: -1 };
-  }
-  return { [sort]: 1 };
-}
-
-/**
- * Parse fields string into NeDB projection object.
- * "a,b,c" → { a: 1, b: 1, c: 1 }
- */
-function parseFields(
-  fields: string | undefined,
-): Record<string, 1> | undefined {
-  if (!fields) {
-    return undefined;
-  }
-
-  const projection: Record<string, 1> = {};
-  for (const field of fields.split(",")) {
-    const trimmed = field.trim();
-    if (trimmed) {
-      projection[trimmed] = 1;
-    }
-  }
-  return Object.keys(projection).length > 0 ? projection : undefined;
 }
 
 export async function createEntityRoutes(
@@ -133,49 +96,14 @@ export async function createEntityRoutes(
       const { entityName } = req.params;
 
       try {
-        const { sort, limit, skip, fields, q } = req.query;
-
-        let query = {};
-        if (q && typeof q === "string") {
-          try {
-            query = JSON.parse(q);
-          } catch {
-            res.status(400).json({ error: "Invalid query parameter 'q'" });
-            return;
-          }
-        }
-
-        let cursor = collection.findAsync(query);
-
-        const sortObj = parseSort(sort as string | undefined);
-        if (sortObj) {
-          cursor = cursor.sort(sortObj);
-        }
-
-        if (skip) {
-          const skipNum = Number.parseInt(skip as string, 10);
-          if (!Number.isNaN(skipNum)) {
-            cursor = cursor.skip(skipNum);
-          }
-        }
-
-        if (limit) {
-          const limitNum = Number.parseInt(limit as string, 10);
-          if (!Number.isNaN(limitNum)) {
-            cursor = cursor.limit(limitNum);
-          }
-        }
-
-        const projection = parseFields(fields as string | undefined);
-        if (projection) {
-          cursor = cursor.projection(projection);
-        }
-
-        const docs = await cursor;
-        res.json(stripInternalFields(docs));
+        res.json(stripInternalFields(await queryEntity(collection, req.query)));
       } catch (error) {
-        logger.error(`Error in GET /${entityName}:`, error);
-        res.status(500).json({ error: "Internal server error" });
+        if (error instanceof InvalidInputError) {
+          res.status(400).json({ error: error.message });
+        } else {
+          logger.error(`Error in GET /${entityName}:`, error);
+          res.status(500).json({ error: "Internal server error" });
+        }
       }
     }),
   );

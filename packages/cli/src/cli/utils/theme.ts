@@ -19,6 +19,7 @@ export const theme = {
     dim: chalk.dim,
     error: chalk.red,
     warn: chalk.yellow,
+    info: chalk.cyan,
   },
   format: {
     errorContext(ctx: ErrorContext): string {

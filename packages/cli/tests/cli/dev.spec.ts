@@ -30,7 +30,14 @@ describe("dev command", () => {
     await t.givenLoggedInWithProject(fixture("full-project"));
 
     await writeFile(
-      join(t.getTempDir(), "project", "base44/functions/hello/index.ts"),
+      join(
+        t.getTempDir(),
+        "project",
+        "base44",
+        "functions",
+        "hello",
+        "index.ts",
+      ),
       `Deno.serve((req: Request) =>
   Response.json({
     authorization: req.headers.get("authorization"),

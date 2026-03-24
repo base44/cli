@@ -16,10 +16,13 @@ import {
   getNowISOTimestamp,
   stripInternalFields,
 } from "@/cli/dev/dev-server/utils.js";
+import { InvalidInputError } from "@/core/errors.js";
+import { queryEntity } from "../../db/entity-queries.js";
 
 type UserDocument = Document<{
   email: string;
   id: string;
+  role: "admin" | "user";
 }>;
 
 export function createUserRouter(db: Database, logger: DevLogger): Router {
@@ -96,6 +99,35 @@ export function createUserRouter(db: Database, logger: DevLogger): Router {
         is_sample: false,
         ...req.body,
       });
+    }),
+  );
+
+  router.get(
+    "/",
+    withAuth(async (req, res, currentUser) => {
+      const collection = db.getCollection(USER_COLLECTION);
+      if (!collection) {
+        res
+          .status(404)
+          .json({ error: `Entity "${USER_COLLECTION}" not found` });
+        return;
+      }
+
+      try {
+        if (currentUser.role === "admin") {
+          const result = await queryEntity(collection, req.query);
+          res.json(stripInternalFields(result));
+        } else {
+          res.json([stripInternalFields(currentUser)]);
+        }
+      } catch (error) {
+        if (error instanceof InvalidInputError) {
+          res.status(400).json({ error: error.message });
+        } else {
+          logger.error(`Error in GET /${USER_COLLECTION}:`, error);
+          res.status(500).json({ error: "Internal server error" });
+        }
+      }
     }),
   );
 
