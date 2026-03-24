@@ -21,5 +21,5 @@ export interface ProjectData {
   functions: BackendFunction[];
   agents: AgentConfig[];
   connectors: ConnectorResource[];
-  authConfig: AuthConfig | null;
+  authConfig: AuthConfig[];
 }

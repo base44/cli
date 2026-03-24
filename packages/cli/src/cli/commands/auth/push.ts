@@ -19,7 +19,7 @@ async function pushAuthAction(
 ): Promise<RunCommandResult> {
   const { authConfig } = await readProjectConfig();
 
-  if (!authConfig) {
+  if (authConfig.length === 0) {
     log.info("No local auth config found");
     return {
       outroMessage:
@@ -27,7 +27,7 @@ async function pushAuthAction(
     };
   }
 
-  if (!hasAnyLoginMethod(authConfig)) {
+  if (!hasAnyLoginMethod(authConfig[0])) {
     log.warn(
       "This config has no login methods enabled. Pushing it will lock out all users.",
     );
@@ -50,7 +50,7 @@ async function pushAuthAction(
   await runTask(
     "Pushing auth config to Base44",
     async () => {
-      return await pushAuthConfig(authConfig);
+      return await pushAuthConfig(authConfig[0] ?? null);
     },
     {
       successMessage: "Auth config pushed successfully",

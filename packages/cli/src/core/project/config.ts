@@ -5,7 +5,7 @@ import { ConfigNotFoundError, SchemaValidationError } from "@/core/errors.js";
 import { ProjectConfigSchema } from "@/core/project/schema.js";
 import type { ProjectData, ProjectRoot } from "@/core/project/types.js";
 import { agentResource } from "@/core/resources/agent/index.js";
-import { readAuthConfig } from "@/core/resources/auth-config/index.js";
+import { authConfigResource } from "@/core/resources/auth-config/index.js";
 import { connectorResource } from "@/core/resources/connector/index.js";
 import { entityResource } from "@/core/resources/entity/index.js";
 import { functionResource } from "@/core/resources/function/index.js";
@@ -99,7 +99,7 @@ export async function readProjectConfig(
       functionResource.readAll(join(configDir, project.functionsDir)),
       agentResource.readAll(join(configDir, project.agentsDir)),
       connectorResource.readAll(join(configDir, project.connectorsDir)),
-      readAuthConfig(join(configDir, project.authDir)),
+      authConfigResource.readAll(join(configDir, project.authDir)),
     ]);
 
   return {

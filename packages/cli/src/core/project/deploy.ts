@@ -1,7 +1,7 @@
 import { resolve } from "node:path";
 import type { ProjectData } from "@/core/project/types.js";
 import { agentResource } from "@/core/resources/agent/index.js";
-import { pushAuthConfig } from "@/core/resources/auth-config/index.js";
+import { authConfigResource } from "@/core/resources/auth-config/index.js";
 import {
   type ConnectorSyncResult,
   pushConnectors,
@@ -27,7 +27,7 @@ export function hasResourcesToDeploy(projectData: ProjectData): boolean {
   const hasFunctions = functions.length > 0;
   const hasAgents = agents.length > 0;
   const hasConnectors = connectors.length > 0;
-  const hasAuthConfig = authConfig !== null;
+  const hasAuthConfig = authConfig.length > 0;
 
   return (
     hasEntities ||
@@ -78,9 +78,7 @@ export async function deployAll(
     onResult: options?.onFunctionResult,
   });
   await agentResource.push(agents);
-  if (authConfig) {
-    await pushAuthConfig(authConfig);
-  }
+  await authConfigResource.push(authConfig);
   const { results: connectorResults } = await pushConnectors(connectors);
 
   if (project.site?.outputDirectory) {
