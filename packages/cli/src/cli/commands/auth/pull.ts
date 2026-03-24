@@ -1,7 +1,6 @@
 import { dirname, join } from "node:path";
-import { log } from "@clack/prompts";
 import type { Command } from "commander";
-import type { RunCommandResult } from "@/cli/types.js";
+import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, runTask } from "@/cli/utils/index.js";
 import { readProjectConfig } from "@/core/project/index.js";
 import {
@@ -9,7 +8,7 @@ import {
   writeAuthConfig,
 } from "@/core/resources/auth-config/index.js";
 
-async function pullAuthAction(): Promise<RunCommandResult> {
+async function pullAuthAction({ log }: CLIContext): Promise<RunCommandResult> {
   const { project } = await readProjectConfig();
 
   const configDir = dirname(project.configPath);

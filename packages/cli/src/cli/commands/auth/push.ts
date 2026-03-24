@@ -1,6 +1,6 @@
-import { confirm, isCancel, log } from "@clack/prompts";
+import { confirm, isCancel } from "@clack/prompts";
 import type { Command } from "commander";
-import type { RunCommandResult } from "@/cli/types.js";
+import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, runTask } from "@/cli/utils/index.js";
 import { InvalidInputError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/project/index.js";
@@ -14,8 +14,8 @@ interface PushAuthOptions {
 }
 
 async function pushAuthAction(
+  { isNonInteractive, log }: CLIContext,
   options: PushAuthOptions,
-  command: Base44Command,
 ): Promise<RunCommandResult> {
   const { authConfig } = await readProjectConfig();
 
@@ -34,7 +34,7 @@ async function pushAuthAction(
   }
 
   if (!options.yes) {
-    if (command.isNonInteractive) {
+    if (isNonInteractive) {
       throw new InvalidInputError("--yes is required in non-interactive mode");
     }
 
@@ -67,7 +67,5 @@ export function getAuthPushCommand(): Command {
   return new Base44Command("push")
     .description("Push local auth config to Base44")
     .option("-y, --yes", "Skip confirmation prompt")
-    .action(async (options: PushAuthOptions, command: Base44Command) => {
-      return await pushAuthAction(options, command);
-    });
+    .action(pushAuthAction);
 }

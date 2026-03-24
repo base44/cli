@@ -1,7 +1,6 @@
 import { dirname, join } from "node:path";
-import { log } from "@clack/prompts";
 import type { Command } from "commander";
-import type { RunCommandResult } from "@/cli/types.js";
+import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, runTask } from "@/cli/utils/index.js";
 import { InvalidInputError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/project/index.js";
@@ -35,7 +34,10 @@ function validateAction(
   }
 }
 
-async function passwordLoginAction(action: string): Promise<RunCommandResult> {
+async function passwordLoginAction(
+  { log }: CLIContext,
+  action: string,
+): Promise<RunCommandResult> {
   validateAction(action);
 
   const shouldEnable = action === "enable";
@@ -67,7 +69,5 @@ export function getPasswordLoginCommand(): Command {
   return new Base44Command("password-login")
     .description("Enable or disable username & password authentication")
     .argument("<enable|disable>", "enable or disable password authentication")
-    .action(async (action: string) => {
-      return passwordLoginAction(action);
-    });
+    .action(passwordLoginAction);
 }
