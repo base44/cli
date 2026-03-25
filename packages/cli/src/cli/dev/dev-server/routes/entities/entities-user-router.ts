@@ -3,7 +3,7 @@ import type { Request, Response, Router } from "express";
 import { Router as createRouter, json } from "express";
 import jwt from "jsonwebtoken";
 import { nanoid } from "nanoid";
-import type { Logger } from "@/cli/dev/createDevLogger.js";
+import type { DevLogger } from "@/cli/dev/createDevLogger.js";
 import { type Database, USER_COLLECTION } from "../../db/database.js";
 import {
   type EntityRecord,
@@ -16,7 +16,7 @@ type UserDocument = Document<{
   id: string;
 }>;
 
-export function createUserRouter(db: Database, logger: Logger): Router {
+export function createUserRouter(db: Database, logger: DevLogger): Router {
   const router = createRouter({ mergeParams: true });
   const parseBody = json();
 

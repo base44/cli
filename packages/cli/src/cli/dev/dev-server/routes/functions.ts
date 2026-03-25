@@ -3,12 +3,12 @@ import { ServerResponse } from "node:http";
 import type { Request, Response } from "express";
 import { Router } from "express";
 import { createProxyMiddleware } from "http-proxy-middleware";
-import type { Logger } from "../../createDevLogger.js";
+import type { DevLogger } from "../../createDevLogger.js";
 import type { FunctionManager } from "../function-manager.js";
 
 export function createFunctionRouter(
   manager: FunctionManager,
-  logger: Logger,
+  logger: DevLogger,
 ): Router {
   const router = Router({ mergeParams: true });
   const portsByRequest = new WeakMap<IncomingMessage, number>();

@@ -4,7 +4,7 @@ import getPort from "get-port";
 import { InternalError, InvalidInputError } from "@/core/errors.js";
 import type { BackendFunction } from "@/core/resources/function/schema.js";
 import { verifyDenoInstalled } from "@/core/utils/index.js";
-import type { Logger } from "../createDevLogger";
+import type { DevLogger } from "../createDevLogger";
 
 const READY_TIMEOUT = 30000;
 
@@ -18,12 +18,12 @@ export class FunctionManager {
   private functions: Map<string, BackendFunction>;
   private running: Map<string, RunningFunction> = new Map();
   private starting: Map<string, Promise<number>> = new Map();
-  private logger: Logger;
+  private logger: DevLogger;
   private wrapperPath: string;
 
   constructor(
     functions: BackendFunction[],
-    logger: Logger,
+    logger: DevLogger,
     wrapperPath: string,
   ) {
     this.functions = new Map(functions.map((f) => [f.name, f]));

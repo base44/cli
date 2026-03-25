@@ -2,7 +2,7 @@ import type Datastore from "@seald-io/nedb";
 import type { Request, Response, Router } from "express";
 import { Router as createRouter, json } from "express";
 import { nanoid } from "nanoid";
-import type { Logger } from "../../../createDevLogger.js";
+import type { DevLogger } from "../../../createDevLogger.js";
 import type { Database } from "../../db/database.js";
 import { EntityValidationError } from "../../db/validator.js";
 import type { BroadcastEntityEvent, EntityEventType } from "../../realtime.js";
@@ -56,7 +56,7 @@ function parseFields(
 
 export async function createEntityRoutes(
   db: Database,
-  logger: Logger,
+  logger: DevLogger,
   broadcast: BroadcastEntityEvent,
 ): Promise<Router> {
   const router = createRouter({ mergeParams: true });

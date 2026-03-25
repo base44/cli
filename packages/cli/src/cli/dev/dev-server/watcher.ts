@@ -3,7 +3,7 @@ import { relative } from "node:path";
 import { type FSWatcher, watch } from "chokidar";
 import debounce from "lodash/debounce";
 import { pathExists } from "@/core/utils/fs.js";
-import type { Logger } from "../createDevLogger.js";
+import type { DevLogger } from "../createDevLogger.js";
 
 const WATCH_DEBOUNCE_MS = 300;
 const WATCH_QUEUE_DELAY_MS = 500;
@@ -21,7 +21,7 @@ export class WatchBase44<T extends string> extends EventEmitter<
 
   constructor(
     private itemsToWatch: Record<T, string>,
-    private logger: Logger,
+    private logger: DevLogger,
   ) {
     super();
     this.entryNames = Object.keys(itemsToWatch) as T[];

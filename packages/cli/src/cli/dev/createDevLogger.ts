@@ -2,10 +2,10 @@ import { theme } from "@/cli/utils/theme";
 
 type LogType = "log" | "error" | "warn";
 
-export interface Logger {
-  log: (msg: string) => void;
+export interface DevLogger {
+  log: (...args: unknown[]) => void;
   error: (msg: string, err?: unknown) => void;
-  warn: (msg: string) => void;
+  warn: (...args: unknown[]) => void;
 }
 
 const colorByType: Record<LogType, (text: string) => string> = {
@@ -14,20 +14,24 @@ const colorByType: Record<LogType, (text: string) => string> = {
   log: (text: string) => text,
 };
 
-export function createDevLogger(): Logger {
-  const print = (type: LogType, msg: string) => {
+export function createDevLogger(): DevLogger {
+  const print = (type: LogType, ...args: unknown[]) => {
     const colorize = colorByType[type];
-    console[type](colorize(msg));
+    console[type](
+      ...args.map((item) => {
+        return colorize(`${item}`);
+      }),
+    );
   };
 
   return {
-    log: (msg: string) => print("log", msg),
+    log: (...args: unknown[]) => print("log", ...args),
     error: (msg: string, err?: unknown) => {
       print("error", msg);
       if (err) {
         print("error", String(err));
       }
     },
-    warn: (msg: string) => print("warn", msg),
+    warn: (...args: unknown[]) => print("warn", ...args),
   };
 }
