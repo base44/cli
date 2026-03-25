@@ -71,7 +71,7 @@ export function createProgram(context: CLIContext): Command {
   program.addCommand(getSecretsCommand());
 
   // Register auth config commands
-  program.addCommand(getAuthCommand(), { hidden: true });
+  program.addCommand(getAuthCommand());
 
   // Register site commands
   program.addCommand(getSiteCommand());
