@@ -4,7 +4,7 @@ import getPort from "get-port";
 import { InternalError, InvalidInputError } from "@/core/errors.js";
 import type { BackendFunction } from "@/core/resources/function/schema.js";
 import { verifyDenoInstalled } from "@/core/utils/index.js";
-import type { DevLogger } from "../createDevLogger";
+import type { DevLogger } from "../createDevLogger.js";
 
 const READY_TIMEOUT = 30000;
 

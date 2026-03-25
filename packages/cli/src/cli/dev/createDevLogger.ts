@@ -14,12 +14,15 @@ const colorByType: Record<LogType, (text: string) => string> = {
   log: (text: string) => text,
 };
 
+const stringify = (item: unknown): string =>
+  typeof item === "string" ? item : (JSON.stringify(item) ?? String(item));
+
 export function createDevLogger(): DevLogger {
   const print = (type: LogType, ...args: unknown[]) => {
     const colorize = colorByType[type];
     console[type](
       ...args.map((item) => {
-        return colorize(`${item}`);
+        return colorize(stringify(item));
       }),
     );
   };
