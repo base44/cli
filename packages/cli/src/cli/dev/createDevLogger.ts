@@ -14,8 +14,15 @@ const colorByType: Record<LogType, (text: string) => string> = {
   log: (text: string) => text,
 };
 
-const stringify = (item: unknown): string =>
-  typeof item === "string" ? item : (JSON.stringify(item) ?? String(item));
+const stringify = (item: unknown): string => {
+  if (typeof item === "string") {
+    return item;
+  }
+  if (item instanceof Error) {
+    return item.toString();
+  }
+  return JSON.stringify(item) ?? String(item);
+};
 
 export function createDevLogger(): DevLogger {
   const print = (type: LogType, ...args: unknown[]) => {
