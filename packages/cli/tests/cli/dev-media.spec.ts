@@ -1,76 +1,53 @@
-import { describe, expect, it } from "vitest";
+import { type Base44Client, createClient } from "@base44/sdk";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { waitForDevServer } from "./testkit/dev-utils.js";
-import { fixture, setupCLITests } from "./testkit/index.js";
+import { fixture, type RunLiveHandle, setupCLITests } from "./testkit/index.js";
 
 describe("media in dev", () => {
   const t = setupCLITests();
+  let handle: RunLiveHandle;
+  let base44: Base44Client;
 
-  it("should upload public file and serve it", async () => {
+  beforeEach(async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
 
-    const handle = await t.runLive("dev");
-    const url = await waitForDevServer(handle);
+    handle = await t.runLive("dev");
+    const serverUrl = await waitForDevServer(handle);
 
-    const form = new FormData();
-    form.append(
-      "file",
-      new Blob(["hello world"], { type: "text/plain" }),
-      "test.txt",
-    );
+    base44 = createClient({
+      appId: t.kit.api.appId,
+      serverUrl,
+    });
+  });
 
-    const uploadRes = await fetch(
-      `${url}/api/apps/${t.kit.api.appId}/integration-endpoints/Core/UploadFile`,
-      { method: "POST", body: form },
-    );
-    expect(uploadRes.status).toBe(200);
+  afterEach(async () => {
+    const result = await handle.stop();
+    t.expectResult(result).toSucceed();
+  });
 
-    const { file_url } = (await uploadRes.json()) as { file_url: string };
+  it("should upload public file and serve it", async () => {
+    const file = new File(["hello world"], "test.txt", { type: "text/plain" });
+    const { file_url } = await base44.integrations.Core.UploadFile({ file });
     expect(file_url).toMatch(/\/media\/.+\.txt$/);
 
     const fileRes = await fetch(file_url);
     expect(fileRes.status).toBe(200);
     expect(await fileRes.text()).toBe("hello world");
-
-    const result = await handle.stop();
-    t.expectResult(result).toSucceed();
   });
 
   it("should upload secret file and serve it with token", async () => {
-    await t.givenLoggedInWithProject(fixture("basic"));
-
-    const handle = await t.runLive("dev");
-    const url = await waitForDevServer(handle);
-
-    const form = new FormData();
-    form.append(
-      "file",
-      new Blob(["secret content"], { type: "text/plain" }),
-      "secret.txt",
-    );
-
-    const uploadRes = await fetch(
-      `${url}/api/apps/${t.kit.api.appId}/integration-endpoints/Core/UploadPrivateFile`,
-      { method: "POST", body: form },
-    );
-    expect(uploadRes.status).toBe(200);
-
-    const { file_uri } = (await uploadRes.json()) as { file_uri: string };
+    const file = new File(["secret content"], "secret.txt", {
+      type: "text/plain",
+    });
+    const { file_uri } = await base44.integrations.Core.UploadPrivateFile({
+      file,
+    });
     expect(file_uri).toMatch(/\.txt$/);
 
     // Get a signed URL for the private file
-    const signedUrlRes = await fetch(
-      `${url}/api/apps/${t.kit.api.appId}/integration-endpoints/Core/CreateFileSignedUrl`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ file_uri }),
-      },
-    );
-    expect(signedUrlRes.status).toBe(200);
-
-    const { signed_url } = (await signedUrlRes.json()) as {
-      signed_url: string;
-    };
+    const { signed_url } = await base44.integrations.Core.CreateFileSignedUrl({
+      file_uri,
+    });
     expect(signed_url).toContain("/media/private/");
     expect(signed_url).toContain("token=");
 
@@ -94,8 +71,5 @@ describe("media in dev", () => {
     expect(noTokenRes.status).toBe(401);
     const noTokenBody = (await noTokenRes.json()) as { error: string };
     expect(noTokenBody.error).toBe("Missing token");
-
-    const result = await handle.stop();
-    t.expectResult(result).toSucceed();
   });
 });

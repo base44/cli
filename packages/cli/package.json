@@ -40,6 +40,7 @@
   },
   "devDependencies": {
     "@base44-cli/logger": "workspace:*",
+    "@base44/sdk": "^0.8.23",
     "@clack/prompts": "^1.0.1",
     "@seald-io/nedb": "^4.1.2",
     "@types/bun": "^1.2.15",
