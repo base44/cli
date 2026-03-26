@@ -4,14 +4,14 @@ type LogType = "log" | "error" | "warn";
 
 export interface DevLogger {
   log: (...args: unknown[]) => void;
-  error: (msg: string, err?: unknown) => void;
+  error: (msg: unknown, err?: unknown) => void;
   warn: (...args: unknown[]) => void;
 }
 
-const colorByType: Record<LogType, (text: string) => string> = {
+const colorByType: Record<LogType, (text: unknown) => unknown> = {
   error: theme.styles.error,
   warn: theme.styles.warn,
-  log: (text: string) => text,
+  log: (input: unknown) => input,
 };
 
 const stringify = (item: unknown): string => {
@@ -21,7 +21,11 @@ const stringify = (item: unknown): string => {
   if (item instanceof Error) {
     return item.toString();
   }
-  return JSON.stringify(item) ?? String(item);
+  try {
+    return JSON.stringify(item) ?? String(item);
+  } catch {
+    return String(item);
+  }
 };
 
 export function createDevLogger(): DevLogger {
@@ -36,10 +40,10 @@ export function createDevLogger(): DevLogger {
 
   return {
     log: (...args: unknown[]) => print("log", ...args),
-    error: (msg: string, err?: unknown) => {
+    error: (msg: unknown, err?: unknown) => {
       print("error", msg);
       if (err) {
-        print("error", String(err));
+        print("error", err);
       }
     },
     warn: (...args: unknown[]) => print("warn", ...args),
