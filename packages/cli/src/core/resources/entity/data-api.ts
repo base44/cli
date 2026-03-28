@@ -1,14 +1,22 @@
 import type { KyResponse } from "ky";
+import { z } from "zod";
 import { getAppClient } from "@/core/clients/index.js";
-import { ApiError } from "@/core/errors.js";
+import { ApiError, SchemaValidationError } from "@/core/errors.js";
 
-export interface EntityRecord {
-  id: string;
-  created_date: string;
-  updated_date?: string;
-  created_by?: string;
-  [key: string]: unknown;
-}
+const EntityRecordSchema = z
+  .object({
+    id: z.string(),
+    created_date: z.string(),
+  })
+  .passthrough();
+
+const EntityRecordListSchema = z.array(EntityRecordSchema);
+
+const CountResponseSchema = z.object({
+  count: z.number(),
+});
+
+export type EntityRecord = z.infer<typeof EntityRecordSchema>;
 
 export interface ListEntityRecordsOptions {
   limit?: number;
@@ -46,7 +54,14 @@ export async function listEntityRecords(
     );
   }
 
-  return (await response.json()) as EntityRecord[];
+  const result = EntityRecordListSchema.safeParse(await response.json());
+  if (!result.success) {
+    throw new SchemaValidationError(
+      "Invalid response from server",
+      result.error,
+    );
+  }
+  return result.data;
 }
 
 export async function getEntityRecord(
@@ -68,7 +83,14 @@ export async function getEntityRecord(
     );
   }
 
-  return (await response.json()) as EntityRecord;
+  const result = EntityRecordSchema.safeParse(await response.json());
+  if (!result.success) {
+    throw new SchemaValidationError(
+      "Invalid response from server",
+      result.error,
+    );
+  }
+  return result.data;
 }
 
 export async function countEntityRecords(
@@ -89,6 +111,12 @@ export async function countEntityRecords(
     );
   }
 
-  const data = (await response.json()) as { count: number };
-  return data.count;
+  const result = CountResponseSchema.safeParse(await response.json());
+  if (!result.success) {
+    throw new SchemaValidationError(
+      "Invalid response from server",
+      result.error,
+    );
+  }
+  return result.data.count;
 }

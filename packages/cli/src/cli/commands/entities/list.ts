@@ -1,6 +1,7 @@
 import type { Command } from "commander";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, runTask, theme } from "@/cli/utils/index.js";
+import { InvalidInputError } from "@/core/errors.js";
 import {
   type EntityRecord,
   type ListEntityRecordsOptions,
@@ -51,11 +52,34 @@ function pickDisplayFields(records: EntityRecord[]): string[] {
   return [...systemFields, ...dataFields];
 }
 
+function validateLimit(limit: string | undefined): void {
+  if (limit === undefined) return;
+  const n = Number.parseInt(limit, 10);
+  if (Number.isNaN(n) || n < 1) {
+    throw new InvalidInputError(
+      `Invalid limit: "${limit}". Must be a positive integer.`,
+    );
+  }
+}
+
+function validateSkip(skip: string | undefined): void {
+  if (skip === undefined) return;
+  const n = Number.parseInt(skip, 10);
+  if (Number.isNaN(n) || n < 0) {
+    throw new InvalidInputError(
+      `Invalid skip: "${skip}". Must be a non-negative integer.`,
+    );
+  }
+}
+
 async function listAction(
   { log }: CLIContext,
   entityName: string,
   options: ListOptions,
 ): Promise<RunCommandResult> {
+  validateLimit(options.limit);
+  validateSkip(options.skip);
+
   const apiOptions: ListEntityRecordsOptions = {};
 
   if (options.limit) {

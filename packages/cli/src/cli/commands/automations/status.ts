@@ -27,9 +27,11 @@ async function statusAction({
   );
 
   let totalAutomations = 0;
+  let functionsWithAutomations = 0;
 
   for (const fn of functions) {
     if (fn.automations.length === 0) continue;
+    functionsWithAutomations++;
 
     for (const automation of fn.automations) {
       totalAutomations++;
@@ -50,7 +52,7 @@ async function statusAction({
   }
 
   return {
-    outroMessage: `${totalAutomations} automation${totalAutomations !== 1 ? "s" : ""} across ${functions.length} function${functions.length !== 1 ? "s" : ""}`,
+    outroMessage: `${totalAutomations} automation${totalAutomations !== 1 ? "s" : ""} across ${functionsWithAutomations} function${functionsWithAutomations !== 1 ? "s" : ""}`,
   };
 }
 
