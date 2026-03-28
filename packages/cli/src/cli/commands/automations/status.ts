@@ -17,9 +17,7 @@ function formatAutomationType(automation: {
   return automation.type;
 }
 
-async function statusAction({
-  log,
-}: CLIContext): Promise<RunCommandResult> {
+async function statusAction({ log }: CLIContext): Promise<RunCommandResult> {
   const { functions } = await runTask(
     "Fetching automations...",
     async () => listDeployedFunctions(),

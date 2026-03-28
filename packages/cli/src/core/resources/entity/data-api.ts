@@ -93,9 +93,7 @@ export async function getEntityRecord(
   return result.data;
 }
 
-export async function countEntityRecords(
-  entityName: string,
-): Promise<number> {
+export async function countEntityRecords(entityName: string): Promise<number> {
   const appClient = getAppClient();
 
   let response: KyResponse;

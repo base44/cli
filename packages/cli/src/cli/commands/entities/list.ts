@@ -123,7 +123,10 @@ export function getEntitiesListCommand(): Command {
   return new Base44Command("list")
     .description("List entity records")
     .argument("<entityName>", "Name of the entity")
-    .option("-n, --limit <n>", "Maximum number of records to return (default: 10)")
+    .option(
+      "-n, --limit <n>",
+      "Maximum number of records to return (default: 10)",
+    )
     .option("--sort <field>", "Field to sort by")
     .option("--skip <n>", "Number of records to skip")
     .action(listAction);
