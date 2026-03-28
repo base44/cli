@@ -6,7 +6,8 @@ import { getLogoutCommand } from "@/cli/commands/auth/logout.js";
 import { getWhoamiCommand } from "@/cli/commands/auth/whoami.js";
 import { getConnectorsCommand } from "@/cli/commands/connectors/index.js";
 import { getDashboardCommand } from "@/cli/commands/dashboard/index.js";
-import { getEntitiesPushCommand } from "@/cli/commands/entities/push.js";
+import { getAutomationsCommand } from "@/cli/commands/automations/index.js";
+import { getEntitiesCommand } from "@/cli/commands/entities/index.js";
 import { getFunctionsCommand } from "@/cli/commands/functions/index.js";
 import { getCreateCommand } from "@/cli/commands/project/create.js";
 import { getDeployCommand } from "@/cli/commands/project/deploy.js";
@@ -56,7 +57,7 @@ export function createProgram(context: CLIContext): Command {
   program.addCommand(getEjectCommand());
 
   // Register entities commands
-  program.addCommand(getEntitiesPushCommand());
+  program.addCommand(getEntitiesCommand());
 
   // Register agents commands
   program.addCommand(getAgentsCommand());
@@ -78,6 +79,9 @@ export function createProgram(context: CLIContext): Command {
 
   // Register types command
   program.addCommand(getTypesCommand());
+
+  // Register automations commands
+  program.addCommand(getAutomationsCommand());
 
   // Register exec command
   program.addCommand(getExecCommand());
