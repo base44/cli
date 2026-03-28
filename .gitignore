@@ -86,3 +86,6 @@ error-reports/
 
 # Claude Code
 .claude/worktrees/
+
+# Superset
+.superset/

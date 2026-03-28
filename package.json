@@ -5,6 +5,7 @@
   "author": "",
   "license": "MIT",
   "scripts": {
+    "build": "bun run --parallel --filter \"*\" build",
     "lint": "biome check packages/*/src packages/*/tests",
     "lint:fix": "biome check --write packages/*/src packages/*/tests",
     "knip": "knip",
