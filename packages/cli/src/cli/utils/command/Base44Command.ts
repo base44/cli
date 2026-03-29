@@ -123,9 +123,15 @@ export class Base44Command extends Command {
         }
         if (this._commandOptions.requireAppConfig) {
           await ensureAppConfig(this.context);
+          const errorReporter = this.context.errorReporter;
           skillCheckPromise = startSkillVersionCheck(
             getAppConfig().projectRoot,
-          );
+          ).catch((error) => {
+            errorReporter.captureException(
+              error instanceof Error ? error : new Error(String(error)),
+            );
+            return null;
+          });
         }
 
         const result = ((await fn(this.context, ...args)) ??

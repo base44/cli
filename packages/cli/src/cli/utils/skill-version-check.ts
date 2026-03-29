@@ -85,8 +85,8 @@ async function checkSkillVersions(
 
 export function startSkillVersionCheck(
   projectRoot: string,
-): Promise<StaleSkillInfo[] | null> {
-  return checkSkillVersions(projectRoot).catch(() => null);
+): Promise<StaleSkillInfo[]> {
+  return checkSkillVersions(projectRoot);
 }
 
 function formatSkillWarning(staleSkills: StaleSkillInfo[]): string {
