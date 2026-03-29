@@ -256,7 +256,9 @@ export class CLITestkit {
         }
 
         const result = await childPromise;
-        stoppedWithCode = result.exitCode ?? 1;
+        const wasKilledByUs =
+          result.signal === "SIGINT" || result.signal === "SIGKILL";
+        stoppedWithCode = result.exitCode ?? (wasKilledByUs ? 0 : 1);
         return buildResult(stoppedWithCode);
       },
     };
