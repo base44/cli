@@ -33,8 +33,10 @@ export async function showCommandEnd(
   result: RunCommandResult,
   options: CommandEndOptions,
 ): Promise<void> {
-  await printUpgradeNotification(options.upgradeCheck, options.distribution);
-  await printSkillVersionWarning(options.skillCheck);
+  await Promise.all([
+    printUpgradeNotification(options.upgradeCheck, options.distribution),
+    printSkillVersionWarning(options.skillCheck),
+  ]);
   outro(result.outroMessage || "");
 
   if (result.stdout) {

@@ -37,7 +37,7 @@ async function listInstalledSkills(
   const { stdout } = await execa("npx", ["-y", "skills", "list", "--json"], {
     cwd,
     timeout: 3000,
-    env: { ...process.env, CI: "1" },
+    env: { CI: "1" },
   });
 
   // npx may emit non-JSON preamble (download progress, warnings) before the array

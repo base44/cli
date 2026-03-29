@@ -144,13 +144,15 @@ export class Base44Command extends Command {
           if (result.stdout) {
             process.stdout.write(result.stdout);
           }
-          const upgradeInfo = await upgradeCheckPromise;
+          const [upgradeInfo, staleSkills] = await Promise.all([
+            upgradeCheckPromise,
+            skillCheckPromise,
+          ]);
           if (upgradeInfo) {
             process.stderr.write(
               `${formatPlainUpgradeMessage(upgradeInfo, this.context.distribution)}\n`,
             );
           }
-          const staleSkills = await skillCheckPromise;
           if (staleSkills && staleSkills.length > 0) {
             process.stderr.write(`${formatPlainSkillWarning(staleSkills)}\n`);
           }
