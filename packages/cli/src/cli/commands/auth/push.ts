@@ -1,7 +1,7 @@
 import { confirm, isCancel } from "@clack/prompts";
 import type { Command } from "commander";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
-import { Base44Command, runTask } from "@/cli/utils/index.js";
+import { Base44Command } from "@/cli/utils/index.js";
 import { InvalidInputError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/project/index.js";
 import {
@@ -14,7 +14,7 @@ interface PushAuthOptions {
 }
 
 async function pushAuthAction(
-  { isNonInteractive, log }: CLIContext,
+  { isNonInteractive, log, runTask }: CLIContext,
   options: PushAuthOptions,
 ): Promise<RunCommandResult> {
   const { authConfig } = await readProjectConfig();

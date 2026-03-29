@@ -1,7 +1,7 @@
 import { dirname, join } from "node:path";
 import type { Command } from "commander";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
-import { Base44Command, runTask } from "@/cli/utils/index.js";
+import { Base44Command } from "@/cli/utils/index.js";
 import { InvalidInputError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/project/index.js";
 import {
@@ -35,7 +35,7 @@ function validateAction(
 }
 
 async function passwordLoginAction(
-  { log }: CLIContext,
+  { log, runTask }: CLIContext,
   action: string,
 ): Promise<RunCommandResult> {
   validateAction(action);

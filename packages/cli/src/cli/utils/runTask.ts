@@ -31,9 +31,6 @@ export function createInteractiveRunTask(): RunTaskFn {
   };
 }
 
-/**
- * Creates a RunTaskFn that delegates to the provided logger for non-interactive environments.
- */
 export function createSimpleRunTask(log: Logger): RunTaskFn {
   return async (startMessage, operation, options) => {
     log.info(startMessage);
