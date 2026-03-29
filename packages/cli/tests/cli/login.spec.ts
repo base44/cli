@@ -40,4 +40,39 @@ describe("login command", () => {
     expect(authData?.name).toBe("Logged In User");
     expect(authData?.expiresAt).toBeGreaterThan(Date.now());
   });
+
+  it("fails with AuthExpiredError when user does not complete login in time", async () => {
+    t.api.mockDeviceCode({
+      device_code: "test-device-code",
+      user_code: "ABCD-1234",
+      verification_uri: "https://app.base44.com/device",
+      expires_in: 1,
+      interval: 1,
+    });
+    // Token endpoint always returns "authorization_pending" so pWaitFor never resolves
+    t.api.mockRoute("POST", "/oauth/token", (_req, res) => {
+      res.status(403).json({
+        error: "authorization_pending",
+        error_description: "The user has not yet completed authorization.",
+      });
+    });
+
+    const result = await t.run("login");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("Authentication timed out");
+    t.expectResult(result).toContain("base44 login");
+  });
+
+  it("fails when device code generation returns an API error", async () => {
+    t.api.mockError("post", "/oauth/device/code", {
+      status: 500,
+      body: { error: "Internal Server Error" },
+    });
+
+    const result = await t.run("login");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("Failed to generate device code");
+  });
 });

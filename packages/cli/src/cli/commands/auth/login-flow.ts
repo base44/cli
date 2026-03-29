@@ -14,6 +14,7 @@ import {
   getUserInfo,
   writeAuth,
 } from "@/core/auth/index.js";
+import { AuthExpiredError, InternalError } from "@/core/errors.js";
 
 async function generateAndDisplayDeviceCode(
   log: Logger,
@@ -72,13 +73,13 @@ async function waitForAuthentication(
     );
   } catch (error) {
     if (error instanceof Error && error.message.includes("timed out")) {
-      throw new Error("Authentication timed out. Please try again.");
+      throw new AuthExpiredError("Authentication timed out. Please try again.");
     }
     throw error;
   }
 
   if (tokenResponse === undefined) {
-    throw new Error("Failed to retrieve authentication token.");
+    throw new InternalError("Failed to retrieve authentication token.");
   }
 
   return tokenResponse;
