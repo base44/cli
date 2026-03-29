@@ -135,7 +135,7 @@ export async function writeAgents(
     const filePath =
       existing?.filePath ??
       findAvailablePath(agentsDir, agent.name, claimedPaths);
-    claimedPaths.add(filePath);
+    claimedPaths.add(normalize(filePath));
     await writeJsonFile(filePath, agent);
     written.push(agent.name);
   }
