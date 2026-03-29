@@ -4,7 +4,7 @@ import path from "node:path";
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import { json, Router } from "express";
 import multer from "multer";
-import type { DevLogger } from "../../createDevLogger.js";
+import type { DevLogger } from "@/cli/dev/createDevLogger.js";
 
 export function createFileToken(fileUri: string): string {
   return createHash("sha256").update(fileUri).digest("hex");

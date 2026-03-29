@@ -2,11 +2,14 @@ import type Datastore from "@seald-io/nedb";
 import type { Request, Response, Router } from "express";
 import { Router as createRouter, json } from "express";
 import { nanoid } from "nanoid";
-import type { DevLogger } from "../../../createDevLogger.js";
-import type { Database } from "../../db/database.js";
-import { EntityValidationError } from "../../db/validator.js";
-import type { BroadcastEntityEvent, EntityEventType } from "../../realtime.js";
-import { stripInternalFields } from "../../utils.js";
+import type { DevLogger } from "@/cli/dev/createDevLogger.js";
+import type { Database } from "@/cli/dev/dev-server/db/database.js";
+import { EntityValidationError } from "@/cli/dev/dev-server/db/validator.js";
+import type {
+  BroadcastEntityEvent,
+  EntityEventType,
+} from "@/cli/dev/dev-server/realtime.js";
+import { stripInternalFields } from "@/cli/dev/dev-server/utils.js";
 import { createUserRouter } from "./entities-user-router.js";
 
 interface EntityParams {

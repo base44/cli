@@ -3,8 +3,8 @@ import { ServerResponse } from "node:http";
 import type { Request, Response } from "express";
 import { Router } from "express";
 import { createProxyMiddleware } from "http-proxy-middleware";
-import type { DevLogger } from "../../createDevLogger.js";
-import type { FunctionManager } from "../function-manager.js";
+import type { DevLogger } from "@/cli/dev/createDevLogger.js";
+import type { FunctionManager } from "@/cli/dev/dev-server/function-manager.js";
 
 export function createFunctionRouter(
   manager: FunctionManager,

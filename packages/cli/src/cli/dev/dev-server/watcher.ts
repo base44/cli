@@ -2,8 +2,8 @@ import { EventEmitter } from "node:events";
 import { relative } from "node:path";
 import { type FSWatcher, watch } from "chokidar";
 import debounce from "lodash/debounce";
+import type { DevLogger } from "@/cli/dev/createDevLogger.js";
 import { pathExists } from "@/core/utils/fs.js";
-import type { DevLogger } from "../createDevLogger.js";
 
 const WATCH_DEBOUNCE_MS = 300;
 const WATCH_QUEUE_DELAY_MS = 500;
