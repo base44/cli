@@ -4,6 +4,7 @@ import { confirm, group, isCancel, select, text } from "@clack/prompts";
 import { Argument, type Command } from "commander";
 import { execa } from "execa";
 import kebabCase from "lodash/kebabCase";
+import { installAllSkills } from "@/cli/commands/skills/update.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import {
   Base44Command,
@@ -257,17 +258,14 @@ async function executeCreate(
       await runTask(
         "Installing AI agent skills...",
         async () => {
-          await execa("npx", ["-y", "skills", "add", "base44/skills", "-y"], {
-            cwd: resolvedPath,
-            shell: true,
-          });
+          await installAllSkills(resolvedPath);
         },
         {
           successMessage: theme.colors.base44Orange(
             "AI agent skills added successfully",
           ),
           errorMessage:
-            "Failed to add AI agent skills - you can add them later with: npx skills add base44/skills",
+            "Failed to add agent skills - you can add them later with: base44 agent-skills update",
         },
       );
     } catch {
