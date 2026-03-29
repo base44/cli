@@ -99,10 +99,7 @@ export class WatchBase44<T extends string> extends EventEmitter<
       }, WATCH_DEBOUNCE_MS),
     );
     watcher.on("error", (err) => {
-      this.logger.error(
-        `Watch handler failed for ${targetPath}`,
-        err instanceof Error ? err : undefined,
-      );
+      this.logger.error(`Watch handler failed for ${targetPath}`, err);
     });
     return watcher;
   }
