@@ -3,7 +3,6 @@ import pWaitFor from "p-wait-for";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { runTask } from "@/cli/utils/index.js";
 import { theme } from "@/cli/utils/theme.js";
-import { AuthExpiredError, InternalError } from "@/core/errors.js";
 import type {
   DeviceCodeResponse,
   TokenResponse,
@@ -15,6 +14,7 @@ import {
   getUserInfo,
   writeAuth,
 } from "@/core/auth/index.js";
+import { AuthExpiredError, InternalError } from "@/core/errors.js";
 
 async function generateAndDisplayDeviceCode(
   log: Logger,
