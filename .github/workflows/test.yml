@@ -89,5 +89,9 @@ jobs:
           name: dist
           path: packages/cli/dist
 
+      - name: Fix binary permissions
+        if: runner.os != 'Windows'
+        run: chmod +x dist/binaries/* 2>/dev/null || true
+
       - name: Run tests
         run: bun run test:${{ matrix.runner }}

@@ -69,9 +69,15 @@ export class CLITestkit {
     this.cleanupFn = cleanupFn;
     this.api = api;
     // Set HOME to temp dir for auth file isolation
+    // On Windows, os.homedir() reads USERPROFILE, so set both
     // Set CI to prevent browser opens during tests
     // Disable telemetry to prevent error reporting during tests
-    this.env = { HOME: tempDir, CI: "true", BASE44_DISABLE_TELEMETRY: "1" };
+    this.env = {
+      HOME: tempDir,
+      ...(process.platform === "win32" ? { USERPROFILE: tempDir } : {}),
+      CI: "true",
+      BASE44_DISABLE_TELEMETRY: "1",
+    };
   }
 
   /** Factory method - creates isolated test environment */

@@ -1,4 +1,4 @@
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { readAllFunctions } from "@/core/resources/function/config.js";
 
@@ -27,7 +27,7 @@ describe("readAllFunctions", () => {
     const fooBar = result.find((f) => f.name === "foo/bar");
     expect(fooBar).toBeDefined();
     expect(fooBar?.entry).toBe("entry.ts");
-    expect(fooBar?.entryPath).toContain("foo/bar/entry.ts");
+    expect(fooBar?.entryPath).toContain(join("foo", "bar", "entry.ts"));
 
     const stam = result.find((f) => f.name === "stam");
     expect(stam).toBeDefined();
@@ -41,7 +41,7 @@ describe("readAllFunctions", () => {
     const withConfig = result.find((f) => f.name === "custom-name");
     expect(withConfig).toBeDefined();
     expect(withConfig?.entry).toBe("entry.ts");
-    expect(withConfig?.entryPath).toContain("with-config/entry.ts");
+    expect(withConfig?.entryPath).toContain(join("with-config", "entry.ts"));
     // Name comes from config, not path "with-config"
     expect(withConfig?.name).toBe("custom-name");
   });
