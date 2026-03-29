@@ -22,7 +22,7 @@ const stringify = (item: unknown): string => {
     return item.toString();
   }
   try {
-    return JSON.stringify(item) ?? String(item);
+    return JSON.stringify(item, null, 2) ?? String(item);
   } catch {
     return String(item);
   }
