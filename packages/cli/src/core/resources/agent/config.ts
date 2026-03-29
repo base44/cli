@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { join, normalize } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { globby } from "globby";
 import { InvalidInputError, SchemaValidationError } from "@/core/errors.js";
@@ -115,11 +115,12 @@ export async function writeAgents(
     }
   }
 
-  // Track all paths that are in use (existing files that weren't deleted)
+  // Track all paths that are in use (existing files that weren't deleted).
+  // Normalize because globby returns forward slashes but path.join uses OS separators.
   const claimedPaths = new Set<string>();
   for (const [name, entry] of nameToEntry) {
     if (newNames.has(name)) {
-      claimedPaths.add(entry.filePath);
+      claimedPaths.add(normalize(entry.filePath));
     }
   }
 
@@ -134,7 +135,7 @@ export async function writeAgents(
     const filePath =
       existing?.filePath ??
       findAvailablePath(agentsDir, agent.name, claimedPaths);
-    claimedPaths.add(filePath);
+    claimedPaths.add(normalize(filePath));
     await writeJsonFile(filePath, agent);
     written.push(agent.name);
   }
