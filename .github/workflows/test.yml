@@ -7,7 +7,38 @@ on:
     branches: [main]
 
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/cli
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+        working-directory: .
+
+      - name: Build
+        run: bun run build
+
+      - name: Build binaries
+        run: bun run build:binaries
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: packages/cli/dist
+
   test:
+    needs: build
     strategy:
       fail-fast: false
       matrix:
@@ -52,12 +83,11 @@ jobs:
         working-directory: .
         shell: bash
 
-      - name: Build
-        run: bun run build
-
-      - name: Build binaries
-        if: matrix.runner == 'binary'
-        run: bun run build:binaries
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: packages/cli/dist
 
       - name: Run tests
         run: bun run test:${{ matrix.runner }}
