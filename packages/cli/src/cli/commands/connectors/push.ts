@@ -1,6 +1,6 @@
-import { log } from "@clack/prompts";
+import type { Logger } from "@base44-cli/logger";
 import type { Command } from "commander";
-import type { RunCommandResult } from "@/cli/types.js";
+import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, runTask, theme } from "@/cli/utils/index.js";
 import { getConnectorsUrl } from "@/cli/utils/urls.js";
 import { readProjectConfig } from "@/core/index.js";
@@ -19,6 +19,7 @@ import {
 function printSummary(
   results: ConnectorSyncResult[],
   oauthOutcomes: Map<IntegrationType, OAuthFlowStatus>,
+  log: Logger,
 ): void {
   const synced: IntegrationType[] = [];
   const added: IntegrationType[] = [];
@@ -89,9 +90,10 @@ function printSummary(
   }
 }
 
-async function pushConnectorsAction(
-  isNonInteractive: boolean,
-): Promise<RunCommandResult> {
+async function pushConnectorsAction({
+  isNonInteractive,
+  log,
+}: CLIContext): Promise<RunCommandResult> {
   const { connectors } = await readProjectConfig();
 
   if (connectors.length === 0) {
@@ -115,7 +117,7 @@ async function pushConnectorsAction(
   const needsOAuth = filterPendingOAuth(results);
   let outroMessage = "Connectors pushed to Base44";
 
-  const oauthOutcomes = await promptOAuthFlows(needsOAuth, {
+  const oauthOutcomes = await promptOAuthFlows(needsOAuth, log, {
     skipPrompt: isNonInteractive,
   });
 
@@ -128,7 +130,7 @@ async function pushConnectorsAction(
       : "Some connectors still require authorization. Run 'base44 connectors push' or open the links above to authorize.";
   }
 
-  printSummary(results, oauthOutcomes);
+  printSummary(results, oauthOutcomes, log);
   return { outroMessage };
 }
 
@@ -137,7 +139,5 @@ export function getConnectorsPushCommand(): Command {
     .description(
       "Push local connectors to Base44 (overwrites connectors on Base44)",
     )
-    .action(async (_options: unknown, command: Base44Command) => {
-      return await pushConnectorsAction(command.isNonInteractive);
-    });
+    .action(pushConnectorsAction);
 }

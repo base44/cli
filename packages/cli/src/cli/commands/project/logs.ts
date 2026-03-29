@@ -1,6 +1,6 @@
 import type { Command } from "commander";
 import { Option } from "commander";
-import type { RunCommandResult } from "@/cli/types.js";
+import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
 import { ApiError, InvalidInputError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/index.js";
@@ -171,7 +171,10 @@ function validateLimit(limit: string | undefined): void {
   }
 }
 
-async function logsAction(options: LogsOptions): Promise<RunCommandResult> {
+async function logsAction(
+  _ctx: CLIContext,
+  options: LogsOptions,
+): Promise<RunCommandResult> {
   validateLimit(options.limit);
   const specifiedFunctions = parseFunctionNames(options.function);
 

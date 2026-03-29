@@ -1,6 +1,5 @@
-import { log } from "@clack/prompts";
 import type { Command } from "commander";
-import type { RunCommandResult } from "@/cli/types.js";
+import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import {
   Base44Command,
   formatYaml,
@@ -9,7 +8,9 @@ import {
 } from "@/cli/utils/index.js";
 import { listAvailableIntegrations } from "@/core/resources/connector/index.js";
 
-async function listAvailableAction(): Promise<RunCommandResult> {
+async function listAvailableAction({
+  log,
+}: CLIContext): Promise<RunCommandResult> {
   const { integrations } = await runTask(
     "Fetching available integrations from Base44",
     async () => {

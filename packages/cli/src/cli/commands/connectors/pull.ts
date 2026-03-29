@@ -1,7 +1,6 @@
 import { dirname, join } from "node:path";
-import { log } from "@clack/prompts";
 import type { Command } from "commander";
-import type { RunCommandResult } from "@/cli/types.js";
+import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, runTask } from "@/cli/utils/index.js";
 import { readProjectConfig } from "@/core/index.js";
 import {
@@ -9,7 +8,9 @@ import {
   writeConnectors,
 } from "@/core/resources/connector/index.js";
 
-async function pullConnectorsAction(): Promise<RunCommandResult> {
+async function pullConnectorsAction({
+  log,
+}: CLIContext): Promise<RunCommandResult> {
   const { project } = await readProjectConfig();
 
   const configDir = dirname(project.configPath);

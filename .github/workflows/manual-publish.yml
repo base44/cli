@@ -75,7 +75,12 @@ jobs:
       - name: Set version
         working-directory: ${{ env.CLI_PACKAGE_DIR }}
         run: |
-          npm version ${{ github.event.inputs.version }} --no-git-tag-version
+          VERSION_INPUT="${{ github.event.inputs.version }}"
+          if [[ "$VERSION_INPUT" =~ ^(patch|minor|major)$ ]]; then
+            bunx json-bump package.json --$VERSION_INPUT
+          else
+            bunx json-bump package.json --replace="$VERSION_INPUT"
+          fi
           echo "NEW_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
 
       - name: Build package
@@ -110,7 +115,11 @@ jobs:
       - name: Publish to NPM
         working-directory: ${{ env.CLI_PACKAGE_DIR }}
         run: |
+          # Remove devDependencies before publish (everything is bundled)
+          cp package.json package.json.bak
+          jq 'del(.devDependencies)' package.json > package.json.tmp && mv package.json.tmp package.json
           npm publish --tag ${{ github.event.inputs.npm_tag }} ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
+          mv package.json.bak package.json
 
       - name: Create Git tag
         if: github.event.inputs.dry_run == 'false'

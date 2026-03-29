@@ -5,8 +5,11 @@
     "packages/cli": {
       "entry": ["src/cli/index.ts", "bin/binary-entry.ts", "tests/**/testkit/index.ts"],
       "project": ["src/**/*.ts", "tests/**/*.ts"],
-      "ignore": ["dist/**", "tests/fixtures/**"],
+      "ignore": ["tests/fixtures/**"],
       "ignoreDependencies": ["@types/deno"]
+    },
+    "packages/logger": {
+      "project": ["src/**/*.ts"]
     }
   }
 }

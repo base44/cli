@@ -1,6 +1,6 @@
 # Adding & Modifying CLI Commands
 
-**Keywords:** command, factory pattern, Base44Command, isNonInteractive, runTask, spinner, theming, chalk, program.ts, register, banner, intro, outro
+**Keywords:** command, factory pattern, Base44Command, CLIContext, Logger, runTask, spinner, theming, chalk, program.ts, register, banner, intro, outro
 
 Commands live in `src/cli/commands/<domain>/`. They use a **factory pattern** — each file exports a function that returns a `Base44Command`.
 
@@ -8,12 +8,11 @@ Commands live in `src/cli/commands/<domain>/`. They use a **factory pattern** �
 
 ```typescript
 // src/cli/commands/<domain>/<action>.ts
-import { log } from "@clack/prompts";
 import type { Command } from "commander";
-import type { RunCommandResult } from "@/cli/types.js";
+import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, runTask, theme } from "@/cli/utils/index.js";
 
-async function myAction(): Promise<RunCommandResult> {
+async function myAction({ logger }: CLIContext): Promise<RunCommandResult> {
   const result = await runTask(
     "Doing something...",
     async () => {
@@ -26,7 +25,7 @@ async function myAction(): Promise<RunCommandResult> {
     }
   );
 
-  log.success("Operation completed!");
+  logger.success("Operation completed!");
 
   return { outroMessage: `Created ${theme.styles.bold(result.name)}` };
 }
@@ -44,6 +43,9 @@ export function getMyCommand(): Command {
 - Use `Base44Command` class
 - Commands must NOT call `intro()` or `outro()` directly
 - The action function must return `RunCommandResult` with an `outroMessage`
+- Action functions receive `CLIContext` as their first argument (injected by `Base44Command`), followed by Commander's positional args and options
+- Destructure what you need from `CLIContext`: `{ logger }`, `{ logger, isNonInteractive }`, or `_ctx` if nothing needed
+- Use `.action(fn)` directly — no wrapper needed
 
 ## Base44Command Options
 
@@ -78,63 +80,70 @@ program.addCommand(getMyCommand());
 
 ## CLIContext (Automatic Injection)
 
+`CLIContext` is automatically injected as the **first argument** to all action functions by `Base44Command`. Destructure what you need:
+
 ```typescript
 export interface CLIContext {
   errorReporter: ErrorReporter;
   isNonInteractive: boolean;
   distribution: Distribution;
+  logger: Logger;
 }
 ```
 
 - Created once in `runCLI()` at startup
 - `isNonInteractive` is `true` when stdin/stdout are not a TTY (e.g., CI, piped output, AI agents). Controls quiet mode — when true, all clack UI is suppressed.
+- `logger` is a `Logger` instance — `ClackLogger` in interactive mode, `SimpleLogger` in non-interactive mode.
 
 ### Using `isNonInteractive`
 
-When a command needs to check `isNonInteractive` (e.g., to skip browser opens or confirmation prompts), access it from the command instance. Commander passes the command as the last argument to action handlers:
+Destructure `isNonInteractive` from the context first argument:
 
 ```typescript
-export function getMyCommand(): Command {
-  return new Base44Command("open")
-    .description("Open something in browser")
-    .action(async (_options: unknown, command: Base44Command) => {
-      return await myAction(command.isNonInteractive);
-    });
-}
-
-async function myAction(isNonInteractive: boolean): Promise<RunCommandResult> {
+async function openDashboard({ isNonInteractive }: CLIContext): Promise<RunCommandResult> {
   if (!isNonInteractive) {
     await open(url); // Only open browser in interactive mode
   }
   return { outroMessage: `Opened at ${url}` };
 }
+
+export function getMyCommand(): Command {
+  return new Base44Command("open")
+    .description("Open something in browser")
+    .action(openDashboard);
+}
 ```
 
 ### Guarding Interactive Commands
 
-Commands that use interactive prompts (`select`, `text`, `confirm`, `group` from `@clack/prompts`) **must** guard against non-interactive environments. If the user didn't provide enough flags to skip all prompts, error early:
+Commands that use interactive prompts (`select`, `text`, `confirm`, `group` from `@clack/prompts`) **must** guard against non-interactive environments. Move the guard into the action function:
 
 ```typescript
+async function myAction(
+  { isNonInteractive }: CLIContext,
+  options: MyOptions,
+): Promise<RunCommandResult> {
+  const skipPrompts = !!options.name && !!options.path;
+  if (!skipPrompts && isNonInteractive) {
+    throw new InvalidInputError(
+      "--name and --path are required in non-interactive mode",
+    );
+  }
+  if (skipPrompts) {
+    return await createNonInteractive(options);
+  }
+  return await createInteractive(options);
+}
+
 export function getMyCommand(): Command {
   return new Base44Command("my-cmd", { requireAppConfig: false })
     .option("-n, --name <name>", "Project name")
     .option("-p, --path <path>", "Project path")
-    .action(async (options: MyOptions, command: Base44Command) => {
-      const skipPrompts = !!options.name && !!options.path;
-      if (!skipPrompts && command.isNonInteractive) {
-        throw new InvalidInputError(
-          "--name and --path are required in non-interactive mode",
-        );
-      }
-      if (skipPrompts) {
-        return await createNonInteractive(options);
-      }
-      return await createInteractive(options);
-    });
+    .action(myAction);
 }
 ```
 
-Commands that only use `log.*` (display-only, no input) don't need this guard. See `project/create.ts`, `project/link.ts`, and `project/eject.ts` for real examples.
+Commands that only use `logger.*` (display-only, no input) don't need this guard. See `project/create.ts`, `project/link.ts`, and `project/eject.ts` for real examples.
 
 ## runTask (Async Operations with Spinners)
 
@@ -153,7 +162,7 @@ const result = await runTask(
 );
 ```
 
-Avoid manual try/catch with `log.message` for async operations -- use `runTask()` instead.
+Avoid manual try/catch with `logger.message` for async operations -- use `runTask()` instead.
 
 ### Subprocess Logging
 
@@ -211,9 +220,7 @@ export function getMyCommand(): Command {
     .argument("[entries...]", "Input entries")
     .option("--flag-a <value>", "Alternative input")
     .hook("preAction", validateInput)
-    .action(async (entries, options) => {
-      return await myAction(entries, options);
-    });
+    .action(myAction);
 }
 ```
 
@@ -223,9 +230,10 @@ Access `command.args` for positional arguments and `command.opts()` for options 
 
 - **Command factory pattern** - Commands export `getXCommand()` functions (no parameters), not static instances
 - **Use `Base44Command`** - All commands use `new Base44Command(name, options?)`
-- **No context plumbing** - Context is injected automatically. Command files should never import `CLIContext`.
+- **CLIContext as first arg** - All action functions receive `CLIContext` as their first argument (auto-injected). Destructure `{ logger }`, `{ logger, isNonInteractive }`, or use `_ctx` if nothing is needed. Use `.action(fn)` directly — no wrappers.
+- **Use `logger` for output** - Never import `log` from `@clack/prompts` in command files. Use the `logger` from CLIContext so output works correctly in both interactive and non-interactive modes. Pass `logger` to helper functions as a parameter.
 - **Task wrapper** - Use `runTask()` for async operations with spinners
 - **Use theme for styling** - Never use `chalk` directly; import `theme` from `@/cli/utils/` and use semantic names
 - **Use fs.ts utilities** - Always use `@/core/utils/fs.js` for file operations
-- **Guard interactive prompts** - Commands using `select`, `text`, `confirm`, or `group` from `@clack/prompts` must check `command.isNonInteractive` and throw `InvalidInputError` if required flags are missing. Never let prompts hang in CI.
+- **Guard interactive prompts** - Commands using `select`, `text`, `confirm`, or `group` from `@clack/prompts` must check `isNonInteractive` (from CLIContext) and throw `InvalidInputError` if required flags are missing. Never let prompts hang in CI.
 - **Consistent copy across related commands** - User-facing messages (errors, success, hints) for commands in the same group should use consistent language and structure. When writing validation errors, outro messages, or spinner text, check sibling commands for parity so the product voice stays coherent.

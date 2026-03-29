@@ -1,12 +1,14 @@
 import type { Command } from "commander";
-import type { RunCommandResult } from "@/cli/types.js";
+import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, runTask } from "@/cli/utils/index.js";
 import { readProjectConfig } from "@/core/index.js";
 import { generateTypesFile, updateProjectConfig } from "@/core/types/index.js";
 
 const TYPES_FILE_PATH = "base44/.types/types.d.ts";
 
-async function generateTypesAction(): Promise<RunCommandResult> {
+async function generateTypesAction(
+  _ctx: CLIContext,
+): Promise<RunCommandResult> {
   const { entities, functions, agents, connectors, project } =
     await readProjectConfig();
 

@@ -1,5 +1,5 @@
 import type { Command } from "commander";
-import type { RunCommandResult } from "@/cli/types.js";
+import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
 import { InvalidInputError } from "@/core/errors.js";
 import { runScript } from "@/core/exec/index.js";
@@ -67,7 +67,7 @@ Examples:
   Inline script:
     $ echo "const users = await base44.entities.User.list()" | base44 exec`,
     )
-    .action(async (_options: unknown, command: Base44Command) => {
-      return await execAction(command.isNonInteractive);
+    .action(async ({ isNonInteractive }: CLIContext) => {
+      return await execAction(isNonInteractive);
     });
 }

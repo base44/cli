@@ -1,8 +1,8 @@
-import { log } from "@clack/prompts";
+import type { Logger } from "@base44-cli/logger";
 import type { Command } from "commander";
 import { formatDeployResult } from "@/cli/commands/functions/formatDeployResult.js";
 import { parseNames } from "@/cli/commands/functions/parseNames.js";
-import type { RunCommandResult } from "@/cli/types.js";
+import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, theme } from "@/cli/utils/index.js";
 import { InvalidInputError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/index.js";
@@ -29,7 +29,7 @@ function resolveFunctionsToDeploy(
   return allFunctions.filter((f) => names.includes(f.name));
 }
 
-function formatPruneResult(pruneResult: PruneResult): void {
+function formatPruneResult(pruneResult: PruneResult, log: Logger): void {
   if (pruneResult.deleted) {
     log.success(`${pruneResult.name.padEnd(25)} deleted`);
   } else {
@@ -37,7 +37,7 @@ function formatPruneResult(pruneResult: PruneResult): void {
   }
 }
 
-function formatPruneSummary(pruneResults: PruneResult[]): void {
+function formatPruneSummary(pruneResults: PruneResult[], log: Logger): void {
   if (pruneResults.length > 0) {
     const pruned = pruneResults.filter((r) => r.deleted).length;
     log.info(`${pruned} deleted`);
@@ -57,6 +57,7 @@ function buildDeploySummary(results: SingleFunctionDeployResult[]): string {
 }
 
 async function deployFunctionsAction(
+  { log }: CLIContext,
   names: string[],
   options: { force?: boolean },
 ): Promise<RunCommandResult> {
@@ -95,7 +96,7 @@ async function deployFunctionsAction(
     },
     onResult: (result) => {
       completed++;
-      formatDeployResult(result);
+      formatDeployResult(result, log);
     },
   });
 
@@ -120,9 +121,9 @@ async function deployFunctionsAction(
           ),
         );
       },
-      onResult: formatPruneResult,
+      onResult: (r) => formatPruneResult(r, log),
     });
-    formatPruneSummary(pruneResults);
+    formatPruneSummary(pruneResults, log);
   }
 
   return { outroMessage: buildDeploySummary(results) };
@@ -133,8 +134,14 @@ export function getDeployCommand(): Command {
     .description("Deploy functions to Base44")
     .argument("[names...]", "Function names to deploy (deploys all if omitted)")
     .option("--force", "Delete remote functions not found locally")
-    .action(async (rawNames: string[], options: { force?: boolean }) => {
-      const names = parseNames(rawNames);
-      return deployFunctionsAction(names, options);
-    });
+    .action(
+      async (
+        ctx: CLIContext,
+        rawNames: string[],
+        options: { force?: boolean },
+      ) => {
+        const names = parseNames(rawNames);
+        return deployFunctionsAction(ctx, names, options);
+      },
+    );
 }

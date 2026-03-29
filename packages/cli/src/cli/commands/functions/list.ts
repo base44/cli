@@ -1,10 +1,11 @@
-import { log } from "@clack/prompts";
 import type { Command } from "commander";
-import type { RunCommandResult } from "@/cli/types.js";
+import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, runTask, theme } from "@/cli/utils/index.js";
 import { listDeployedFunctions } from "@/core/resources/function/api.js";
 
-async function listFunctionsAction(): Promise<RunCommandResult> {
+async function listFunctionsAction({
+  log,
+}: CLIContext): Promise<RunCommandResult> {
   const { functions } = await runTask(
     "Fetching functions...",
     async () => listDeployedFunctions(),

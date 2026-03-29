@@ -1,7 +1,6 @@
 import { resolve } from "node:path";
-import { log } from "@clack/prompts";
 import type { Command } from "commander";
-import type { RunCommandResult } from "@/cli/types.js";
+import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, runTask } from "@/cli/utils/index.js";
 import { InvalidInputError } from "@/core/errors.js";
 import { setSecrets } from "@/core/resources/secret/index.js";
@@ -51,6 +50,7 @@ function validateInput(entries: string[], options: { envFile?: string }): void {
 }
 
 async function setSecretsAction(
+  { log }: CLIContext,
   entries: string[],
   options: { envFile?: string },
 ): Promise<RunCommandResult> {

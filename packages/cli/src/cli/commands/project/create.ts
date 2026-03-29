@@ -1,10 +1,11 @@
 import { basename, join, resolve } from "node:path";
+import type { Logger } from "@base44-cli/logger";
 import type { Option } from "@clack/prompts";
-import { confirm, group, isCancel, log, select, text } from "@clack/prompts";
+import { confirm, group, isCancel, select, text } from "@clack/prompts";
 import { Argument, type Command } from "commander";
 import { execa } from "execa";
 import kebabCase from "lodash/kebabCase";
-import type { RunCommandResult } from "@/cli/types.js";
+import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import {
   Base44Command,
   getDashboardUrl,
@@ -56,6 +57,7 @@ function validateNonInteractiveFlags(command: Command): void {
 
 async function createInteractive(
   options: CreateOptions,
+  log: Logger,
 ): Promise<RunCommandResult> {
   const templates = await listTemplates();
   const templateOptions: Option<Template>[] = templates.map((t) => ({
@@ -101,18 +103,22 @@ async function createInteractive(
     },
   );
 
-  return await executeCreate({
-    template: result.template,
-    name: result.name,
-    projectPath: result.projectPath as string,
-    deploy: options.deploy,
-    skills: options.skills,
-    isInteractive: true,
-  });
+  return await executeCreate(
+    {
+      template: result.template,
+      name: result.name,
+      projectPath: result.projectPath as string,
+      deploy: options.deploy,
+      skills: options.skills,
+      isInteractive: true,
+    },
+    log,
+  );
 }
 
 async function createNonInteractive(
   options: CreateOptions,
+  log: Logger,
 ): Promise<RunCommandResult> {
   log.info(`Creating a new project at ${resolve(options.path!)}`);
 
@@ -120,33 +126,39 @@ async function createNonInteractive(
     options.template ?? DEFAULT_TEMPLATE_ID,
   );
 
-  return await executeCreate({
-    template,
-    name: options.name!,
-    projectPath: options.path!,
-    deploy: options.deploy,
-    skills: options.skills,
-    isInteractive: false,
-  });
+  return await executeCreate(
+    {
+      template,
+      name: options.name!,
+      projectPath: options.path!,
+      deploy: options.deploy,
+      skills: options.skills,
+      isInteractive: false,
+    },
+    log,
+  );
 }
 
-async function executeCreate({
-  template,
-  name: rawName,
-  description,
-  projectPath,
-  deploy,
-  skills,
-  isInteractive,
-}: {
-  template: Template;
-  name: string;
-  description?: string;
-  projectPath: string;
-  deploy?: boolean;
-  skills?: boolean;
-  isInteractive: boolean;
-}): Promise<RunCommandResult> {
+async function executeCreate(
+  {
+    template,
+    name: rawName,
+    description,
+    projectPath,
+    deploy,
+    skills,
+    isInteractive,
+  }: {
+    template: Template;
+    name: string;
+    description?: string;
+    projectPath: string;
+    deploy?: boolean;
+    skills?: boolean;
+    isInteractive: boolean;
+  },
+  log: Logger,
+): Promise<RunCommandResult> {
   const name = rawName.trim();
   const resolvedPath = resolve(projectPath);
 
@@ -282,6 +294,39 @@ async function executeCreate({
   return { outroMessage: "Your project is set up and ready to use" };
 }
 
+async function createAction(
+  { log, isNonInteractive }: CLIContext,
+  name: string | undefined,
+  options: CreateOptions,
+): Promise<RunCommandResult> {
+  if (name && !options.path) {
+    options.path = `./${kebabCase(name)}`;
+  }
+
+  const skipPrompts = !!(options.name ?? name) && !!options.path;
+
+  if (!skipPrompts && isNonInteractive) {
+    throw new InvalidInputError(
+      "Project name and --path are required in non-interactive mode",
+      {
+        hints: [
+          {
+            message: "Usage: base44 create <name> --path <path>",
+          },
+        ],
+      },
+    );
+  }
+
+  if (skipPrompts) {
+    return await createNonInteractive(
+      { name: options.name ?? name, ...options },
+      log,
+    );
+  }
+  return await createInteractive({ name, ...options }, log);
+}
+
 export function getCreateCommand(): Command {
   return new Base44Command("create", {
     requireAppConfig: false,
@@ -305,38 +350,5 @@ Examples:
   $ base44 create my-app --path ./projects/my-app --deploy       Creates a base44 project at ./project/my-app and deploys it`,
     )
     .hook("preAction", validateNonInteractiveFlags)
-    .action(
-      async (
-        name: string | undefined,
-        options: CreateOptions,
-        command: Base44Command,
-      ) => {
-        if (name && !options.path) {
-          options.path = `./${kebabCase(name)}`;
-        }
-
-        const skipPrompts = !!(options.name ?? name) && !!options.path;
-
-        if (!skipPrompts && command.isNonInteractive) {
-          throw new InvalidInputError(
-            "Project name and --path are required in non-interactive mode",
-            {
-              hints: [
-                {
-                  message: "Usage: base44 create <name> --path <path>",
-                },
-              ],
-            },
-          );
-        }
-
-        if (skipPrompts) {
-          return await createNonInteractive({
-            name: options.name ?? name,
-            ...options,
-          });
-        }
-        return await createInteractive({ name, ...options });
-      },
-    );
+    .action(createAction);
 }

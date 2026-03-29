@@ -1,11 +1,11 @@
 import type { Command } from "commander";
 import open from "open";
-import type { RunCommandResult } from "@/cli/types.js";
+import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, getDashboardUrl } from "@/cli/utils/index.js";
 
-async function openDashboard(
-  isNonInteractive: boolean,
-): Promise<RunCommandResult> {
+async function openDashboard({
+  isNonInteractive,
+}: CLIContext): Promise<RunCommandResult> {
   const dashboardUrl = getDashboardUrl();
 
   if (!isNonInteractive) {
@@ -18,7 +18,5 @@ async function openDashboard(
 export function getDashboardOpenCommand(): Command {
   return new Base44Command("open")
     .description("Open the app dashboard in your browser")
-    .action(async (_options: unknown, command: Base44Command) => {
-      return await openDashboard(command.isNonInteractive);
-    });
+    .action(openDashboard);
 }

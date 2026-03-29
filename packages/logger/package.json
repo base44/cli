@@ -1,0 +1,16 @@
+{
+  "name": "@base44-cli/logger",
+  "version": "0.0.1",
+  "description": "Logger interface and implementations for Base44 CLI",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@clack/prompts": "^1.0.1",
+    "typescript": "^5.7.2"
+  }
+}

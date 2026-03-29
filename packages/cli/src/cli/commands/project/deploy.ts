@@ -1,11 +1,12 @@
-import { confirm, isCancel, log } from "@clack/prompts";
+import type { Logger } from "@base44-cli/logger";
+import { confirm, isCancel } from "@clack/prompts";
 import type { Command } from "commander";
 import {
   filterPendingOAuth,
   promptOAuthFlows,
 } from "@/cli/commands/connectors/oauth-prompt.js";
 import { formatDeployResult } from "@/cli/commands/functions/formatDeployResult.js";
-import type { RunCommandResult } from "@/cli/types.js";
+import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import {
   Base44Command,
   getConnectorsUrl,
@@ -26,12 +27,16 @@ import type {
 interface DeployOptions {
   yes?: boolean;
   projectRoot?: string;
-  isNonInteractive?: boolean;
 }
 
 export async function deployAction(
-  options: DeployOptions,
+  { isNonInteractive, log }: CLIContext,
+  options: DeployOptions = {},
 ): Promise<RunCommandResult> {
+  if (isNonInteractive && !options.yes) {
+    throw new InvalidInputError("--yes is required in non-interactive mode");
+  }
+
   const projectData = await readProjectConfig(options.projectRoot);
 
   if (!hasResourcesToDeploy(projectData)) {
@@ -40,7 +45,8 @@ export async function deployAction(
     };
   }
 
-  const { project, entities, functions, agents, connectors } = projectData;
+  const { project, entities, functions, agents, connectors, authConfig } =
+    projectData;
 
   // Build summary of what will be deployed
   const summaryLines: string[] = [];
@@ -63,6 +69,9 @@ export async function deployAction(
     summaryLines.push(
       `  - ${connectors.length} ${connectors.length === 1 ? "connector" : "connectors"}`,
     );
+  }
+  if (authConfig.length > 0) {
+    summaryLines.push("  - Auth config");
   }
   if (project.site?.outputDirectory) {
     summaryLines.push(`  - Site from ${project.site.outputDirectory}`);
@@ -100,16 +109,16 @@ export async function deployAction(
     },
     onFunctionResult: (r) => {
       functionCompleted++;
-      formatDeployResult(r);
+      formatDeployResult(r, log);
     },
   });
 
   // Handle connector-specific post-deploy flows
   const connectorResults = result.connectorResults ?? [];
-  await handleOAuthConnectors(connectorResults, options);
+  await handleOAuthConnectors(connectorResults, isNonInteractive, options, log);
   const stripeResult = connectorResults.find((r) => r.type === "stripe");
   if (stripeResult?.action === "provisioned") {
-    printStripeResult(stripeResult as StripeSyncResult);
+    printStripeResult(stripeResult as StripeSyncResult, log);
   }
 
   log.message(
@@ -130,28 +139,20 @@ export function getDeployCommand(): Command {
       "Deploy all project resources (entities, functions, agents, connectors, and site)",
     )
     .option("-y, --yes", "Skip confirmation prompt")
-    .action(async (options: DeployOptions, command: Base44Command) => {
-      if (command.isNonInteractive && !options.yes) {
-        throw new InvalidInputError(
-          "--yes is required in non-interactive mode",
-        );
-      }
-      return await deployAction({
-        ...options,
-        isNonInteractive: command.isNonInteractive,
-      });
-    });
+    .action(deployAction);
 }
 
 async function handleOAuthConnectors(
   connectorResults: ConnectorSyncResult[],
+  isNonInteractive: boolean,
   options: DeployOptions,
+  log: Logger,
 ): Promise<void> {
   const needsOAuth = filterPendingOAuth(connectorResults);
   if (needsOAuth.length === 0) return;
 
-  const oauthOutcomes = await promptOAuthFlows(needsOAuth, {
-    skipPrompt: options.yes || options.isNonInteractive,
+  const oauthOutcomes = await promptOAuthFlows(needsOAuth, log, {
+    skipPrompt: options.yes || isNonInteractive,
   });
 
   const allAuthorized =
@@ -164,7 +165,7 @@ async function handleOAuthConnectors(
   }
 }
 
-function printStripeResult(r: StripeSyncResult): void {
+function printStripeResult(r: StripeSyncResult, log: Logger): void {
   log.success("Stripe sandbox provisioned");
   if (r.claimUrl) {
     log.info(`  Claim your Stripe sandbox: ${theme.colors.links(r.claimUrl)}`);

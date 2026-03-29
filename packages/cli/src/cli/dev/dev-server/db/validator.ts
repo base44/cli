@@ -5,12 +5,18 @@ import type {
 
 export type EntityRecord = Record<string, unknown>;
 
-type ValidationError = {
+type ValidationErrorContext = {
   error_type: "ValidationError";
   message: string;
   request_id: null;
   traceback: "";
 };
+
+export class EntityValidationError extends Error {
+  constructor(public context: ValidationErrorContext) {
+    super(context.message);
+  }
+}
 
 type ValidationResponse =
   | {
@@ -18,7 +24,7 @@ type ValidationResponse =
     }
   | {
       hasError: true;
-      error: ValidationError;
+      error: ValidationErrorContext;
     };
 
 // https://docs.base44.com/developers/backend/resources/entities/entity-schemas#field-types
@@ -65,7 +71,7 @@ export class Validator {
     record: EntityRecord,
     entitySchema: Entity,
     partial: boolean = false,
-  ): ValidationResponse {
+  ) {
     // Partial validation happening, when user updates existing entity.
     // In this case not all data will be passed.
     if (!partial) {
@@ -74,19 +80,16 @@ export class Validator {
         entitySchema,
       );
       if (requiredFieldsResponse.hasError) {
-        return requiredFieldsResponse;
+        throw new EntityValidationError(requiredFieldsResponse.error);
       }
     }
     const fieldTypesResponse = this.validateFieldTypes(record, entitySchema);
     if (fieldTypesResponse.hasError) {
-      return fieldTypesResponse;
+      throw new EntityValidationError(fieldTypesResponse.error);
     }
-    return {
-      hasError: false,
-    };
   }
 
-  private createValidationError(message: string): ValidationError {
+  private createValidationError(message: string): ValidationErrorContext {
     return {
       error_type: "ValidationError",
       message,

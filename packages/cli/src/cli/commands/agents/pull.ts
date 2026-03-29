@@ -1,12 +1,13 @@
 import { dirname, join } from "node:path";
-import { log } from "@clack/prompts";
 import type { Command } from "commander";
-import type { RunCommandResult } from "@/cli/types.js";
+import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, runTask } from "@/cli/utils/index.js";
 import { readProjectConfig } from "@/core/index.js";
 import { fetchAgents, writeAgents } from "@/core/resources/agent/index.js";
 
-async function pullAgentsAction(): Promise<RunCommandResult> {
+async function pullAgentsAction({
+  log,
+}: CLIContext): Promise<RunCommandResult> {
   const { project } = await readProjectConfig();
 
   const configDir = dirname(project.configPath);

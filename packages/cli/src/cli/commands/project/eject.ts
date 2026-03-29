@@ -1,12 +1,12 @@
 import { resolve } from "node:path";
 import type { Option } from "@clack/prompts";
-import { cancel, confirm, isCancel, log, select, text } from "@clack/prompts";
+import { cancel, confirm, isCancel, select, text } from "@clack/prompts";
 import type { Command } from "commander";
 import { execa } from "execa";
 import kebabCase from "lodash/kebabCase";
 import { deployAction } from "@/cli/commands/project/deploy.js";
 import { CLIExitError } from "@/cli/errors.js";
-import type { RunCommandResult } from "@/cli/types.js";
+import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, runTask, theme } from "@/cli/utils/index.js";
 import type { Project } from "@/core/index.js";
 import {
@@ -25,10 +25,23 @@ interface EjectOptions {
   path?: string;
   projectId?: string;
   yes?: boolean;
-  isNonInteractive?: boolean;
 }
 
-async function eject(options: EjectOptions): Promise<RunCommandResult> {
+async function eject(
+  ctx: CLIContext,
+  options: EjectOptions,
+): Promise<RunCommandResult> {
+  const { log, isNonInteractive } = ctx;
+
+  if (isNonInteractive && !options.projectId) {
+    throw new InvalidInputError(
+      "--project-id is required in non-interactive mode",
+    );
+  }
+  if (isNonInteractive && !options.path) {
+    throw new InvalidInputError("--path is required in non-interactive mode");
+  }
+
   const projects = await listProjects();
   const ejectableProjects = projects.filter(
     (p) => p.isManagedSourceCode !== false,
@@ -161,7 +174,7 @@ async function eject(options: EjectOptions): Promise<RunCommandResult> {
         },
       );
 
-      await deployAction({ yes: true, projectRoot: resolvedPath });
+      await deployAction(ctx, { yes: true, projectRoot: resolvedPath });
     }
   }
 
@@ -177,20 +190,5 @@ export function getEjectCommand(): Command {
       "Project ID to eject (skips interactive selection)",
     )
     .option("-y, --yes", "Skip confirmation prompts")
-    .action(async (options: EjectOptions, command: Base44Command) => {
-      if (command.isNonInteractive && !options.projectId) {
-        throw new InvalidInputError(
-          "--project-id is required in non-interactive mode",
-        );
-      }
-      if (command.isNonInteractive && !options.path) {
-        throw new InvalidInputError(
-          "--path is required in non-interactive mode",
-        );
-      }
-      return await eject({
-        ...options,
-        isNonInteractive: command.isNonInteractive,
-      });
-    });
+    .action(eject);
 }

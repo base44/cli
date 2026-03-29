@@ -1,6 +1,6 @@
-import { log } from "@clack/prompts";
+import type { Logger } from "@base44-cli/logger";
 import pWaitFor from "p-wait-for";
-import type { RunCommandResult } from "@/cli/types.js";
+import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { runTask } from "@/cli/utils/index.js";
 import { theme } from "@/cli/utils/theme.js";
 import type {
@@ -15,7 +15,9 @@ import {
   writeAuth,
 } from "@/core/auth/index.js";
 
-async function generateAndDisplayDeviceCode(): Promise<DeviceCodeResponse> {
+async function generateAndDisplayDeviceCode(
+  log: Logger,
+): Promise<DeviceCodeResponse> {
   const deviceCodeResponse = await runTask(
     "Generating device code...",
     async () => {
@@ -99,8 +101,8 @@ async function saveAuthData(
  * Execute the login flow (device code authentication).
  * This function is separate from the command to avoid circular dependencies.
  */
-export async function login(): Promise<RunCommandResult> {
-  const deviceCodeResponse = await generateAndDisplayDeviceCode();
+export async function login({ log }: CLIContext): Promise<RunCommandResult> {
+  const deviceCodeResponse = await generateAndDisplayDeviceCode(log);
 
   const token = await waitForAuthentication(
     deviceCodeResponse.deviceCode,

@@ -1,4 +1,5 @@
-import { confirm, isCancel, log, spinner } from "@clack/prompts";
+import type { Logger } from "@base44-cli/logger";
+import { confirm, isCancel, spinner } from "@clack/prompts";
 import open from "open";
 import pWaitFor, { TimeoutError } from "p-wait-for";
 import { theme } from "@/cli/utils/index.js";
@@ -103,6 +104,7 @@ async function runOAuthFlowWithSkip(
  */
 export async function promptOAuthFlows(
   pending: OAuthSyncResult[],
+  log: Logger,
   options?: OAuthPromptOptions,
 ): Promise<Map<IntegrationType, OAuthFlowStatus>> {
   const outcomes = new Map<IntegrationType, OAuthFlowStatus>();

@@ -1,8 +1,8 @@
 import type { Option } from "@clack/prompts";
-import { cancel, group, isCancel, log, select, text } from "@clack/prompts";
+import { cancel, group, isCancel, select, text } from "@clack/prompts";
 import type { Command } from "commander";
 import { CLIExitError } from "@/cli/errors.js";
-import type { RunCommandResult } from "@/cli/types.js";
+import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import {
   Base44Command,
   getDashboardUrl,
@@ -126,7 +126,19 @@ async function promptForExistingProject(
   return selectedProject;
 }
 
-async function link(options: LinkOptions): Promise<RunCommandResult> {
+async function link(
+  ctx: CLIContext,
+  options: LinkOptions,
+): Promise<RunCommandResult> {
+  const { log, isNonInteractive } = ctx;
+
+  const skipPrompts = !!options.create || !!options.projectId;
+  if (!skipPrompts && isNonInteractive) {
+    throw new InvalidInputError(
+      "--create with --name, or --projectId, is required in non-interactive mode",
+    );
+  }
+
   const projectRoot = await findProjectRoot();
 
   if (!projectRoot) {
@@ -260,13 +272,5 @@ export function getLinkCommand(): Command {
       "Project ID to link to an existing project (skips selection prompt)",
     )
     .hook("preAction", validateNonInteractiveFlags)
-    .action(async (options: LinkOptions, command: Base44Command) => {
-      const skipPrompts = !!options.create || !!options.projectId;
-      if (!skipPrompts && command.isNonInteractive) {
-        throw new InvalidInputError(
-          "--create with --name, or --projectId, is required in non-interactive mode",
-        );
-      }
-      return await link(options);
-    });
+    .action(link);
 }

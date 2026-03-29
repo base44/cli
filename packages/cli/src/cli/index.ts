@@ -1,5 +1,6 @@
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { ClackLogger, SimpleLogger } from "@base44-cli/logger";
 import { createProgram } from "@/cli/program.js";
 import { ensureNpmAssets } from "@/core/assets.js";
 import { readAuth } from "@/core/auth/index.js";
@@ -25,10 +26,12 @@ async function runCLI(options?: RunCLIOptions): Promise<void> {
 
   // Create context for dependency injection
   const isNonInteractive = !process.stdin.isTTY || !process.stdout.isTTY;
+  const log = isNonInteractive ? new SimpleLogger() : new ClackLogger();
   const context: CLIContext = {
     errorReporter,
     isNonInteractive,
     distribution: options?.distribution ?? "npm",
+    log,
   };
 
   // Create program with injected context

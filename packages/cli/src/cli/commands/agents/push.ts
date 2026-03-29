@@ -1,11 +1,12 @@
-import { log } from "@clack/prompts";
 import type { Command } from "commander";
-import type { RunCommandResult } from "@/cli/types.js";
+import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, runTask } from "@/cli/utils/index.js";
 import { readProjectConfig } from "@/core/index.js";
 import { pushAgents } from "@/core/resources/agent/index.js";
 
-async function pushAgentsAction(): Promise<RunCommandResult> {
+async function pushAgentsAction({
+  log,
+}: CLIContext): Promise<RunCommandResult> {
   const { agents } = await readProjectConfig();
 
   log.info(

@@ -88,13 +88,13 @@ jobs:
           fi
 
           # Update name with error handling
-          if ! npm pkg set name="$PREVIEW_PACKAGE"; then
+          if ! bunx json-bump package.json --entry=name --replace="$PREVIEW_PACKAGE"; then
             echo "❌ ERROR: Failed to set package name to $PREVIEW_PACKAGE"
             exit 1
           fi
 
           # Update version with error handling
-          if ! npm pkg set version="${{ steps.preview_info.outputs.version }}"; then
+          if ! bunx json-bump package.json --replace="${{ steps.preview_info.outputs.version }}"; then
             echo "❌ ERROR: Failed to set package version to ${{ steps.preview_info.outputs.version }}"
             exit 1
           fi
@@ -121,6 +121,8 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
+          # Remove devDependencies before publish (everything is bundled)
+          jq 'del(.devDependencies)' package.json > package.json.tmp && mv package.json.tmp package.json
           if npm publish --tag preview; then
             echo "✅ Package published successfully"
           else
