@@ -19,8 +19,13 @@ export function createFunctionRouter(
     on: {
       proxyReq: (proxyReq, req) => {
         const xAppId = req.headers["x-app-id"];
+        const authorization = req.headers.authorization;
+
         if (xAppId) {
           proxyReq.setHeader("Base44-App-Id", xAppId as string);
+        }
+        if (authorization) {
+          proxyReq.setHeader("Base44-Service-Authorization", authorization);
         }
         proxyReq.setHeader(
           "Base44-Api-Url",
