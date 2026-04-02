@@ -26,7 +26,7 @@ describe("dev command", () => {
     t.expectResult(result).toSucceed();
   });
 
-  it("forwards the service authorization header to local functions", async () => {
+  it("forwards the service token header from Authorization to local functions", async () => {
     await t.givenLoggedInWithProject(fixture("full-project"));
 
     await writeFile(
