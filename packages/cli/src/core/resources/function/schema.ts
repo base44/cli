@@ -69,19 +69,52 @@ const EntityAutomationSchema = AutomationBaseSchema.extend({
 const TriggerConditionSchema = z.object({
   field: z.string().min(1),
   operator: z.string().min(1),
-  value: z.unknown(),
+  value: z.unknown().nullable().optional(),
 });
 
-// Condition group wrapping an array of conditions
-const TriggerConditionsSchema = z.object({
-  conditions: z.array(TriggerConditionSchema).min(1),
-});
+const TriggerLogicSchema = z.enum(["and", "or"]);
+
+type TriggerCondition = z.infer<typeof TriggerConditionSchema>;
+type TriggerConditionGroup = {
+  logic?: z.infer<typeof TriggerLogicSchema>;
+  conditions: Array<TriggerCondition | TriggerConditionGroup>;
+};
+
+// Recursive condition group for trigger filtering. The backend also accepts
+// `{}` and `{ conditions: [] }` as "clear conditions" requests, so the schema
+// must allow those forms when parsing local config or remote payloads.
+const TriggerConditionGroupSchema: z.ZodType<TriggerConditionGroup> = z.lazy(
+  () =>
+    z
+      .object({
+        logic: TriggerLogicSchema.optional(),
+        conditions: z
+          .array(z.union([TriggerConditionSchema, TriggerConditionGroupSchema]))
+          .min(1),
+      })
+      .strict(),
+);
+
+const EmptyTriggerConditionsSchema = z.union([
+  z.object({}).strict(),
+  z
+    .object({
+      logic: TriggerLogicSchema.optional(),
+      conditions: z.array(z.unknown()).length(0),
+    })
+    .strict(),
+]);
+
+const TriggerConditionsSchema = z.union([
+  EmptyTriggerConditionsSchema,
+  TriggerConditionGroupSchema,
+]);
 
 // Connector automation (webhook-triggered)
 const ConnectorAutomationSchema = AutomationBaseSchema.extend({
   type: z.literal("connector"),
   integration_type: z.string().min(1, "Integration type cannot be empty"),
-  events: z.array(z.string()).min(1, "At least one event is required"),
+  events: z.array(z.string()),
   resource_id: z.string().nullable().optional(),
   trigger_conditions: TriggerConditionsSchema.nullable().optional(),
 });
