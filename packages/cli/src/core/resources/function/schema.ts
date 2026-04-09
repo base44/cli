@@ -65,12 +65,34 @@ const EntityAutomationSchema = AutomationBaseSchema.extend({
     .min(1, "At least one event type is required"),
 });
 
+// Trigger condition (field-level filter)
+const TriggerConditionSchema = z.object({
+  field: z.string().min(1),
+  operator: z.string().min(1),
+  value: z.unknown(),
+});
+
+// Condition group wrapping an array of conditions
+const TriggerConditionsSchema = z.object({
+  conditions: z.array(TriggerConditionSchema).min(1),
+});
+
+// Connector automation (webhook-triggered)
+const ConnectorAutomationSchema = AutomationBaseSchema.extend({
+  type: z.literal("connector"),
+  integration_type: z.string().min(1, "Integration type cannot be empty"),
+  events: z.array(z.string()).min(1, "At least one event is required"),
+  resource_id: z.string().nullable().optional(),
+  trigger_conditions: TriggerConditionsSchema.nullable().optional(),
+});
+
 // Union of all automation types
 const AutomationSchema = z.union([
   ScheduledOneTimeSchema,
   ScheduledCronSchema,
   ScheduledSimpleSchema,
   EntityAutomationSchema,
+  ConnectorAutomationSchema,
 ]);
 
 export const FunctionConfigSchema = z.object({
