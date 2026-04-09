@@ -1,7 +1,7 @@
 import type { Command } from "commander";
 import { execa } from "execa";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
-import { Base44Command, runTask, theme } from "@/cli/utils/index.js";
+import { Base44Command, theme } from "@/cli/utils/index.js";
 import { findProjectRoot } from "@/core/project/config.js";
 
 const SKILLS_REPO = "base44/skills";
@@ -12,7 +12,9 @@ export async function installAllSkills(cwd: string): Promise<void> {
   });
 }
 
-async function updateAction(_ctx: CLIContext): Promise<RunCommandResult> {
+async function updateAction({
+  runTask,
+}: CLIContext): Promise<RunCommandResult> {
   const projectRoot = await findProjectRoot();
   if (!projectRoot) {
     return {

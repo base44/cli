@@ -1,12 +1,12 @@
 import { intro, log, outro } from "@clack/prompts";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { printBanner } from "@/cli/utils/banner.js";
+import type { StaleSkillInfo } from "@/cli/utils/command/skill-version-check.js";
+import { printSkillVersionWarning } from "@/cli/utils/command/skill-version-check.js";
+import { printUpgradeNotification } from "@/cli/utils/command/upgradeNotification.js";
+import type { UpgradeInfo } from "@/cli/utils/command/version-check.js";
 import { theme } from "@/cli/utils/theme.js";
 import { isCLIError } from "@/core/errors.js";
-import type { StaleSkillInfo } from "./skill-version-check.js";
-import { printSkillVersionWarning } from "./skill-version-check.js";
-import { printUpgradeNotification } from "./upgradeNotification.js";
-import type { UpgradeInfo } from "./version-check.js";
 
 /**
  * Show the command start UI: intro banner or simple tag.
