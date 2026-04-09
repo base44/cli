@@ -4,3 +4,4 @@ export * from "./pull.js";
 export * from "./push.js";
 export * from "./resource.js";
 export * from "./schema.js";
+export * from "./social-login.js";
