@@ -1,10 +1,10 @@
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import type { StaleSkillInfo } from "@/cli/utils/skill-version-check.js";
+import type { StaleSkillInfo } from "@/cli/utils/command/skill-version-check.js";
 import {
   formatPlainSkillWarning,
   readSkillFrontmatter,
-} from "@/cli/utils/skill-version-check.js";
+} from "@/cli/utils/command/skill-version-check.js";
 
 const FIXTURES_DIR = resolve(__dirname, "../fixtures/with-skills");
 

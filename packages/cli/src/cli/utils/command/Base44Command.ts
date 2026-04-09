@@ -7,16 +7,16 @@ import {
   showPlainError,
   showThemedError,
 } from "@/cli/utils/command/render.js";
-import type { StaleSkillInfo } from "@/cli/utils/skill-version-check.js";
+import { getAppConfig } from "@/core/project/app-config.js";
+import type { StaleSkillInfo } from "./skill-version-check.js";
 import {
   formatPlainSkillWarning,
   startSkillVersionCheck,
-} from "@/cli/utils/skill-version-check.js";
+} from "./skill-version-check.js";
 import {
   formatPlainUpgradeMessage,
   startUpgradeCheck,
-} from "@/cli/utils/upgradeNotification.js";
-import { getAppConfig } from "@/core/project/app-config.js";
+} from "./upgradeNotification.js";
 
 interface Base44CommandOptions {
   /**

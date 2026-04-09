@@ -1,8 +1,7 @@
 import type { Command } from "commander";
 import { execa } from "execa";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
-import { Base44Command, theme } from "@/cli/utils/index.js";
-import { runTask } from "@/cli/utils/runTask.js";
+import { Base44Command, runTask, theme } from "@/cli/utils/index.js";
 import { findProjectRoot } from "@/core/project/config.js";
 
 const SKILLS_REPO = "base44/skills";

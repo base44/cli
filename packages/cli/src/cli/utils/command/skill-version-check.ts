@@ -5,7 +5,7 @@ import frontmatter from "front-matter";
 import { z } from "zod";
 import { theme } from "@/cli/utils/theme.js";
 import { readTextFile } from "@/core/utils/fs.js";
-import packageJson from "../../../package.json";
+import packageJson from "../../../../package.json";
 
 export interface StaleSkillInfo {
   skillName: string;
