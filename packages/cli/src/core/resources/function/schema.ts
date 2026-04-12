@@ -92,28 +92,13 @@ const TriggerConditionGroupSchema: z.ZodType<TriggerConditionGroup> = z.lazy(
     }),
 );
 
-// The backend also accepts `{}` and `{ conditions: [] }` as "clear conditions"
-// requests, so the schema must allow those forms when parsing local config or
-// remote payloads.
-const EmptyTriggerConditionsSchema = z
-  .object({
-    logic: TriggerLogicSchema.optional(),
-    conditions: z.array(z.unknown()).length(0).optional(),
-  })
-  .passthrough();
-
-const TriggerConditionsSchema = z.union([
-  TriggerConditionGroupSchema,
-  EmptyTriggerConditionsSchema,
-]);
-
 // Connector automation (webhook-triggered)
 const ConnectorAutomationSchema = AutomationBaseSchema.extend({
   type: z.literal("connector"),
   integration_type: IntegrationTypeSchema,
   events: z.array(z.string()),
   resource_id: z.string().nullable().optional(),
-  trigger_conditions: TriggerConditionsSchema.nullable().optional(),
+  trigger_conditions: TriggerConditionGroupSchema.nullable().optional(),
 });
 
 // Union of all automation types

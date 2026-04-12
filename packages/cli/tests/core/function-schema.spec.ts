@@ -102,15 +102,8 @@ describe("Function connector automation schemas", () => {
     expect(result.success).toBe(true);
   });
 
-  it("accepts backend-supported clear forms for trigger conditions", () => {
-    const clearForms = [
-      null,
-      {},
-      { conditions: [] },
-      { logic: "and", conditions: [] },
-    ];
-
-    for (const triggerConditions of clearForms) {
+  it("accepts null and undefined to clear trigger conditions", () => {
+    for (const triggerConditions of [null, undefined]) {
       const result = FunctionConfigSchema.safeParse({
         name: "clear-conditions",
         entry: "index.ts",
@@ -126,6 +119,32 @@ describe("Function connector automation schemas", () => {
       });
 
       expect(result.success).toBe(true);
+    }
+  });
+
+  it("rejects empty trigger condition forms that the backend also rejects", () => {
+    const invalidForms = [
+      {},
+      { conditions: [] },
+      { logic: "and", conditions: [] },
+    ];
+
+    for (const triggerConditions of invalidForms) {
+      const result = FunctionConfigSchema.safeParse({
+        name: "bad-conditions",
+        entry: "index.ts",
+        automations: [
+          {
+            name: "bad-connector",
+            type: "connector",
+            integration_type: "slack",
+            events: ["message"],
+            trigger_conditions: triggerConditions,
+          },
+        ],
+      });
+
+      expect(result.success).toBe(false);
     }
   });
 
