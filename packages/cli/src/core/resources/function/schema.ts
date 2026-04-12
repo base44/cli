@@ -96,6 +96,7 @@ const TriggerConditionGroupSchema: z.ZodType<TriggerConditionGroup> = z.lazy(
 const ConnectorAutomationSchema = AutomationBaseSchema.extend({
   type: z.literal("connector"),
   integration_type: IntegrationTypeSchema,
+  // No .min(1) — empty means catch-all; the server enforces per-integration.
   events: z.array(z.string()),
   resource_id: z.string().nullable().optional(),
   trigger_conditions: TriggerConditionGroupSchema.nullable().optional(),

@@ -173,6 +173,58 @@ describe("Function connector automation schemas", () => {
     expect(result.success).toBe(true);
   });
 
+  it("rejects connector automation missing integration_type", () => {
+    const result = FunctionConfigSchema.safeParse({
+      name: "missing-integration",
+      entry: "index.ts",
+      automations: [
+        {
+          name: "bad-connector",
+          type: "connector",
+          events: ["message"],
+        },
+      ],
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects condition group with zero conditions", () => {
+    const result = FunctionConfigSchema.safeParse({
+      name: "empty-group",
+      entry: "index.ts",
+      automations: [
+        {
+          name: "empty-conditions",
+          type: "connector",
+          integration_type: "slack",
+          events: ["message"],
+          trigger_conditions: {
+            conditions: [],
+          },
+        },
+      ],
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects unknown automation type", () => {
+    const result = FunctionConfigSchema.safeParse({
+      name: "unknown-type",
+      entry: "index.ts",
+      automations: [
+        {
+          name: "mystery",
+          type: "webhook",
+          url: "https://example.com",
+        },
+      ],
+    });
+
+    expect(result.success).toBe(false);
+  });
+
   it("parses list responses with connector automations unchanged", () => {
     const result = ListFunctionsResponseSchema.safeParse({
       functions: [
