@@ -252,7 +252,9 @@ describe("auth social-login command", () => {
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("custom OAuth");
-    t.expectResult(result).toContain("base44 secrets set --env-file");
+    t.expectResult(result).toContain(
+      "base44 auth social-login google enable --client-id my-client-id --env-file",
+    );
 
     const raw = await t.readProjectFile("base44/auth/config.jsonc");
     expect(raw).not.toBeNull();

@@ -160,7 +160,7 @@ async function socialLoginAction(
 
   // Hint about pushing secrets separately when client-id was set without a secret
   if (useCustomOAuth && !clientSecret) {
-    outroMessage += `\nRemember to push the client secret separately: base44 secrets set --env-file <path>`;
+    outroMessage += `\nRemember to push the client secret separately: base44 auth social-login ${provider} enable --client-id ${options.clientId} --env-file <path>`;
   }
 
   return { outroMessage };
