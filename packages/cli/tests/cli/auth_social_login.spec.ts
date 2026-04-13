@@ -1,3 +1,5 @@
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import JSON5 from "json5";
 import { describe, expect, it } from "vitest";
 import { fixture, setupCLITests } from "./testkit/index.js";
@@ -109,6 +111,23 @@ describe("auth social-login command", () => {
     t.expectResult(result).toContain("--client-id");
     t.expectResult(result).toContain("--client-secret");
     t.expectResult(result).toContain("--client-secret-stdin");
+    t.expectResult(result).toContain("--env-file");
+  });
+
+  it("rejects secret without --client-id", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+
+    const result = await t.run(
+      "auth",
+      "social-login",
+      "google",
+      "enable",
+      "--client-secret",
+      "my-secret",
+    );
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("--client-id is required");
   });
 
   // ─── HAPPY-PATH TESTS ──────────────────────────────────────────
@@ -217,5 +236,81 @@ describe("auth social-login command", () => {
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("no login methods enabled");
+  });
+
+  it("enables google with --client-id only and hints about secrets", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+
+    const result = await t.run(
+      "auth",
+      "social-login",
+      "google",
+      "enable",
+      "--client-id",
+      "my-client-id",
+    );
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("custom OAuth");
+    t.expectResult(result).toContain("base44 secrets set --env-file");
+
+    const raw = await t.readProjectFile("base44/auth/config.jsonc");
+    expect(raw).not.toBeNull();
+    const config = JSON5.parse(raw!);
+    expect(config.googleOAuthMode).toBe("custom");
+    expect(config.googleOAuthClientId).toBe("my-client-id");
+  });
+
+  it("enables google with custom OAuth secret via --env-file", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+    t.api.mockSecretsSet({ success: true });
+
+    const envPath = join(t.getTempDir(), ".env");
+    await writeFile(
+      envPath,
+      "BASE44_GOOGLE_OAUTH_CLIENT_SECRET=env-file-secret\n",
+    );
+
+    const result = await t.run(
+      "auth",
+      "social-login",
+      "google",
+      "enable",
+      "--client-id",
+      "my-client-id",
+      "--env-file",
+      envPath,
+    );
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("custom OAuth");
+
+    const raw = await t.readProjectFile("base44/auth/config.jsonc");
+    expect(raw).not.toBeNull();
+    const config = JSON5.parse(raw!);
+    expect(config.googleOAuthMode).toBe("custom");
+    expect(config.googleOAuthClientId).toBe("my-client-id");
+  });
+
+  it("fails when --env-file does not contain the expected key", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+
+    const envPath = join(t.getTempDir(), ".env");
+    await writeFile(envPath, "SOME_OTHER_KEY=value\n");
+
+    const result = await t.run(
+      "auth",
+      "social-login",
+      "google",
+      "enable",
+      "--client-id",
+      "my-client-id",
+      "--env-file",
+      envPath,
+    );
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("BASE44_GOOGLE_OAUTH_CLIENT_SECRET");
+    t.expectResult(result).toContain("not found");
   });
 });
