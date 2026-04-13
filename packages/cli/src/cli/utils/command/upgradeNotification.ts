@@ -1,8 +1,8 @@
 import { note } from "@clack/prompts";
 import type { Distribution } from "@/cli/types.js";
+import type { UpgradeInfo } from "@/cli/utils/command/version-check.js";
+import { checkForUpgrade } from "@/cli/utils/command/version-check.js";
 import { theme } from "@/cli/utils/theme.js";
-import type { UpgradeInfo } from "@/cli/utils/version-check.js";
-import { checkForUpgrade } from "@/cli/utils/version-check.js";
 
 type InstallMethod = "npm" | "brew" | "binary";
 

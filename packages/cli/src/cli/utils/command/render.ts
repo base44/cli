@@ -1,9 +1,11 @@
 import { intro, log, outro } from "@clack/prompts";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { printBanner } from "@/cli/utils/banner.js";
+import type { StaleSkillInfo } from "@/cli/utils/command/skill-version-check.js";
+import { printSkillVersionWarning } from "@/cli/utils/command/skill-version-check.js";
+import { printUpgradeNotification } from "@/cli/utils/command/upgradeNotification.js";
+import type { UpgradeInfo } from "@/cli/utils/command/version-check.js";
 import { theme } from "@/cli/utils/theme.js";
-import { printUpgradeNotification } from "@/cli/utils/upgradeNotification.js";
-import type { UpgradeInfo } from "@/cli/utils/version-check.js";
 import { isCLIError } from "@/core/errors.js";
 
 /**
@@ -21,12 +23,20 @@ export async function showCommandStart(fullBanner: boolean): Promise<void> {
 /**
  * Show the command end UI: upgrade notification, outro message, and stdout.
  */
+interface CommandEndOptions {
+  upgradeCheck: Promise<UpgradeInfo | null>;
+  skillCheck: Promise<StaleSkillInfo[] | null>;
+  distribution: CLIContext["distribution"];
+}
+
 export async function showCommandEnd(
   result: RunCommandResult,
-  upgradeCheckPromise: Promise<UpgradeInfo | null>,
-  distribution: CLIContext["distribution"],
+  options: CommandEndOptions,
 ): Promise<void> {
-  await printUpgradeNotification(upgradeCheckPromise, distribution);
+  await Promise.all([
+    printUpgradeNotification(options.upgradeCheck, options.distribution),
+    printSkillVersionWarning(options.skillCheck),
+  ]);
   outro(result.outroMessage || "");
 
   if (result.stdout) {

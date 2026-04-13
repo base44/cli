@@ -14,6 +14,7 @@ import { getLinkCommand } from "@/cli/commands/project/link.js";
 import { getLogsCommand } from "@/cli/commands/project/logs.js";
 import { getSecretsCommand } from "@/cli/commands/secrets/index.js";
 import { getSiteCommand } from "@/cli/commands/site/index.js";
+import { getAgentSkillsCommand } from "@/cli/commands/skills/index.js";
 import { getTypesCommand } from "@/cli/commands/types/index.js";
 import { Base44Command } from "@/cli/utils/index.js";
 import packageJson from "../../package.json";
@@ -69,6 +70,9 @@ export function createProgram(context: CLIContext): Command {
 
   // Register secrets commands
   program.addCommand(getSecretsCommand());
+
+  // Register agent-skills commands
+  program.addCommand(getAgentSkillsCommand());
 
   // Register auth config commands
   program.addCommand(getAuthCommand());

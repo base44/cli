@@ -7,10 +7,16 @@ import {
   showPlainError,
   showThemedError,
 } from "@/cli/utils/command/render.js";
+import type { StaleSkillInfo } from "@/cli/utils/command/skill-version-check.js";
+import {
+  formatPlainSkillWarning,
+  startSkillVersionCheck,
+} from "@/cli/utils/command/skill-version-check.js";
 import {
   formatPlainUpgradeMessage,
   startUpgradeCheck,
-} from "@/cli/utils/upgradeNotification.js";
+} from "@/cli/utils/command/upgradeNotification.js";
+import { getAppConfig } from "@/core/project/app-config.js";
 
 interface Base44CommandOptions {
   /**
@@ -108,6 +114,8 @@ export class Base44Command extends Command {
       }
 
       const upgradeCheckPromise = startUpgradeCheck();
+      let skillCheckPromise: Promise<StaleSkillInfo[] | null> =
+        Promise.resolve(null);
 
       try {
         if (this._commandOptions.requireAuth) {
@@ -115,17 +123,26 @@ export class Base44Command extends Command {
         }
         if (this._commandOptions.requireAppConfig) {
           await ensureAppConfig(this.context);
+          const errorReporter = this.context.errorReporter;
+          skillCheckPromise = startSkillVersionCheck(
+            getAppConfig().projectRoot,
+          ).catch((error) => {
+            errorReporter.captureException(
+              error instanceof Error ? error : new Error(String(error)),
+            );
+            return null;
+          });
         }
 
         const result = ((await fn(this.context, ...args)) ??
           {}) as RunCommandResult;
 
         if (!quiet) {
-          await showCommandEnd(
-            result,
-            upgradeCheckPromise,
-            this.context.distribution,
-          );
+          await showCommandEnd(result, {
+            upgradeCheck: upgradeCheckPromise,
+            skillCheck: skillCheckPromise,
+            distribution: this.context.distribution,
+          });
         } else {
           if (result.outroMessage) {
             process.stdout.write(`${result.outroMessage}\n`);
@@ -133,11 +150,17 @@ export class Base44Command extends Command {
           if (result.stdout) {
             process.stdout.write(result.stdout);
           }
-          const upgradeInfo = await upgradeCheckPromise;
+          const [upgradeInfo, staleSkills] = await Promise.all([
+            upgradeCheckPromise,
+            skillCheckPromise,
+          ]);
           if (upgradeInfo) {
             process.stderr.write(
               `${formatPlainUpgradeMessage(upgradeInfo, this.context.distribution)}\n`,
             );
+          }
+          if (staleSkills && staleSkills.length > 0) {
+            process.stderr.write(`${formatPlainSkillWarning(staleSkills)}\n`);
           }
         }
       } catch (error) {
