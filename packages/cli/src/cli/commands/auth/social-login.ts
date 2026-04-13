@@ -13,6 +13,13 @@ import {
 } from "@/core/resources/auth-config/index.js";
 import { parseEnvFile } from "@/core/utils/index.js";
 
+const PROVIDER_LABELS: Record<ProviderName, string> = {
+  google: "Google",
+  microsoft: "Microsoft",
+  facebook: "Facebook",
+  apple: "Apple",
+};
+
 const VALID_PROVIDER_NAMES: ProviderName[] = Object.keys(
   SOCIAL_PROVIDERS,
 ) as ProviderName[];
@@ -52,7 +59,7 @@ async function socialLoginAction(
 ): Promise<RunCommandResult> {
   const shouldEnable = action === "enable";
   const providerInfo = SOCIAL_PROVIDERS[provider];
-  const label = providerInfo.label;
+  const label = PROVIDER_LABELS[provider];
   const hasOAuthOptions = hasCustomOAuthOptions(options);
 
   // Validate custom OAuth options against provider support

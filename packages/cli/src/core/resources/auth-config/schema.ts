@@ -87,8 +87,6 @@ interface CustomOAuthSchema {
 interface SocialProviderSchema {
   /** AuthConfig boolean field to toggle (e.g., "enableGoogleLogin") */
   field: keyof AuthConfig;
-  /** Display label (e.g., "Google") */
-  label: string;
   /** Custom OAuth configuration, if the provider supports it */
   customOAuth?: CustomOAuthSchema;
 }
@@ -98,16 +96,15 @@ export type ProviderName = "google" | "microsoft" | "facebook" | "apple";
 export const SOCIAL_PROVIDERS: Record<ProviderName, SocialProviderSchema> = {
   google: {
     field: "enableGoogleLogin",
-    label: "Google",
     customOAuth: {
       modeField: "googleOAuthMode",
       clientIdField: "googleOAuthClientId",
       secretKey: "google_oauth_client_secret",
     },
   },
-  microsoft: { field: "enableMicrosoftLogin", label: "Microsoft" },
-  facebook: { field: "enableFacebookLogin", label: "Facebook" },
-  apple: { field: "enableAppleLogin", label: "Apple" },
+  microsoft: { field: "enableMicrosoftLogin" },
+  facebook: { field: "enableFacebookLogin" },
+  apple: { field: "enableAppleLogin" },
 };
 
 /**
