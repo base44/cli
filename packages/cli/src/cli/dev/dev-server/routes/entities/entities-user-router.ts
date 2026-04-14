@@ -1,29 +1,25 @@
-import type { Document } from "@seald-io/nedb";
 import type { Request, Response, Router } from "express";
 import { Router as createRouter, json } from "express";
-import jwt from "jsonwebtoken";
 import { nanoid } from "nanoid";
 import type { DevLogger } from "@/cli/dev/createDevLogger.js";
 import {
   type Database,
   USER_COLLECTION,
 } from "@/cli/dev/dev-server/db/database.js";
+import { queryEntity } from "@/cli/dev/dev-server/db/entity-queries.js";
 import {
   type EntityRecord,
   EntityValidationError,
 } from "@/cli/dev/dev-server/db/validator.js";
 import {
+  resolveCurrentUser,
+  type UserDocument,
+} from "@/cli/dev/dev-server/routes/entities/current-user.js";
+import {
   getNowISOTimestamp,
   stripInternalFields,
 } from "@/cli/dev/dev-server/utils.js";
 import { InvalidInputError } from "@/core/errors.js";
-import { queryEntity } from "../../db/entity-queries.js";
-
-type UserDocument = Document<{
-  email: string;
-  id: string;
-  role: "admin" | "user";
-}>;
 
 export function createUserRouter(db: Database, logger: DevLogger): Router {
   const router = createRouter({ mergeParams: true });
@@ -37,30 +33,25 @@ export function createUserRouter(db: Database, logger: DevLogger): Router {
     ) => Promise<void> | void,
   ): (req: Request<R>, res: Response) => Promise<void> {
     return async (req, res) => {
-      const auth = req.headers.authorization;
-      if (!auth || !auth.startsWith("Bearer ")) {
+      const currentUserResult = await resolveCurrentUser(db, req);
+
+      if (
+        !currentUserResult.ok &&
+        (currentUserResult.reason === "missing" ||
+          currentUserResult.reason === "invalid")
+      ) {
         res.status(401).json({ error: "Unauthorized" });
         return;
       }
-      try {
-        const { payload } =
-          jwt.decode(auth.replace("Bearer ", ""), { complete: true }) ?? {};
 
-        const result = await db
-          .getCollection(USER_COLLECTION)
-          ?.findOneAsync({ email: payload?.sub });
-
-        if (!result) {
-          res
-            .status(404)
-            .json({ error: "Unable to read data for the current user" });
-          return;
-        }
-
-        await handler(req, res, result as UserDocument);
-      } catch {
-        res.status(401).json({ error: "Unauthorized" });
+      if (!currentUserResult.ok) {
+        res
+          .status(404)
+          .json({ error: "Unable to read data for the current user" });
+        return;
       }
+
+      await handler(req, res, currentUserResult.user);
     };
   }
 

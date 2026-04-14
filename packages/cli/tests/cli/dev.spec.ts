@@ -1,5 +1,6 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { outdent } from "outdent";
 import { describe, expect, it } from "vitest";
 import { waitForDevServer } from "./testkit/dev-utils.js";
 import { fixture, setupCLITests } from "./testkit/index.js";
@@ -38,13 +39,14 @@ describe("dev command", () => {
         "hello",
         "index.ts",
       ),
-      `Deno.serve((req: Request) =>
-  Response.json({
-    authorization: req.headers.get("authorization"),
-    serviceAuthorization: req.headers.get("base44-service-authorization"),
-  }),
-);
-`,
+      outdent`
+        Deno.serve((req: Request) =>
+          Response.json({
+            authorization: req.headers.get("authorization"),
+            serviceAuthorization: req.headers.get("base44-service-authorization"),
+          }),
+        );
+      `,
     );
 
     const handle = await t.runLive("dev");

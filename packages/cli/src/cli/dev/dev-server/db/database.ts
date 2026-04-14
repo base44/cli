@@ -93,6 +93,10 @@ export class Database {
     return this.collections.get(this.normalizeName(name));
   }
 
+  getSchema(entityName: string): Entity | undefined {
+    return this.schemas.get(this.normalizeName(entityName));
+  }
+
   /** Returns public collection names: public = accessible to the user  */
   getCollectionNames(): string[] {
     return Array.from(this.collections.keys()).filter((name) => {

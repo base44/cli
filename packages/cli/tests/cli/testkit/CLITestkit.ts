@@ -76,6 +76,10 @@ export class CLITestkit {
       HOME: tempDir,
       ...(process.platform === "win32" ? { USERPROFILE: tempDir } : {}),
       CI: "true",
+      // I cannot simply pass `NODE_ENV` to the `env` property in `execa`.
+      // It eventually gets overridden in the child process, causing `NODE_ENV` to default to `development`.
+      // To overcome this, I am introducing a unique environment variable.
+      IS_TEST: process.env.NODE_ENV === "test" ? "true" : "false",
       BASE44_DISABLE_TELEMETRY: "1",
     };
   }

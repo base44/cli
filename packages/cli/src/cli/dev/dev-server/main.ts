@@ -49,7 +49,13 @@ export async function createDevServer(
   options: DevServerOptions,
 ): Promise<DevServerResult> {
   const { port: userPort } = options;
-  const port = userPort ?? (await getPort({ port: DEFAULT_PORT }));
+  const port =
+    userPort ??
+    (await getPort({
+      // Ports should be generated randomly during tests.
+      // Otherwise, when tests run in parallel, using the default value causes port collisions.
+      port: process.env.IS_TEST === "true" ? undefined : DEFAULT_PORT,
+    }));
   const baseUrl = `http://localhost:${port}`;
 
   const { functions, entities, project } = await options.loadResources();
@@ -195,7 +201,7 @@ export async function createDevServer(
 
       if (name === "functions") {
         const previousFunctionCount = functionManager.getFunctionNames().length;
-        functionManager.reload(functions);
+        await functionManager.reload(functions);
 
         const names = functionManager.getFunctionNames();
         if (names.length > 0) {
@@ -226,10 +232,10 @@ export async function createDevServer(
   });
   await base44ConfigWatcher.start();
 
-  const shutdown = () => {
+  const shutdown = async () => {
     base44ConfigWatcher.close();
     io.close();
-    functionManager.stopAll();
+    await functionManager.stopAll();
     server.close();
   };
   process.on("SIGINT", shutdown);
