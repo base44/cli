@@ -268,10 +268,7 @@ describe("auth social-login command", () => {
     t.api.mockSecretsSet({ success: true });
 
     const envPath = join(t.getTempDir(), ".env");
-    await writeFile(
-      envPath,
-      "BASE44_GOOGLE_OAUTH_CLIENT_SECRET=env-file-secret\n",
-    );
+    await writeFile(envPath, "google_oauth_client_secret=env-file-secret\n");
 
     const result = await t.run(
       "auth",
@@ -312,7 +309,7 @@ describe("auth social-login command", () => {
     );
 
     t.expectResult(result).toFail();
-    t.expectResult(result).toContain("BASE44_GOOGLE_OAUTH_CLIENT_SECRET");
+    t.expectResult(result).toContain("google_oauth_client_secret");
     t.expectResult(result).toContain("not found");
   });
 });

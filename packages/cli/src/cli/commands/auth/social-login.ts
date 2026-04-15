@@ -29,7 +29,7 @@ const PROVIDER_OAUTH_CLI: Partial<
   Record<ProviderName, { envVar: string; promptMessage: string }>
 > = {
   google: {
-    envVar: "BASE44_GOOGLE_OAUTH_CLIENT_SECRET",
+    envVar: "google_oauth_client_secret",
     promptMessage: "Enter Google OAuth client secret",
   },
 };
