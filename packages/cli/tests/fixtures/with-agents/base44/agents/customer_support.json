@@ -8,5 +8,18 @@
       "allowed_operations": ["read", "create", "update"]
     }
   ],
-  "whatsapp_greeting": "Hi! I'm your support assistant. How can I help you today?"
+  "whatsapp_greeting": "Hi! I'm your support assistant. How can I help you today?",
+  "code_mode": {
+    "access": {
+      "entities": {
+        "Order": {
+          "read": { "created_by": "{{user.email}}" },
+          "create": true,
+          "update": { "created_by": "{{user.email}}" },
+          "delete": false
+        }
+      },
+      "functions": ["send_email"]
+    }
+  }
 }

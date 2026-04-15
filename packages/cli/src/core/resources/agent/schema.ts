@@ -17,12 +17,39 @@ const ToolConfigSchema = z.union([
   BackendFunctionToolConfigSchema,
 ]);
 
+export const EntityAccessRuleSchema = z.union([
+  z.boolean(),
+  z.record(z.string(), z.unknown()),
+]);
+
+export type EntityAccessRule = z.infer<typeof EntityAccessRuleSchema>;
+
+export const AgentAccessConfigSchema = z.object({
+  entities: z
+    .record(z.string(), z.record(z.string(), EntityAccessRuleSchema))
+    .optional()
+    .default({}),
+  functions: z.array(z.string()).optional().default([]),
+});
+
+export type AgentAccessConfig = z.infer<typeof AgentAccessConfigSchema>;
+
+export const CodeModeConfigSchema = z.object({
+  access: AgentAccessConfigSchema.optional().default({
+    entities: {},
+    functions: [],
+  }),
+});
+
+export type CodeModeConfig = z.infer<typeof CodeModeConfigSchema>;
+
 export const AgentConfigSchema = z.looseObject({
   name: z.string().trim().min(1).max(100),
   description: z.string().trim().min(1, "Description is required"),
   instructions: z.string().trim().min(1, "Instructions are required"),
   tool_configs: z.array(ToolConfigSchema).optional().default([]),
   whatsapp_greeting: z.string().nullable().optional(),
+  code_mode: CodeModeConfigSchema.optional(),
 });
 
 export type AgentConfig = z.infer<typeof AgentConfigSchema>;

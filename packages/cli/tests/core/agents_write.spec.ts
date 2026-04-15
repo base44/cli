@@ -35,6 +35,55 @@ describe("writeAgents", () => {
     }
   });
 
+  it("preserves code_mode from remote agents when writing to disk", async () => {
+    const tmpDir = await mkdtemp(join(tmpdir(), "agents-test-"));
+
+    try {
+      const remoteAgents: AgentConfigApiResponse[] = [
+        {
+          name: "support",
+          description: "Help desk",
+          instructions: "Be helpful",
+          code_mode: {
+            access: {
+              entities: {
+                Order: {
+                  read: { created_by: "{{user.email}}" },
+                  create: true,
+                  update: { created_by: "{{user.email}}" },
+                  delete: false,
+                },
+              },
+              functions: ["send_email"],
+            },
+          },
+        },
+      ];
+
+      const { written } = await writeAgents(tmpDir, remoteAgents);
+      expect(written).toEqual(["support"]);
+
+      const onDisk = JSON.parse(
+        await readFile(join(tmpDir, "support.jsonc"), "utf-8"),
+      );
+      expect(onDisk.code_mode).toEqual({
+        access: {
+          entities: {
+            Order: {
+              read: { created_by: "{{user.email}}" },
+              create: true,
+              update: { created_by: "{{user.email}}" },
+              delete: false,
+            },
+          },
+          functions: ["send_email"],
+        },
+      });
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
   it("deletes local agents not in remote list", async () => {
     const tmpDir = await mkdtemp(join(tmpdir(), "agents-test-"));
 

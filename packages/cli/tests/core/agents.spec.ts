@@ -84,6 +84,60 @@ describe("pushAgents", () => {
     expect(result.created).toEqual(["test_agent"]);
   });
 
+  it("sends code_mode block to the backend when present", async () => {
+    const agents: AgentConfig[] = [
+      {
+        name: "support",
+        description: "Help desk",
+        instructions: "Be helpful",
+        tool_configs: [],
+        code_mode: {
+          access: {
+            entities: {
+              Order: {
+                read: { created_by: "{{user.email}}" },
+                create: true,
+                delete: false,
+              },
+            },
+            functions: ["send_email"],
+          },
+        },
+      },
+    ];
+
+    mockPut.mockResolvedValue({
+      json: () =>
+        Promise.resolve({ created: ["support"], updated: [], deleted: [] }),
+    });
+
+    await pushAgents(agents);
+
+    expect(mockPut).toHaveBeenCalledWith("agent-configs", {
+      json: [
+        {
+          name: "support",
+          description: "Help desk",
+          instructions: "Be helpful",
+          tool_configs: [],
+          code_mode: {
+            access: {
+              entities: {
+                Order: {
+                  read: { created_by: "{{user.email}}" },
+                  create: true,
+                  delete: false,
+                },
+              },
+              functions: ["send_email"],
+            },
+          },
+        },
+      ],
+      timeout: 60_000,
+    });
+  });
+
   it("passes agents through as-is", async () => {
     const agents = [
       {
