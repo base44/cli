@@ -19,7 +19,7 @@
           "delete": false
         }
       },
-      "functions": ["send_email"]
+      "functions": [{ "name": "send_email" }]
     }
   }
 }
