@@ -30,6 +30,11 @@ export async function updateSocialLoginConfig(
   const merged: AuthConfig = {
     ...current,
     [providerInfo.field]: enable,
+    // SSO and social login are mutually exclusive
+    ...(enable && {
+      enableSSOLogin: false,
+      ssoProviderName: null,
+    }),
   };
 
   if (providerInfo.customOAuth) {
