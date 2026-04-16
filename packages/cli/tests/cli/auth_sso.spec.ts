@@ -93,7 +93,7 @@ describe("auth sso command", () => {
     );
 
     t.expectResult(result).toFail();
-    t.expectResult(result).toContain("sso_tenant_id");
+    t.expectResult(result).toContain("--tenant-id");
   });
 
   it("fails okta enable without --okta-domain", async () => {
@@ -113,7 +113,7 @@ describe("auth sso command", () => {
     );
 
     t.expectResult(result).toFail();
-    t.expectResult(result).toContain("sso_okta_domain");
+    t.expectResult(result).toContain("--okta-domain");
   });
 
   it("shows help with --help flag", async () => {

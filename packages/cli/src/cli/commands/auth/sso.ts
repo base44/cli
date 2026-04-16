@@ -95,6 +95,21 @@ function mergeFileWithFlags(
 
 const providerNames = Object.keys(KNOWN_SSO_PROVIDERS);
 
+/** Converts an API secret key like "sso_tenant_id" to a CLI flag like "--tenant-id". */
+function secretKeyToFlag(key: string): string {
+  return `--${key.replace(/^sso_/, "").replace(/_/g, "-")}`;
+}
+
+function exampleCommand(provider: KnownSSOProvider): string {
+  let cmd = `base44 auth sso enable --provider ${provider} --client-id <id> --client-secret <secret>`;
+  if (provider === KNOWN_SSO_PROVIDERS.microsoft) cmd += " --tenant-id <id>";
+  if (provider === KNOWN_SSO_PROVIDERS.okta) cmd += " --okta-domain <domain>";
+  if (provider === KNOWN_SSO_PROVIDERS.custom)
+    cmd +=
+      " --sso-name <name> --auth-endpoint <url> --token-endpoint <url> --userinfo-endpoint <url> --jwks-uri <url>";
+  return cmd;
+}
+
 function validateProvider(provider: string | undefined): KnownSSOProvider {
   if (!provider) {
     throw new InvalidInputError("Missing --provider.", {
@@ -111,6 +126,14 @@ function validateProvider(provider: string | undefined): KnownSSOProvider {
   if (!(provider in KNOWN_SSO_PROVIDERS)) {
     throw new InvalidInputError(
       `Unknown provider "${provider}". Valid providers: ${providerNames.join(", ")}`,
+      {
+        hints: [
+          {
+            message: `Example: base44 auth sso enable --provider ${providerNames[0]} --client-id <id> --client-secret <secret>`,
+            command: `base44 auth sso enable --provider <provider> --client-id <id> --client-secret <secret>`,
+          },
+        ],
+      },
     );
   }
 
@@ -191,7 +214,26 @@ async function ssoEnableAction(
     ssoName: merged.ssoName,
   };
 
-  const secrets = buildSSOSecrets(provider, secretOptions);
+  let secrets: Record<string, string>;
+  try {
+    secrets = buildSSOSecrets(provider, secretOptions);
+  } catch (error) {
+    if (error instanceof InvalidInputError) {
+      // Re-throw with CLI flag names and an example command
+      const flagMessage = error.message.replace(/sso_[a-z_]+/g, (key) =>
+        secretKeyToFlag(key),
+      );
+      throw new InvalidInputError(flagMessage, {
+        hints: [
+          {
+            message: `Example: ${exampleCommand(provider)}`,
+            command: exampleCommand(provider),
+          },
+        ],
+      });
+    }
+    throw error;
+  }
 
   // Update local auth config
   const { project } = await readProjectConfig();
