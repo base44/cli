@@ -14,6 +14,7 @@ import {
 import { getNowISOTimestamp } from "../utils.js";
 
 const LOCAL_DEV_SECRET = "LOCAL_DEV_SECRET";
+const TEN_MINUTES = 10 * 60 * 1000;
 
 const generateCode = () => {
   return randomInt(100000, 1000000).toString();
@@ -159,7 +160,7 @@ export function createAuthRouter(db: Database, logger: DevLogger): Router {
       })) as UserRegister | undefined;
 
       if (privateUserData && privateUserData.otpCode === otp_code) {
-        if (+Date.now() - privateUserData.createdAt < 10 * 60 * 1000) {
+        if (+Date.now() - privateUserData.createdAt < TEN_MINUTES) {
           await privateUserCollection?.updateAsync(
             {
               email,

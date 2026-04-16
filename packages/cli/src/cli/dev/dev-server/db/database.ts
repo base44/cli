@@ -6,9 +6,9 @@ import { getNowISOTimestamp } from "../utils.js";
 import { type EntityRecord, Validator } from "./validator.js";
 
 // Developer can't create collection with names that are not alphanumeric.
-const PRIVATE_COLLECTION_PREFIX = "$" as const;
+const PRIVATE_COLLECTION_PREFIX = "$";
 
-export const USER_COLLECTION = "user" as const;
+export const USER_COLLECTION = "user";
 export const PRIVATE_USER_COLLECTION =
   PRIVATE_COLLECTION_PREFIX + USER_COLLECTION;
 
