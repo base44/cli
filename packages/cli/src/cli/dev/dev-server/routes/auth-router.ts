@@ -159,49 +159,7 @@ export function createAuthRouter(db: Database, logger: DevLogger): Router {
         email,
       })) as UserRegister | undefined;
 
-      if (privateUserData && privateUserData.otpCode === otp_code) {
-        if (+Date.now() - privateUserData.createdAt < TEN_MINUTES) {
-          await privateUserCollection?.updateAsync(
-            {
-              email,
-            },
-            {
-              $unset: { otpCode: true },
-            },
-          );
-
-          const collection = db.getCollection(USER_COLLECTION);
-          const now = getNowISOTimestamp();
-          const nameFromEmailMatch = /^([^@]+)/.exec(email);
-          const fullName = nameFromEmailMatch ? nameFromEmailMatch[1] : email;
-          await collection?.insertAsync({
-            id: privateUserData.id,
-            email: email,
-            full_name: fullName,
-            is_service: false,
-            is_verified: true,
-            disabled: null,
-            role: "user",
-            collaborator_role: "editor",
-            created_date: now,
-            updated_date: now,
-          });
-          res.json({
-            id: privateUserData.id,
-            access_token: createJwtToken(email),
-            message: "Email verified successfully. You are now logged in.",
-            success: true,
-          });
-        } else {
-          res.status(400).json({
-            detail: "Verification code has expired",
-            error_type: "HTTPException",
-            message: "Verification code has expired",
-            request_id: null,
-            traceback: "",
-          });
-        }
-      } else {
+      if (!privateUserData || privateUserData.otpCode !== otp_code) {
         const appId = req.params.appId;
         res.status(500).json({
           detail: `{'email': '${email}', 'app_id': '${appId}}'} -> Object not found`,
@@ -209,6 +167,49 @@ export function createAuthRouter(db: Database, logger: DevLogger): Router {
           message: `{'email': '${email}', 'app_id': '${appId}}'} -> Object not found`,
           request_id: null,
           traceback: "",
+        });
+        return;
+      }
+
+      if (+Date.now() - privateUserData.createdAt > TEN_MINUTES) {
+        res.status(400).json({
+          detail: "Verification code has expired",
+          error_type: "HTTPException",
+          message: "Verification code has expired",
+          request_id: null,
+          traceback: "",
+        });
+      } else {
+        await privateUserCollection?.updateAsync(
+          {
+            email,
+          },
+          {
+            $unset: { otpCode: true },
+          },
+        );
+
+        const collection = db.getCollection(USER_COLLECTION);
+        const now = getNowISOTimestamp();
+        const nameFromEmailMatch = /^([^@]+)/.exec(email);
+        const fullName = nameFromEmailMatch ? nameFromEmailMatch[1] : email;
+        await collection?.insertAsync({
+          id: privateUserData.id,
+          email: email,
+          full_name: fullName,
+          is_service: false,
+          is_verified: true,
+          disabled: null,
+          role: "user",
+          collaborator_role: "editor",
+          created_date: now,
+          updated_date: now,
+        });
+        res.json({
+          id: privateUserData.id,
+          access_token: createJwtToken(email),
+          message: "Email verified successfully. You are now logged in.",
+          success: true,
         });
       }
     },
