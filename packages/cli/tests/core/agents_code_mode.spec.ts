@@ -29,7 +29,7 @@ describe("AgentConfigSchema - code_mode", () => {
               delete: false,
             },
           },
-          functions: ["send_email"],
+          functions: [{ name: "send_email" }],
         },
       },
     });
@@ -42,7 +42,7 @@ describe("AgentConfigSchema - code_mode", () => {
         delete: false,
       },
     });
-    expect(parsed.code_mode?.access.functions).toEqual(["send_email"]);
+    expect(parsed.code_mode?.access.functions).toEqual([{ name: "send_email" }]);
   });
 
   it("is optional - configs without code_mode", () => {
@@ -76,7 +76,7 @@ describe("AgentConfigSchema - code_mode", () => {
       ...baseAgent,
       code_mode: {
         access: {
-          functions: ["notify"],
+          functions: [{ name: "notify" }],
         },
       },
     });
@@ -135,14 +135,28 @@ describe("AgentConfigSchema - code_mode", () => {
     ).toThrow();
   });
 
-  it("rejects functions containing non-string items", () => {
+  it("rejects functions containing plain strings instead of objects", () => {
     expect(() =>
       AgentConfigSchema.parse({
         ...baseAgent,
         code_mode: {
           access: {
             entities: {},
-            functions: ["send_email", 123],
+            functions: ["send_email"],
+          },
+        },
+      }),
+    ).toThrow();
+  });
+
+  it("rejects function entries missing the name field", () => {
+    expect(() =>
+      AgentConfigSchema.parse({
+        ...baseAgent,
+        code_mode: {
+          access: {
+            entities: {},
+            functions: [{ description: "no name" }],
           },
         },
       }),
@@ -201,25 +215,25 @@ describe("AgentConfigSchema - code_mode", () => {
             DoesNotExist: { read: true },
             AnotherFakeEntity: { update: { foo: "bar" } },
           },
-          functions: ["not_a_real_function", "also_fake"],
+          functions: [{ name: "not_a_real_function" }, { name: "also_fake" }],
         },
       },
     });
     expect(parsed.code_mode?.access.entities.DoesNotExist).toEqual({
       read: true,
     });
-    expect(parsed.code_mode?.access.functions).toContain("also_fake");
+    expect(parsed.code_mode?.access.functions).toContainEqual({ name: "also_fake" });
   });
 
   it("exports TypeScript types for EntityAccessRule, AgentAccessConfig, CodeModeConfig", () => {
     // Type-only assertion — compilation proves the types are exported and usable.
     const rule: EntityAccessRule = { created_by: "x" };
     const rule2: EntityAccessRule = true;
-    const access: AgentAccessConfig = { entities: {}, functions: [] };
+    const access: AgentAccessConfig = { entities: {}, functions: [{ name: "test" }] };
     const codeMode: CodeModeConfig = { access };
     expect(rule).toBeDefined();
     expect(rule2).toBe(true);
     expect(access.entities).toEqual({});
-    expect(codeMode.access.functions).toEqual([]);
+    expect(codeMode.access.functions).toEqual([{ name: "test" }]);
   });
 });

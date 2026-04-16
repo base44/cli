@@ -24,12 +24,16 @@ export const EntityAccessRuleSchema = z.union([
 
 export type EntityAccessRule = z.infer<typeof EntityAccessRuleSchema>;
 
+const FunctionAccessEntrySchema = z.looseObject({
+  name: z.string().min(1),
+});
+
 export const AgentAccessConfigSchema = z.object({
   entities: z
     .record(z.string(), z.record(z.string(), EntityAccessRuleSchema))
     .optional()
     .default({}),
-  functions: z.array(z.string()).optional().default([]),
+  functions: z.array(FunctionAccessEntrySchema).optional().default([]),
 });
 
 export type AgentAccessConfig = z.infer<typeof AgentAccessConfigSchema>;

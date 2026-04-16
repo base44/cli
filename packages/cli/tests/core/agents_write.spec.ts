@@ -54,7 +54,7 @@ describe("writeAgents", () => {
                   delete: false,
                 },
               },
-              functions: ["send_email"],
+              functions: [{ name: "send_email" }],
             },
           },
         },
@@ -76,7 +76,7 @@ describe("writeAgents", () => {
               delete: false,
             },
           },
-          functions: ["send_email"],
+          functions: [{ name: "send_email" }],
         },
       });
     } finally {
