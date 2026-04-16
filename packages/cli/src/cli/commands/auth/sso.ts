@@ -1,5 +1,5 @@
 import { dirname, join, resolve } from "node:path";
-import { Argument, type Command } from "commander";
+import { Argument, type Command, Option } from "commander";
 import { z } from "zod";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, resolveSecret } from "@/cli/utils/index.js";
@@ -121,20 +121,6 @@ function validateProvider(provider: string | undefined): KnownSSOProvider {
         },
       ],
     });
-  }
-
-  if (!(provider in KNOWN_SSO_PROVIDERS)) {
-    throw new InvalidInputError(
-      `Unknown provider "${provider}". Valid providers: ${providerNames.join(", ")}`,
-      {
-        hints: [
-          {
-            message: `Example: base44 auth sso enable --provider ${providerNames[0]} --client-id <id> --client-secret <secret>`,
-            command: `base44 auth sso enable --provider <provider> --client-id <id> --client-secret <secret>`,
-          },
-        ],
-      },
-    );
   }
 
   return provider as KnownSSOProvider;
@@ -293,9 +279,10 @@ export function getSSOCommand(): Command {
         "disable",
       ]),
     )
-    .option(
-      "--provider <provider>",
-      "SSO provider: google, microsoft, github, okta, custom",
+    .addOption(
+      new Option("--provider <provider>", "SSO provider").choices(
+        Object.values(KNOWN_SSO_PROVIDERS),
+      ),
     )
     .option("--client-id <id>", "OAuth client ID")
     .option("--client-secret <secret>", "OAuth client secret")
