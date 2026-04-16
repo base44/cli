@@ -1,5 +1,6 @@
 import type { ChildProcess } from "node:child_process";
 import { spawn } from "node:child_process";
+import { pathToFileURL } from "node:url";
 import getPort from "get-port";
 import type { DevLogger } from "@/cli/dev/createDevLogger.js";
 import { InternalError, InvalidInputError } from "@/core/errors.js";
@@ -117,7 +118,7 @@ export class FunctionManager {
     const process = spawn("deno", ["run", "--allow-all", this.wrapperPath], {
       env: {
         ...globalThis.process.env,
-        FUNCTION_PATH: func.entryPath,
+        FUNCTION_PATH: pathToFileURL(func.entryPath).href,
         FUNCTION_PORT: String(port),
         FUNCTION_NAME: func.name,
       },

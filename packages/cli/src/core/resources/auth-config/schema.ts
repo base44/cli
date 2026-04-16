@@ -75,6 +75,38 @@ export function hasAnyLoginMethod(config: AuthConfig): boolean {
   );
 }
 
+interface CustomOAuthSchema {
+  /** AuthConfig field for the OAuth mode (e.g., "googleOAuthMode") */
+  modeField: "googleOAuthMode";
+  /** AuthConfig field for the client ID (e.g., "googleOAuthClientId") */
+  clientIdField: "googleOAuthClientId";
+  /** Secret key name as expected by the backend */
+  secretKey: string;
+}
+
+interface SocialProviderSchema {
+  /** AuthConfig boolean field to toggle (e.g., "enableGoogleLogin") */
+  field: keyof AuthConfig;
+  /** Custom OAuth configuration, if the provider supports it */
+  customOAuth?: CustomOAuthSchema;
+}
+
+export type ProviderName = "google" | "microsoft" | "facebook" | "apple";
+
+export const SOCIAL_PROVIDERS: Record<ProviderName, SocialProviderSchema> = {
+  google: {
+    field: "enableGoogleLogin",
+    customOAuth: {
+      modeField: "googleOAuthMode",
+      clientIdField: "googleOAuthClientId",
+      secretKey: "google_oauth_client_secret",
+    },
+  },
+  microsoft: { field: "enableMicrosoftLogin" },
+  facebook: { field: "enableFacebookLogin" },
+  apple: { field: "enableAppleLogin" },
+};
+
 /**
  * Converts camelCase AuthConfig back to snake_case for the API request body.
  */
