@@ -27,7 +27,7 @@ describe("dev command", () => {
     t.expectResult(result).toSucceed();
   });
 
-  it("forwards the service token header from Authorization to local functions", async () => {
+  it("sets a local service token header for functions", async () => {
     await t.givenLoggedInWithProject(fixture("full-project"));
 
     await writeFile(
@@ -52,20 +52,27 @@ describe("dev command", () => {
     const handle = await t.runLive("dev");
     const devServerUrl = await waitForDevServer(handle);
 
-    const response = await fetch(
-      `${devServerUrl}/api/apps/${t.api.appId}/functions/hello`,
-      {
-        headers: {
-          Authorization: "Bearer test-app-token",
-          "X-App-Id": t.api.appId,
-        },
-      },
-    );
+    const functionUrl = `${devServerUrl}/api/apps/${t.api.appId}/functions/hello`;
+    const requestFunction = (headers: HeadersInit) =>
+      fetch(functionUrl, { headers });
 
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({
+    const anonymousResponse = await requestFunction({
+      "X-App-Id": t.api.appId,
+    });
+    expect(anonymousResponse.status).toBe(200);
+    await expect(anonymousResponse.json()).resolves.toEqual({
+      authorization: null,
+      serviceAuthorization: "Bearer dev",
+    });
+
+    const authenticatedResponse = await requestFunction({
+      Authorization: "Bearer test-app-token",
+      "X-App-Id": t.api.appId,
+    });
+    expect(authenticatedResponse.status).toBe(200);
+    await expect(authenticatedResponse.json()).resolves.toEqual({
       authorization: "Bearer test-app-token",
-      serviceAuthorization: "Bearer test-app-token",
+      serviceAuthorization: "Bearer dev",
     });
 
     const result = await handle.stop();
