@@ -26,10 +26,6 @@ export function createFunctionRouter(
           proxyReq.setHeader("Base44-App-Id", xAppId as string);
         }
         proxyReq.setHeader(
-          "Authorization",
-          LOCAL_DEV_SERVICE_AUTHORIZATION_TOKEN,
-        );
-        proxyReq.setHeader(
           "Base44-Service-Authorization",
           LOCAL_DEV_SERVICE_AUTHORIZATION_TOKEN,
         );

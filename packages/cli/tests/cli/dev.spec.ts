@@ -27,7 +27,7 @@ describe("dev command", () => {
     t.expectResult(result).toSucceed();
   });
 
-  it("sets local dev authorization headers for functions", async () => {
+  it("sets a local service token header for functions", async () => {
     await t.givenLoggedInWithProject(fixture("full-project"));
 
     await writeFile(
@@ -53,7 +53,7 @@ describe("dev command", () => {
     const devServerUrl = await waitForDevServer(handle);
 
     const functionUrl = `${devServerUrl}/api/apps/${t.api.appId}/functions/hello`;
-    const requestFunction = (headers: HeadersInit) =>
+    const requestFunction = (headers: Record<string, string>) =>
       fetch(functionUrl, { headers });
 
     const anonymousResponse = await requestFunction({
@@ -61,7 +61,7 @@ describe("dev command", () => {
     });
     expect(anonymousResponse.status).toBe(200);
     await expect(anonymousResponse.json()).resolves.toEqual({
-      authorization: "Bearer dev",
+      authorization: null,
       serviceAuthorization: "Bearer dev",
     });
 
@@ -71,7 +71,7 @@ describe("dev command", () => {
     });
     expect(authenticatedResponse.status).toBe(200);
     await expect(authenticatedResponse.json()).resolves.toEqual({
-      authorization: "Bearer dev",
+      authorization: "Bearer test-app-token",
       serviceAuthorization: "Bearer dev",
     });
 
