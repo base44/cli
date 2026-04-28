@@ -1,7 +1,7 @@
 import { DeploymentFailedError } from "@/core/errors.js";
 import type { SingleFunctionDeployResult } from "@/core/resources/function/deploy.js";
 
-export function buildFunctionDeployFailureMessage(
+function buildFunctionDeployFailureMessage(
   results: SingleFunctionDeployResult[],
 ): string | null {
   const failed = results.filter((result) => result.status === "error").length;
