@@ -6,7 +6,7 @@ import { createProxyMiddleware } from "http-proxy-middleware";
 import type { DevLogger } from "@/cli/dev/createDevLogger.js";
 import type { FunctionManager } from "@/cli/dev/dev-server/function-manager.js";
 
-const LOCAL_DEV_AUTHORIZATION = "Bearer dev";
+const LOCAL_DEV_SERVICE_AUTHORIZATION_TOKEN = "Bearer dev";
 
 export function createFunctionRouter(
   manager: FunctionManager,
@@ -25,10 +25,13 @@ export function createFunctionRouter(
         if (xAppId) {
           proxyReq.setHeader("Base44-App-Id", xAppId as string);
         }
-        proxyReq.setHeader("Authorization", LOCAL_DEV_AUTHORIZATION);
+        proxyReq.setHeader(
+          "Authorization",
+          LOCAL_DEV_SERVICE_AUTHORIZATION_TOKEN,
+        );
         proxyReq.setHeader(
           "Base44-Service-Authorization",
-          LOCAL_DEV_AUTHORIZATION,
+          LOCAL_DEV_SERVICE_AUTHORIZATION_TOKEN,
         );
         proxyReq.setHeader(
           "Base44-Api-Url",
