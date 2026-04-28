@@ -5,6 +5,7 @@ import {
   filterPendingOAuth,
   promptOAuthFlows,
 } from "@/cli/commands/connectors/oauth-prompt.js";
+import { throwIfFunctionDeployFailed } from "@/cli/commands/functions/deployFailures.js";
 import { formatDeployResult } from "@/cli/commands/functions/formatDeployResult.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import {
@@ -129,6 +130,8 @@ export async function deployAction(
       `${theme.styles.header("App URL")}: ${theme.colors.links(result.appUrl)}`,
     );
   }
+
+  throwIfFunctionDeployFailed(result.functionResults);
 
   return { outroMessage: "App deployed successfully" };
 }

@@ -1,5 +1,6 @@
 import type { Logger } from "@base44-cli/logger";
 import type { Command } from "commander";
+import { throwIfFunctionDeployFailed } from "@/cli/commands/functions/deployFailures.js";
 import { formatDeployResult } from "@/cli/commands/functions/formatDeployResult.js";
 import { parseNames } from "@/cli/commands/functions/parseNames.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
@@ -100,6 +101,12 @@ async function deployFunctionsAction(
     },
   });
 
+  const summary = buildDeploySummary(results);
+  if (results.some((result) => result.status === "error")) {
+    log.info(summary);
+  }
+  throwIfFunctionDeployFailed(results);
+
   if (options.force) {
     const allLocalNames = functions.map((f) => f.name);
     let pruneCompleted = 0;
@@ -126,7 +133,7 @@ async function deployFunctionsAction(
     formatPruneSummary(pruneResults, log);
   }
 
-  return { outroMessage: buildDeploySummary(results) };
+  return { outroMessage: summary };
 }
 
 export function getDeployCommand(): Command {

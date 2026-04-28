@@ -263,6 +263,23 @@ export class InvalidInputError extends UserError {
 }
 
 /**
+ * Thrown when deployment completes with one or more failed resources.
+ */
+export class DeploymentFailedError extends UserError {
+  readonly code = "DEPLOYMENT_FAILED";
+
+  constructor(message: string, options?: CLIErrorOptions) {
+    super(message, {
+      hints: options?.hints ?? [
+        { message: "Check the deployment errors above and try again" },
+      ],
+      details: options?.details,
+      cause: options?.cause,
+    });
+  }
+}
+
+/**
  * Thrown when a required external dependency is not installed (e.g., Deno, Git).
  */
 export class DependencyNotFoundError extends UserError {
