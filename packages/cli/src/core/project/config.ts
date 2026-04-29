@@ -1,4 +1,5 @@
-import { dirname, join } from "node:path";
+import { createRequire } from "node:module";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 import { globby } from "globby";
 import { PROJECT_CONFIG_PATTERNS, PROJECT_SUBDIR } from "@/core/consts.js";
 import { ConfigNotFoundError, SchemaValidationError } from "@/core/errors.js";
@@ -7,9 +8,18 @@ import type { ProjectData, ProjectRoot } from "@/core/project/types.js";
 import { agentResource } from "@/core/resources/agent/index.js";
 import { authConfigResource } from "@/core/resources/auth-config/index.js";
 import { connectorResource } from "@/core/resources/connector/index.js";
+import { mergeEntities } from "@/core/resources/entity/config.js";
 import { entityResource } from "@/core/resources/entity/index.js";
 import { functionResource } from "@/core/resources/function/index.js";
 import { readJsonFile } from "@/core/utils/fs.js";
+
+function resolvePluginRoot(pluginRef: string, fromRoot: string): string {
+  if (pluginRef.startsWith(".") || isAbsolute(pluginRef)) {
+    return resolve(fromRoot, pluginRef);
+  }
+  const req = createRequire(join(fromRoot, "package.json"));
+  return dirname(req.resolve(`${pluginRef}/package.json`));
+}
 
 async function findConfigInDir(dir: string): Promise<string | null> {
   const files = await globby(PROJECT_CONFIG_PATTERNS, {
@@ -93,7 +103,7 @@ export async function readProjectConfig(
   const project = result.data;
   const configDir = dirname(configPath);
 
-  const [entities, functions, agents, connectors, authConfig] =
+  const [appEntities, functions, agents, connectors, authConfig] =
     await Promise.all([
       entityResource.readAll(join(configDir, project.entitiesDir)),
       functionResource.readAll(join(configDir, project.functionsDir)),
@@ -101,6 +111,16 @@ export async function readProjectConfig(
       connectorResource.readAll(join(configDir, project.connectorsDir)),
       authConfigResource.readAll(join(configDir, project.authDir)),
     ]);
+
+  let entities = appEntities;
+
+  for (const pluginRef of project.plugins) {
+    const plugin = await readProjectConfig(resolvePluginRoot(pluginRef, root));
+
+    entities = mergeEntities(appEntities, plugin.entities);
+    functions.push(...plugin.functions);
+    agents.push(...plugin.agents);
+  }
 
   return {
     project: { ...project, root, configPath },

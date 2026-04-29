@@ -32,6 +32,7 @@ export const ProjectConfigSchema = z.object({
   agentsDir: z.string().optional().default("agents"),
   connectorsDir: z.string().optional().default("connectors"),
   authDir: z.string().optional().default("auth"),
+  plugins: z.array(z.string()).optional().default([]),
 });
 
 export type ProjectConfig = z.infer<typeof ProjectConfigSchema>;
