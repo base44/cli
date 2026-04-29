@@ -1,5 +1,6 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import jwt from "jsonwebtoken";
 import { outdent } from "outdent";
 import { describe, expect, it } from "vitest";
 import { waitForDevServer } from "./testkit/dev-utils.js";
@@ -60,9 +61,19 @@ describe("dev command", () => {
       "X-App-Id": t.api.appId,
     });
     expect(anonymousResponse.status).toBe(200);
-    await expect(anonymousResponse.json()).resolves.toEqual({
+    const anonymousResult = await anonymousResponse.json();
+    expect(anonymousResult.authorization).toBeNull();
+    expect(anonymousResult.serviceAuthorization).toMatch(/^Bearer .+/);
+    expect(
+      jwt.decode(anonymousResult.serviceAuthorization.replace("Bearer ", "")),
+    ).toMatchObject({
+      email: "server@server.com",
+      sub: "server@server.com",
+    });
+
+    expect(anonymousResult).toEqual({
       authorization: null,
-      serviceAuthorization: "Bearer dev",
+      serviceAuthorization: anonymousResult.serviceAuthorization,
     });
 
     const authenticatedResponse = await requestFunction({
@@ -70,9 +81,10 @@ describe("dev command", () => {
       "X-App-Id": t.api.appId,
     });
     expect(authenticatedResponse.status).toBe(200);
-    await expect(authenticatedResponse.json()).resolves.toEqual({
+    const authenticatedResult = await authenticatedResponse.json();
+    expect(authenticatedResult).toEqual({
       authorization: "Bearer test-app-token",
-      serviceAuthorization: "Bearer dev",
+      serviceAuthorization: anonymousResult.serviceAuthorization,
     });
 
     const result = await handle.stop();

@@ -4,9 +4,12 @@ import type { Request, Response } from "express";
 import { Router } from "express";
 import { createProxyMiddleware } from "http-proxy-middleware";
 import type { DevLogger } from "@/cli/dev/createDevLogger.js";
+import { createJwtToken } from "@/cli/dev/dev-server/auth-token.js";
 import type { FunctionManager } from "@/cli/dev/dev-server/function-manager.js";
 
-const LOCAL_DEV_SERVICE_AUTHORIZATION_TOKEN = "Bearer dev";
+const LOCAL_DEV_SERVICE_AUTHORIZATION_TOKEN = `Bearer ${createJwtToken(
+  "server@server.com",
+)}`;
 
 export function createFunctionRouter(
   manager: FunctionManager,
