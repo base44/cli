@@ -1,5 +1,5 @@
 import { createRequire } from "node:module";
-import { dirname, isAbsolute, join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { globby } from "globby";
 import { PROJECT_CONFIG_PATTERNS, PROJECT_SUBDIR } from "@/core/consts.js";
 import { ConfigNotFoundError, SchemaValidationError } from "@/core/errors.js";
@@ -14,9 +14,10 @@ import { functionResource } from "@/core/resources/function/index.js";
 import { readJsonFile } from "@/core/utils/fs.js";
 
 function resolvePluginRoot(pluginRef: string, fromRoot: string): string {
-  if (pluginRef.startsWith(".") || isAbsolute(pluginRef)) {
+  if (pluginRef.startsWith(".")) {
     return resolve(fromRoot, pluginRef);
   }
+  
   const req = createRequire(join(fromRoot, "package.json"));
   return dirname(req.resolve(`${pluginRef}/package.json`));
 }
