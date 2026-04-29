@@ -1,6 +1,6 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import jwt from "jsonwebtoken";
+import jwt, { type JwtPayload } from "jsonwebtoken";
 import { outdent } from "outdent";
 import { describe, expect, it } from "vitest";
 import { waitForDevServer } from "./testkit/dev-utils.js";
@@ -64,12 +64,11 @@ describe("dev command", () => {
     const anonymousResult = await anonymousResponse.json();
     expect(anonymousResult.authorization).toBeNull();
     expect(anonymousResult.serviceAuthorization).toMatch(/^Bearer .+/);
-    expect(
-      jwt.decode(anonymousResult.serviceAuthorization.replace("Bearer ", "")),
-    ).toMatchObject({
-      email: "server@server.com",
-      sub: "server@server.com",
-    });
+    const serviceTokenPayload = jwt.decode(
+      anonymousResult.serviceAuthorization.replace("Bearer ", ""),
+    ) as JwtPayload | null;
+    expect(serviceTokenPayload?.email).toBe("server@server.com");
+    expect(serviceTokenPayload?.sub).toBe("server@server.com");
 
     expect(anonymousResult).toEqual({
       authorization: null,
