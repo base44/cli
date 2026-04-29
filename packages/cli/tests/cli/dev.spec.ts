@@ -6,6 +6,11 @@ import { describe, expect, it } from "vitest";
 import { waitForDevServer } from "./testkit/dev-utils.js";
 import { fixture, setupCLITests } from "./testkit/index.js";
 
+type FunctionHeaderResponse = {
+  authorization: string | null;
+  serviceAuthorization: string;
+};
+
 describe("dev command", () => {
   const t = setupCLITests();
 
@@ -61,7 +66,8 @@ describe("dev command", () => {
       "X-App-Id": t.api.appId,
     });
     expect(anonymousResponse.status).toBe(200);
-    const anonymousResult = await anonymousResponse.json();
+    const anonymousResult =
+      (await anonymousResponse.json()) as FunctionHeaderResponse;
     expect(anonymousResult.authorization).toBeNull();
     expect(anonymousResult.serviceAuthorization).toMatch(/^Bearer .+/);
     const serviceTokenPayload = jwt.decode(
@@ -80,7 +86,8 @@ describe("dev command", () => {
       "X-App-Id": t.api.appId,
     });
     expect(authenticatedResponse.status).toBe(200);
-    const authenticatedResult = await authenticatedResponse.json();
+    const authenticatedResult =
+      (await authenticatedResponse.json()) as FunctionHeaderResponse;
     expect(authenticatedResult).toEqual({
       authorization: "Bearer test-app-token",
       serviceAuthorization: anonymousResult.serviceAuthorization,
