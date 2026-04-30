@@ -71,4 +71,4 @@ async function runCLI(options?: RunCLIOptions): Promise<void> {
   }
 }
 
-export { runCLI, createProgram, CLIExitError };
+export { CLIExitError, createProgram, runCLI };

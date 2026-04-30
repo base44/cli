@@ -98,7 +98,7 @@ describe("functions deploy command", () => {
 
     const result = await t.run("functions", "deploy");
 
-    t.expectResult(result).toSucceed();
+    t.expectResult(result).toFail();
     t.expectResult(result).toContain("error");
     t.expectResult(result).toContain("1 error");
   });
@@ -114,7 +114,7 @@ describe("functions deploy command", () => {
 
     const result = await t.run("functions", "deploy");
 
-    t.expectResult(result).toSucceed();
+    t.expectResult(result).toFail();
     t.expectResult(result).toContain("error");
     t.expectResult(result).toContain(
       "Minimum interval for minute-based schedules is 5 minutes.",
@@ -132,7 +132,7 @@ describe("functions deploy command", () => {
 
     const result = await t.run("functions", "deploy");
 
-    t.expectResult(result).toSucceed();
+    t.expectResult(result).toFail();
     t.expectResult(result).toContain("error");
     t.expectResult(result).toContain(
       "Maximum of 50 functions per app reached.",

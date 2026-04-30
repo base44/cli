@@ -126,6 +126,11 @@ async function deployFunctionsAction(
     formatPruneSummary(pruneResults, log);
   }
 
+  const hasFailures = results.some((r) => r.status === "error");
+  if (hasFailures) {
+    process.exitCode = 1;
+  }
+
   return { outroMessage: buildDeploySummary(results) };
 }
 
