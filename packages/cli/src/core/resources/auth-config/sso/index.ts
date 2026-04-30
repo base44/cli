@@ -1,6 +1,7 @@
 export {
   buildSSOSecrets,
   deleteSSOSecrets,
+  MissingSSOFieldsError,
   pushSSOSecrets,
   updateSSOConfig,
 } from "./operations.js";

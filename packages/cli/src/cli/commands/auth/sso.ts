@@ -3,13 +3,15 @@ import { Argument, type Command, Option } from "commander";
 import { z } from "zod";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, resolveSecret } from "@/cli/utils/index.js";
-import { InvalidInputError } from "@/core/errors.js";
+import { InvalidInputError, SchemaValidationError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/project/index.js";
 import {
   buildSSOSecrets,
   deleteSSOSecrets,
+  hasAnyLoginMethod,
   KNOWN_SSO_PROVIDERS,
   type KnownSSOProvider,
+  MissingSSOFieldsError,
   pushSSOSecrets,
   type SSOSecretOptions,
   updateSSOConfig,
@@ -20,7 +22,12 @@ import { parseEnvFile } from "@/core/utils/index.js";
 // -- File input schema (CLI concern: user-facing file format) ----------------
 
 const SSOConfigFileSchema = z.object({
-  provider: z.enum(["google", "microsoft", "github", "okta", "custom"]),
+  provider: z.enum(
+    Object.values(KNOWN_SSO_PROVIDERS) as [
+      KnownSSOProvider,
+      ...KnownSSOProvider[],
+    ],
+  ),
   clientId: z.string(),
   clientSecret: z.string(),
   scope: z.string().optional(),
@@ -42,11 +49,10 @@ async function loadSSOConfigFile(filePath: string): Promise<SSOConfigFile> {
   const result = SSOConfigFileSchema.safeParse(raw);
 
   if (!result.success) {
-    const issues = result.error.issues
-      .map((i) => `  ${i.path.join(".")}: ${i.message}`)
-      .join("\n");
-    throw new InvalidInputError(
-      `Invalid SSO config file ${filePath}:\n${issues}`,
+    throw new SchemaValidationError(
+      "Invalid SSO config file",
+      result.error,
+      filePath,
     );
   }
 
@@ -204,19 +210,19 @@ async function ssoEnableAction(
   try {
     secrets = buildSSOSecrets(provider, secretOptions);
   } catch (error) {
-    if (error instanceof InvalidInputError) {
-      // Re-throw with CLI flag names and an example command
-      const flagMessage = error.message.replace(/sso_[a-z_]+/g, (key) =>
-        secretKeyToFlag(key),
+    if (error instanceof MissingSSOFieldsError) {
+      const flagNames = error.missingKeys.map(secretKeyToFlag);
+      throw new InvalidInputError(
+        `Missing required fields for ${error.provider}: ${flagNames.join(", ")}`,
+        {
+          hints: [
+            {
+              message: `Example: ${exampleCommand(provider)}`,
+              command: exampleCommand(provider),
+            },
+          ],
+        },
       );
-      throw new InvalidInputError(flagMessage, {
-        hints: [
-          {
-            message: `Example: ${exampleCommand(provider)}`,
-            command: exampleCommand(provider),
-          },
-        ],
-      });
     }
     throw error;
   }
@@ -238,18 +244,52 @@ async function ssoEnableAction(
   };
 }
 
-async function ssoDisableAction({
-  runTask,
-}: CLIContext): Promise<RunCommandResult> {
+/** Returns true if any flag intended for `enable` was passed. */
+function hasEnableOnlyOptions(options: SSOOptions): boolean {
+  return Boolean(
+    options.provider ||
+      options.clientId ||
+      options.clientSecret ||
+      options.clientSecretStdin ||
+      options.envFile ||
+      options.file ||
+      options.scope ||
+      options.discoveryUrl ||
+      options.tenantId ||
+      options.oktaDomain ||
+      options.authEndpoint ||
+      options.tokenEndpoint ||
+      options.userinfoEndpoint ||
+      options.jwksUri ||
+      options.ssoName,
+  );
+}
+
+async function ssoDisableAction(
+  { log, runTask }: CLIContext,
+  options: SSOOptions,
+): Promise<RunCommandResult> {
+  if (hasEnableOnlyOptions(options)) {
+    throw new InvalidInputError(
+      "Configuration options cannot be used with disable. To disable SSO: base44 auth sso disable",
+    );
+  }
+
   const { project } = await readProjectConfig();
   const configDir = dirname(project.configPath);
   const authDir = join(configDir, project.authDir);
 
-  await runTask("Updating local auth config", async () =>
+  const updated = await runTask("Updating local auth config", async () =>
     updateSSOConfig(authDir, null, false),
   );
 
   await runTask("Removing SSO credentials", async () => deleteSSOSecrets());
+
+  if (!hasAnyLoginMethod(updated)) {
+    log.warn(
+      "Disabling SSO will leave no login methods enabled. Users will be locked out.",
+    );
+  }
 
   return {
     outroMessage:
@@ -263,7 +303,7 @@ async function ssoAction(
   options: SSOOptions,
 ): Promise<RunCommandResult> {
   if (action === "disable") {
-    return ssoDisableAction(context);
+    return ssoDisableAction(context, options);
   }
   return ssoEnableAction(context, options);
 }
@@ -271,7 +311,7 @@ async function ssoAction(
 export function getSSOCommand(): Command {
   return new Base44Command("sso")
     .description(
-      "Configure SSO identity provider (google, microsoft, github, okta, custom)",
+      "Configure SSO identity provider (google, microsoft, github, okta, custom). SSO and social login are mutually exclusive — enabling one disables the other in the local auth config.",
     )
     .addArgument(
       new Argument("<action>", "enable or disable SSO").choices([
@@ -289,7 +329,7 @@ export function getSSOCommand(): Command {
     .option("--client-secret-stdin", "Read client secret from stdin")
     .option(
       "--env-file <path>",
-      "Read client secret from a .env file (key: sso_client_secret)",
+      "Read client secret from a .env file (key: sso_client_secret). Ignored if --client-secret is provided directly or via --file.",
     )
     .option("--file <path>", "JSON config file with all SSO settings")
     .option("--scope <scope>", "OAuth scope (defaults per provider)")

@@ -52,11 +52,27 @@ export async function updateSSOConfig(
 }
 
 /**
+ * Thrown by `buildSSOSecrets` when required secret fields are missing.
+ * Exposes structured `missingKeys` so the CLI can map them to flag names
+ * without string-parsing the message.
+ */
+export class MissingSSOFieldsError extends InvalidInputError {
+  readonly missingKeys: SSOSecretKey[];
+  readonly provider: KnownSSOProvider;
+
+  constructor(provider: KnownSSOProvider, missingKeys: SSOSecretKey[]) {
+    super(`Missing required fields for ${provider}: ${missingKeys.join(", ")}`);
+    this.provider = provider;
+    this.missingKeys = missingKeys;
+  }
+}
+
+/**
  * Builds the secrets payload for an SSO provider.
  * Validates required fields per provider, applies defaults, and returns
  * the API-ready secret key/value map.
  *
- * Throws with a list of missing field names (domain-level, not CLI flags)
+ * Throws `MissingSSOFieldsError` with the structured list of missing keys
  * so the CLI layer can format them for the user.
  */
 export function buildSSOSecrets(
@@ -95,8 +111,8 @@ export function buildSSOSecrets(
     }
   }
 
-  // Validate required keys — report missing fields as domain names
-  const missing: string[] = [];
+  // Validate required keys — collect missing as typed enum values
+  const missing: SSOSecretKey[] = [];
   for (const key of schema.requiredKeys) {
     if (!secrets[key]) {
       missing.push(key);
@@ -108,9 +124,7 @@ export function buildSSOSecrets(
   }
 
   if (missing.length > 0) {
-    throw new InvalidInputError(
-      `Missing required fields for ${provider}: ${missing.join(", ")}`,
-    );
+    throw new MissingSSOFieldsError(provider, missing);
   }
 
   // Remove empty values
