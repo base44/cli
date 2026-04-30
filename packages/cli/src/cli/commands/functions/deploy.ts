@@ -100,6 +100,12 @@ async function deployFunctionsAction(
     },
   });
 
+  const hasFailures = results.some((r) => r.status === "error");
+  if (hasFailures) {
+    process.exitCode = 1;
+    return { outroMessage: buildDeploySummary(results) };
+  }
+
   if (options.force) {
     const allLocalNames = functions.map((f) => f.name);
     let pruneCompleted = 0;
@@ -124,11 +130,6 @@ async function deployFunctionsAction(
       onResult: (r) => formatPruneResult(r, log),
     });
     formatPruneSummary(pruneResults, log);
-  }
-
-  const hasFailures = results.some((r) => r.status === "error");
-  if (hasFailures) {
-    process.exitCode = 1;
   }
 
   return { outroMessage: buildDeploySummary(results) };
