@@ -322,6 +322,37 @@ describe("auth sso command", () => {
     t.expectResult(result).toFail();
   });
 
+  it("fails when both --file and --env-file are provided", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+
+    const filePath = join(t.getTempDir(), "sso.json");
+    await writeFile(
+      filePath,
+      JSON.stringify({
+        provider: "google",
+        clientId: "google-id",
+        clientSecret: "google-secret",
+      }),
+    );
+    const envPath = join(t.getTempDir(), ".env.sso");
+    await writeFile(envPath, "sso_client_secret=other-secret\n");
+
+    const result = await t.run(
+      "auth",
+      "sso",
+      "enable",
+      "--file",
+      filePath,
+      "--env-file",
+      envPath,
+    );
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain(
+      "--file and --env-file cannot be used together",
+    );
+  });
+
   it("fails on schema-invalid --file content", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
 

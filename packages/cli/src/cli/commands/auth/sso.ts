@@ -136,6 +136,12 @@ async function ssoEnableAction(
   { isNonInteractive, runTask }: CLIContext,
   options: SSOOptions,
 ): Promise<RunCommandResult> {
+  if (options.file && options.envFile) {
+    throw new InvalidInputError(
+      "--file and --env-file cannot be used together. Provide the client secret either inside --file or via --env-file.",
+    );
+  }
+
   // Load file config if provided
   let merged = options;
   if (options.file) {
@@ -329,7 +335,7 @@ export function getSSOCommand(): Command {
     .option("--client-secret-stdin", "Read client secret from stdin")
     .option(
       "--env-file <path>",
-      "Read client secret from a .env file (key: sso_client_secret). Ignored if --client-secret is provided directly or via --file.",
+      "Read client secret from a .env file (key: sso_client_secret)",
     )
     .option("--file <path>", "JSON config file with all SSO settings")
     .option("--scope <scope>", "OAuth scope (defaults per provider)")
