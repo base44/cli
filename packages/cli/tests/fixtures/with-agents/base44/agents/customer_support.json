@@ -6,20 +6,18 @@
     {
       "entity_name": "task",
       "allowed_operations": ["read", "create", "update"]
+    },
+    {
+      "entity_name": "Order",
+      "allowed_operations": ["read", "create", "update"]
+    },
+    {
+      "function_name": "send_email",
+      "description": "Send a transactional email to a user"
+    },
+    {
+      "code_mode": true
     }
   ],
-  "whatsapp_greeting": "Hi! I'm your support assistant. How can I help you today?",
-  "code_mode": {
-    "access": {
-      "entities": {
-        "Order": {
-          "read": { "created_by": "{{user.email}}" },
-          "create": true,
-          "update": { "created_by": "{{user.email}}" },
-          "delete": false
-        }
-      },
-      "functions": [{ "name": "send_email" }]
-    }
-  }
+  "whatsapp_greeting": "Hi! I'm your support assistant. How can I help you today?"
 }

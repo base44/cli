@@ -12,40 +12,15 @@ const BackendFunctionToolConfigSchema = z.object({
   description: z.string().default("agent backend function"),
 });
 
+const CodeModeToolConfigSchema = z.object({
+  code_mode: z.union([z.boolean(), z.record(z.string(), z.unknown())]),
+});
+
 const ToolConfigSchema = z.union([
   EntityToolConfigSchema,
   BackendFunctionToolConfigSchema,
+  CodeModeToolConfigSchema,
 ]);
-
-export const EntityAccessRuleSchema = z.union([
-  z.boolean(),
-  z.record(z.string(), z.unknown()),
-]);
-
-export type EntityAccessRule = z.infer<typeof EntityAccessRuleSchema>;
-
-const FunctionAccessEntrySchema = z.looseObject({
-  name: z.string().min(1),
-});
-
-export const AgentAccessConfigSchema = z.object({
-  entities: z
-    .record(z.string(), z.record(z.string(), EntityAccessRuleSchema))
-    .optional()
-    .default({}),
-  functions: z.array(FunctionAccessEntrySchema).optional().default([]),
-});
-
-export type AgentAccessConfig = z.infer<typeof AgentAccessConfigSchema>;
-
-export const CodeModeConfigSchema = z.object({
-  access: AgentAccessConfigSchema.optional().default({
-    entities: {},
-    functions: [],
-  }),
-});
-
-export type CodeModeConfig = z.infer<typeof CodeModeConfigSchema>;
 
 export const AgentConfigSchema = z.looseObject({
   name: z.string().trim().min(1).max(100),
@@ -53,7 +28,6 @@ export const AgentConfigSchema = z.looseObject({
   instructions: z.string().trim().min(1, "Instructions are required"),
   tool_configs: z.array(ToolConfigSchema).optional().default([]),
   whatsapp_greeting: z.string().nullable().optional(),
-  code_mode: CodeModeConfigSchema.optional(),
 });
 
 export type AgentConfig = z.infer<typeof AgentConfigSchema>;

@@ -53,7 +53,7 @@ describe("readProjectConfig", () => {
     const customerSupport = result.agents.find(
       (a) => a.name === "customer_support",
     );
-    expect(customerSupport?.tool_configs).toHaveLength(1);
+    expect(customerSupport?.tool_configs).toHaveLength(4);
     expect(customerSupport?.whatsapp_greeting).toBe(
       "Hi! I'm your support assistant. How can I help you today?",
     );

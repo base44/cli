@@ -84,25 +84,17 @@ describe("pushAgents", () => {
     expect(result.created).toEqual(["test_agent"]);
   });
 
-  it("sends code_mode block to the backend when present", async () => {
+  it("sends code_mode tool_configs entry to the backend when present", async () => {
     const agents: AgentConfig[] = [
       {
         name: "support",
         description: "Help desk",
         instructions: "Be helpful",
-        tool_configs: [],
-        code_mode: {
-          access: {
-            entities: {
-              Order: {
-                read: { created_by: "{{user.email}}" },
-                create: true,
-                delete: false,
-              },
-            },
-            functions: [{ name: "send_email" }],
-          },
-        },
+        tool_configs: [
+          { entity_name: "Order", allowed_operations: ["read", "create"] },
+          { function_name: "send_email", description: "Send an email" },
+          { code_mode: true },
+        ],
       },
     ];
 
@@ -119,19 +111,11 @@ describe("pushAgents", () => {
           name: "support",
           description: "Help desk",
           instructions: "Be helpful",
-          tool_configs: [],
-          code_mode: {
-            access: {
-              entities: {
-                Order: {
-                  read: { created_by: "{{user.email}}" },
-                  create: true,
-                  delete: false,
-                },
-              },
-              functions: [{ name: "send_email" }],
-            },
-          },
+          tool_configs: [
+            { entity_name: "Order", allowed_operations: ["read", "create"] },
+            { function_name: "send_email", description: "Send an email" },
+            { code_mode: true },
+          ],
         },
       ],
       timeout: 60_000,

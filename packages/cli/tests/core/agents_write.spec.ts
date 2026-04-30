@@ -35,7 +35,7 @@ describe("writeAgents", () => {
     }
   });
 
-  it("preserves code_mode from remote agents when writing to disk", async () => {
+  it("preserves code_mode tool_configs entry from remote agents when writing to disk", async () => {
     const tmpDir = await mkdtemp(join(tmpdir(), "agents-test-"));
 
     try {
@@ -44,19 +44,11 @@ describe("writeAgents", () => {
           name: "support",
           description: "Help desk",
           instructions: "Be helpful",
-          code_mode: {
-            access: {
-              entities: {
-                Order: {
-                  read: { created_by: "{{user.email}}" },
-                  create: true,
-                  update: { created_by: "{{user.email}}" },
-                  delete: false,
-                },
-              },
-              functions: [{ name: "send_email" }],
-            },
-          },
+          tool_configs: [
+            { entity_name: "Order", allowed_operations: ["read", "create"] },
+            { function_name: "send_email", description: "Send an email" },
+            { code_mode: { filesystem: true } },
+          ],
         },
       ];
 
@@ -66,19 +58,11 @@ describe("writeAgents", () => {
       const onDisk = JSON.parse(
         await readFile(join(tmpDir, "support.jsonc"), "utf-8"),
       );
-      expect(onDisk.code_mode).toEqual({
-        access: {
-          entities: {
-            Order: {
-              read: { created_by: "{{user.email}}" },
-              create: true,
-              update: { created_by: "{{user.email}}" },
-              delete: false,
-            },
-          },
-          functions: [{ name: "send_email" }],
-        },
-      });
+      expect(onDisk.tool_configs).toEqual([
+        { entity_name: "Order", allowed_operations: ["read", "create"] },
+        { function_name: "send_email", description: "Send an email" },
+        { code_mode: { filesystem: true } },
+      ]);
     } finally {
       await rm(tmpDir, { recursive: true, force: true });
     }
