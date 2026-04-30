@@ -105,6 +105,37 @@ describe("auth sso command", () => {
     t.expectResult(result).toNotContain("sso_tenant_id");
   });
 
+  it("fails custom enable without --sso-name (uses CLI flag in error, not --name)", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+    t.api.mockSecretsSet({ success: true });
+
+    const result = await t.run(
+      "auth",
+      "sso",
+      "enable",
+      "--provider",
+      "custom",
+      "--client-id",
+      "abc",
+      "--client-secret",
+      "xyz",
+      "--auth-endpoint",
+      "https://idp/authorize",
+      "--token-endpoint",
+      "https://idp/token",
+      "--userinfo-endpoint",
+      "https://idp/userinfo",
+      "--jwks-uri",
+      "https://idp/jwks",
+    );
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("--sso-name");
+    // Regression: regex-based conversion would yield --name, which is not a valid flag
+    t.expectResult(result).toNotContain("--name,");
+    t.expectResult(result).toNotContain("--name ");
+  });
+
   it("fails okta enable without --okta-domain (uses CLI flag in error)", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
     t.api.mockSecretsSet({ success: true });

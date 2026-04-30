@@ -13,6 +13,7 @@ import {
   type KnownSSOProvider,
   MissingSSOFieldsError,
   pushSSOSecrets,
+  SSOSecretKey,
   type SSOSecretOptions,
   updateSSOConfig,
 } from "@/core/resources/auth-config/index.js";
@@ -101,9 +102,27 @@ function mergeFileWithFlags(
 
 const providerNames = Object.keys(KNOWN_SSO_PROVIDERS);
 
-/** Converts an API secret key like "sso_tenant_id" to a CLI flag like "--tenant-id". */
-function secretKeyToFlag(key: string): string {
-  return `--${key.replace(/^sso_/, "").replace(/_/g, "-")}`;
+/**
+ * Maps each API secret key to its CLI flag name.
+ * Note: `sso_name` intentionally maps to `--sso-name` (not `--name`) to avoid
+ * collisions with potential future generic flags.
+ */
+const SECRET_KEY_TO_FLAG: Record<SSOSecretKey, string> = {
+  [SSOSecretKey.Name]: "--sso-name",
+  [SSOSecretKey.ClientId]: "--client-id",
+  [SSOSecretKey.ClientSecret]: "--client-secret",
+  [SSOSecretKey.Scope]: "--scope",
+  [SSOSecretKey.DiscoveryUrl]: "--discovery-url",
+  [SSOSecretKey.TenantId]: "--tenant-id",
+  [SSOSecretKey.AuthEndpoint]: "--auth-endpoint",
+  [SSOSecretKey.TokenEndpoint]: "--token-endpoint",
+  [SSOSecretKey.UserinfoEndpoint]: "--userinfo-endpoint",
+  [SSOSecretKey.OktaDomain]: "--okta-domain",
+  [SSOSecretKey.JwksUri]: "--jwks-uri",
+};
+
+function secretKeyToFlag(key: SSOSecretKey): string {
+  return SECRET_KEY_TO_FLAG[key];
 }
 
 function exampleCommand(provider: KnownSSOProvider): string {
