@@ -1,3 +1,4 @@
+import process from "node:process";
 import type { Command } from "commander";
 import { createDevServer } from "@/cli/dev/dev-server/main.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
@@ -17,6 +18,7 @@ async function devAction(
   const { port: resolvedPort } = await createDevServer({
     log,
     port,
+    cwd: process.cwd(),
     denoWrapperPath: getDenoWrapperPath(),
     loadResources: async () => {
       const { functions, entities, project } = await readProjectConfig();

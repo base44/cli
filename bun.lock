@@ -4,18 +4,14 @@
   "workspaces": {
     "": {
       "name": "base44-cli",
-      "dependencies": {
-        "jsonwebtoken": "^9.0.3",
-      },
       "devDependencies": {
         "@biomejs/biome": "^2.0.0",
-        "@types/jsonwebtoken": "^9.0.10",
         "knip": "^5.83.1",
       },
     },
     "packages/cli": {
       "name": "base44",
-      "version": "0.0.47",
+      "version": "0.0.50",
       "bin": {
         "base44": "./bin/run.js",
       },
@@ -31,6 +27,7 @@
         "@types/ejs": "^3.1.5",
         "@types/express": "^5.0.6",
         "@types/json-schema": "^7.0.15",
+        "@types/jsonwebtoken": "^9.0.10",
         "@types/lodash": "^4.17.24",
         "@types/multer": "^2.0.0",
         "@types/node": "^22.10.5",
@@ -50,13 +47,16 @@
         "http-proxy-middleware": "^3.0.5",
         "json-schema-to-typescript": "^15.0.4",
         "json5": "^2.2.3",
+        "jsonwebtoken": "^9.0.3",
         "ky": "^1.14.2",
         "lodash": "^4.17.23",
         "multer": "^2.0.0",
         "nanoid": "^5.1.6",
         "open": "^11.0.0",
+        "outdent": "^0.8.0",
         "p-wait-for": "^6.0.0",
         "posthog-node": "5.21.2",
+        "qs": "^6.12.3",
         "socket.io": "^4.8.3",
         "strip-ansi": "^7.1.2",
         "tar": "^7.5.4",
@@ -732,6 +732,8 @@
     "once": ["once@1.4.0", "", { "dependencies": { "wrappy": "1" } }, "sha512-lNaJgI+2Q5URQBkccEKHTQOPaXdUxnZZElQTZY0MFUAuaEqe1E+Nyvgdz/aIyNi6Z9MzO5dv1H8n58/GELp3+w=="],
 
     "open": ["open@11.0.0", "", { "dependencies": { "default-browser": "^5.4.0", "define-lazy-prop": "^3.0.0", "is-in-ssh": "^1.0.0", "is-inside-container": "^1.0.0", "powershell-utils": "^0.1.0", "wsl-utils": "^0.3.0" } }, "sha512-smsWv2LzFjP03xmvFoJ331ss6h+jixfA4UUV/Bsiyuu4YJPfN+FIQGOIiv4w9/+MoHkfkJ22UIaQWRVFRfH6Vw=="],
+
+    "outdent": ["outdent@0.8.0", "", {}, "sha512-KiOAIsdpUTcAXuykya5fnVVT+/5uS0Q1mrkRHcF89tpieSmY33O/tmc54CqwA+bfhbtEfZUNLHaPUiB9X3jt1A=="],
 
     "outvariant": ["outvariant@1.4.3", "", {}, "sha512-+Sl2UErvtsoajRDKCE5/dBz4DIvHXQQnAxtQTF04OJxY0+DyZXSo5P5Bb7XYWOh81syohlYL24hbDwxedPUJCA=="],
 

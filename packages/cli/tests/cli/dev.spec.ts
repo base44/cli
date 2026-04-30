@@ -1,5 +1,6 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { outdent } from "outdent";
 import { describe, expect, it } from "vitest";
 import { waitForDevServer } from "./testkit/dev-utils.js";
 import { fixture, setupCLITests } from "./testkit/index.js";
@@ -30,14 +31,22 @@ describe("dev command", () => {
     await t.givenLoggedInWithProject(fixture("full-project"));
 
     await writeFile(
-      join(t.getTempDir(), "project", "base44/functions/hello/index.ts"),
-      `Deno.serve((req: Request) =>
-  Response.json({
-    authorization: req.headers.get("authorization"),
-    serviceAuthorization: req.headers.get("base44-service-authorization"),
-  }),
-);
-`,
+      join(
+        t.getTempDir(),
+        "project",
+        "base44",
+        "functions",
+        "hello",
+        "index.ts",
+      ),
+      outdent`
+        Deno.serve((req: Request) =>
+          Response.json({
+            authorization: req.headers.get("authorization"),
+            serviceAuthorization: req.headers.get("base44-service-authorization"),
+          }),
+        );
+      `,
     );
 
     const handle = await t.runLive("dev");

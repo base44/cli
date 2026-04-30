@@ -16,6 +16,7 @@ import {
   broadcastEntityEvent,
   createRealtimeServer,
 } from "./realtime.js";
+import { createAuthRouter } from "./routes/auth-router.js";
 import { createEntityRoutes } from "./routes/entities/entities-router.js";
 import {
   createCustomIntegrationRoutes,
@@ -29,6 +30,7 @@ const BASE44_APP_URL = "https://base44.app";
 
 interface DevServerOptions {
   log: Logger;
+  cwd: string;
   port?: number;
   denoWrapperPath: string;
   loadResources: () => Promise<{
@@ -47,7 +49,13 @@ export async function createDevServer(
   options: DevServerOptions,
 ): Promise<DevServerResult> {
   const { port: userPort } = options;
-  const port = userPort ?? (await getPort({ port: DEFAULT_PORT }));
+  const port =
+    userPort ??
+    (await getPort({
+      // Ports should be generated randomly during tests.
+      // Otherwise, when tests run in parallel, using the default value causes port collisions.
+      port: process.env.IS_TEST === "true" ? undefined : DEFAULT_PORT,
+    }));
   const baseUrl = `http://localhost:${port}`;
 
   const { functions, entities, project } = await options.loadResources();
@@ -107,6 +115,9 @@ export async function createDevServer(
   );
   app.use("/api/apps/:appId/entities", entityRoutes);
 
+  const authRouter = createAuthRouter(db, devLogger);
+  app.use("/api/apps/:appId/auth", authRouter);
+
   const { path: mediaFilesDir } = await dir();
 
   app.use("/media/private/:fileUri", (req, res, next) => {
@@ -145,9 +156,12 @@ export async function createDevServer(
   app.use("/api/apps/:appId/integrations/custom", customIntegrationRoutes);
 
   app.use((req, res, next) => {
-    devLogger.warn(
-      `"${req.originalUrl}" is not supported in local development, passing call to production`,
-    );
+    // `analytics/track/batch` call is very common and makes logs unreadable while not providing informative value for the user
+    if (!req.originalUrl.endsWith("analytics/track/batch")) {
+      devLogger.warn(
+        `"${req.originalUrl}" is not supported in local development, passing call to production`,
+      );
+    }
     remoteProxy(req, res, next);
   });
 
@@ -187,7 +201,7 @@ export async function createDevServer(
 
       if (name === "functions") {
         const previousFunctionCount = functionManager.getFunctionNames().length;
-        functionManager.reload(functions);
+        await functionManager.reload(functions);
 
         const names = functionManager.getFunctionNames();
         if (names.length > 0) {
@@ -218,10 +232,10 @@ export async function createDevServer(
   });
   await base44ConfigWatcher.start();
 
-  const shutdown = () => {
+  const shutdown = async () => {
     base44ConfigWatcher.close();
     io.close();
-    functionManager.stopAll();
+    await functionManager.stopAll();
     server.close();
   };
   process.on("SIGINT", shutdown);

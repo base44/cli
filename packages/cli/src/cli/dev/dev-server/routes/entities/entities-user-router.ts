@@ -1,26 +1,25 @@
-import type { Document } from "@seald-io/nedb";
 import type { Request, Response, Router } from "express";
 import { Router as createRouter, json } from "express";
-import jwt from "jsonwebtoken";
 import { nanoid } from "nanoid";
 import type { DevLogger } from "@/cli/dev/createDevLogger.js";
 import {
   type Database,
   USER_COLLECTION,
 } from "@/cli/dev/dev-server/db/database.js";
+import { queryEntity } from "@/cli/dev/dev-server/db/entity-queries.js";
 import {
   type EntityRecord,
   EntityValidationError,
 } from "@/cli/dev/dev-server/db/validator.js";
 import {
+  resolveCurrentUser,
+  type UserDocument,
+} from "@/cli/dev/dev-server/routes/entities/current-user.js";
+import {
   getNowISOTimestamp,
   stripInternalFields,
 } from "@/cli/dev/dev-server/utils.js";
-
-type UserDocument = Document<{
-  email: string;
-  id: string;
-}>;
+import { InvalidInputError } from "@/core/errors.js";
 
 export function createUserRouter(db: Database, logger: DevLogger): Router {
   const router = createRouter({ mergeParams: true });
@@ -34,30 +33,25 @@ export function createUserRouter(db: Database, logger: DevLogger): Router {
     ) => Promise<void> | void,
   ): (req: Request<R>, res: Response) => Promise<void> {
     return async (req, res) => {
-      const auth = req.headers.authorization;
-      if (!auth || !auth.startsWith("Bearer ")) {
+      const currentUserResult = await resolveCurrentUser(db, req);
+
+      if (
+        !currentUserResult.ok &&
+        (currentUserResult.reason === "missing" ||
+          currentUserResult.reason === "invalid")
+      ) {
         res.status(401).json({ error: "Unauthorized" });
         return;
       }
-      try {
-        const { payload } =
-          jwt.decode(auth.replace("Bearer ", ""), { complete: true }) ?? {};
 
-        const result = await db
-          .getCollection(USER_COLLECTION)
-          ?.findOneAsync({ email: payload?.sub });
-
-        if (!result) {
-          res
-            .status(404)
-            .json({ error: "Unable to read data for the current user" });
-          return;
-        }
-
-        await handler(req, res, result as UserDocument);
-      } catch {
-        res.status(401).json({ error: "Unauthorized" });
+      if (!currentUserResult.ok) {
+        res
+          .status(404)
+          .json({ error: "Unable to read data for the current user" });
+        return;
       }
+
+      await handler(req, res, currentUserResult.user);
     };
   }
 
@@ -96,6 +90,35 @@ export function createUserRouter(db: Database, logger: DevLogger): Router {
         is_sample: false,
         ...req.body,
       });
+    }),
+  );
+
+  router.get(
+    "/",
+    withAuth(async (req, res, currentUser) => {
+      const collection = db.getCollection(USER_COLLECTION);
+      if (!collection) {
+        res
+          .status(404)
+          .json({ error: `Entity "${USER_COLLECTION}" not found` });
+        return;
+      }
+
+      try {
+        if (currentUser.role === "admin") {
+          const result = await queryEntity(collection, req.query);
+          res.json(stripInternalFields(result));
+        } else {
+          res.json([stripInternalFields(currentUser)]);
+        }
+      } catch (error) {
+        if (error instanceof InvalidInputError) {
+          res.status(400).json({ error: error.message });
+        } else {
+          logger.error(`Error in GET /${USER_COLLECTION}:`, error);
+          res.status(500).json({ error: "Internal server error" });
+        }
+      }
     }),
   );
 

@@ -93,16 +93,24 @@ export class FunctionManager {
     return this.waitForReady(name, runningFunc);
   }
 
-  reload(functions: BackendFunction[]): void {
-    this.stopAll();
+  async reload(functions: BackendFunction[]): Promise<void> {
+    await this.stopAll();
     this.functions = new Map(functions.map((f) => [f.name, f]));
   }
 
-  stopAll(): void {
-    for (const [name, { process }] of this.running) {
-      this.logger.log(`Stopping function: ${name}`);
-      process.kill();
-    }
+  async stopAll(): Promise<void> {
+    await Promise.all(
+      Array.from(this.running, ([name, { process: proc }]) => {
+        this.logger.log(`Stopping function: ${name}`);
+        const exited = new Promise<void>((r) => proc.once("exit", () => r()));
+        if (process.platform === "win32" && proc.pid) {
+          spawn("taskkill", ["/pid", String(proc.pid), "/T", "/F"]);
+        } else {
+          proc.kill();
+        }
+        return exited;
+      }),
+    );
     this.running.clear();
     this.starting.clear();
   }

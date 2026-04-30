@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.0.51] - 2026-04-28
+
+### Added
+
+- Auth and user registration in local dev (#475)
+- Social login and custom Google OAuth commands (#445)
+- Connector automation support for backend functions (#471)
+- Forward service token header from `Authorization` in `base44 dev` (#461)
+
+### Fixed
+
+- Convert function entry path to file URL for Windows compatibility (#482)
+
 ## [0.0.50] - 2026-03-30
 
 ### Added

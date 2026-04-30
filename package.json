@@ -7,18 +7,15 @@
   "scripts": {
     "lint": "biome check packages/*/src packages/*/tests",
     "lint:fix": "biome check --write packages/*/src packages/*/tests",
+    "typecheck": "bun --workspaces --if-present --sequential run typecheck",
     "knip": "knip",
     "knip:fix": "knip --fix"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.0.0",
-    "@types/jsonwebtoken": "^9.0.10",
     "knip": "^5.83.1"
   },
   "workspaces": [
     "packages/*"
-  ],
-  "dependencies": {
-    "jsonwebtoken": "^9.0.3"
-  }
+  ]
 }

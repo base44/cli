@@ -23,8 +23,8 @@ let refreshPromise: Promise<string | null> | null = null;
  */
 export async function readAuth(): Promise<AuthData> {
   try {
-    const parsed = await readJsonFile(getAuthFilePath());
-    const result = AuthDataSchema.safeParse(parsed);
+    const authData = await readJsonFile(getAuthFilePath());
+    const result = AuthDataSchema.safeParse(authData);
 
     if (!result.success) {
       throw new SchemaValidationError(
