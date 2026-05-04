@@ -98,9 +98,10 @@ describe("functions deploy command", () => {
 
     const result = await t.run("functions", "deploy");
 
-    t.expectResult(result).toSucceed();
+    t.expectResult(result).toFail();
     t.expectResult(result).toContain("error");
     t.expectResult(result).toContain("1 error");
+    t.expectResult(result).toContain("1 function failed to deploy");
   });
 
   it("reports validation error from 422 response", async () => {
@@ -114,11 +115,12 @@ describe("functions deploy command", () => {
 
     const result = await t.run("functions", "deploy");
 
-    t.expectResult(result).toSucceed();
+    t.expectResult(result).toFail();
     t.expectResult(result).toContain("error");
     t.expectResult(result).toContain(
       "Minimum interval for minute-based schedules is 5 minutes.",
     );
+    t.expectResult(result).toContain("1 function failed to deploy");
   });
 
   it("reports too-many-functions error from 422 response", async () => {
@@ -132,11 +134,64 @@ describe("functions deploy command", () => {
 
     const result = await t.run("functions", "deploy");
 
-    t.expectResult(result).toSucceed();
+    t.expectResult(result).toFail();
     t.expectResult(result).toContain("error");
     t.expectResult(result).toContain(
       "Maximum of 50 functions per app reached.",
     );
+    t.expectResult(result).toContain("1 function failed to deploy");
+  });
+
+  it("prunes remote functions missing locally with --force", async () => {
+    await t.givenLoggedInWithProject(fixture("with-functions-and-entities"));
+    t.api.mockSingleFunctionDeploy({ status: "deployed" });
+    t.api.mockFunctionsList({
+      functions: [
+        {
+          name: "stale-function",
+          deployment_id: "dep_123",
+          entry: "index.ts",
+          files: [],
+          automations: [],
+        },
+      ],
+    });
+    t.api.mockSingleFunctionDelete();
+
+    const result = await t.run("functions", "deploy", "--force");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Found 1 remote function to delete");
+    t.expectResult(result).toContain("stale-function");
+    t.expectResult(result).toContain("deleted");
+    t.expectResult(result).toContain("1 deleted");
+  });
+
+  it("does not prune remote functions when deploy fails with --force", async () => {
+    await t.givenLoggedInWithProject(fixture("with-functions-and-entities"));
+    t.api.mockSingleFunctionDeployError({
+      status: 400,
+      body: { error: "Invalid function code" },
+    });
+    t.api.mockFunctionsList({
+      functions: [
+        {
+          name: "stale-function",
+          deployment_id: "dep_123",
+          entry: "index.ts",
+          files: [],
+          automations: [],
+        },
+      ],
+    });
+    t.api.mockSingleFunctionDelete();
+
+    const result = await t.run("functions", "deploy", "--force");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("1 function failed to deploy");
+    t.expectResult(result).toNotContain("Found 1 remote function to delete");
+    t.expectResult(result).toNotContain("stale-function");
   });
 
   it("rejects --force with specific function names", async () => {

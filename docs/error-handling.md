@@ -15,7 +15,8 @@ CLIError (abstract base class)
 │   ├── ConfigInvalidError     # Invalid config syntax/structure
 │   ├── ConfigExistsError      # Project already exists
 │   ├── SchemaValidationError  # Zod validation failed
-│   └── InvalidInputError      # Bad user input (template not found, etc.)
+│   ├── InvalidInputError      # Bad user input (template not found, etc.)
+│   └── DeploymentFailedError  # Deploy completed with failed resources
 │
 └── SystemError (something broke - needs investigation)
     ├── ApiError               # HTTP/network failures
@@ -109,6 +110,7 @@ See [api-patterns.md](api-patterns.md) for the full `ApiError.fromHttpError()` p
 | `CONFIG_EXISTS` | `ConfigExistsError` | Project already exists at location |
 | `SCHEMA_INVALID` | `SchemaValidationError` | Zod validation failed |
 | `INVALID_INPUT` | `InvalidInputError` | User provided invalid input |
+| `DEPLOYMENT_FAILED` | `DeploymentFailedError` | Deploy completed with failed resources |
 | `API_ERROR` | `ApiError` | API request failed |
 | `FILE_NOT_FOUND` | `FileNotFoundError` | File doesn't exist |
 | `FILE_READ_ERROR` | `FileReadError` | Can't read/write file |

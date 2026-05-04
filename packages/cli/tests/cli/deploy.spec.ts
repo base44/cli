@@ -82,6 +82,25 @@ describe("deploy command (unified)", () => {
     t.expectResult(result).toContain("App deployed successfully");
   });
 
+  it("fails when a function deployment fails", async () => {
+    await t.givenLoggedInWithProject(fixture("with-functions-and-entities"));
+    t.api.mockEntitiesPush({ created: ["Order"], updated: [], deleted: [] });
+    t.api.mockSingleFunctionDeployError({
+      status: 400,
+      body: { error: "Invalid function code" },
+    });
+    t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
+    t.api.mockConnectorsList({ integrations: [] });
+    t.api.mockStripeStatus({ stripe_mode: null });
+
+    const result = await t.run("deploy", "-y");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("Invalid function code");
+    t.expectResult(result).toContain("1 function failed to deploy");
+    t.expectResult(result).toNotContain("App deployed successfully");
+  });
+
   it("deploys zero-config functions (path-based names) with unified deploy", async () => {
     await t.givenLoggedInWithProject(fixture("with-zero-config-functions"));
     t.api.mockEntitiesPush({ created: [], updated: [], deleted: [] });
