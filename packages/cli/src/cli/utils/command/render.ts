@@ -1,4 +1,5 @@
 import { intro, log, outro } from "@clack/prompts";
+import { CLIExitError } from "@/cli/errors.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { printBanner } from "@/cli/utils/banner.js";
 import { theme } from "@/cli/utils/theme.js";
@@ -38,6 +39,13 @@ export async function showCommandEnd(
  * Display an error with clack-themed formatting (interactive mode).
  */
 export function showThemedError(error: unknown, context: CLIContext): void {
+  // CLIExitError is a control-flow signal; the user-facing message has already
+  // been printed by whoever threw it. Just close out the clack session.
+  if (error instanceof CLIExitError) {
+    outro("");
+    return;
+  }
+
   const errorMessage = error instanceof Error ? error.message : String(error);
   log.error(errorMessage);
 
@@ -64,6 +72,10 @@ export function showThemedError(error: unknown, context: CLIContext): void {
  * Display an error as plain text to stderr (non-interactive / CI mode).
  */
 export function showPlainError(error: unknown): void {
+  // CLIExitError is a control-flow signal; the user-facing message has already
+  // been printed by whoever threw it.
+  if (error instanceof CLIExitError) return;
+
   const errorMessage = error instanceof Error ? error.message : String(error);
   process.stderr.write(`Error: ${errorMessage}\n`);
 

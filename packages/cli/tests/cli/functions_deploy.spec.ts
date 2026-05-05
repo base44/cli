@@ -154,4 +154,31 @@ describe("functions deploy command", () => {
       "--force cannot be used when specifying function names",
     );
   });
+
+  it("does not prune remote functions with --force when a function fails", async () => {
+    await t.givenLoggedInWithProject(fixture("with-functions-and-entities"));
+    t.api.mockSingleFunctionDeployError({
+      status: 400,
+      body: { error: "Invalid function code" },
+    });
+    // If prune ran, it would call this endpoint and surface "orphan-fn" in the
+    // output via the "Found N remote functions to delete" log line.
+    t.api.mockFunctionsList({
+      functions: [
+        {
+          name: "orphan-fn",
+          deployment_id: "dep_orphan",
+          entry: "index.ts",
+          files: [],
+          automations: [],
+        },
+      ],
+    });
+
+    const result = await t.run("functions", "deploy", "--force");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("1 error");
+    t.expectResult(result).toNotContain("orphan-fn");
+  });
 });
