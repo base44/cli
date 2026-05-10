@@ -24,9 +24,13 @@ export function createFunctionRouter(
         if (xAppId) {
           proxyReq.setHeader("Base44-App-Id", xAppId as string);
         }
-        if (authorization) {
-          proxyReq.setHeader("Base44-Service-Authorization", authorization);
-        }
+        // In production, Base44 always injects a service role token when forwarding
+        // to functions. Replicate that here so asServiceRole works even for
+        // unauthenticated callers (e.g. public-facing subscribe forms).
+        proxyReq.setHeader(
+          "Base44-Service-Authorization",
+          authorization ?? "Bearer base44-dev-service-token",
+        );
         proxyReq.setHeader(
           "Base44-Api-Url",
           `${(req as unknown as Request).protocol}://${req.headers.host}`,
