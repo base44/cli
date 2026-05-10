@@ -1,5 +1,5 @@
-import process from "node:process";
 import { join } from "node:path";
+import process from "node:process";
 import type { Command } from "commander";
 import { createDevServer } from "@/cli/dev/dev-server/main.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
