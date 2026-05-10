@@ -71,4 +71,50 @@ describe("dev command", () => {
     const result = await handle.stop();
     t.expectResult(result).toSucceed();
   });
+
+  it("injects a synthetic service token for unauthenticated function calls", async () => {
+    await t.givenLoggedInWithProject(fixture("full-project"));
+
+    await writeFile(
+      join(
+        t.getTempDir(),
+        "project",
+        "base44",
+        "functions",
+        "hello",
+        "index.ts",
+      ),
+      outdent`
+        Deno.serve((req: Request) =>
+          Response.json({
+            authorization: req.headers.get("authorization"),
+            serviceAuthorization: req.headers.get("base44-service-authorization"),
+          }),
+        );
+      `,
+    );
+
+    const handle = await t.runLive("dev");
+    const devServerUrl = await waitForDevServer(handle);
+
+    // Call the function with no Authorization header (unauthenticated caller,
+    // e.g. a public subscribe form). The dev server must still inject a
+    // Base44-Service-Authorization so that asServiceRole works inside the function.
+    const response = await fetch(
+      `${devServerUrl}/api/apps/${t.api.appId}/functions/hello`,
+      {
+        headers: {
+          "X-App-Id": t.api.appId,
+        },
+      },
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.authorization).toBeNull();
+    expect(body.serviceAuthorization).toBe("Bearer base44-dev-service-token");
+
+    const result = await handle.stop();
+    t.expectResult(result).toSucceed();
+  });
 });
