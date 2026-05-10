@@ -110,7 +110,7 @@ describe("dev command", () => {
     );
 
     expect(response.status).toBe(200);
-    const body = await response.json();
+    const body = await response.json() as Record<string, unknown>;
     expect(body.authorization).toBeNull();
     expect(body.serviceAuthorization).toBe("Bearer base44-dev-service-token");
 
