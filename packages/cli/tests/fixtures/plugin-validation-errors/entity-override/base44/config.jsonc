@@ -2,7 +2,7 @@
   "name": "Plugin Extension Override",
   "plugins": [
     {
-      "source": "./plugins/crm"
+      "source": "../plugins/crm"
     }
   ]
 }

@@ -2,7 +2,7 @@
   "name": "Plugin With Plugins",
   "plugins": [
     {
-      "source": "./plugins/a"
+      "source": "../plugins/a"
     }
   ]
 }

@@ -2,10 +2,10 @@
   "name": "Project With Config Plugins",
   "plugins": [
     {
-      "source": "./plugins/crm"
+      "source": "../plugins/crm"
     },
     {
-      "source": "./plugins/billing"
+      "source": "../plugins/billing"
     }
   ]
 }

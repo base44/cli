@@ -2,10 +2,10 @@
   "name": "Duplicate Plugin Entities",
   "plugins": [
     {
-      "source": "./plugins/crm"
+      "source": "../plugins/crm"
     },
     {
-      "source": "./plugins/billing"
+      "source": "../plugins/billing"
     }
   ]
 }

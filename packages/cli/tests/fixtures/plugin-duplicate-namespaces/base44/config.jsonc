@@ -2,10 +2,10 @@
   "name": "Duplicate Plugin Namespaces",
   "plugins": [
     {
-      "source": "./plugins/one"
+      "source": "../plugins/one"
     },
     {
-      "source": "./plugins/two"
+      "source": "../plugins/two"
     }
   ]
 }

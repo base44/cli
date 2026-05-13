@@ -84,7 +84,7 @@ class ProjectConfigReader {
     this.assertPluginProjectDoesNotLoadPlugins(project, configPath);
 
     const localResources = await this.readProjectResources(configPath, project);
-    const pluginResources = await this.readPlugins(project.plugins, root);
+    const pluginResources = await this.readPlugins(project.plugins, configPath);
 
     const entities = mergeProjectAndPluginEntities(
       localResources.entities,
@@ -193,9 +193,12 @@ class ProjectConfigReader {
 
   private async readPluginConfig(
     plugin: PluginReference,
-    hostRoot: string,
+    hostConfigPath: string,
   ): Promise<PluginConfigData> {
-    const pluginRoot = resolvePluginRoot(plugin.source, hostRoot);
+    const pluginRoot = resolvePluginRoot(
+      plugin.source,
+      dirname(hostConfigPath),
+    );
     const { configPath } = await this.findConfigOrThrow(pluginRoot);
 
     const project = await this.readConfigFile(configPath);
@@ -228,7 +231,7 @@ class ProjectConfigReader {
 
   private async readPlugins(
     plugins: PluginReference[],
-    projectRoot: string,
+    configPath: string,
   ): Promise<ProjectResources> {
     const entities: Entity[] = [];
     const functions: BackendFunction[] = [];
@@ -236,13 +239,16 @@ class ProjectConfigReader {
     const entityNameByPluginNamespace = new Map<string, string>();
 
     for (const plugin of plugins) {
-      const { configPath, pluginNamespace, project } =
-        await this.readPluginConfig(plugin, projectRoot);
-      this.registerPluginNamespace(pluginNamespace, configPath);
+      const {
+        configPath: pluginConfigPath,
+        pluginNamespace,
+        project,
+      } = await this.readPluginConfig(plugin, configPath);
+      this.registerPluginNamespace(pluginNamespace, pluginConfigPath);
 
       const pluginData = await this.readPluginResources(
         project,
-        configPath,
+        pluginConfigPath,
         pluginNamespace,
       );
 
@@ -253,7 +259,7 @@ class ProjectConfigReader {
         if (existingPluginNamespace) {
           throw new ConfigInvalidError(
             `Entity "${entity.name}" is defined by more than one plugin: "${existingPluginNamespace}" and "${pluginNamespace}".`,
-            configPath,
+            pluginConfigPath,
             {
               hints: [
                 {
