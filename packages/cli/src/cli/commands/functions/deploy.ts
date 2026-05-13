@@ -2,6 +2,7 @@ import type { Logger } from "@base44-cli/logger";
 import type { Command } from "commander";
 import { formatDeployResult } from "@/cli/commands/functions/formatDeployResult.js";
 import { parseNames } from "@/cli/commands/functions/parseNames.js";
+import { CLIExitError } from "@/cli/errors.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, theme } from "@/cli/utils/index.js";
 import { InvalidInputError } from "@/core/errors.js";
@@ -99,6 +100,12 @@ async function deployFunctionsAction(
       formatDeployResult(result, log);
     },
   });
+
+  const hasFailures = results.some((r) => r.status === "error");
+  if (hasFailures) {
+    log.message(buildDeploySummary(results));
+    throw new CLIExitError(1);
+  }
 
   if (options.force) {
     const allLocalNames = functions.map((f) => f.name);
