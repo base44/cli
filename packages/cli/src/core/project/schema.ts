@@ -29,7 +29,6 @@ const PluginMetadataSchema = z.object({
     ),
 });
 
-
 export const PluginReferenceSchema = z.object({
   source: z.string().min(1, "Plugin source cannot be empty"),
 });
