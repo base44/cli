@@ -10,8 +10,6 @@ export const ResourceSourceSchema = z.discriminatedUnion("type", [
   }),
 ]);
 
-export type ResourceSource = z.infer<typeof ResourceSourceSchema>;
-
 /**
  * Base interface for all project resources (entities, functions, etc.).
  * Resources are project-specific collections that can be loaded from the filesystem

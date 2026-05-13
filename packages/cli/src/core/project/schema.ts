@@ -19,7 +19,7 @@ const SiteConfigSchema = z.object({
   installCommand: z.string().optional(),
 });
 
-export const PluginMetadataSchema = z.object({
+const PluginMetadataSchema = z.object({
   id: z
     .string()
     .min(1, "Plugin id cannot be empty")
@@ -29,7 +29,6 @@ export const PluginMetadataSchema = z.object({
     ),
 });
 
-export type PluginMetadata = z.infer<typeof PluginMetadataSchema>;
 
 export const PluginReferenceSchema = z.object({
   source: z.string().min(1, "Plugin source cannot be empty"),
