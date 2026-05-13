@@ -1,26 +1,41 @@
-import { createRequire } from "node:module";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
 import { globby } from "globby";
 import { PROJECT_CONFIG_PATTERNS, PROJECT_SUBDIR } from "@/core/consts.js";
-import { ConfigNotFoundError, SchemaValidationError } from "@/core/errors.js";
-import { ProjectConfigSchema } from "@/core/project/schema.js";
+import {
+  ConfigInvalidError,
+  ConfigNotFoundError,
+  SchemaValidationError,
+} from "@/core/errors.js";
+import {
+  markPluginEntities,
+  namespacePluginFunctions,
+  requirePluginId,
+  resolvePluginRoot,
+} from "@/core/project/plugins.js";
+import {
+  type PluginReference,
+  type ProjectConfig,
+  ProjectConfigSchema,
+} from "@/core/project/schema.js";
 import type { ProjectData, ProjectRoot } from "@/core/project/types.js";
 import { agentResource } from "@/core/resources/agent/index.js";
 import { authConfigResource } from "@/core/resources/auth-config/index.js";
 import { connectorResource } from "@/core/resources/connector/index.js";
-import { mergeEntities } from "@/core/resources/entity/config.js";
+import type { Entity } from "@/core/resources/entity/index.js";
 import { entityResource } from "@/core/resources/entity/index.js";
-import { functionResource } from "@/core/resources/function/index.js";
+import { mergeProjectAndPluginEntities } from "@/core/resources/entity/merge.js";
+import {
+  type BackendFunction,
+  functionResource,
+} from "@/core/resources/function/index.js";
 import { readJsonFile } from "@/core/utils/fs.js";
 
-function resolvePluginRoot(pluginRef: string, fromRoot: string): string {
-  if (pluginRef.startsWith(".")) {
-    return resolve(fromRoot, pluginRef);
-  }
-  
-  const req = createRequire(join(fromRoot, "package.json"));
-  return dirname(req.resolve(`${pluginRef}/package.json`));
-}
+type ProjectResources = Omit<ProjectData, "project">;
+type PluginConfigData = {
+  configPath: string;
+  pluginId: string;
+  project: ProjectConfig;
+};
 
 async function findConfigInDir(dir: string): Promise<string | null> {
   const files = await globby(PROJECT_CONFIG_PATTERNS, {
@@ -59,6 +74,206 @@ export async function findProjectRoot(
   return null;
 }
 
+class ProjectConfigReader {
+  private readonly pluginIds = new Set<string>();
+
+  async readProjectConfig(projectRoot?: string): Promise<ProjectData> {
+    const { root, configPath } = await this.findConfigOrThrow(projectRoot);
+
+    const project = await this.readConfigFile(configPath);
+    this.assertPluginProjectDoesNotLoadPlugins(project, configPath);
+
+    const localResources = await this.readProjectResources(configPath, project);
+    const pluginResources = await this.readPlugins(project.plugins, root);
+
+    const entities = mergeProjectAndPluginEntities(
+      localResources.entities,
+      pluginResources.entities,
+      configPath,
+    );
+
+    const functions = [
+      ...localResources.functions,
+      ...pluginResources.functions,
+    ];
+
+    return {
+      project: { ...project, root, configPath },
+      entities,
+      functions,
+      agents: localResources.agents,
+      connectors: localResources.connectors,
+      authConfig: localResources.authConfig,
+    };
+  }
+
+  private async findConfigOrThrow(projectRoot?: string): Promise<ProjectRoot> {
+    let found: ProjectRoot | null;
+
+    if (projectRoot) {
+      const configPath = await findConfigInDir(projectRoot);
+      found = configPath ? { root: projectRoot, configPath } : null;
+    } else {
+      found = await findProjectRoot();
+    }
+
+    if (!found) {
+      throw new ConfigNotFoundError(
+        `Project root not found. Please ensure config.jsonc or config.json exists in the project directory or ${PROJECT_SUBDIR}/ subdirectory.`,
+      );
+    }
+
+    return found;
+  }
+
+  private async readConfigFile(configPath: string): Promise<ProjectConfig> {
+    const parsed = await readJsonFile(configPath);
+    const result = ProjectConfigSchema.safeParse(parsed);
+
+    if (!result.success) {
+      throw new SchemaValidationError(
+        "Invalid project configuration",
+        result.error,
+        configPath,
+      );
+    }
+
+    return result.data;
+  }
+
+  private async readProjectResources(
+    configPath: string,
+    project: ProjectConfig,
+  ): Promise<ProjectResources> {
+    const configDir = dirname(configPath);
+    const [entities, functions, agents, connectors, authConfig] =
+      await Promise.all([
+        entityResource.readAll(join(configDir, project.entitiesDir)),
+        functionResource.readAll(join(configDir, project.functionsDir)),
+        agentResource.readAll(join(configDir, project.agentsDir)),
+        connectorResource.readAll(join(configDir, project.connectorsDir)),
+        authConfigResource.readAll(join(configDir, project.authDir)),
+      ]);
+
+    return { entities, functions, agents, connectors, authConfig };
+  }
+
+  private assertPluginProjectDoesNotLoadPlugins(
+    project: ProjectConfig,
+    configPath: string,
+  ): void {
+    if (project.plugin && project.plugins.length > 0) {
+      throw new ConfigInvalidError(
+        "Plugin projects cannot define plugins in this version.",
+        configPath,
+      );
+    }
+  }
+
+  private registerPluginId(pluginId: string, configPath: string): void {
+    if (this.pluginIds.has(pluginId)) {
+      throw new ConfigInvalidError(
+        `Duplicate plugin id "${pluginId}" in project configuration`,
+        configPath,
+        {
+          hints: [
+            {
+              message: "Remove the plugin or change plugin id",
+            },
+          ],
+        },
+      );
+    }
+
+    this.pluginIds.add(pluginId);
+  }
+
+  private async readPluginConfig(
+    plugin: PluginReference,
+    hostRoot: string,
+  ): Promise<PluginConfigData> {
+    const pluginRoot = resolvePluginRoot(plugin.source, hostRoot);
+    const { configPath } = await this.findConfigOrThrow(pluginRoot);
+
+    const project = await this.readConfigFile(configPath);
+    const pluginId = requirePluginId(project, plugin.source, configPath);
+
+    this.assertPluginProjectDoesNotLoadPlugins(project, configPath);
+
+    return { configPath, pluginId, project };
+  }
+
+  private async readPluginResources(
+    project: ProjectConfig,
+    configPath: string,
+    pluginId: string,
+  ): Promise<ProjectResources> {
+    const resources = await this.readProjectResources(configPath, project);
+
+    return {
+      entities: markPluginEntities(resources.entities, pluginId),
+      functions: namespacePluginFunctions(resources.functions, pluginId),
+      agents: [],
+      connectors: [],
+      authConfig: [],
+    };
+  }
+
+  private async readPlugins(
+    plugins: PluginReference[],
+    projectRoot: string,
+  ): Promise<ProjectResources> {
+    const entities: Entity[] = [];
+    const functions: BackendFunction[] = [];
+
+    const entityNameByPluginId = new Map<string, string>();
+
+    for (const plugin of plugins) {
+      const { configPath, pluginId, project } = await this.readPluginConfig(
+        plugin,
+        projectRoot,
+      );
+      this.registerPluginId(pluginId, configPath);
+
+      const pluginData = await this.readPluginResources(
+        project,
+        configPath,
+        pluginId,
+      );
+
+      for (const entity of pluginData.entities) {
+        const existingPluginId = entityNameByPluginId.get(entity.name);
+        if (existingPluginId) {
+          throw new ConfigInvalidError(
+            `Entity "${entity.name}" is defined by more than one plugin: "${existingPluginId}" and "${pluginId}".`,
+            configPath,
+            {
+              hints: [
+                {
+                  message:
+                    "Plugin entity names are not namespaced. Remove one plugin or rename one of the entities.",
+                },
+              ],
+            },
+          );
+        }
+        entityNameByPluginId.set(entity.name, pluginId);
+      }
+
+      entities.push(...pluginData.entities);
+      functions.push(...pluginData.functions);
+    }
+
+    return {
+      entities,
+      functions,
+      agents: [],
+      connectors: [],
+      authConfig: [],
+    };
+  }
+}
+
 /**
  * Reads and validates a Base44 project configuration from the filesystem.
  * Also loads all entities and functions defined in the project.
@@ -73,62 +288,6 @@ export async function findProjectRoot(
 export async function readProjectConfig(
   projectRoot?: string,
 ): Promise<ProjectData> {
-  let found: ProjectRoot | null;
-
-  if (projectRoot) {
-    const configPath = await findConfigInDir(projectRoot);
-    found = configPath ? { root: projectRoot, configPath } : null;
-  } else {
-    found = await findProjectRoot();
-  }
-
-  if (!found) {
-    throw new ConfigNotFoundError(
-      `Project root not found. Please ensure config.jsonc or config.json exists in the project directory or ${PROJECT_SUBDIR}/ subdirectory.`,
-    );
-  }
-
-  const { root, configPath } = found;
-
-  const parsed = await readJsonFile(configPath);
-  const result = ProjectConfigSchema.safeParse(parsed);
-
-  if (!result.success) {
-    throw new SchemaValidationError(
-      "Invalid project configuration",
-      result.error,
-      configPath,
-    );
-  }
-
-  const project = result.data;
-  const configDir = dirname(configPath);
-
-  const [appEntities, functions, agents, connectors, authConfig] =
-    await Promise.all([
-      entityResource.readAll(join(configDir, project.entitiesDir)),
-      functionResource.readAll(join(configDir, project.functionsDir)),
-      agentResource.readAll(join(configDir, project.agentsDir)),
-      connectorResource.readAll(join(configDir, project.connectorsDir)),
-      authConfigResource.readAll(join(configDir, project.authDir)),
-    ]);
-
-  let entities = appEntities;
-
-  for (const pluginRef of project.plugins) {
-    const plugin = await readProjectConfig(resolvePluginRoot(pluginRef, root));
-
-    entities = mergeEntities(appEntities, plugin.entities);
-    functions.push(...plugin.functions);
-    agents.push(...plugin.agents);
-  }
-
-  return {
-    project: { ...project, root, configPath },
-    entities,
-    functions,
-    agents,
-    connectors,
-    authConfig,
-  };
+  const reader = new ProjectConfigReader();
+  return await reader.readProjectConfig(projectRoot);
 }

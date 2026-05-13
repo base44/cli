@@ -1,0 +1,9 @@
+{
+  "name": "Customer",
+  "type": "object",
+  "properties": {
+    "company": {
+      "type": "number"
+    }
+  }
+}

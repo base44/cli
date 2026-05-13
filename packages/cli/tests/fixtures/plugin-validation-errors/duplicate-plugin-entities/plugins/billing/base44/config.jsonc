@@ -1,0 +1,6 @@
+{
+  "name": "Billing",
+  "plugin": {
+    "id": "billing"
+  }
+}

@@ -47,7 +47,12 @@ async function readFunction(configPath: string): Promise<BackendFunction> {
     absolute: true,
   });
 
-  const functionData: BackendFunction = { ...config, entryPath, filePaths };
+  const functionData: BackendFunction = {
+    ...config,
+    entryPath,
+    filePaths,
+    source: { type: "project" },
+  };
   return functionData;
 }
 
@@ -102,7 +107,14 @@ export async function readAllFunctions(
       }
       const entry = basename(entryFile);
 
-      return { name, entry, entryPath: entryFile, filePaths };
+      const functionData: BackendFunction = {
+        name,
+        entry,
+        entryPath: entryFile,
+        filePaths,
+        source: { type: "project" },
+      };
+      return functionData;
     }),
   );
 

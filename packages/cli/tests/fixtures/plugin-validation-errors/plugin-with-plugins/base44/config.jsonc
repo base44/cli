@@ -1,0 +1,8 @@
+{
+  "name": "Plugin With Plugins",
+  "plugins": [
+    {
+      "source": "./plugins/a"
+    }
+  ]
+}

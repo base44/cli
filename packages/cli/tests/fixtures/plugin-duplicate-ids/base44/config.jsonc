@@ -1,0 +1,11 @@
+{
+  "name": "Duplicate Plugin IDs",
+  "plugins": [
+    {
+      "source": "./plugins/one"
+    },
+    {
+      "source": "./plugins/two"
+    }
+  ]
+}

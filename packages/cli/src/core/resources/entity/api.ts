@@ -12,7 +12,7 @@ export async function syncEntities(
 ): Promise<SyncEntitiesResponse> {
   const appClient = getAppClient();
   const schemaSyncPayload = Object.fromEntries(
-    entities.map((entity) => [entity.name, entity]),
+    entities.map(({ source: _source, ...entity }) => [entity.name, entity]),
   );
 
   let response: KyResponse;

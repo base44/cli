@@ -10,10 +10,13 @@ async function pullFunctionsAction(
   { log, runTask }: CLIContext,
   name: string | undefined,
 ): Promise<RunCommandResult> {
-  const { project } = await readProjectConfig();
+  const { project, functions } = await readProjectConfig();
 
   const configDir = dirname(project.configPath);
   const functionsDir = join(configDir, project.functionsDir);
+  const pluginFunctionNames = new Set(
+    functions.filter((fn) => fn.source.type === "plugin").map((fn) => fn.name),
+  );
 
   const remoteFunctions = await runTask(
     "Fetching functions from Base44",
@@ -27,17 +30,35 @@ async function pullFunctionsAction(
     },
   );
 
-  const toPull = name
+  const matchingRemote = name
     ? remoteFunctions.filter((f) => f.name === name)
     : remoteFunctions;
 
-  if (name && toPull.length === 0) {
+  if (name && pluginFunctionNames.has(name)) {
+    return {
+      outroMessage: `Function "${name}" is managed by a plugin and was not pulled into ${functionsDir}`,
+    };
+  }
+
+  if (name && matchingRemote.length === 0) {
     return {
       outroMessage: `Function "${name}" not found on remote`,
     };
   }
 
+  const skippedPluginOwned = matchingRemote.filter((fn) =>
+    pluginFunctionNames.has(fn.name),
+  );
+  const toPull = matchingRemote.filter(
+    (fn) => !pluginFunctionNames.has(fn.name),
+  );
+
   if (toPull.length === 0) {
+    if (skippedPluginOwned.length > 0) {
+      return {
+        outroMessage: `Skipped ${skippedPluginOwned.length} plugin-owned function${skippedPluginOwned.length !== 1 ? "s" : ""}; no project-owned functions to pull`,
+      };
+    }
     return { outroMessage: "No functions found on remote" };
   }
 
@@ -58,9 +79,12 @@ async function pullFunctionsAction(
   for (const name of skipped) {
     log.info(`${name.padEnd(25)} unchanged`);
   }
+  for (const fn of skippedPluginOwned) {
+    log.info(`${fn.name.padEnd(25)} plugin-owned, skipped`);
+  }
 
   return {
-    outroMessage: `Pulled ${toPull.length} function${toPull.length !== 1 ? "s" : ""} to ${functionsDir}`,
+    outroMessage: `Pulled ${toPull.length} function${toPull.length !== 1 ? "s" : ""} to ${functionsDir}${skippedPluginOwned.length > 0 ? `; skipped ${skippedPluginOwned.length} plugin-owned` : ""}`,
   };
 }
 

@@ -1,0 +1,11 @@
+{
+  "name": "Plugin A",
+  "plugin": {
+    "id": "a"
+  },
+  "plugins": [
+    {
+      "source": "../nested-plugin"
+    }
+  ]
+}

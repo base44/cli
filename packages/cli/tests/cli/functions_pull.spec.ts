@@ -36,6 +36,63 @@ describe("functions pull command", () => {
     t.expectResult(result).toContain("Pulled 1 function");
   });
 
+  it("skips plugin-owned functions when pulling all functions", async () => {
+    await t.givenLoggedInWithProject(fixture("with-config-plugins"));
+    t.api.mockFunctionsList({
+      functions: [
+        {
+          name: "crm__syncCustomer",
+          deployment_id: "d1",
+          entry: "index.ts",
+          files: [{ path: "index.ts", content: "Deno.serve(() => {})" }],
+          automations: [],
+        },
+        {
+          name: "project-func",
+          deployment_id: "d2",
+          entry: "index.ts",
+          files: [{ path: "index.ts", content: "Deno.serve(() => {})" }],
+          automations: [],
+        },
+      ],
+    });
+
+    const result = await t.run("functions", "pull");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Pulled 1 function");
+    t.expectResult(result).toContain("skipped 1 plugin-owned");
+    expect(await t.fileExists("base44/functions/project-func/index.ts")).toBe(
+      true,
+    );
+    expect(
+      await t.fileExists("base44/functions/crm__syncCustomer/index.ts"),
+    ).toBe(false);
+  });
+
+  it("does not write files when explicitly pulling a plugin-owned function", async () => {
+    await t.givenLoggedInWithProject(fixture("with-config-plugins"));
+    t.api.mockFunctionsList({
+      functions: [
+        {
+          name: "crm__syncCustomer",
+          deployment_id: "d1",
+          entry: "index.ts",
+          files: [{ path: "index.ts", content: "Deno.serve(() => {})" }],
+          automations: [],
+        },
+      ],
+    });
+
+    const result = await t.run("functions", "pull", "crm__syncCustomer");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("managed by a plugin");
+    expect(
+      await t.fileExists("base44/functions/crm__syncCustomer/index.ts"),
+    ).toBe(false);
+  });
+
   it("pulls a single function by name", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
     t.api.mockFunctionsList({

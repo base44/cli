@@ -1,0 +1,9 @@
+{
+  "name": "AppOnly",
+  "type": "object",
+  "properties": {
+    "label": {
+      "type": "string"
+    }
+  }
+}

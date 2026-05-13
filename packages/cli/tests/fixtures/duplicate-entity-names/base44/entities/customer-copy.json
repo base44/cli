@@ -1,0 +1,9 @@
+{
+  "name": "Customer",
+  "type": "object",
+  "properties": {
+    "email": {
+      "type": "string"
+    }
+  }
+}

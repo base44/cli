@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ResourceSourceSchema } from "@/core/resources/types.js";
 
 const FieldConditionSchema = z.union([
   z.string(),
@@ -106,7 +107,7 @@ const FieldRLSSchema = z.looseObject({
   delete: RLSRuleSchema.optional(),
 });
 
-const PropertyDefinitionSchema = z.looseObject({
+export const PropertyDefinitionSchema = z.looseObject({
   type: z.string(),
   title: z.string().optional(),
   description: z.string().optional(),
@@ -143,6 +144,7 @@ export const EntitySchema = z.looseObject({
   properties: z.record(z.string(), PropertyDefinitionSchema).default({}),
   required: z.array(z.string()).optional(),
   rls: EntityRLSSchema.optional(),
+  source: ResourceSourceSchema.default({ type: "project" }),
 });
 
 export type Entity = z.infer<typeof EntitySchema>;

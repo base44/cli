@@ -34,6 +34,18 @@ describe("functions deploy command", () => {
     t.expectResult(result).toContain("1 deployed");
   });
 
+  it("deploys plugin functions with namespaced names", async () => {
+    await t.givenLoggedInWithProject(fixture("with-config-plugins"));
+    t.api.mockSingleFunctionDeploy({ status: "deployed" });
+
+    const result = await t.run("functions", "deploy");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Deploying crm__syncCustomer");
+    t.expectResult(result).toContain("Deploying billing__createInvoice");
+    t.expectResult(result).toContain("2 deployed");
+  });
+
   it("reports unchanged function", async () => {
     await t.givenLoggedInWithProject(fixture("with-functions-and-entities"));
     t.api.mockSingleFunctionDeploy({ status: "unchanged" });

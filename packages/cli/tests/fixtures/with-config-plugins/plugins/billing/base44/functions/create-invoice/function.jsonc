@@ -1,0 +1,4 @@
+{
+  "name": "createInvoice",
+  "entry": "index.ts"
+}

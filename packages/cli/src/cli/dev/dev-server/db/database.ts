@@ -72,6 +72,7 @@ export class Database {
         name: "User",
         type: "object",
         properties: { ...builtInFields, role: { type: "string" } },
+        source: { type: "project" },
       };
     }
 

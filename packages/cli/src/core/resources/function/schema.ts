@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { IntegrationTypeSchema } from "@/core/resources/connector/schema.js";
+import { ResourceSourceSchema } from "@/core/resources/types.js";
 
 const FunctionNameSchema = z
   .string()
@@ -146,6 +147,7 @@ export const FunctionConfigSchema = z.object({
 const BackendFunctionSchema = FunctionConfigSchema.extend({
   entryPath: z.string().min(1, "Entry path cannot be empty"),
   filePaths: z.array(z.string()).min(1, "Function must have at least one file"),
+  source: ResourceSourceSchema,
 });
 
 export const DeploySingleFunctionResponseSchema = z.object({

@@ -1,0 +1,10 @@
+{
+  "name": "Customer",
+  "type": "object",
+  "properties": {
+    "tier": {
+      "type": "string"
+    }
+  },
+  "required": ["tier"]
+}
