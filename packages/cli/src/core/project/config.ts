@@ -9,7 +9,7 @@ import {
 import {
   markPluginEntities,
   namespacePluginFunctions,
-  requirePluginId,
+  requirePluginNamespace,
   resolvePluginRoot,
 } from "@/core/project/plugins.js";
 import {
@@ -33,7 +33,7 @@ import { readJsonFile } from "@/core/utils/fs.js";
 type ProjectResources = Omit<ProjectData, "project">;
 type PluginConfigData = {
   configPath: string;
-  pluginId: string;
+  pluginNamespace: string;
   project: ProjectConfig;
 };
 
@@ -75,7 +75,7 @@ export async function findProjectRoot(
 }
 
 class ProjectConfigReader {
-  private readonly pluginIds = new Set<string>();
+  private readonly pluginNamespaces = new Set<string>();
 
   async readProjectConfig(projectRoot?: string): Promise<ProjectData> {
     const { root, configPath } = await this.findConfigOrThrow(projectRoot);
@@ -170,22 +170,25 @@ class ProjectConfigReader {
     }
   }
 
-  private registerPluginId(pluginId: string, configPath: string): void {
-    if (this.pluginIds.has(pluginId)) {
+  private registerPluginNamespace(
+    pluginNamespace: string,
+    configPath: string,
+  ): void {
+    if (this.pluginNamespaces.has(pluginNamespace)) {
       throw new ConfigInvalidError(
-        `Duplicate plugin id "${pluginId}" in project configuration`,
+        `Duplicate plugin namespace "${pluginNamespace}" in project configuration`,
         configPath,
         {
           hints: [
             {
-              message: "Remove the plugin or change plugin id",
+              message: "Remove the plugin or change plugin namespace",
             },
           ],
         },
       );
     }
 
-    this.pluginIds.add(pluginId);
+    this.pluginNamespaces.add(pluginNamespace);
   }
 
   private async readPluginConfig(
@@ -196,23 +199,27 @@ class ProjectConfigReader {
     const { configPath } = await this.findConfigOrThrow(pluginRoot);
 
     const project = await this.readConfigFile(configPath);
-    const pluginId = requirePluginId(project, plugin.source, configPath);
+    const pluginNamespace = requirePluginNamespace(
+      project,
+      plugin.source,
+      configPath,
+    );
 
     this.assertPluginProjectDoesNotLoadPlugins(project, configPath);
 
-    return { configPath, pluginId, project };
+    return { configPath, pluginNamespace, project };
   }
 
   private async readPluginResources(
     project: ProjectConfig,
     configPath: string,
-    pluginId: string,
+    pluginNamespace: string,
   ): Promise<ProjectResources> {
     const resources = await this.readProjectResources(configPath, project);
 
     return {
-      entities: markPluginEntities(resources.entities, pluginId),
-      functions: namespacePluginFunctions(resources.functions, pluginId),
+      entities: markPluginEntities(resources.entities, pluginNamespace),
+      functions: namespacePluginFunctions(resources.functions, pluginNamespace),
       agents: [],
       connectors: [],
       authConfig: [],
@@ -226,26 +233,26 @@ class ProjectConfigReader {
     const entities: Entity[] = [];
     const functions: BackendFunction[] = [];
 
-    const entityNameByPluginId = new Map<string, string>();
+    const entityNameByPluginNamespace = new Map<string, string>();
 
     for (const plugin of plugins) {
-      const { configPath, pluginId, project } = await this.readPluginConfig(
-        plugin,
-        projectRoot,
-      );
-      this.registerPluginId(pluginId, configPath);
+      const { configPath, pluginNamespace, project } =
+        await this.readPluginConfig(plugin, projectRoot);
+      this.registerPluginNamespace(pluginNamespace, configPath);
 
       const pluginData = await this.readPluginResources(
         project,
         configPath,
-        pluginId,
+        pluginNamespace,
       );
 
       for (const entity of pluginData.entities) {
-        const existingPluginId = entityNameByPluginId.get(entity.name);
-        if (existingPluginId) {
+        const existingPluginNamespace = entityNameByPluginNamespace.get(
+          entity.name,
+        );
+        if (existingPluginNamespace) {
           throw new ConfigInvalidError(
-            `Entity "${entity.name}" is defined by more than one plugin: "${existingPluginId}" and "${pluginId}".`,
+            `Entity "${entity.name}" is defined by more than one plugin: "${existingPluginNamespace}" and "${pluginNamespace}".`,
             configPath,
             {
               hints: [
@@ -257,7 +264,7 @@ class ProjectConfigReader {
             },
           );
         }
-        entityNameByPluginId.set(entity.name, pluginId);
+        entityNameByPluginNamespace.set(entity.name, pluginNamespace);
       }
 
       entities.push(...pluginData.entities);

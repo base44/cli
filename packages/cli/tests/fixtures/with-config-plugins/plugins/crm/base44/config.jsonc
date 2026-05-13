@@ -1,6 +1,6 @@
 {
   "name": "CRM Plugin",
   "plugin": {
-    "id": "crm"
+    "namespace": "crm"
   }
 }

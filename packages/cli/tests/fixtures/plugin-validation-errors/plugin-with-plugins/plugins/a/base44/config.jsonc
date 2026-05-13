@@ -1,7 +1,7 @@
 {
   "name": "Plugin A",
   "plugin": {
-    "id": "a"
+    "namespace": "a"
   },
   "plugins": [
     {

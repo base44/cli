@@ -17,44 +17,44 @@ export function resolvePluginRoot(
   return dirname(req.resolve(`${pluginSource}/package.json`));
 }
 
-export function requirePluginId(
+export function requirePluginNamespace(
   project: ProjectConfig,
   pluginSource: string,
   configPath: string,
 ): string {
-  if (!project.plugin?.id) {
+  if (!project.plugin?.namespace) {
     throw new ConfigInvalidError(
-      `Plugin loaded from "${pluginSource}" must define plugin.id`,
+      `Plugin loaded from "${pluginSource}" must define plugin.namespace`,
       configPath,
     );
   }
 
-  return project.plugin.id;
+  return project.plugin.namespace;
 }
 
 export function namespacePluginFunctions(
   functions: BackendFunction[],
-  pluginId: string,
+  pluginNamespace: string,
 ): BackendFunction[] {
   return functions.map((fn) => ({
     ...fn,
-    name: `${pluginId}__${fn.name}`,
+    name: `${pluginNamespace}__${fn.name}`,
     source: {
       type: "plugin",
-      id: pluginId,
+      namespace: pluginNamespace,
     },
   }));
 }
 
 export function markPluginEntities(
   entities: Entity[],
-  pluginId: string,
+  pluginNamespace: string,
 ): Entity[] {
   return entities.map((entity) => ({
     ...entity,
     source: {
       type: "plugin",
-      id: pluginId,
+      namespace: pluginNamespace,
     },
   }));
 }

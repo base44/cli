@@ -1,6 +1,6 @@
 {
   "name": "Two",
   "plugin": {
-    "id": "crm"
+    "namespace": "crm"
   }
 }

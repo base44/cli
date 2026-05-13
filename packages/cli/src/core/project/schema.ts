@@ -20,12 +20,12 @@ const SiteConfigSchema = z.object({
 });
 
 const PluginMetadataSchema = z.object({
-  id: z
+  namespace: z
     .string()
-    .min(1, "Plugin id cannot be empty")
+    .min(1, "Plugin namespace cannot be empty")
     .regex(
       /^[a-zA-Z0-9_-]+$/,
-      "Plugin id can only contain letters, numbers, underscores, and dashes",
+      "Plugin namespace can only contain letters, numbers, underscores, and dashes",
     ),
 });
 

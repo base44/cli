@@ -57,7 +57,7 @@ describe("readProjectConfig", () => {
     expect(customer?.properties).toHaveProperty("company");
     expect(customer?.properties).toHaveProperty("tier");
     expect(customer?.required).toEqual(["company", "tier"]);
-    expect(customer?.source).toEqual({ type: "plugin", id: "crm" });
+    expect(customer?.source).toEqual({ type: "plugin", namespace: "crm" });
 
     const appOnly = result.entities.find((entity) => entity.name === "AppOnly");
     expect(appOnly?.source).toEqual({ type: "project" });
@@ -73,7 +73,7 @@ describe("readProjectConfig", () => {
     expect(crmFunction).toMatchObject({
       source: {
         type: "plugin",
-        id: "crm",
+        namespace: "crm",
       },
     });
   });
@@ -140,10 +140,10 @@ describe("readProjectConfig", () => {
     ).rejects.toThrow(/Duplicate entity name/);
   });
 
-  it("throws on duplicate plugin ids", async () => {
+  it("throws on duplicate plugin namespaces", async () => {
     await expect(
-      readProjectConfig(resolve(FIXTURES_DIR, "plugin-duplicate-ids")),
-    ).rejects.toThrow(/Duplicate plugin id/);
+      readProjectConfig(resolve(FIXTURES_DIR, "plugin-duplicate-namespaces")),
+    ).rejects.toThrow(/Duplicate plugin namespace/);
   });
 
   it("throws when plugins define the same entity name", async () => {

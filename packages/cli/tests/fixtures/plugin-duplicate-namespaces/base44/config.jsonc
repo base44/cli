@@ -1,5 +1,5 @@
 {
-  "name": "Duplicate Plugin IDs",
+  "name": "Duplicate Plugin Namespaces",
   "plugins": [
     {
       "source": "./plugins/one"

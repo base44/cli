@@ -6,7 +6,7 @@ export const ResourceSourceSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("plugin"),
-    id: z.string().min(1, "Plugin id cannot be empty"),
+    namespace: z.string().min(1, "Plugin namespace cannot be empty"),
   }),
 ]);
 
