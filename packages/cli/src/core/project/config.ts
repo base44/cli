@@ -32,12 +32,6 @@ import { readJsonFile } from "@/core/utils/fs.js";
 
 type ProjectResources = Omit<ProjectData, "project">;
 
-function describeFunctionSource(fn: BackendFunction): string {
-  return fn.source.type === "plugin"
-    ? `plugin "${fn.source.namespace}"`
-    : "project";
-}
-
 async function findConfigInDir(dir: string): Promise<string | null> {
   const files = await globby(PROJECT_CONFIG_PATTERNS, {
     cwd: dir,
@@ -299,7 +293,7 @@ class ProjectConfigReader {
       const existingFunction = functionsByName.get(fn.name);
       if (existingFunction) {
         throw new ConfigInvalidError(
-          `Duplicate function name "${fn.name}" after loading project plugins (${describeFunctionSource(existingFunction)} and ${describeFunctionSource(fn)}).`,
+          `Duplicate function name "${fn.name}" after loading project plugins.`,
           configPath,
           {
             hints: [
