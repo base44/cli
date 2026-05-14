@@ -93,14 +93,14 @@ describe("functions pull command", () => {
     ).toBe(false);
   });
 
-  it("reports not found when explicitly pulling an undeployed plugin-owned function", async () => {
+  it("reports plugin-managed when explicitly pulling an undeployed plugin-owned function", async () => {
     await t.givenLoggedInWithProject(fixture("with-config-plugins"));
     t.api.mockFunctionsList({ functions: [] });
 
     const result = await t.run("functions", "pull", "crm__syncCustomer");
 
     t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain("not found on remote");
+    t.expectResult(result).toContain("managed by a plugin");
   });
 
   it("pulls a single function by name", async () => {

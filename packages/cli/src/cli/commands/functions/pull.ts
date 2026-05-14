@@ -30,6 +30,12 @@ async function pullFunctionsAction(
     },
   );
 
+  if (name && pluginFunctionNames.has(name)) {
+    return {
+      outroMessage: `Function "${name}" is managed by a plugin and was not pulled into ${functionsDir}`,
+    };
+  }
+
   const matchingRemote = name
     ? remoteFunctions.filter((f) => f.name === name)
     : remoteFunctions;
@@ -37,12 +43,6 @@ async function pullFunctionsAction(
   if (name && matchingRemote.length === 0) {
     return {
       outroMessage: `Function "${name}" not found on remote`,
-    };
-  }
-
-  if (name && pluginFunctionNames.has(name)) {
-    return {
-      outroMessage: `Function "${name}" is managed by a plugin and was not pulled into ${functionsDir}`,
     };
   }
 

@@ -127,7 +127,7 @@ describe("readProjectConfig", () => {
       );
 
       await expect(readProjectConfig(tmpDir)).rejects.toThrow(
-        /Duplicate function name "crm__syncCustomer"/,
+        /Duplicate function name "crm__syncCustomer".*project.*plugin "crm"/s,
       );
     } finally {
       await rm(tmpDir, { recursive: true, force: true });

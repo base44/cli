@@ -5,7 +5,11 @@ import {
   ENTRY_IGNORE_DOT_PATHS,
   FUNCTION_CONFIG_GLOB,
 } from "@/core/consts.js";
-import { InvalidInputError, SchemaValidationError } from "@/core/errors.js";
+import {
+  ConfigInvalidError,
+  InvalidInputError,
+  SchemaValidationError,
+} from "@/core/errors.js";
 import type {
   BackendFunction,
   FunctionConfig,
@@ -123,14 +127,18 @@ export async function readAllFunctions(
   const names = new Set<string>();
   for (const fn of functions) {
     if (names.has(fn.name)) {
-      throw new InvalidInputError(`Duplicate function name "${fn.name}"`, {
-        hints: [
-          {
-            message:
-              "Ensure each function has a unique name (or path for zero-config functions).",
-          },
-        ],
-      });
+      throw new ConfigInvalidError(
+        `Duplicate function name "${fn.name}" in ${functionsDir}`,
+        functionsDir,
+        {
+          hints: [
+            {
+              message:
+                "Ensure each function has a unique name (or path for zero-config functions).",
+            },
+          ],
+        },
+      );
     }
     names.add(fn.name);
   }

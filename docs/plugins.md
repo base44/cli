@@ -2,6 +2,8 @@
 
 **Keywords:** plugin, plugins, namespace, ResourceSourceSchema, plugin source, entity extension, function namespacing, functions pull, config plugins, readProjectConfig
 
+For the end-user spec (installing, authoring, extending plugins with worked examples), see [plugins-spec.md](plugins-spec.md). This file is the agent-facing reference for the implementation.
+
 Plugins let one Base44 project consume reusable resources from another Base44-style project. In this version, plugins contribute **entities** and **backend functions** only.
 
 Plugin support is resolved locally by `readProjectConfig()`. The backend does not store plugin ownership metadata in this version.
