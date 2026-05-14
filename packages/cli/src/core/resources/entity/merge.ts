@@ -14,11 +14,10 @@ function mergePluginEntity(
   // TODO: Define how project extensions can safely add top-level RLS rules,
   // especially rules that reference project-added fields, without weakening
   // plugin-owned entity access controls.
-  const unsupportedFields = [
-    projectEntity.title ? "title" : null,
-    projectEntity.description ? "description" : null,
-    projectEntity.rls ? "rls" : null,
-  ].filter(Boolean);
+  const projectEntityFields = new Set(Object.keys(projectEntity));
+  const unsupportedFields = ["title", "description", "rls"].filter((field) =>
+    projectEntityFields.has(field),
+  );
 
   if (unsupportedFields.length > 0) {
     throw new ConfigInvalidError(
@@ -42,7 +41,7 @@ function mergePluginEntity(
   for (const requiredProperty of projectEntity.required ?? []) {
     if (!addedPropertyNames.has(requiredProperty)) {
       throw new ConfigInvalidError(
-        `Required property "${requiredProperty}" must be declared in project entity "${projectEntity.name}" properties`,
+        `Project entity "${projectEntity.name}" can only mark project-added properties as required; "${requiredProperty}" is not declared in the project extension.`,
         configPath,
       );
     }

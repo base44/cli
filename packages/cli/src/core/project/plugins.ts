@@ -1,5 +1,5 @@
 import { createRequire } from "node:module";
-import { dirname, join, resolve } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 import { ConfigInvalidError } from "@/core/errors.js";
 import type { ProjectConfig } from "@/core/project/schema.js";
 import type { Entity } from "@/core/resources/entity/index.js";
@@ -9,7 +9,7 @@ export function resolvePluginRoot(
   pluginSource: string,
   fromRoot: string,
 ): string {
-  if (pluginSource.startsWith(".")) {
+  if (pluginSource.startsWith(".") || isAbsolute(pluginSource)) {
     return resolve(fromRoot, pluginSource);
   }
 

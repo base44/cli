@@ -31,11 +31,6 @@ import {
 import { readJsonFile } from "@/core/utils/fs.js";
 
 type ProjectResources = Omit<ProjectData, "project">;
-type PluginConfigData = {
-  configPath: string;
-  pluginNamespace: string;
-  project: ProjectConfig;
-};
 
 async function findConfigInDir(dir: string): Promise<string | null> {
   const files = await globby(PROJECT_CONFIG_PATTERNS, {
@@ -75,7 +70,7 @@ export async function findProjectRoot(
 }
 
 class ProjectConfigReader {
-  private readonly pluginNamespaces = new Set<string>();
+  private readonly pluginSourceByNamespace = new Map<string, string>();
 
   async readProjectConfig(projectRoot?: string): Promise<ProjectData> {
     const { root, configPath } = await this.findConfigOrThrow(projectRoot);
@@ -96,6 +91,7 @@ class ProjectConfigReader {
       ...localResources.functions,
       ...pluginResources.functions,
     ];
+    this.validateFunctionNames(functions, configPath);
 
     return {
       project: { ...project, root, configPath },
@@ -171,12 +167,14 @@ class ProjectConfigReader {
   }
 
   private registerPluginNamespace(
-    pluginNamespace: string,
+    namespace: string,
+    source: string,
     configPath: string,
   ): void {
-    if (this.pluginNamespaces.has(pluginNamespace)) {
+    const existingSource = this.pluginSourceByNamespace.get(namespace);
+    if (existingSource) {
       throw new ConfigInvalidError(
-        `Duplicate plugin namespace "${pluginNamespace}" in project configuration`,
+        `Duplicate plugin namespace "${namespace}" in project configuration: "${existingSource}" and "${source}".`,
         configPath,
         {
           hints: [
@@ -188,13 +186,13 @@ class ProjectConfigReader {
       );
     }
 
-    this.pluginNamespaces.add(pluginNamespace);
+    this.pluginSourceByNamespace.set(namespace, source);
   }
 
   private async readPluginConfig(
     plugin: PluginReference,
     hostConfigPath: string,
-  ): Promise<PluginConfigData> {
+  ) {
     const pluginRoot = resolvePluginRoot(
       plugin.source,
       dirname(hostConfigPath),
@@ -202,7 +200,7 @@ class ProjectConfigReader {
     const { configPath } = await this.findConfigOrThrow(pluginRoot);
 
     const project = await this.readConfigFile(configPath);
-    const pluginNamespace = requirePluginNamespace(
+    const namespace = requirePluginNamespace(
       project,
       plugin.source,
       configPath,
@@ -210,19 +208,19 @@ class ProjectConfigReader {
 
     this.assertPluginProjectDoesNotLoadPlugins(project, configPath);
 
-    return { configPath, pluginNamespace, project };
+    return { configPath, namespace, project, source: plugin.source };
   }
 
   private async readPluginResources(
     project: ProjectConfig,
     configPath: string,
-    pluginNamespace: string,
+    namespace: string,
   ): Promise<ProjectResources> {
     const resources = await this.readProjectResources(configPath, project);
 
     return {
-      entities: markPluginEntities(resources.entities, pluginNamespace),
-      functions: namespacePluginFunctions(resources.functions, pluginNamespace),
+      entities: markPluginEntities(resources.entities, namespace),
+      functions: namespacePluginFunctions(resources.functions, namespace),
       agents: [],
       connectors: [],
       authConfig: [],
@@ -236,29 +234,28 @@ class ProjectConfigReader {
     const entities: Entity[] = [];
     const functions: BackendFunction[] = [];
 
-    const entityNameByPluginNamespace = new Map<string, string>();
+    const pluginSourceByEntityName = new Map<string, string>();
 
     for (const plugin of plugins) {
       const {
         configPath: pluginConfigPath,
-        pluginNamespace,
+        namespace,
         project,
+        source,
       } = await this.readPluginConfig(plugin, configPath);
-      this.registerPluginNamespace(pluginNamespace, pluginConfigPath);
+      this.registerPluginNamespace(namespace, source, pluginConfigPath);
 
       const pluginData = await this.readPluginResources(
         project,
         pluginConfigPath,
-        pluginNamespace,
+        namespace,
       );
 
       for (const entity of pluginData.entities) {
-        const existingPluginNamespace = entityNameByPluginNamespace.get(
-          entity.name,
-        );
-        if (existingPluginNamespace) {
+        const existingSource = pluginSourceByEntityName.get(entity.name);
+        if (existingSource) {
           throw new ConfigInvalidError(
-            `Entity "${entity.name}" is defined by more than one plugin: "${existingPluginNamespace}" and "${pluginNamespace}".`,
+            `Entity "${entity.name}" is defined by more than one plugin: "${existingSource}" and "${source}".`,
             pluginConfigPath,
             {
               hints: [
@@ -270,7 +267,7 @@ class ProjectConfigReader {
             },
           );
         }
-        entityNameByPluginNamespace.set(entity.name, pluginNamespace);
+        pluginSourceByEntityName.set(entity.name, source);
       }
 
       entities.push(...pluginData.entities);
@@ -284,6 +281,32 @@ class ProjectConfigReader {
       connectors: [],
       authConfig: [],
     };
+  }
+
+  private validateFunctionNames(
+    functions: BackendFunction[],
+    configPath: string,
+  ): void {
+    const functionsByName = new Map<string, BackendFunction>();
+
+    for (const fn of functions) {
+      const existingFunction = functionsByName.get(fn.name);
+      if (existingFunction) {
+        throw new ConfigInvalidError(
+          `Duplicate function name "${fn.name}" after loading project plugins.`,
+          configPath,
+          {
+            hints: [
+              {
+                message:
+                  "Rename the project function or change the plugin namespace/function name so every deploy name is unique.",
+              },
+            ],
+          },
+        );
+      }
+      functionsByName.set(fn.name, fn);
+    }
   }
 }
 

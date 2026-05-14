@@ -34,15 +34,15 @@ async function pullFunctionsAction(
     ? remoteFunctions.filter((f) => f.name === name)
     : remoteFunctions;
 
-  if (name && pluginFunctionNames.has(name)) {
-    return {
-      outroMessage: `Function "${name}" is managed by a plugin and was not pulled into ${functionsDir}`,
-    };
-  }
-
   if (name && matchingRemote.length === 0) {
     return {
       outroMessage: `Function "${name}" not found on remote`,
+    };
+  }
+
+  if (name && pluginFunctionNames.has(name)) {
+    return {
+      outroMessage: `Function "${name}" is managed by a plugin and was not pulled into ${functionsDir}`,
     };
   }
 
