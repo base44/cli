@@ -92,7 +92,7 @@ async function generateContent(input: GenerateTypesInput): Promise<string> {
 }
 
 async function compileEntity(entity: Entity): Promise<string> {
-  const { name, ...schema } = entity;
+  const { name, source: _source, ...schema } = entity;
 
   const jsonSchema = {
     ...schema,
