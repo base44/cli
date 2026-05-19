@@ -4,7 +4,12 @@ import type { Request, Response } from "express";
 import { Router } from "express";
 import { createProxyMiddleware } from "http-proxy-middleware";
 import type { DevLogger } from "@/cli/dev/createDevLogger.js";
+import { createJwtToken } from "@/cli/dev/dev-server/auth-token.js";
 import type { FunctionManager } from "@/cli/dev/dev-server/function-manager.js";
+
+const LOCAL_DEV_SERVICE_AUTHORIZATION_TOKEN = `Bearer ${createJwtToken(
+  "server@server.com",
+)}`;
 
 export function createFunctionRouter(
   manager: FunctionManager,
@@ -19,14 +24,14 @@ export function createFunctionRouter(
     on: {
       proxyReq: (proxyReq, req) => {
         const xAppId = req.headers["x-app-id"];
-        const authorization = req.headers.authorization;
 
         if (xAppId) {
           proxyReq.setHeader("Base44-App-Id", xAppId as string);
         }
-        if (authorization) {
-          proxyReq.setHeader("Base44-Service-Authorization", authorization);
-        }
+        proxyReq.setHeader(
+          "Base44-Service-Authorization",
+          LOCAL_DEV_SERVICE_AUTHORIZATION_TOKEN,
+        );
         proxyReq.setHeader(
           "Base44-Api-Url",
           `${(req as unknown as Request).protocol}://${req.headers.host}`,

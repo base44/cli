@@ -1,9 +1,15 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import jwt, { type JwtPayload } from "jsonwebtoken";
 import { outdent } from "outdent";
 import { describe, expect, it } from "vitest";
 import { waitForDevServer } from "./testkit/dev-utils.js";
 import { fixture, setupCLITests } from "./testkit/index.js";
+
+type FunctionHeaderResponse = {
+  authorization: string | null;
+  serviceAuthorization: string;
+};
 
 describe("dev command", () => {
   const t = setupCLITests();
@@ -27,7 +33,7 @@ describe("dev command", () => {
     t.expectResult(result).toSucceed();
   });
 
-  it("forwards the service token header from Authorization to local functions", async () => {
+  it("sets a local service token header for functions", async () => {
     await t.givenLoggedInWithProject(fixture("full-project"));
 
     await writeFile(
@@ -52,20 +58,39 @@ describe("dev command", () => {
     const handle = await t.runLive("dev");
     const devServerUrl = await waitForDevServer(handle);
 
-    const response = await fetch(
-      `${devServerUrl}/api/apps/${t.api.appId}/functions/hello`,
-      {
-        headers: {
-          Authorization: "Bearer test-app-token",
-          "X-App-Id": t.api.appId,
-        },
-      },
-    );
+    const functionUrl = `${devServerUrl}/api/apps/${t.api.appId}/functions/hello`;
+    const requestFunction = (headers: Record<string, string>) =>
+      fetch(functionUrl, { headers });
 
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({
+    const anonymousResponse = await requestFunction({
+      "X-App-Id": t.api.appId,
+    });
+    expect(anonymousResponse.status).toBe(200);
+    const anonymousResult =
+      (await anonymousResponse.json()) as FunctionHeaderResponse;
+    expect(anonymousResult.authorization).toBeNull();
+    expect(anonymousResult.serviceAuthorization).toMatch(/^Bearer .+/);
+    const serviceTokenPayload = jwt.decode(
+      anonymousResult.serviceAuthorization.replace("Bearer ", ""),
+    ) as JwtPayload | null;
+    expect(serviceTokenPayload?.email).toBe("server@server.com");
+    expect(serviceTokenPayload?.sub).toBe("server@server.com");
+
+    expect(anonymousResult).toEqual({
+      authorization: null,
+      serviceAuthorization: anonymousResult.serviceAuthorization,
+    });
+
+    const authenticatedResponse = await requestFunction({
+      Authorization: "Bearer test-app-token",
+      "X-App-Id": t.api.appId,
+    });
+    expect(authenticatedResponse.status).toBe(200);
+    const authenticatedResult =
+      (await authenticatedResponse.json()) as FunctionHeaderResponse;
+    expect(authenticatedResult).toEqual({
       authorization: "Bearer test-app-token",
-      serviceAuthorization: "Bearer test-app-token",
+      serviceAuthorization: anonymousResult.serviceAuthorization,
     });
 
     const result = await handle.stop();
