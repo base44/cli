@@ -15,6 +15,7 @@ import {
   writeAuth,
 } from "@/core/auth/index.js";
 import { AuthExpiredError, InternalError } from "@/core/errors.js";
+import { isHeadlessEnv, loginViaLoopback } from "./loopback-flow.js";
 
 async function generateAndDisplayDeviceCode(
   log: Logger,
@@ -85,6 +86,19 @@ async function waitForAuthentication(
   return tokenResponse;
 }
 
+async function loginViaDeviceCode(
+  log: Logger,
+  runTask: RunTaskFn,
+): Promise<TokenResponse> {
+  const deviceCodeResponse = await generateAndDisplayDeviceCode(log, runTask);
+  return waitForAuthentication(
+    deviceCodeResponse.deviceCode,
+    deviceCodeResponse.expiresIn,
+    deviceCodeResponse.interval,
+    runTask,
+  );
+}
+
 async function saveAuthData(
   response: TokenResponse,
   userInfo: UserInfoResponse,
@@ -100,22 +114,41 @@ async function saveAuthData(
   });
 }
 
-/**
- * Execute the login flow (device code authentication).
- * This function is separate from the command to avoid circular dependencies.
- */
-export async function login({
-  log,
-  runTask,
-}: CLIContext): Promise<RunCommandResult> {
-  const deviceCodeResponse = await generateAndDisplayDeviceCode(log, runTask);
+interface LoginOptions {
+  /** Force device-code flow, skipping the loopback browser flow. */
+  deviceCode?: boolean;
+}
 
-  const token = await waitForAuthentication(
-    deviceCodeResponse.deviceCode,
-    deviceCodeResponse.expiresIn,
-    deviceCodeResponse.interval,
-    runTask,
-  );
+/**
+ * Execute the login flow.
+ *
+ * Default path: loopback (RFC 8252) with PKCE — opens browser, awaits localhost
+ * callback. Falls back to device code on headless environments (SSH, CI, no
+ * DISPLAY) or if the loopback flow fails for any reason.
+ */
+export async function login(
+  { log, runTask }: CLIContext,
+  options: LoginOptions = {},
+): Promise<RunCommandResult> {
+  let token: TokenResponse | undefined;
+
+  const useDeviceCode = options.deviceCode || isHeadlessEnv();
+
+  if (!useDeviceCode) {
+    try {
+      token = await loginViaLoopback(log, runTask);
+    } catch (error) {
+      log.warn(
+        `Browser sign-in unavailable (${
+          error instanceof Error ? error.message : String(error)
+        }). Falling back to device code.`,
+      );
+    }
+  }
+
+  if (!token) {
+    token = await loginViaDeviceCode(log, runTask);
+  }
 
   const userInfo = await getUserInfo(token.accessToken);
 
