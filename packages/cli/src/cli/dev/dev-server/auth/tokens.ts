@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 
-export const LOCAL_DEV_SECRET = "LOCAL_DEV_SECRET";
+const LOCAL_DEV_SECRET = "LOCAL_DEV_SECRET";
 
 /**
  * Sentinel identity used for service-role (`asServiceRole`) requests in dev.
@@ -19,7 +19,7 @@ export const createJwtToken = (email: string) => {
  * Mints the service-role JWT injected as `Base44-Service-Authorization` so
  * `asServiceRole` works locally regardless of how the caller is authenticated.
  */
-export const createServiceToken = () => createJwtToken(SERVICE_ROLE_EMAIL);
+const createServiceToken = () => createJwtToken(SERVICE_ROLE_EMAIL);
 
 export const createServiceAuthorizationHeader = () =>
   `Bearer ${createServiceToken()}`;
