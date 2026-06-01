@@ -1,12 +1,17 @@
 import { mkdir, writeFile } from "node:fs/promises";
+import { createServer, type Server } from "node:http";
 import { join } from "node:path";
+import express from "express";
 import jwt from "jsonwebtoken";
 import { outdent } from "outdent";
 import { describe, expect, it } from "vitest";
+import type { DevLogger } from "@/cli/dev/createDevLogger.js";
 import {
   createServiceAuthorizationHeader,
   SERVICE_ROLE_EMAIL,
 } from "@/cli/dev/dev-server/auth/tokens.js";
+import type { FunctionManager } from "@/cli/dev/dev-server/function-manager.js";
+import { createFunctionRouter } from "@/cli/dev/dev-server/routes/functions.js";
 import { waitForDevServer } from "./testkit/dev-utils.js";
 import { fixture, setupCLITests } from "./testkit/index.js";
 
@@ -14,6 +19,76 @@ const expectServiceAuthorization = (value: unknown) => {
   expect(value).toEqual(expect.stringMatching(/^Bearer \S+$/));
   const token = (value as string).replace("Bearer ", "");
   expect(jwt.decode(token)?.sub).toBe(SERVICE_ROLE_EMAIL);
+};
+
+const noopLogger: DevLogger = {
+  error: () => {},
+  log: () => {},
+  warn: () => {},
+};
+
+const listen = async (server: Server): Promise<number> => {
+  return new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, () => {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        reject(new Error("Test server did not receive a TCP port"));
+        return;
+      }
+
+      resolve(address.port);
+    });
+  });
+};
+
+const close = async (server: Server): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    server.close((error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve();
+    });
+  });
+};
+
+const startHeaderEchoFunctionProxy = async () => {
+  const upstream = createServer((req, res) => {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(
+      JSON.stringify({
+        appId: req.headers["base44-app-id"] ?? null,
+        authorization: req.headers.authorization ?? null,
+        serviceAuthorization:
+          req.headers["base44-service-authorization"] ?? null,
+      }),
+    );
+  });
+  const upstreamPort = await listen(upstream);
+
+  const manager = {
+    ensureRunning: async () => upstreamPort,
+  } as unknown as FunctionManager;
+
+  const app = express();
+  app.use(
+    "/api/apps/:appId/functions",
+    createFunctionRouter(manager, noopLogger),
+  );
+
+  const proxy = createServer(app);
+  const proxyPort = await listen(proxy);
+
+  return {
+    close: async () => {
+      await close(proxy);
+      await close(upstream);
+    },
+    url: `http://127.0.0.1:${proxyPort}`,
+  };
 };
 
 describe("dev command", () => {
@@ -39,97 +114,53 @@ describe("dev command", () => {
   });
 
   it("forwards caller Authorization and injects a service JWT to local functions", async () => {
-    await t.givenLoggedInWithProject(fixture("full-project"));
+    const proxy = await startHeaderEchoFunctionProxy();
 
-    await writeFile(
-      join(
-        t.getTempDir(),
-        "project",
-        "base44",
-        "functions",
-        "hello",
-        "index.ts",
-      ),
-      outdent`
-        Deno.serve((req: Request) => {
-          return new Response(JSON.stringify({
-            authorization: req.headers.get("authorization"),
-            serviceAuthorization: req.headers.get("base44-service-authorization"),
-          }), {
-            headers: { "Content-Type": "application/json" },
-          });
-        });
-      `,
-    );
-
-    const handle = await t.runLive("dev");
-    const devServerUrl = await waitForDevServer(handle);
-
-    const response = await fetch(
-      `${devServerUrl}/api/apps/${t.api.appId}/functions/hello`,
-      {
-        headers: {
-          Authorization: "Bearer test-app-token",
-          "X-App-Id": t.api.appId,
+    try {
+      const response = await fetch(
+        `${proxy.url}/api/apps/${t.api.appId}/functions/hello`,
+        {
+          headers: {
+            Authorization: "Bearer test-app-token",
+            "X-App-Id": t.api.appId,
+          },
         },
-      },
-    );
+      );
 
-    expect(response.status).toBe(200);
-    const body = (await response.json()) as Record<string, unknown>;
-    expect(body.authorization).toBe("Bearer test-app-token");
-    expectServiceAuthorization(body.serviceAuthorization);
-
-    const result = await handle.stop();
-    t.expectResult(result).toSucceed();
+      expect(response.status).toBe(200);
+      const body = (await response.json()) as Record<string, unknown>;
+      expect(body.authorization).toBe("Bearer test-app-token");
+      expect(body.appId).toBe(t.api.appId);
+      expectServiceAuthorization(body.serviceAuthorization);
+    } finally {
+      await proxy.close();
+    }
   });
 
   it("injects a synthetic service token for unauthenticated function calls", async () => {
-    await t.givenLoggedInWithProject(fixture("full-project"));
+    const proxy = await startHeaderEchoFunctionProxy();
 
-    await writeFile(
-      join(
-        t.getTempDir(),
-        "project",
-        "base44",
-        "functions",
-        "hello",
-        "index.ts",
-      ),
-      outdent`
-        Deno.serve((req: Request) => {
-          return new Response(JSON.stringify({
-            authorization: req.headers.get("authorization"),
-            serviceAuthorization: req.headers.get("base44-service-authorization"),
-          }), {
-            headers: { "Content-Type": "application/json" },
-          });
-        });
-      `,
-    );
-
-    const handle = await t.runLive("dev");
-    const devServerUrl = await waitForDevServer(handle);
-
-    // Call the function with no Authorization header (unauthenticated caller,
-    // e.g. a public subscribe form). The dev server must still inject a
-    // Base44-Service-Authorization so that asServiceRole works inside the function.
-    const response = await fetch(
-      `${devServerUrl}/api/apps/${t.api.appId}/functions/hello`,
-      {
-        headers: {
-          "X-App-Id": t.api.appId,
+    try {
+      // Call the function with no Authorization header (unauthenticated caller,
+      // e.g. a public subscribe form). The dev server must still inject a
+      // Base44-Service-Authorization so that asServiceRole works inside the function.
+      const response = await fetch(
+        `${proxy.url}/api/apps/${t.api.appId}/functions/hello`,
+        {
+          headers: {
+            "X-App-Id": t.api.appId,
+          },
         },
-      },
-    );
+      );
 
-    expect(response.status).toBe(200);
-    const body = (await response.json()) as Record<string, unknown>;
-    expect(body.authorization).toBeNull();
-    expectServiceAuthorization(body.serviceAuthorization);
-
-    const result = await handle.stop();
-    t.expectResult(result).toSucceed();
+      expect(response.status).toBe(200);
+      const body = (await response.json()) as Record<string, unknown>;
+      expect(body.authorization).toBeNull();
+      expect(body.appId).toBe(t.api.appId);
+      expectServiceAuthorization(body.serviceAuthorization);
+    } finally {
+      await proxy.close();
+    }
   });
 
   it("allows service-role JWTs to bypass denied entity create RLS", async () => {
