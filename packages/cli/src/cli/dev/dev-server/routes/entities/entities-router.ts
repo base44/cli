@@ -175,7 +175,7 @@ export async function createEntityRoutes(
           await queryEntity(collection, req.query),
         );
 
-        if (schema.rls?.read && schema.rls.read !== true) {
+        if (schema.rls?.read !== undefined && schema.rls.read !== true) {
           results = results.filter((doc) =>
             checkRLS(schema.rls!.read, doc, currentUser),
           );
@@ -392,7 +392,7 @@ export async function createEntityRoutes(
 
         // When RLS has a condition, find matching records and only delete allowed ones
         if (rlsDelete !== undefined && rlsDelete !== true) {
-          if (rlsDelete === false) {
+          if (rlsDelete === false && currentUser?.is_service !== true) {
             res.status(403).json({ error: "Permission denied" });
             return;
           }

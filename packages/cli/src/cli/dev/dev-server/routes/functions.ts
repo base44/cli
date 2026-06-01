@@ -4,6 +4,7 @@ import type { Request, Response } from "express";
 import { Router } from "express";
 import { createProxyMiddleware } from "http-proxy-middleware";
 import type { DevLogger } from "@/cli/dev/createDevLogger.js";
+import { createServiceAuthorizationHeader } from "@/cli/dev/dev-server/auth/tokens.js";
 import type { FunctionManager } from "@/cli/dev/dev-server/function-manager.js";
 
 export function createFunctionRouter(
@@ -19,7 +20,6 @@ export function createFunctionRouter(
     on: {
       proxyReq: (proxyReq, req) => {
         const xAppId = req.headers["x-app-id"];
-        const authorization = req.headers.authorization;
 
         if (xAppId) {
           proxyReq.setHeader("Base44-App-Id", xAppId as string);
@@ -29,7 +29,7 @@ export function createFunctionRouter(
         // unauthenticated callers (e.g. public-facing subscribe forms).
         proxyReq.setHeader(
           "Base44-Service-Authorization",
-          authorization ?? "Bearer base44-dev-service-token",
+          createServiceAuthorizationHeader(),
         );
         proxyReq.setHeader(
           "Base44-Api-Url",

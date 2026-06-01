@@ -153,6 +153,7 @@ export function checkRLS(
   record: Record<string, unknown>,
   user: Record<string, unknown> | undefined,
 ): boolean {
+  if (user?.is_service === true) return true;
   if (rule === undefined) return true;
   if (typeof rule === "boolean") return rule;
   if (!user) return false;
@@ -187,7 +188,7 @@ export function applyFLS(
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(record)) {
     const rule = schema.properties[key]?.rls?.[operation];
-    if (!rule || checkRLS(rule, record, user)) {
+    if (rule === undefined || checkRLS(rule, record, user)) {
       result[key] = value;
     }
   }

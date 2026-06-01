@@ -1,11 +1,11 @@
 import { randomInt } from "node:crypto";
 import type { Request } from "express";
 import { json, Router } from "express";
-import jwt from "jsonwebtoken";
 import { nanoid } from "nanoid";
 import * as z from "zod";
 import { theme } from "@/cli/utils/theme.js";
 import type { DevLogger } from "../../createDevLogger.js";
+import { createJwtToken } from "../auth/tokens.js";
 import {
   type Database,
   PRIVATE_USER_COLLECTION,
@@ -13,17 +13,10 @@ import {
 } from "../db/database.js";
 import { getNowISOTimestamp } from "../utils.js";
 
-const LOCAL_DEV_SECRET = "LOCAL_DEV_SECRET";
 const TEN_MINUTES = 10 * 60 * 1000;
 
 const generateCode = () => {
   return randomInt(100000, 1000000).toString();
-};
-
-const createJwtToken = (email: string) => {
-  return jwt.sign({ sub: email }, LOCAL_DEV_SECRET, {
-    expiresIn: "360d",
-  });
 };
 
 const LoginBody = z.object({ email: z.email(), password: z.string() });
