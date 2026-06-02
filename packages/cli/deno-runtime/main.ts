@@ -25,9 +25,8 @@ if (!functionPath) {
 // Store the original Deno.serve
 const originalServe = Deno.serve.bind(Deno);
 
-// Patch Deno.serve to inject our port and add onListen callback
-// @ts-expect-error - We're intentionally overriding Deno.serve
-Deno.serve = (
+// Patch Deno.serve to inject our port and add onListen callback.
+const patchedServe = (
   optionsOrHandler:
     | Deno.ServeOptions
     | Deno.ServeHandler
@@ -59,6 +58,15 @@ Deno.serve = (
   };
   return originalServe({ ...options, port, onListen });
 };
+
+// Deno 2.8 exposes `Deno.serve` as a getter-only property, so a plain
+// `Deno.serve = ...` assignment throws. Use defineProperty to override it
+// (works on both the old writable property and the new accessor).
+Object.defineProperty(Deno, "serve", {
+  value: patchedServe,
+  writable: true,
+  configurable: true,
+});
 
 console.log(`[${functionName}] Starting function from ${functionPath}`);
 
