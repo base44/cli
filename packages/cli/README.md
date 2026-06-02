@@ -1,6 +1,6 @@
 # Base44 CLI
 
-Command-line interface for building applications with [Base44's backend service](https://docs.base44.com/developers/backend/overview/introduction).
+Command-line interface for building and deploying applications with [Base44's backend service](https://docs.base44.com/developers/backend/overview/introduction).
 
 Base44's backend service provides a managed backend for your applications, including data storage with entities, serverless functions, authentication, and hosting. The CLI lets you:
 
