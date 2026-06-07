@@ -37,7 +37,7 @@ async function writeEnvLocalIfMissing(
   const { id: appId } = await initAppConfig();
   await writeFile(
     envLocalPath,
-    `VITE_BASE44_APP_ID=${appId}\nVITE_BASE44_BACKEND_URL=${localServerUrl(port)}\n`,
+    `VITE_BASE44_APP_ID=${appId}\nVITE_BASE44_APP_BASE_URL=${localServerUrl(port)}\n`,
   );
   log.info("Created .env.local with app ID and dev server URL");
 }

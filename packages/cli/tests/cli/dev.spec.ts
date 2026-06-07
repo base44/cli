@@ -47,14 +47,14 @@ describe("dev command", () => {
 
     const content = await t.readProjectFile(".env.local");
     expect(content).toContain(`VITE_BASE44_APP_ID=${t.api.appId}`);
-    expect(content).toContain("VITE_BASE44_BACKEND_URL=http://localhost:");
+    expect(content).toContain("VITE_BASE44_APP_BASE_URL=http://localhost:");
   });
 
   it("does not overwrite .env.local when it already exists", async () => {
     await t.givenLoggedInWithProject(fixture("full-project"));
 
     const existing =
-      "VITE_BASE44_APP_ID=existing-id\nVITE_BASE44_BACKEND_URL=http://localhost:9999\n";
+      "VITE_BASE44_APP_ID=existing-id\nVITE_BASE44_APP_BASE_URL=http://localhost:9999\n";
     await writeFile(join(t.getTempDir(), "project", ".env.local"), existing);
 
     const handle = await t.runLive("dev");
