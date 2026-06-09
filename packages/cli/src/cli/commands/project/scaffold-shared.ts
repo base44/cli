@@ -8,12 +8,12 @@ import { deploySite, pushEntities } from "@/core/index.js";
 import type { Template } from "@/core/project/index.js";
 import { listTemplates, readProjectConfig } from "@/core/project/index.js";
 
-/** Default template used by `create`/`init` when none is specified. */
+/** Default template used by `create`/`scaffold` when none is specified. */
 export const DEFAULT_TEMPLATE_ID = "backend-only";
 
 /**
  * Looks up a template by id, throwing a helpful error listing valid ids.
- * Shared by the `create` and `init` commands.
+ * Shared by the `create` and `scaffold` commands.
  */
 export async function getTemplateById(templateId: string): Promise<Template> {
   const templates = await listTemplates();
@@ -37,7 +37,7 @@ interface CompleteProjectSetupOptions {
 }
 
 /**
- * Post-scaffold steps shared by `create` and `init`: optionally push the
+ * Post-scaffold steps shared by `create` and `scaffold`: optionally push the
  * template's data models, optionally build & deploy the site, install AI agent
  * skills, then print the project/dashboard/site summary.
  *

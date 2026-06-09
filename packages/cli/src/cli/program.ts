@@ -12,6 +12,7 @@ import { getCreateCommand } from "@/cli/commands/project/create.js";
 import { getDeployCommand } from "@/cli/commands/project/deploy.js";
 import { getLinkCommand } from "@/cli/commands/project/link.js";
 import { getLogsCommand } from "@/cli/commands/project/logs.js";
+import { getScaffoldCommand } from "@/cli/commands/project/scaffold.js";
 import { getSecretsCommand } from "@/cli/commands/secrets/index.js";
 import { getSiteCommand } from "@/cli/commands/site/index.js";
 import { getTypesCommand } from "@/cli/commands/types/index.js";
@@ -50,6 +51,7 @@ export function createProgram(context: CLIContext): Command {
 
   // Register project commands
   program.addCommand(getCreateCommand());
+  program.addCommand(getScaffoldCommand());
   program.addCommand(getDashboardCommand());
   program.addCommand(getDeployCommand());
   program.addCommand(getLinkCommand());

@@ -6,7 +6,12 @@ import { getTemplatesDir, getTemplatesIndexPath } from "@/core/assets.js";
 import { SchemaValidationError } from "@/core/errors.js";
 import type { Template } from "@/core/project/schema.js";
 import { TemplatesConfigSchema } from "@/core/project/schema.js";
-import { copyFile, readJsonFile, writeFile } from "@/core/utils/fs.js";
+import {
+  copyFile,
+  pathExists,
+  readJsonFile,
+  writeFile,
+} from "@/core/utils/fs.js";
 
 interface TemplateData {
   name: string;
@@ -34,17 +39,31 @@ export async function listTemplates(): Promise<Template[]> {
   return result.data.templates;
 }
 
+interface RenderTemplateOptions {
+  /**
+   * When true, existing destination files are left untouched instead of being
+   * overwritten. Used by `scaffold`, which scaffolds into an existing
+   * (non-empty) directory and must not clobber files like `.gitignore`.
+   */
+  skipExisting?: boolean;
+}
+
 /**
  * Render a template directory to a destination path.
  * - Files ending in .ejs are rendered with EJS and written without the .ejs extension
  * - EJS files can have frontmatter with custom attributes
  * - All other files are copied directly
+ *
+ * @returns The destination-relative paths of files that were skipped because
+ *   they already existed (only populated when `skipExisting` is set).
  */
 export async function renderTemplate(
   template: Template,
   destPath: string,
   data: TemplateData,
-): Promise<void> {
+  options: RenderTemplateOptions = {},
+): Promise<string[]> {
+  const { skipExisting = false } = options;
   const templateDir = join(getTemplatesDir(), template.path);
 
   // Get all files in the template directory
@@ -53,6 +72,8 @@ export async function renderTemplate(
     dot: true,
     onlyFiles: true,
   });
+
+  const skipped: string[] = [];
 
   for (const file of files) {
     const srcPath = join(templateDir, file);
@@ -67,10 +88,19 @@ export async function renderTemplate(
           : file.replace(/\.ejs$/, "");
         const destFilePath = join(destPath, destFile);
 
+        if (skipExisting && (await pathExists(destFilePath))) {
+          skipped.push(destFile);
+          continue;
+        }
         await writeFile(destFilePath, body);
       } else {
         // Copy file directly
         const destFilePath = join(destPath, file);
+
+        if (skipExisting && (await pathExists(destFilePath))) {
+          skipped.push(file);
+          continue;
+        }
         await copyFile(srcPath, destFilePath);
       }
     } catch (error) {
@@ -78,4 +108,6 @@ export async function renderTemplate(
       throw new Error(`Failed to process template file "${file}": ${message}`);
     }
   }
+
+  return skipped;
 }
