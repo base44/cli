@@ -53,6 +53,41 @@ export async function createProjectFiles(
   };
 }
 
+/**
+ * Like {@link createProjectFiles} but skips the `createProject()` API call — the
+ * app already exists, so the caller supplies its `appId`.
+ */
+export async function initProjectFiles(options: {
+  name: string;
+  description?: string;
+  path: string;
+  template: Template;
+  appId: string;
+}): Promise<CreateProjectResult & { skippedFiles: string[] }> {
+  const { name, description, path: basePath, template, appId } = options;
+
+  await assertProjectNotExists(basePath);
+
+  // Skip files that already exist so scaffolding into a non-empty directory
+  // never clobbers existing files like .gitignore.
+  const skippedFiles = await renderTemplate(
+    template,
+    basePath,
+    {
+      name,
+      description,
+      projectId: appId,
+    },
+    { skipExisting: true },
+  );
+
+  return {
+    projectId: appId,
+    projectDir: basePath,
+    skippedFiles,
+  };
+}
+
 export async function createProjectFilesForExistingProject(options: {
   projectId: string;
   projectPath: string;
