@@ -1,3 +1,4 @@
+import jwt, { type JwtPayload } from "jsonwebtoken";
 import { renewAccessToken } from "@/core/auth/api.js";
 import type { AuthData } from "@/core/auth/schema.js";
 import { AuthDataSchema } from "@/core/auth/schema.js";
@@ -10,6 +11,33 @@ const TOKEN_REFRESH_BUFFER_MS = 60 * 1000;
 
 // Lock to prevent concurrent token refreshes
 let refreshPromise: Promise<string | null> | null = null;
+
+export async function seedAuthFromEnv(): Promise<void> {
+  const accessToken = process.env.BASE44_ACCESS_TOKEN;
+  if (!accessToken) {
+    return;
+  }
+
+  const refreshToken = process.env.BASE44_REFRESH_TOKEN;
+  // Decode without verifying the signature — the server still validates it.
+  const claims = jwt.decode(accessToken);
+  const payload: JwtPayload | null =
+    claims !== null && typeof claims === "object" ? claims : null;
+  const sub = typeof payload?.sub === "string" ? payload.sub : undefined;
+  const exp = typeof payload?.exp === "number" ? payload.exp : undefined;
+
+  if (!refreshToken || !sub || !exp) {
+    return;
+  }
+
+  await writeAuth({
+    accessToken,
+    refreshToken,
+    expiresAt: exp * 1000, // exp is in seconds; expiresAt is milliseconds.
+    email: sub,
+    name: sub, // No name claim; use the identity.
+  });
+}
 
 /**
  * Reads and validates the stored authentication data.

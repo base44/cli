@@ -43,6 +43,28 @@ The `base44Client` automatically handles token refresh:
 2. If expired, refreshes token and saves new tokens
 3. On 401 response, attempts refresh and retries once
 
+## Environment-Supplied Credentials
+
+For non-interactive flows (CI, agents, provisioning tools) that hand off an
+app's credentials via the environment, the `ensureAuth` middleware calls
+`seedAuthFromEnv()`: when `BASE44_ACCESS_TOKEN` is set, it decodes the JWT
+(`sub` → `email`, `exp` → `expiresAt`; no signature check — the server
+validates), pairs it with `BASE44_REFRESH_TOKEN`, and writes a standard
+`~/.base44/auth/auth.json`, so everything downstream uses one file-based path.
+
+This overwrites an existing login when env vars are present, and no-ops when
+they can't form a complete record. The seeded file looks like a normal login, so
+a 401 refresh applies to it too; if refresh fails it deletes the file, which
+self-heals on the next command (re-seeded from the still-present env vars). See
+`seedAuthFromEnv()` in `core/auth/config.js`.
+
+Credentials load from `.env`/`.env.local` at startup via `loadProjectEnvFiles()`
+(`core/utils/env.js`), wired through `cli/bootstrap-env.js` as the first import
+so it runs before the HTTP clients capture `getBase44ApiUrl()`. Precedence:
+ambient `process.env` > `.env.local` > `.env`. The Stripe Projects CLI namespaces
+its vars (`BASE44_PROJECTS_BASE44_*`), so the loader also copies those to the
+bare `BASE44_*` names when the bare name is unset.
+
 ## API Response Transformation (snake_case to camelCase)
 
 The Base44 API returns snake_case keys, but the CLI uses camelCase. Use Zod's `.transform()` to convert:

@@ -38,6 +38,9 @@ export interface TestContext {
   /** Simulate piped stdin for the next run() call */
   givenStdin: (content: string) => void;
 
+  /** Set additional environment variables for subsequent run() calls */
+  givenEnv: (vars: Record<string, string>) => void;
+
   // ─── WHEN METHODS ──────────────────────────────────────────
 
   /** Execute CLI command */
@@ -124,6 +127,7 @@ export function setupCLITests(): TestContext {
     },
     givenLatestVersion: (version) => getKit().givenLatestVersion(version),
     givenStdin: (content) => getKit().givenStdin(content),
+    givenEnv: (vars) => getKit().givenEnv(vars),
 
     // When methods
     run: (...args) => getKit().run(...args),
