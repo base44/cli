@@ -1,6 +1,6 @@
 import { basename, resolve } from "node:path";
 import type { Option } from "@clack/prompts";
-import { group, select, text } from "@clack/prompts";
+import { confirm, group, isCancel, select, text } from "@clack/prompts";
 import { Argument, type Command } from "commander";
 import kebabCase from "lodash/kebabCase";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
@@ -25,6 +25,7 @@ interface CreateOptions {
   template?: string;
   deploy?: boolean;
   skills?: boolean;
+  force?: boolean;
 }
 
 function validateNonInteractiveFlags(command: Command): void {
@@ -174,6 +175,39 @@ async function createAction(
   name: string | undefined,
   options: CreateOptions,
 ): Promise<RunCommandResult> {
+  // An app id in the environment (e.g. provisioned externally) means this
+  // context already has a Base44 app. `create` would make a NEW one and ignore
+  // it — steer toward `base44 scaffold`. Hard-stop for agents (non-interactive),
+  // confirm for humans. `--force` overrides the guard in both modes.
+  const existingAppId = process.env.BASE44_APP_ID;
+  if (existingAppId && !options.force) {
+    if (isNonInteractive) {
+      throw new InvalidInputError(
+        `BASE44_APP_ID is set (${existingAppId}) — this environment already has a Base44 app, so \`create\` won't make a new one.`,
+        {
+          hints: [
+            {
+              message:
+                "Run `base44 scaffold` to set up a project for the existing app",
+            },
+            { message: "Or pass --force to create a new app anyway" },
+          ],
+        },
+      );
+    }
+
+    const proceed = await confirm({
+      message: `BASE44_APP_ID is set (${existingAppId}). This environment already has a Base44 app — \`base44 scaffold\` sets up a project for it, while \`create\` makes a new one. Create a new app anyway?`,
+      initialValue: false,
+    });
+    if (isCancel(proceed) || !proceed) {
+      return {
+        outroMessage:
+          "Run `base44 scaffold` to set up a project for the existing app",
+      };
+    }
+  }
+
   if (name && !options.path) {
     options.path = `./${kebabCase(name)}`;
   }
@@ -218,6 +252,10 @@ export function getCreateCommand(): Command {
     )
     .option("--deploy", "Build and deploy the site")
     .option("--no-skills", "Skip AI agent skills installation")
+    .option(
+      "--force",
+      "Create a new app even when BASE44_APP_ID is set in the environment",
+    )
     .addHelpText(
       "after",
       `

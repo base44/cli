@@ -79,4 +79,43 @@ describe("create command", () => {
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Project created successfully");
   });
+
+  it("refuses to create when BASE44_APP_ID is set, pointing to scaffold", async () => {
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    t.givenEnv({ BASE44_APP_ID: "app-existing-123" });
+    // mockCreateApp intentionally NOT registered: the guard must stop before any
+    // create-app API call.
+
+    const result = await t.run(
+      "create",
+      "My App",
+      "--path",
+      join(t.getTempDir(), "my-app"),
+      "--no-skills",
+    );
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("BASE44_APP_ID");
+    t.expectResult(result).toContain("scaffold");
+    t.expectResult(result).toContain("--force");
+  });
+
+  it("creates a new app with --force even when BASE44_APP_ID is set", async () => {
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    t.givenEnv({ BASE44_APP_ID: "app-existing-123" });
+    t.api.mockCreateApp({ id: "brand-new-id", name: "My App" });
+
+    const result = await t.run(
+      "create",
+      "My App",
+      "--path",
+      join(t.getTempDir(), "my-app"),
+      "--no-skills",
+      "--force",
+    );
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Project created successfully");
+    t.expectResult(result).toContain("brand-new-id");
+  });
 });
