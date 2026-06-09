@@ -12,6 +12,20 @@ const TOKEN_REFRESH_BUFFER_MS = 60 * 1000;
 let refreshPromise: Promise<string | null> | null = null;
 
 /**
+ * Returns an access token supplied via the environment, if present.
+ *
+ * Used for non-interactive handoff flows (e.g. the Stripe Projects CLI), where
+ * the Base44 app's bearer token is injected as `BASE44_ACCESS_TOKEN` instead of
+ * coming from the interactive OAuth login stored in `~/.base44/auth/auth.json`.
+ *
+ * When set, this token takes precedence over the stored auth and is used as-is:
+ * it is never persisted and is not refreshable via the Base44 OAuth flow.
+ */
+export function getEnvAccessToken(): string | undefined {
+  return process.env.BASE44_ACCESS_TOKEN || undefined;
+}
+
+/**
  * Reads and validates the stored authentication data.
  *
  * @returns The parsed authentication data (tokens, user info).
@@ -132,6 +146,12 @@ export async function refreshAndSaveTokens(): Promise<string | null> {
  * }
  */
 export async function isLoggedIn(): Promise<boolean> {
+  // An env-supplied access token (e.g. Stripe Projects handoff) counts as
+  // authenticated without an interactive login.
+  if (getEnvAccessToken()) {
+    return true;
+  }
+
   try {
     await readAuth();
     return true;

@@ -1,3 +1,7 @@
+// Must be the first import: loads .env/.env.local into process.env before any
+// module captures env-derived config (e.g. the API base URL read when the HTTP
+// clients are constructed at module load).
+import "@/cli/bootstrap-env.js";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ClackLogger, SimpleLogger } from "@base44-cli/logger";

@@ -10,6 +10,7 @@ import { getEntitiesPushCommand } from "@/cli/commands/entities/push.js";
 import { getFunctionsCommand } from "@/cli/commands/functions/index.js";
 import { getCreateCommand } from "@/cli/commands/project/create.js";
 import { getDeployCommand } from "@/cli/commands/project/deploy.js";
+import { getInitCommand } from "@/cli/commands/project/init.js";
 import { getLinkCommand } from "@/cli/commands/project/link.js";
 import { getLogsCommand } from "@/cli/commands/project/logs.js";
 import { getSecretsCommand } from "@/cli/commands/secrets/index.js";
@@ -50,6 +51,7 @@ export function createProgram(context: CLIContext): Command {
 
   // Register project commands
   program.addCommand(getCreateCommand());
+  program.addCommand(getInitCommand());
   program.addCommand(getDashboardCommand());
   program.addCommand(getDeployCommand());
   program.addCommand(getLinkCommand());

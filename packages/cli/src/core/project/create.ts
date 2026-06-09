@@ -53,6 +53,45 @@ export async function createProjectFiles(
   };
 }
 
+/**
+ * Scaffolds a new local project for an **existing** Base44 app.
+ *
+ * Mirrors {@link createProjectFiles} but skips the `createProject()` API call:
+ * the app already exists (e.g. provisioned by the Stripe Projects CLI), so the
+ * caller passes its `appId` and the template is rendered against it.
+ */
+export async function initProjectFiles(options: {
+  name: string;
+  description?: string;
+  path: string;
+  template: Template;
+  appId: string;
+}): Promise<CreateProjectResult & { skippedFiles: string[] }> {
+  const { name, description, path: basePath, template, appId } = options;
+
+  await assertProjectNotExists(basePath);
+
+  // Render the template using the existing app ID (no API call to create one).
+  // Skip files that already exist so scaffolding into a non-empty directory
+  // (e.g. a Stripe Projects dir) never clobbers files like .gitignore.
+  const skippedFiles = await renderTemplate(
+    template,
+    basePath,
+    {
+      name,
+      description,
+      projectId: appId,
+    },
+    { skipExisting: true },
+  );
+
+  return {
+    projectId: appId,
+    projectDir: basePath,
+    skippedFiles,
+  };
+}
+
 export async function createProjectFilesForExistingProject(options: {
   projectId: string;
   projectPath: string;

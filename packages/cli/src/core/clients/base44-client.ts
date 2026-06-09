@@ -7,6 +7,7 @@ import { randomUUID } from "node:crypto";
 import type { KyRequest, KyResponse, NormalizedOptions } from "ky";
 import ky from "ky";
 import {
+  getEnvAccessToken,
   isTokenExpired,
   readAuth,
   refreshAndSaveTokens,
@@ -56,6 +57,13 @@ async function handleUnauthorized(
     return;
   }
 
+  // An env-supplied token (e.g. Stripe Projects handoff) is used as-is and
+  // cannot be refreshed via the Base44 OAuth flow. Let the 401 propagate
+  // rather than wiping the stored auth on a refresh failure.
+  if (getEnvAccessToken()) {
+    return;
+  }
+
   const newAccessToken = await refreshAndSaveTokens();
 
   if (!newAccessToken) {
@@ -98,6 +106,15 @@ export const base44Client = ky.create({
       captureRequestBody,
       async (request) => {
         try {
+          // An env-supplied token (e.g. Stripe Projects handoff) takes
+          // precedence and is used as-is, bypassing the stored auth and its
+          // OAuth refresh logic.
+          const envToken = getEnvAccessToken();
+          if (envToken) {
+            request.headers.set("Authorization", `Bearer ${envToken}`);
+            return;
+          }
+
           const auth = await readAuth();
 
           // Proactively refresh if token is expired or about to expire
