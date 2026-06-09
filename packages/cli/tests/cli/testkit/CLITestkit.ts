@@ -136,6 +136,11 @@ export class CLITestkit {
     this.stdinContent = content;
   }
 
+  /** Set additional environment variables for subsequent run()/runLive() calls */
+  givenEnv(vars: Record<string, string>): void {
+    this.env = { ...this.env, ...vars };
+  }
+
   // ─── WHEN METHODS ─────────────────────────────────────────────
 
   /** Spawn the CLI as a child process and execute the command */

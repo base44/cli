@@ -12,6 +12,61 @@ const TOKEN_REFRESH_BUFFER_MS = 60 * 1000;
 let refreshPromise: Promise<string | null> | null = null;
 
 /**
+ * Decodes a JWT payload's claims WITHOUT verifying the signature (display/expiry
+ * use only — the server still validates the token). Returns null for non-JWTs.
+ */
+function decodeJwtClaims(token: string): Record<string, unknown> | null {
+  const parts = token.split(".");
+  if (parts.length !== 3) {
+    return null;
+  }
+  try {
+    return JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Seeds the standard auth file from env-supplied credentials — for
+ * non-interactive flows (CI, agents, provisioning tools) that inject the app's
+ * bearer token via the environment. Decodes the `BASE44_ACCESS_TOKEN` JWT
+ * (`sub` → email, `exp` → expiry), reads `BASE44_REFRESH_TOKEN`, and writes a
+ * standard auth record so the rest of the CLI uses one file-based path. Called
+ * from `ensureAuth`.
+ *
+ * Overwrites an existing login when env vars are present; no-ops when they can't
+ * form a standard record (not a JWT with `exp`, or no refresh token).
+ *
+ * @returns true if an auth file was written.
+ */
+export async function seedAuthFromEnv(): Promise<boolean> {
+  const accessToken = process.env.BASE44_ACCESS_TOKEN;
+  if (!accessToken) {
+    return false;
+  }
+
+  const refreshToken = process.env.BASE44_REFRESH_TOKEN;
+  const claims = decodeJwtClaims(accessToken);
+  const sub = typeof claims?.sub === "string" ? claims.sub : undefined;
+  const exp = typeof claims?.exp === "number" ? claims.exp : undefined;
+
+  // A standard auth record needs all fields; bail if the env creds can't form one.
+  if (!refreshToken || !sub || !exp) {
+    return false;
+  }
+
+  await writeAuth({
+    accessToken,
+    refreshToken,
+    expiresAt: exp * 1000, // `exp` is in seconds; expiresAt is in milliseconds.
+    email: sub,
+    name: sub, // No name claim in the token; use the identity.
+  });
+  return true;
+}
+
+/**
  * Reads and validates the stored authentication data.
  *
  * @returns The parsed authentication data (tokens, user info).

@@ -1,3 +1,5 @@
+// Must stay first — see bootstrap-env.js.
+import "@/cli/bootstrap-env.js";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ClackLogger, SimpleLogger } from "@base44-cli/logger";
