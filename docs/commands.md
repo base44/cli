@@ -143,7 +143,9 @@ export function getMyCommand(): Command {
 }
 ```
 
-Commands that only use `logger.*` (display-only, no input) don't need this guard. See `project/create.ts`, `project/link.ts`, and `project/eject.ts` for real examples.
+Commands that only use `logger.*` (display-only, no input) don't need this guard. See `project/create.ts`, `project/scaffold.ts`, `project/link.ts`, and `project/eject.ts` for real examples.
+
+`project/create.ts` and `project/scaffold.ts` share their post-scaffold logic (push entities, deploy site, install skills, print summary) via `project/scaffold-shared.ts` — `create` mints a new app, `scaffold` reuses an existing app id (from `--app-id` or `BASE44_APP_ID`).
 
 ## runTask (Async Operations with Spinners)
 
