@@ -1,7 +1,7 @@
-import { existsSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { config, parse } from "dotenv";
 import { PROJECT_SUBDIR } from "@/core/consts.js";
+import { findProjectRoot } from "@/core/project/find-root.js";
 import { readTextFile } from "./fs.js";
 
 export async function parseEnvFile(
@@ -22,29 +22,23 @@ const BASE44_ENV_KEYS = [
   "BASE44_API_URL",
 ];
 
-// Project-root markers (mirror PROJECT_CONFIG_PATTERNS). The `.env` lives at the
-// root, so we anchor on these to allow running from any subdirectory.
-const PROJECT_CONFIG_FILES = ["jsonc", "json"].map((ext) =>
-  join(PROJECT_SUBDIR, `config.${ext}`),
-);
-
-function findProjectRootSync(startDir: string): string | null {
-  let current = startDir;
-  while (current !== dirname(current)) {
-    if (PROJECT_CONFIG_FILES.some((rel) => existsSync(join(current, rel)))) {
-      return current;
-    }
-    current = dirname(current);
+// The project root is where `.env` and the `base44/` config dir live; derive it
+// from the located config (its parent, or one level up when it sits in base44/)
+// so commands work from the root or any subdirectory. findProjectRoot is
+// sync/light, so this is safe to call at bootstrap.
+function findEnvDir(cwd: string): string {
+  const found = findProjectRoot(cwd);
+  if (!found) {
+    return cwd;
   }
-  return null;
+  const configDir = dirname(found.configPath);
+  return basename(configDir) === PROJECT_SUBDIR
+    ? dirname(configDir)
+    : configDir;
 }
 
-/**
- * Synchronous so bootstrap can run it before the HTTP clients capture
- * `getBase44ApiUrl()` at module load.
- */
 export function loadProjectEnvFiles(cwd: string = process.cwd()): void {
-  const root = findProjectRootSync(cwd) ?? cwd;
+  const root = findEnvDir(cwd);
   // `.env.local` first so it wins (dotenv keeps the first value set per key);
   // ambient `process.env` is never overridden (override defaults to false).
   config({

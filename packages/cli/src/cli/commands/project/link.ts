@@ -138,7 +138,7 @@ async function link(
     );
   }
 
-  const projectRoot = await findProjectRoot();
+  const projectRoot = findProjectRoot();
 
   if (!projectRoot) {
     throw new ConfigNotFoundError(

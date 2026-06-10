@@ -1,11 +1,11 @@
 import { dirname, join } from "node:path";
-import { globby } from "globby";
-import { PROJECT_CONFIG_PATTERNS, PROJECT_SUBDIR } from "@/core/consts.js";
+import { PROJECT_SUBDIR } from "@/core/consts.js";
 import {
   ConfigInvalidError,
   ConfigNotFoundError,
   SchemaValidationError,
 } from "@/core/errors.js";
+import { findConfigInDir, findProjectRoot } from "@/core/project/find-root.js";
 import {
   markPluginEntities,
   namespacePluginFunctions,
@@ -32,42 +32,9 @@ import { readJsonFile } from "@/core/utils/fs.js";
 
 type ProjectResources = Omit<ProjectData, "project">;
 
-async function findConfigInDir(dir: string): Promise<string | null> {
-  const files = await globby(PROJECT_CONFIG_PATTERNS, {
-    cwd: dir,
-    absolute: true,
-  });
-  return files[0] ?? null;
-}
-
-/**
- * Searches for a Base44 project root by looking for config files.
- * Walks up the directory tree from the starting path until it finds a config file.
- *
- * @param startPath - Directory to start searching from. Defaults to cwd.
- * @returns Project root info if found, null otherwise.
- *
- * @example
- * const found = await findProjectRoot();
- * if (found) {
- *   console.log(`Project found at: ${found.root}`);
- * }
- */
-export async function findProjectRoot(
-  startPath?: string,
-): Promise<ProjectRoot | null> {
-  let current = startPath || process.cwd();
-
-  while (current !== dirname(current)) {
-    const configPath = await findConfigInDir(current);
-    if (configPath) {
-      return { root: current, configPath };
-    }
-    current = dirname(current);
-  }
-
-  return null;
-}
+// findProjectRoot / findConfigInDir live in ./find-root.js so bootstrap (env
+// loading) can reuse them without importing this module's HTTP-client deps.
+export { findProjectRoot };
 
 class ProjectConfigReader {
   private readonly pluginSourceByNamespace = new Map<string, string>();
@@ -107,10 +74,10 @@ class ProjectConfigReader {
     let found: ProjectRoot | null;
 
     if (projectRoot) {
-      const configPath = await findConfigInDir(projectRoot);
+      const configPath = findConfigInDir(projectRoot);
       found = configPath ? { root: projectRoot, configPath } : null;
     } else {
-      found = await findProjectRoot();
+      found = findProjectRoot();
     }
 
     if (!found) {

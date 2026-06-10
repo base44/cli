@@ -43,7 +43,7 @@ export async function initAppConfig(): Promise<CachedAppConfig> {
     return cache;
   }
 
-  const projectRoot = await findProjectRoot();
+  const projectRoot = findProjectRoot();
   if (!projectRoot) {
     throw new ConfigNotFoundError(
       "No Base44 project found. Run this command from a project directory with a config.jsonc file.",
