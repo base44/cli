@@ -6,7 +6,7 @@ import {
   ConfigNotFoundError,
   SchemaValidationError,
 } from "@/core/errors.js";
-import { findProjectRoot } from "@/core/project/config.js";
+import { findProjectRoot } from "@/core/project/find-root.js";
 import type { AppConfig } from "@/core/project/schema.js";
 import { AppConfigSchema } from "@/core/project/schema.js";
 import { readJsonFile, writeFile } from "@/core/utils/fs.js";

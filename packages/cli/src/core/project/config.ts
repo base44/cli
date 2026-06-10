@@ -32,10 +32,6 @@ import { readJsonFile } from "@/core/utils/fs.js";
 
 type ProjectResources = Omit<ProjectData, "project">;
 
-// findProjectRoot / findConfigInDir live in ./find-root.js so bootstrap (env
-// loading) can reuse them without importing this module's HTTP-client deps.
-export { findProjectRoot };
-
 class ProjectConfigReader {
   private readonly pluginSourceByNamespace = new Map<string, string>();
 
