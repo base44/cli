@@ -100,8 +100,8 @@ export async function getAppUserToken(): Promise<string> {
   }
 }
 
-export async function getSiteUrl(projectId?: string): Promise<string> {
-  const id = projectId ?? getAppContext().id;
+export async function getSiteUrl(): Promise<string> {
+  const id = getAppContext().id;
 
   let response: Response;
   try {

@@ -93,10 +93,6 @@ export function setAppContext(context: AppContext): void {
   cache = context;
 }
 
-export function resetAppContext(): void {
-  cache = null;
-}
-
 function generateAppConfigContent(id: string): string {
   return `// Base44 App Configuration
 // This file links your local project to your Base44 app.
