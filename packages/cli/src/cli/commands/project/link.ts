@@ -20,7 +20,7 @@ import {
   createProject,
   findProjectRoot,
   listProjects,
-  setAppConfig,
+  setAppContext,
   writeAppConfig,
 } from "@/core/project/index.js";
 
@@ -214,7 +214,7 @@ async function link(
       "Linking project...",
       async () => {
         await writeAppConfig(projectRoot.root, projectId);
-        setAppConfig({ id: projectId, projectRoot: projectRoot.root });
+        setAppContext({ id: projectId, projectRoot: projectRoot.root });
       },
       {
         successMessage: "Project linked successfully",
@@ -244,7 +244,7 @@ async function link(
     await writeAppConfig(projectRoot.root, projectId);
 
     // Set app config in cache for sync access to getDashboardUrl
-    setAppConfig({ id: projectId, projectRoot: projectRoot.root });
+    setAppContext({ id: projectId, projectRoot: projectRoot.root });
 
     finalProjectId = projectId;
   }
@@ -256,7 +256,7 @@ async function link(
 }
 
 export function getLinkCommand(): Command {
-  return new Base44Command("link", { requireAppConfig: false })
+  return new Base44Command("link", { requireAppContext: false })
     .description(
       "Link a local project to a Base44 project (create new or link existing)",
     )

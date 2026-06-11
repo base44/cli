@@ -37,7 +37,7 @@ interface ProjectSetupResult {
   appUrl?: string;
 }
 
-// Requires `setAppConfig()` to have run first so `getAppClient()` /
+// Requires `setAppContext()` to have run first so `getAppClient()` /
 // `getDashboardUrl()` resolve.
 export async function completeProjectSetup(
   {

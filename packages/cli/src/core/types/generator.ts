@@ -3,7 +3,6 @@ import type { JSONSchema4 } from "json-schema";
 import { compile } from "json-schema-to-typescript";
 import { getTypesOutputPath } from "@/core/config.js";
 import { TypeGenerationError } from "@/core/errors.js";
-import { getAppConfig } from "@/core/project/app-config.js";
 import type { AgentConfig } from "@/core/resources/agent/index.js";
 import type { ConnectorResource } from "@/core/resources/connector/index.js";
 import type { Entity } from "@/core/resources/entity/index.js";
@@ -11,6 +10,7 @@ import type { BackendFunction } from "@/core/resources/function/index.js";
 import { writeFile } from "@/core/utils/fs.js";
 
 interface GenerateTypesInput {
+  projectRoot: string;
   entities: Entity[];
   functions: BackendFunction[];
   agents: AgentConfig[];
@@ -41,9 +41,8 @@ const EMPTY_TEMPLATE = stripIndent`
 export async function generateTypesFile(
   input: GenerateTypesInput,
 ): Promise<void> {
-  const { projectRoot } = getAppConfig();
   const content = await generateContent(input);
-  await writeFile(getTypesOutputPath(projectRoot), content);
+  await writeFile(getTypesOutputPath(input.projectRoot), content);
 }
 
 async function generateContent(input: GenerateTypesInput): Promise<string> {

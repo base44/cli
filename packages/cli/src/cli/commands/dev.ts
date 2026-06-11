@@ -6,7 +6,7 @@ import { createDevServer } from "@/cli/dev/dev-server/main.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, theme } from "@/cli/utils/index.js";
 import { getDenoWrapperPath } from "@/core/assets.js";
-import { initAppConfig } from "@/core/project/app-config.js";
+import { initAppContext } from "@/core/project/app-config.js";
 import { readProjectConfig } from "@/core/project/config.js";
 import { pathExists, writeFile } from "@/core/utils/fs.js";
 
@@ -34,7 +34,7 @@ async function writeEnvLocalIfMissing(
     return;
   }
 
-  const { id: appId } = await initAppConfig();
+  const { id: appId } = await initAppContext();
   await writeFile(
     envLocalPath,
     `VITE_BASE44_APP_ID=${appId}\nVITE_BASE44_APP_BASE_URL=${localServerUrl(port)}\n`,

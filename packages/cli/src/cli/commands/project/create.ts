@@ -11,7 +11,7 @@ import type { Template } from "@/core/project/index.js";
 import {
   createProjectFiles,
   listTemplates,
-  setAppConfig,
+  setAppContext,
 } from "@/core/project/index.js";
 import {
   completeProjectSetup,
@@ -162,7 +162,7 @@ async function executeCreate(
     },
   );
 
-  setAppConfig({ id: projectId, projectRoot: resolvedPath });
+  setAppContext({ id: projectId, projectRoot: resolvedPath });
 
   const summary = await completeProjectSetup(
     { projectId, name, resolvedPath, deploy, skills, isInteractive },
@@ -208,7 +208,7 @@ async function createAction(
 
 export function getCreateCommand(): Command {
   return new Base44Command("create", {
-    requireAppConfig: false,
+    requireAppContext: false,
     fullBanner: true,
   })
     .description("Create a new Base44 project")

@@ -54,15 +54,15 @@ Pass options as the second argument to the constructor:
 ```typescript
 new Base44Command("my-cmd")                                         // All defaults
 new Base44Command("my-cmd", { requireAuth: false })                 // Skip auth check
-new Base44Command("my-cmd", { requireAppConfig: false })            // Skip app config loading
+new Base44Command("my-cmd", { requireAppContext: false })            // Skip app context loading
 new Base44Command("my-cmd", { fullBanner: true })                   // ASCII art banner
-new Base44Command("my-cmd", { requireAuth: false, requireAppConfig: false })
+new Base44Command("my-cmd", { requireAuth: false, requireAppContext: false })
 ```
 
 | Option | Default | Description |
 |--------|---------|-------------|
 | `requireAuth` | `true` | Check authentication before running, auto-triggers login if needed |
-| `requireAppConfig` | `true` | Load `.app.jsonc` and cache for sync access via `getAppConfig()` |
+| `requireAppContext` | `true` | Load `.app.jsonc` and cache the app ID for sync access via `getAppContext()` |
 | `fullBanner` | `false` | Show ASCII art banner instead of simple intro tag |
 
 When the CLI runs in non-interactive mode (CI, piped output), all clack UI (intro, outro, themed errors) is automatically skipped. Errors go to stderr as plain text.
@@ -88,12 +88,17 @@ export interface CLIContext {
   isNonInteractive: boolean;
   distribution: Distribution;
   logger: Logger;
+  app?: {
+    id: string;
+    projectRoot?: string;
+  };
 }
 ```
 
 - Created once in `runCLI()` at startup
 - `isNonInteractive` is `true` when stdin/stdout are not a TTY (e.g., CI, piped output, AI agents). Controls quiet mode — when true, all clack UI is suppressed.
 - `logger` is a `Logger` instance — `ClackLogger` in interactive mode, `SimpleLogger` in non-interactive mode.
+- `app` is set for commands with `requireAppContext: true`.
 
 ### Using `isNonInteractive`
 
@@ -136,7 +141,7 @@ async function myAction(
 }
 
 export function getMyCommand(): Command {
-  return new Base44Command("my-cmd", { requireAppConfig: false })
+  return new Base44Command("my-cmd", { requireAppContext: false })
     .option("-n, --name <name>", "Project name")
     .option("-p, --path <path>", "Project path")
     .action(myAction);

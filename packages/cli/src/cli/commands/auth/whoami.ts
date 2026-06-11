@@ -9,7 +9,7 @@ async function whoami(_ctx: CLIContext): Promise<RunCommandResult> {
 }
 
 export function getWhoamiCommand(): Command {
-  return new Base44Command("whoami", { requireAppConfig: false })
+  return new Base44Command("whoami", { requireAppContext: false })
     .description("Display current authenticated user")
     .action(whoami);
 }

@@ -11,7 +11,7 @@ async function logout(_ctx: CLIContext): Promise<RunCommandResult> {
 export function getLogoutCommand(): Command {
   return new Base44Command("logout", {
     requireAuth: false,
-    requireAppConfig: false,
+    requireAppContext: false,
   })
     .description("Logout from current device")
     .action(logout);

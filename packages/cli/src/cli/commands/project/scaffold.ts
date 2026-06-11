@@ -3,7 +3,7 @@ import { Argument, type Command } from "commander";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, theme } from "@/cli/utils/index.js";
 import { InvalidInputError } from "@/core/errors.js";
-import { initProjectFiles, setAppConfig } from "@/core/project/index.js";
+import { initProjectFiles, setAppContext } from "@/core/project/index.js";
 import {
   completeProjectSetup,
   getTemplateById,
@@ -57,7 +57,7 @@ async function scaffoldAction(
     },
   );
 
-  setAppConfig({ id: projectId, projectRoot: resolvedPath });
+  setAppContext({ id: projectId, projectRoot: resolvedPath });
 
   const summary = await completeProjectSetup(
     {
@@ -77,7 +77,7 @@ async function scaffoldAction(
 
 export function getScaffoldCommand(): Command {
   return new Base44Command("scaffold", {
-    requireAppConfig: false,
+    requireAppContext: false,
     fullBanner: true,
   })
     .description("Scaffold a local project for an existing Base44 app")

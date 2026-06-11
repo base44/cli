@@ -1,7 +1,7 @@
 import { login } from "@/cli/commands/auth/login-flow.js";
 import type { CLIContext } from "@/cli/types.js";
 import { isLoggedIn, readAuth, seedAuthFromEnv } from "@/core/auth/index.js";
-import { initAppConfig } from "@/core/project/index.js";
+import { initAppContext } from "@/core/project/index.js";
 
 /**
  * Check authentication status and trigger login flow if needed.
@@ -30,9 +30,10 @@ export async function ensureAuth(ctx: CLIContext): Promise<void> {
 }
 
 /**
- * Load app config (.app.jsonc) and set appId on the error reporter.
+ * Resolve the active app context and set appId on the error reporter.
  */
-export async function ensureAppConfig(ctx: CLIContext): Promise<void> {
-  const appConfig = await initAppConfig();
-  ctx.errorReporter.setContext({ appId: appConfig.id });
+export async function ensureAppContext(ctx: CLIContext): Promise<void> {
+  const appContext = await initAppContext();
+  ctx.app = appContext;
+  ctx.errorReporter.setContext({ appId: appContext.id });
 }

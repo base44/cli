@@ -1,4 +1,5 @@
 import type { Logger } from "@base44-cli/logger";
+import type { AppContext } from "@/core/project/app-config.js";
 import type { ErrorReporter } from "./telemetry/error-reporter.js";
 import type { RunTaskFn } from "./utils/runTask.js";
 
@@ -10,6 +11,7 @@ export interface CLIContext {
   distribution: Distribution;
   log: Logger;
   runTask: RunTaskFn;
+  app?: AppContext;
 }
 
 export interface RunCommandResult {

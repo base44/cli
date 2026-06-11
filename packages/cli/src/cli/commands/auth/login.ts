@@ -5,7 +5,7 @@ import { login } from "./login-flow.js";
 export function getLoginCommand(): Command {
   return new Base44Command("login", {
     requireAuth: false,
-    requireAppConfig: false,
+    requireAppContext: false,
   })
     .description("Authenticate with Base44")
     .action(login);

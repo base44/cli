@@ -13,7 +13,13 @@ async function generateTypesAction({
     await readProjectConfig();
 
   await runTask("Generating types", async () => {
-    await generateTypesFile({ entities, functions, agents, connectors });
+    await generateTypesFile({
+      projectRoot: project.root,
+      entities,
+      functions,
+      agents,
+      connectors,
+    });
   });
 
   const tsconfigUpdated = await updateProjectConfig(project.root);

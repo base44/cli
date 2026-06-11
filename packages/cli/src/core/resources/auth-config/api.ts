@@ -1,7 +1,7 @@
 import type { KyResponse } from "ky";
 import { base44Client } from "@/core/clients/index.js";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";
-import { getAppConfig } from "@/core/project/index.js";
+import { getAppContext } from "@/core/project/index.js";
 import type { AuthConfig } from "./schema.js";
 import { AppAuthConfigResponseSchema, toAuthConfigPayload } from "./schema.js";
 
@@ -9,7 +9,7 @@ import { AppAuthConfigResponseSchema, toAuthConfigPayload } from "./schema.js";
  * Fetches the current auth config for the app.
  */
 export async function getAuthConfig(): Promise<AuthConfig> {
-  const { id } = getAppConfig();
+  const { id } = getAppContext();
 
   let response: KyResponse;
   try {
@@ -36,7 +36,7 @@ export async function getAuthConfig(): Promise<AuthConfig> {
 export async function pushAuthConfigToApi(
   config: AuthConfig,
 ): Promise<AuthConfig> {
-  const { id } = getAppConfig();
+  const { id } = getAppContext();
 
   let response: KyResponse;
   try {

@@ -1,6 +1,9 @@
 import { Command } from "commander";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
-import { ensureAppConfig, ensureAuth } from "@/cli/utils/command/middleware.js";
+import {
+  ensureAppContext,
+  ensureAuth,
+} from "@/cli/utils/command/middleware.js";
 import {
   showCommandEnd,
   showCommandStart,
@@ -20,11 +23,11 @@ interface Base44CommandOptions {
    */
   requireAuth?: boolean;
   /**
-   * Initialize app config before running this command.
-   * Reads .app.jsonc and caches the appId for sync access via getAppConfig().
+   * Resolve the active app context before running this command.
+   * Reads .app.jsonc and caches the app ID for sync access via getAppContext().
    * @default true
    */
-  requireAppConfig?: boolean;
+  requireAppContext?: boolean;
   /**
    * Use the full ASCII art banner instead of the simple intro tag.
    * Useful for commands like `create` that want more visual impact.
@@ -35,7 +38,7 @@ interface Base44CommandOptions {
 
 /**
  * A Command subclass that automatically wraps the action with the Base44
- * lifecycle: intro/banner, auth check, app config, outro, and error handling.
+ * lifecycle: intro/banner, auth check, app context, outro, and error handling.
  *
  * When `isNonInteractive` is true (CI / piped output), all clack UI
  * (intro, outro, themed errors) is skipped. Errors go to stderr as plain text.
@@ -67,9 +70,10 @@ export class Base44Command extends Command {
 
   constructor(name: string, options?: Base44CommandOptions) {
     super(name);
+
     this._commandOptions = {
       requireAuth: options?.requireAuth ?? true,
-      requireAppConfig: options?.requireAppConfig ?? true,
+      requireAppContext: options?.requireAppContext ?? true,
       fullBanner: options?.fullBanner ?? false,
     };
   }
@@ -113,8 +117,8 @@ export class Base44Command extends Command {
         if (this._commandOptions.requireAuth) {
           await ensureAuth(this.context);
         }
-        if (this._commandOptions.requireAppConfig) {
-          await ensureAppConfig(this.context);
+        if (this._commandOptions.requireAppContext) {
+          await ensureAppContext(this.context);
         }
 
         const result = ((await fn(this.context, ...args)) ??

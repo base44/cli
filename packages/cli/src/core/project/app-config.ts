@@ -11,32 +11,36 @@ import type { AppConfig } from "@/core/project/schema.js";
 import { AppConfigSchema } from "@/core/project/schema.js";
 import { readJsonFile, writeFile } from "@/core/utils/fs.js";
 
-interface CachedAppConfig {
+export interface AppContext {
   id: string;
-  projectRoot: string;
+  projectRoot?: string;
 }
 
-let cache: CachedAppConfig | null = null;
+let cache: AppContext | null = null;
 
-function loadFromTestOverrides(): boolean {
+function loadFromTestOverrides(): AppContext | null {
   const appConfig = getTestOverrides()?.appConfig;
   if (appConfig?.id && appConfig.projectRoot) {
-    cache = { id: appConfig.id, projectRoot: appConfig.projectRoot };
-    return true;
+    return {
+      id: appConfig.id,
+      projectRoot: appConfig.projectRoot,
+    };
   }
-  return false;
+  return null;
 }
 
 /**
- * Initialize app config by reading from .app.jsonc.
- * Returns the cached config, reading from disk only on first call.
- * @returns The app config with id and projectRoot
+ * Initialize app context by reading from .app.jsonc.
+ * Returns the cached context, reading from disk only on first call.
+ * @returns The app context with id and projectRoot when available
  * @throws Error if no project found or .app.jsonc missing
  */
-export async function initAppConfig(): Promise<CachedAppConfig> {
+export async function initAppContext(): Promise<AppContext> {
   // Check for test overrides first
-  if (loadFromTestOverrides()) {
-    return cache!;
+  const testConfig = loadFromTestOverrides();
+  if (testConfig) {
+    cache = testConfig;
+    return cache;
   }
 
   if (cache) {
@@ -73,20 +77,24 @@ export async function initAppConfig(): Promise<CachedAppConfig> {
 }
 
 /**
- * Get the cached app config.
- * @throws ConfigInvalidError if not initialized - call initAppConfig() or setAppConfig() first
+ * Get the cached app context.
+ * @throws ConfigInvalidError if not initialized - call initAppContext() or setAppContext() first
  */
-export function getAppConfig(): CachedAppConfig {
+export function getAppContext(): AppContext {
   if (!cache) {
     throw new ConfigInvalidError(
-      "App config not initialized. Ensure the command uses requireAppConfig option.",
+      "App context not initialized. Ensure the command uses requireAppContext option.",
     );
   }
   return cache;
 }
 
-export function setAppConfig(config: CachedAppConfig): void {
-  cache = config;
+export function setAppContext(context: AppContext): void {
+  cache = context;
+}
+
+export function resetAppContext(): void {
+  cache = null;
 }
 
 function generateAppConfigContent(id: string): string {

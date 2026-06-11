@@ -12,7 +12,7 @@ import {
   refreshAndSaveTokens,
 } from "@/core/auth/config.js";
 import { getBase44ApiUrl } from "@/core/config.js";
-import { getAppConfig } from "@/core/project/index.js";
+import { getAppContext } from "@/core/project/index.js";
 
 // Track requests that have already been retried to prevent infinite loops
 const retriedRequests = new WeakSet<KyRequest>();
@@ -121,17 +121,17 @@ export const base44Client = ky.create({
 
 /**
  * Returns an HTTP client scoped to the current app.
- * Requires app config to be initialized first via initAppConfig() or setAppConfig().
+ * Requires app context to be initialized first via initAppContext() or setAppContext().
  * Use this for API calls to app-specific endpoints (entities, functions, etc.).
  *
- * @throws {Error} If app config is not initialized.
+ * @throws {Error} If app context is not initialized.
  *
  * @example
  * const appClient = getAppClient();
  * const response = await appClient.get("entities");
  */
 export function getAppClient() {
-  const { id } = getAppConfig();
+  const { id } = getAppContext();
   return base44Client.extend({
     prefixUrl: new URL(`/api/apps/${id}/`, getBase44ApiUrl()).href,
   });

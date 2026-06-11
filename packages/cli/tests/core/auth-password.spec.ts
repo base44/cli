@@ -5,8 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock project config
 vi.mock("../../src/core/project/index.js", () => ({
-  getAppConfig: () => ({ id: "test-app-id" }),
-  initAppConfig: () => ({ id: "test-app-id" }),
+  getAppContext: () => ({ id: "test-app-id" }),
+  initAppContext: () => ({ id: "test-app-id" }),
 }));
 
 // Mock HTTP client

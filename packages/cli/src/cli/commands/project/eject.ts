@@ -16,7 +16,7 @@ import {
   isDirEmpty,
   listProjects,
   readProjectConfig,
-  setAppConfig,
+  setAppContext,
   writeAppConfig,
   writeFile,
 } from "@/core/index.js";
@@ -137,7 +137,7 @@ async function eject(
         `VITE_BASE44_APP_ID=${newProjectId}`,
       );
 
-      setAppConfig({ id: newProjectId, projectRoot: resolvedPath });
+      setAppContext({ id: newProjectId, projectRoot: resolvedPath });
     },
     {
       successMessage: theme.colors.base44Orange("Project pulled successfully"),
@@ -182,7 +182,7 @@ async function eject(
 }
 
 export function getEjectCommand(): Command {
-  return new Base44Command("eject", { requireAppConfig: false })
+  return new Base44Command("eject", { requireAppContext: false })
     .description("Download the code for an existing Base44 project")
     .option("-p, --path <path>", "Path where to write the project")
     .option(

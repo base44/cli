@@ -3,7 +3,7 @@ import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
 import { InvalidInputError } from "@/core/errors.js";
 import { runScript } from "@/core/exec/index.js";
-import { getAppConfig } from "@/core/project/index.js";
+import { getAppContext } from "@/core/project/index.js";
 
 function readStdin(): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -43,7 +43,7 @@ async function execAction(
     throw noInputError;
   }
 
-  const { exitCode } = await runScript({ appId: getAppConfig().id, code });
+  const { exitCode } = await runScript({ appId: getAppContext().id, code });
 
   if (exitCode !== 0) {
     process.exitCode = exitCode;
