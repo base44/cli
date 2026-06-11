@@ -1,6 +1,6 @@
 import { basename, dirname, join } from "node:path";
 import { config, parse } from "dotenv";
-import { PROJECT_SUBDIR } from "@/core/consts.js";
+import { BASE44_APP_ID_ENV_VAR, PROJECT_SUBDIR } from "@/core/consts.js";
 import { findProjectRoot } from "@/core/project/find-root.js";
 import { readTextFile } from "./fs.js";
 
@@ -16,7 +16,7 @@ export async function parseEnvFile(
 const STRIPE_ENV_PREFIX = "BASE44_PROJECTS_";
 
 const BASE44_ENV_KEYS = [
-  "BASE44_APP_ID",
+  BASE44_APP_ID_ENV_VAR,
   "BASE44_ACCESS_TOKEN",
   "BASE44_REFRESH_TOKEN",
   "BASE44_API_URL",

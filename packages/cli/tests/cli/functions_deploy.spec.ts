@@ -19,7 +19,7 @@ describe("functions deploy command", () => {
     const result = await t.run("functions", "deploy");
 
     t.expectResult(result).toFail();
-    t.expectResult(result).toContain("No Base44 project found");
+    t.expectResult(result).toContain("No Base44 app ID found");
   });
 
   it("deploys functions successfully", async () => {

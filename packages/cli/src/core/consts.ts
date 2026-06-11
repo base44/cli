@@ -21,6 +21,9 @@ export const PROJECT_CONFIG_PATTERNS = [
   `config.${CONFIG_FILE_EXTENSION_GLOB}`,
 ];
 
+// Environment variables
+export const BASE44_APP_ID_ENV_VAR = "BASE44_APP_ID";
+
 // Types generation
 export const TYPES_OUTPUT_SUBDIR = ".types";
 export const TYPES_FILENAME = "types.d.ts";

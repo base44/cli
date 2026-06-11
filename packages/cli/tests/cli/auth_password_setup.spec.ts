@@ -29,7 +29,7 @@ describe("auth password-login command", () => {
     const result = await t.run("auth", "password-login", "enable");
 
     t.expectResult(result).toFail();
-    t.expectResult(result).toContain("No Base44 project found");
+    t.expectResult(result).toContain("No Base44 app ID found");
   });
 
   it("shows help with --help flag", async () => {

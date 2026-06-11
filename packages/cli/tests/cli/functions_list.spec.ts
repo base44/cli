@@ -81,12 +81,54 @@ describe("functions list command", () => {
     t.expectResult(result).toContain("1 function on remote");
   });
 
+  it("lists deployed functions with --app-id outside a project", async () => {
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    t.api.mockFunctionsList({
+      functions: [
+        {
+          name: "projectless-func",
+          deployment_id: "d1",
+          entry: "index.ts",
+          files: [{ path: "index.ts", content: "" }],
+          automations: [],
+        },
+      ],
+    });
+
+    const result = await t.run("functions", "list", "--app-id", t.api.appId);
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("projectless-func");
+  });
+
+  it("prefers --app-id over BASE44_APP_ID", async () => {
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    t.givenEnv({ BASE44_APP_ID: "wrong-app-id" });
+    t.api.mockFunctionsList({
+      functions: [
+        {
+          name: "flag-app-func",
+          deployment_id: "d1",
+          entry: "index.ts",
+          files: [{ path: "index.ts", content: "" }],
+          automations: [],
+        },
+      ],
+    });
+
+    const result = await t.run("functions", "list", "--app-id", t.api.appId);
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("flag-app-func");
+  });
+
   it("fails when not in a project directory", async () => {
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
 
     const result = await t.run("functions", "list");
 
     t.expectResult(result).toFail();
+    t.expectResult(result).toContain("No Base44 app ID found");
   });
 
   it("fails when API returns error", async () => {

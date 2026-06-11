@@ -14,6 +14,7 @@ type TestRunnerMode = "npm" | "binary";
 
 const TEST_RUNNER: TestRunnerMode =
   (process.env.CLI_TEST_RUNNER as TestRunnerMode) || "npm";
+const BASE44_APP_ID_ENV_VAR = "BASE44_APP_ID";
 
 /** Resolve the platform-specific compiled binary path */
 function getBinaryPath(): string {
@@ -147,8 +148,9 @@ export class CLITestkit {
   async run(...args: string[]): Promise<CLIResult> {
     this.setupEnvOverrides();
 
-    const env: Record<string, string> = {
+    const env: Record<string, string | undefined> = {
       ...this.env,
+      [BASE44_APP_ID_ENV_VAR]: this.env[BASE44_APP_ID_ENV_VAR],
       BASE44_API_URL: this.api.baseUrl,
       PATH: process.env.PATH ?? "",
     };
@@ -182,8 +184,9 @@ export class CLITestkit {
   async runLive(...args: string[]): Promise<RunLiveHandle> {
     this.setupEnvOverrides();
 
-    const env: Record<string, string> = {
+    const env: Record<string, string | undefined> = {
       ...this.env,
+      [BASE44_APP_ID_ENV_VAR]: this.env[BASE44_APP_ID_ENV_VAR],
       BASE44_API_URL: this.api.baseUrl,
       PATH: process.env.PATH ?? "",
     };

@@ -25,7 +25,7 @@ describe("dev command", () => {
     const result = await t.run("dev");
 
     t.expectResult(result).toFail();
-    t.expectResult(result).toContain("No Base44 project found");
+    t.expectResult(result).toContain("No Base44 app ID found");
   });
 
   it("starts dev server successfully", async () => {

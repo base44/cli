@@ -3,7 +3,6 @@ import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
 import { InvalidInputError } from "@/core/errors.js";
 import { runScript } from "@/core/exec/index.js";
-import { getAppContext } from "@/core/project/index.js";
 
 function readStdin(): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -17,9 +16,10 @@ function readStdin(): Promise<string> {
   });
 }
 
-async function execAction(
-  isNonInteractive: boolean,
-): Promise<RunCommandResult> {
+async function execAction({
+  app,
+  isNonInteractive,
+}: CLIContext): Promise<RunCommandResult> {
   const noInputError = new InvalidInputError(
     "No input provided. Pipe a script to stdin.",
     {
@@ -43,7 +43,7 @@ async function execAction(
     throw noInputError;
   }
 
-  const { exitCode } = await runScript({ appId: getAppContext().id, code });
+  const { exitCode } = await runScript({ appId: app!.id, code });
 
   if (exitCode !== 0) {
     process.exitCode = exitCode;
@@ -67,7 +67,7 @@ Examples:
   Inline script:
     $ echo "const users = await base44.entities.User.list()" | base44 exec`,
     )
-    .action(async ({ isNonInteractive }: CLIContext) => {
-      return await execAction(isNonInteractive);
+    .action(async (ctx: CLIContext) => {
+      return await execAction(ctx);
     });
 }

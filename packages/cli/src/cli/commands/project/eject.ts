@@ -1,7 +1,7 @@
 import { resolve } from "node:path";
-import type { Option } from "@clack/prompts";
+import type { Option as PromptOption } from "@clack/prompts";
 import { cancel, confirm, isCancel, select, text } from "@clack/prompts";
-import type { Command } from "commander";
+import { type Command, Option as CommanderOption } from "commander";
 import { execa } from "execa";
 import kebabCase from "lodash/kebabCase";
 import { deployAction } from "@/cli/commands/project/deploy.js";
@@ -20,23 +20,32 @@ import {
   writeAppConfig,
   writeFile,
 } from "@/core/index.js";
+import { readExplicitAppId } from "./app-id-options.js";
 
 interface EjectOptions {
   path?: string;
-  projectId?: string;
   yes?: boolean;
 }
 
 async function eject(
   ctx: CLIContext,
   options: EjectOptions,
+  command: Command,
 ): Promise<RunCommandResult> {
   const { log, runTask, isNonInteractive } = ctx;
-
-  if (isNonInteractive && !options.projectId) {
+  const {
+    appId,
+    legacyProjectId,
+    value: selectedAppId,
+  } = readExplicitAppId(command);
+  if (appId && legacyProjectId) {
     throw new InvalidInputError(
-      "--project-id is required in non-interactive mode",
+      "--app-id and --project-id cannot be used together",
     );
+  }
+
+  if (isNonInteractive && !selectedAppId) {
+    throw new InvalidInputError("--app-id is required in non-interactive mode");
   }
   if (isNonInteractive && !options.path) {
     throw new InvalidInputError("--path is required in non-interactive mode");
@@ -49,19 +58,17 @@ async function eject(
 
   let selectedProject: Project;
 
-  if (options.projectId) {
-    const foundProject = ejectableProjects.find(
-      (p) => p.id === options.projectId,
-    );
+  if (selectedAppId) {
+    const foundProject = ejectableProjects.find((p) => p.id === selectedAppId);
 
     if (!foundProject) {
       throw new InvalidInputError(
-        `Project with ID "${options.projectId}" not found or not ejectable`,
+        `App with ID "${selectedAppId}" not found or not ejectable`,
         {
           hints: [
             {
               message:
-                "Run 'base44 eject' without --project-id to see available projects",
+                "Run 'base44 eject' without --app-id to see available projects",
             },
           ],
         },
@@ -75,11 +82,13 @@ async function eject(
       return { outroMessage: "No projects available to eject." };
     }
 
-    const projectOptions: Option<Project>[] = ejectableProjects.map((p) => ({
-      value: p,
-      label: p.name,
-      hint: p.userDescription ?? undefined,
-    }));
+    const projectOptions: PromptOption<Project>[] = ejectableProjects.map(
+      (p) => ({
+        value: p,
+        label: p.name,
+        hint: p.userDescription ?? undefined,
+      }),
+    );
 
     const selected = await select({
       message: `Choose a project to download ${theme.styles.dim("(Note: this will clone the selected project)")}`,
@@ -182,13 +191,21 @@ async function eject(
 }
 
 export function getEjectCommand(): Command {
-  return new Base44Command("eject", { requireAppContext: false })
-    .description("Download the code for an existing Base44 project")
-    .option("-p, --path <path>", "Path where to write the project")
-    .option(
-      "--project-id <id>",
-      "Project ID to eject (skips interactive selection)",
-    )
-    .option("-y, --yes", "Skip confirmation prompts")
-    .action(eject);
+  return (
+    new Base44Command("eject", {
+      requireAppContext: false,
+    })
+      .description("Download the code for an existing Base44 project")
+      .configureHelp({ showGlobalOptions: true })
+      .option("-p, --path <path>", "Path where to write the project")
+      .option("-y, --yes", "Skip confirmation prompts")
+      // TODO: Remove --project-id once docs and Base44 CLI skills use --app-id. Kept hidden for backward compatibility.
+      .addOption(
+        new CommanderOption(
+          "--project-id <id>",
+          "Project ID to eject (skips interactive selection)",
+        ).hideHelp(),
+      )
+      .action(eject)
+  );
 }

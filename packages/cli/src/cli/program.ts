@@ -1,4 +1,4 @@
-import { Command } from "commander";
+import { Command, Option } from "commander";
 import { getAgentsCommand } from "@/cli/commands/agents/index.js";
 import { getAuthCommand } from "@/cli/commands/auth/index.js";
 import { getLoginCommand } from "@/cli/commands/auth/login.js";
@@ -17,6 +17,7 @@ import { getSecretsCommand } from "@/cli/commands/secrets/index.js";
 import { getSiteCommand } from "@/cli/commands/site/index.js";
 import { getTypesCommand } from "@/cli/commands/types/index.js";
 import { Base44Command } from "@/cli/utils/index.js";
+import { BASE44_APP_ID_ENV_VAR } from "@/core/consts.js";
 import packageJson from "../../package.json";
 import { getDevCommand } from "./commands/dev.js";
 import { getExecCommand } from "./commands/exec.js";
@@ -31,7 +32,12 @@ export function createProgram(context: CLIContext): Command {
     .description(
       "Base44 CLI - Unified interface for managing Base44 applications",
     )
-    .version(packageJson.version);
+    .version(packageJson.version)
+    .addOption(
+      new Option("--app-id <id>", "Base44 app ID to use").env(
+        BASE44_APP_ID_ENV_VAR,
+      ),
+    );
 
   program.configureHelp({
     sortSubcommands: true,

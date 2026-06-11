@@ -32,8 +32,11 @@ export async function ensureAuth(ctx: CLIContext): Promise<void> {
 /**
  * Resolve the active app context and set appId on the error reporter.
  */
-export async function ensureAppContext(ctx: CLIContext): Promise<void> {
-  const appContext = await initAppContext();
+export async function ensureAppContext(
+  ctx: CLIContext,
+  options: { appId?: string } = {},
+): Promise<void> {
+  const appContext = await initAppContext(options);
   ctx.app = appContext;
   ctx.errorReporter.setContext({ appId: appContext.id });
 }

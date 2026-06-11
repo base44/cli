@@ -24,7 +24,7 @@ interface Base44CommandOptions {
   requireAuth?: boolean;
   /**
    * Resolve the active app context before running this command.
-   * Reads .app.jsonc and caches the app ID for sync access via getAppContext().
+   * The app ID may come from --app-id, BASE44_APP_ID, or .app.jsonc.
    * @default true
    */
   requireAppContext?: boolean;
@@ -34,6 +34,10 @@ interface Base44CommandOptions {
    * @default false
    */
   fullBanner?: boolean;
+}
+
+export interface AppIdOptions {
+  appId?: string;
 }
 
 /**
@@ -118,7 +122,8 @@ export class Base44Command extends Command {
           await ensureAuth(this.context);
         }
         if (this._commandOptions.requireAppContext) {
-          await ensureAppContext(this.context);
+          const { appId } = this.optsWithGlobals<AppIdOptions>();
+          await ensureAppContext(this.context, { appId });
         }
 
         const result = ((await fn(this.context, ...args)) ??

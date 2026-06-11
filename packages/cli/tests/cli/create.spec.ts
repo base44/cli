@@ -26,6 +26,29 @@ describe("create command", () => {
     t.expectResult(result).toContain("--path requires a project name argument");
   });
 
+  it("rejects explicit --app-id", async () => {
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+
+    const result = await t.run("create", "My App", "--app-id", "ignored-app");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain(
+      "base44 create cannot be used with --app-id or BASE44_APP_ID",
+    );
+  });
+
+  it("rejects BASE44_APP_ID", async () => {
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    t.givenEnv({ BASE44_APP_ID: "ambient-app-id" });
+
+    const result = await t.run("create", "My App", "--no-skills");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain(
+      "base44 create cannot be used with --app-id or BASE44_APP_ID",
+    );
+  });
+
   it("creates project in non-interactive mode", async () => {
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
     t.api.mockCreateApp({ id: "new-project-id", name: "My New Project" });

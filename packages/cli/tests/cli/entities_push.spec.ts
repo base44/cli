@@ -19,7 +19,7 @@ describe("entities push command", () => {
     const result = await t.run("entities", "push");
 
     t.expectResult(result).toFail();
-    t.expectResult(result).toContain("No Base44 project found");
+    t.expectResult(result).toContain("No Base44 app ID found");
   });
 
   it("finds and lists entities in project", async () => {

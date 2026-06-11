@@ -21,7 +21,7 @@ describe("connectors pull command", () => {
     const result = await t.run("connectors", "pull");
 
     t.expectResult(result).toFail();
-    t.expectResult(result).toContain("No Base44 project found");
+    t.expectResult(result).toContain("No Base44 app ID found");
   });
 
   it("pulls connectors successfully", async () => {

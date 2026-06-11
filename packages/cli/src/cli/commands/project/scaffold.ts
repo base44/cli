@@ -1,7 +1,8 @@
 import { basename, resolve } from "node:path";
 import { Argument, type Command } from "commander";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
-import { Base44Command, theme } from "@/cli/utils/index.js";
+import { type AppIdOptions, Base44Command, theme } from "@/cli/utils/index.js";
+import { BASE44_APP_ID_ENV_VAR } from "@/core/consts.js";
 import { InvalidInputError } from "@/core/errors.js";
 import { initProjectFiles, setAppContext } from "@/core/project/index.js";
 import {
@@ -15,13 +16,16 @@ interface ScaffoldOptions {
   skills?: boolean;
 }
 
-function resolveAppId(options: ScaffoldOptions): string {
-  const appId = options.appId ?? process.env.BASE44_APP_ID;
+function resolveAppId(options: AppIdOptions): string {
+  const appId = options.appId;
   if (!appId) {
     throw new InvalidInputError(
       "No app ID found. `base44 scaffold` sets up a local project for an existing Base44 app.",
       {
-        hints: [{ message: "Pass it explicitly with --app-id <id>" }],
+        hints: [
+          { message: "Pass it explicitly with --app-id <id>" },
+          { message: `Set ${BASE44_APP_ID_ENV_VAR} in your environment` },
+        ],
       },
     );
   }
@@ -32,9 +36,10 @@ async function scaffoldAction(
   ctx: CLIContext,
   name: string | undefined,
   options: ScaffoldOptions,
+  command: Command,
 ): Promise<RunCommandResult> {
   const { log, runTask } = ctx;
-  const appId = resolveAppId(options);
+  const appId = resolveAppId(command.optsWithGlobals<AppIdOptions>());
   const resolvedPath = resolve("./");
   const projectName = (name ?? basename(resolvedPath)).trim();
   const template = await getTemplateById("backend-only");
@@ -82,7 +87,6 @@ export function getScaffoldCommand(): Command {
   })
     .description("Scaffold a local project for an existing Base44 app")
     .addArgument(new Argument("name", "Project name").argOptional())
-    .option("--app-id <id>", "Existing Base44 app ID")
     .option("--no-skills", "Skip AI agent skills installation")
     .addHelpText(
       "after",

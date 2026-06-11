@@ -20,7 +20,7 @@ describe("agents pull command", () => {
     const result = await t.run("agents", "pull");
 
     t.expectResult(result).toFail();
-    t.expectResult(result).toContain("No Base44 project found");
+    t.expectResult(result).toContain("No Base44 app ID found");
   });
 
   it("pulls agents successfully", async () => {

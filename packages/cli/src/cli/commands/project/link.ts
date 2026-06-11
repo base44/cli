@@ -1,6 +1,6 @@
-import type { Option } from "@clack/prompts";
+import type { Option as PromptOption } from "@clack/prompts";
 import { cancel, group, isCancel, select, text } from "@clack/prompts";
-import type { Command } from "commander";
+import { type Command, Option as CommanderOption } from "commander";
 import { CLIExitError } from "@/cli/errors.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import {
@@ -23,21 +23,29 @@ import {
   setAppContext,
   writeAppConfig,
 } from "@/core/project/index.js";
+import { readExplicitAppId } from "./app-id-options.js";
 
 interface LinkOptions {
   create?: boolean;
   name?: string;
   description?: string;
-  projectId?: string;
 }
 
 type LinkAction = "create" | "choose";
 
 function validateNonInteractiveFlags(command: Command): void {
-  const { create, name, projectId } = command.opts<LinkOptions>();
+  const { create, name } = command.opts<LinkOptions>();
+  const {
+    appId,
+    legacyProjectId,
+    value: selectedAppId,
+  } = readExplicitAppId(command);
+  if (appId && legacyProjectId) {
+    command.error("--app-id and --project-id cannot be used together");
+  }
 
-  if (create && projectId) {
-    command.error("--create and --projectId cannot be used together");
+  if (create && selectedAppId) {
+    command.error("--create and --app-id cannot be used together");
   }
 
   if (create && !name) {
@@ -46,7 +54,7 @@ function validateNonInteractiveFlags(command: Command): void {
 }
 
 async function promptForLinkAction(): Promise<LinkAction> {
-  const actionOptions: Option<LinkAction>[] = [
+  const actionOptions: PromptOption<LinkAction>[] = [
     {
       value: "create",
       label: "Create a new project",
@@ -107,10 +115,12 @@ async function promptForNewProjectDetails() {
 async function promptForExistingProject(
   linkableProjects: Project[],
 ): Promise<Project> {
-  const projectOptions: Option<Project>[] = linkableProjects.map((project) => ({
-    value: project,
-    label: project.name,
-  }));
+  const projectOptions: PromptOption<Project>[] = linkableProjects.map(
+    (project) => ({
+      value: project,
+      label: project.name,
+    }),
+  );
 
   const selectedProject = await select({
     message: "Choose a project to link",
@@ -128,13 +138,15 @@ async function promptForExistingProject(
 async function link(
   ctx: CLIContext,
   options: LinkOptions,
+  command: Command,
 ): Promise<RunCommandResult> {
   const { log, runTask, isNonInteractive } = ctx;
+  const appId = readExplicitAppId(command).value;
 
-  const skipPrompts = !!options.create || !!options.projectId;
+  const skipPrompts = !!options.create || !!appId;
   if (!skipPrompts && isNonInteractive) {
     throw new InvalidInputError(
-      "--create with --name, or --projectId, is required in non-interactive mode",
+      "--create with --name, or --app-id, is required in non-interactive mode",
     );
   }
 
@@ -160,8 +172,8 @@ async function link(
     );
   }
 
-  let finalProjectId: string | undefined;
-  const action = options.projectId
+  let finalAppId: string | undefined;
+  const action = appId
     ? "choose"
     : options.create
       ? "create"
@@ -185,36 +197,36 @@ async function link(
       return { outroMessage: "No projects available for linking" };
     }
 
-    let projectId: string;
+    let linkedAppId: string;
 
-    if (options.projectId) {
-      // Validate that the provided project ID exists and is linkable
-      const project = linkableProjects.find((p) => p.id === options.projectId);
+    if (appId) {
+      // Validate that the provided app ID exists and is linkable
+      const project = linkableProjects.find((p) => p.id === appId);
       if (!project) {
         throw new InvalidInputError(
-          `Project with ID "${options.projectId}" not found or not available for linking.`,
+          `App with ID "${appId}" not found or not available for linking.`,
           {
             hints: [
-              { message: "Check the project ID is correct" },
+              { message: "Check the app ID is correct" },
               {
                 message:
-                  "Use 'base44 link' without --projectId to see available projects",
+                  "Use 'base44 link' without --app-id to see available projects",
               },
             ],
           },
         );
       }
-      projectId = options.projectId;
+      linkedAppId = appId;
     } else {
       const selectedProject = await promptForExistingProject(linkableProjects);
-      projectId = selectedProject.id;
+      linkedAppId = selectedProject.id;
     }
 
     await runTask(
       "Linking project...",
       async () => {
-        await writeAppConfig(projectRoot.root, projectId);
-        setAppContext({ id: projectId, projectRoot: projectRoot.root });
+        await writeAppConfig(projectRoot.root, linkedAppId);
+        setAppContext({ id: linkedAppId, projectRoot: projectRoot.root });
       },
       {
         successMessage: "Project linked successfully",
@@ -222,7 +234,7 @@ async function link(
       },
     );
 
-    finalProjectId = projectId;
+    finalAppId = linkedAppId;
   }
 
   if (action === "create") {
@@ -243,33 +255,47 @@ async function link(
 
     await writeAppConfig(projectRoot.root, projectId);
 
-    // Set app config in cache for sync access to getDashboardUrl
+    // Set app context in cache for sync access to getDashboardUrl
     setAppContext({ id: projectId, projectRoot: projectRoot.root });
 
-    finalProjectId = projectId;
+    finalAppId = projectId;
   }
 
   log.message(
-    `${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(finalProjectId))}`,
+    `${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl(finalAppId))}`,
   );
   return { outroMessage: "Project linked" };
 }
 
 export function getLinkCommand(): Command {
-  return new Base44Command("link", { requireAppContext: false })
-    .description(
-      "Link a local project to a Base44 project (create new or link existing)",
-    )
-    .option("-c, --create", "Create a new project (skip selection prompt)")
-    .option(
-      "-n, --name <name>",
-      "Project name (required when --create is used)",
-    )
-    .option("-d, --description <description>", "Project description")
-    .option(
-      "-p, --projectId <id>",
-      "Project ID to link to an existing project (skips selection prompt)",
-    )
-    .hook("preAction", validateNonInteractiveFlags)
-    .action(link);
+  return (
+    new Base44Command("link", {
+      requireAppContext: false,
+    })
+      .description(
+        "Link a local project to a Base44 project (create new or link existing)",
+      )
+      .configureHelp({ showGlobalOptions: true })
+      .option("-c, --create", "Create a new project (skip selection prompt)")
+      .option(
+        "-n, --name <name>",
+        "Project name (required when --create is used)",
+      )
+      .option("-d, --description <description>", "Project description")
+      // TODO: Remove legacy --project-id aliases once docs and Base44 CLI skills use --app-id.
+      .addOption(
+        new CommanderOption(
+          "-p, --project-id <id>",
+          "Project ID to link to an existing project",
+        ).hideHelp(),
+      )
+      .addOption(
+        new CommanderOption(
+          "--projectId <id>",
+          "Project ID to link to an existing project",
+        ).hideHelp(),
+      )
+      .hook("preAction", validateNonInteractiveFlags)
+      .action(link)
+  );
 }

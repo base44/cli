@@ -54,7 +54,7 @@ Pass options as the second argument to the constructor:
 ```typescript
 new Base44Command("my-cmd")                                         // All defaults
 new Base44Command("my-cmd", { requireAuth: false })                 // Skip auth check
-new Base44Command("my-cmd", { requireAppContext: false })            // Skip app context loading
+new Base44Command("my-cmd", { requireAppContext: false })            // Skip app context resolution
 new Base44Command("my-cmd", { fullBanner: true })                   // ASCII art banner
 new Base44Command("my-cmd", { requireAuth: false, requireAppContext: false })
 ```
@@ -62,8 +62,10 @@ new Base44Command("my-cmd", { requireAuth: false, requireAppContext: false })
 | Option | Default | Description |
 |--------|---------|-------------|
 | `requireAuth` | `true` | Check authentication before running, auto-triggers login if needed |
-| `requireAppContext` | `true` | Load `.app.jsonc` and cache the app ID for sync access via `getAppContext()` |
+| `requireAppContext` | `true` | Resolve the app ID from `--app-id`, `BASE44_APP_ID`, or `.app.jsonc`, then cache it for sync access via `getAppContext()` |
 | `fullBanner` | `false` | Show ASCII art banner instead of simple intro tag |
+
+`BASE44_APP_ID` is bound to the global `--app-id` option in `src/cli/program.ts`; Commander resolves it before `Base44Command` calls `initAppContext({ appId })`.
 
 When the CLI runs in non-interactive mode (CI, piped output), all clack UI (intro, outro, themed errors) is automatically skipped. Errors go to stderr as plain text.
 
@@ -98,7 +100,7 @@ export interface CLIContext {
 - Created once in `runCLI()` at startup
 - `isNonInteractive` is `true` when stdin/stdout are not a TTY (e.g., CI, piped output, AI agents). Controls quiet mode — when true, all clack UI is suppressed.
 - `logger` is a `Logger` instance — `ClackLogger` in interactive mode, `SimpleLogger` in non-interactive mode.
-- `app` is set for commands with `requireAppContext: true`.
+- `app` is set for commands with `requireAppContext: true`. Use `app.id` for the active app and `app.projectRoot` only when a local project was resolved.
 
 ### Using `isNonInteractive`
 
@@ -150,7 +152,7 @@ export function getMyCommand(): Command {
 
 Commands that only use `logger.*` (display-only, no input) don't need this guard. See `project/create.ts`, `project/scaffold.ts`, `project/link.ts`, and `project/eject.ts` for real examples.
 
-`project/create.ts` and `project/scaffold.ts` share their post-scaffold logic (push entities, deploy site, install skills, print summary) via `project/scaffold-shared.ts` — `create` mints a new app, `scaffold` reuses an existing app id (from `--app-id` or `BASE44_APP_ID`).
+`project/create.ts` and `project/scaffold.ts` share their post-scaffold logic (push entities, deploy site, install skills, print summary) via `project/scaffold-shared.ts` — `create` mints a new app and rejects `--app-id`/`BASE44_APP_ID`, while `scaffold` reuses an existing app id (from `--app-id` or `BASE44_APP_ID`).
 
 ## runTask (Async Operations with Spinners)
 

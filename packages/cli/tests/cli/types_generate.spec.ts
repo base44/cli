@@ -155,6 +155,16 @@ describe("types generate command", () => {
     expect(typesFileExists).toBe(true);
   });
 
+  it("fails outside a project even when --app-id is provided", async () => {
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+
+    const result = await t.run("types", "generate", "--app-id", t.api.appId);
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("Project root not found");
+    t.expectResult(result).toNotContain("Project root is not available");
+  });
+
   it("fails with TypeGenerationError for invalid entity schema", async () => {
     // Given a project with an invalid entity schema
     await t.givenLoggedInWithProject(fixture("invalid-entity-schema"));

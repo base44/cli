@@ -31,6 +31,18 @@ describe("secrets list command", () => {
     t.expectResult(result).toContain("No secrets configured");
   });
 
+  it("lists secret names with --app-id outside a project", async () => {
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    t.api.mockSecretsList({
+      PROJECTLESS_SECRET: "xxxxxxxxxxxxxxxx",
+    });
+
+    const result = await t.run("secrets", "list", "--app-id", t.api.appId);
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("PROJECTLESS_SECRET");
+  });
+
   it("fails when API returns error", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
     t.api.mockSecretsListError({
@@ -49,7 +61,7 @@ describe("secrets list command", () => {
     const result = await t.run("secrets", "list");
 
     t.expectResult(result).toFail();
-    t.expectResult(result).toContain("No Base44 project found");
+    t.expectResult(result).toContain("No Base44 app ID found");
   });
 });
 
@@ -194,6 +206,6 @@ describe("secrets delete command", () => {
     const result = await t.run("secrets", "delete", "KEY");
 
     t.expectResult(result).toFail();
-    t.expectResult(result).toContain("No Base44 project found");
+    t.expectResult(result).toContain("No Base44 app ID found");
   });
 });

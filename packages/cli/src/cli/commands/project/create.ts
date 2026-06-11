@@ -4,7 +4,13 @@ import { group, select, text } from "@clack/prompts";
 import { Argument, type Command } from "commander";
 import kebabCase from "lodash/kebabCase";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
-import { Base44Command, onPromptCancel, theme } from "@/cli/utils/index.js";
+import {
+  type AppIdOptions,
+  Base44Command,
+  onPromptCancel,
+  theme,
+} from "@/cli/utils/index.js";
+import { BASE44_APP_ID_ENV_VAR } from "@/core/consts.js";
 import { InvalidInputError } from "@/core/errors.js";
 import { isDirEmpty } from "@/core/index.js";
 import type { Template } from "@/core/project/index.js";
@@ -28,7 +34,15 @@ interface CreateOptions {
   skills?: boolean;
 }
 
-function validateNonInteractiveFlags(command: Command): void {
+function validateCreateOptions(command: Command): void {
+  // `create` mints a new app, so it cannot use an existing app context.
+  const { appId } = command.optsWithGlobals<AppIdOptions>();
+  if (appId !== undefined) {
+    command.error(
+      `base44 create cannot be used with --app-id or ${BASE44_APP_ID_ENV_VAR}.`,
+    );
+  }
+
   const { path } = command.opts<CreateOptions>();
 
   if (path && !command.args.length) {
@@ -228,6 +242,6 @@ Examples:
   $ base44 create my-todo-app --template backend-and-client      Creates a base44 backend-and-client project at ./my-todo-app
   $ base44 create my-app --path ./projects/my-app --deploy       Creates a base44 project at ./project/my-app and deploys it`,
     )
-    .hook("preAction", validateNonInteractiveFlags)
+    .hook("preAction", validateCreateOptions)
     .action(createAction);
 }

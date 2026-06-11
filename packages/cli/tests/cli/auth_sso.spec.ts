@@ -44,7 +44,7 @@ describe("auth sso command", () => {
     );
 
     t.expectResult(result).toFail();
-    t.expectResult(result).toContain("No Base44 project found");
+    t.expectResult(result).toContain("No Base44 app ID found");
   });
 
   // ─── REQUIRED-FIELD VALIDATION ──────────────────────────────────

@@ -49,6 +49,24 @@ describe("eject command", () => {
     );
   });
 
+  it("fails when --path is missing with --app-id", async () => {
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    t.api.mockListProjects([
+      {
+        id: "app-1",
+        name: "Test",
+        is_managed_source_code: true,
+      },
+    ]);
+
+    const result = await t.run("eject", "--app-id", "app-1");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain(
+      "--path is required in non-interactive mode",
+    );
+  });
+
   it("fails when project ID not found", async () => {
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
     t.api.mockListProjects([
@@ -93,6 +111,25 @@ describe("eject command", () => {
     t.expectResult(result).toContain("not found or not ejectable");
   });
 
+  it("fails when --app-id and legacy --project-id are used together", async () => {
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+
+    const result = await t.run(
+      "eject",
+      "--app-id",
+      "test-app-id",
+      "--project-id",
+      "legacy-app-id",
+      "-p",
+      "./out",
+    );
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain(
+      "--app-id and --project-id cannot be used together",
+    );
+  });
+
   it("shows help with --help flag", async () => {
     const result = await t.run("eject", "--help");
 
@@ -100,7 +137,8 @@ describe("eject command", () => {
     t.expectResult(result).toContain(
       "Download the code for an existing Base44 project",
     );
-    t.expectResult(result).toContain("--project-id");
+    t.expectResult(result).toContain("--app-id");
+    t.expectResult(result).toNotContain("--project-id");
     t.expectResult(result).toContain("-p, --path");
   });
 
@@ -143,5 +181,35 @@ describe("eject command", () => {
     );
     const appConfig = JSON5.parse(appConfigContent);
     expect(appConfig.id).toBe("new-project-id");
+  });
+
+  it("ejects project with --app-id", async () => {
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+
+    const tarContent = await createTarFromFixture(fixture("with-entities"));
+
+    t.api.mockListProjects([
+      {
+        id: "test-app-id",
+        name: "My Test Project",
+        user_description: "A test project",
+        is_managed_source_code: true,
+      },
+    ]);
+    t.api.mockProjectEject(new Uint8Array(tarContent));
+    t.api.mockCreateApp({ id: "new-project-id", name: "My Test Project Copy" });
+
+    const outputPath = join(t.getTempDir(), "ejected-project-app-id");
+    const result = await t.run(
+      "eject",
+      "--app-id",
+      "test-app-id",
+      "-p",
+      outputPath,
+      "-y",
+    );
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Project pulled successfully");
   });
 });

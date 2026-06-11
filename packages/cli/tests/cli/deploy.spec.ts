@@ -31,7 +31,16 @@ describe("deploy command (unified)", () => {
     const result = await t.run("deploy", "-y");
 
     t.expectResult(result).toFail();
-    t.expectResult(result).toContain("No Base44 project found");
+    t.expectResult(result).toContain("No Base44 app ID found");
+  });
+
+  it("still requires a project directory when --app-id is provided", async () => {
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+
+    const result = await t.run("deploy", "-y", "--app-id", t.api.appId);
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("Project root not found");
   });
 
   it("deploys entities successfully with -y flag", async () => {

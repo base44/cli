@@ -48,6 +48,31 @@ describe("exec command", () => {
     expect(result.stdout).toContain("hello from exec");
   });
 
+  it("executes with --app-id outside a project", async () => {
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    t.api.mockAuthToken("test-app-token");
+    t.api.mockSiteUrl({ url: "https://test-app.base44.app" });
+    t.givenStdin('console.log("hello from flag app")');
+
+    const result = await t.run("exec", "--app-id", t.api.appId);
+
+    t.expectResult(result).toSucceed();
+    expect(result.stdout).toContain("hello from flag app");
+  });
+
+  it("executes with BASE44_APP_ID outside a project", async () => {
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    t.givenEnv({ BASE44_APP_ID: t.api.appId });
+    t.api.mockAuthToken("test-app-token");
+    t.api.mockSiteUrl({ url: "https://test-app.base44.app" });
+    t.givenStdin('console.log("hello from env app")');
+
+    const result = await t.run("exec");
+
+    t.expectResult(result).toSucceed();
+    expect(result.stdout).toContain("hello from env app");
+  });
+
   it("makes the pre-authenticated base44 SDK available as a global", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
     t.api.mockAuthToken("test-app-token");

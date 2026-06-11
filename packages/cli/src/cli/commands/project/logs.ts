@@ -12,6 +12,7 @@ import type {
 import {
   fetchFunctionLogs,
   LogLevelSchema,
+  listDeployedFunctions,
 } from "@/core/resources/function/index.js";
 
 interface LogsOptions {
@@ -156,8 +157,13 @@ async function fetchLogsForFunctions(
   return allEntries;
 }
 
-async function getAllFunctionNames(): Promise<string[]> {
-  const { functions } = await readProjectConfig();
+async function getProjectFunctionNames(projectRoot: string): Promise<string[]> {
+  const { functions } = await readProjectConfig(projectRoot);
+  return functions.map((fn) => fn.name);
+}
+
+async function getRemoteFunctionNames(): Promise<string[]> {
+  const { functions } = await listDeployedFunctions();
   return functions.map((fn) => fn.name);
 }
 
@@ -172,27 +178,32 @@ function validateLimit(limit: string | undefined): void {
 }
 
 async function logsAction(
-  _ctx: CLIContext,
+  ctx: CLIContext,
   options: LogsOptions,
 ): Promise<RunCommandResult> {
   validateLimit(options.limit);
   const specifiedFunctions = parseFunctionNames(options.function);
+  const localProjectRoot = ctx.app?.projectRoot;
 
-  // Always read project functions so we can list them in error messages
-  const allProjectFunctions = await getAllFunctionNames();
+  const availableFunctionNames = localProjectRoot
+    ? await getProjectFunctionNames(localProjectRoot)
+    : await getRemoteFunctionNames();
 
-  // Determine which functions to fetch logs for
   const functionNames =
-    specifiedFunctions.length > 0 ? specifiedFunctions : allProjectFunctions;
+    specifiedFunctions.length > 0 ? specifiedFunctions : availableFunctionNames;
 
   if (functionNames.length === 0) {
-    return { outroMessage: "No functions found in this project." };
+    return {
+      outroMessage: localProjectRoot
+        ? "No functions found in this project."
+        : "No functions found in this app.",
+    };
   }
 
   let entries = await fetchLogsForFunctions(
     functionNames,
     options,
-    allProjectFunctions,
+    availableFunctionNames,
   );
 
   // Apply limit after merging logs from all functions

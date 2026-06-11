@@ -1,9 +1,10 @@
 import { globby } from "globby";
 import { getAppConfigPath, getTestOverrides } from "@/core/config.js";
-import { APP_CONFIG_PATTERN } from "@/core/consts.js";
+import { APP_CONFIG_PATTERN, BASE44_APP_ID_ENV_VAR } from "@/core/consts.js";
 import {
   ConfigInvalidError,
   ConfigNotFoundError,
+  InvalidInputError,
   SchemaValidationError,
 } from "@/core/errors.js";
 import { findProjectRoot } from "@/core/project/find-root.js";
@@ -14,6 +15,10 @@ import { readJsonFile, writeFile } from "@/core/utils/fs.js";
 export interface AppContext {
   id: string;
   projectRoot?: string;
+}
+
+interface InitAppContextOptions {
+  appId?: string;
 }
 
 let cache: AppContext | null = null;
@@ -30,12 +35,14 @@ function loadFromTestOverrides(): AppContext | null {
 }
 
 /**
- * Initialize app context by reading from .app.jsonc.
+ * Initialize app context from a provided app id or .app.jsonc.
  * Returns the cached context, reading from disk only on first call.
  * @returns The app context with id and projectRoot when available
- * @throws Error if no project found or .app.jsonc missing
+ * @throws Error if no app ID source is available
  */
-export async function initAppContext(): Promise<AppContext> {
+export async function initAppContext(
+  options: InitAppContextOptions = {},
+): Promise<AppContext> {
   // Check for test overrides first
   const testConfig = loadFromTestOverrides();
   if (testConfig) {
@@ -43,14 +50,36 @@ export async function initAppContext(): Promise<AppContext> {
     return cache;
   }
 
+  const projectRoot = findProjectRoot();
+
+  if (options.appId !== undefined) {
+    const id = options.appId.trim();
+    if (!id) {
+      throw new InvalidInputError("App id cannot be empty.");
+    }
+
+    cache = { id, projectRoot: projectRoot?.root };
+    return cache;
+  }
+
   if (cache) {
     return cache;
   }
 
-  const projectRoot = findProjectRoot();
   if (!projectRoot) {
     throw new ConfigNotFoundError(
-      "No Base44 project found. Run this command from a project directory with a config.jsonc file.",
+      `No Base44 app ID found. Pass --app-id, set ${BASE44_APP_ID_ENV_VAR}, or run this command from a linked project with base44/.app.jsonc.`,
+      {
+        hints: [
+          { message: "Pass an app ID explicitly with --app-id <id>" },
+          { message: `Set ${BASE44_APP_ID_ENV_VAR} in your environment` },
+          {
+            message:
+              "Run from a linked Base44 project with base44/.app.jsonc, or run 'base44 link'",
+            command: "base44 link",
+          },
+        ],
+      },
     );
   }
 
@@ -91,6 +120,10 @@ export function getAppContext(): AppContext {
 
 export function setAppContext(context: AppContext): void {
   cache = context;
+}
+
+export function resetAppContext(): void {
+  cache = null;
 }
 
 function generateAppConfigContent(id: string): string {

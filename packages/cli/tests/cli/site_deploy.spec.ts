@@ -30,7 +30,7 @@ describe("site deploy command", () => {
     const result = await t.run("site", "deploy", "-y");
 
     t.expectResult(result).toFail();
-    t.expectResult(result).toContain("No Base44 project found");
+    t.expectResult(result).toContain("No Base44 app ID found");
   });
 
   it("deploys site successfully", async () => {

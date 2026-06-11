@@ -87,6 +87,6 @@ describe("connectors list-available command", () => {
     const result = await t.run("connectors", "list-available");
 
     t.expectResult(result).toFail();
-    t.expectResult(result).toContain("No Base44 project found");
+    t.expectResult(result).toContain("No Base44 app ID found");
   });
 });
