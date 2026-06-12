@@ -35,6 +35,15 @@ describe("readProjectConfig", () => {
     expect(result.agents).toEqual([]);
   });
 
+  it("reads project with snake_case entity names", async () => {
+    const result = await readProjectConfig(
+      resolve(FIXTURES_DIR, "with-snake-case-entities"),
+    );
+
+    expect(result.entities).toHaveLength(1);
+    expect(result.entities[0].name).toBe("line_items");
+  });
+
   it("reads project with functions and entities", async () => {
     const result = await readProjectConfig(
       resolve(FIXTURES_DIR, "with-functions-and-entities"),

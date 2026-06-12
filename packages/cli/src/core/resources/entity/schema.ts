@@ -138,7 +138,10 @@ export const EntitySchema = z.looseObject({
   name: z
     .string()
     .min(1)
-    .regex(/^[a-zA-Z0-9]+$/, "Entity name must be alphanumeric only"),
+    .regex(
+      /^[a-zA-Z0-9_]+$/,
+      "Entity name can only contain letters, numbers, and underscores",
+    ),
   title: z.string().optional(),
   description: z.string().optional(),
   properties: z.record(z.string(), PropertyDefinitionSchema).default({}),

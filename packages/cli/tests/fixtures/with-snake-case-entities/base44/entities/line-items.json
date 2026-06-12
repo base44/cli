@@ -1,0 +1,15 @@
+{
+  "name": "line_items",
+  "type": "object",
+  "properties": {
+    "sku": {
+      "type": "string",
+      "description": "Stock keeping unit"
+    },
+    "quantity": {
+      "type": "number",
+      "description": "Quantity ordered"
+    }
+  },
+  "required": ["sku"]
+}
