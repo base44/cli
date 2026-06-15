@@ -61,27 +61,8 @@ describe("dev command", () => {
     t.expectResult(result).toSucceed();
   });
 
-  const writeConfigWithServeCommand = async (serveCommand: string) => {
-    const configPath = join(
-      t.getTempDir(),
-      "project",
-      "base44",
-      "config.jsonc",
-    );
-    await writeFile(
-      configPath,
-      JSON.stringify({
-        name: "Full Project",
-        site: { outputDirectory: "site-output", serveCommand },
-      }),
-    );
-  };
-
   it("runs the frontend serveCommand with injected Base44 env vars", async () => {
-    await t.givenLoggedInWithProject(fixture("full-project"));
-    await writeConfigWithServeCommand(
-      `node -e "console.log('SERVE_APP=' + process.env.VITE_BASE44_APP_ID + ' URL=' + process.env.VITE_BASE44_APP_BASE_URL); setInterval(() => {}, 1000)"`,
-    );
+    await t.givenLoggedInWithProject(fixture("with-serve-command"));
 
     const handle = await t.runLive("dev");
     await handle.waitForOutput(/SERVE_APP=/);
@@ -96,11 +77,8 @@ describe("dev command", () => {
   });
 
   it("tears the dev server down when the frontend exits", async () => {
-    await t.givenLoggedInWithProject(fixture("full-project"));
-    // Frontend prints, then exits non-zero shortly after startup.
-    await writeConfigWithServeCommand(
-      `node -e "console.log('frontend up'); setTimeout(() => process.exit(1), 300)"`,
-    );
+    // The fixture's serveCommand prints, then exits non-zero shortly after.
+    await t.givenLoggedInWithProject(fixture("with-exiting-serve-command"));
 
     const handle = await t.runLive("dev");
     const result = await handle.waitForExit();

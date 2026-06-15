@@ -1,0 +1,6 @@
+{
+  "name": "Exiting Serve Command Project",
+  "site": {
+    "serveCommand": "node -e \"console.log('frontend up'); setTimeout(() => process.exit(1), 300)\""
+  }
+}

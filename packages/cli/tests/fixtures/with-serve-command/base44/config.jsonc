@@ -1,0 +1,6 @@
+{
+  "name": "Serve Command Project",
+  "site": {
+    "serveCommand": "node -e \"console.log('SERVE_APP=' + process.env.VITE_BASE44_APP_ID + ' URL=' + process.env.VITE_BASE44_APP_BASE_URL); setInterval(() => {}, 1000)\""
+  }
+}
