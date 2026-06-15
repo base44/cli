@@ -98,7 +98,7 @@ export async function createDevServer(
   app.use("/api/apps/:appId/functions", functionRoutes);
 
   if (functionManager.getFunctionNames().length > 0) {
-    options.log.info(
+    devLogger.log(
       `Loaded functions: ${functionManager.getFunctionNames().join(", ")}`,
     );
   }
@@ -106,7 +106,7 @@ export async function createDevServer(
   const db = new Database();
   await db.load(entities);
   if (db.getCollectionNames().length > 0) {
-    options.log.info(`Loaded entities: ${db.getCollectionNames().join(", ")}`);
+    devLogger.log(`Loaded entities: ${db.getCollectionNames().join(", ")}`);
   }
 
   // Socket.IO is attached after the HTTP server starts; entity routes receive

@@ -46,14 +46,16 @@ async function devAction(
   // The app id is injected into the frontend so it targets the local backend.
   const appId = serveCommand ? app.id : undefined;
 
+  const serve =
+    serveCommand && appId
+      ? { command: serveCommand, cwd: project.root, appId }
+      : undefined;
+
   const { port: resolvedPort } = await createDevServer({
     log,
     port,
     denoWrapperPath: getDenoWrapperPath(),
-    serve:
-      serveCommand && appId
-        ? { command: serveCommand, cwd: project.root, appId }
-        : undefined,
+    serve,
     loadResources: async () => {
       const { functions, entities, project } = await readProjectConfig();
       return { functions, entities, project };
