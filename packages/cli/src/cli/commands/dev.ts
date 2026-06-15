@@ -36,33 +36,20 @@ async function devAction(
   }
 
   const port = options.port ? Number(options.port) : undefined;
+  const appId = app.id;
 
-  // Resolve the frontend command and project root here, at the command level,
-  // so the dev server just runs whatever it's handed. The frontend starts when
-  // the project configures a `site.serveCommand`; to opt out, remove it.
-  const { project } = await readProjectConfig();
-  const serveCommand = project.site?.serveCommand;
-
-  // The app id is injected into the frontend so it targets the local backend.
-  const appId = serveCommand ? app.id : undefined;
-
-  const serve =
-    serveCommand && appId
-      ? { command: serveCommand, cwd: project.root, appId }
-      : undefined;
-
-  const { port: resolvedPort } = await createDevServer({
+  const { port: resolvedPort, isServingFrontend } = await createDevServer({
     log,
     port,
+    appId,
     denoWrapperPath: getDenoWrapperPath(),
-    serve,
     loadResources: async () => {
       const { functions, entities, project } = await readProjectConfig();
       return { functions, entities, project };
     },
   });
 
-  const outroMessage = serveCommand
+  const outroMessage = isServingFrontend
     ? "Open your app using the frontend dev server URL"
     : `Dev server is available at ${theme.colors.links(localServerUrl(resolvedPort))}`;
 

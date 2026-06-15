@@ -34,7 +34,7 @@ interface DevServerOptions {
   log: Logger;
   port?: number;
   denoWrapperPath: string;
-  serve?: { command: string; cwd: string; appId: string };
+  appId?: string;
   loadResources: () => Promise<{
     functions: ProjectData["functions"];
     entities: ProjectData["entities"];
@@ -45,6 +45,7 @@ interface DevServerOptions {
 interface DevServerResult {
   port: number;
   server: Server;
+  isServingFrontend: boolean;
 }
 
 export async function createDevServer(
@@ -234,15 +235,16 @@ export async function createDevServer(
   });
   await base44ConfigWatcher.start();
 
-  // Whether to serve (and which command) is decided at the command level; here
-  // we just run whatever we're handed.
+  // Run the frontend dev server when the project configures a `site.serveCommand`
+  // and we have an app id to inject. It runs from the project root.
+  const serveCommand = project.site?.serveCommand;
   let serveRunner: ServeRunner | undefined;
-  if (options.serve) {
+  if (options.appId && serveCommand) {
     serveRunner = new ServeRunner({
-      command: options.serve.command,
-      cwd: options.serve.cwd,
+      command: serveCommand,
+      cwd: project.root,
       env: {
-        VITE_BASE44_APP_ID: options.serve.appId,
+        VITE_BASE44_APP_ID: options.appId,
         VITE_BASE44_APP_BASE_URL: baseUrl,
       },
       logger: createDevLogger("frontend", theme.colors.base44Orange),
@@ -265,11 +267,9 @@ export async function createDevServer(
   });
 
   if (serveRunner) {
-    // Announce the backend before the frontend starts, so the frontend's own
-    // output (with the URL to open the app) is the last thing the user sees.
     devLogger.log(`Backend running on ${baseUrl}`);
     serveRunner.start();
   }
 
-  return { port, server };
+  return { port, server, isServingFrontend: serveRunner !== undefined };
 }
