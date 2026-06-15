@@ -28,13 +28,15 @@ const stringify = (item: unknown): string => {
   }
 };
 
-export function createDevLogger(): DevLogger {
+export function createDevLogger(
+  label?: string,
+  labelColor: (text: string) => string = theme.styles.dim,
+): DevLogger {
+  const prefix = label ? `${labelColor(`[${label}]`)} ` : "";
   const print = (type: LogType, ...args: unknown[]) => {
     const colorize = colorByType[type];
     console[type](
-      ...args.map((item) => {
-        return colorize(stringify(item));
-      }),
+      prefix + args.map((item) => colorize(stringify(item))).join(" "),
     );
   };
 
