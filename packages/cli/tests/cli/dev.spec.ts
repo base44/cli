@@ -61,31 +61,27 @@ describe("dev command", () => {
     t.expectResult(result).toSucceed();
   });
 
-  it("creates .env.local with app ID and dev server URL when it does not exist", async () => {
+  it("does not write .env.local by default", async () => {
     await t.givenLoggedInWithProject(fixture("full-project"));
 
     const handle = await t.runLive("dev");
+    await waitForDevServer(handle);
+    await handle.stop();
+
+    const content = await t.readProjectFile(".env.local");
+    expect(content).toBeNull();
+  });
+
+  it("writes .env.local with app ID and dev server URL when --write-env is passed", async () => {
+    await t.givenLoggedInWithProject(fixture("full-project"));
+
+    const handle = await t.runLive("dev", "--write-env");
     await waitForDevServer(handle);
     await handle.stop();
 
     const content = await t.readProjectFile(".env.local");
     expect(content).toContain(`VITE_BASE44_APP_ID=${t.api.appId}`);
     expect(content).toContain("VITE_BASE44_APP_BASE_URL=http://localhost:");
-  });
-
-  it("does not overwrite .env.local when it already exists", async () => {
-    await t.givenLoggedInWithProject(fixture("full-project"));
-
-    const existing =
-      "VITE_BASE44_APP_ID=existing-id\nVITE_BASE44_APP_BASE_URL=http://localhost:9999\n";
-    await writeFile(join(t.getTempDir(), "project", ".env.local"), existing);
-
-    const handle = await t.runLive("dev");
-    await waitForDevServer(handle);
-    await handle.stop();
-
-    const content = await t.readProjectFile(".env.local");
-    expect(content).toBe(existing);
   });
 
   it("forwards caller Authorization and injects a service JWT to local functions", async () => {
