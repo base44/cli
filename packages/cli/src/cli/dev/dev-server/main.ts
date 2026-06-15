@@ -32,7 +32,6 @@ const BASE44_APP_URL = "https://base44.app";
 
 interface DevServerOptions {
   log: Logger;
-  cwd: string;
   port?: number;
   denoWrapperPath: string;
   serve?: { appId: string };
@@ -241,7 +240,9 @@ export async function createDevServer(
   if (options.serve && project.site?.serveCommand) {
     serveRunner = new ServeRunner({
       command: project.site.serveCommand,
-      cwd: options.cwd,
+      // The frontend command (e.g. `npm run dev`) must run from the project
+      // root where package.json lives, not from wherever the CLI was invoked.
+      cwd: project.root,
       env: {
         VITE_BASE44_APP_ID: options.serve.appId,
         VITE_BASE44_APP_BASE_URL: baseUrl,

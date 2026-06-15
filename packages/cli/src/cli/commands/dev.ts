@@ -1,5 +1,4 @@
 import { join } from "node:path";
-import process from "node:process";
 import type { Logger } from "@base44-cli/logger";
 import type { Command } from "commander";
 import { createDevServer } from "@/cli/dev/dev-server/main.js";
@@ -71,7 +70,6 @@ async function devAction(
   const { port: resolvedPort } = await createDevServer({
     log,
     port,
-    cwd: process.cwd(),
     denoWrapperPath: getDenoWrapperPath(),
     serve: serveEnabled && appId ? { appId } : undefined,
     loadResources: async () => {

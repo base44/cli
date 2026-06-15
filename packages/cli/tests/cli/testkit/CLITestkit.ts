@@ -178,6 +178,18 @@ export class CLITestkit {
 
   /** Start a long-running CLI command and return a live handle */
   async runLive(...args: string[]): Promise<RunLiveHandle> {
+    return this.runLiveIn(undefined, ...args);
+  }
+
+  /**
+   * Like `runLive`, but launches the CLI from a subdirectory of the project.
+   * Used to verify behavior that must depend on the discovered project root
+   * rather than the directory the command was invoked from.
+   */
+  async runLiveIn(
+    subdir: string | undefined,
+    ...args: string[]
+  ): Promise<RunLiveHandle> {
     this.setupEnvOverrides();
 
     const env: Record<string, string | undefined> = {
@@ -194,8 +206,9 @@ export class CLITestkit {
         ? { file: getBinaryPath(), args }
         : { file: "node", args: [getNpmEntryPath(), ...args] };
 
+    const baseCwd = this.projectDir ?? this.tempDir;
     const child = execa(execArgs.file, execArgs.args, {
-      cwd: this.projectDir ?? this.tempDir,
+      cwd: subdir ? join(baseCwd, subdir) : baseCwd,
       env,
       reject: false,
       all: false,

@@ -117,6 +117,27 @@ describe("dev command", () => {
     expect(output).toContain("[frontend]");
   });
 
+  it("runs the frontend serveCommand from the project root, not the invocation cwd", async () => {
+    await t.givenLoggedInWithProject(fixture("full-project"));
+    await writeConfigWithServeCommand(
+      `node -e "console.log('SERVE_CWD=' + process.cwd()); setInterval(() => {}, 1000)"`,
+    );
+    await mkdir(join(t.getTempDir(), "project", "nested"), { recursive: true });
+
+    // Launch from the `nested` subdirectory; the frontend must still run from
+    // the project root (where package.json lives).
+    const handle = await t.runLiveIn("nested", "dev");
+    await waitForDevServer(handle);
+    await handle.waitForOutput(/SERVE_CWD=/);
+    await handle.stop();
+
+    const serveCwd = handle.stdout
+      .join("")
+      .match(/SERVE_CWD=(.+)/)?.[1]
+      .trim();
+    expect(serveCwd?.endsWith("project")).toBe(true);
+  });
+
   it("stays backend-only when --no-serve is passed", async () => {
     await t.givenLoggedInWithProject(fixture("full-project"));
     await writeConfigWithServeCommand(
