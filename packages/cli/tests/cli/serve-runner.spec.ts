@@ -37,4 +37,40 @@ describe("ServeRunner", () => {
 
     expect(lines.some((l) => l.includes("APP=abc-123"))).toBe(true);
   });
+
+  it("stop() terminates a long-running process", async () => {
+    const { logger } = fakeLogger();
+    const exitCodes: Array<number | null> = [];
+    const runner = new ServeRunner({
+      command: `node -e "setInterval(() => {}, 1000)"`,
+      cwd: process.cwd(),
+      env: {},
+      logger,
+    });
+    runner.onExit((code) => exitCodes.push(code));
+
+    runner.start();
+    await new Promise((r) => setTimeout(r, 200));
+    await runner.stop();
+
+    // stop() must resolve, and the intentional stop must NOT fire onExit.
+    expect(exitCodes).toEqual([]);
+  });
+
+  it("fires onExit when the process exits on its own", async () => {
+    const { logger } = fakeLogger();
+    const exitCodes: Array<number | null> = [];
+    const runner = new ServeRunner({
+      command: `node -e "process.exit(3)"`,
+      cwd: process.cwd(),
+      env: {},
+      logger,
+    });
+    runner.onExit((code) => exitCodes.push(code));
+
+    runner.start();
+    await waitFor(() => exitCodes.length > 0);
+
+    expect(exitCodes).toEqual([3]);
+  });
 });
