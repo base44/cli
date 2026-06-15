@@ -84,6 +84,52 @@ describe("dev command", () => {
     expect(content).toContain("VITE_BASE44_APP_BASE_URL=http://localhost:");
   });
 
+  const writeConfigWithServeCommand = async (serveCommand: string) => {
+    const configPath = join(
+      t.getTempDir(),
+      "project",
+      "base44",
+      "config.jsonc",
+    );
+    await writeFile(
+      configPath,
+      JSON.stringify({
+        name: "Full Project",
+        site: { outputDirectory: "site-output", serveCommand },
+      }),
+    );
+  };
+
+  it("runs the frontend serveCommand with injected Base44 env vars", async () => {
+    await t.givenLoggedInWithProject(fixture("full-project"));
+    await writeConfigWithServeCommand(
+      `node -e "console.log('SERVE_APP=' + process.env.VITE_BASE44_APP_ID + ' URL=' + process.env.VITE_BASE44_APP_BASE_URL); setInterval(() => {}, 1000)"`,
+    );
+
+    const handle = await t.runLive("dev");
+    await waitForDevServer(handle);
+    await handle.waitForOutput(/SERVE_APP=/);
+    await handle.stop();
+
+    const output = handle.stdout.join("");
+    expect(output).toContain(`SERVE_APP=${t.api.appId}`);
+    expect(output).toContain("URL=http://localhost:");
+    expect(output).toContain("[frontend]");
+  });
+
+  it("stays backend-only when --no-serve is passed", async () => {
+    await t.givenLoggedInWithProject(fixture("full-project"));
+    await writeConfigWithServeCommand(
+      `node -e "console.log('SERVE_APP=' + process.env.VITE_BASE44_APP_ID); setInterval(() => {}, 1000)"`,
+    );
+
+    const handle = await t.runLive("dev", "--no-serve");
+    await waitForDevServer(handle);
+    await handle.stop();
+
+    expect(handle.stdout.join("")).not.toContain("SERVE_APP=");
+  });
+
   it("forwards caller Authorization and injects a service JWT to local functions", async () => {
     await t.givenLoggedInWithProject(fixture("full-project"));
 
