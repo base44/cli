@@ -87,3 +87,6 @@ error-reports/
 # Claude Code
 .claude/worktrees/
 .superset/
+
+# Superpowers planning docs (local only)
+.superpowers/
