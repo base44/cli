@@ -39,6 +39,8 @@ export interface RunLiveHandle {
   readonly stdout: readonly string[];
   readonly stderr: readonly string[];
   waitForOutput(pattern: string | RegExp, timeoutMs?: number): Promise<void>;
+  /** Wait for the process to exit on its own and return its result. */
+  waitForExit(timeoutMs?: number): Promise<CLIResult>;
   stop(): Promise<CLIResult>;
 }
 
@@ -243,6 +245,21 @@ export class CLITestkit {
         throw new Error(
           `Timed out waiting for output matching ${pattern} after ${timeoutMs}ms. stdout: ${stdout.join("")}`,
         );
+      },
+
+      async waitForExit(timeoutMs = 5000) {
+        const result = await Promise.race([
+          childPromise,
+          new Promise<never>((_, reject) =>
+            setTimeout(
+              () => reject(new Error("Timed out waiting for process to exit")),
+              timeoutMs,
+            ),
+          ),
+        ]);
+        const wasKilledByUs =
+          result.signal === "SIGINT" || result.signal === "SIGKILL";
+        return buildResult(result.exitCode ?? (wasKilledByUs ? 0 : 1));
       },
 
       async stop() {

@@ -130,6 +130,20 @@ describe("dev command", () => {
     expect(handle.stdout.join("")).not.toContain("SERVE_APP=");
   });
 
+  it("tears the dev server down when the frontend exits", async () => {
+    await t.givenLoggedInWithProject(fixture("full-project"));
+    // Frontend prints, then exits non-zero shortly after startup.
+    await writeConfigWithServeCommand(
+      `node -e "console.log('frontend up'); setTimeout(() => process.exit(1), 300)"`,
+    );
+
+    const handle = await t.runLive("dev");
+    await waitForDevServer(handle);
+    const result = await handle.waitForExit();
+
+    expect(result.exitCode).not.toBe(0);
+  });
+
   it("forwards caller Authorization and injects a service JWT to local functions", async () => {
     await t.givenLoggedInWithProject(fixture("full-project"));
 
