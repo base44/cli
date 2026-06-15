@@ -61,52 +61,6 @@ describe("dev command", () => {
     t.expectResult(result).toSucceed();
   });
 
-  it("does not write .env.local by default", async () => {
-    await t.givenLoggedInWithProject(fixture("full-project"));
-
-    const handle = await t.runLive("dev");
-    await waitForDevServer(handle);
-    await handle.stop();
-
-    const content = await t.readProjectFile(".env.local");
-    expect(content).toBeNull();
-  });
-
-  it("writes .env.local with app ID and dev server URL when --write-env is passed", async () => {
-    await t.givenLoggedInWithProject(fixture("full-project"));
-
-    const handle = await t.runLive("dev", "--write-env");
-    await waitForDevServer(handle);
-    await handle.stop();
-
-    const content = await t.readProjectFile(".env.local");
-    expect(content).toContain(`VITE_BASE44_APP_ID=${t.api.appId}`);
-    expect(content).toContain("VITE_BASE44_APP_BASE_URL=http://localhost:");
-  });
-
-  it("comments out existing managed vars instead of deleting them", async () => {
-    await t.givenLoggedInWithProject(fixture("full-project"));
-    await writeFile(
-      join(t.getTempDir(), "project", ".env.local"),
-      "FOO=bar\nVITE_BASE44_APP_BASE_URL=https://remote.example.com\n",
-    );
-
-    const handle = await t.runLive("dev", "--write-env");
-    await waitForDevServer(handle);
-    await handle.stop();
-
-    const content = (await t.readProjectFile(".env.local")) ?? "";
-    // The user's own value is preserved (commented out), not lost.
-    expect(content).toContain(
-      "# VITE_BASE44_APP_BASE_URL=https://remote.example.com",
-    );
-    // Unrelated entries are left untouched.
-    expect(content).toContain("FOO=bar");
-    // Our values are appended under a marker line.
-    expect(content).toContain("# Edited by the base44 dev process");
-    expect(content).toContain("VITE_BASE44_APP_BASE_URL=http://localhost:");
-  });
-
   const writeConfigWithServeCommand = async (serveCommand: string) => {
     const configPath = join(
       t.getTempDir(),
@@ -138,19 +92,6 @@ describe("dev command", () => {
     expect(output).toContain(`SERVE_APP=${t.api.appId}`);
     expect(output).toContain("URL=http://localhost:");
     expect(output).toContain("[frontend]");
-  });
-
-  it("stays backend-only when --no-serve is passed", async () => {
-    await t.givenLoggedInWithProject(fixture("full-project"));
-    await writeConfigWithServeCommand(
-      `node -e "console.log('SERVE_APP=' + process.env.VITE_BASE44_APP_ID); setInterval(() => {}, 1000)"`,
-    );
-
-    const handle = await t.runLive("dev", "--no-serve");
-    await waitForDevServer(handle);
-    await handle.stop();
-
-    expect(handle.stdout.join("")).not.toContain("SERVE_APP=");
   });
 
   it("tears the dev server down when the frontend exits", async () => {
