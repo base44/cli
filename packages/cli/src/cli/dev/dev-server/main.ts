@@ -34,7 +34,7 @@ interface DevServerOptions {
   log: Logger;
   port?: number;
   denoWrapperPath: string;
-  serve?: { appId: string };
+  serve?: { command: string; cwd: string; appId: string };
   loadResources: () => Promise<{
     functions: ProjectData["functions"];
     entities: ProjectData["entities"];
@@ -234,15 +234,13 @@ export async function createDevServer(
   });
   await base44ConfigWatcher.start();
 
-  // Start the frontend dev server when serving is enabled AND the project
-  // configures a serveCommand. Otherwise stay backend-only, silently.
+  // The command decision (serveCommand present, --no-serve, cwd) is made at the
+  // command level; here we just run whatever we're handed.
   let serveRunner: ServeRunner | undefined;
-  if (options.serve && project.site?.serveCommand) {
+  if (options.serve) {
     serveRunner = new ServeRunner({
-      command: project.site.serveCommand,
-      // The frontend command (e.g. `npm run dev`) must run from the project
-      // root where package.json lives, not from wherever the CLI was invoked.
-      cwd: project.root,
+      command: options.serve.command,
+      cwd: options.serve.cwd,
       env: {
         VITE_BASE44_APP_ID: options.serve.appId,
         VITE_BASE44_APP_BASE_URL: baseUrl,

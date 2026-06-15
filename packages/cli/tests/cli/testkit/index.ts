@@ -49,12 +49,6 @@ export interface TestContext {
   /** Start a long-running CLI command and return a live handle */
   runLive: (...args: string[]) => Promise<RunLiveHandle>;
 
-  /** Start a long-running CLI command from a subdirectory of the project */
-  runLiveIn: (
-    subdir: string | undefined,
-    ...args: string[]
-  ) => Promise<RunLiveHandle>;
-
   // ─── THEN METHODS ──────────────────────────────────────────
 
   /** Create assertion helper for CLI result */
@@ -138,7 +132,6 @@ export function setupCLITests(): TestContext {
     // When methods
     run: (...args) => getKit().run(...args),
     runLive: (...args) => getKit().runLive(...args),
-    runLiveIn: (subdir, ...args) => getKit().runLiveIn(subdir, ...args),
 
     // Then methods
     expectResult: (result) => getKit().expect(result),

@@ -186,8 +186,6 @@ await runTask("Installing...", async () => {
 });
 ```
 
-Use `execa` for **one-shot** commands you await to completion. For **long-running** subprocesses whose output streams to the console, use `child_process.spawn` with piped `stdio` and a managed lifecycle — see `FunctionManager` and `ServeRunner` in `src/cli/dev/dev-server/`. Prefix their lines via `createDevLogger(label, color)` for attributable interleaved output, and expose a `stop()` that tree-kills the process group.
-
 ## Theming
 
 All CLI styling is centralized in `src/cli/utils/theme.ts`. **Never use `chalk` directly.**

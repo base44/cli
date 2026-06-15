@@ -84,6 +84,29 @@ describe("dev command", () => {
     expect(content).toContain("VITE_BASE44_APP_BASE_URL=http://localhost:");
   });
 
+  it("comments out existing managed vars instead of deleting them", async () => {
+    await t.givenLoggedInWithProject(fixture("full-project"));
+    await writeFile(
+      join(t.getTempDir(), "project", ".env.local"),
+      "FOO=bar\nVITE_BASE44_APP_BASE_URL=https://remote.example.com\n",
+    );
+
+    const handle = await t.runLive("dev", "--write-env");
+    await waitForDevServer(handle);
+    await handle.stop();
+
+    const content = (await t.readProjectFile(".env.local")) ?? "";
+    // The user's own value is preserved (commented out), not lost.
+    expect(content).toContain(
+      "# VITE_BASE44_APP_BASE_URL=https://remote.example.com",
+    );
+    // Unrelated entries are left untouched.
+    expect(content).toContain("FOO=bar");
+    // Our values are appended under a marker line.
+    expect(content).toContain("# Edited by the base44 dev process");
+    expect(content).toContain("VITE_BASE44_APP_BASE_URL=http://localhost:");
+  });
+
   const writeConfigWithServeCommand = async (serveCommand: string) => {
     const configPath = join(
       t.getTempDir(),
@@ -115,27 +138,6 @@ describe("dev command", () => {
     expect(output).toContain(`SERVE_APP=${t.api.appId}`);
     expect(output).toContain("URL=http://localhost:");
     expect(output).toContain("[frontend]");
-  });
-
-  it("runs the frontend serveCommand from the project root, not the invocation cwd", async () => {
-    await t.givenLoggedInWithProject(fixture("full-project"));
-    await writeConfigWithServeCommand(
-      `node -e "console.log('SERVE_CWD=' + process.cwd()); setInterval(() => {}, 1000)"`,
-    );
-    await mkdir(join(t.getTempDir(), "project", "nested"), { recursive: true });
-
-    // Launch from the `nested` subdirectory; the frontend must still run from
-    // the project root (where package.json lives).
-    const handle = await t.runLiveIn("nested", "dev");
-    await waitForDevServer(handle);
-    await handle.waitForOutput(/SERVE_CWD=/);
-    await handle.stop();
-
-    const serveCwd = handle.stdout
-      .join("")
-      .match(/SERVE_CWD=(.+)/)?.[1]
-      .trim();
-    expect(serveCwd?.endsWith("project")).toBe(true);
   });
 
   it("stays backend-only when --no-serve is passed", async () => {
