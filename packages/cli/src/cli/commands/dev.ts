@@ -9,10 +9,13 @@ import { getDenoWrapperPath } from "@/core/assets.js";
 import { BASE44_APP_ID_ENV_VAR } from "@/core/consts.js";
 import { ConfigInvalidError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/project/config.js";
-import { pathExists, writeFile } from "@/core/utils/fs.js";
+import { writeFile } from "@/core/utils/fs.js";
 
 interface DevOptions {
   port?: string;
+  /** Commander sets this to false when `--no-serve` is passed; defaults to true. */
+  serve?: boolean;
+  writeEnv?: boolean;
 }
 
 function localServerUrl(port: number): string {
@@ -20,27 +23,22 @@ function localServerUrl(port: number): string {
 }
 
 /**
- * On first run there is no `.env.local`, so the `@base44/vite-plugin` in the
- * frontend has no app ID and falls back to the production backend instead of
- * this dev server. Write the file (matching the plugin's expected variable
- * names) unless the user already maintains one.
+ * Force-write `.env.local` with the app ID and dev server URL the frontend
+ * needs. Only called when `--write-env` is passed; by default we inject these
+ * values into the spawned frontend process instead of touching the filesystem.
  */
-async function writeEnvLocalIfMissing(
+async function writeEnvLocal(
   projectRoot: string,
   appId: string,
   port: number,
   log: Logger,
 ): Promise<void> {
   const envLocalPath = join(projectRoot, ".env.local");
-  if (await pathExists(envLocalPath)) {
-    return;
-  }
-
   await writeFile(
     envLocalPath,
     `VITE_BASE44_APP_ID=${appId}\nVITE_BASE44_APP_BASE_URL=${localServerUrl(port)}\n`,
   );
-  log.info("Created .env.local with app ID and dev server URL");
+  log.info("Wrote .env.local with app ID and dev server URL");
 }
 
 function validateDevOptions(command: Command): void {
@@ -64,19 +62,27 @@ async function devAction(
   }
 
   const port = options.port ? Number(options.port) : undefined;
+  const serveEnabled = options.serve !== false;
+
+  // The app id is needed to inject env into the frontend and/or to write
+  // `.env.local`. Resolve it up front when either path is active.
+  const appId = serveEnabled || options.writeEnv ? app.id : undefined;
 
   const { port: resolvedPort } = await createDevServer({
     log,
     port,
     cwd: process.cwd(),
     denoWrapperPath: getDenoWrapperPath(),
+    serve: serveEnabled && appId ? { appId } : undefined,
     loadResources: async () => {
       const { functions, entities, project } = await readProjectConfig();
       return { functions, entities, project };
     },
   });
 
-  await writeEnvLocalIfMissing(app.projectRoot, app.id, resolvedPort, log);
+  if (options.writeEnv && appId) {
+    await writeEnvLocal(app.projectRoot, appId, resolvedPort, log);
+  }
 
   return {
     outroMessage: `Dev server is available at ${theme.colors.links(localServerUrl(resolvedPort))}`,
@@ -87,6 +93,8 @@ export function getDevCommand(): Command {
   return new Base44Command("dev")
     .description("Start the development server")
     .option("-p, --port <number>", "Port for the development server")
+    .option("--no-serve", "Do not start the frontend dev server (serveCommand)")
+    .option("--write-env", "Write the app ID and dev server URL to .env.local")
     .hook("preAction", validateDevOptions)
     .action(devAction);
 }
