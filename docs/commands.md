@@ -186,6 +186,18 @@ await runTask("Installing...", async () => {
 });
 ```
 
+Use `execa` for **one-shot** commands you await to completion (install, build, version checks). For **long-running** subprocesses whose output should stream to the console (the dev server's functions and frontend), use `child_process.spawn` with piped `stdio` and a managed lifecycle — see `FunctionManager` and `ServeRunner` in `src/cli/dev/dev-server/`. Both prefix their lines through a labeled `createDevLogger(label, color)` so interleaved output is attributable (`[backend]`, `[frontend]`), and both expose a `stop()` that tree-kills the process (`taskkill /T` on Windows, process-group `SIGTERM` elsewhere).
+
+### `base44 dev` and the frontend `serveCommand`
+
+`base44 dev` starts the backend dev server and, when the project config sets `site.serveCommand` (e.g. `npm run dev` → vite), runs the frontend dev server too — one terminal for both.
+
+- The frontend process receives `VITE_BASE44_APP_ID` and `VITE_BASE44_APP_BASE_URL` injected into its environment, so it targets the local backend without a `.env.local` file.
+- `--no-serve`: run the backend only.
+- `--write-env`: additionally write those values to `.env.local` (useful when running the frontend standalone).
+- If the frontend exits, the whole dev environment is torn down.
+- `createDevServer` owns the combined lifecycle (functions, socket.io, watcher, frontend) and its `SIGINT`/`SIGTERM` shutdown; `devAction` owns policy (flags, app-id resolution, the `--write-env` file write).
+
 ## Theming
 
 All CLI styling is centralized in `src/cli/utils/theme.ts`. **Never use `chalk` directly.**
