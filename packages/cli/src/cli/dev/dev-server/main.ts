@@ -9,6 +9,7 @@ import { dir } from "tmp-promise";
 import { createDevLogger } from "@/cli/dev/createDevLogger.js";
 import { FunctionManager } from "@/cli/dev/dev-server/function-manager.js";
 import { createFunctionRouter } from "@/cli/dev/dev-server/routes/functions.js";
+import { theme } from "@/cli/utils/index.js";
 import type { ProjectData } from "@/core/project/types.js";
 import { Database } from "./db/database.js";
 import {
@@ -23,6 +24,7 @@ import {
   createFileToken,
   createIntegrationRoutes,
 } from "./routes/integrations.js";
+import { ServeRunner } from "./serve-runner.js";
 import { WatchBase44 } from "./watcher.js";
 
 const DEFAULT_PORT = 4400;
@@ -33,6 +35,7 @@ interface DevServerOptions {
   cwd: string;
   port?: number;
   denoWrapperPath: string;
+  serve?: { appId: string };
   loadResources: () => Promise<{
     functions: ProjectData["functions"];
     entities: ProjectData["entities"];
@@ -85,7 +88,7 @@ export async function createDevServer(
     next();
   });
 
-  const devLogger = createDevLogger();
+  const devLogger = createDevLogger("backend", theme.styles.info);
 
   const functionManager = new FunctionManager(
     functions,
@@ -232,14 +235,36 @@ export async function createDevServer(
   });
   await base44ConfigWatcher.start();
 
+  // Start the frontend dev server when serving is enabled AND the project
+  // configures a serveCommand. Otherwise stay backend-only, silently.
+  let serveRunner: ServeRunner | undefined;
+  if (options.serve && project.site?.serveCommand) {
+    serveRunner = new ServeRunner({
+      command: project.site.serveCommand,
+      cwd: options.cwd,
+      env: {
+        VITE_BASE44_APP_ID: options.serve.appId,
+        VITE_BASE44_APP_BASE_URL: baseUrl,
+      },
+      logger: createDevLogger("frontend", theme.colors.base44Orange),
+    });
+  }
+
   const shutdown = async () => {
     base44ConfigWatcher.close();
     io.close();
     await functionManager.stopAll();
+    await serveRunner?.stop();
     server.close();
   };
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
+
+  // If the frontend dies, tear the whole dev environment down.
+  serveRunner?.onExit(() => {
+    void shutdown().finally(() => process.exit(1));
+  });
+  serveRunner?.start();
 
   return { port, server };
 }
