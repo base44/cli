@@ -63,7 +63,7 @@ async function devAction(
   });
 
   const outroMessage = serveCommand
-    ? "Open your app at the URL printed by the frontend dev server (tagged [frontend] above)."
+    ? "Open your app using the frontend dev server URL"
     : `Dev server is available at ${theme.colors.links(localServerUrl(resolvedPort))}`;
 
   return { outroMessage };
