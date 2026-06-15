@@ -84,7 +84,6 @@ describe("dev command", () => {
     );
 
     const handle = await t.runLive("dev");
-    await waitForDevServer(handle);
     await handle.waitForOutput(/SERVE_APP=/);
     await handle.stop();
 
@@ -92,6 +91,8 @@ describe("dev command", () => {
     expect(output).toContain(`SERVE_APP=${t.api.appId}`);
     expect(output).toContain("URL=http://localhost:");
     expect(output).toContain("[frontend]");
+    // The backend is announced (labeled) before the frontend output.
+    expect(output).toContain("Backend running on http://localhost:");
   });
 
   it("tears the dev server down when the frontend exits", async () => {
@@ -102,7 +103,6 @@ describe("dev command", () => {
     );
 
     const handle = await t.runLive("dev");
-    await waitForDevServer(handle);
     const result = await handle.waitForExit();
 
     expect(result.exitCode).not.toBe(0);

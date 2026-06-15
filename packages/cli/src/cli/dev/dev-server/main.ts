@@ -234,8 +234,8 @@ export async function createDevServer(
   });
   await base44ConfigWatcher.start();
 
-  // The command decision (serveCommand present, --no-serve, cwd) is made at the
-  // command level; here we just run whatever we're handed.
+  // Whether to serve (and which command) is decided at the command level; here
+  // we just run whatever we're handed.
   let serveRunner: ServeRunner | undefined;
   if (options.serve) {
     serveRunner = new ServeRunner({
@@ -263,7 +263,13 @@ export async function createDevServer(
   serveRunner?.onExit(() => {
     void shutdown().finally(() => process.exit(1));
   });
-  serveRunner?.start();
+
+  if (serveRunner) {
+    // Announce the backend before the frontend starts, so the frontend's own
+    // output (with the URL to open the app) is the last thing the user sees.
+    devLogger.log(`Backend running on ${baseUrl}`);
+    serveRunner.start();
+  }
 
   return { port, server };
 }

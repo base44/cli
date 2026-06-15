@@ -60,9 +60,11 @@ async function devAction(
     },
   });
 
-  return {
-    outroMessage: `Dev server is available at ${theme.colors.links(localServerUrl(resolvedPort))}`,
-  };
+  const outroMessage = serveCommand
+    ? "Open your app at the URL printed by the frontend dev server (tagged [frontend] above)."
+    : `Dev server is available at ${theme.colors.links(localServerUrl(resolvedPort))}`;
+
+  return { outroMessage };
 }
 
 export function getDevCommand(): Command {
