@@ -23,7 +23,10 @@ async function createLinkedProject(appId: string): Promise<string> {
 }
 
 describe("initAppContext", () => {
-  afterEach(() => {
+  let tempDir: string | null = null;
+
+  afterEach(async () => {
+    // chdir back before cleanup — on Windows, deleting the cwd throws EBUSY
     process.chdir(originalCwd);
     resetAppContext();
     if (originalAppId === undefined) {
@@ -31,67 +34,53 @@ describe("initAppContext", () => {
     } else {
       process.env[BASE44_APP_ID_ENV_VAR] = originalAppId;
     }
+    if (tempDir) {
+      await rm(tempDir, { recursive: true, force: true });
+      tempDir = null;
+    }
   });
 
   it("uses an explicit app id before local config", async () => {
-    const projectRoot = await createLinkedProject("app-from-file");
-    process.chdir(projectRoot);
+    tempDir = await createLinkedProject("app-from-file");
+    process.chdir(tempDir);
     process.env[BASE44_APP_ID_ENV_VAR] = "app-from-env";
 
-    try {
-      await expect(initAppContext({ appId: "app-from-flag" })).resolves.toEqual(
-        {
-          id: "app-from-flag",
-        },
-      );
-    } finally {
-      await rm(projectRoot, { recursive: true, force: true });
-    }
+    await expect(initAppContext({ appId: "app-from-flag" })).resolves.toEqual({
+      id: "app-from-flag",
+    });
   });
 
   it("does not read BASE44_APP_ID directly", async () => {
-    const projectRoot = await createLinkedProject("app-from-file");
-    process.chdir(projectRoot);
+    tempDir = await createLinkedProject("app-from-file");
+    process.chdir(tempDir);
     process.env[BASE44_APP_ID_ENV_VAR] = "app-from-env";
 
-    try {
-      await expect(initAppContext()).resolves.toEqual({
-        id: "app-from-file",
-        projectRoot,
-      });
-    } finally {
-      await rm(projectRoot, { recursive: true, force: true });
-    }
+    await expect(initAppContext()).resolves.toEqual({
+      id: "app-from-file",
+      projectRoot: tempDir,
+    });
   });
 
   it("uses local .app.jsonc when no explicit app id is present", async () => {
-    const projectRoot = await createLinkedProject("app-from-file");
-    process.chdir(projectRoot);
+    tempDir = await createLinkedProject("app-from-file");
+    process.chdir(tempDir);
     delete process.env[BASE44_APP_ID_ENV_VAR];
 
-    try {
-      await expect(initAppContext()).resolves.toEqual({
-        id: "app-from-file",
-        projectRoot,
-      });
-    } finally {
-      await rm(projectRoot, { recursive: true, force: true });
-    }
+    await expect(initAppContext()).resolves.toEqual({
+      id: "app-from-file",
+      projectRoot: tempDir,
+    });
   });
 
   it("throws a helpful error when no app id source is available", async () => {
-    const emptyDir = await mkdtemp(join(tmpdir(), "base44-no-app-config-"));
-    process.chdir(emptyDir);
+    tempDir = await mkdtemp(join(tmpdir(), "base44-no-app-config-"));
+    process.chdir(tempDir);
     delete process.env[BASE44_APP_ID_ENV_VAR];
 
-    try {
-      await expect(initAppContext()).rejects.toThrow(/No Base44 app ID found/);
-      await expect(initAppContext()).rejects.toThrow(/--app-id/);
-      await expect(initAppContext()).rejects.toThrow(/BASE44_APP_ID/);
-      await expect(initAppContext()).rejects.toThrow(/base44\/.app.jsonc/);
-    } finally {
-      await rm(emptyDir, { recursive: true, force: true });
-    }
+    await expect(initAppContext()).rejects.toThrow(/No Base44 app ID found/);
+    await expect(initAppContext()).rejects.toThrow(/--app-id/);
+    await expect(initAppContext()).rejects.toThrow(/BASE44_APP_ID/);
+    await expect(initAppContext()).rejects.toThrow(/base44\/.app.jsonc/);
   });
 
   it("rejects an empty explicit app id", async () => {
@@ -101,17 +90,13 @@ describe("initAppContext", () => {
   });
 
   it("ignores an empty BASE44_APP_ID", async () => {
-    const projectRoot = await createLinkedProject("app-from-file");
-    process.chdir(projectRoot);
+    tempDir = await createLinkedProject("app-from-file");
+    process.chdir(tempDir);
     process.env[BASE44_APP_ID_ENV_VAR] = "   ";
 
-    try {
-      await expect(initAppContext()).resolves.toEqual({
-        id: "app-from-file",
-        projectRoot,
-      });
-    } finally {
-      await rm(projectRoot, { recursive: true, force: true });
-    }
+    await expect(initAppContext()).resolves.toEqual({
+      id: "app-from-file",
+      projectRoot: tempDir,
+    });
   });
 });
