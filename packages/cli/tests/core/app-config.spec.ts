@@ -42,7 +42,6 @@ describe("initAppContext", () => {
       await expect(initAppContext({ appId: "app-from-flag" })).resolves.toEqual(
         {
           id: "app-from-flag",
-          projectRoot,
         },
       );
     } finally {
