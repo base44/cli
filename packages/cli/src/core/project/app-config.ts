@@ -58,7 +58,7 @@ export async function initAppContext(
       throw new InvalidInputError("App id cannot be empty.");
     }
 
-    cache = { id, projectRoot: projectRoot?.root };
+    cache = { id };
     return cache;
   }
 
