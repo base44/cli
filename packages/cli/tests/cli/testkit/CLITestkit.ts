@@ -1,4 +1,4 @@
-import { access, cp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execa } from "execa";
@@ -344,6 +344,8 @@ export class CLITestkit {
     }
     this.liveHandles = [];
     await this.api.stop();
-    await this.cleanupFn();
+    // Use maxRetries to handle Windows EBUSY: child processes (e.g. Deno)
+    // release file handles asynchronously after exit.
+    await rm(this.tempDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 });
   }
 }
