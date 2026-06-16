@@ -50,7 +50,6 @@ interface TestOverrides {
 
 export class CLITestkit {
   private tempDir: string;
-  private cleanupFn: () => Promise<void>;
   private env: Record<string, string> = {};
   private projectDir?: string;
   // Default latestVersion to null to skip npm version check in tests
@@ -61,13 +60,8 @@ export class CLITestkit {
   /** Real HTTP server for Base44 API endpoints */
   readonly api: TestAPIServer;
 
-  private constructor(
-    tempDir: string,
-    cleanupFn: () => Promise<void>,
-    api: TestAPIServer,
-  ) {
+  private constructor(tempDir: string, api: TestAPIServer) {
     this.tempDir = tempDir;
-    this.cleanupFn = cleanupFn;
     this.api = api;
     // Set HOME to temp dir for auth file isolation
     // On Windows, os.homedir() reads USERPROFILE, so set both
@@ -87,10 +81,10 @@ export class CLITestkit {
 
   /** Factory method - creates isolated test environment */
   static async create(appId = "test-app-id"): Promise<CLITestkit> {
-    const { path, cleanup } = await dir({ unsafeCleanup: true });
+    const { path } = await dir({ unsafeCleanup: true });
     const api = new TestAPIServer(appId);
     await api.start();
-    return new CLITestkit(path, cleanup, api);
+    return new CLITestkit(path, api);
   }
 
   /** Get the temp directory path */
@@ -346,6 +340,11 @@ export class CLITestkit {
     await this.api.stop();
     // Use maxRetries to handle Windows EBUSY: child processes (e.g. Deno)
     // release file handles asynchronously after exit.
-    await rm(this.tempDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 });
+    await rm(this.tempDir, {
+      recursive: true,
+      force: true,
+      maxRetries: 5,
+      retryDelay: 300,
+    });
   }
 }
