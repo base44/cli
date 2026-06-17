@@ -28,6 +28,29 @@ describe("dev command", () => {
     t.expectResult(result).toContain("No Base44 app ID found");
   });
 
+  it("rejects explicit --app-id", async () => {
+    await t.givenLoggedInWithProject(fixture("full-project"));
+
+    const result = await t.run("dev", "--app-id", "injected-app-id");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain(
+      "base44 dev cannot be used with --app-id or BASE44_APP_ID",
+    );
+  });
+
+  it("rejects BASE44_APP_ID", async () => {
+    await t.givenLoggedInWithProject(fixture("full-project"));
+    t.givenEnv({ BASE44_APP_ID: "injected-app-id" });
+
+    const result = await t.run("dev");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain(
+      "base44 dev cannot be used with --app-id or BASE44_APP_ID",
+    );
+  });
+
   it("starts dev server successfully", async () => {
     await t.givenLoggedInWithProject(fixture("full-project"));
 

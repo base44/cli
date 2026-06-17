@@ -4,9 +4,10 @@ import type { Logger } from "@base44-cli/logger";
 import type { Command } from "commander";
 import { createDevServer } from "@/cli/dev/dev-server/main.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
-import { Base44Command, theme } from "@/cli/utils/index.js";
+import { type AppIdOptions, Base44Command, theme } from "@/cli/utils/index.js";
 import { getDenoWrapperPath } from "@/core/assets.js";
-import { initAppContext } from "@/core/project/app-config.js";
+import { BASE44_APP_ID_ENV_VAR } from "@/core/consts.js";
+import { ConfigInvalidError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/project/config.js";
 import { pathExists, writeFile } from "@/core/utils/fs.js";
 
@@ -26,6 +27,7 @@ function localServerUrl(port: number): string {
  */
 async function writeEnvLocalIfMissing(
   projectRoot: string,
+  appId: string,
   port: number,
   log: Logger,
 ): Promise<void> {
@@ -34,7 +36,6 @@ async function writeEnvLocalIfMissing(
     return;
   }
 
-  const { id: appId } = await initAppContext();
   await writeFile(
     envLocalPath,
     `VITE_BASE44_APP_ID=${appId}\nVITE_BASE44_APP_BASE_URL=${localServerUrl(port)}\n`,
@@ -42,12 +43,27 @@ async function writeEnvLocalIfMissing(
   log.info("Created .env.local with app ID and dev server URL");
 }
 
+function validateDevOptions(command: Command): void {
+  const { appId } = command.optsWithGlobals<AppIdOptions>();
+  if (appId !== undefined) {
+    command.error(
+      `base44 dev cannot be used with --app-id or ${BASE44_APP_ID_ENV_VAR}.`,
+    );
+  }
+}
+
 async function devAction(
-  { log }: CLIContext,
+  ctx: CLIContext,
   options: DevOptions,
 ): Promise<RunCommandResult> {
+  const { log, app } = ctx;
+  if (!app?.projectRoot) {
+    throw new ConfigInvalidError(
+      "base44 dev requires a linked local project. Run it from a project with base44/.app.jsonc.",
+    );
+  }
+
   const port = options.port ? Number(options.port) : undefined;
-  let projectRoot: string | undefined;
 
   const { port: resolvedPort } = await createDevServer({
     log,
@@ -56,14 +72,11 @@ async function devAction(
     denoWrapperPath: getDenoWrapperPath(),
     loadResources: async () => {
       const { functions, entities, project } = await readProjectConfig();
-      projectRoot = project.root;
       return { functions, entities, project };
     },
   });
 
-  if (projectRoot) {
-    await writeEnvLocalIfMissing(projectRoot, resolvedPort, log);
-  }
+  await writeEnvLocalIfMissing(app.projectRoot, app.id, resolvedPort, log);
 
   return {
     outroMessage: `Dev server is available at ${theme.colors.links(localServerUrl(resolvedPort))}`,
@@ -74,5 +87,6 @@ export function getDevCommand(): Command {
   return new Base44Command("dev")
     .description("Start the development server")
     .option("-p, --port <number>", "Port for the development server")
+    .hook("preAction", validateDevOptions)
     .action(devAction);
 }
