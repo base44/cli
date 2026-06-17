@@ -52,37 +52,12 @@ export class ServeRunner {
       return;
     }
     this.stopping = true;
-    const hasExited = () =>
-      child.exitCode !== null || child.signalCode !== null;
     const exited = new Promise<void>((resolve) =>
       child.once("exit", () => resolve()),
     );
-    const waitForExit = async (timeoutMs: number) => {
-      await Promise.race([
-        exited,
-        new Promise((resolve) => setTimeout(resolve, timeoutMs)),
-      ]);
-    };
-
     if (process.platform === "win32" && child.pid) {
-      const taskkill = spawn(
-        "taskkill",
-        ["/pid", String(child.pid), "/T", "/F"],
-        {
-          stdio: "ignore",
-        },
-      );
-      await new Promise<void>((resolve) =>
-        taskkill.once("exit", () => resolve()),
-      );
-      await waitForExit(3000);
-      if (!hasExited()) {
-        child.kill("SIGKILL");
-        await waitForExit(1000);
-      }
-      return;
-    }
-    if (child.pid) {
+      spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"]);
+    } else if (child.pid) {
       // Negative pid targets the whole process group (the shell + its children).
       try {
         process.kill(-child.pid, "SIGTERM");

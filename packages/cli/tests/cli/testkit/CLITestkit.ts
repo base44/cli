@@ -268,17 +268,11 @@ export class CLITestkit {
         }
 
         if (!finished) {
-          if (process.platform === "win32" && child.pid) {
-            await execa("taskkill", ["/pid", String(child.pid), "/T", "/F"], {
-              reject: false,
-            });
-          } else {
-            child.kill("SIGINT");
-            await Promise.race([
-              childPromise,
-              new Promise((r) => setTimeout(r, 3000)),
-            ]);
-          }
+          child.kill("SIGINT");
+          await Promise.race([
+            childPromise,
+            new Promise((r) => setTimeout(r, 3000)),
+          ]);
           if (!finished) {
             child.kill("SIGKILL");
           }
