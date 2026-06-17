@@ -30,13 +30,14 @@ export class ServeRunner {
     if (this.child) {
       return;
     }
+    const stdin = process.platform === "win32" ? "ignore" : "inherit";
     const child = spawn(this.command, {
       cwd: this.cwd,
       shell: true,
       // A dedicated process group lets stop() tree-kill `npm -> vite`.
       detached: process.platform !== "win32",
       env: { ...process.env, ...this.env },
-      stdio: ["inherit", "pipe", "pipe"],
+      stdio: [stdin, "pipe", "pipe"],
     });
     this.child = child;
     this.setupHandlers(child);
