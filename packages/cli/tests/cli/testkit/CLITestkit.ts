@@ -1,3 +1,4 @@
+import { spawn } from "node:child_process";
 import { access, cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -268,6 +269,25 @@ export class CLITestkit {
         }
 
         if (!finished) {
+          if (process.platform === "win32" && child.pid) {
+            const taskkill = spawn("taskkill", [
+              "/pid",
+              String(child.pid),
+              "/T",
+              "/F",
+            ]);
+            await new Promise((resolve) => taskkill.once("exit", resolve));
+            await Promise.race([
+              childPromise,
+              new Promise((r) => setTimeout(r, 3000)),
+            ]);
+            if (!finished) {
+              child.kill("SIGKILL");
+            }
+            stoppedWithCode = 0;
+            return buildResult(stoppedWithCode);
+          }
+
           child.kill("SIGINT");
           await Promise.race([
             childPromise,
