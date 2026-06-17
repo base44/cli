@@ -17,6 +17,7 @@ export class ServeRunner {
   private readonly logger: DevLogger;
   private child?: ChildProcess;
   private stopping = false;
+  private stopPromise?: Promise<void>;
   private readonly exitListeners: Array<(code: number | null) => void> = [];
 
   constructor(options: ServeRunnerOptions) {
@@ -35,9 +36,10 @@ export class ServeRunner {
       cwd: this.cwd,
       shell: true,
       // A dedicated process group lets stop() tree-kill `npm -> vite`.
-      detached: process.platform !== "win32",
+      detached: true,
       env: { ...process.env, ...this.env },
       stdio: [stdin, "pipe", "pipe"],
+      windowsHide: true,
     });
     this.child = child;
     this.setupHandlers(child);
@@ -48,6 +50,14 @@ export class ServeRunner {
   }
 
   async stop(): Promise<void> {
+    if (this.stopPromise) {
+      return this.stopPromise;
+    }
+    this.stopPromise = this.stopChild();
+    return this.stopPromise;
+  }
+
+  private async stopChild(): Promise<void> {
     const child = this.child;
     if (!child || child.exitCode !== null) {
       return;
@@ -57,7 +67,18 @@ export class ServeRunner {
       child.once("exit", () => resolve()),
     );
     if (process.platform === "win32" && child.pid) {
-      spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"]);
+      const taskkill = spawn(
+        "taskkill",
+        ["/pid", String(child.pid), "/T", "/F"],
+        {
+          stdio: "ignore",
+          windowsHide: true,
+        },
+      );
+      await new Promise<void>((resolve) => {
+        taskkill.once("exit", () => resolve());
+        taskkill.once("error", () => resolve());
+      });
     } else if (child.pid) {
       // Negative pid targets the whole process group (the shell + its children).
       try {

@@ -261,12 +261,28 @@ export async function createDevServer(
     });
   }
 
+  let shutdownPromise: Promise<void> | undefined;
   const shutdown = async () => {
-    base44ConfigWatcher.close();
-    io.close();
-    await functionManager.stopAll();
-    await serveRunner?.stop();
-    server.close();
+    shutdownPromise ??= (async () => {
+      base44ConfigWatcher.close();
+      io.close();
+      await functionManager.stopAll();
+      await serveRunner?.stop();
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          resolve();
+        });
+      });
+    })().catch((error) => {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      devLogger.error(`Failed to shut down dev server: ${errorMessage}`);
+    });
+    return shutdownPromise;
   };
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
