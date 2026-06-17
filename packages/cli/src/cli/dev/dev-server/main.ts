@@ -161,10 +161,7 @@ export async function createDevServer(
   app.use("/api/apps/:appId/integrations/custom", customIntegrationRoutes);
 
   app.use((req, res, next) => {
-    if (
-      siteUrl &&
-      (req.path === "/login" || req.path.startsWith("/login/"))
-    ) {
+    if (siteUrl && (req.path === "/login" || req.path.startsWith("/login/"))) {
       const targetUrl = new URL(req.originalUrl, siteUrl);
       devLogger.warn(
         `"${req.originalUrl}" requires hosted login, redirecting to ${targetUrl.toString()}`,
