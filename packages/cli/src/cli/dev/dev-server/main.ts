@@ -279,7 +279,7 @@ export async function createDevServer(
 
   const runShutdown = async () => {
     base44ConfigWatcher.close();
-    io.close();
+    await io.close();
     await functionManager.stopAll();
     await serveRunner?.stop();
     await closeServer();
