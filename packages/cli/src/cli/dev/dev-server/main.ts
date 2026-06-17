@@ -261,27 +261,33 @@ export async function createDevServer(
     });
   }
 
-  let shutdownPromise: Promise<void> | undefined;
-  const shutdown = async () => {
-    shutdownPromise ??= (async () => {
-      base44ConfigWatcher.close();
-      io.close();
-      await functionManager.stopAll();
-      await serveRunner?.stop();
-      await new Promise<void>((resolve, reject) => {
-        server.close((error) => {
-          if (error) {
-            reject(error);
-            return;
-          }
-          resolve();
-        });
+  const closeServer = () =>
+    new Promise<void>((resolve, reject) => {
+      server.close((error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve();
       });
-    })().catch((error) => {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      devLogger.error(`Failed to shut down dev server: ${errorMessage}`);
     });
+
+  const handleShutdownError = (error: unknown) => {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    devLogger.error(`Failed to shut down dev server: ${errorMessage}`);
+  };
+
+  const runShutdown = async () => {
+    base44ConfigWatcher.close();
+    io.close();
+    await functionManager.stopAll();
+    await serveRunner?.stop();
+    await closeServer();
+  };
+
+  let shutdownPromise: Promise<void> | undefined;
+  const shutdown = () => {
+    shutdownPromise ??= runShutdown().catch(handleShutdownError);
     return shutdownPromise;
   };
   process.on("SIGINT", shutdown);

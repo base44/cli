@@ -36,7 +36,7 @@ export class ServeRunner {
       cwd: this.cwd,
       shell: true,
       // A dedicated process group lets stop() tree-kill `npm -> vite`.
-      detached: true,
+      detached: process.platform !== "win32",
       env: { ...process.env, ...this.env },
       stdio: [stdin, "pipe", "pipe"],
       windowsHide: true,
