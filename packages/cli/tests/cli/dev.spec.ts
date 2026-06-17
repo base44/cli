@@ -67,6 +67,26 @@ describe("dev command", () => {
     t.expectResult(result).toSucceed();
   });
 
+  it("redirects login requests to the published site", async () => {
+    await t.givenLoggedInWithProject(fixture("full-project"));
+    t.api.mockSiteUrl({ url: "https://test-app.base44.app" });
+
+    const handle = await t.runLive("dev");
+    const devServerUrl = await waitForDevServer(handle);
+
+    const response = await fetch(`${devServerUrl}/login`, {
+      redirect: "manual",
+    });
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe(
+      "https://test-app.base44.app/login",
+    );
+
+    const result = await handle.stop();
+    t.expectResult(result).toSucceed();
+  });
+
   it("runs the frontend serveCommand with injected Base44 env vars", async () => {
     await t.givenLoggedInWithProject(fixture("with-serve-command"));
 

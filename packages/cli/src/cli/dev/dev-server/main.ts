@@ -39,6 +39,7 @@ interface DevServerOptions {
     functions: ProjectData["functions"];
     entities: ProjectData["entities"];
     project: ProjectData["project"];
+    siteUrl?: string;
   }>;
 }
 
@@ -61,7 +62,8 @@ export async function createDevServer(
     }));
   const baseUrl = `http://localhost:${port}`;
 
-  const { functions, entities, project } = await options.loadResources();
+  const { functions, entities, project, siteUrl } =
+    await options.loadResources();
 
   const app = express();
 
@@ -159,6 +161,17 @@ export async function createDevServer(
   app.use("/api/apps/:appId/integrations/custom", customIntegrationRoutes);
 
   app.use((req, res, next) => {
+    if (
+      siteUrl &&
+      (req.path === "/login" || req.path.startsWith("/login/"))
+    ) {
+      const targetUrl = new URL(req.originalUrl, siteUrl);
+      devLogger.warn(
+        `"${req.originalUrl}" requires hosted login, redirecting to ${targetUrl.toString()}`,
+      );
+      res.redirect(targetUrl.toString());
+      return;
+    }
     // `analytics/track/batch` call is very common and makes logs unreadable while not providing informative value for the user
     if (!req.originalUrl.endsWith("analytics/track/batch")) {
       devLogger.warn(

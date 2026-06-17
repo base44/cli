@@ -5,6 +5,7 @@ import { type AppIdOptions, Base44Command, theme } from "@/cli/utils/index.js";
 import { getDenoWrapperPath } from "@/core/assets.js";
 import { BASE44_APP_ID_ENV_VAR } from "@/core/consts.js";
 import { ConfigInvalidError } from "@/core/errors.js";
+import { getSiteUrl } from "@/core/project/api.js";
 import { readProjectConfig } from "@/core/project/config.js";
 
 interface DevOptions {
@@ -37,6 +38,7 @@ async function devAction(
 
   const port = options.port ? Number(options.port) : undefined;
   const appId = app.id;
+  const siteUrlPromise = getSiteUrl().catch(() => undefined);
 
   const { port: resolvedPort, isServingFrontend } = await createDevServer({
     log,
@@ -45,7 +47,8 @@ async function devAction(
     denoWrapperPath: getDenoWrapperPath(),
     loadResources: async () => {
       const { functions, entities, project } = await readProjectConfig();
-      return { functions, entities, project };
+      const siteUrl = await siteUrlPromise;
+      return { functions, entities, project, siteUrl };
     },
   });
 
