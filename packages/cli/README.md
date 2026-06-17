@@ -53,6 +53,7 @@ The CLI will guide you through project setup. For step-by-step tutorials, see th
 | [`whoami`](https://docs.base44.com/developers/references/cli/commands/whoami) | Display the current authenticated user |
 | [`agents pull`](https://docs.base44.com/developers/references/cli/commands/agents-pull) | Pull agents from Base44 to local files |
 | [`agents push`](https://docs.base44.com/developers/references/cli/commands/agents-push) | Push local agents to Base44 |
+| [`connectors initiate`](https://docs.base44.com/developers/references/cli/commands/connectors-initiate) | Initialize a connector on an app and start its OAuth flow |
 | [`connectors pull`](https://docs.base44.com/developers/references/cli/commands/connectors-pull) | Pull connectors from Base44 to local files |
 | [`connectors push`](https://docs.base44.com/developers/references/cli/commands/connectors-push) | Push local connectors to Base44 |
 | [`entities push`](https://docs.base44.com/developers/references/cli/commands/entities-push) | Push local entities to Base44 |
@@ -60,6 +61,13 @@ The CLI will guide you through project setup. For step-by-step tutorials, see th
 | [`secrets list`](https://docs.base44.com/developers/references/cli/commands/secrets-list) | List project secret names |
 | [`secrets set`](https://docs.base44.com/developers/references/cli/commands/secrets-set) | Set one or more project secrets |
 | [`secrets delete`](https://docs.base44.com/developers/references/cli/commands/secrets-delete) | Delete a project secret |
+| [`sandbox list-directory`](https://docs.base44.com/developers/references/cli/commands/sandbox-list-directory) | List directory entries in an app's remote sandbox |
+| [`sandbox read-file`](https://docs.base44.com/developers/references/cli/commands/sandbox-read-file) | Read file contents from an app's remote sandbox |
+| [`sandbox write-file`](https://docs.base44.com/developers/references/cli/commands/sandbox-write-file) | Create or overwrite a file in an app's remote sandbox |
+| [`sandbox edit-file`](https://docs.base44.com/developers/references/cli/commands/sandbox-edit-file) | Apply exact old→new string edits to a file in the sandbox |
+| [`sandbox grep`](https://docs.base44.com/developers/references/cli/commands/sandbox-grep) | Search files for a pattern in an app's remote sandbox |
+| [`sandbox run-command`](https://docs.base44.com/developers/references/cli/commands/sandbox-run-command) | Run a shell command in an app's remote sandbox |
+| [`sandbox release`](https://docs.base44.com/developers/references/cli/commands/sandbox-release) | Release the external-agent session so the in-app builder can resume |
 | [`site deploy`](https://docs.base44.com/developers/references/cli/commands/site-deploy) | Deploy built site files to Base44 hosting |
 | [`site open`](https://docs.base44.com/developers/references/cli/commands/site-open) | Open the published site in your browser |
 | [`types generate`](https://docs.base44.com/developers/references/cli/commands/types-generate) | Generate TypeScript types from project resources |

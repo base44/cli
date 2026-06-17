@@ -1,0 +1,216 @@
+import { describe, it } from "vitest";
+import { setupCLITests } from "./testkit/index.js";
+
+const APP_ID = "test-app-id";
+const base = `/api/apps/${APP_ID}/sandbox-bridge`;
+
+describe("sandbox commands", () => {
+  const t = setupCLITests();
+
+  it("list-directory prints the JSON result", async () => {
+    // Given
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    t.api.mockRoute("POST", `${base}/list_directory`, (_req, res) => {
+      res.status(200).json({
+        entries: [{ name: "src", path: "src", type: "directory" }],
+        truncated: false,
+      });
+    });
+
+    // When
+    const result = await t.run("sandbox", "list-directory", "--app-id", APP_ID);
+
+    // Then
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain('"type": "directory"');
+  });
+
+  it("read-file passes paths and returns file content", async () => {
+    // Given
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    t.api.mockRoute("POST", `${base}/read_file`, (req, res) => {
+      res.status(200).json({
+        files: [
+          {
+            path: req.body.paths[0],
+            content: "hello world",
+            start_line: 1,
+            end_line: 1,
+            total_lines: 1,
+            truncated: false,
+          },
+        ],
+      });
+    });
+
+    // When
+    const result = await t.run(
+      "sandbox",
+      "read-file",
+      "notes.txt",
+      "--app-id",
+      APP_ID,
+    );
+
+    // Then
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("hello world");
+  });
+
+  it("write-file sends content from --content flag", async () => {
+    // Given
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    t.api.mockRoute("POST", `${base}/write_file`, (req, res) => {
+      res.status(200).json({
+        path: req.body.path,
+        bytes_written: (req.body.content ?? "").length,
+        created: true,
+        overwritten: false,
+      });
+    });
+
+    // When
+    const result = await t.run(
+      "sandbox",
+      "write-file",
+      "notes.txt",
+      "--content",
+      "hello",
+      "--app-id",
+      APP_ID,
+    );
+
+    // Then
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain('"created": true');
+  });
+
+  it("write-file reads content from stdin when --content is omitted", async () => {
+    // Given
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    // Surrounding whitespace must be preserved (file content is sent verbatim).
+    t.givenStdin("  hi  ");
+    t.api.mockRoute("POST", `${base}/write_file`, (req, res) => {
+      res.status(200).json({
+        path: req.body.path,
+        bytes_written: (req.body.content ?? "").length,
+        created: true,
+        overwritten: false,
+      });
+    });
+
+    // When
+    const result = await t.run(
+      "sandbox",
+      "write-file",
+      "notes.txt",
+      "--app-id",
+      APP_ID,
+    );
+
+    // Then — 6 bytes ("  hi  "), proving stdin is not trimmed
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain('"bytesWritten": 6');
+  });
+
+  it("run-command surfaces the remote exit code without failing the CLI", async () => {
+    // Given
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    t.api.mockRoute("POST", `${base}/run_command`, (_req, res) => {
+      res.status(200).json({
+        stdout: "",
+        stderr: "boom",
+        exit_code: 2,
+        truncated: false,
+        duration_ms: 5,
+      });
+    });
+
+    // When
+    const result = await t.run(
+      "sandbox",
+      "run-command",
+      "exit 2",
+      "--app-id",
+      APP_ID,
+    );
+
+    // Then — the HTTP call succeeded, so the CLI exits 0; the code is in the JSON
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain('"exitCode": 2');
+  });
+
+  it("release reports the cleared session", async () => {
+    // Given
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    t.api.mockRoute("POST", `${base}/release`, (_req, res) => {
+      res.status(200).json({ app_id: APP_ID, released: true });
+    });
+
+    // When
+    const result = await t.run("sandbox", "release", "--app-id", APP_ID);
+
+    // Then
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain('"released": true');
+  });
+
+  it("edit-file surfaces a backend error code", async () => {
+    // Given
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    t.api.mockError("post", `${base}/edit_file`, {
+      status: 400,
+      body: {
+        message: "old_text is not unique in the file.",
+        extra_data: { code: "EDIT_TEXT_NOT_UNIQUE" },
+      },
+    });
+
+    // When
+    const result = await t.run(
+      "sandbox",
+      "edit-file",
+      "src/x.ts",
+      "--edits-json",
+      '[{"old_text":"a","new_text":"b"}]',
+      "--app-id",
+      APP_ID,
+    );
+
+    // Then
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("not unique");
+  });
+
+  it("edit-file rejects malformed --edits-json before calling the API", async () => {
+    // Given
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+
+    // When
+    const result = await t.run(
+      "sandbox",
+      "edit-file",
+      "src/x.ts",
+      "--edits-json",
+      "not json",
+      "--app-id",
+      APP_ID,
+    );
+
+    // Then
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("valid JSON");
+  });
+
+  it("fails when no app ID is available", async () => {
+    // Given — logged in, but no --app-id, no env, and no linked project
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+
+    // When
+    const result = await t.run("sandbox", "list-directory");
+
+    // Then
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("No Base44 app ID found");
+  });
+});

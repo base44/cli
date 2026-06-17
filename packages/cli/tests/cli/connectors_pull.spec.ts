@@ -24,6 +24,21 @@ describe("connectors pull command", () => {
     t.expectResult(result).toContain("No Base44 app ID found");
   });
 
+  it("pulls without a project using --app-id", async () => {
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    t.api.mockConnectorsList({
+      integrations: [
+        { integration_type: "slack", status: "active", scopes: ["chat:write"] },
+      ],
+    });
+    t.api.mockStripeStatus({ stripe_mode: null });
+
+    const result = await t.run("connectors", "pull", "--app-id", "test-app-id");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Written: slack");
+  });
+
   it("pulls connectors successfully", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
     t.api.mockConnectorsList({
