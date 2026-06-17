@@ -1,7 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
 import jwt from "jsonwebtoken";
-import { outdent } from "outdent";
 import { describe, expect, it } from "vitest";
 import {
   createServiceAuthorizationHeader,
@@ -14,6 +11,15 @@ const expectServiceAuthorization = (value: unknown) => {
   expect(value).toEqual(expect.stringMatching(/^Bearer \S+$/));
   const token = (value as string).replace("Bearer ", "");
   expect(jwt.decode(token)?.sub).toBe(SERVICE_ROLE_EMAIL);
+};
+
+const isProcessRunning = (pid: number): boolean => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code !== "ESRCH";
+  }
 };
 
 describe("dev command", () => {
@@ -86,29 +92,24 @@ describe("dev command", () => {
     expect(result.exitCode).not.toBe(0);
   });
 
-  it("forwards caller Authorization and injects a service JWT to local functions", async () => {
-    await t.givenLoggedInWithProject(fixture("full-project"));
+  it("stops the frontend serveCommand when the dev server stops", async () => {
+    await t.givenLoggedInWithProject(fixture("with-stoppable-serve-command"));
 
-    await writeFile(
-      join(
-        t.getTempDir(),
-        "project",
-        "base44",
-        "functions",
-        "hello",
-        "index.ts",
-      ),
-      outdent`
-        Deno.serve((req: Request) => {
-          return new Response(JSON.stringify({
-            authorization: req.headers.get("authorization"),
-            serviceAuthorization: req.headers.get("base44-service-authorization"),
-          }), {
-            headers: { "Content-Type": "application/json" },
-          });
-        });
-      `,
-    );
+    const handle = await t.runLive("dev");
+    await handle.waitForOutput(/FRONTEND_PID=/);
+    const frontendPidText = await t.readProjectFile("frontend.pid");
+    if (!frontendPidText) {
+      throw new Error("Expected frontend.pid to be written by serveCommand");
+    }
+    const frontendPid = Number(frontendPidText);
+
+    await handle.stop();
+
+    expect(isProcessRunning(frontendPid)).toBe(false);
+  });
+
+  it("forwards caller Authorization and injects a service JWT to local functions", async () => {
+    await t.givenLoggedInWithProject(fixture("with-service-auth-function"));
 
     const handle = await t.runLive("dev");
     const devServerUrl = await waitForDevServer(handle);
@@ -133,28 +134,7 @@ describe("dev command", () => {
   });
 
   it("injects a synthetic service token for unauthenticated function calls", async () => {
-    await t.givenLoggedInWithProject(fixture("full-project"));
-
-    await writeFile(
-      join(
-        t.getTempDir(),
-        "project",
-        "base44",
-        "functions",
-        "hello",
-        "index.ts",
-      ),
-      outdent`
-        Deno.serve((req: Request) => {
-          return new Response(JSON.stringify({
-            authorization: req.headers.get("authorization"),
-            serviceAuthorization: req.headers.get("base44-service-authorization"),
-          }), {
-            headers: { "Content-Type": "application/json" },
-          });
-        });
-      `,
-    );
+    await t.givenLoggedInWithProject(fixture("with-service-auth-function"));
 
     const handle = await t.runLive("dev");
     const devServerUrl = await waitForDevServer(handle);
@@ -181,26 +161,7 @@ describe("dev command", () => {
   });
 
   it("allows service-role JWTs to bypass denied entity create RLS", async () => {
-    await t.givenLoggedInWithProject(fixture("basic"));
-
-    const entitiesDir = join(t.getTempDir(), "project", "base44", "entities");
-    await mkdir(entitiesDir, { recursive: true });
-    await writeFile(
-      join(entitiesDir, "private-note.jsonc"),
-      outdent`
-        {
-          "name": "PrivateNote",
-          "type": "object",
-          "properties": {
-            "title": { "type": "string" }
-          },
-          "rls": {
-            "create": false,
-            "read": false
-          }
-        }
-      `,
-    );
+    await t.givenLoggedInWithProject(fixture("with-private-note-entity"));
 
     const handle = await t.runLive("dev");
     const devServerUrl = await waitForDevServer(handle);

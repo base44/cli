@@ -1,0 +1,6 @@
+{
+  "name": "Stoppable Serve Command Project",
+  "site": {
+    "serveCommand": "node frontend-server.cjs"
+  }
+}

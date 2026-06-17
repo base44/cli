@@ -1,0 +1,11 @@
+{
+  "name": "PrivateNote",
+  "type": "object",
+  "properties": {
+    "title": { "type": "string" }
+  },
+  "rls": {
+    "create": false,
+    "read": false
+  }
+}
