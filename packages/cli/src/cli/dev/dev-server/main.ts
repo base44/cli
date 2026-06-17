@@ -261,20 +261,26 @@ export async function createDevServer(
     });
   }
 
-  const closeServer = () =>
-    new Promise<void>((resolve, reject) => {
+  const handleShutdownError = (error: unknown) => {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    devLogger.error(`Failed to shut down dev server: ${errorMessage}`);
+  };
+
+  const closeServerIfRunning = async () => {
+    if (!server.listening) {
+      return;
+    }
+
+    await new Promise<void>((resolve, reject) => {
       server.close((error) => {
         if (error) {
           reject(error);
           return;
         }
+
         resolve();
       });
     });
-
-  const handleShutdownError = (error: unknown) => {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    devLogger.error(`Failed to shut down dev server: ${errorMessage}`);
   };
 
   const runShutdown = async () => {
@@ -282,7 +288,7 @@ export async function createDevServer(
     await io.close();
     await functionManager.stopAll();
     await serveRunner?.stop();
-    await closeServer();
+    await closeServerIfRunning();
   };
 
   let shutdownPromise: Promise<void> | undefined;
