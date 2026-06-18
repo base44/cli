@@ -28,14 +28,30 @@ import {
 } from "@/core/resources/sandbox/schema.js";
 
 /**
- * Sandbox access needs the `sandbox:write` OAuth scope, which is only granted
- * at login time. A token issued before sandbox support (or by a flow that
- * didn't request the scope) surfaces as a 403. Re-issuing the device-login
- * flow fixes it, so add that hint to forbidden responses without dropping the
- * server's original guidance.
+ * Detect a genuine "missing sandbox OAuth scope" rejection. The backend only
+ * emits this when the scope is enforced (the MCP surface — see
+ * sandbox_tools.py: "Missing required OAuth scope 'sandbox:write'. Reconnect
+ * granting sandbox access."). The HTTP endpoints the CLI calls authorize via
+ * the platform JWT + app-admin and do NOT check the scope, so their 401/403s
+ * (feature-flag-off, blocked app, view-only, wrong app type) are generic and
+ * are NOT fixed by re-login — we must not slap a re-login hint on those.
+ */
+function isMissingSandboxScope(error: ApiError): boolean {
+  if (error.statusCode !== 401 && error.statusCode !== 403) {
+    return false;
+  }
+  const text = `${error.message} ${JSON.stringify(error.responseBody ?? "")}`;
+  return /sandbox:write/i.test(text) || /granting sandbox access/i.test(text);
+}
+
+/**
+ * Add a "re-login to grant sandbox access" hint, but only when the response
+ * actually indicates a missing `sandbox:write` scope — re-running the
+ * device-login flow is what grants it. Other auth failures pass through with
+ * the server's original guidance untouched.
  */
 function withSandboxAuthHint(error: ApiError): ApiError {
-  if (error.statusCode !== 403) {
+  if (!isMissingSandboxScope(error)) {
     return error;
   }
   return new ApiError(error.message, {
@@ -50,7 +66,7 @@ function withSandboxAuthHint(error: ApiError): ApiError {
       ...error.hints,
       {
         message:
-          "If you have admin access to this app, your login may predate sandbox support — run 'base44 login' again to grant sandbox access.",
+          "Run 'base44 login' again to grant sandbox access (the sandbox:write scope is only granted at login).",
         command: "base44 login",
       },
     ],

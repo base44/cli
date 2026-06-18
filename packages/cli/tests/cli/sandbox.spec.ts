@@ -182,13 +182,14 @@ describe("sandbox commands", () => {
     t.expectResult(result).toContain("not unique");
   });
 
-  it("hints to re-login on a 403 (missing sandbox scope)", async () => {
+  it("hints to re-login when the response indicates a missing sandbox scope", async () => {
     // Given
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
     t.api.mockError("post", `${base}/write_file`, {
       status: 403,
       body: {
-        message: "Not authorized.",
+        message:
+          "Missing required OAuth scope 'sandbox:write'. Reconnect granting sandbox access.",
         extra_data: { code: "NOT_AUTHORIZED" },
       },
     });
@@ -208,6 +209,34 @@ describe("sandbox commands", () => {
     t.expectResult(result).toFail();
     t.expectResult(result).toContain("base44 login");
     t.expectResult(result).toContain("grant sandbox access");
+  });
+
+  it("does NOT add the re-login hint to a generic 403 (re-login wouldn't help)", async () => {
+    // Given
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    t.api.mockError("post", `${base}/write_file`, {
+      status: 403,
+      body: {
+        message: "You have view-only access to this app.",
+        extra_data: { code: "NOT_AUTHORIZED" },
+      },
+    });
+
+    // When
+    const result = await t.run(
+      "sandbox",
+      "write-file",
+      "notes.txt",
+      "--content",
+      "hi",
+      "--app-id",
+      APP_ID,
+    );
+
+    // Then
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("view-only access");
+    t.expectResult(result).toNotContain("grant sandbox access");
   });
 
   it("edit-file rejects malformed --edits-json before calling the API", async () => {
