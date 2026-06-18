@@ -27,6 +27,37 @@ import {
   WriteFileResponseSchema,
 } from "@/core/resources/sandbox/schema.js";
 
+/**
+ * Sandbox access needs the `sandbox:write` OAuth scope, which is only granted
+ * at login time. A token issued before sandbox support (or by a flow that
+ * didn't request the scope) surfaces as a 403. Re-issuing the device-login
+ * flow fixes it, so add that hint to forbidden responses without dropping the
+ * server's original guidance.
+ */
+function withSandboxAuthHint(error: ApiError): ApiError {
+  if (error.statusCode !== 403) {
+    return error;
+  }
+  return new ApiError(error.message, {
+    statusCode: error.statusCode,
+    requestUrl: error.requestUrl,
+    requestMethod: error.requestMethod,
+    requestBody: error.requestBody,
+    responseBody: error.responseBody,
+    requestId: error.requestId,
+    details: error.details,
+    hints: [
+      ...error.hints,
+      {
+        message:
+          "If you have admin access to this app, your login may predate sandbox support — run 'base44 login' again to grant sandbox access.",
+        command: "base44 login",
+      },
+    ],
+    cause: error,
+  });
+}
+
 async function callTool<T>(
   appId: string,
   tool: string,
@@ -41,7 +72,7 @@ async function callTool<T>(
   try {
     response = await client.post(tool, { json: payload, timeout });
   } catch (error) {
-    throw await ApiError.fromHttpError(error, context);
+    throw withSandboxAuthHint(await ApiError.fromHttpError(error, context));
   }
 
   const result = schema.safeParse(await response.json());

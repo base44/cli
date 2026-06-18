@@ -182,6 +182,34 @@ describe("sandbox commands", () => {
     t.expectResult(result).toContain("not unique");
   });
 
+  it("hints to re-login on a 403 (missing sandbox scope)", async () => {
+    // Given
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    t.api.mockError("post", `${base}/write_file`, {
+      status: 403,
+      body: {
+        message: "Not authorized.",
+        extra_data: { code: "NOT_AUTHORIZED" },
+      },
+    });
+
+    // When
+    const result = await t.run(
+      "sandbox",
+      "write-file",
+      "notes.txt",
+      "--content",
+      "hi",
+      "--app-id",
+      APP_ID,
+    );
+
+    // Then
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("base44 login");
+    t.expectResult(result).toContain("grant sandbox access");
+  });
+
   it("edit-file rejects malformed --edits-json before calling the API", async () => {
     // Given
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
