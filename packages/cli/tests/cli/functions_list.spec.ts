@@ -21,15 +21,15 @@ describe("functions list command", () => {
         {
           name: "func-a",
           deployment_id: "d1",
-          entry: "index.ts",
-          files: [{ path: "index.ts", content: "" }],
+          entry: "entry.ts",
+          files: [{ path: "entry.ts", content: "" }],
           automations: [],
         },
         {
           name: "func-b",
           deployment_id: "d2",
-          entry: "index.ts",
-          files: [{ path: "index.ts", content: "" }],
+          entry: "entry.ts",
+          files: [{ path: "entry.ts", content: "" }],
           automations: [],
         },
       ],
@@ -50,8 +50,8 @@ describe("functions list command", () => {
         {
           name: "func-a",
           deployment_id: "d1",
-          entry: "index.ts",
-          files: [{ path: "index.ts", content: "" }],
+          entry: "entry.ts",
+          files: [{ path: "entry.ts", content: "" }],
           automations: [
             {
               name: "daily-cron",
@@ -88,8 +88,8 @@ describe("functions list command", () => {
         {
           name: "projectless-func",
           deployment_id: "d1",
-          entry: "index.ts",
-          files: [{ path: "index.ts", content: "" }],
+          entry: "entry.ts",
+          files: [{ path: "entry.ts", content: "" }],
           automations: [],
         },
       ],
@@ -109,8 +109,8 @@ describe("functions list command", () => {
         {
           name: "flag-app-func",
           deployment_id: "d1",
-          entry: "index.ts",
-          files: [{ path: "index.ts", content: "" }],
+          entry: "entry.ts",
+          files: [{ path: "entry.ts", content: "" }],
           automations: [],
         },
       ],

@@ -21,8 +21,8 @@ describe("functions pull command", () => {
         {
           name: "my-func",
           deployment_id: "d1",
-          entry: "index.ts",
-          files: [{ path: "index.ts", content: "Deno.serve(() => {})" }],
+          entry: "entry.ts",
+          files: [{ path: "entry.ts", content: "Deno.serve(() => {})" }],
           automations: [],
         },
       ],
@@ -43,15 +43,15 @@ describe("functions pull command", () => {
         {
           name: "crm__syncCustomer",
           deployment_id: "d1",
-          entry: "index.ts",
-          files: [{ path: "index.ts", content: "Deno.serve(() => {})" }],
+          entry: "entry.ts",
+          files: [{ path: "entry.ts", content: "Deno.serve(() => {})" }],
           automations: [],
         },
         {
           name: "project-func",
           deployment_id: "d2",
-          entry: "index.ts",
-          files: [{ path: "index.ts", content: "Deno.serve(() => {})" }],
+          entry: "entry.ts",
+          files: [{ path: "entry.ts", content: "Deno.serve(() => {})" }],
           automations: [],
         },
       ],
@@ -62,11 +62,11 @@ describe("functions pull command", () => {
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Pulled 1 function");
     t.expectResult(result).toContain("skipped 1 plugin-owned");
-    expect(await t.fileExists("base44/functions/project-func/index.ts")).toBe(
+    expect(await t.fileExists("base44/functions/project-func/entry.ts")).toBe(
       true,
     );
     expect(
-      await t.fileExists("base44/functions/crm__syncCustomer/index.ts"),
+      await t.fileExists("base44/functions/crm__syncCustomer/entry.ts"),
     ).toBe(false);
   });
 
@@ -77,8 +77,8 @@ describe("functions pull command", () => {
         {
           name: "crm__syncCustomer",
           deployment_id: "d1",
-          entry: "index.ts",
-          files: [{ path: "index.ts", content: "Deno.serve(() => {})" }],
+          entry: "entry.ts",
+          files: [{ path: "entry.ts", content: "Deno.serve(() => {})" }],
           automations: [],
         },
       ],
@@ -89,7 +89,7 @@ describe("functions pull command", () => {
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("managed by a plugin");
     expect(
-      await t.fileExists("base44/functions/crm__syncCustomer/index.ts"),
+      await t.fileExists("base44/functions/crm__syncCustomer/entry.ts"),
     ).toBe(false);
   });
 
@@ -110,15 +110,15 @@ describe("functions pull command", () => {
         {
           name: "func-a",
           deployment_id: "d1",
-          entry: "index.ts",
-          files: [{ path: "index.ts", content: "Deno.serve(() => {})" }],
+          entry: "entry.ts",
+          files: [{ path: "entry.ts", content: "Deno.serve(() => {})" }],
           automations: [],
         },
         {
           name: "func-b",
           deployment_id: "d2",
-          entry: "index.ts",
-          files: [{ path: "index.ts", content: "Deno.serve(() => {})" }],
+          entry: "entry.ts",
+          files: [{ path: "entry.ts", content: "Deno.serve(() => {})" }],
           automations: [],
         },
       ],
@@ -167,10 +167,10 @@ describe("functions pull command", () => {
         {
           name: "with-imports",
           deployment_id: "d1",
-          entry: "index.ts",
+          entry: "entry.ts",
           files: [
             {
-              path: "index.ts",
+              path: "entry.ts",
               content:
                 'import { helper } from "./utils/helper.ts";\nDeno.serve(() => helper())',
             },
@@ -189,7 +189,7 @@ describe("functions pull command", () => {
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Pulled 1 function");
     const entry = await t.readProjectFile(
-      "base44/functions/with-imports/index.ts",
+      "base44/functions/with-imports/entry.ts",
     );
     expect(entry).toContain("import { helper }");
     const helper = await t.readProjectFile(
@@ -247,8 +247,8 @@ describe("functions pull command", () => {
         {
           name: "automated-func",
           deployment_id: "d1",
-          entry: "index.ts",
-          files: [{ path: "index.ts", content: "Deno.serve(() => {})" }],
+          entry: "entry.ts",
+          files: [{ path: "entry.ts", content: "Deno.serve(() => {})" }],
           automations: [
             {
               name: "daily-cron",
@@ -291,8 +291,8 @@ describe("functions pull command", () => {
         {
           name: "stable-func",
           deployment_id: "d1",
-          entry: "index.ts",
-          files: [{ path: "index.ts", content: "Deno.serve(() => {})" }],
+          entry: "entry.ts",
+          files: [{ path: "entry.ts", content: "Deno.serve(() => {})" }],
           automations: [],
         },
       ],

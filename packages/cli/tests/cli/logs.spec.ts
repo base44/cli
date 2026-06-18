@@ -78,8 +78,8 @@ describe("logs command", () => {
         {
           name: "my-function",
           deployment_id: "d1",
-          entry: "index.ts",
-          files: [{ path: "index.ts", content: "" }],
+          entry: "entry.ts",
+          files: [{ path: "entry.ts", content: "" }],
           automations: [],
         },
       ],
@@ -112,8 +112,8 @@ describe("logs command", () => {
         {
           name: "my-function",
           deployment_id: "d1",
-          entry: "index.ts",
-          files: [{ path: "index.ts", content: "" }],
+          entry: "entry.ts",
+          files: [{ path: "entry.ts", content: "" }],
           automations: [],
         },
       ],
@@ -139,8 +139,8 @@ describe("logs command", () => {
         {
           name: "remote-fn",
           deployment_id: "d1",
-          entry: "index.ts",
-          files: [{ path: "index.ts", content: "" }],
+          entry: "entry.ts",
+          files: [{ path: "entry.ts", content: "" }],
           automations: [],
         },
       ],

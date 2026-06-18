@@ -1,4 +1,4 @@
 {
   "name": "process-order",
-  "entry": "index.ts"
+  "entry": "entry.ts"
 }

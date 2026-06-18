@@ -180,7 +180,7 @@ describe("functions deploy command", () => {
         {
           name: "orphan-fn",
           deployment_id: "dep_orphan",
-          entry: "index.ts",
+          entry: "entry.ts",
           files: [],
           automations: [],
         },

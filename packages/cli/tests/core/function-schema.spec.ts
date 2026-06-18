@@ -8,7 +8,7 @@ describe("Function connector automation schemas", () => {
   it("parses recursive trigger conditions without losing logic", () => {
     const result = FunctionConfigSchema.safeParse({
       name: "handle-slack-events",
-      entry: "index.ts",
+      entry: "entry.ts",
       automations: [
         {
           name: "slack-router",
@@ -88,7 +88,7 @@ describe("Function connector automation schemas", () => {
   it("accepts catch-all connector automations with empty events", () => {
     const result = FunctionConfigSchema.safeParse({
       name: "handle-calendar-events",
-      entry: "index.ts",
+      entry: "entry.ts",
       automations: [
         {
           name: "calendar-catch-all",
@@ -106,7 +106,7 @@ describe("Function connector automation schemas", () => {
     for (const triggerConditions of [null, undefined]) {
       const result = FunctionConfigSchema.safeParse({
         name: "clear-conditions",
-        entry: "index.ts",
+        entry: "entry.ts",
         automations: [
           {
             name: "clearable-connector",
@@ -132,7 +132,7 @@ describe("Function connector automation schemas", () => {
     for (const triggerConditions of invalidForms) {
       const result = FunctionConfigSchema.safeParse({
         name: "bad-conditions",
-        entry: "index.ts",
+        entry: "entry.ts",
         automations: [
           {
             name: "bad-connector",
@@ -151,7 +151,7 @@ describe("Function connector automation schemas", () => {
   it("accepts exists-style conditions without a value", () => {
     const result = FunctionConfigSchema.safeParse({
       name: "exists-filter",
-      entry: "index.ts",
+      entry: "entry.ts",
       automations: [
         {
           name: "slack-has-thread-ts",
@@ -176,7 +176,7 @@ describe("Function connector automation schemas", () => {
   it("rejects connector automation missing integration_type", () => {
     const result = FunctionConfigSchema.safeParse({
       name: "missing-integration",
-      entry: "index.ts",
+      entry: "entry.ts",
       automations: [
         {
           name: "bad-connector",
@@ -192,7 +192,7 @@ describe("Function connector automation schemas", () => {
   it("rejects condition group with zero conditions", () => {
     const result = FunctionConfigSchema.safeParse({
       name: "empty-group",
-      entry: "index.ts",
+      entry: "entry.ts",
       automations: [
         {
           name: "empty-conditions",
@@ -212,7 +212,7 @@ describe("Function connector automation schemas", () => {
   it("rejects unknown automation type", () => {
     const result = FunctionConfigSchema.safeParse({
       name: "unknown-type",
-      entry: "index.ts",
+      entry: "entry.ts",
       automations: [
         {
           name: "mystery",
@@ -231,8 +231,8 @@ describe("Function connector automation schemas", () => {
         {
           name: "handle-webhooks",
           deployment_id: "dep_123",
-          entry: "index.ts",
-          files: [{ path: "index.ts", content: "Deno.serve(() => {})" }],
+          entry: "entry.ts",
+          files: [{ path: "entry.ts", content: "Deno.serve(() => {})" }],
           automations: [
             {
               name: "slack-filter",

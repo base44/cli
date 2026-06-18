@@ -73,8 +73,8 @@ describe("readAllFunctions", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0].name).toBe("process-order");
-    expect(result[0].entry).toBe("index.ts");
-    expect(result[0].filePaths.length).toBeGreaterThanOrEqual(2); // index.ts, helper.ts (recursive)
+    expect(result[0].entry).toBe("entry.ts");
+    expect(result[0].filePaths.length).toBeGreaterThanOrEqual(2); // entry.ts, helper.ts (recursive)
   });
 
   it("throws when entry.ts is at functions root (empty name)", async () => {
