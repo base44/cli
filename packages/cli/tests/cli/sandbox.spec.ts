@@ -296,4 +296,18 @@ describe("sandbox commands", () => {
     t.expectResult(result).toFail();
     t.expectResult(result).toContain("No Base44 app ID found");
   });
+
+  it("--json emits failures as a JSON error envelope on stdout", async () => {
+    // Given — no app id resolvable, so the lifecycle throws before the action
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+
+    // When
+    const result = await t.run("sandbox", "list-directory", "--json");
+
+    // Then — stdout is a parseable error envelope, not plain text
+    t.expectResult(result).toFail();
+    const parsed = JSON.parse(result.stdout);
+    expect(parsed.error).toContain("No Base44 app ID found");
+    expect(Array.isArray(parsed.hints)).toBe(true);
+  });
 });
