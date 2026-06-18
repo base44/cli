@@ -1,4 +1,4 @@
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { setupCLITests } from "./testkit/index.js";
 
 const APP_ID = "test-app-id";
@@ -23,6 +23,32 @@ describe("sandbox commands", () => {
     // Then
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain('"type": "directory"');
+  });
+
+  it("--json writes a pure JSON document to stdout (status on stderr)", async () => {
+    // Given
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    t.api.mockRoute("POST", `${base}/list_directory`, (_req, res) => {
+      res.status(200).json({
+        entries: [{ name: "src", path: "src", type: "directory" }],
+        truncated: false,
+      });
+    });
+
+    // When
+    const result = await t.run(
+      "sandbox",
+      "list-directory",
+      "--app-id",
+      APP_ID,
+      "--json",
+    );
+
+    // Then — stdout parses cleanly and carries no human status line
+    t.expectResult(result).toSucceed();
+    const parsed = JSON.parse(result.stdout);
+    expect(parsed.entries[0].type).toBe("directory");
+    expect(result.stdout).not.toContain("Listed directory");
   });
 
   it("read-file passes paths and returns file content", async () => {

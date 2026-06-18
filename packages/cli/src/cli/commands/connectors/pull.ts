@@ -28,7 +28,7 @@ async function resolveConnectorsDir(options: PullOptions): Promise<string> {
 }
 
 async function pullConnectorsAction(
-  { log, runTask }: CLIContext,
+  { log, runTask, jsonMode }: CLIContext,
   options: PullOptions,
 ): Promise<RunCommandResult> {
   const connectorsDir = await resolveConnectorsDir(options);
@@ -54,6 +54,17 @@ async function pullConnectorsAction(
       errorMessage: "Failed to sync connector files",
     },
   );
+
+  if (jsonMode) {
+    return {
+      outroMessage: `Pulled ${remoteConnectors.length} connectors to ${connectorsDir}`,
+      stdout: `${JSON.stringify(
+        { connectorsDir, pulled: remoteConnectors.length, written, deleted },
+        null,
+        2,
+      )}\n`,
+    };
+  }
 
   if (written.length > 0) {
     log.success(`Written: ${written.join(", ")}`);

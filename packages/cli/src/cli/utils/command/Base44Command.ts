@@ -109,7 +109,10 @@ export class Base44Command extends Command {
   override action(fn: (ctx: CLIContext, ...args: any[]) => any): this {
     // biome-ignore lint/suspicious/noExplicitAny: must match Commander.js action() signature
     return super.action(async (...args: any[]) => {
-      const quiet = this.context.isNonInteractive;
+      // The global `--json` flag keeps stdout a pure JSON document: skip the
+      // clack framing and send the status line to stderr.
+      const jsonMode = this.context.jsonMode;
+      const quiet = this.context.isNonInteractive || jsonMode;
 
       if (!quiet) {
         await showCommandStart(this._commandOptions.fullBanner);
@@ -137,7 +140,9 @@ export class Base44Command extends Command {
           );
         } else {
           if (result.outroMessage) {
-            process.stdout.write(`${result.outroMessage}\n`);
+            // Pure JSON on stdout in json mode — status goes to stderr.
+            const statusStream = jsonMode ? process.stderr : process.stdout;
+            statusStream.write(`${result.outroMessage}\n`);
           }
           if (result.stdout) {
             process.stdout.write(result.stdout);

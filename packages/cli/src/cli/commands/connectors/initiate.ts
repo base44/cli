@@ -39,7 +39,7 @@ async function initiateAction(
   ctx: CLIContext,
   options: InitiateOptions,
 ): Promise<RunCommandResult> {
-  const { log, runTask, isNonInteractive } = ctx;
+  const { log, runTask, isNonInteractive, jsonMode } = ctx;
   const integrationType = parseIntegrationType(options.integrationType);
   const scopes = parseScopes(options.scopes);
 
@@ -62,6 +62,26 @@ async function initiateAction(
     throw new InvalidInputError(
       `Could not initiate ${integrationType}: ${response.error}${detail}`,
     );
+  }
+
+  if (jsonMode) {
+    // Emit the raw result; the caller (agent) opens redirectUrl itself. No
+    // browser/poll in json mode (it's forced non-interactive).
+    return {
+      outroMessage: response.alreadyAuthorized
+        ? `${integrationType} already authorized`
+        : `${integrationType} initialized`,
+      stdout: `${JSON.stringify(
+        {
+          integrationType,
+          alreadyAuthorized: response.alreadyAuthorized,
+          redirectUrl: response.redirectUrl,
+          connectionId: response.connectionId,
+        },
+        null,
+        2,
+      )}\n`,
+    };
   }
 
   if (response.alreadyAuthorized || !response.redirectUrl) {

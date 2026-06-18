@@ -115,20 +115,22 @@ function printSummary(
 }
 
 async function pushConnectorsAction(
-  { isNonInteractive, log, runTask }: CLIContext,
+  { isNonInteractive, log, runTask, jsonMode }: CLIContext,
   options: PushOptions,
 ): Promise<RunCommandResult> {
   const connectors = await readConnectorsToPush(options);
 
-  if (connectors.length === 0) {
-    log.info(
-      "No local connectors found - checking for remote connectors to remove",
-    );
-  } else {
-    const connectorNames = connectors.map((c) => c.type).join(", ");
-    log.info(
-      `Found ${connectors.length} connectors to push: ${connectorNames}`,
-    );
+  if (!jsonMode) {
+    if (connectors.length === 0) {
+      log.info(
+        "No local connectors found - checking for remote connectors to remove",
+      );
+    } else {
+      const connectorNames = connectors.map((c) => c.type).join(", ");
+      log.info(
+        `Found ${connectors.length} connectors to push: ${connectorNames}`,
+      );
+    }
   }
 
   const { results } = await runTask(
@@ -152,6 +154,17 @@ async function pushConnectorsAction(
     outroMessage = isNonInteractive
       ? "Skipped OAuth in non-interactive mode. Run 'base44 connectors push' locally or open the links above to authorize."
       : "Some connectors still require authorization. Run 'base44 connectors push' or open the links above to authorize.";
+  }
+
+  if (jsonMode) {
+    return {
+      outroMessage,
+      stdout: `${JSON.stringify(
+        { results, oauth: Object.fromEntries(oauthOutcomes) },
+        null,
+        2,
+      )}\n`,
+    };
   }
 
   printSummary(results, oauthOutcomes, log);

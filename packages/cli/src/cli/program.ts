@@ -38,6 +38,12 @@ export function createProgram(context: CLIContext): Command {
       new Option("--app-id <id>", "Base44 app ID to use").env(
         BASE44_APP_ID_ENV_VAR,
       ),
+    )
+    .addOption(
+      new Option(
+        "--json",
+        "Output machine-readable JSON to stdout (status/logs go to stderr)",
+      ),
     );
 
   program.configureHelp({

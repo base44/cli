@@ -30,8 +30,12 @@ async function runCLI(options?: RunCLIOptions): Promise<void> {
   // Register process error handlers FIRST
   errorReporter.registerProcessErrorHandlers();
 
-  // Create context for dependency injection
-  const isNonInteractive = !process.stdin.isTTY || !process.stdout.isTTY;
+  // Create context for dependency injection.
+  // `--json` forces non-interactive wiring so the spinner and logs go to
+  // stderr, leaving stdout for the pure JSON document.
+  const jsonMode = process.argv.includes("--json");
+  const isNonInteractive =
+    !process.stdin.isTTY || !process.stdout.isTTY || jsonMode;
   const log = isNonInteractive ? new SimpleLogger() : new ClackLogger();
   const runTask = isNonInteractive
     ? createSimpleRunTask(log)
@@ -39,6 +43,7 @@ async function runCLI(options?: RunCLIOptions): Promise<void> {
   const context: CLIContext = {
     errorReporter,
     isNonInteractive,
+    jsonMode,
     distribution: options?.distribution ?? "npm",
     log,
     runTask,
