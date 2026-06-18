@@ -8,5 +8,10 @@ export function getLoginCommand(): Command {
     requireAppContext: false,
   })
     .description("Authenticate with Base44")
+    .option(
+      "--device-code",
+      "Use device code flow instead of opening a browser",
+      false,
+    )
     .action(login);
 }

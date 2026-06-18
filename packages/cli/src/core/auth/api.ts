@@ -10,14 +10,17 @@ import {
   UserInfoSchema,
 } from "@/core/auth/schema.js";
 import { oauthClient } from "@/core/clients/index.js";
+import { getBase44ApiUrl } from "@/core/config.js";
 import { AUTH_CLIENT_ID } from "@/core/consts.js";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";
+
+const OAUTH_SCOPE = "apps:read apps:write offline";
 
 export async function generateDeviceCode(): Promise<DeviceCodeResponse> {
   const response = await oauthClient.post("oauth/device/code", {
     json: {
       client_id: AUTH_CLIENT_ID,
-      scope: "apps:read apps:write",
+      scope: OAUTH_SCOPE,
     },
     throwHttpErrors: false,
   });
@@ -124,6 +127,70 @@ export async function renewAccessToken(
       });
     }
 
+    const { error, error_description } = errorResult.data;
+    throw new ApiError(error_description ?? `OAuth error: ${error}`, {
+      statusCode: response.status,
+    });
+  }
+
+  const result = TokenResponseSchema.safeParse(json);
+
+  if (!result.success) {
+    throw new SchemaValidationError(
+      "Invalid token response from server",
+      result.error,
+    );
+  }
+
+  return result.data;
+}
+
+export function buildAuthorizeUrl(params: {
+  redirectUri: string;
+  state: string;
+  codeChallenge: string;
+}): string {
+  const search = new URLSearchParams({
+    response_type: "code",
+    client_id: AUTH_CLIENT_ID,
+    redirect_uri: params.redirectUri,
+    scope: OAUTH_SCOPE,
+    state: params.state,
+    code_challenge: params.codeChallenge,
+    code_challenge_method: "S256",
+  });
+  return `${getBase44ApiUrl().replace(/\/$/, "")}/oauth/authorize?${search.toString()}`;
+}
+
+export async function exchangeCodeForToken(params: {
+  code: string;
+  redirectUri: string;
+  codeVerifier: string;
+}): Promise<TokenResponse> {
+  const searchParams = new URLSearchParams();
+  searchParams.set("grant_type", "authorization_code");
+  searchParams.set("code", params.code);
+  searchParams.set("redirect_uri", params.redirectUri);
+  searchParams.set("client_id", AUTH_CLIENT_ID);
+  searchParams.set("code_verifier", params.codeVerifier);
+
+  const response = await oauthClient.post("oauth/token", {
+    body: searchParams.toString(),
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    throwHttpErrors: false,
+  });
+
+  const json = await response.json();
+
+  if (!response.ok) {
+    const errorResult = OAuthErrorSchema.safeParse(json);
+    if (!errorResult.success) {
+      throw new ApiError(`Token exchange failed: ${response.statusText}`, {
+        statusCode: response.status,
+      });
+    }
     const { error, error_description } = errorResult.data;
     throw new ApiError(error_description ?? `OAuth error: ${error}`, {
       statusCode: response.status,
