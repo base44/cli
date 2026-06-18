@@ -72,6 +72,30 @@ The CLI will guide you through project setup. For step-by-step tutorials, see th
 | [`site open`](https://docs.base44.com/developers/references/cli/commands/site-open) | Open the published site in your browser |
 | [`types generate`](https://docs.base44.com/developers/references/cli/commands/types-generate) | Generate TypeScript types from project resources |
 
+## Global flags
+
+These work with any command:
+
+| Flag | Description |
+| ---- | ----------- |
+| `--app-id <id>` | Target a Base44 app explicitly (overrides the linked project and `BASE44_APP_ID`) |
+| `--json` | Emit machine-readable JSON to stdout and run in silent mode |
+
+### `--json`
+
+Use `--json` for scripting and agent automation:
+
+- **stdout is a single JSON document** — pipe it straight into `jq`.
+- **Silent mode** — interactive prompts, the spinner, and human status lines are suppressed; all status and diagnostics go to **stderr**, so stdout stays pure JSON.
+- **Errors are JSON too** — a failure prints `{ "error": "...", "code": "...", "hints": [...] }` to stdout and exits non-zero, so you can parse success and failure from the same stream.
+- **Every command accepts it.** Commands with structured output (e.g. `sandbox`, `connectors`) return rich JSON; others fall back to `{ "output": "<status>" }`.
+
+```bash
+# Pure JSON on stdout, ready for jq
+base44 sandbox list-directory src --app-id app_123 --json | jq '.entries'
+base44 sandbox run-command "npm test" --app-id app_123 --json | jq '.exitCode'
+```
+
 ## AI agent skills
 
 When creating a project, [base44/skills](https://github.com/base44/skills) are automatically installed. These help AI agents understand how to work with Base44 projects.
