@@ -1,6 +1,6 @@
-# Todo App
+# Base44 App
 
-A simple todo list app built with React and Base44 backend.
+A React + TypeScript app with Base44 backend.
 
 ## Structure
 
@@ -11,10 +11,8 @@ base44/               # Backend configuration
     └── task.jsonc    # Task entity
 
 src/                  # Frontend code
-├── App.jsx           # Main todo app
-├── api/              # Base44 client
-├── components/ui/    # UI components
-└── lib/              # Utilities
+├── App.tsx           # Main app component
+└── api/              # Base44 client
 ```
 
 ## Development
@@ -29,7 +27,7 @@ npm run dev
 | Command | Description |
 |---------|-------------|
 | `npm run dev` | Start dev server |
-| `npm run build` | Build for production |
+| `npm run build` | Type-check + build for production |
 | `npm run preview` | Preview production build |
 
 ## Base44 CLI
