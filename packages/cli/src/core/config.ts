@@ -18,6 +18,11 @@ export function getAuthFilePath(): string {
   return join(getBase44GlobalDir(), "auth", "auth.json");
 }
 
+/** Directory holding one subdir per background dev env (`base44 dev run -d`). */
+export function getDevEnvsDir(): string {
+  return join(getBase44GlobalDir(), "dev-envs");
+}
+
 export function getAppConfigPath(projectRoot: string): string {
   return join(projectRoot, PROJECT_SUBDIR, ".app.jsonc");
 }

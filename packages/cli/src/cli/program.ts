@@ -19,7 +19,7 @@ import { getTypesCommand } from "@/cli/commands/types/index.js";
 import { Base44Command } from "@/cli/utils/index.js";
 import { BASE44_APP_ID_ENV_VAR } from "@/core/consts.js";
 import packageJson from "../../package.json";
-import { getDevCommand } from "./commands/dev.js";
+import { getDevCommand } from "./commands/dev/index.js";
 import { getExecCommand } from "./commands/exec.js";
 import { getEjectCommand } from "./commands/project/eject.js";
 import type { CLIContext } from "./types.js";

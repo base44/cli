@@ -12,6 +12,7 @@ import { createFunctionRouter } from "@/cli/dev/dev-server/routes/functions.js";
 import { theme } from "@/cli/utils/index.js";
 import type { ProjectData } from "@/core/project/types.js";
 import { Database } from "./db/database.js";
+import { seedDatabase } from "./db/seed.js";
 import {
   type BroadcastEntityEvent,
   broadcastEntityEvent,
@@ -92,6 +93,12 @@ export async function createDevServer(
 
   const devLogger = createDevLogger("backend", theme.styles.info);
 
+  // Readiness/identity probe. Used by `base44 dev run` to detect when a
+  // detached env is up, and by agents to confirm which env a port belongs to.
+  app.get("/__base44/health", (_req, res) => {
+    res.json({ ok: true, appId: options.appId ?? null, baseUrl });
+  });
+
   const functionManager = new FunctionManager(
     functions,
     devLogger,
@@ -106,11 +113,15 @@ export async function createDevServer(
     );
   }
 
+  // Seed fixtures live in `base44/seed/` (sibling of the entities dir).
+  const seedDir = join(dirname(project.configPath), "seed");
+
   const db = new Database();
   await db.load(entities);
   if (db.getCollectionNames().length > 0) {
     devLogger.log(`Loaded entities: ${db.getCollectionNames().join(", ")}`);
   }
+  await seedDatabase(db, seedDir, devLogger);
 
   // Socket.IO is attached after the HTTP server starts; entity routes receive
   // a broadcast callback that becomes a no-op until the server is ready.
@@ -236,6 +247,8 @@ export async function createDevServer(
             `Loaded entities: ${db.getCollectionNames().join(", ")}`,
           );
         }
+        // Re-apply seeds: dropAll() wiped the store back to empty.
+        await seedDatabase(db, seedDir, devLogger);
       }
     } catch (error) {
       const errorMessage =
