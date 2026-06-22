@@ -196,7 +196,10 @@ export type LogLevel = z.infer<typeof LogLevelSchema>;
 
 const FunctionLogEntrySchema = z.object({
   time: z.string(),
-  level: z.preprocess((v) => (v === "warn" ? "warning" : v), LogLevelSchema),
+  level: z.preprocess(
+    (v) => (v === "warn" ? "warning" : !v || v === "log" ? "info" : v),
+    LogLevelSchema,
+  ),
   message: z.string(),
 });
 
