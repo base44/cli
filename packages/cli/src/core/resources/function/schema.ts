@@ -196,7 +196,6 @@ export type LogLevel = z.infer<typeof LogLevelSchema>;
 
 const FunctionLogEntrySchema = z.object({
   time: z.string(),
-  // ponytail: Deno Deploy returns "warn" in some runtime versions; normalize to "warning"
   level: z.preprocess((v) => (v === "warn" ? "warning" : v), LogLevelSchema),
   message: z.string(),
 });
