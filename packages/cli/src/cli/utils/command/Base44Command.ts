@@ -99,6 +99,10 @@ export class Base44Command extends Command {
     return this._context;
   }
 
+  private isRawOutputMode(): boolean {
+    return (this.opts() as Record<string, unknown>).format === "json";
+  }
+
   /**
    * Register an action that receives `CLIContext` as its first argument,
    * followed by Commander's positional args, options, and command instance.
@@ -109,7 +113,7 @@ export class Base44Command extends Command {
   override action(fn: (ctx: CLIContext, ...args: any[]) => any): this {
     // biome-ignore lint/suspicious/noExplicitAny: must match Commander.js action() signature
     return super.action(async (...args: any[]) => {
-      const quiet = this.context.isNonInteractive;
+      const quiet = this.context.isNonInteractive || this.isRawOutputMode();
 
       if (!quiet) {
         await showCommandStart(this._commandOptions.fullBanner);

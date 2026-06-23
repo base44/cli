@@ -1,4 +1,4 @@
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { fixture, setupCLITests } from "./testkit/index.js";
 
 describe("logs command", () => {
@@ -286,5 +286,60 @@ describe("logs command", () => {
     );
 
     t.expectResult(result).toSucceed();
+  });
+
+  it("outputs valid JSON with --format json", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+    t.api.mockFunctionLogs("my-function", [
+      { time: "2024-01-15T10:30:00.000Z", level: "info", message: "Hello" },
+    ]);
+
+    const result = await t.run(
+      "logs",
+      "--function",
+      "my-function",
+      "--format",
+      "json",
+    );
+
+    t.expectResult(result).toSucceed();
+    const stdout = result.stdout ?? "";
+    const jsonStart = stdout.indexOf("[");
+    const parsed = JSON.parse(stdout.slice(jsonStart));
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0].message).toContain("Hello");
+  });
+
+  it("fails with invalid format option", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+
+    const result = await t.run(
+      "logs",
+      "--function",
+      "dummy",
+      "--format",
+      "xml",
+    );
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("is invalid");
+  });
+
+  it("accepts relative time shortcuts for --since", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+    t.api.mockFunctionLogs("my-function", [
+      { time: "2024-01-15T10:30:00.000Z", level: "info", message: "Recent" },
+    ]);
+
+    const result = await t.run(
+      "logs",
+      "--function",
+      "my-function",
+      "--since",
+      "1h",
+    );
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Recent");
   });
 });

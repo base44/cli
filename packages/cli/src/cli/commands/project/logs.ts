@@ -22,7 +22,7 @@ interface LogsOptions {
   level?: string;
   limit?: string;
   order?: string;
-  json?: boolean;
+  format?: "text" | "json";
 }
 
 /**
@@ -70,6 +70,16 @@ function parseFunctionNames(option: string | undefined): string[] {
 }
 
 function normalizeDatetime(value: string): string {
+  const rel = value.match(/^(\d+)(m|h|d)$/);
+  if (rel) {
+    const ms =
+      rel[2] === "m"
+        ? Number(rel[1]) * 60_000
+        : rel[2] === "h"
+          ? Number(rel[1]) * 3_600_000
+          : Number(rel[1]) * 86_400_000;
+    return new Date(Date.now() - ms).toISOString();
+  }
   if (/Z$|[+-]\d{2}:\d{2}$/.test(value)) return value;
   return `${value}Z`;
 }
@@ -143,8 +153,9 @@ async function fetchLogsForFunctions(
       throw error;
     }
 
-    const entries = logs.map((entry) => normalizeLogEntry(entry, functionName));
-    allEntries.push(...entries);
+    allEntries.push(
+      ...logs.map((entry) => normalizeLogEntry(entry, functionName)),
+    );
   }
 
   // When fetching multiple functions, merge-sort the combined results
@@ -212,11 +223,16 @@ async function logsAction(
     entries = entries.slice(0, limit);
   }
 
-  const logsOutput = options.json
-    ? `${JSON.stringify(entries, null, 2)}\n`
-    : formatLogs(entries);
+  const logsOutput =
+    options.format === "json"
+      ? `${JSON.stringify(entries, null, 2)}\n`
+      : formatLogs(entries);
 
-  return { outroMessage: "Fetched logs", stdout: logsOutput };
+  const shouldOutputOutroMessage = options.format !== "json";
+  return {
+    outroMessage: shouldOutputOutroMessage ? "Fetched logs" : undefined,
+    stdout: logsOutput,
+  };
 }
 
 export function getLogsCommand(): Command {
@@ -244,6 +260,11 @@ export function getLogsCommand(): Command {
     .option("-n, --limit <n>", "Results per page (1-1000, default: 50)")
     .addOption(
       new Option("--order <order>", "Sort order").choices(["asc", "desc"]),
+    )
+    .addOption(
+      new Option("--format <format>", "Output format")
+        .choices(["text", "json"])
+        .default("text"),
     )
     .action(logsAction);
 }
