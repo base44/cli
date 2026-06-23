@@ -1,8 +1,26 @@
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { fixture, setupCLITests } from "./testkit/index.js";
 
 describe("deploy command (unified)", () => {
   const t = setupCLITests();
+
+  it("applies app visibility from config during deploy", async () => {
+    await t.givenLoggedInWithProject(fixture("with-visibility"));
+
+    let body: unknown;
+    t.api.mockRoute("PUT", `/api/apps/${t.api.appId}`, (req, res) => {
+      body = req.body;
+      res.status(200).json({});
+    });
+    t.api.mockConnectorsList({ integrations: [] });
+    t.api.mockStripeStatus({ stripe_mode: null });
+
+    const result = await t.run("deploy", "-y");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Visibility: private");
+    expect(body).toEqual({ public_settings: "private_with_login" });
+  });
 
   it("fails when --yes is not provided in non-interactive mode", async () => {
     await t.givenLoggedInWithProject(fixture("with-entities"));

@@ -5,13 +5,19 @@ import { extract } from "tar";
 import { base44Client, getAppClient } from "@/core/clients/index.js";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";
 import { getAppContext } from "@/core/project/app-config.js";
-import type { ProjectsResponse } from "@/core/project/schema.js";
+import type { ProjectsResponse, Visibility } from "@/core/project/schema.js";
 import {
   CreateProjectResponseSchema,
   ProjectsResponseSchema,
 } from "@/core/project/schema.js";
 import { PublishedUrlResponseSchema } from "@/core/site/schema.js";
 import { makeDirectory } from "@/core/utils/fs.js";
+
+const PUBLIC_SETTINGS: Record<Visibility, string> = {
+  public: "public_without_login",
+  private: "private_with_login",
+  workspace: "workspace_with_login",
+};
 
 export async function createProject(projectName: string, description?: string) {
   let response: KyResponse;
@@ -21,7 +27,7 @@ export async function createProject(projectName: string, description?: string) {
         name: projectName,
         user_description: description ?? `Backend for '${projectName}'`,
         is_managed_source_code: false,
-        public_settings: "public_without_login",
+        public_settings: PUBLIC_SETTINGS.public,
       },
     });
   } catch (error) {
@@ -40,6 +46,24 @@ export async function createProject(projectName: string, description?: string) {
   return {
     projectId: result.data.id,
   };
+}
+
+/**
+ * Applies the app's visibility via the backend. No-op when visibility is unset,
+ * so callers (e.g. deploy) don't need to guard the call themselves.
+ */
+export async function setAppVisibility(
+  visibility: Visibility | undefined,
+): Promise<void> {
+  if (!visibility) return;
+  const { id } = getAppContext();
+  try {
+    await base44Client.put(`api/apps/${id}`, {
+      json: { public_settings: PUBLIC_SETTINGS[visibility] },
+    });
+  } catch (error) {
+    throw await ApiError.fromHttpError(error, "updating app visibility");
+  }
 }
 
 export async function listProjects(): Promise<ProjectsResponse> {

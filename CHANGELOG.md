@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- App visibility: `base44 visibility <public|private|workspace>` sets it on the server directly (accepts `--app-id` to target any app). Also configurable via `"visibility"` in `config.jsonc`, which `base44 deploy` applies. New projects scaffold `"visibility": "public"`.
+
 ## [0.0.51] - 2026-04-28
 
 ### Added

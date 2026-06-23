@@ -73,6 +73,9 @@ export async function deployAction(
   if (authConfig.length > 0) {
     summaryLines.push("  - Auth config");
   }
+  if (project.visibility) {
+    summaryLines.push(`  - Visibility: ${project.visibility}`);
+  }
   if (project.site?.outputDirectory) {
     summaryLines.push(`  - Site from ${project.site.outputDirectory}`);
   }

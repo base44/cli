@@ -417,6 +417,11 @@ export class ApiError extends SystemError {
         },
       ];
     }
+    // Remaining 4xx are client errors, not connectivity problems, so the network
+    // hint would mislead. Reserve it for connection failures and 5xx server faults.
+    if (statusCode && statusCode < 500) {
+      return [];
+    }
     return [{ message: "Check your network connection and try again" }];
   }
 

@@ -35,6 +35,9 @@ export const PluginReferenceSchema = z.object({
 
 export type PluginReference = z.infer<typeof PluginReferenceSchema>;
 
+export const VISIBILITY_LEVELS = ["public", "private", "workspace"] as const;
+export type Visibility = (typeof VISIBILITY_LEVELS)[number];
+
 export const ProjectConfigSchema = z.object({
   name: z
     .string({
@@ -42,6 +45,7 @@ export const ProjectConfigSchema = z.object({
     })
     .min(1, "App name cannot be empty"),
   description: z.string().optional(),
+  visibility: z.enum(VISIBILITY_LEVELS).optional(),
   site: SiteConfigSchema.optional(),
   entitiesDir: z.string().optional().default("entities"),
   functionsDir: z.string().optional().default("functions"),

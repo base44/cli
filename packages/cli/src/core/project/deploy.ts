@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import { setAppVisibility } from "@/core/project/api.js";
 import type { ProjectData } from "@/core/project/types.js";
 import { agentResource } from "@/core/resources/agent/index.js";
 import { authConfigResource } from "@/core/resources/auth-config/index.js";
@@ -28,6 +29,7 @@ export function hasResourcesToDeploy(projectData: ProjectData): boolean {
   const hasAgents = agents.length > 0;
   const hasConnectors = connectors.length > 0;
   const hasAuthConfig = authConfig.length > 0;
+  const hasVisibility = Boolean(project.visibility);
 
   return (
     hasEntities ||
@@ -35,6 +37,7 @@ export function hasResourcesToDeploy(projectData: ProjectData): boolean {
     hasAgents ||
     hasConnectors ||
     hasAuthConfig ||
+    hasVisibility ||
     hasSite
   );
 }
@@ -72,6 +75,7 @@ export async function deployAll(
   const { project, entities, functions, agents, connectors, authConfig } =
     projectData;
 
+  await setAppVisibility(project.visibility);
   await entityResource.push(entities);
   await deployFunctionsSequentially(functions, {
     onStart: options?.onFunctionStart,

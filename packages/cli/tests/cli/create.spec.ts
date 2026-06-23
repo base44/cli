@@ -1,5 +1,6 @@
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { setupCLITests } from "./testkit/index.js";
 
 describe("create command", () => {
@@ -67,6 +68,12 @@ describe("create command", () => {
     t.expectResult(result).toContain("Project created successfully");
     t.expectResult(result).toContain("My New Project");
     t.expectResult(result).toContain("new-project-id");
+
+    const config = await readFile(
+      join(projectPath, "base44", "config.jsonc"),
+      "utf-8",
+    );
+    expect(config).toContain('"visibility": "public"');
   });
 
   it("infers path from name when --path is not provided", async () => {

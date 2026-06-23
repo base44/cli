@@ -152,6 +152,19 @@ describe("SystemError subclasses", () => {
     );
   });
 
+  it("does not suggest network troubleshooting for unhandled 4xx errors", () => {
+    // e.g. 402 plan-gating: the server message already explains the problem.
+    const error402 = new ApiError("Private Apps not on your plan", {
+      statusCode: 402,
+    });
+    expect(error402.hints).toEqual([]);
+  });
+
+  it("suggests network troubleshooting when there is no status code", () => {
+    const error = new ApiError("Connection failed");
+    expect(error.hints.some((h) => h.message.includes("network"))).toBe(true);
+  });
+
   it("ApiError stores request and response data", () => {
     const responseBody = { error: "Bad Request", detail: "Invalid field" };
     const requestBody = '{"name":"test"}';
