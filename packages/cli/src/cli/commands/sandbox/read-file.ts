@@ -27,7 +27,7 @@ async function readFileAction(
 }
 
 export function getSandboxReadFileCommand(): Command {
-  return new Base44Command("read-file")
+  return new Base44Command("read")
     .description("Read file contents from an app's remote sandbox")
     .argument("<paths...>", "One or more file paths relative to the app root")
     .option("--offset <n>", "1-based start line")

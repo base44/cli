@@ -26,7 +26,7 @@ async function writeFileAction(
 }
 
 export function getSandboxWriteFileCommand(): Command {
-  return new Base44Command("write-file")
+  return new Base44Command("write")
     .description("Create or overwrite a file in an app's remote sandbox")
     .argument("<path>", "File path relative to the app root")
     .option("--content <content>", "File content (if omitted, read from stdin)")
@@ -35,8 +35,8 @@ export function getSandboxWriteFileCommand(): Command {
       "after",
       `
 Examples:
-  $ echo "hello" | base44 sandbox write-file notes.txt
-  $ base44 sandbox write-file notes.txt --content "hello" --overwrite`,
+  $ echo "hello" | base44 sandbox write notes.txt
+  $ base44 sandbox write notes.txt --content "hello" --overwrite`,
     )
     .action(writeFileAction);
 }

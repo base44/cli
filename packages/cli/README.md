@@ -61,12 +61,12 @@ The CLI will guide you through project setup. For step-by-step tutorials, see th
 | [`secrets list`](https://docs.base44.com/developers/references/cli/commands/secrets-list) | List project secret names |
 | [`secrets set`](https://docs.base44.com/developers/references/cli/commands/secrets-set) | Set one or more project secrets |
 | [`secrets delete`](https://docs.base44.com/developers/references/cli/commands/secrets-delete) | Delete a project secret |
-| [`sandbox list-directory`](https://docs.base44.com/developers/references/cli/commands/sandbox-list-directory) | List directory entries in an app's remote sandbox |
-| [`sandbox read-file`](https://docs.base44.com/developers/references/cli/commands/sandbox-read-file) | Read file contents from an app's remote sandbox |
-| [`sandbox write-file`](https://docs.base44.com/developers/references/cli/commands/sandbox-write-file) | Create or overwrite a file in an app's remote sandbox |
-| [`sandbox edit-file`](https://docs.base44.com/developers/references/cli/commands/sandbox-edit-file) | Apply exact old→new string edits to a file in the sandbox |
+| [`sandbox ls`](https://docs.base44.com/developers/references/cli/commands/sandbox-ls) | List directory entries in an app's remote sandbox |
+| [`sandbox read`](https://docs.base44.com/developers/references/cli/commands/sandbox-read) | Read file contents from an app's remote sandbox |
+| [`sandbox write`](https://docs.base44.com/developers/references/cli/commands/sandbox-write) | Create or overwrite a file in an app's remote sandbox |
+| [`sandbox edit`](https://docs.base44.com/developers/references/cli/commands/sandbox-edit) | Apply exact old→new string edits to a file in the sandbox |
 | [`sandbox grep`](https://docs.base44.com/developers/references/cli/commands/sandbox-grep) | Search files for a pattern in an app's remote sandbox |
-| [`sandbox run-command`](https://docs.base44.com/developers/references/cli/commands/sandbox-run-command) | Run a shell command in an app's remote sandbox |
+| [`sandbox run`](https://docs.base44.com/developers/references/cli/commands/sandbox-run) | Run a shell command in an app's remote sandbox |
 | [`sandbox release`](https://docs.base44.com/developers/references/cli/commands/sandbox-release) | Release the external-agent session so the in-app builder can resume |
 | [`site deploy`](https://docs.base44.com/developers/references/cli/commands/site-deploy) | Deploy built site files to Base44 hosting |
 | [`site open`](https://docs.base44.com/developers/references/cli/commands/site-open) | Open the published site in your browser |
@@ -92,8 +92,8 @@ Use `--json` for scripting and agent automation:
 
 ```bash
 # Pure JSON on stdout, ready for jq
-base44 sandbox list-directory src --app-id app_123 --json | jq '.entries'
-base44 sandbox run-command "npm test" --app-id app_123 --json | jq '.exitCode'
+base44 sandbox ls src --app-id app_123 --json | jq '.entries'
+base44 sandbox run "npm test" --app-id app_123 --json | jq '.exitCode'
 ```
 
 ## AI agent skills

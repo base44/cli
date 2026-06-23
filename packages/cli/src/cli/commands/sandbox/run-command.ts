@@ -29,7 +29,7 @@ async function runCommandAction(
 }
 
 export function getSandboxRunCommandCommand(): Command {
-  return new Base44Command("run-command")
+  return new Base44Command("run")
     .description("Run a shell command in an app's remote sandbox")
     .argument("<command...>", "Shell command to execute (quote to keep as one)")
     .option("--cwd <path>", "Working directory relative to the app root")
@@ -41,8 +41,8 @@ export function getSandboxRunCommandCommand(): Command {
       "after",
       `
 Examples:
-  $ base44 sandbox run-command "npm test"
-  $ base44 sandbox run-command ls -la --cwd src`,
+  $ base44 sandbox run "npm test"
+  $ base44 sandbox run ls -la --cwd src`,
     )
     .action(runCommandAction);
 }

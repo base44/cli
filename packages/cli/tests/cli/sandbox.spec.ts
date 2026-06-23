@@ -7,7 +7,7 @@ const base = `/api/apps/${APP_ID}/sandbox-bridge`;
 describe("sandbox commands", () => {
   const t = setupCLITests();
 
-  it("list-directory prints the JSON result", async () => {
+  it("ls prints the JSON result", async () => {
     // Given
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
     t.api.mockRoute("POST", `${base}/list_directory`, (_req, res) => {
@@ -18,7 +18,7 @@ describe("sandbox commands", () => {
     });
 
     // When
-    const result = await t.run("sandbox", "list-directory", "--app-id", APP_ID);
+    const result = await t.run("sandbox", "ls", "--app-id", APP_ID);
 
     // Then
     t.expectResult(result).toSucceed();
@@ -36,13 +36,7 @@ describe("sandbox commands", () => {
     });
 
     // When
-    const result = await t.run(
-      "sandbox",
-      "list-directory",
-      "--app-id",
-      APP_ID,
-      "--json",
-    );
+    const result = await t.run("sandbox", "ls", "--app-id", APP_ID, "--json");
 
     // Then — stdout parses cleanly and carries no human status line
     t.expectResult(result).toSucceed();
@@ -51,7 +45,7 @@ describe("sandbox commands", () => {
     expect(result.stdout).not.toContain("Listed directory");
   });
 
-  it("read-file passes paths and returns file content", async () => {
+  it("read passes paths and returns file content", async () => {
     // Given
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
     t.api.mockRoute("POST", `${base}/read_file`, (req, res) => {
@@ -72,7 +66,7 @@ describe("sandbox commands", () => {
     // When
     const result = await t.run(
       "sandbox",
-      "read-file",
+      "read",
       "notes.txt",
       "--app-id",
       APP_ID,
@@ -83,7 +77,7 @@ describe("sandbox commands", () => {
     t.expectResult(result).toContain("hello world");
   });
 
-  it("write-file sends content from --content flag", async () => {
+  it("write sends content from --content flag", async () => {
     // Given
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
     t.api.mockRoute("POST", `${base}/write_file`, (req, res) => {
@@ -98,7 +92,7 @@ describe("sandbox commands", () => {
     // When
     const result = await t.run(
       "sandbox",
-      "write-file",
+      "write",
       "notes.txt",
       "--content",
       "hello",
@@ -111,7 +105,7 @@ describe("sandbox commands", () => {
     t.expectResult(result).toContain('"created": true');
   });
 
-  it("write-file reads content from stdin when --content is omitted", async () => {
+  it("write reads content from stdin when --content is omitted", async () => {
     // Given
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
     // Surrounding whitespace must be preserved (file content is sent verbatim).
@@ -128,7 +122,7 @@ describe("sandbox commands", () => {
     // When
     const result = await t.run(
       "sandbox",
-      "write-file",
+      "write",
       "notes.txt",
       "--app-id",
       APP_ID,
@@ -139,7 +133,7 @@ describe("sandbox commands", () => {
     t.expectResult(result).toContain('"bytesWritten": 6');
   });
 
-  it("run-command surfaces the remote exit code without failing the CLI", async () => {
+  it("run surfaces the remote exit code without failing the CLI", async () => {
     // Given
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
     t.api.mockRoute("POST", `${base}/run_command`, (_req, res) => {
@@ -153,13 +147,7 @@ describe("sandbox commands", () => {
     });
 
     // When
-    const result = await t.run(
-      "sandbox",
-      "run-command",
-      "exit 2",
-      "--app-id",
-      APP_ID,
-    );
+    const result = await t.run("sandbox", "run", "exit 2", "--app-id", APP_ID);
 
     // Then — the HTTP call succeeded, so the CLI exits 0; the code is in the JSON
     t.expectResult(result).toSucceed();
@@ -181,7 +169,7 @@ describe("sandbox commands", () => {
     t.expectResult(result).toContain('"released": true');
   });
 
-  it("edit-file surfaces a backend error code", async () => {
+  it("edit surfaces a backend error code", async () => {
     // Given
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
     t.api.mockError("post", `${base}/edit_file`, {
@@ -195,7 +183,7 @@ describe("sandbox commands", () => {
     // When
     const result = await t.run(
       "sandbox",
-      "edit-file",
+      "edit",
       "src/x.ts",
       "--edits-json",
       '[{"old_text":"a","new_text":"b"}]',
@@ -223,7 +211,7 @@ describe("sandbox commands", () => {
     // When
     const result = await t.run(
       "sandbox",
-      "write-file",
+      "write",
       "notes.txt",
       "--content",
       "hi",
@@ -251,7 +239,7 @@ describe("sandbox commands", () => {
     // When
     const result = await t.run(
       "sandbox",
-      "write-file",
+      "write",
       "notes.txt",
       "--content",
       "hi",
@@ -265,14 +253,14 @@ describe("sandbox commands", () => {
     t.expectResult(result).toNotContain("grant sandbox access");
   });
 
-  it("edit-file rejects malformed --edits-json before calling the API", async () => {
+  it("edit rejects malformed --edits-json before calling the API", async () => {
     // Given
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
 
     // When
     const result = await t.run(
       "sandbox",
-      "edit-file",
+      "edit",
       "src/x.ts",
       "--edits-json",
       "not json",
@@ -290,7 +278,7 @@ describe("sandbox commands", () => {
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
 
     // When
-    const result = await t.run("sandbox", "list-directory");
+    const result = await t.run("sandbox", "ls");
 
     // Then
     t.expectResult(result).toFail();
@@ -302,7 +290,7 @@ describe("sandbox commands", () => {
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
 
     // When
-    const result = await t.run("sandbox", "list-directory", "--json");
+    const result = await t.run("sandbox", "ls", "--json");
 
     // Then — stdout is a parseable error envelope, not plain text
     t.expectResult(result).toFail();

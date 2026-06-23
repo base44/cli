@@ -62,7 +62,7 @@ async function editFileAction(
 }
 
 export function getSandboxEditFileCommand(): Command {
-  return new Base44Command("edit-file")
+  return new Base44Command("edit")
     .description("Apply exact old→new string edits to a file in the sandbox")
     .argument("<path>", "File path relative to the app root")
     .option(
@@ -76,8 +76,8 @@ export function getSandboxEditFileCommand(): Command {
 Each edit is { "old_text": "...", "new_text": "...", "replace_all"?: true }.
 
 Examples:
-  $ echo '[{"old_text":"foo","new_text":"bar"}]' | base44 sandbox edit-file src/x.ts
-  $ base44 sandbox edit-file src/x.ts --dry-run --edits-json '[{"old_text":"a","new_text":"b","replace_all":true}]'`,
+  $ echo '[{"old_text":"foo","new_text":"bar"}]' | base44 sandbox edit src/x.ts
+  $ base44 sandbox edit src/x.ts --dry-run --edits-json '[{"old_text":"a","new_text":"b","replace_all":true}]'`,
     )
     .action(editFileAction);
 }

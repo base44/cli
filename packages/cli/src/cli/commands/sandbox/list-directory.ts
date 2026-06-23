@@ -32,7 +32,7 @@ async function listDirectoryAction(
 }
 
 export function getSandboxListDirectoryCommand(): Command {
-  return new Base44Command("list-directory")
+  return new Base44Command("ls")
     .description("List directory entries in an app's remote sandbox")
     .argument(
       "[path]",
