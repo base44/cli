@@ -244,12 +244,12 @@ export function getLogsCommand(): Command {
     )
     .option(
       "--since <datetime>",
-      "Show logs from this time (ISO format)",
+      "Show logs from this time. ISO datetime or relative shorthand (e.g. 1h, 30m, 2d)",
       normalizeDatetime,
     )
     .option(
       "--until <datetime>",
-      "Show logs until this time (ISO format)",
+      "Show logs until this time. ISO datetime or relative shorthand (e.g. 1h, 30m, 2d)",
       normalizeDatetime,
     )
     .addOption(
@@ -262,7 +262,10 @@ export function getLogsCommand(): Command {
       new Option("--order <order>", "Sort order").choices(["asc", "desc"]),
     )
     .addOption(
-      new Option("--format <format>", "Output format")
+      new Option(
+        "--format <format>",
+        "Output format (json produces clean stdout for piping to jq)",
+      )
         .choices(["text", "json"])
         .default("text"),
     )
