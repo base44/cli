@@ -288,19 +288,13 @@ describe("logs command", () => {
     t.expectResult(result).toSucceed();
   });
 
-  it("outputs valid JSON with --format json", async () => {
+  it("outputs valid JSON with --json", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
     t.api.mockFunctionLogs("my-function", [
       { time: "2024-01-15T10:30:00.000Z", level: "info", message: "Hello" },
     ]);
 
-    const result = await t.run(
-      "logs",
-      "--function",
-      "my-function",
-      "--format",
-      "json",
-    );
+    const result = await t.run("logs", "--function", "my-function", "--json");
 
     t.expectResult(result).toSucceed();
     const stdout = result.stdout ?? "";
@@ -308,21 +302,6 @@ describe("logs command", () => {
     const parsed = JSON.parse(stdout.slice(jsonStart));
     expect(parsed).toHaveLength(1);
     expect(parsed[0].message).toContain("Hello");
-  });
-
-  it("fails with invalid format option", async () => {
-    await t.givenLoggedInWithProject(fixture("basic"));
-
-    const result = await t.run(
-      "logs",
-      "--function",
-      "dummy",
-      "--format",
-      "xml",
-    );
-
-    t.expectResult(result).toFail();
-    t.expectResult(result).toContain("is invalid");
   });
 
   it("accepts relative time shortcuts for --since", async () => {

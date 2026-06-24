@@ -1,5 +1,6 @@
 import type { Command } from "commander";
 import { Option } from "commander";
+import ms, { type StringValue } from "ms";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
 import { ApiError, InvalidInputError } from "@/core/errors.js";
@@ -22,7 +23,7 @@ interface LogsOptions {
   level?: string;
   limit?: string;
   order?: string;
-  format?: "text" | "json";
+  json?: boolean;
 }
 
 /**
@@ -70,15 +71,9 @@ function parseFunctionNames(option: string | undefined): string[] {
 }
 
 function normalizeDatetime(value: string): string {
-  const rel = value.match(/^(\d+)(m|h|d)$/);
-  if (rel) {
-    const ms =
-      rel[2] === "m"
-        ? Number(rel[1]) * 60_000
-        : rel[2] === "h"
-          ? Number(rel[1]) * 3_600_000
-          : Number(rel[1]) * 86_400_000;
-    return new Date(Date.now() - ms).toISOString();
+  const duration = ms(value as StringValue);
+  if (duration !== undefined) {
+    return new Date(Date.now() - duration).toISOString();
   }
   if (/Z$|[+-]\d{2}:\d{2}$/.test(value)) return value;
   return `${value}Z`;
@@ -223,12 +218,11 @@ async function logsAction(
     entries = entries.slice(0, limit);
   }
 
-  const logsOutput =
-    options.format === "json"
-      ? `${JSON.stringify(entries, null, 2)}\n`
-      : formatLogs(entries);
+  const logsOutput = options.json
+    ? `${JSON.stringify(entries, null, 2)}\n`
+    : formatLogs(entries);
 
-  const shouldOutputOutroMessage = options.format !== "json";
+  const shouldOutputOutroMessage = !options.json;
   return {
     outroMessage: shouldOutputOutroMessage ? "Fetched logs" : undefined,
     stdout: logsOutput,
@@ -261,13 +255,6 @@ export function getLogsCommand(): Command {
     .addOption(
       new Option("--order <order>", "Sort order").choices(["asc", "desc"]),
     )
-    .addOption(
-      new Option(
-        "--format <format>",
-        "Output format (json produces clean stdout for piping to jq)",
-      )
-        .choices(["text", "json"])
-        .default("text"),
-    )
+    .option("--json", "Output as JSON (clean stdout, safe to pipe to jq)")
     .action(logsAction);
 }
