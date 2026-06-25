@@ -154,21 +154,6 @@ describe("sandbox commands", () => {
     t.expectResult(result).toContain('"exitCode": 2');
   });
 
-  it("release reports the cleared session", async () => {
-    // Given
-    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
-    t.api.mockRoute("POST", `${base}/release`, (_req, res) => {
-      res.status(200).json({ app_id: APP_ID, released: true });
-    });
-
-    // When
-    const result = await t.run("sandbox", "release", "--app-id", APP_ID);
-
-    // Then
-    t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain('"released": true');
-  });
-
   it("edit surfaces a backend error code", async () => {
     // Given
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });

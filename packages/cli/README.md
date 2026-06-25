@@ -67,7 +67,6 @@ The CLI will guide you through project setup. For step-by-step tutorials, see th
 | [`sandbox edit`](https://docs.base44.com/developers/references/cli/commands/sandbox-edit) | Apply exact old→new string edits to a file in the sandbox |
 | [`sandbox grep`](https://docs.base44.com/developers/references/cli/commands/sandbox-grep) | Search files for a pattern in an app's remote sandbox |
 | [`sandbox run`](https://docs.base44.com/developers/references/cli/commands/sandbox-run) | Run a shell command in an app's remote sandbox |
-| [`sandbox release`](https://docs.base44.com/developers/references/cli/commands/sandbox-release) | Release the external-agent session so the in-app builder can resume |
 | [`site deploy`](https://docs.base44.com/developers/references/cli/commands/site-deploy) | Deploy built site files to Base44 hosting |
 | [`site open`](https://docs.base44.com/developers/references/cli/commands/site-open) | Open the published site in your browser |
 | [`types generate`](https://docs.base44.com/developers/references/cli/commands/types-generate) | Generate TypeScript types from project resources |

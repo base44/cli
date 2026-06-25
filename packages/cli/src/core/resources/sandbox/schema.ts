@@ -153,14 +153,3 @@ export const RunCommandResponseSchema = z
     durationMs: data.duration_ms,
   }));
 export type RunCommandResponse = z.infer<typeof RunCommandResponseSchema>;
-
-export const ReleaseResponseSchema = z
-  .object({
-    app_id: z.string(),
-    released: z.boolean(),
-  })
-  .transform((data) => ({
-    appId: data.app_id,
-    released: data.released,
-  }));
-export type ReleaseResponse = z.infer<typeof ReleaseResponseSchema>;

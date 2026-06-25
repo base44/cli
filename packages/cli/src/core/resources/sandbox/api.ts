@@ -11,7 +11,6 @@ import type {
   ListDirectoryResponse,
   ReadFileParams,
   ReadFileResponse,
-  ReleaseResponse,
   RunCommandParams,
   RunCommandResponse,
   WriteFileParams,
@@ -22,7 +21,6 @@ import {
   GrepResponseSchema,
   ListDirectoryResponseSchema,
   ReadFileResponseSchema,
-  ReleaseResponseSchema,
   RunCommandResponseSchema,
   WriteFileResponseSchema,
 } from "@/core/resources/sandbox/schema.js";
@@ -176,15 +174,5 @@ export function runCommand(
     RunCommandResponseSchema,
     "running command",
     false,
-  );
-}
-
-export function releaseSession(appId: string): Promise<ReleaseResponse> {
-  return callTool(
-    appId,
-    "release",
-    {},
-    ReleaseResponseSchema,
-    "releasing sandbox session",
   );
 }
