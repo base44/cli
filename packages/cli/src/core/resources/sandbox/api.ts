@@ -3,6 +3,8 @@ import type { z } from "zod";
 import { getSandboxClient } from "@/core/clients/base44-client.js";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";
 import type {
+  CreateCheckpointParams,
+  CreateCheckpointResponse,
   EditFileParams,
   EditFileResponse,
   GrepParams,
@@ -17,6 +19,7 @@ import type {
   WriteFileResponse,
 } from "@/core/resources/sandbox/schema.js";
 import {
+  CreateCheckpointResponseSchema,
   EditFileResponseSchema,
   GrepResponseSchema,
   ListDirectoryResponseSchema,
@@ -174,5 +177,18 @@ export function runCommand(
     RunCommandResponseSchema,
     "running command",
     false,
+  );
+}
+
+export function createCheckpoint(
+  appId: string,
+  params: CreateCheckpointParams,
+): Promise<CreateCheckpointResponse> {
+  return callTool(
+    appId,
+    "create_checkpoint",
+    { ...params },
+    CreateCheckpointResponseSchema,
+    "creating checkpoint",
   );
 }

@@ -1,4 +1,5 @@
 import { Command } from "commander";
+import { getSandboxCheckpointCommand } from "./checkpoint.js";
 import { getSandboxEditFileCommand } from "./edit-file.js";
 import { getSandboxGrepCommand } from "./grep.js";
 import { getSandboxListDirectoryCommand } from "./list-directory.js";
@@ -14,5 +15,6 @@ export function getSandboxCommand(): Command {
     .addCommand(getSandboxWriteFileCommand())
     .addCommand(getSandboxEditFileCommand())
     .addCommand(getSandboxGrepCommand())
-    .addCommand(getSandboxRunCommandCommand());
+    .addCommand(getSandboxRunCommandCommand())
+    .addCommand(getSandboxCheckpointCommand());
 }

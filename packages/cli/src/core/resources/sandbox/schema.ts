@@ -50,6 +50,10 @@ export interface RunCommandParams {
   timeout_ms?: number;
 }
 
+export interface CreateCheckpointParams {
+  name?: string;
+}
+
 // ─── RESPONSE SCHEMAS ───────────────────────────────────────
 // snake_case → camelCase via .transform(), matching the function/agent resources.
 
@@ -153,3 +157,18 @@ export const RunCommandResponseSchema = z
     durationMs: data.duration_ms,
   }));
 export type RunCommandResponse = z.infer<typeof RunCommandResponseSchema>;
+
+export const CreateCheckpointResponseSchema = z
+  .object({
+    checkpoint_id: z.string(),
+    name: z.string().nullable(),
+    git_commit_hash: z.string().nullable(),
+  })
+  .transform((data) => ({
+    checkpointId: data.checkpoint_id,
+    name: data.name,
+    gitCommitHash: data.git_commit_hash,
+  }));
+export type CreateCheckpointResponse = z.infer<
+  typeof CreateCheckpointResponseSchema
+>;

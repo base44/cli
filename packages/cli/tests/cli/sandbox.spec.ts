@@ -154,6 +154,33 @@ describe("sandbox commands", () => {
     t.expectResult(result).toContain('"exitCode": 2');
   });
 
+  it("checkpoint creates a restore point with the given name", async () => {
+    // Given
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    t.api.mockRoute("POST", `${base}/create_checkpoint`, (_req, res) => {
+      res.status(200).json({
+        checkpoint_id: "cp_123",
+        name: "before refactor",
+        git_commit_hash: "abc123",
+      });
+    });
+
+    // When
+    const result = await t.run(
+      "sandbox",
+      "checkpoint",
+      "--name",
+      "before refactor",
+      "--app-id",
+      APP_ID,
+    );
+
+    // Then
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain('"checkpointId": "cp_123"');
+    t.expectResult(result).toContain('"gitCommitHash": "abc123"');
+  });
+
   it("edit surfaces a backend error code", async () => {
     // Given
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
