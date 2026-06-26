@@ -2,7 +2,7 @@
 
 **Keywords:** resource, entity, function, agent, connector, push, readAll, deploy, site, tar.gz, deployAll, ProjectData
 
-Resources are project-specific collections (entities, functions, agents, connectors) that can be read from the filesystem and pushed to the Base44 API.
+Resources are project-specific collections (entities, functions, agents, connectors, user credential definitions) that can be read from the filesystem and pushed to the Base44 API.
 
 ## Resource Interface
 
@@ -102,8 +102,24 @@ What it deploys (in order):
 1. Entities (via `entityResource.push()`)
 2. Functions (via `functionResource.push()`)
 3. Agents (via `agentResource.push()`)
-4. Connectors (via `pushConnectors()`) -- may return OAuth redirect URLs
-5. Site (if `site.outputDirectory` is configured)
+4. User credential definitions from `base44/user-secrets/*.jsonc`
+5. Connectors (via `pushConnectors()`) -- may return OAuth redirect URLs
+6. Site (if `site.outputDirectory` is configured)
+
+User credential definition files contain metadata only:
+
+```jsonc
+{
+  "name": "provider_api_key",
+  "label": "Provider API key",
+  "description": "Create an API key in your provider account.",
+  "allowedFunctions": ["call-provider"]
+}
+```
+
+Secret values are never stored in project files. Deploy fully synchronizes this
+directory; deleting a file disables that definition remotely without purging
+the encrypted values held by app users.
 
 ```bash
 base44 deploy        # With confirmation prompt

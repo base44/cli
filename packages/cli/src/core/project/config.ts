@@ -28,7 +28,8 @@ import {
   type BackendFunction,
   functionResource,
 } from "@/core/resources/function/index.js";
-import { readJsonFile } from "@/core/utils/fs.js";
+import { userSecretResource } from "@/core/resources/user-secret/index.js";
+import { pathExists, readJsonFile } from "@/core/utils/fs.js";
 
 type ProjectResources = Omit<ProjectData, "project">;
 
@@ -63,6 +64,8 @@ class ProjectConfigReader {
       agents: localResources.agents,
       connectors: localResources.connectors,
       authConfig: localResources.authConfig,
+      userSecrets: localResources.userSecrets,
+      userSecretsDirPresent: localResources.userSecretsDirPresent,
     };
   }
 
@@ -105,16 +108,34 @@ class ProjectConfigReader {
     project: ProjectConfig,
   ): Promise<ProjectResources> {
     const configDir = dirname(configPath);
-    const [entities, functions, agents, connectors, authConfig] =
-      await Promise.all([
-        entityResource.readAll(join(configDir, project.entitiesDir)),
-        functionResource.readAll(join(configDir, project.functionsDir)),
-        agentResource.readAll(join(configDir, project.agentsDir)),
-        connectorResource.readAll(join(configDir, project.connectorsDir)),
-        authConfigResource.readAll(join(configDir, project.authDir)),
-      ]);
+    const userSecretsDir = join(configDir, project.userSecretsDir);
+    const [
+      entities,
+      functions,
+      agents,
+      connectors,
+      authConfig,
+      userSecrets,
+      userSecretsDirPresent,
+    ] = await Promise.all([
+      entityResource.readAll(join(configDir, project.entitiesDir)),
+      functionResource.readAll(join(configDir, project.functionsDir)),
+      agentResource.readAll(join(configDir, project.agentsDir)),
+      connectorResource.readAll(join(configDir, project.connectorsDir)),
+      authConfigResource.readAll(join(configDir, project.authDir)),
+      userSecretResource.readAll(userSecretsDir),
+      pathExists(userSecretsDir),
+    ]);
 
-    return { entities, functions, agents, connectors, authConfig };
+    return {
+      entities,
+      functions,
+      agents,
+      connectors,
+      authConfig,
+      userSecrets,
+      userSecretsDirPresent,
+    };
   }
 
   private assertPluginProjectDoesNotLoadPlugins(
@@ -187,6 +208,8 @@ class ProjectConfigReader {
       agents: [],
       connectors: [],
       authConfig: [],
+      userSecrets: [],
+      userSecretsDirPresent: false,
     };
   }
 
@@ -243,6 +266,8 @@ class ProjectConfigReader {
       agents: [],
       connectors: [],
       authConfig: [],
+      userSecrets: [],
+      userSecretsDirPresent: false,
     };
   }
 
