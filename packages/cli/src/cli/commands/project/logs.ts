@@ -23,7 +23,6 @@ interface LogsOptions {
   level?: string;
   limit?: string;
   order?: string;
-  json?: boolean;
   env?: "preview" | "prod";
 }
 
@@ -227,11 +226,11 @@ async function logsAction(
   }
 
   const env = options.env ?? "preview";
-  const logsOutput = options.json
+  const logsOutput = ctx.jsonMode
     ? `${JSON.stringify(entries, null, 2)}\n`
     : formatLogs(entries, env);
 
-  const shouldOutputOutroMessage = !options.json;
+  const shouldOutputOutroMessage = !ctx.jsonMode;
   return {
     outroMessage: shouldOutputOutroMessage ? "Fetched logs" : undefined,
     stdout: logsOutput,
@@ -270,6 +269,5 @@ export function getLogsCommand(): Command {
         "Which deployment to read logs from: preview (current draft) or prod (published). Default: preview",
       ).choices(["preview", "prod"]),
     )
-    .option("--json", "Output as JSON (clean stdout, safe to pipe to jq)")
     .action(logsAction);
 }
