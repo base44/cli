@@ -194,6 +194,10 @@ export const LogLevelSchema = z.enum(["info", "warning", "error", "debug"]);
 
 export type LogLevel = z.infer<typeof LogLevelSchema>;
 
+export const LogEnvSchema = z.enum(["preview", "prod"]);
+
+export type LogEnv = z.infer<typeof LogEnvSchema>;
+
 const FunctionLogEntrySchema = z.object({
   time: z.string(),
   level: z.preprocess(
@@ -213,5 +217,5 @@ export interface FunctionLogFilters {
   level?: LogLevel;
   limit?: number;
   order?: "asc" | "desc";
-  env?: "preview" | "prod";
+  env?: LogEnv;
 }

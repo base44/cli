@@ -8,10 +8,12 @@ import { readProjectConfig } from "@/core/index.js";
 import type {
   FunctionLogFilters,
   FunctionLogsResponse,
+  LogEnv,
   LogLevel,
 } from "@/core/resources/function/index.js";
 import {
   fetchFunctionLogs,
+  LogEnvSchema,
   LogLevelSchema,
   listDeployedFunctions,
 } from "@/core/resources/function/index.js";
@@ -23,7 +25,7 @@ interface LogsOptions {
   level?: string;
   limit?: string;
   order?: string;
-  env?: "preview" | "prod";
+  env?: LogEnv;
 }
 
 /**
@@ -93,7 +95,7 @@ function formatEntry(entry: LogEntry): string {
 /**
  * Build function logs output (log-file style).
  */
-function formatLogs(entries: LogEntry[], env: "preview" | "prod"): string {
+function formatLogs(entries: LogEntry[], env: LogEnv): string {
   if (entries.length === 0) {
     if (env === "prod") {
       return "No production logs found. Has this app been published? Try --env preview to see draft logs.\n";
@@ -267,7 +269,7 @@ export function getLogsCommand(): Command {
       new Option(
         "--env <env>",
         "Which deployment to read logs from: preview (current draft) or prod (published). Default: preview",
-      ).choices(["preview", "prod"]),
+      ).choices([...LogEnvSchema.options]),
     )
     .action(logsAction);
 }
