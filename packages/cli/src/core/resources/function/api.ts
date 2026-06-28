@@ -96,6 +96,9 @@ function buildLogsQueryString(filters: FunctionLogFilters): URLSearchParams {
   if (filters.order) {
     params.set("order", filters.order);
   }
+  if (filters.env) {
+    params.set("env", filters.env);
+  }
 
   return params;
 }

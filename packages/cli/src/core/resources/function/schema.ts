@@ -213,4 +213,5 @@ export interface FunctionLogFilters {
   level?: LogLevel;
   limit?: number;
   order?: "asc" | "desc";
+  env?: "preview" | "prod";
 }

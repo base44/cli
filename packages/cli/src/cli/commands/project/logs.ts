@@ -24,6 +24,7 @@ interface LogsOptions {
   limit?: string;
   order?: string;
   json?: boolean;
+  env?: "preview" | "prod";
 }
 
 /**
@@ -59,6 +60,10 @@ function parseFunctionFilters(options: LogsOptions): FunctionLogFilters {
     filters.order = options.order.toLowerCase() as "asc" | "desc";
   }
 
+  if (options.env) {
+    filters.env = options.env;
+  }
+
   return filters;
 }
 
@@ -89,8 +94,11 @@ function formatEntry(entry: LogEntry): string {
 /**
  * Build function logs output (log-file style).
  */
-function formatLogs(entries: LogEntry[]): string {
+function formatLogs(entries: LogEntry[], env: "preview" | "prod"): string {
   if (entries.length === 0) {
+    if (env === "prod") {
+      return "No production logs found. Has this app been published? Try --env preview to see draft logs.\n";
+    }
     return "No logs found matching the filters.\n";
   }
 
@@ -218,9 +226,10 @@ async function logsAction(
     entries = entries.slice(0, limit);
   }
 
+  const env = options.env ?? "preview";
   const logsOutput = options.json
     ? `${JSON.stringify(entries, null, 2)}\n`
-    : formatLogs(entries);
+    : formatLogs(entries, env);
 
   const shouldOutputOutroMessage = !options.json;
   return {
@@ -254,6 +263,12 @@ export function getLogsCommand(): Command {
     .option("-n, --limit <n>", "Results per page (1-1000, default: 50)")
     .addOption(
       new Option("--order <order>", "Sort order").choices(["asc", "desc"]),
+    )
+    .addOption(
+      new Option(
+        "--env <env>",
+        "Which deployment to read logs from: preview (current draft) or prod (published). Default: preview",
+      ).choices(["preview", "prod"]),
     )
     .option("--json", "Output as JSON (clean stdout, safe to pipe to jq)")
     .action(logsAction);

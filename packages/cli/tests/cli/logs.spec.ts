@@ -178,6 +178,36 @@ describe("logs command", () => {
     t.expectResult(result).toContain("No logs found matching the filters.");
   });
 
+  it("accepts --env prod and shows the published-app hint when empty", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+    t.api.mockFunctionLogs("my-function", []);
+
+    const result = await t.run(
+      "logs",
+      "--function",
+      "my-function",
+      "--env",
+      "prod",
+    );
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("No production logs found");
+  });
+
+  it("rejects an invalid --env value", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+
+    const result = await t.run(
+      "logs",
+      "--function",
+      "my-function",
+      "--env",
+      "staging",
+    );
+
+    t.expectResult(result).toFail();
+  });
+
   it("filters function logs by --level", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
     t.api.mockFunctionLogs("my-function", [
