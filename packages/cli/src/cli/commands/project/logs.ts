@@ -170,7 +170,6 @@ async function followLogs(
     fresh.sort((a, b) => a.time.localeCompare(b.time));
     for (const entry of fresh) writeFollowLine(entry, jsonMode);
     first = false;
-    // ponytail: fixed 2s poll + errors are fatal; add --interval / transient-retry if users hit it.
     await new Promise((resolve) => setTimeout(resolve, 2000));
   }
 }
@@ -360,10 +359,7 @@ export function getLogsCommand(): Command {
         .hideHelp(),
     )
     .option("-n, --limit <n>", "Results per page (1-1000, default: 50)")
-    .option(
-      "-f, --follow",
-      "Stream new logs as they arrive (poll every 2s). Exit with Ctrl-C",
-    )
+    .option("-f, --follow", "Stream new logs as they arrive")
     .addOption(
       new Option("--order <order>", "Sort order").choices(["asc", "desc"]),
     )
