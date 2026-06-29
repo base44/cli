@@ -93,8 +93,6 @@ function formatEntry(entry: LogEntry): string {
   return `${time} ${level} ${message}`;
 }
 
-// Tracks what's already been shown so the inclusive `since` boundary doesn't
-// re-print: the newest ISO time seen, and the entries sitting at exactly it.
 export interface FollowState {
   lastTime: string;
   boundaryKeys: Set<string>;
@@ -104,8 +102,6 @@ function entryKey(entry: LogEntry): string {
   return `${entry.time} ${entry.message}`;
 }
 
-// Time comparison is lexicographic on ISO strings, matching the existing
-// multi-function sort assumption.
 export function selectNewEntries(
   entries: LogEntry[],
   state: FollowState,
@@ -137,7 +133,6 @@ function writeFollowLine(entry: LogEntry, jsonMode: boolean): void {
   process.stdout.write(`${line}\n`);
 }
 
-// Polls forever, printing new entries as they appear; exits on Ctrl-C.
 async function followLogs(
   functionNames: string[],
   options: LogsOptions,
@@ -156,8 +151,6 @@ async function followLogs(
     );
     const { fresh, nextState } = selectNewEntries(entries, state);
     state = nextState;
-    // The backend's order param isn't reliable for a single function, so sort
-    // ourselves to keep new lines appending oldest -> newest (tail style).
     fresh.sort((a, b) => a.time.localeCompare(b.time));
     for (const entry of fresh) writeFollowLine(entry, jsonMode);
     first = false;

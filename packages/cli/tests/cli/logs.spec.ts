@@ -31,7 +31,6 @@ describe("selectNewEntries (follow dedup)", () => {
       empty,
     ).nextState;
 
-    // Next poll re-returns the boundary entry (inclusive since) plus a new one.
     const { fresh, nextState } = selectNewEntries(
       [entry("2024-01-15T10:00:01Z", "b"), entry("2024-01-15T10:00:02Z", "c")],
       first,
