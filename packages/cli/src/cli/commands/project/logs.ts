@@ -26,12 +26,13 @@ interface LogsOptions {
   limit?: string;
   order?: string;
   env?: LogEnv;
+  follow?: boolean;
 }
 
 /**
  * Unified log entry for display.
  */
-interface LogEntry {
+export interface LogEntry {
   time: string;
   level: string;
   message: string;
@@ -90,6 +91,88 @@ function formatEntry(entry: LogEntry): string {
   const level = entry.level.toUpperCase().padEnd(5);
   const message = entry.message.trim();
   return `${time} ${level} ${message}`;
+}
+
+/**
+ * State carried between follow polls so the inclusive `since` boundary doesn't
+ * re-print entries. `lastTime` is the newest ISO time already shown;
+ * `boundaryKeys` are the keys of entries sitting at exactly that timestamp.
+ */
+export interface FollowState {
+  lastTime: string;
+  boundaryKeys: Set<string>;
+}
+
+function entryKey(entry: LogEntry): string {
+  return `${entry.time} ${entry.message}`;
+}
+
+/**
+ * Given a fresh poll result and the previous follow state, return the entries
+ * not yet shown and the next state. Time comparison is lexicographic on ISO
+ * strings, matching the existing multi-function sort assumption.
+ */
+export function selectNewEntries(
+  entries: LogEntry[],
+  state: FollowState,
+): { fresh: LogEntry[]; nextState: FollowState } {
+  const fresh = entries.filter((e) => {
+    if (e.time < state.lastTime) return false;
+    if (e.time === state.lastTime && state.boundaryKeys.has(entryKey(e))) {
+      return false;
+    }
+    return true;
+  });
+
+  if (fresh.length === 0) return { fresh, nextState: state };
+
+  const newMax = fresh.reduce(
+    (max, e) => (e.time > max ? e.time : max),
+    state.lastTime,
+  );
+  const boundaryKeys =
+    newMax === state.lastTime ? new Set(state.boundaryKeys) : new Set<string>();
+  for (const e of fresh) {
+    if (e.time === newMax) boundaryKeys.add(entryKey(e));
+  }
+  return { fresh, nextState: { lastTime: newMax, boundaryKeys } };
+}
+
+function writeFollowLine(entry: LogEntry, jsonMode: boolean): void {
+  const line = jsonMode ? JSON.stringify(entry) : formatEntry(entry);
+  process.stdout.write(`${line}\n`);
+}
+
+/**
+ * Poll the logs endpoint forever, printing new entries as they appear.
+ * Returns `never` — the process exits on Ctrl-C.
+ */
+async function followLogs(
+  functionNames: string[],
+  options: LogsOptions,
+  availableFunctionNames: string[],
+  jsonMode: boolean,
+): Promise<never> {
+  let state: FollowState = { lastTime: "", boundaryKeys: new Set() };
+  let first = true;
+
+  while (true) {
+    const pollOptions = first ? options : { ...options, since: state.lastTime };
+    const entries = await fetchLogsForFunctions(
+      functionNames,
+      pollOptions,
+      availableFunctionNames,
+    );
+    const { fresh, nextState } = selectNewEntries(entries, state);
+    state = nextState;
+    // Force chronological output: the backend's order param isn't reliable for
+    // a single function, so sort ourselves (asc = oldest -> newest, tail style).
+    fresh.sort((a, b) => a.time.localeCompare(b.time));
+    for (const entry of fresh) writeFollowLine(entry, jsonMode);
+    first = false;
+    // ponytail: fixed 2s poll + errors are fatal; add --interval / transient-retry if users hit it.
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+  }
 }
 
 /**
@@ -215,6 +298,21 @@ async function logsAction(
     };
   }
 
+  if (options.follow) {
+    if (options.until) {
+      throw new InvalidInputError(
+        "--until cannot be combined with --follow (a stream has no end).",
+      );
+    }
+    options.order = "asc"; // tail reads oldest -> newest
+    return followLogs(
+      functionNames,
+      options,
+      availableFunctionNames,
+      ctx.jsonMode,
+    );
+  }
+
   let entries = await fetchLogsForFunctions(
     functionNames,
     options,
@@ -262,6 +360,10 @@ export function getLogsCommand(): Command {
         .hideHelp(),
     )
     .option("-n, --limit <n>", "Results per page (1-1000, default: 50)")
+    .option(
+      "-f, --follow",
+      "Stream new logs as they arrive (poll every 2s). Exit with Ctrl-C",
+    )
     .addOption(
       new Option("--order <order>", "Sort order").choices(["asc", "desc"]),
     )
