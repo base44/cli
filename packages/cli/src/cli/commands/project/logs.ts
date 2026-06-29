@@ -93,11 +93,8 @@ function formatEntry(entry: LogEntry): string {
   return `${time} ${level} ${message}`;
 }
 
-/**
- * State carried between follow polls so the inclusive `since` boundary doesn't
- * re-print entries. `lastTime` is the newest ISO time already shown;
- * `boundaryKeys` are the keys of entries sitting at exactly that timestamp.
- */
+// Tracks what's already been shown so the inclusive `since` boundary doesn't
+// re-print: the newest ISO time seen, and the entries sitting at exactly it.
 export interface FollowState {
   lastTime: string;
   boundaryKeys: Set<string>;
@@ -107,11 +104,8 @@ function entryKey(entry: LogEntry): string {
   return `${entry.time} ${entry.message}`;
 }
 
-/**
- * Given a fresh poll result and the previous follow state, return the entries
- * not yet shown and the next state. Time comparison is lexicographic on ISO
- * strings, matching the existing multi-function sort assumption.
- */
+// Time comparison is lexicographic on ISO strings, matching the existing
+// multi-function sort assumption.
 export function selectNewEntries(
   entries: LogEntry[],
   state: FollowState,
@@ -143,10 +137,7 @@ function writeFollowLine(entry: LogEntry, jsonMode: boolean): void {
   process.stdout.write(`${line}\n`);
 }
 
-/**
- * Poll the logs endpoint forever, printing new entries as they appear.
- * Returns `never` — the process exits on Ctrl-C.
- */
+// Polls forever, printing new entries as they appear; exits on Ctrl-C.
 async function followLogs(
   functionNames: string[],
   options: LogsOptions,
@@ -165,8 +156,8 @@ async function followLogs(
     );
     const { fresh, nextState } = selectNewEntries(entries, state);
     state = nextState;
-    // Force chronological output: the backend's order param isn't reliable for
-    // a single function, so sort ourselves (asc = oldest -> newest, tail style).
+    // The backend's order param isn't reliable for a single function, so sort
+    // ourselves to keep new lines appending oldest -> newest (tail style).
     fresh.sort((a, b) => a.time.localeCompare(b.time));
     for (const entry of fresh) writeFollowLine(entry, jsonMode);
     first = false;
