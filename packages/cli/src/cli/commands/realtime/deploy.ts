@@ -50,7 +50,9 @@ function formatDeployResult(
   }
 }
 
-function buildDeploySummary(results: SingleRealtimeHandlerDeployResult[]): string {
+function buildDeploySummary(
+  results: SingleRealtimeHandlerDeployResult[],
+): string {
   const deployed = results.filter((r) => r.status === "deployed").length;
   const unchanged = results.filter((r) => r.status === "unchanged").length;
   const failed = results.filter((r) => r.status === "error").length;

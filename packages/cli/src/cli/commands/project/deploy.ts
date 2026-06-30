@@ -48,8 +48,15 @@ export async function deployAction(
     };
   }
 
-  const { project, entities, functions, realtimeHandlers, agents, connectors, authConfig } =
-    projectData;
+  const {
+    project,
+    entities,
+    functions,
+    realtimeHandlers,
+    agents,
+    connectors,
+    authConfig,
+  } = projectData;
 
   // Build summary of what will be deployed
   const summaryLines: string[] = [];

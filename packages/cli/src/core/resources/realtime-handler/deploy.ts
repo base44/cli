@@ -1,7 +1,7 @@
 import { dirname, relative } from "node:path";
+import type { FunctionFile } from "@/core/resources/function/schema.js";
 import { deploySingleRealtimeHandler } from "@/core/resources/realtime-handler/api.js";
 import type { RealtimeHandler } from "@/core/resources/realtime-handler/schema.js";
-import type { FunctionFile } from "@/core/resources/function/schema.js";
 import { readTextFile } from "@/core/utils/fs.js";
 
 async function loadHandlerCode(

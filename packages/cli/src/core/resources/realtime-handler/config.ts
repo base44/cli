@@ -1,11 +1,14 @@
-import { basename, dirname, join, relative } from "node:path";
+import { basename, dirname, relative } from "node:path";
 import { globby } from "globby";
 import { ENTRY_FILE_GLOB, ENTRY_IGNORE_DOT_PATHS } from "@/core/consts.js";
 import { InvalidInputError } from "@/core/errors.js";
 import type { RealtimeHandler } from "@/core/resources/realtime-handler/schema.js";
 import { pathExists } from "@/core/utils/fs.js";
 
-async function readRealtimeHandler(entryFile: string, realtimeDir: string): Promise<RealtimeHandler> {
+async function readRealtimeHandler(
+  entryFile: string,
+  realtimeDir: string,
+): Promise<RealtimeHandler> {
   const handlerDir = dirname(entryFile);
   const filePaths = await globby("**/*.ts", {
     cwd: handlerDir,

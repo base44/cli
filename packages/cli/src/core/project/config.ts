@@ -33,10 +33,7 @@ import {
   type BackendFunction,
   functionResource,
 } from "@/core/resources/function/index.js";
-import {
-  type RealtimeHandler,
-  realtimeHandlerResource,
-} from "@/core/resources/realtime-handler/index.js";
+import { realtimeHandlerResource } from "@/core/resources/realtime-handler/index.js";
 import { readJsonFile } from "@/core/utils/fs.js";
 
 type ProjectResources = Omit<ProjectData, "project">;

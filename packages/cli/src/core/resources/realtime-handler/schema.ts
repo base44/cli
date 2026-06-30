@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { ResourceSourceSchema } from "@/core/resources/types.js";
 
-export const RealtimeHandlerConfigSchema = z.object({
+const RealtimeHandlerConfigSchema = z.object({
   name: z.string().min(1),
   entry: z.string().min(1),
 });
@@ -17,7 +17,7 @@ const RealtimeHandlerSchema = RealtimeHandlerConfigSchema.extend({
   source: ResourceSourceSchema,
 });
 
-export type RealtimeHandlerConfig = z.infer<typeof RealtimeHandlerConfigSchema>;
+type RealtimeHandlerConfig = z.infer<typeof RealtimeHandlerConfigSchema>;
 export type RealtimeHandler = z.infer<typeof RealtimeHandlerSchema>;
 export type DeployRealtimeHandlerResponse = z.infer<
   typeof DeployRealtimeHandlerResponseSchema

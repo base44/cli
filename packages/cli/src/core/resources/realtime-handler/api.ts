@@ -1,13 +1,9 @@
 import type { KyResponse } from "ky";
 import { getAppClient } from "@/core/clients/index.js";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";
-import type {
-  DeployRealtimeHandlerResponse,
-} from "@/core/resources/realtime-handler/schema.js";
-import {
-  DeployRealtimeHandlerResponseSchema,
-} from "@/core/resources/realtime-handler/schema.js";
 import type { FunctionFile } from "@/core/resources/function/schema.js";
+import type { DeployRealtimeHandlerResponse } from "@/core/resources/realtime-handler/schema.js";
+import { DeployRealtimeHandlerResponseSchema } from "@/core/resources/realtime-handler/schema.js";
 
 export async function deploySingleRealtimeHandler(
   name: string,
