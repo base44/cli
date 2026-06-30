@@ -16,6 +16,7 @@ import { getLinkCommand } from "@/cli/commands/project/link.js";
 import { getLogsCommand } from "@/cli/commands/project/logs.js";
 import { getScaffoldCommand } from "@/cli/commands/project/scaffold.js";
 import { getVisibilityCommand } from "@/cli/commands/project/visibility.js";
+import { getRealtimeCommand } from "@/cli/commands/realtime/index.js";
 import { getSandboxCommand } from "@/cli/commands/sandbox/index.js";
 import { getSecretsCommand } from "@/cli/commands/secrets/index.js";
 import { getSiteCommand } from "@/cli/commands/site/index.js";
@@ -94,6 +95,9 @@ export function createProgram(context: CLIContext): Command {
 
   // Register functions commands
   program.addCommand(getFunctionsCommand());
+
+  // Register realtime commands
+  program.addCommand(getRealtimeCommand());
 
   // Register workflows commands
   program.addCommand(getWorkflowsCommand());

@@ -5,6 +5,7 @@ import type { AuthConfig } from "@/core/resources/auth-config/index.js";
 import type { ConnectorResource } from "@/core/resources/connector/index.js";
 import type { Entity } from "@/core/resources/entity/index.js";
 import type { BackendFunction } from "@/core/resources/function/index.js";
+import type { RealtimeHandler } from "@/core/resources/realtime-handler/index.js";
 
 export interface ProjectWithPaths extends ProjectConfig {
   root: string;
@@ -20,6 +21,7 @@ export interface ProjectData {
   project: ProjectWithPaths;
   entities: Entity[];
   functions: BackendFunction[];
+  realtimeHandlers: RealtimeHandler[];
   agents: AgentConfig[];
   agentSkills: AgentSkill[];
   connectors: ConnectorResource[];

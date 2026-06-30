@@ -48,7 +48,7 @@ export async function deployAction(
     };
   }
 
-  const { project, entities, functions, agents, connectors, authConfig } =
+  const { project, entities, functions, realtimeHandlers, agents, connectors, authConfig } =
     projectData;
 
   // Build summary of what will be deployed
@@ -61,6 +61,11 @@ export async function deployAction(
   if (functions.length > 0) {
     summaryLines.push(
       `  - ${functions.length} ${functions.length === 1 ? "function" : "functions"}`,
+    );
+  }
+  if (realtimeHandlers.length > 0) {
+    summaryLines.push(
+      `  - ${realtimeHandlers.length} ${realtimeHandlers.length === 1 ? "realtime handler" : "realtime handlers"}`,
     );
   }
   if (agents.length > 0) {

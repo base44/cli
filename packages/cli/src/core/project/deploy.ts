@@ -15,6 +15,7 @@ import {
   deployFunctionsSequentially,
   type SingleFunctionDeployResult,
 } from "@/core/resources/function/deploy.js";
+import { deployRealtimeHandlersSequentially } from "@/core/resources/realtime-handler/deploy.js";
 import { deploySite } from "@/core/site/index.js";
 
 /**
@@ -28,6 +29,7 @@ export function hasResourcesToDeploy(projectData: ProjectData): boolean {
     project,
     entities,
     functions,
+    realtimeHandlers,
     agents,
     agentSkills,
     connectors,
@@ -36,6 +38,7 @@ export function hasResourcesToDeploy(projectData: ProjectData): boolean {
   const hasSite = Boolean(project.site?.outputDirectory);
   const hasEntities = entities.length > 0;
   const hasFunctions = functions.length > 0;
+  const hasRealtimeHandlers = realtimeHandlers.length > 0;
   const hasAgents = agents.length > 0;
   const hasAgentSkills = agentSkills.length > 0;
   const hasConnectors = connectors.length > 0;
@@ -45,6 +48,7 @@ export function hasResourcesToDeploy(projectData: ProjectData): boolean {
   return (
     hasEntities ||
     hasFunctions ||
+    hasRealtimeHandlers ||
     hasAgents ||
     hasAgentSkills ||
     hasConnectors ||
@@ -89,6 +93,7 @@ export async function deployAll(
     project,
     entities,
     functions,
+    realtimeHandlers,
     agents,
     agentSkills,
     connectors,
@@ -104,6 +109,7 @@ export async function deployAll(
     onStart: options?.onFunctionStart,
     onResult: options?.onFunctionResult,
   });
+  await deployRealtimeHandlersSequentially(realtimeHandlers);
   await agentSkillResource.push(agentSkills);
   await agentResource.push(agents);
   await authConfigResource.push(authConfig);

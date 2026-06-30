@@ -33,6 +33,10 @@ import {
   type BackendFunction,
   functionResource,
 } from "@/core/resources/function/index.js";
+import {
+  type RealtimeHandler,
+  realtimeHandlerResource,
+} from "@/core/resources/realtime-handler/index.js";
 import { readJsonFile } from "@/core/utils/fs.js";
 
 type ProjectResources = Omit<ProjectData, "project">;
@@ -72,6 +76,7 @@ class ProjectConfigReader {
       project,
       entities,
       functions,
+      realtimeHandlers: localResources.realtimeHandlers,
       agents: localResources.agents,
       agentSkills: localResources.agentSkills,
       connectors: localResources.connectors,
@@ -118,17 +123,33 @@ class ProjectConfigReader {
     project: ProjectConfig,
   ): Promise<ProjectResources> {
     const configDir = dirname(configPath);
-    const [entities, functions, agents, agentSkills, connectors, authConfig] =
-      await Promise.all([
-        entityResource.readAll(join(configDir, project.entitiesDir)),
-        functionResource.readAll(join(configDir, project.functionsDir)),
-        agentResource.readAll(join(configDir, project.agentsDir)),
-        agentSkillResource.readAll(join(configDir, project.agentSkillsDir)),
-        connectorResource.readAll(join(configDir, project.connectorsDir)),
-        authConfigResource.readAll(join(configDir, project.authDir)),
-      ]);
+    const [
+      entities,
+      functions,
+      realtimeHandlers,
+      agents,
+      agentSkills,
+      connectors,
+      authConfig,
+    ] = await Promise.all([
+      entityResource.readAll(join(configDir, project.entitiesDir)),
+      functionResource.readAll(join(configDir, project.functionsDir)),
+      realtimeHandlerResource.readAll(join(configDir, project.realtimeDir)),
+      agentResource.readAll(join(configDir, project.agentsDir)),
+      agentSkillResource.readAll(join(configDir, project.agentSkillsDir)),
+      connectorResource.readAll(join(configDir, project.connectorsDir)),
+      authConfigResource.readAll(join(configDir, project.authDir)),
+    ]);
 
-    return { entities, functions, agents, agentSkills, connectors, authConfig };
+    return {
+      entities,
+      functions,
+      realtimeHandlers,
+      agents,
+      agentSkills,
+      connectors,
+      authConfig,
+    };
   }
 
   private assertPluginProjectDoesNotLoadPlugins(
@@ -198,6 +219,7 @@ class ProjectConfigReader {
     return {
       entities: markPluginEntities(resources.entities, namespace),
       functions: namespacePluginFunctions(resources.functions, namespace),
+      realtimeHandlers: [],
       agents: [],
       agentSkills: [],
       connectors: [],
@@ -255,6 +277,7 @@ class ProjectConfigReader {
     return {
       entities,
       functions,
+      realtimeHandlers: [],
       agents: [],
       agentSkills: [],
       connectors: [],
