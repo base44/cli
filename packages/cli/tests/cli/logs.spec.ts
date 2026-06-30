@@ -265,6 +265,38 @@ describe("logs command", () => {
     t.expectResult(result).toContain("No production logs found");
   });
 
+  it("rejects --follow combined with --order desc", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+
+    const result = await t.run(
+      "logs",
+      "--function",
+      "my-function",
+      "--follow",
+      "--order",
+      "desc",
+    );
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("--order desc cannot be combined");
+  });
+
+  it("rejects --follow combined with --until", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+
+    const result = await t.run(
+      "logs",
+      "--function",
+      "my-function",
+      "--follow",
+      "--until",
+      "1h",
+    );
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("--until cannot be combined");
+  });
+
   it("rejects an invalid --env value", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
 

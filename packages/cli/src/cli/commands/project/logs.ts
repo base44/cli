@@ -287,6 +287,11 @@ async function logsAction(
         "--until cannot be combined with --follow (a stream has no end).",
       );
     }
+    if (options.order?.toLowerCase() === "desc") {
+      throw new InvalidInputError(
+        "--order desc cannot be combined with --follow (a live tail streams oldest to newest).",
+      );
+    }
     options.order = "asc"; // tail reads oldest -> newest
     return followLogs(
       functionNames,
