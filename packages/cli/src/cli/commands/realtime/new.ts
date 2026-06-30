@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import type { Command } from "commander";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
@@ -27,7 +27,7 @@ async function newRealtimeHandlerAction(
   handlerName: string,
 ): Promise<RunCommandResult> {
   const { project } = await readProjectConfig();
-  const realtimeDir = join(project.root, project.realtimeDir);
+  const realtimeDir = join(dirname(project.configPath), project.realtimeDir);
   const handlerDir = join(realtimeDir, handlerName);
 
   if (await pathExists(handlerDir)) {
