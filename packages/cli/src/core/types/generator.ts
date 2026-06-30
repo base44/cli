@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { source, stripIndent } from "common-tags";
 import type { JSONSchema4 } from "json-schema";
 import { compile } from "json-schema-to-typescript";
@@ -8,7 +9,7 @@ import type { ConnectorResource } from "@/core/resources/connector/index.js";
 import type { Entity } from "@/core/resources/entity/index.js";
 import type { BackendFunction } from "@/core/resources/function/index.js";
 import type { RealtimeHandler } from "@/core/resources/realtime-handler/schema.js";
-import { writeFile } from "@/core/utils/fs.js";
+import { pathExists, readJsonFile, writeFile } from "@/core/utils/fs.js";
 
 interface GenerateTypesInput {
   projectRoot: string;
@@ -37,6 +38,22 @@ const EMPTY_TEMPLATE = stripIndent`
   }
 `;
 
+const SDK_PACKAGE_NAMES = ["@base44/sdk", "@base44-preview/sdk"] as const;
+type SdkPackageName = (typeof SDK_PACKAGE_NAMES)[number];
+
+async function detectSdkPackageName(projectRoot: string): Promise<SdkPackageName> {
+  try {
+    const pkg = await readJsonFile(join(projectRoot, "package.json")) as Record<string, unknown>;
+    const deps = { ...(pkg.dependencies as object), ...(pkg.devDependencies as object) };
+    for (const name of SDK_PACKAGE_NAMES) {
+      if (name in deps) return name;
+    }
+  } catch {
+    // ignore
+  }
+  return "@base44/sdk";
+}
+
 /**
  * Generate and write types.d.ts file.
  */
@@ -49,6 +66,7 @@ export async function generateTypesFile(
 
 async function generateContent(input: GenerateTypesInput): Promise<string> {
   const { entities, functions, agents, connectors, realtimeHandlers } = input;
+  const sdkPackage = await detectSdkPackageName(input.projectRoot);
 
   if (
     !entities.length &&
@@ -96,9 +114,10 @@ async function generateContent(input: GenerateTypesInput): Promise<string> {
 
   return [
     HEADER,
+    "export {};", // module context — ensures declare module augments rather than replaces the SDK package
     entityInterfaces.join("\n\n"),
     source`
-      declare module '@base44/sdk' {
+      declare module '${sdkPackage}' {
         ${registries.join("\n\n")}
       }
     `,
