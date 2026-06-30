@@ -9,7 +9,7 @@ import type { ConnectorResource } from "@/core/resources/connector/index.js";
 import type { Entity } from "@/core/resources/entity/index.js";
 import type { BackendFunction } from "@/core/resources/function/index.js";
 import type { RealtimeHandler } from "@/core/resources/realtime-handler/schema.js";
-import { pathExists, readJsonFile, writeFile } from "@/core/utils/fs.js";
+import { readJsonFile, writeFile } from "@/core/utils/fs.js";
 
 interface GenerateTypesInput {
   projectRoot: string;
@@ -41,10 +41,17 @@ const EMPTY_TEMPLATE = stripIndent`
 const SDK_PACKAGE_NAMES = ["@base44/sdk", "@base44-preview/sdk"] as const;
 type SdkPackageName = (typeof SDK_PACKAGE_NAMES)[number];
 
-async function detectSdkPackageName(projectRoot: string): Promise<SdkPackageName> {
+async function detectSdkPackageName(
+  projectRoot: string,
+): Promise<SdkPackageName> {
   try {
-    const pkg = await readJsonFile(join(projectRoot, "package.json")) as Record<string, unknown>;
-    const deps = { ...(pkg.dependencies as object), ...(pkg.devDependencies as object) };
+    const pkg = (await readJsonFile(
+      join(projectRoot, "package.json"),
+    )) as Record<string, unknown>;
+    const deps = {
+      ...(pkg.dependencies as object),
+      ...(pkg.devDependencies as object),
+    };
     for (const name of SDK_PACKAGE_NAMES) {
       if (name in deps) return name;
     }
@@ -100,7 +107,7 @@ async function generateContent(input: GenerateTypesInput): Promise<string> {
       "RealtimeHandlerRegistry",
       realtimeHandlers
         .filter((h) => h.messageSchema)
-        .map((h, _, arr) => {
+        .map((h, _, _arr) => {
           const idx = realtimeHandlers.indexOf(h);
           return `"${h.name}": ${realtimeRegistryEntries[idx]};`;
         }),
@@ -151,11 +158,16 @@ async function compileEntity(entity: Entity): Promise<string> {
   }
 }
 
-async function compileRealtimeHandler(handler: RealtimeHandler): Promise<string> {
+async function compileRealtimeHandler(
+  handler: RealtimeHandler,
+): Promise<string> {
   const { messageSchema } = handler;
   if (!messageSchema) return "{ inbound: unknown; outbound: unknown }";
 
-  const compileSchema = async (schema: Record<string, unknown> | undefined, typeName: string): Promise<string> => {
+  const compileSchema = async (
+    schema: Record<string, unknown> | undefined,
+    typeName: string,
+  ): Promise<string> => {
     if (!schema) return "unknown";
     try {
       const ts = await compile(schema as JSONSchema4, typeName, {
@@ -164,7 +176,7 @@ async function compileRealtimeHandler(handler: RealtimeHandler): Promise<string>
         strictIndexSignatures: true,
       });
       // extract just the interface body, not the full `interface X { ... }` declaration
-      const match = ts.match(/\{([^]*)\}/);
+      const match = ts.match(/\{([\s\S]*)\}/);
       return match ? `{\n${match[1]}}` : "unknown";
     } catch {
       return "unknown";
@@ -172,8 +184,14 @@ async function compileRealtimeHandler(handler: RealtimeHandler): Promise<string>
   };
 
   const [inbound, outbound] = await Promise.all([
-    compileSchema(messageSchema.inbound as Record<string, unknown> | undefined, `${handler.name}Inbound`),
-    compileSchema(messageSchema.outbound as Record<string, unknown> | undefined, `${handler.name}Outbound`),
+    compileSchema(
+      messageSchema.inbound as Record<string, unknown> | undefined,
+      `${handler.name}Inbound`,
+    ),
+    compileSchema(
+      messageSchema.outbound as Record<string, unknown> | undefined,
+      `${handler.name}Outbound`,
+    ),
   ]);
 
   return `{ inbound: ${inbound}; outbound: ${outbound} }`;

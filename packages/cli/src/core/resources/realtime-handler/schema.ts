@@ -28,8 +28,10 @@ export interface RealtimeMessageSchema {
   outbound?: Record<string, unknown>;
 }
 
-type RealtimeHandlerConfig = z.infer<typeof RealtimeHandlerConfigSchema>;
-export type RealtimeHandler = Omit<z.infer<typeof RealtimeHandlerSchema>, "messageSchema"> & {
+export type RealtimeHandler = Omit<
+  z.infer<typeof RealtimeHandlerSchema>,
+  "messageSchema"
+> & {
   messageSchema?: RealtimeMessageSchema;
 };
 export type DeployRealtimeHandlerResponse = z.infer<
