@@ -14,7 +14,7 @@ export async function deploySingleRealtimeHandler(
   let response: KyResponse;
   try {
     response = await appClient.put(
-      `backend-functions/${encodeURIComponent(name)}`,
+      `realtime-handlers/${encodeURIComponent(name)}`,
       { json: payload, timeout: false },
     );
   } catch (error) {
