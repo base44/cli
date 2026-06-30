@@ -9,11 +9,19 @@ import { pathExists, writeFile } from "@/core/utils/fs.js";
 function buildHandlerScaffold(handlerName: string): string {
   return `import { RealtimeHandler, type Conn } from "@base44/sdk";
 
-export class ${handlerName} extends RealtimeHandler {
+interface State {
+  // shared state broadcast to all clients
+}
+
+interface Message {
+  // messages sent from clients
+}
+
+export class ${handlerName} extends RealtimeHandler<State, Message> {
   handleConnect(conn: Conn) {
     console.log("Connected:", conn.userId);
   }
-  handleMessage(conn: Conn, msg: unknown) {
+  handleMessage(conn: Conn, msg: Message) {
     console.log("Message:", msg);
   }
   handleTick() {}
