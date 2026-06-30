@@ -1,0 +1,19 @@
+{
+  "inbound": {
+    "type": "object",
+    "properties": {
+      "type": { "type": "string", "enum": ["joined", "left", "message"] },
+      "userId": { "type": "string" },
+      "from": { "type": "string" },
+      "text": { "type": "string" }
+    },
+    "required": ["type"]
+  },
+  "outbound": {
+    "type": "object",
+    "properties": {
+      "text": { "type": "string" }
+    },
+    "required": ["text"]
+  }
+}

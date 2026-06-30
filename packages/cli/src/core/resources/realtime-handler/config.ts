@@ -1,9 +1,10 @@
-import { basename, dirname, relative } from "node:path";
+import { basename, dirname, join, relative } from "node:path";
 import { globby } from "globby";
 import { ENTRY_FILE_GLOB, ENTRY_IGNORE_DOT_PATHS } from "@/core/consts.js";
 import { InvalidInputError } from "@/core/errors.js";
-import type { RealtimeHandler } from "@/core/resources/realtime-handler/schema.js";
-import { pathExists } from "@/core/utils/fs.js";
+import type { RealtimeHandler, RealtimeMessageSchema } from "@/core/resources/realtime-handler/schema.js";
+import { RealtimeHandlerSchemaFileSchema } from "@/core/resources/realtime-handler/schema.js";
+import { pathExists, readJsonFile } from "@/core/utils/fs.js";
 
 async function readRealtimeHandler(
   entryFile: string,
@@ -31,12 +32,26 @@ async function readRealtimeHandler(
 
   const entry = basename(entryFile);
 
+  const schemaPath = join(handlerDir, "schema.jsonc");
+  let messageSchema: RealtimeMessageSchema | undefined = undefined;
+  if (await pathExists(schemaPath)) {
+    const parsed = await readJsonFile(schemaPath);
+    const result = RealtimeHandlerSchemaFileSchema.safeParse(parsed);
+    if (result.success) {
+      messageSchema = {
+        inbound: result.data.inbound as Record<string, unknown> | undefined,
+        outbound: result.data.outbound as Record<string, unknown> | undefined,
+      };
+    }
+  }
+
   return {
     name,
     entry,
     entryPath: entryFile,
     filePaths,
     source: { type: "project" },
+    messageSchema,
   };
 }
 

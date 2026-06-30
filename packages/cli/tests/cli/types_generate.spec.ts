@@ -45,6 +45,14 @@ describe("types generate command", () => {
     // Contains the ConnectorTypeRegistry with the connector type
     expect(typesContent).toContain("ConnectorTypeRegistry");
     expect(typesContent).toContain(`"slack": true`);
+
+    // Contains the RealtimeHandlerNameRegistry with the handler name
+    expect(typesContent).toContain("RealtimeHandlerNameRegistry");
+    expect(typesContent).toContain(`"ChatRoom": true`);
+
+    // Contains the RealtimeHandlerRegistry with typed inbound/outbound (from schema.jsonc)
+    expect(typesContent).toContain("RealtimeHandlerRegistry");
+    expect(typesContent).toContain(`"ChatRoom"`);
   });
 
   it("updates tsconfig.json to include types path", async () => {
@@ -103,7 +111,7 @@ describe("types generate command", () => {
     const typesContent = await t.readProjectFile("base44/.types/types.d.ts");
     expect(typesContent).not.toBeNull();
     expect(typesContent).toContain(
-      "No entities, functions, agents, or connectors found",
+      "No entities, functions, agents, connectors, or realtime handlers found",
     );
   });
 
