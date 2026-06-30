@@ -7,7 +7,7 @@ import { readProjectConfig } from "@/core/index.js";
 import { pathExists, writeFile } from "@/core/utils/fs.js";
 
 function buildHandlerScaffold(handlerName: string): string {
-  return `import { RealtimeHandler, type Conn } from "base44";
+  return `import { RealtimeHandler, type Conn } from "@base44/sdk";
 
 export class ${handlerName} extends RealtimeHandler {
   handleConnect(conn: Conn) {
