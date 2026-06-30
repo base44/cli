@@ -265,7 +265,7 @@ describe("logs command", () => {
     t.expectResult(result).toContain("No production logs found");
   });
 
-  it("rejects --follow combined with --order desc", async () => {
+  it("rejects --follow combined with --order", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
 
     const result = await t.run(
@@ -274,11 +274,11 @@ describe("logs command", () => {
       "my-function",
       "--follow",
       "--order",
-      "desc",
+      "asc",
     );
 
     t.expectResult(result).toFail();
-    t.expectResult(result).toContain("--order desc cannot be combined");
+    t.expectResult(result).toContain("--order cannot be combined");
   });
 
   it("rejects --follow combined with --until", async () => {

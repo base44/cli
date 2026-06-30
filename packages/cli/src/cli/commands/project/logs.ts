@@ -287,9 +287,9 @@ async function logsAction(
         "--until cannot be combined with --follow (a stream has no end).",
       );
     }
-    if (options.order?.toLowerCase() === "desc") {
+    if (options.order) {
       throw new InvalidInputError(
-        "--order desc cannot be combined with --follow (a live tail streams oldest to newest).",
+        "--order cannot be combined with --follow (a live tail always streams oldest to newest).",
       );
     }
     options.order = "asc"; // tail reads oldest -> newest
