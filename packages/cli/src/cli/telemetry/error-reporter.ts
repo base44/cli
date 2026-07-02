@@ -4,6 +4,7 @@ import { nanoid } from "nanoid";
 import { ApiError, isCLIError, isUserError } from "@/core/errors.js";
 import packageJson from "../../../package.json";
 import { getPostHogClient, isTelemetryEnabled } from "./posthog.js";
+import { redactApiBody } from "./redact.js";
 
 /**
  * Context that can be set during CLI execution.
@@ -70,8 +71,14 @@ export class ErrorReporter {
             api_status_code: error.statusCode,
             api_request_url: error.requestUrl,
             api_request_method: error.requestMethod,
-            api_request_body: error.requestBody,
-            api_response_body: error.responseBody,
+            api_request_body: redactApiBody(
+              error.requestUrl,
+              error.requestBody,
+            ),
+            api_response_body: redactApiBody(
+              error.requestUrl,
+              error.responseBody,
+            ),
             api_request_id: error.requestId,
           }
         : {};
