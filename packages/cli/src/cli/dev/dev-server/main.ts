@@ -298,6 +298,7 @@ export async function createDevServer(
   };
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
+  process.on("SIGHUP", shutdown);
 
   // If the frontend dies, tear the whole dev environment down.
   serveRunner?.onExit(() => {

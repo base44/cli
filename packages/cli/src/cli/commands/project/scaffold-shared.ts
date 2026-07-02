@@ -127,7 +127,6 @@ export async function completeProjectSetup(
         async () => {
           await execa("npx", ["-y", "skills", "add", "base44/skills", "-y"], {
             cwd: resolvedPath,
-            shell: true,
           });
         },
         {
