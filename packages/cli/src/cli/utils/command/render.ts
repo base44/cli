@@ -6,6 +6,7 @@ import { printUpgradeNotification } from "@/cli/utils/upgradeNotification.js";
 import type { UpgradeInfo } from "@/cli/utils/version-check.js";
 import { isCLIError } from "@/core/errors.js";
 import packageJson from "../../../../package.json";
+import { buildBugReportUrl, shouldOfferBugReport } from "./bug-report.js";
 
 /**
  * Show the command start UI: intro banner or simple tag.
@@ -58,6 +59,15 @@ export function showThemedError(error: unknown, context: CLIContext): void {
   }
 
   const errorContext = context.errorReporter.getErrorContext();
+
+  if (shouldOfferBugReport(error)) {
+    log.info(
+      `Report this issue: ${theme.colors.links(
+        buildBugReportUrl(error, errorContext),
+      )}`,
+    );
+  }
+
   const errorCode = isCLIError(error) ? error.code : undefined;
   outro(theme.format.errorContext(errorContext, errorCode));
 }
@@ -65,7 +75,7 @@ export function showThemedError(error: unknown, context: CLIContext): void {
 /**
  * Display an error as plain text to stderr (non-interactive / CI mode).
  */
-export function showPlainError(error: unknown): void {
+export function showPlainError(error: unknown, context?: CLIContext): void {
   const errorMessage = error instanceof Error ? error.message : String(error);
   process.stderr.write(`Error: ${errorMessage}\n`);
 
@@ -81,6 +91,13 @@ export function showPlainError(error: unknown): void {
 
   if (process.env.DEBUG === "1" && error instanceof Error && error.stack) {
     process.stderr.write(`${error.stack}\n`);
+  }
+
+  if (shouldOfferBugReport(error)) {
+    const errorContext = context?.errorReporter.getErrorContext() ?? {};
+    process.stderr.write(
+      `Report this issue: ${buildBugReportUrl(error, errorContext)}\n`,
+    );
   }
 
   const codePart = isCLIError(error) ? ` | Code: ${error.code}` : "";

@@ -205,7 +205,7 @@ export class Base44Command extends Command {
           // --json: emit the error as JSON on stdout (single machine channel).
           writeJsonError(error);
         } else if (quiet) {
-          showPlainError(error);
+          showPlainError(error, this.context);
         } else {
           showThemedError(error, this.context);
         }
