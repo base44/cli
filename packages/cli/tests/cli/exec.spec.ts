@@ -11,10 +11,13 @@ describe("exec command", () => {
     const result = await t.run("exec");
 
     t.expectResult(result).toFail();
-    expect(stripAnsi(result.stderr)).toBe(
-      "Error: No input provided. Pipe a script to stdin.\n" +
-        "  Hint: File:  cat ./script.ts | base44 exec\n" +
-        '  Hint: Eval:  echo "const users = await base44.entities.User.list(); console.log(users)" | base44 exec',
+    expect(stripAnsi(result.stderr)).toMatch(
+      new RegExp(
+        "^Error: No input provided\\. Pipe a script to stdin\\.\n" +
+          "  Hint: File:  cat \\./script\\.ts \\| base44 exec\n" +
+          '  Hint: Eval:  echo "const users = await base44\\.entities\\.User\\.list\\(\\); console\\.log\\(users\\)" \\| base44 exec\n' +
+          "base44 v\\d+\\.\\d+\\.\\d+ \\| Code: INVALID_INPUT$",
+      ),
     );
   });
 
@@ -30,10 +33,15 @@ describe("exec command", () => {
     const result = await t.run("exec");
 
     t.expectResult(result).toFail();
-    expect(stripAnsi(result.stderr)).toBe(
+    const stderr = stripAnsi(result.stderr);
+    expect(stderr).toContain(
       "Error: Error exchanging platform token for app user token: Internal server error\n" +
         "  Hint: Check your network connection and try again",
     );
+    expect(stderr).toContain(
+      "Report this issue: https://github.com/base44/cli/issues/new?",
+    );
+    expect(stderr).toMatch(/base44 v\d+\.\d+\.\d+ \| Code: API_ERROR/);
   });
 
   it("executes a piped script and captures its output", async () => {
