@@ -1,6 +1,7 @@
 import chalk from "chalk";
 import type { ErrorContext } from "@/cli/telemetry/error-reporter.js";
 import type { ErrorHint } from "@/core/errors.js";
+import packageJson from "../../../package.json";
 
 /**
  * Base44 CLI theme configuration
@@ -22,8 +23,10 @@ export const theme = {
     info: chalk.cyan,
   },
   format: {
-    errorContext(ctx: ErrorContext): string {
+    errorContext(ctx: ErrorContext, errorCode?: string): string {
       const parts = [
+        `base44 v${packageJson.version}`,
+        errorCode ? `Code: ${errorCode}` : null,
         ctx.sessionId ? `Session: ${ctx.sessionId}` : null,
         ctx.appId ? `App: ${ctx.appId}` : null,
         new Date().toISOString(),
