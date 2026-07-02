@@ -8,6 +8,7 @@ import { ensureNpmAssets } from "@/core/assets.js";
 import { readAuth } from "@/core/auth/index.js";
 import { CLIExitError } from "./errors.js";
 import { ErrorReporter } from "./telemetry/error-reporter.js";
+import { maybeShowTelemetryNotice } from "./telemetry/first-run-notice.js";
 import { addCommandInfoToErrorReporter } from "./telemetry/index.js";
 import type { CLIContext, Distribution } from "./types.js";
 import {
@@ -48,6 +49,8 @@ async function runCLI(options?: RunCLIOptions): Promise<void> {
     log,
     runTask,
   };
+
+  maybeShowTelemetryNotice(log);
 
   // Create program with injected context
   const program = createProgram(context);
