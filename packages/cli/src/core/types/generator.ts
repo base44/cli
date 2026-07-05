@@ -71,7 +71,9 @@ export async function generateTypesFile(
   await writeFile(getTypesOutputPath(input.projectRoot), content);
 }
 
-async function generateContent(input: GenerateTypesInput): Promise<string> {
+export async function generateContent(
+  input: GenerateTypesInput,
+): Promise<string> {
   const { entities, functions, agents, connectors, realtimeHandlers } = input;
   const sdkPackage = await detectSdkPackageName(input.projectRoot);
 
@@ -85,7 +87,7 @@ async function generateContent(input: GenerateTypesInput): Promise<string> {
     return EMPTY_TEMPLATE;
   }
 
-  const [entityInterfaces, realtimeRegistryEntries] = await Promise.all([
+  const [entityInterfaces, realtimeResults] = await Promise.all([
     Promise.all(entities.map((e) => compileEntity(e))),
     Promise.all(realtimeHandlers.map((h) => compileRealtimeHandler(h))),
   ]);
@@ -107,9 +109,9 @@ async function generateContent(input: GenerateTypesInput): Promise<string> {
       "RealtimeHandlerRegistry",
       realtimeHandlers
         .filter((h) => h.messageSchema)
-        .map((h, _, _arr) => {
+        .map((h) => {
           const idx = realtimeHandlers.indexOf(h);
-          return `"${h.name}": ${realtimeRegistryEntries[idx]};`;
+          return `"${h.name}": ${realtimeResults[idx].entry};`;
         }),
     ],
   ];
@@ -119,10 +121,15 @@ async function generateContent(input: GenerateTypesInput): Promise<string> {
     .filter(([, entries]) => entries.length > 0)
     .map(([name, entries]) => registry(name, entries));
 
+  const realtimeInterfaces = realtimeResults
+    .map((r) => r.decls)
+    .filter(Boolean);
+
   return [
     HEADER,
     "export {};", // module context — ensures declare module augments rather than replaces the SDK package
     entityInterfaces.join("\n\n"),
+    realtimeInterfaces.join("\n\n"),
     source`
       declare module '${sdkPackage}' {
         ${registries.join("\n\n")}
@@ -158,43 +165,140 @@ async function compileEntity(entity: Entity): Promise<string> {
   }
 }
 
+interface RealtimeCompileResult {
+  /** Top-level `export` declarations: one interface per message + shared types. */
+  decls: string;
+  /** The registry value, e.g. `{ inbound: FooInit | FooTick; outbound: FooJoin }`. */
+  entry: string;
+}
+
+/**
+ * A handler's `schema.jsonc` is a *catalog* of named messages:
+ *   { types?: { Pt, Snake, … }, inbound: { init, tick, … }, outbound: { join, … } }
+ * Each message is a flat object schema (no `type` field — the generator injects
+ * `type: "<name>"` as the discriminant). We compile the whole catalog in ONE pass
+ * so json-schema-to-typescript emits a named interface per message plus the shared
+ * types, then assemble the inbound/outbound unions from those names. This avoids
+ * scraping the compiler output (the old regex broke on unions and `$defs`), and
+ * because every message is a single flat object, the fragile multi-declaration
+ * case never arises.
+ */
 async function compileRealtimeHandler(
   handler: RealtimeHandler,
-): Promise<string> {
+): Promise<RealtimeCompileResult> {
   const { messageSchema } = handler;
-  if (!messageSchema) return "{ inbound: unknown; outbound: unknown }";
+  if (!messageSchema) {
+    return { decls: "", entry: "{ inbound: unknown; outbound: unknown }" };
+  }
 
-  const compileSchema = async (
-    schema: Record<string, unknown> | undefined,
-    typeName: string,
-  ): Promise<string> => {
-    if (!schema) return "unknown";
-    try {
-      const ts = await compile(schema as JSONSchema4, typeName, {
+  const prefix = toPascalCase(handler.name);
+  const types = (messageSchema.types ?? {}) as Record<string, JSONSchema4>;
+  const inbound = (messageSchema.inbound ?? {}) as Record<string, JSONSchema4>;
+  const outbound = (messageSchema.outbound ?? {}) as Record<string, JSONSchema4>;
+
+  // Shared types are prefixed with the handler name so names (Pt, Snake, …) can't
+  // collide across handlers or with entity interfaces. Messages additionally carry
+  // their direction, since the same name (e.g. "message") may appear both inbound
+  // and outbound.
+  const typeName = (key: string) => `${prefix}${toPascalCase(key)}`;
+  const msgName = (dir: "Inbound" | "Outbound", key: string) =>
+    `${prefix}${dir}${toPascalCase(key)}`;
+
+  const defs: Record<string, JSONSchema4> = {};
+  const add = (name: string, schema: JSONSchema4) => {
+    if (name in defs) {
+      throw new TypeGenerationError(
+        `Duplicate generated type "${name}" in realtime handler "${handler.name}" — a shared type and a message resolve to the same name.`,
+        handler.name,
+      );
+    }
+    defs[name] = { ...schema, title: name };
+  };
+
+  // Shared types are emitted as-is (author writes `type: "object"` etc.); their
+  // author-facing `#/types/X` refs are rewritten to the prefixed `#/$defs/` names.
+  for (const [key, schema] of Object.entries(types)) {
+    add(typeName(key), rewriteTypeRefs(schema, typeName) as JSONSchema4);
+  }
+
+  // Each message → one flat object (a full JSON Schema, like an entity) with the
+  // `type` discriminant injected from its key.
+  const compileMessages = (
+    msgs: Record<string, JSONSchema4>,
+    dir: "Inbound" | "Outbound",
+  ): string[] =>
+    Object.entries(msgs).map(([key, schema]) => {
+      const name = msgName(dir, key);
+      const rewritten = rewriteTypeRefs(schema, typeName) as JSONSchema4;
+      add(name, {
+        type: "object",
+        ...rewritten,
+        properties: { type: { const: key }, ...(rewritten.properties ?? {}) },
+        required: ["type", ...((rewritten.required as string[] | undefined) ?? [])],
+        additionalProperties: false,
+      });
+      return name;
+    });
+
+  const inboundNames = compileMessages(inbound, "Inbound");
+  const outboundNames = compileMessages(outbound, "Outbound");
+
+  // Root union over every message keeps all defs reachable so the compiler emits
+  // them; we keep its whole output verbatim (no scraping).
+  const allNames = [...inboundNames, ...outboundNames];
+  const rootName = `${prefix}Message`;
+  const rootSchema = {
+    title: rootName,
+    $defs: defs,
+    oneOf: allNames.map((n) => ({ $ref: `#/$defs/${n}` })),
+  } as unknown as JSONSchema4;
+
+  let decls = "";
+  try {
+    decls = (
+      await compile(rootSchema, rootName, {
         bannerComment: "",
         additionalProperties: false,
         strictIndexSignatures: true,
-      });
-      // extract just the interface body, not the full `interface X { ... }` declaration
-      const match = ts.match(/\{([\s\S]*)\}/);
-      return match ? `{\n${match[1]}}` : "unknown";
-    } catch {
-      return "unknown";
-    }
+      })
+    ).trim();
+  } catch (error) {
+    throw new TypeGenerationError(
+      `Failed to generate types for realtime handler "${handler.name}"`,
+      handler.name,
+      error,
+    );
+  }
+
+  const union = (names: string[]) => (names.length ? names.join(" | ") : "never");
+  return {
+    decls,
+    entry: `{ inbound: ${union(inboundNames)}; outbound: ${union(outboundNames)} }`,
   };
+}
 
-  const [inbound, outbound] = await Promise.all([
-    compileSchema(
-      messageSchema.inbound as Record<string, unknown> | undefined,
-      `${handler.name}Inbound`,
-    ),
-    compileSchema(
-      messageSchema.outbound as Record<string, unknown> | undefined,
-      `${handler.name}Outbound`,
-    ),
-  ]);
-
-  return `{ inbound: ${inbound}; outbound: ${outbound} }`;
+/** Rewrite author-facing `#/types/X` refs to the prefixed `#/$defs/<defName>`. */
+function rewriteTypeRefs(
+  node: unknown,
+  defName: (key: string) => string,
+): unknown {
+  if (Array.isArray(node)) {
+    return node.map((n) => rewriteTypeRefs(n, defName));
+  }
+  if (node && typeof node === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(node)) {
+      const match =
+        key === "$ref" && typeof value === "string"
+          ? value.match(/^#\/types\/(.+)$/)
+          : null;
+      out[key] = match
+        ? `#/$defs/${defName(match[1])}`
+        : rewriteTypeRefs(value, defName);
+    }
+    return out;
+  }
+  return node;
 }
 
 function registry(name: string, entries: string[]): string {

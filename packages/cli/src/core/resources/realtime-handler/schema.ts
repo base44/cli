@@ -6,9 +6,13 @@ const RealtimeHandlerConfigSchema = z.object({
   entry: z.string().min(1),
 });
 
+// A handler's schema.jsonc is a catalog of named messages: `inbound`/`outbound`
+// each map a message name to its (type-less) object schema, and optional `types`
+// holds shared shapes referenced via `#/types/<Name>`. See the type generator.
 export const RealtimeHandlerSchemaFileSchema = z.object({
-  inbound: z.unknown().optional(),
-  outbound: z.unknown().optional(),
+  types: z.record(z.string(), z.unknown()).optional(),
+  inbound: z.record(z.string(), z.unknown()).optional(),
+  outbound: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const DeployRealtimeHandlerResponseSchema = z.object({
@@ -24,6 +28,7 @@ const RealtimeHandlerSchema = RealtimeHandlerConfigSchema.extend({
 });
 
 export interface RealtimeMessageSchema {
+  types?: Record<string, unknown>;
   inbound?: Record<string, unknown>;
   outbound?: Record<string, unknown>;
 }

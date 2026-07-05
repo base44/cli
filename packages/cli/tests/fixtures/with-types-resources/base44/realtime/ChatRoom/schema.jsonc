@@ -1,19 +1,28 @@
 {
+  // Message catalog: each entry is a full JSON Schema (like an entity), keyed by
+  // message name. The generator injects `type: "<name>"` as the discriminant.
   "inbound": {
-    "type": "object",
-    "properties": {
-      "type": { "type": "string", "enum": ["joined", "left", "message"] },
-      "userId": { "type": "string" },
-      "from": { "type": "string" },
-      "text": { "type": "string" }
+    "joined": {
+      "type": "object",
+      "properties": { "userId": { "type": "string" } },
+      "required": ["userId"]
     },
-    "required": ["type"]
+    "left": {
+      "type": "object",
+      "properties": { "userId": { "type": "string" } },
+      "required": ["userId"]
+    },
+    "message": {
+      "type": "object",
+      "properties": { "from": { "type": "string" }, "text": { "type": "string" } },
+      "required": ["from", "text"]
+    }
   },
   "outbound": {
-    "type": "object",
-    "properties": {
-      "text": { "type": "string" }
-    },
-    "required": ["text"]
+    "message": {
+      "type": "object",
+      "properties": { "text": { "type": "string" } },
+      "required": ["text"]
+    }
   }
 }

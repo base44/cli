@@ -42,6 +42,7 @@ async function readRealtimeHandler(
     const result = RealtimeHandlerSchemaFileSchema.safeParse(parsed);
     if (result.success) {
       messageSchema = {
+        types: result.data.types as Record<string, unknown> | undefined,
         inbound: result.data.inbound as Record<string, unknown> | undefined,
         outbound: result.data.outbound as Record<string, unknown> | undefined,
       };
