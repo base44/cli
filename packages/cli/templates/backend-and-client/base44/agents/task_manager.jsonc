@@ -7,5 +7,13 @@
       "entity_name": "Task",
       "allowed_operations": ["read", "create", "update", "delete"]
     }
-  ]
+  ],
+  // Optional: let the agent remember facts across conversations.
+  // scope: "user" (per end-user), "global" (shared), or "both".
+  "memory_config": {
+    "enabled": true,
+    "scope": "both",
+    "include_other_conversation_context": false,
+    "instructions": null
+  }
 }

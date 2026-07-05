@@ -17,11 +17,19 @@ const ToolConfigSchema = z.union([
   BackendFunctionToolConfigSchema,
 ]);
 
+const MemoryConfigSchema = z.object({
+  enabled: z.boolean().default(true),
+  scope: z.enum(["global", "user", "both"]).default("both"),
+  include_other_conversation_context: z.boolean().default(false),
+  instructions: z.string().nullable().optional(),
+});
+
 export const AgentConfigSchema = z.looseObject({
   name: z.string().trim().min(1).max(100),
   description: z.string().trim().min(1, "Description is required"),
   instructions: z.string().trim().min(1, "Instructions are required"),
   tool_configs: z.array(ToolConfigSchema).optional().default([]),
+  memory_config: MemoryConfigSchema.optional(),
   whatsapp_greeting: z.string().nullable().optional(),
 });
 
