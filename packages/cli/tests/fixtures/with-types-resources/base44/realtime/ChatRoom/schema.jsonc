@@ -1,7 +1,7 @@
 {
   // Message catalog: each entry is a full JSON Schema (like an entity), keyed by
   // message name. The generator injects `type: "<name>"` as the discriminant.
-  "inbound": {
+  "toClient": {
     "joined": {
       "type": "object",
       "properties": { "userId": { "type": "string" } },
@@ -18,7 +18,7 @@
       "required": ["from", "text"]
     }
   },
-  "outbound": {
+  "toServer": {
     "message": {
       "type": "object",
       "properties": { "text": { "type": "string" } },

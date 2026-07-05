@@ -43,8 +43,8 @@ async function readRealtimeHandler(
     if (result.success) {
       messageSchema = {
         types: result.data.types as Record<string, unknown> | undefined,
-        inbound: result.data.inbound as Record<string, unknown> | undefined,
-        outbound: result.data.outbound as Record<string, unknown> | undefined,
+        toClient: result.data.toClient as Record<string, unknown> | undefined,
+        toServer: result.data.toServer as Record<string, unknown> | undefined,
       };
     }
   }

@@ -35,7 +35,7 @@ describe("realtime handler type generation", () => {
               additionalProperties: false,
             },
           },
-          inbound: {
+          toClient: {
             init: {
               properties: { food: { type: "array", items: { $ref: "#/types/Pt" } } },
               required: ["food"],
@@ -45,7 +45,7 @@ describe("realtime handler type generation", () => {
               required: ["id", "score"],
             },
           },
-          outbound: {
+          toServer: {
             dir: { properties: { angle: { type: "number" } }, required: ["angle"] },
           },
         }),
@@ -60,10 +60,10 @@ describe("realtime handler type generation", () => {
     // and referenced by name — not re-inlined.
     expect(out).toContain("export interface GameRoomPt");
     expect(out).toContain("food: GameRoomPt[]");
-    // Message interfaces carry their direction (so the same name can appear both
-    // inbound and outbound); the registry composes the unions from them.
+    // Message interfaces carry their direction (so the same name can appear in both
+    // directions); the registry composes the unions from them.
     expect(out).toContain(
-      '"GameRoom": { inbound: GameRoomInboundInit | GameRoomInboundDied; outbound: GameRoomOutboundDir }',
+      '"GameRoom": { toClient: GameRoomToClientInit | GameRoomToClientDied; toServer: GameRoomToServerDir }',
     );
     // Output is valid TS: no `export interface` spliced inside a type literal
     // (the failure mode of the old regex-based extraction).
@@ -76,15 +76,15 @@ describe("realtime handler type generation", () => {
         ...EMPTY,
         realtimeHandlers: [
           handler({
-            // Both keys PascalCase to the same GameRoomInboundUserJoined.
-            inbound: {
+            // Both keys PascalCase to the same GameRoomToClientUserJoined.
+            toClient: {
               "user-joined": { properties: { a: { type: "string" } } },
               userJoined: { properties: { b: { type: "string" } } },
             },
-            outbound: {},
+            toServer: {},
           }),
         ],
       }),
-    ).rejects.toThrow(/Duplicate generated type "GameRoomInboundUserJoined"/);
+    ).rejects.toThrow(/Duplicate generated type "GameRoomToClientUserJoined"/);
   });
 });

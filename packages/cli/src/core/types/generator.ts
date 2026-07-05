@@ -168,17 +168,17 @@ async function compileEntity(entity: Entity): Promise<string> {
 interface RealtimeCompileResult {
   /** Top-level `export` declarations: one interface per message + shared types. */
   decls: string;
-  /** The registry value, e.g. `{ inbound: FooInit | FooTick; outbound: FooJoin }`. */
+  /** The registry value, e.g. `{ toClient: FooInit | FooTick; toServer: FooJoin }`. */
   entry: string;
 }
 
 /**
  * A handler's `schema.jsonc` is a *catalog* of named messages:
- *   { types?: { Pt, Snake, … }, inbound: { init, tick, … }, outbound: { join, … } }
+ *   { types?: { Pt, Snake, … }, toClient: { init, tick, … }, toServer: { join, … } }
  * Each message is a flat object schema (no `type` field — the generator injects
  * `type: "<name>"` as the discriminant). We compile the whole catalog in ONE pass
  * so json-schema-to-typescript emits a named interface per message plus the shared
- * types, then assemble the inbound/outbound unions from those names. This avoids
+ * types, then assemble the toClient/toServer unions from those names. This avoids
  * scraping the compiler output (the old regex broke on unions and `$defs`), and
  * because every message is a single flat object, the fragile multi-declaration
  * case never arises.
@@ -188,20 +188,20 @@ async function compileRealtimeHandler(
 ): Promise<RealtimeCompileResult> {
   const { messageSchema } = handler;
   if (!messageSchema) {
-    return { decls: "", entry: "{ inbound: unknown; outbound: unknown }" };
+    return { decls: "", entry: "{ toClient: unknown; toServer: unknown }" };
   }
 
   const prefix = toPascalCase(handler.name);
   const types = (messageSchema.types ?? {}) as Record<string, JSONSchema4>;
-  const inbound = (messageSchema.inbound ?? {}) as Record<string, JSONSchema4>;
-  const outbound = (messageSchema.outbound ?? {}) as Record<string, JSONSchema4>;
+  const toClient = (messageSchema.toClient ?? {}) as Record<string, JSONSchema4>;
+  const toServer = (messageSchema.toServer ?? {}) as Record<string, JSONSchema4>;
 
   // Shared types are prefixed with the handler name so names (Pt, Snake, …) can't
   // collide across handlers or with entity interfaces. Messages additionally carry
-  // their direction, since the same name (e.g. "message") may appear both inbound
-  // and outbound.
+  // their direction, since the same name (e.g. "message") may appear in both
+  // directions.
   const typeName = (key: string) => `${prefix}${toPascalCase(key)}`;
-  const msgName = (dir: "Inbound" | "Outbound", key: string) =>
+  const msgName = (dir: "ToClient" | "ToServer", key: string) =>
     `${prefix}${dir}${toPascalCase(key)}`;
 
   const defs: Record<string, JSONSchema4> = {};
@@ -225,7 +225,7 @@ async function compileRealtimeHandler(
   // `type` discriminant injected from its key.
   const compileMessages = (
     msgs: Record<string, JSONSchema4>,
-    dir: "Inbound" | "Outbound",
+    dir: "ToClient" | "ToServer",
   ): string[] =>
     Object.entries(msgs).map(([key, schema]) => {
       const name = msgName(dir, key);
@@ -240,12 +240,12 @@ async function compileRealtimeHandler(
       return name;
     });
 
-  const inboundNames = compileMessages(inbound, "Inbound");
-  const outboundNames = compileMessages(outbound, "Outbound");
+  const toClientNames = compileMessages(toClient, "ToClient");
+  const toServerNames = compileMessages(toServer, "ToServer");
 
   // Root union over every message keeps all defs reachable so the compiler emits
   // them; we keep its whole output verbatim (no scraping).
-  const allNames = [...inboundNames, ...outboundNames];
+  const allNames = [...toClientNames, ...toServerNames];
   const rootName = `${prefix}Message`;
   const rootSchema = {
     title: rootName,
@@ -273,7 +273,7 @@ async function compileRealtimeHandler(
   const union = (names: string[]) => (names.length ? names.join(" | ") : "never");
   return {
     decls,
-    entry: `{ inbound: ${union(inboundNames)}; outbound: ${union(outboundNames)} }`,
+    entry: `{ toClient: ${union(toClientNames)}; toServer: ${union(toServerNames)} }`,
   };
 }
 
