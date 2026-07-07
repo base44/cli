@@ -1,0 +1,107 @@
+---
+export interface Props {
+  seed: string;
+  label?: string;
+  url?: string;
+  ratio?: string;
+  eager?: boolean;
+}
+
+const { seed, label, url, ratio = '4 / 3', eager = false } = Astro.props;
+
+// Derive a stable hue from the seed string so each project gets its own
+// on-brand tint. Deterministic → identical between SSR and any re-render.
+let hash = 0;
+for (let i = 0; i < seed.length; i++) {
+  hash = (hash * 31 + seed.charCodeAt(i)) % 360;
+}
+const hue = (hash + 360) % 360;
+const hueB = (hue + 42) % 360;
+
+const initials = seed
+  .split(/\s+/)
+  .filter(Boolean)
+  .slice(0, 2)
+  .map((w) => w[0]?.toUpperCase() ?? '')
+  .join('');
+
+const style = [
+  `--h:${hue}`,
+  `--h2:${hueB}`,
+  `aspect-ratio:${ratio}`,
+].join(';');
+---
+
+{
+  url ? (
+    <img
+      class="cover-img"
+      src={url}
+      alt={label ?? seed}
+      loading={eager ? 'eager' : 'lazy'}
+      style={`aspect-ratio:${ratio}`}
+    />
+  ) : (
+    <div class="cover-block" style={style} role="img" aria-label={label ?? seed}>
+      <span class="cover-initials">{initials}</span>
+      {label && <span class="cover-label">{label}</span>}
+    </div>
+  )
+}
+
+<style>
+  .cover-img {
+    width: 100%;
+    height: auto;
+    object-fit: cover;
+    border-radius: 10px;
+  }
+  .cover-block {
+    position: relative;
+    width: 100%;
+    border-radius: 10px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background:
+      radial-gradient(
+        120% 120% at 18% 12%,
+        hsl(var(--h) 55% 78% / 0.95),
+        transparent 55%
+      ),
+      radial-gradient(
+        120% 120% at 88% 92%,
+        hsl(var(--h2) 60% 62% / 0.9),
+        transparent 55%
+      ),
+      linear-gradient(150deg, hsl(var(--h) 40% 90%), hsl(var(--h2) 38% 80%));
+  }
+  .cover-block::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(hsl(var(--h) 30% 30% / 0.14) 1px, transparent 1.4px);
+    background-size: 14px 14px;
+    mix-blend-mode: multiply;
+  }
+  .cover-initials {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: clamp(2.5rem, 8vw, 4.5rem);
+    color: hsl(var(--h) 45% 22% / 0.85);
+    line-height: 1;
+    z-index: 1;
+  }
+  .cover-label {
+    position: absolute;
+    left: 0.9rem;
+    bottom: 0.8rem;
+    z-index: 1;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: hsl(var(--h) 40% 25% / 0.75);
+  }
+</style>

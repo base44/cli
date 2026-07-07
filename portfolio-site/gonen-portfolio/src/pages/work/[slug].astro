@@ -1,0 +1,203 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import Cover from '../../components/Cover.astro';
+import { getPortfolio, getProjectMedia, resolveImage } from '../../lib/portfolio';
+
+const { slug } = Astro.params;
+const { projects, collections } = await getPortfolio();
+const project = projects.find((p) => p.slug === slug);
+
+if (!project || !project._id) {
+  return new Response(null, { status: 404, statusText: 'Project not found' });
+}
+
+const media = await getProjectMedia(project._id);
+const cover = resolveImage(project.coverImage?.imageInfo, 1600, 1000);
+
+const projectCollections = collections.filter(
+  (c) => c._id && project.collectionIds?.includes(c._id),
+);
+const details = (project.details ?? []).filter((d) => d?.label && d?.text);
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'CreativeWork',
+  name: project.title,
+  description: project.description,
+  creator: { '@type': 'Person', name: 'Gonen' },
+  url: Astro.url.href,
+};
+---
+
+<Layout
+  title={`${project.title} — Gonen`}
+  description={project.description ?? `${project.title}, an illustration project by Gonen.`}
+  ogType="article"
+>
+  <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} is:inline />
+
+  <article class="project">
+    <div class="wrap project-head">
+      <nav class="crumbs" aria-label="Breadcrumb">
+        <a href="/work">Work</a>
+        {
+          projectCollections.map((c) => (
+            <>
+              <span aria-hidden="true">/</span>
+              <a href={`/work#${c.slug}`}>{c.title}</a>
+            </>
+          ))
+        }
+      </nav>
+      <h1>{project.title}</h1>
+      {project.description && <p class="project-lede">{project.description}</p>}
+    </div>
+
+    <div class="wrap project-cover">
+      <Cover seed={project.title ?? 'Project'} url={cover} ratio="16 / 10" eager={true} />
+    </div>
+
+    <div class="wrap project-body">
+      {
+        details.length > 0 && (
+          <aside class="details">
+            <h2 class="details-title">Details</h2>
+            <dl>
+              {details.map((d) => (
+                <div class="detail-row">
+                  <dt>{d.label}</dt>
+                  <dd>{d.text}</dd>
+                </div>
+              ))}
+            </dl>
+          </aside>
+        )
+      }
+
+      <div class="narrative">
+        {
+          media.length > 0 ? (
+            <div class="gallery">
+              {media.map((item, i) => {
+                const src = resolveImage(item.image?.imageInfo, 1400, 1050);
+                return (
+                  <figure class="shot">
+                    <Cover seed={`${project.title}-${i}`} url={src} ratio="4 / 3" />
+                  </figure>
+                );
+              })}
+            </div>
+          ) : (
+            <p class="note">
+              This project is presented as a written case for now. Full imagery can be added to
+              its gallery any time from the Wix dashboard — it will appear here automatically.
+            </p>
+          )
+        }
+      </div>
+    </div>
+
+    <div class="wrap project-foot">
+      <a class="btn ghost" href="/work">← Back to all work</a>
+    </div>
+  </article>
+</Layout>
+
+<style>
+  .project-head {
+    padding: clamp(2rem, 5vw, 3.5rem) 0 1.5rem;
+    max-width: 820px;
+  }
+  .crumbs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+    font-size: 0.9rem;
+    color: var(--ink-faint);
+    margin-bottom: 1.2rem;
+  }
+  .crumbs a {
+    text-decoration: none;
+    color: var(--ink-soft);
+    font-weight: 500;
+  }
+  .crumbs a:hover {
+    color: var(--accent);
+  }
+  .project-head h1 {
+    font-size: clamp(2.3rem, 6vw, 3.8rem);
+  }
+  .project-lede {
+    font-size: 1.2rem;
+    color: var(--ink-soft);
+    margin-top: 1rem;
+    max-width: 52ch;
+  }
+  .project-cover {
+    margin: 1rem auto 0;
+  }
+  .project-body {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: clamp(1.5rem, 5vw, 4rem);
+    margin-top: clamp(2rem, 5vw, 3.5rem);
+    align-items: start;
+  }
+  .details {
+    position: sticky;
+    top: 90px;
+  }
+  .details-title {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--accent-deep);
+    margin-bottom: 0.8rem;
+  }
+  dl {
+    margin: 0;
+  }
+  .detail-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .detail-row dt {
+    color: var(--ink-faint);
+    font-size: 0.9rem;
+  }
+  .detail-row dd {
+    margin: 0;
+    font-weight: 500;
+    text-align: right;
+  }
+  .narrative .note {
+    color: var(--ink-soft);
+    font-size: 1.1rem;
+    line-height: 1.7;
+    max-width: 55ch;
+    border-left: 3px solid var(--accent);
+    padding-left: 1.2rem;
+  }
+  .gallery {
+    display: grid;
+    gap: 1.5rem;
+  }
+  .shot {
+    margin: 0;
+  }
+  .project-foot {
+    margin-top: 3.5rem;
+  }
+  @media (max-width: 720px) {
+    .project-body {
+      grid-template-columns: 1fr;
+    }
+    .details {
+      position: static;
+    }
+  }
+</style>

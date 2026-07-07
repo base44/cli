@@ -1,0 +1,12 @@
+# Installed Wix agent skills (tooling, reinstallable via `npx skills@latest add wix/skills`)
+.agents/
+
+# Never commit env / secrets
+**/.env
+**/.env.*
+
+# Dependencies & build output (also covered by gonen-portfolio/.gitignore)
+**/node_modules/
+**/dist/
+**/.wix/
+**/.astro/

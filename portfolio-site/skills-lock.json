@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "skills": {
+    "wix-app": {
+      "source": "wix/skills",
+      "sourceType": "github",
+      "skillPath": "skills/wix-app/SKILL.md",
+      "computedHash": "19ba891d7d12dffa88a620f6f636c6efe2dba0a306bce500ce4ba226f2782f10"
+    },
+    "wix-auth": {
+      "source": "wix/skills",
+      "sourceType": "github",
+      "skillPath": "skills/wix-auth/SKILL.md",
+      "computedHash": "bf7376e4c8c35712962a1a5b621adbcf8b7dc8bdbc0a1870e47992e317b6d213"
+    },
+    "wix-design-system": {
+      "source": "wix/skills",
+      "sourceType": "github",
+      "skillPath": "skills/wix-design-system/SKILL.md",
+      "computedHash": "180241cb6db94aea72a8290bb1724061e580c83042ae63e4703729875ecf3be5"
+    },
+    "wix-docs": {
+      "source": "wix/skills",
+      "sourceType": "github",
+      "skillPath": "skills/wix-docs/SKILL.md",
+      "computedHash": "75b8bd949ddfd512562198749b0d4f9c9b167124c20ff7a9c265b02b548b7b5a"
+    },
+    "wix-headless": {
+      "source": "wix/skills",
+      "sourceType": "github",
+      "skillPath": "skills/wix-headless/SKILL.md",
+      "computedHash": "50c78a6ac794580fabbc176e32bdb24b2947da21abedb9925a51e1b090eaf09d"
+    },
+    "wix-manage": {
+      "source": "wix/skills",
+      "sourceType": "github",
+      "skillPath": "skills/wix-manage/SKILL.md",
+      "computedHash": "444d2871d1e69ca16dcc25ed5791838a4bfcea9f875a4d007639f3568b17b89f"
+    },
+    "wix-vibe-headless": {
+      "source": "wix/skills",
+      "sourceType": "github",
+      "skillPath": "skills/wix-vibe-headless/SKILL.md",
+      "computedHash": "5c6f77bdd259c28051ee6cee0c93de5f84296a014158699f0b476d9477148653"
+    }
+  }
+}

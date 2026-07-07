@@ -1,0 +1,74 @@
+---
+import Cover from './Cover.astro';
+import { resolveImage, type Project } from '../lib/portfolio';
+
+export interface Props {
+  project: Project;
+}
+
+const { project } = Astro.props;
+const cover = resolveImage(project.coverImage?.imageInfo, 900, 675);
+const medium = project.details?.find((d) => d?.label?.toLowerCase() === 'medium')?.text;
+const year = project.details?.find((d) => d?.label?.toLowerCase() === 'year')?.text;
+const meta = [medium, year].filter(Boolean).join(' · ');
+const href = `/work/${project.slug}`;
+---
+
+<a class="card" href={href}>
+  <div class="card-cover">
+    <Cover seed={project.title ?? 'Project'} label={medium} url={cover} />
+  </div>
+  <div class="card-body">
+    <h3 class="card-title">{project.title}</h3>
+    {meta && <p class="card-meta">{meta}</p>}
+    {project.description && <p class="card-desc">{project.description}</p>}
+    <span class="card-cta">View project →</span>
+  </div>
+</a>
+
+<style>
+  .card {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+  }
+  .card-cover {
+    overflow: hidden;
+    border-radius: 10px;
+    transition: transform 0.25s ease;
+  }
+  .card:hover .card-cover {
+    transform: translateY(-4px);
+  }
+  .card-body {
+    padding: 1rem 0.2rem 0;
+  }
+  .card-title {
+    font-size: 1.4rem;
+    margin: 0;
+  }
+  .card-meta {
+    color: var(--ink-faint);
+    font-size: 0.82rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin: 0.35rem 0 0;
+  }
+  .card-desc {
+    color: var(--ink-soft);
+    margin: 0.6rem 0 0.75rem;
+    font-size: 0.98rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .card-cta {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--accent-deep);
+  }
+  .card:hover .card-cta {
+    color: var(--accent);
+  }
+</style>

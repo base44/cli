@@ -1,0 +1,265 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Cover from '../components/Cover.astro';
+
+const services = [
+  {
+    title: 'Editorial illustration',
+    body: 'Images for magazines, newspapers, and online features — turning an argument or a feeling into a single memorable picture.',
+  },
+  {
+    title: 'Book & cover art',
+    body: 'Covers and interior illustration for fiction and non-fiction, from first sketches through to print-ready files.',
+  },
+  {
+    title: 'Character & concept',
+    body: 'Character design and visual development for brands, animation, and games, with an eye for warmth and personality.',
+  },
+  {
+    title: 'Murals & prints',
+    body: 'Larger-format and limited-run personal pieces — the work that keeps the commissioned work honest.',
+  },
+];
+
+const clients = ['Transit Quarterly', 'Verdant Magazine', 'Independent publishers', 'Studios & agencies'];
+
+const process = [
+  { step: '01', title: 'Brief & research', body: 'We talk through the idea, the audience, and the constraints. I read, gather references, and sketch loosely.' },
+  { step: '02', title: 'Concepts', body: 'You get two or three rough directions. We pick one and I tighten the composition and colour.' },
+  { step: '03', title: 'Final art', body: 'I render the chosen concept to final, deliver print- and web-ready files, and stay on hand for tweaks.' },
+];
+---
+
+<Layout
+  title="About — Gonen"
+  description="Gonen is an illustrator and visual artist making warm, character-driven images for editorial, publishing, and personal work."
+>
+  <section class="wrap about-hero">
+    <div class="about-intro">
+      <p class="eyebrow">About</p>
+      <h1>Hi, I’m Gonen — I make pictures that carry ideas.</h1>
+      <p class="about-lede">
+        I’m an illustrator and visual artist. For over a decade I’ve been drawing for editors,
+        publishers, and anyone with a story that needs an image to land it.
+      </p>
+    </div>
+    <div class="about-portrait">
+      <Cover seed="Gonen portrait" label="Portrait" ratio="3 / 4" eager={true} />
+    </div>
+  </section>
+
+  <section class="wrap bio">
+    <div class="bio-col">
+      <p>
+        My work sits where warmth meets clarity. Whether it’s a full-page editorial piece or a
+        quiet personal study, I’m after the same thing: an image that says one thing well, and
+        rewards a second look. I draw in ink and gouache, finish digitally, and try never to let
+        the tools show more than the idea.
+      </p>
+      <p>
+        I care about collaboration. The best commissions start as a real conversation — about the
+        text, the audience, and what the picture actually needs to do. I’ll bring a point of view,
+        a few honest options, and the craft to see the chosen one all the way to final art.
+      </p>
+      <p>
+        Between commissions I keep a running body of personal work — nocturnal botanicals, invented
+        creatures, small experiments. It’s where the ideas start, and where the commissioned work
+        gets its voice.
+      </p>
+    </div>
+    <div class="bio-side">
+      <h2 class="side-title">Selected clients</h2>
+      <ul class="client-list">
+        {clients.map((c) => <li>{c}</li>)}
+      </ul>
+      <a class="btn" href="mailto:hello@gonen.studio">Start a project</a>
+    </div>
+  </section>
+
+  <section class="wrap services">
+    <h2 class="block-title">What I do</h2>
+    <div class="service-grid">
+      {
+        services.map((s) => (
+          <div class="service">
+            <h3>{s.title}</h3>
+            <p>{s.body}</p>
+          </div>
+        ))
+      }
+    </div>
+  </section>
+
+  <section class="wrap process">
+    <h2 class="block-title">How we’ll work</h2>
+    <ol class="process-list">
+      {
+        process.map((p) => (
+          <li class="process-item">
+            <span class="process-step">{p.step}</span>
+            <div>
+              <h3>{p.title}</h3>
+              <p>{p.body}</p>
+            </div>
+          </li>
+        ))
+      }
+    </ol>
+  </section>
+
+  <section class="wrap cta">
+    <h2>Have something you’d like drawn?</h2>
+    <p>Commissions open for editorial, publishing, and select brand work.</p>
+    <div class="cta-actions">
+      <a class="btn" href="mailto:hello@gonen.studio">Get in touch</a>
+      <a class="btn ghost" href="/work">See the work</a>
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .about-hero {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: clamp(2rem, 6vw, 4rem);
+    align-items: center;
+    padding: clamp(2.5rem, 7vw, 5rem) 0 clamp(1.5rem, 4vw, 3rem);
+  }
+  .about-intro h1 {
+    font-size: clamp(2.2rem, 5.5vw, 3.6rem);
+    margin: 0.7rem 0 0;
+  }
+  .about-lede {
+    font-size: 1.2rem;
+    color: var(--ink-soft);
+    margin-top: 1.2rem;
+    max-width: 42ch;
+  }
+  .about-portrait {
+    max-width: 340px;
+    width: 100%;
+    justify-self: end;
+  }
+
+  .bio {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap: clamp(2rem, 6vw, 4rem);
+    padding-top: 1rem;
+    border-top: 1px solid var(--line);
+    margin-top: 2rem;
+  }
+  .bio-col p {
+    font-size: 1.08rem;
+    line-height: 1.75;
+  }
+  .side-title,
+  .block-title {
+    font-family: var(--serif);
+  }
+  .side-title {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--accent-deep);
+    margin-bottom: 0.8rem;
+  }
+  .client-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1.8rem;
+  }
+  .client-list li {
+    padding: 0.55rem 0;
+    border-bottom: 1px solid var(--line);
+    font-weight: 500;
+  }
+
+  .services,
+  .process {
+    margin-top: clamp(3rem, 7vw, 5rem);
+  }
+  .block-title {
+    font-size: clamp(1.6rem, 4vw, 2.3rem);
+    margin-bottom: 1.8rem;
+  }
+  .service-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.8rem 2.5rem;
+  }
+  .service h3 {
+    font-size: 1.25rem;
+    margin-bottom: 0.4rem;
+  }
+  .service p {
+    color: var(--ink-soft);
+    margin: 0;
+  }
+
+  .process-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 1.5rem;
+  }
+  .process-item {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 1.2rem;
+    align-items: start;
+    border-top: 1px solid var(--line);
+    padding-top: 1.5rem;
+  }
+  .process-step {
+    font-family: var(--serif);
+    font-size: 1.5rem;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .process-item h3 {
+    font-size: 1.25rem;
+    margin-bottom: 0.3rem;
+  }
+  .process-item p {
+    color: var(--ink-soft);
+    margin: 0;
+  }
+
+  .cta {
+    text-align: center;
+    margin-top: clamp(3.5rem, 8vw, 6rem);
+    padding: clamp(2.5rem, 6vw, 4rem);
+    background: var(--paper-2);
+    border-radius: 16px;
+  }
+  .cta h2 {
+    font-size: clamp(1.6rem, 4vw, 2.4rem);
+  }
+  .cta p {
+    color: var(--ink-soft);
+    margin-top: 0.6rem;
+  }
+  .cta-actions {
+    display: flex;
+    gap: 0.8rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 1.5rem;
+  }
+
+  @media (max-width: 760px) {
+    .about-hero,
+    .bio {
+      grid-template-columns: 1fr;
+    }
+    .about-portrait {
+      max-width: 280px;
+      justify-self: start;
+    }
+    .service-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

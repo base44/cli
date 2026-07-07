@@ -1,0 +1,115 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import ProjectCard from '../../components/ProjectCard.astro';
+import { getPortfolio, projectsInCollection } from '../../lib/portfolio';
+
+const { projects, collections } = await getPortfolio();
+
+const groups = collections
+  .map((collection) => ({
+    collection,
+    items: projectsInCollection(projects, collection),
+  }))
+  .filter((g) => g.items.length > 0);
+
+const groupedIds = new Set(groups.flatMap((g) => g.items.map((p) => p._id)));
+const ungrouped = projects.filter((p) => !groupedIds.has(p._id));
+---
+
+<Layout>
+  <section class="wrap page-head">
+    <p class="eyebrow">Portfolio</p>
+    <h1>Work</h1>
+    <p class="lede">
+      Selected illustration projects, grouped by series. Commissions and personal work,
+      newest studios first.
+    </p>
+  </section>
+
+  {
+    projects.length === 0 && (
+      <section class="wrap">
+        <p class="empty">No projects published yet. Check back soon.</p>
+      </section>
+    )
+  }
+
+  {
+    groups.map((group) => (
+      <section class="wrap collection" id={group.collection.slug ?? undefined}>
+        <div class="collection-head">
+          <h2>{group.collection.title}</h2>
+          {group.collection.description && <p class="collection-desc">{group.collection.description}</p>}
+        </div>
+        <div class="grid">
+          {group.items.map((project) => (
+            <ProjectCard project={project} />
+          ))}
+        </div>
+      </section>
+    ))
+  }
+
+  {
+    ungrouped.length > 0 && (
+      <section class="wrap collection">
+        <div class="collection-head">
+          <h2>More work</h2>
+        </div>
+        <div class="grid">
+          {ungrouped.map((project) => (
+            <ProjectCard project={project} />
+          ))}
+        </div>
+      </section>
+    )
+  }
+</Layout>
+
+<style>
+  .page-head {
+    padding: clamp(2.5rem, 6vw, 4.5rem) 0 1rem;
+    max-width: 760px;
+  }
+  .page-head h1 {
+    font-size: clamp(2.6rem, 7vw, 4rem);
+    margin: 0.6rem 0 0;
+  }
+  .lede {
+    color: var(--ink-soft);
+    font-size: 1.15rem;
+    margin-top: 1.1rem;
+    max-width: 46ch;
+  }
+  .collection {
+    margin-top: clamp(2.5rem, 6vw, 4rem);
+    scroll-margin-top: 90px;
+  }
+  .collection-head {
+    border-top: 1px solid var(--line);
+    padding-top: 1.5rem;
+    margin-bottom: 2rem;
+    max-width: 60ch;
+  }
+  .collection-head h2 {
+    font-size: clamp(1.5rem, 3.5vw, 2.1rem);
+  }
+  .collection-desc {
+    color: var(--ink-soft);
+    margin: 0.5rem 0 0;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: clamp(1.5rem, 4vw, 3rem) clamp(1.5rem, 3vw, 2.5rem);
+  }
+  .empty {
+    color: var(--ink-faint);
+    font-size: 1.05rem;
+  }
+  @media (max-width: 640px) {
+    .grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

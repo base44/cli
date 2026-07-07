@@ -1,0 +1,161 @@
+---
+import Layout from '../layouts/Layout.astro';
+import ProjectCard from '../components/ProjectCard.astro';
+import { getPortfolio } from '../lib/portfolio';
+
+const { projects, collections } = await getPortfolio();
+const featured = projects.slice(0, 4);
+const projectCount = projects.length;
+const collectionCount = collections.length;
+---
+
+<Layout>
+  <section class="hero wrap">
+    <p class="eyebrow">Illustrator &amp; visual artist</p>
+    <h1 class="hero-title">
+      Gonen draws stories —<br />for editorial, publishing,<br />and the pure joy of it.
+    </h1>
+    <p class="hero-lede">
+      A portfolio of commissioned and personal illustration: warm, character-driven images
+      made to carry an idea across a page.
+    </p>
+    <div class="hero-actions">
+      <a class="btn" href="/work">See the work</a>
+      <a class="btn ghost" href="/about">About Gonen</a>
+    </div>
+  </section>
+
+  <section class="wrap featured">
+    <div class="section-head">
+      <h2>Selected work</h2>
+      <a class="see-all" href="/work">All projects →</a>
+    </div>
+
+    {
+      featured.length > 0 ? (
+        <div class="grid">
+          {featured.map((project) => (
+            <ProjectCard project={project} />
+          ))}
+        </div>
+      ) : (
+        <p class="empty">
+          Projects are on their way — new work will appear here as it’s added in the studio.
+        </p>
+      )
+    }
+  </section>
+
+  {
+    collectionCount > 0 && (
+      <section class="wrap collections-strip">
+        <h2 class="strip-title">Explore by series</h2>
+        <div class="strip">
+          {collections.map((c) => (
+            <a class="chip" href={`/work#${c.slug}`}>
+              {c.title}
+            </a>
+          ))}
+        </div>
+        <p class="count-note">
+          {projectCount} project{projectCount === 1 ? '' : 's'} across {collectionCount} series.
+        </p>
+      </section>
+    )
+  }
+</Layout>
+
+<style>
+  .hero {
+    padding: clamp(3.5rem, 9vw, 7rem) 0 clamp(2.5rem, 5vw, 4rem);
+    max-width: 960px;
+  }
+  .hero-title {
+    font-size: clamp(2.4rem, 6.5vw, 4.6rem);
+    margin: 0.8rem 0 0;
+  }
+  .hero-lede {
+    font-size: clamp(1.05rem, 2.2vw, 1.3rem);
+    color: var(--ink-soft);
+    max-width: 40ch;
+    margin: 1.6rem 0 0;
+  }
+  .hero-actions {
+    display: flex;
+    gap: 0.8rem;
+    flex-wrap: wrap;
+    margin-top: 2.2rem;
+  }
+
+  .featured {
+    padding-top: 1rem;
+  }
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    border-top: 1px solid var(--line);
+    padding-top: 1.6rem;
+    margin-bottom: 2rem;
+  }
+  .section-head h2 {
+    font-size: clamp(1.6rem, 3.5vw, 2.2rem);
+  }
+  .see-all {
+    text-decoration: none;
+    font-weight: 600;
+    color: var(--accent-deep);
+    font-size: 0.95rem;
+  }
+  .see-all:hover {
+    color: var(--accent);
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: clamp(1.5rem, 4vw, 3rem) clamp(1.5rem, 3vw, 2.5rem);
+  }
+  .empty {
+    color: var(--ink-faint);
+    font-size: 1.05rem;
+  }
+
+  .collections-strip {
+    margin-top: 4rem;
+  }
+  .strip-title {
+    font-size: 1.3rem;
+    margin-bottom: 1rem;
+  }
+  .strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+  }
+  .chip {
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.92rem;
+    padding: 0.45rem 1rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--ink-soft);
+    background: var(--paper-2);
+    transition: border-color 0.15s ease, color 0.15s ease;
+  }
+  .chip:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .count-note {
+    color: var(--ink-faint);
+    font-size: 0.9rem;
+    margin-top: 1rem;
+  }
+
+  @media (max-width: 640px) {
+    .grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

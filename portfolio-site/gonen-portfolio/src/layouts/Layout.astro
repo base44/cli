@@ -1,0 +1,276 @@
+---
+export interface Props {
+  title?: string;
+  description?: string;
+  ogType?: string;
+}
+
+const { title, description, ogType = 'website' } = Astro.props;
+const canonical = Astro.url.href;
+const nav = [
+  { href: '/work', label: 'Work' },
+  { href: '/about', label: 'About' },
+];
+const path = Astro.url.pathname;
+const isActive = (href: string) => path === href || (href !== '/' && path.startsWith(href));
+const year = 2026;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="generator" content={Astro.generator} />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    {title && <title>{title}</title>}
+    {description && <meta name="description" content={description} />}
+    {title && <meta property="og:title" content={title} />}
+    {description && <meta property="og:description" content={description} />}
+    <meta property="og:type" content={ogType} />
+    <meta property="og:url" content={canonical} />
+    <link rel="canonical" href={canonical} />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrap header-inner">
+        <a href="/" class="wordmark" aria-label="Gonen — home">Gonen</a>
+        <nav class="nav" aria-label="Primary">
+          {
+            nav.map((item) => (
+              <a href={item.href} class:list={['nav-link', { active: isActive(item.href) }]}>
+                {item.label}
+              </a>
+            ))
+          }
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <slot />
+    </main>
+
+    <footer class="site-footer">
+      <div class="wrap footer-inner">
+        <div>
+          <p class="footer-mark">Gonen</p>
+          <p class="footer-tag">Illustration &amp; visual art</p>
+        </div>
+        <div class="footer-links">
+          <a href="/work">Work</a>
+          <a href="/about">About</a>
+          <a href="mailto:hello@gonen.studio">Contact</a>
+        </div>
+        <p class="footer-legal">© {year} Gonen. All illustrations are the property of the artist.</p>
+      </div>
+    </footer>
+
+    <style is:global>
+      :root {
+        --paper: #f6f2ea;
+        --paper-2: #efe9dd;
+        --ink: #1c1a15;
+        --ink-soft: #4a463c;
+        --ink-faint: #8a8477;
+        --accent: #c8553d;
+        --accent-deep: #9c3d2b;
+        --line: #ddd5c6;
+        --max: 1160px;
+        --serif: 'Fraunces', Georgia, 'Times New Roman', serif;
+        --sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font-family: var(--sans);
+        font-size: 17px;
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+      }
+
+      main {
+        flex: 1 0 auto;
+      }
+
+      .wrap {
+        width: 100%;
+        max-width: var(--max);
+        margin: 0 auto;
+        padding: 0 clamp(1.25rem, 4vw, 2.75rem);
+      }
+
+      a {
+        color: inherit;
+      }
+
+      h1,
+      h2,
+      h3 {
+        font-family: var(--serif);
+        font-weight: 600;
+        line-height: 1.08;
+        letter-spacing: -0.01em;
+        margin: 0;
+      }
+
+      p {
+        margin: 0 0 1rem;
+      }
+
+      img {
+        max-width: 100%;
+        display: block;
+      }
+
+      /* Header */
+      .site-header {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        background: color-mix(in srgb, var(--paper) 88%, transparent);
+        backdrop-filter: blur(10px);
+        border-bottom: 1px solid var(--line);
+      }
+      .header-inner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 68px;
+      }
+      .wordmark {
+        font-family: var(--serif);
+        font-weight: 600;
+        font-size: 1.5rem;
+        letter-spacing: -0.02em;
+        text-decoration: none;
+      }
+      .nav {
+        display: flex;
+        gap: clamp(1rem, 3vw, 2rem);
+      }
+      .nav-link {
+        text-decoration: none;
+        font-weight: 500;
+        font-size: 0.98rem;
+        color: var(--ink-soft);
+        padding-bottom: 2px;
+        border-bottom: 1.5px solid transparent;
+        transition: color 0.15s ease, border-color 0.15s ease;
+      }
+      .nav-link:hover {
+        color: var(--ink);
+      }
+      .nav-link.active {
+        color: var(--ink);
+        border-color: var(--accent);
+      }
+
+      /* Footer */
+      .site-footer {
+        border-top: 1px solid var(--line);
+        margin-top: 5rem;
+        padding: 3rem 0;
+        background: var(--paper-2);
+      }
+      .footer-inner {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 1rem 2rem;
+        align-items: start;
+      }
+      .footer-mark {
+        font-family: var(--serif);
+        font-size: 1.35rem;
+        font-weight: 600;
+        margin: 0;
+      }
+      .footer-tag {
+        color: var(--ink-faint);
+        margin: 0.15rem 0 0;
+        font-size: 0.95rem;
+      }
+      .footer-links {
+        display: flex;
+        gap: 1.5rem;
+      }
+      .footer-links a {
+        text-decoration: none;
+        color: var(--ink-soft);
+        font-weight: 500;
+        font-size: 0.95rem;
+      }
+      .footer-links a:hover {
+        color: var(--accent);
+      }
+      .footer-legal {
+        grid-column: 1 / -1;
+        color: var(--ink-faint);
+        font-size: 0.85rem;
+        margin: 1.5rem 0 0;
+      }
+
+      /* Shared building blocks */
+      .eyebrow {
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: var(--accent-deep);
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.95rem;
+        padding: 0.7rem 1.3rem;
+        border-radius: 999px;
+        background: var(--ink);
+        color: var(--paper);
+        border: 1.5px solid var(--ink);
+        transition: transform 0.15s ease, background 0.15s ease;
+      }
+      .btn:hover {
+        transform: translateY(-1px);
+        background: var(--accent);
+        border-color: var(--accent);
+      }
+      .btn.ghost {
+        background: transparent;
+        color: var(--ink);
+      }
+      .btn.ghost:hover {
+        background: var(--ink);
+        color: var(--paper);
+      }
+
+      @media (max-width: 620px) {
+        .footer-inner {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </body>
+</html>
