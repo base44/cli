@@ -223,8 +223,15 @@ async function fetchLogsForFunctions(
       throw error;
     }
 
+    // The backend does not filter by level for every runtime (per-app
+    // Cloudflare deployments return the full stream), so filter defensively
+    // here. Entry levels are already normalized by the response schema.
+    const matchingLogs = filters.level
+      ? logs.filter((entry) => entry.level === filters.level)
+      : logs;
+
     allEntries.push(
-      ...logs.map((entry) => normalizeLogEntry(entry, functionName)),
+      ...matchingLogs.map((entry) => normalizeLogEntry(entry, functionName)),
     );
   }
 
