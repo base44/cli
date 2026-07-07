@@ -108,6 +108,24 @@ describe("env credential seeding", () => {
     expect(await t.readAuthFile()).toBeNull();
   });
 
+  it("gives a workspace-key hint (not 'base44 login') on a rejected key", async () => {
+    await t.givenProject(fixture("with-entities"));
+    t.givenEnv({
+      BASE44_API_KEY:
+        "b44k_cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    });
+    t.api.mockEntitiesPushError({
+      status: 401,
+      body: { error: "Unauthorized", detail: "Invalid API key" },
+    });
+
+    const result = await t.run("entities", "push");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("workspace API key");
+    t.expectResult(result).toNotContain("base44 login");
+  });
+
   it("ignores a non-workspace BASE44_API_KEY when OAuth auth exists", async () => {
     await t.givenLoggedInWithProject(fixture("with-entities"));
     t.givenEnv({ BASE44_API_KEY: "not-a-workspace-key" });

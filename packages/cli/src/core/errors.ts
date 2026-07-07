@@ -16,6 +16,12 @@ import {
   ApiErrorResponseSchema,
 } from "@/core/clients/schemas.js";
 
+// Inlined rather than imported from core/auth/config to avoid a circular
+// import (auth/config depends on this module for its error classes).
+function usingWorkspaceApiKey(): boolean {
+  return process.env.BASE44_API_KEY?.trim().startsWith("b44k_") ?? false;
+}
+
 // ============================================================================
 // API Error Response Parsing
 // ============================================================================
@@ -393,6 +399,14 @@ export class ApiError extends SystemError {
       ];
     }
     if (statusCode === 401) {
+      if (usingWorkspaceApiKey()) {
+        return [
+          {
+            message:
+              "The workspace API key (BASE44_API_KEY) was rejected. Verify it is valid and authorized for this app.",
+          },
+        ];
+      }
       return [{ message: "Try logging in again", command: "base44 login" }];
     }
     if (statusCode === 403) {
