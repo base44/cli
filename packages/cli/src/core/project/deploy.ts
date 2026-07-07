@@ -79,7 +79,8 @@ export async function deployAll(
   });
   await agentResource.push(agents);
   await authConfigResource.push(authConfig);
-  const { results: connectorResults } = await pushConnectors(connectors);
+  const connectorResults =
+    connectors.length > 0 ? (await pushConnectors(connectors)).results : [];
 
   if (project.site?.outputDirectory) {
     const outputDir = resolve(project.root, project.site.outputDirectory);
