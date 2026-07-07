@@ -73,6 +73,60 @@ describe("env credential seeding", () => {
     expect(authHeader).toBe(`Bearer ${jwt}`);
   });
 
+  it("shows workspace API key auth in whoami without a stored login", async () => {
+    t.givenEnv({
+      BASE44_API_KEY:
+        "b44k_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    });
+
+    const result = await t.run("whoami");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Using workspace API key: b44k_aaaaa");
+    expect(await t.readAuthFile()).toBeNull();
+  });
+
+  it("uses BASE44_API_KEY as the api_key header for API calls", async () => {
+    await t.givenProject(fixture("with-entities"));
+    const workspaceApiKey =
+      "b44k_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    t.givenEnv({ BASE44_API_KEY: workspaceApiKey });
+
+    let apiKeyHeader: string | undefined;
+    let authHeader: string | undefined;
+    t.api.mockRoute("PUT", `/api/apps/${APP_ID}/entity-schemas`, (req, res) => {
+      apiKeyHeader = req.headers.api_key as string | undefined;
+      authHeader = req.headers.authorization;
+      res.status(200).json({ created: ["customer"], updated: [], deleted: [] });
+    });
+
+    const result = await t.run("entities", "push");
+
+    t.expectResult(result).toSucceed();
+    expect(apiKeyHeader).toBe(workspaceApiKey);
+    expect(authHeader).toBeUndefined();
+    expect(await t.readAuthFile()).toBeNull();
+  });
+
+  it("ignores a non-workspace BASE44_API_KEY when OAuth auth exists", async () => {
+    await t.givenLoggedInWithProject(fixture("with-entities"));
+    t.givenEnv({ BASE44_API_KEY: "not-a-workspace-key" });
+
+    let apiKeyHeader: string | undefined;
+    let authHeader: string | undefined;
+    t.api.mockRoute("PUT", `/api/apps/${APP_ID}/entity-schemas`, (req, res) => {
+      apiKeyHeader = req.headers.api_key as string | undefined;
+      authHeader = req.headers.authorization;
+      res.status(200).json({ created: ["customer"], updated: [], deleted: [] });
+    });
+
+    const result = await t.run("entities", "push");
+
+    t.expectResult(result).toSucceed();
+    expect(apiKeyHeader).toBeUndefined();
+    expect(authHeader).toBe("Bearer test-access-token");
+  });
+
   it("does not overwrite a stored login when env credentials are incomplete", async () => {
     await t.givenLoggedIn({ email: "real@example.com", name: "Real User" });
     // Access token present but no refresh token → can't form a standard record,

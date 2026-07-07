@@ -8,9 +8,24 @@ import { deleteFile, readJsonFile, writeJsonFile } from "@/core/utils/fs.js";
 
 // Buffer time before expiration to trigger proactive refresh (60 seconds)
 const TOKEN_REFRESH_BUFFER_MS = 60 * 1000;
+const WORKSPACE_API_KEY_PREFIX = "b44k_";
 
 // Lock to prevent concurrent token refreshes
 let refreshPromise: Promise<string | null> | null = null;
+
+export function getWorkspaceApiKeyFromEnv(): string | null {
+  const key = process.env.BASE44_API_KEY?.trim();
+  return key ? key : null;
+}
+
+export function isWorkspaceApiKey(value: string): boolean {
+  return value.startsWith(WORKSPACE_API_KEY_PREFIX);
+}
+
+export function hasWorkspaceApiKeyAuth(): boolean {
+  const key = getWorkspaceApiKeyFromEnv();
+  return key !== null && isWorkspaceApiKey(key);
+}
 
 export async function seedAuthFromEnv(): Promise<void> {
   const accessToken = process.env.BASE44_ACCESS_TOKEN;

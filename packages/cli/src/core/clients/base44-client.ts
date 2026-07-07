@@ -7,7 +7,10 @@ import { randomUUID } from "node:crypto";
 import type { KyRequest, KyResponse, NormalizedOptions } from "ky";
 import ky from "ky";
 import {
+  getWorkspaceApiKeyFromEnv,
+  hasWorkspaceApiKeyAuth,
   isTokenExpired,
+  isWorkspaceApiKey,
   readAuth,
   refreshAndSaveTokens,
 } from "@/core/auth/config.js";
@@ -48,6 +51,10 @@ async function handleUnauthorized(
   response: KyResponse,
 ): Promise<Response | undefined> {
   if (response.status !== 401) {
+    return;
+  }
+
+  if (hasWorkspaceApiKeyAuth()) {
     return;
   }
 
@@ -97,6 +104,12 @@ export const base44Client = ky.create({
       },
       captureRequestBody,
       async (request) => {
+        const workspaceApiKey = getWorkspaceApiKeyFromEnv();
+        if (workspaceApiKey && isWorkspaceApiKey(workspaceApiKey)) {
+          request.headers.set("api_key", workspaceApiKey);
+          return;
+        }
+
         try {
           const auth = await readAuth();
 
