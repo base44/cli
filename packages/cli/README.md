@@ -119,6 +119,16 @@ base44 <command> --help
 base44 --version
 ```
 
+## Telemetry
+
+When a command fails unexpectedly, the CLI sends an error report so we can find and fix bugs. A one-time notice is shown on first run. Reports include the command name, CLI version, OS and Node.js info, the error message and stack trace, and your account email when logged in. Secret values (e.g. from `base44 secrets set`) are redacted before anything is sent.
+
+To opt out, set the environment variable:
+
+```bash
+BASE44_DISABLE_TELEMETRY=1
+```
+
 ## Beta
 
 The CLI and Base44 backend service are currently in beta. We're actively improving them based on user feedback. Share your thoughts and feature requests on our [GitHub Discussions](https://github.com/orgs/base44/discussions).

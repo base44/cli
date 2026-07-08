@@ -1,5 +1,6 @@
 import type { Command } from "commander";
 import type { ErrorReporter } from "./error-reporter.js";
+import { redactCommandArgs } from "./redact.js";
 
 /**
  * Get the full command name by traversing parent commands.
@@ -31,7 +32,7 @@ export function addCommandInfoToErrorReporter(
     errorReporter.setContext({
       command: {
         name: fullCommandName,
-        args: actionCommand.args,
+        args: redactCommandArgs(actionCommand.args),
         options: actionCommand.opts(),
       },
     });

@@ -46,6 +46,26 @@ errorReporter.captureException(error);
 - Error stack traces
 - Error code and `isUserError` (for `CLIError` instances)
 
+### Redaction
+
+Sensitive values are redacted before capture (`src/cli/telemetry/redact.ts`):
+
+- Positional args shaped like `KEY=VALUE` (e.g. `base44 secrets set FOO=bar`)
+  keep the key but the value is replaced with `[REDACTED]`
+- API request/response bodies for `/secrets` endpoints are replaced entirely
+  with `[REDACTED]`
+
+Anything new that may carry user secrets (args, request bodies, options) must
+go through these helpers before being added to event properties.
+
+## First-Run Notice
+
+`runCLI()` calls `maybeShowTelemetryNotice(log)` (in
+`src/cli/telemetry/first-run-notice.ts`), which prints a one-time notice about
+what is collected and how to opt out. A marker file at
+`~/.base44/telemetry-notice` records that the notice was shown. The notice is
+skipped when telemetry is disabled (the testkit disables it for all tests).
+
 ## Disabling Telemetry
 
 Set the environment variable:

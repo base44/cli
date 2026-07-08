@@ -18,6 +18,10 @@ export function getAuthFilePath(): string {
   return join(getBase44GlobalDir(), "auth", "auth.json");
 }
 
+export function getTelemetryNoticePath(): string {
+  return join(getBase44GlobalDir(), "telemetry-notice");
+}
+
 export function getAppConfigPath(projectRoot: string): string {
   return join(projectRoot, PROJECT_SUBDIR, ".app.jsonc");
 }
