@@ -1,4 +1,4 @@
-import { Command } from "commander";
+import type { Command } from "commander";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
 import { readProjectConfig } from "@/core/index.js";
@@ -43,11 +43,7 @@ async function pushEntitiesAction({
 }
 
 export function getEntitiesPushCommand(): Command {
-  return new Command("entities")
-    .description("Manage project entities")
-    .addCommand(
-      new Base44Command("push")
-        .description("Push local entities to Base44")
-        .action(pushEntitiesAction),
-    );
+  return new Base44Command("push")
+    .description("Push local entities to Base44")
+    .action(pushEntitiesAction);
 }
