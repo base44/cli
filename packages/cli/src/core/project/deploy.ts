@@ -11,6 +11,7 @@ import {
   deployFunctionsSequentially,
   type SingleFunctionDeployResult,
 } from "@/core/resources/function/deploy.js";
+import { userSecretResource } from "@/core/resources/user-secret/index.js";
 import { deploySite } from "@/core/site/index.js";
 
 /**
@@ -20,8 +21,15 @@ import { deploySite } from "@/core/site/index.js";
  * @returns true if there are entities, functions, agents, connectors, or a configured site to deploy
  */
 export function hasResourcesToDeploy(projectData: ProjectData): boolean {
-  const { project, entities, functions, agents, connectors, authConfig } =
-    projectData;
+  const {
+    project,
+    entities,
+    functions,
+    agents,
+    connectors,
+    authConfig,
+    userSecretsDirPresent,
+  } = projectData;
   const hasSite = Boolean(project.site?.outputDirectory);
   const hasEntities = entities.length > 0;
   const hasFunctions = functions.length > 0;
@@ -35,6 +43,7 @@ export function hasResourcesToDeploy(projectData: ProjectData): boolean {
     hasAgents ||
     hasConnectors ||
     hasAuthConfig ||
+    userSecretsDirPresent ||
     hasSite
   );
 }
@@ -69,8 +78,16 @@ export async function deployAll(
   projectData: ProjectData,
   options?: DeployAllOptions,
 ): Promise<DeployAllResult> {
-  const { project, entities, functions, agents, connectors, authConfig } =
-    projectData;
+  const {
+    project,
+    entities,
+    functions,
+    agents,
+    connectors,
+    authConfig,
+    userSecrets,
+    userSecretsDirPresent,
+  } = projectData;
 
   await entityResource.push(entities);
   await deployFunctionsSequentially(functions, {
@@ -78,6 +95,7 @@ export async function deployAll(
     onResult: options?.onFunctionResult,
   });
   await agentResource.push(agents);
+  if (userSecretsDirPresent) await userSecretResource.push(userSecrets);
   await authConfigResource.push(authConfig);
   const { results: connectorResults } = await pushConnectors(connectors);
 
