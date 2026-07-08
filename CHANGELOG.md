@@ -1,5 +1,77 @@
 # Changelog
 
+## [0.1.1] - 2026-06-29
+
+### Added
+
+- `--env` flag on `logs` to fetch preview, prod, or all logs (#551)
+
+## [0.1.0] - 2026-06-28
+
+### Added
+
+- Remote-dev commands with sandbox and projectless connector support (#547)
+
+## [0.0.57] - 2026-06-28
+
+### Added
+
+- `logs --format json` output and relative `--since`/`--until` shortcuts (#552)
+
+### Fixed
+
+- Normalize Deno Deploy `warn` level to `warning` in logs (#549)
+
+## [0.0.56] - 2026-06-17
+
+### Added
+
+- Run the frontend dev server from `base44 dev` (#545)
+- Support projectless app id commands (#541)
+
+### Changed
+
+- Introduce app context lifecycle (#540)
+
+## [0.0.55] - 2026-06-10
+
+### Added
+
+- Seed `auth.json` from env-supplied credentials (#537)
+
+### Changed
+
+- Extract shared scaffold logic into `scaffold-shared` (#536)
+
+## [0.0.54] - 2026-06-07
+
+### Fixed
+
+- Write `VITE_BASE44_APP_BASE_URL` instead of `VITE_BASE44_BACKEND_URL` in `.env.local` (#534)
+
+## [0.0.53] - 2026-06-07
+
+### Added
+
+- Write `.env.local` on first run of `base44 dev` (#517)
+
+### Fixed
+
+- Inject service role token for unauthenticated function calls in the dev server (#516)
+- Patch `Deno.serve` via `defineProperty` for Deno 2.8 compatibility (#533)
+
+## [0.0.52] - 2026-05-17
+
+### Added
+
+- Plugins support (#503)
+- `auth sso` command for SSO provider configuration (#484)
+- Row-level security (RLS) support (#481)
+
+### Fixed
+
+- Return a non-zero exit code when a function deploy fails (#504)
+
 ## [0.0.51] - 2026-04-28
 
 ### Added

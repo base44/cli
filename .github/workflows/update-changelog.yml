@@ -1,0 +1,60 @@
+# Regenerates the root CHANGELOG.md from git tags after a release.
+#
+# This runs AFTER the "Manual Package Publish" workflow finishes successfully
+# (via workflow_run) so it is fully decoupled from the publish job — a changelog
+# failure can never crash a release. It can also be triggered manually.
+# It rebuilds the changelog from git tags + commit messages by following the
+# process documented in .claude/commands/update-changelog.md.
+name: Update Changelog
+
+on:
+  workflow_run:
+    workflows: ["Manual Package Publish"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-changelog:
+    if: github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.BASE44_GITHUB_ACTIONS_APP_ID }}
+          private-key: ${{ secrets.BASE44_GITHUB_ACTIONS_APP_PRIVATE_KEY }}
+          owner: base44
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          fetch-tags: true
+          token: ${{ steps.generate-token.outputs.token }}
+
+      - name: Update changelog
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Update the root CHANGELOG.md file by following the process documented in
+            .claude/commands/update-changelog.md. Add entries for every git version tag
+            that is not yet documented, newest-first, matching the style of the existing
+            entries exactly. Only edit CHANGELOG.md.
+          claude_args: |
+            --model claude-haiku-4-5
+            --allowedTools "Bash(git tag:*),Bash(git log:*),Read,Edit(CHANGELOG.md)"
+
+      - name: Commit and push changelog
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add CHANGELOG.md
+          git diff --staged --quiet || (git commit -m "docs: update changelog" && git push origin HEAD:main)
