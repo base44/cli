@@ -1,4 +1,4 @@
-import { basename, dirname, join, relative } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import { globby } from "globby";
 import {
   ENTRY_FILE_GLOB,
@@ -10,6 +10,7 @@ import {
   InvalidInputError,
   SchemaValidationError,
 } from "@/core/errors.js";
+import { collectReachableBackendFiles } from "@/core/resources/function/reachability.js";
 import type {
   BackendFunction,
   FunctionConfig,
@@ -32,7 +33,10 @@ async function readFunctionConfig(configPath: string): Promise<FunctionConfig> {
   return result.data;
 }
 
-async function readFunction(configPath: string): Promise<BackendFunction> {
+async function readFunction(
+  configPath: string,
+  backendRoot: string,
+): Promise<BackendFunction> {
   const config = await readFunctionConfig(configPath);
   const functionDir = dirname(configPath);
   const entryPath = join(functionDir, config.entry);
@@ -51,10 +55,17 @@ async function readFunction(configPath: string): Promise<BackendFunction> {
     absolute: true,
   });
 
+  const extraFiles = await collectReachableBackendFiles(
+    entryPath,
+    filePaths,
+    backendRoot,
+  );
+  const allFilePaths = [...new Set([...filePaths, ...extraFiles])];
+
   const functionData: BackendFunction = {
     ...config,
     entryPath,
-    filePaths,
+    filePaths: allFilePaths,
     source: { type: "project" },
   };
   return functionData;
@@ -84,8 +95,10 @@ export async function readAllFunctions(
     (entryFile) => !configFilesDirs.has(dirname(entryFile)),
   );
 
+  const backendRoot = resolve(functionsDir, "..");
+
   const functionsFromConfig = await Promise.all(
-    configFiles.map((configPath) => readFunction(configPath)),
+    configFiles.map((configPath) => readFunction(configPath, backendRoot)),
   );
 
   const functionsWithoutConfig = await Promise.all(
@@ -95,6 +108,13 @@ export async function readAllFunctions(
         cwd: functionDir,
         absolute: true,
       });
+
+      const extraFiles = await collectReachableBackendFiles(
+        entryFile,
+        filePaths,
+        backendRoot,
+      );
+      const allFilePaths = [...new Set([...filePaths, ...extraFiles])];
 
       const name = relative(functionsDir, functionDir).split(/[/\\]/).join("/");
       if (!name) {
@@ -115,7 +135,7 @@ export async function readAllFunctions(
         name,
         entry,
         entryPath: entryFile,
-        filePaths,
+        filePaths: allFilePaths,
         source: { type: "project" },
       };
       return functionData;

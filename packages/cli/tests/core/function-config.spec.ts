@@ -96,4 +96,45 @@ describe("readAllFunctions", () => {
       /Duplicate function name "same-name"/,
     );
   });
+
+  it("includes shared files reachable via parent-escape relative imports", async () => {
+    const functionsDir = resolve(
+      FIXTURES_DIR,
+      "function-shared-imports/base44/functions",
+    );
+    const result = await readAllFunctions(functionsDir);
+
+    expect(result).toHaveLength(2);
+
+    for (const fn of result) {
+      const hasShared = fn.filePaths.some((p) =>
+        fwd(p).endsWith("shared/response.ts"),
+      );
+      expect(hasShared, `${fn.name} should include shared/response.ts`).toBe(
+        true,
+      );
+    }
+  });
+
+  it("shared file path stays outside functions dir (correct relative path for deploy)", async () => {
+    const functionsDir = resolve(
+      FIXTURES_DIR,
+      "function-shared-imports/base44/functions",
+    );
+    const result = await readAllFunctions(functionsDir);
+    const greet = result.find((f) => f.name === "greet");
+    expect(greet).toBeDefined();
+
+    const sharedPath = greet!.filePaths.find((p) =>
+      fwd(p).endsWith("shared/response.ts"),
+    );
+    expect(sharedPath).toBeDefined();
+
+    // deploy.ts uses relative(functionDir, filePath) — verify the expected relative path
+    const { dirname: pathDirname, relative: pathRelative } = await import(
+      "node:path"
+    );
+    const rel = fwd(pathRelative(pathDirname(greet!.entryPath), sharedPath!));
+    expect(rel).toBe("../../shared/response.ts");
+  });
 });
