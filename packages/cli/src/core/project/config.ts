@@ -22,6 +22,7 @@ import type {
   ProjectRoot,
   ProjectWithPaths,
 } from "@/core/project/types.js";
+import { actorResource } from "@/core/resources/actor/index.js";
 import { agentResource } from "@/core/resources/agent/index.js";
 import { agentSkillResource } from "@/core/resources/agent-skill/index.js";
 import { authConfigResource } from "@/core/resources/auth-config/index.js";
@@ -33,7 +34,6 @@ import {
   type BackendFunction,
   functionResource,
 } from "@/core/resources/function/index.js";
-import { realtimeHandlerResource } from "@/core/resources/realtime-handler/index.js";
 import { readJsonFile } from "@/core/utils/fs.js";
 
 type ProjectResources = Omit<ProjectData, "project">;
@@ -73,7 +73,7 @@ class ProjectConfigReader {
       project,
       entities,
       functions,
-      realtimeHandlers: localResources.realtimeHandlers,
+      actors: localResources.actors,
       agents: localResources.agents,
       agentSkills: localResources.agentSkills,
       connectors: localResources.connectors,
@@ -123,7 +123,7 @@ class ProjectConfigReader {
     const [
       entities,
       functions,
-      realtimeHandlers,
+      actors,
       agents,
       agentSkills,
       connectors,
@@ -131,7 +131,7 @@ class ProjectConfigReader {
     ] = await Promise.all([
       entityResource.readAll(join(configDir, project.entitiesDir)),
       functionResource.readAll(join(configDir, project.functionsDir)),
-      realtimeHandlerResource.readAll(join(configDir, project.realtimeDir)),
+      actorResource.readAll(join(configDir, project.actorsDir)),
       agentResource.readAll(join(configDir, project.agentsDir)),
       agentSkillResource.readAll(join(configDir, project.agentSkillsDir)),
       connectorResource.readAll(join(configDir, project.connectorsDir)),
@@ -141,7 +141,7 @@ class ProjectConfigReader {
     return {
       entities,
       functions,
-      realtimeHandlers,
+      actors,
       agents,
       agentSkills,
       connectors,
@@ -216,7 +216,7 @@ class ProjectConfigReader {
     return {
       entities: markPluginEntities(resources.entities, namespace),
       functions: namespacePluginFunctions(resources.functions, namespace),
-      realtimeHandlers: [],
+      actors: [],
       agents: [],
       agentSkills: [],
       connectors: [],
@@ -274,7 +274,7 @@ class ProjectConfigReader {
     return {
       entities,
       functions,
-      realtimeHandlers: [],
+      actors: [],
       agents: [],
       agentSkills: [],
       connectors: [],

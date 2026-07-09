@@ -46,12 +46,12 @@ describe("types generate command", () => {
     expect(typesContent).toContain("ConnectorTypeRegistry");
     expect(typesContent).toContain(`"slack": true`);
 
-    // Contains the RealtimeHandlerNameRegistry with the handler name
-    expect(typesContent).toContain("RealtimeHandlerNameRegistry");
+    // Contains the ActorNameRegistry with the actor name
+    expect(typesContent).toContain("ActorNameRegistry");
     expect(typesContent).toContain(`"ChatRoom": true`);
 
-    // Contains the RealtimeHandlerRegistry with typed inbound/outbound (from schema.jsonc)
-    expect(typesContent).toContain("RealtimeHandlerRegistry");
+    // Contains the ActorRegistry with typed inbound/outbound (from schema.jsonc)
+    expect(typesContent).toContain("ActorRegistry");
     expect(typesContent).toContain(`"ChatRoom"`);
   });
 
@@ -111,7 +111,7 @@ describe("types generate command", () => {
     const typesContent = await t.readProjectFile("base44/.types/types.d.ts");
     expect(typesContent).not.toBeNull();
     expect(typesContent).toContain(
-      "No entities, functions, agents, connectors, or realtime handlers found",
+      "No entities, functions, agents, connectors, or actors found",
     );
   });
 

@@ -52,7 +52,7 @@ export async function deployAction(
     project,
     entities,
     functions,
-    realtimeHandlers,
+    actors,
     agents,
     connectors,
     authConfig,
@@ -70,9 +70,9 @@ export async function deployAction(
       `  - ${functions.length} ${functions.length === 1 ? "function" : "functions"}`,
     );
   }
-  if (realtimeHandlers.length > 0) {
+  if (actors.length > 0) {
     summaryLines.push(
-      `  - ${realtimeHandlers.length} ${realtimeHandlers.length === 1 ? "realtime handler" : "realtime handlers"}`,
+      `  - ${actors.length} ${actors.length === 1 ? "actor" : "actors"}`,
     );
   }
   if (agents.length > 0) {

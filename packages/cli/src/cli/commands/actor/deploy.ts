@@ -6,10 +6,10 @@ import { Base44Command, theme } from "@/cli/utils/index.js";
 import { InvalidInputError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/index.js";
 import {
-  deployRealtimeHandlersSequentially,
-  type SingleRealtimeHandlerDeployResult,
-} from "@/core/resources/realtime-handler/deploy.js";
-import type { RealtimeHandler } from "@/core/resources/realtime-handler/schema.js";
+  deployActorsSequentially,
+  type SingleActorDeployResult,
+} from "@/core/resources/actor/deploy.js";
+import type { Actor } from "@/core/resources/actor/schema.js";
 
 function parseNames(args: string[]): string[] {
   return args
@@ -18,23 +18,20 @@ function parseNames(args: string[]): string[] {
     .filter(Boolean);
 }
 
-function resolveHandlersToDeploy(
-  names: string[],
-  allHandlers: RealtimeHandler[],
-): RealtimeHandler[] {
-  if (names.length === 0) return allHandlers;
+function resolveActorsToDeploy(names: string[], allActors: Actor[]): Actor[] {
+  if (names.length === 0) return allActors;
 
-  const notFound = names.filter((n) => !allHandlers.some((h) => h.name === n));
+  const notFound = names.filter((n) => !allActors.some((a) => a.name === n));
   if (notFound.length > 0) {
     throw new InvalidInputError(
-      `Realtime handler${notFound.length > 1 ? "s" : ""} not found in project: ${notFound.join(", ")}`,
+      `Actor${notFound.length > 1 ? "s" : ""} not found in project: ${notFound.join(", ")}`,
     );
   }
-  return allHandlers.filter((h) => names.includes(h.name));
+  return allActors.filter((a) => names.includes(a.name));
 }
 
 function formatDeployResult(
-  result: SingleRealtimeHandlerDeployResult,
+  result: SingleActorDeployResult,
   log: Logger,
 ): void {
   const label = result.name.padEnd(25);
@@ -50,9 +47,7 @@ function formatDeployResult(
   }
 }
 
-function buildDeploySummary(
-  results: SingleRealtimeHandlerDeployResult[],
-): string {
+function buildDeploySummary(results: SingleActorDeployResult[]): string {
   const deployed = results.filter((r) => r.status === "deployed").length;
   const unchanged = results.filter((r) => r.status === "unchanged").length;
   const failed = results.filter((r) => r.status === "error").length;
@@ -61,36 +56,33 @@ function buildDeploySummary(
   if (deployed > 0) parts.push(`${deployed} deployed`);
   if (unchanged > 0) parts.push(`${unchanged} unchanged`);
   if (failed > 0) parts.push(`${failed} error${failed !== 1 ? "s" : ""}`);
-  return parts.join(", ") || "No realtime handlers deployed";
+  return parts.join(", ") || "No actors deployed";
 }
 
-async function deployRealtimeAction(
+async function deployActorAction(
   { log }: CLIContext,
   names: string[],
 ): Promise<RunCommandResult> {
-  const { realtimeHandlers } = await readProjectConfig();
-  const toDeploy = resolveHandlersToDeploy(names, realtimeHandlers);
+  const { actors } = await readProjectConfig();
+  const toDeploy = resolveActorsToDeploy(names, actors);
 
   if (toDeploy.length === 0) {
     return {
-      outroMessage:
-        "No realtime handlers found. Create handlers in the 'realtime' directory.",
+      outroMessage: "No actors found. Create actors in the 'actors' directory.",
     };
   }
 
   log.info(
-    `Found ${toDeploy.length} ${toDeploy.length === 1 ? "realtime handler" : "realtime handlers"} to deploy`,
+    `Found ${toDeploy.length} ${toDeploy.length === 1 ? "actor" : "actors"} to deploy`,
   );
 
   let completed = 0;
   const total = toDeploy.length;
 
-  const results = await deployRealtimeHandlersSequentially(toDeploy, {
+  const results = await deployActorsSequentially(toDeploy, {
     onStart: (startNames) => {
       const label =
-        startNames.length === 1
-          ? startNames[0]
-          : `${startNames.length} realtime handlers`;
+        startNames.length === 1 ? startNames[0] : `${startNames.length} actors`;
       log.step(
         theme.styles.dim(`[${completed + 1}/${total}] Deploying ${label}...`),
       );
@@ -112,10 +104,10 @@ async function deployRealtimeAction(
 
 export function getDeployCommand(): Command {
   return new Base44Command("deploy")
-    .description("Deploy realtime handlers to Base44")
-    .argument("[names...]", "Handler names to deploy (deploys all if omitted)")
+    .description("Deploy actors to Base44")
+    .argument("[names...]", "Actor names to deploy (deploys all if omitted)")
     .action(async (ctx: CLIContext, rawNames: string[]) => {
       const names = parseNames(rawNames);
-      return deployRealtimeAction(ctx, names);
+      return deployActorAction(ctx, names);
     });
 }

@@ -6,8 +6,8 @@ import { InvalidInputError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/index.js";
 import { pathExists, writeFile } from "@/core/utils/fs.js";
 
-function buildHandlerScaffold(handlerName: string): string {
-  return `import { RealtimeHandler, type Conn } from "@base44/sdk";
+function buildActorScaffold(actorName: string): string {
+  return `import { Actor, type Conn } from "@base44/sdk";
 
 interface State {
   // shared state broadcast to all clients
@@ -17,7 +17,7 @@ interface Message {
   // messages sent from clients
 }
 
-export class ${handlerName} extends RealtimeHandler<State, Message> {
+export class ${actorName} extends Actor<State, Message> {
   handleConnect(conn: Conn) {
     console.log("Connected:", conn.userId);
   }
@@ -30,33 +30,33 @@ export class ${handlerName} extends RealtimeHandler<State, Message> {
 `;
 }
 
-async function newRealtimeHandlerAction(
+async function newActorAction(
   _ctx: CLIContext,
-  handlerName: string,
+  actorName: string,
 ): Promise<RunCommandResult> {
   const { project } = await readProjectConfig();
-  const realtimeDir = join(dirname(project.configPath), project.realtimeDir);
-  const handlerDir = join(realtimeDir, handlerName);
+  const actorsDir = join(dirname(project.configPath), project.actorsDir);
+  const actorDir = join(actorsDir, actorName);
 
-  if (await pathExists(handlerDir)) {
+  if (await pathExists(actorDir)) {
     throw new InvalidInputError(
-      `Realtime handler "${handlerName}" already exists at ${handlerDir}`,
+      `Actor "${actorName}" already exists at ${actorDir}`,
     );
   }
 
-  const entryPath = join(handlerDir, "entry.ts");
-  await writeFile(entryPath, buildHandlerScaffold(handlerName));
+  const entryPath = join(actorDir, "entry.ts");
+  await writeFile(entryPath, buildActorScaffold(actorName));
 
   return {
-    outroMessage: `Created realtime handler "${handlerName}" at ${entryPath}`,
+    outroMessage: `Created actor "${actorName}" at ${entryPath}`,
   };
 }
 
 export function getNewCommand(): Command {
   return new Base44Command("new")
-    .description("Create a new realtime handler scaffold")
-    .argument("<HandlerName>", "Name of the realtime handler class")
-    .action(async (ctx: CLIContext, handlerName: string) => {
-      return newRealtimeHandlerAction(ctx, handlerName);
+    .description("Create a new actor scaffold")
+    .argument("<ActorName>", "Name of the actor class")
+    .action(async (ctx: CLIContext, actorName: string) => {
+      return newActorAction(ctx, actorName);
     });
 }

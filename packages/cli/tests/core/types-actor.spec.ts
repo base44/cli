@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { RealtimeHandler } from "@/core/resources/realtime-handler/schema.js";
+import type { Actor } from "@/core/resources/actor/schema.js";
 import { generateContent } from "@/core/types/generator.js";
 
 const EMPTY = {
@@ -10,23 +10,23 @@ const EMPTY = {
   connectors: [],
 };
 
-function handler(messageSchema: RealtimeHandler["messageSchema"]): RealtimeHandler {
+function actor(messageSchema: Actor["messageSchema"]): Actor {
   return {
     name: "GameRoom",
     entry: "entry.ts",
-    entryPath: "base44/realtime/GameRoom/entry.ts",
-    filePaths: ["base44/realtime/GameRoom/entry.ts"],
+    entryPath: "base44/actors/GameRoom/entry.ts",
+    filePaths: ["base44/actors/GameRoom/entry.ts"],
     source: { type: "project" },
     messageSchema,
   };
 }
 
-describe("realtime handler type generation", () => {
+describe("actor type generation", () => {
   it("compiles a named-message catalog into a discriminated union with shared types", async () => {
     const out = await generateContent({
       ...EMPTY,
-      realtimeHandlers: [
-        handler({
+      actors: [
+        actor({
           types: {
             Pt: {
               type: "object",
@@ -37,7 +37,9 @@ describe("realtime handler type generation", () => {
           },
           toClient: {
             init: {
-              properties: { food: { type: "array", items: { $ref: "#/types/Pt" } } },
+              properties: {
+                food: { type: "array", items: { $ref: "#/types/Pt" } },
+              },
               required: ["food"],
             },
             died: {
@@ -46,7 +48,10 @@ describe("realtime handler type generation", () => {
             },
           },
           toServer: {
-            dir: { properties: { angle: { type: "number" } }, required: ["angle"] },
+            dir: {
+              properties: { angle: { type: "number" } },
+              required: ["angle"],
+            },
           },
         }),
       ],
@@ -74,8 +79,8 @@ describe("realtime handler type generation", () => {
     await expect(
       generateContent({
         ...EMPTY,
-        realtimeHandlers: [
-          handler({
+        actors: [
+          actor({
             // Both keys PascalCase to the same GameRoomToClientUserJoined.
             toClient: {
               "user-joined": { properties: { a: { type: "string" } } },
