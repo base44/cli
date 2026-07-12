@@ -104,7 +104,7 @@ describe("readAllFunctions", () => {
     );
     const result = await readAllFunctions(functionsDir);
 
-    expect(result).toHaveLength(2);
+    expect(result).toHaveLength(3); // greet, farewell, hello-sibling
 
     for (const fn of result) {
       const hasShared = fn.filePaths.some((p) =>
@@ -114,6 +114,24 @@ describe("readAllFunctions", () => {
         true,
       );
     }
+  });
+
+  it("includes sibling files and transitively reaches shared through them", async () => {
+    const functionsDir = resolve(
+      FIXTURES_DIR,
+      "function-shared-imports/base44/functions",
+    );
+    const result = await readAllFunctions(functionsDir);
+    const fn = result.find((f) => f.name === "hello-sibling");
+    expect(fn).toBeDefined();
+
+    // util.ts is a same-dir sibling picked up by the glob
+    const hasUtil = fn!.filePaths.some((p) => fwd(p).endsWith("hello-sibling/util.ts"));
+    expect(hasUtil, "sibling util.ts should be included").toBe(true);
+
+    // shared/response.ts is reachable transitively through util.ts
+    const hasShared = fn!.filePaths.some((p) => fwd(p).endsWith("shared/response.ts"));
+    expect(hasShared, "shared/response.ts should be reachable via sibling").toBe(true);
   });
 
   it("shared file path stays outside functions dir (correct relative path for deploy)", async () => {
