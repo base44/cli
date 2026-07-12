@@ -333,6 +333,71 @@ describe("logs command", () => {
     t.expectResult(result).toContain("Error message");
   });
 
+  it("drops other levels client-side when the backend ignores --level", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+    // The mock, like per-app Cloudflare deployments, ignores the level query
+    // param and returns the full stream.
+    t.api.mockFunctionLogs("my-function", [
+      {
+        time: "2024-01-15T10:30:00.050Z",
+        level: "error",
+        message: "Error message",
+      },
+      {
+        time: "2024-01-15T10:30:01.050Z",
+        level: "info",
+        message: "Info message",
+      },
+      {
+        time: "2024-01-15T10:30:02.050Z",
+        // The wire value predates schema normalization to "warning".
+        level: "warn" as "warning",
+        message: "Warn message normalized to warning",
+      },
+    ]);
+
+    const result = await t.run(
+      "logs",
+      "--function",
+      "my-function",
+      "--level",
+      "error",
+    );
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Error message");
+    t.expectResult(result).toNotContain("Info message");
+    t.expectResult(result).toNotContain("Warn message");
+  });
+
+  it("keeps normalized warn entries when filtering by --level warning", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+    t.api.mockFunctionLogs("my-function", [
+      {
+        time: "2024-01-15T10:30:00.050Z",
+        level: "warn" as "warning",
+        message: "Warn message",
+      },
+      {
+        time: "2024-01-15T10:30:01.050Z",
+        level: "info",
+        message: "Info message",
+      },
+    ]);
+
+    const result = await t.run(
+      "logs",
+      "--function",
+      "my-function",
+      "--level",
+      "warning",
+    );
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Warn message");
+    t.expectResult(result).toNotContain("Info message");
+  });
+
   it("fails with invalid level option", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
 
