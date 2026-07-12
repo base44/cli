@@ -36,12 +36,12 @@ async function resolveSpecifier(
   return null;
 }
 
-export interface OutOfBoundsImport {
+interface OutOfBoundsImport {
   importer: string;
   specifier: string;
 }
 
-export interface ReachabilityResult {
+interface ReachabilityResult {
   extra: string[];
   outOfBounds: OutOfBoundsImport[];
 }

@@ -126,8 +126,13 @@ describe("readAllFunctions", () => {
     expect(fn).toBeDefined();
 
     // entry.ts imports "../../shared/response.js" — should resolve to response.ts
-    const hasShared = fn!.filePaths.some((p) => fwd(p).endsWith("shared/response.ts"));
-    expect(hasShared, "shared/response.ts should be found via .js-extension import").toBe(true);
+    const hasShared = fn!.filePaths.some((p) =>
+      fwd(p).endsWith("shared/response.ts"),
+    );
+    expect(
+      hasShared,
+      "shared/response.ts should be found via .js-extension import",
+    ).toBe(true);
   });
 
   it("includes sibling files and transitively reaches shared through them", async () => {
@@ -140,12 +145,19 @@ describe("readAllFunctions", () => {
     expect(fn).toBeDefined();
 
     // util.ts is a same-dir sibling picked up by the glob
-    const hasUtil = fn!.filePaths.some((p) => fwd(p).endsWith("hello-sibling/util.ts"));
+    const hasUtil = fn!.filePaths.some((p) =>
+      fwd(p).endsWith("hello-sibling/util.ts"),
+    );
     expect(hasUtil, "sibling util.ts should be included").toBe(true);
 
     // shared/response.ts is reachable transitively through util.ts
-    const hasShared = fn!.filePaths.some((p) => fwd(p).endsWith("shared/response.ts"));
-    expect(hasShared, "shared/response.ts should be reachable via sibling").toBe(true);
+    const hasShared = fn!.filePaths.some((p) =>
+      fwd(p).endsWith("shared/response.ts"),
+    );
+    expect(
+      hasShared,
+      "shared/response.ts should be reachable via sibling",
+    ).toBe(true);
   });
 
   it("shared file path stays outside functions dir (correct relative path for deploy)", async () => {

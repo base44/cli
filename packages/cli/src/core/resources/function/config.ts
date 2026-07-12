@@ -10,7 +10,6 @@ import {
   InvalidInputError,
   SchemaValidationError,
 } from "@/core/errors.js";
-import type { OutOfBoundsImport } from "@/core/resources/function/reachability.js";
 import { collectReachableBackendFiles } from "@/core/resources/function/reachability.js";
 import type {
   BackendFunction,
