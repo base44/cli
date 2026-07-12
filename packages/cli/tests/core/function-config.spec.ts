@@ -104,7 +104,7 @@ describe("readAllFunctions", () => {
     );
     const result = await readAllFunctions(functionsDir);
 
-    expect(result).toHaveLength(3); // greet, farewell, hello-sibling
+    expect(result).toHaveLength(4); // greet, farewell, hello-sibling, farewell-js-ext
 
     for (const fn of result) {
       const hasShared = fn.filePaths.some((p) =>
@@ -114,6 +114,20 @@ describe("readAllFunctions", () => {
         true,
       );
     }
+  });
+
+  it("resolves .js-extension imports to .ts files (TS project convention)", async () => {
+    const functionsDir = resolve(
+      FIXTURES_DIR,
+      "function-shared-imports/base44/functions",
+    );
+    const result = await readAllFunctions(functionsDir);
+    const fn = result.find((f) => f.name === "farewell-js-ext");
+    expect(fn).toBeDefined();
+
+    // entry.ts imports "../../shared/response.js" — should resolve to response.ts
+    const hasShared = fn!.filePaths.some((p) => fwd(p).endsWith("shared/response.ts"));
+    expect(hasShared, "shared/response.ts should be found via .js-extension import").toBe(true);
   });
 
   it("includes sibling files and transitively reaches shared through them", async () => {
