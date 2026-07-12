@@ -82,14 +82,8 @@ describe("deploy command (unified)", () => {
     t.api.mockEntitiesPush({ created: ["Order"], updated: [], deleted: [] });
     t.api.mockSingleFunctionDeploy({ status: "deployed" });
     t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
-    t.api.mockConnectorsListError({
-      status: 403,
-      body: {
-        error: "Forbidden",
-        detail:
-          "Connectors should not be listed when no connectors are deployed",
-      },
-    });
+    t.api.mockConnectorsList({ integrations: [] });
+    t.api.mockStripeStatus({ stripe_mode: null });
 
     const result = await t.run("deploy", "-y");
 

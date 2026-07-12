@@ -126,6 +126,32 @@ describe("env credential seeding", () => {
     t.expectResult(result).toNotContain("base44 login");
   });
 
+  it("skips the connectors-list call on deploy when no connectors are configured", async () => {
+    // Workspace keys are forbidden from the connectors-list endpoint, so with
+    // no connectors configured the reconcile pass must be skipped entirely. The
+    // 403 mock proves the call never happens — deploy still succeeds.
+    await t.givenProject(fixture("with-entities"));
+    t.givenEnv({
+      BASE44_API_KEY:
+        "b44k_dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    });
+    t.api.mockEntitiesPush({
+      created: ["Customer", "Product"],
+      updated: [],
+      deleted: [],
+    });
+    t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
+    t.api.mockConnectorsListError({
+      status: 403,
+      body: { error: "Forbidden", detail: "Workspace keys cannot list" },
+    });
+
+    const result = await t.run("deploy", "-y");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("App deployed successfully");
+  });
+
   it("ignores a non-workspace BASE44_API_KEY when OAuth auth exists", async () => {
     await t.givenLoggedInWithProject(fixture("with-entities"));
     t.givenEnv({ BASE44_API_KEY: "not-a-workspace-key" });
