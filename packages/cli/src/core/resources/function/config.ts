@@ -10,6 +10,7 @@ import {
   InvalidInputError,
   SchemaValidationError,
 } from "@/core/errors.js";
+import type { OutOfBoundsImport } from "@/core/resources/function/reachability.js";
 import { collectReachableBackendFiles } from "@/core/resources/function/reachability.js";
 import type {
   BackendFunction,
@@ -55,17 +56,18 @@ async function readFunction(
     absolute: true,
   });
 
-  const extraFiles = await collectReachableBackendFiles(
+  const { extra, outOfBounds } = await collectReachableBackendFiles(
     entryPath,
     filePaths,
     backendRoot,
   );
-  const allFilePaths = [...new Set([...filePaths, ...extraFiles])];
+  const allFilePaths = [...new Set([...filePaths, ...extra])];
 
   const functionData: BackendFunction = {
     ...config,
     entryPath,
     filePaths: allFilePaths,
+    outOfBoundsImports: outOfBounds,
     source: { type: "project" },
   };
   return functionData;
@@ -109,12 +111,12 @@ export async function readAllFunctions(
         absolute: true,
       });
 
-      const extraFiles = await collectReachableBackendFiles(
+      const { extra, outOfBounds } = await collectReachableBackendFiles(
         entryFile,
         filePaths,
         backendRoot,
       );
-      const allFilePaths = [...new Set([...filePaths, ...extraFiles])];
+      const allFilePaths = [...new Set([...filePaths, ...extra])];
 
       const name = relative(functionsDir, functionDir).split(/[/\\]/).join("/");
       if (!name) {
@@ -136,6 +138,7 @@ export async function readAllFunctions(
         entry,
         entryPath: entryFile,
         filePaths: allFilePaths,
+        outOfBoundsImports: outOfBounds,
         source: { type: "project" },
       };
       return functionData;

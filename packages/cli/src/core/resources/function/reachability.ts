@@ -36,19 +36,34 @@ async function resolveSpecifier(
   return null;
 }
 
+export interface OutOfBoundsImport {
+  importer: string;
+  specifier: string;
+}
+
+export interface ReachabilityResult {
+  extra: string[];
+  outOfBounds: OutOfBoundsImport[];
+}
+
 /**
  * Walk the import graph starting from `functionFilePaths` and return any
  * additional files reachable via relative imports that live inside
  * `backendRoot` but outside the original function directory.
+ *
+ * Also returns out-of-bounds imports — relative specifiers that resolved to a
+ * real file but escaped past `backendRoot`. These will be missing at bundle
+ * time and will cause a runtime error; callers should warn the user.
  */
 export async function collectReachableBackendFiles(
   _entryPath: string,
   functionFilePaths: string[],
   backendRoot: string,
-): Promise<string[]> {
+): Promise<ReachabilityResult> {
   const visited = new Set<string>(functionFilePaths);
   const queue: string[] = [...functionFilePaths];
   const extra: string[] = [];
+  const outOfBounds: OutOfBoundsImport[] = [];
 
   while (queue.length > 0) {
     const filePath = queue.shift()!;
@@ -68,9 +83,11 @@ export async function collectReachableBackendFiles(
       const resolved = await resolveSpecifier(specifier, dir);
       if (!resolved) continue;
 
-      // Only follow imports that stay inside backendRoot.
       const rel = relative(backendRoot, resolved);
-      if (rel.startsWith("..")) continue;
+      if (rel.startsWith("..")) {
+        outOfBounds.push({ importer: filePath, specifier });
+        continue;
+      }
 
       if (!visited.has(resolved)) {
         visited.add(resolved);
@@ -81,5 +98,8 @@ export async function collectReachableBackendFiles(
   }
 
   const functionSet = new Set(functionFilePaths);
-  return extra.filter((p) => !functionSet.has(p));
+  return {
+    extra: extra.filter((p) => !functionSet.has(p)),
+    outOfBounds,
+  };
 }

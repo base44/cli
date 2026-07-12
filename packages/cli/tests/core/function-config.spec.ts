@@ -137,4 +137,39 @@ describe("readAllFunctions", () => {
     const rel = fwd(pathRelative(pathDirname(greet!.entryPath), sharedPath!));
     expect(rel).toBe("../../shared/response.ts");
   });
+
+  it("does not include files outside base44/ even when imported", async () => {
+    const functionsDir = resolve(
+      FIXTURES_DIR,
+      "function-shared-imports/base44/functions",
+    );
+    const result = await readAllFunctions(functionsDir);
+    const greet = result.find((f) => f.name === "greet");
+    expect(greet).toBeDefined();
+
+    // greet/entry.ts imports from ../../../outside/secret.ts which is outside base44/
+    const hasOutside = greet!.filePaths.some((p) =>
+      fwd(p).includes("outside/secret.ts"),
+    );
+    expect(hasOutside, "files outside base44/ must not be collected").toBe(
+      false,
+    );
+  });
+
+  it("reports out-of-bounds imports so the CLI can block deployment", async () => {
+    const functionsDir = resolve(
+      FIXTURES_DIR,
+      "function-shared-imports/base44/functions",
+    );
+    const result = await readAllFunctions(functionsDir);
+    const greet = result.find((f) => f.name === "greet");
+    expect(greet).toBeDefined();
+
+    // greet/entry.ts imports ../../../outside/secret.ts which escapes base44/
+    const oob = greet!.outOfBoundsImports ?? [];
+    expect(oob.length).toBeGreaterThan(0);
+    const match = oob.find((o) => o.specifier.includes("outside/secret.ts"));
+    expect(match, "should report the out-of-bounds specifier").toBeDefined();
+    expect(fwd(match!.importer)).toContain("greet/entry.ts");
+  });
 });

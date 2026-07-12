@@ -82,6 +82,20 @@ async function deployFunctionsAction(
     `Found ${toDeploy.length} ${toDeploy.length === 1 ? "function" : "functions"} to deploy`,
   );
 
+  for (const fn of toDeploy) {
+    if (fn.outOfBoundsImports && fn.outOfBoundsImports.length > 0) {
+      for (const { importer, specifier } of fn.outOfBoundsImports) {
+        const rel = importer.includes(fn.name)
+          ? importer.slice(importer.lastIndexOf(fn.name))
+          : importer;
+        log.error(
+          `[${fn.name}] Cannot import "${specifier}" in ${rel}: the file is outside base44/ and cannot be uploaded. Move it to base44/shared/ to share it across functions, or use an npm:/jsr: specifier for external packages.`,
+        );
+      }
+      throw new CLIExitError(1);
+    }
+  }
+
   let completed = 0;
   const total = toDeploy.length;
 
