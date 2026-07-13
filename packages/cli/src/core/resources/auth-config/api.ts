@@ -1,4 +1,5 @@
 import type { KyResponse } from "ky";
+import { hasWorkspaceApiKeyAuth } from "@/core/auth/config.js";
 import { base44Client } from "@/core/clients/index.js";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";
 import { getAppContext } from "@/core/project/index.js";
@@ -37,11 +38,24 @@ export async function pushAuthConfigToApi(
   config: AuthConfig,
 ): Promise<AuthConfig> {
   const { id } = getAppContext();
+  const payload = toAuthConfigPayload(config);
+
+  if (hasWorkspaceApiKeyAuth()) {
+    try {
+      await base44Client.put(`api/apps/${id}/deployment/auth-configuration`, {
+        json: payload,
+      });
+    } catch (error) {
+      throw await ApiError.fromHttpError(error, "updating auth config");
+    }
+
+    return config;
+  }
 
   let response: KyResponse;
   try {
     response = await base44Client.put(`api/apps/${id}`, {
-      json: { auth_config: toAuthConfigPayload(config) },
+      json: { auth_config: payload },
     });
   } catch (error) {
     throw await ApiError.fromHttpError(error, "updating auth config");

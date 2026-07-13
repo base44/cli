@@ -1,3 +1,5 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { sign } from "jsonwebtoken";
 import { describe, expect, it } from "vitest";
 import { fixture, setupCLITests } from "./testkit/index.js";
@@ -150,6 +152,65 @@ describe("env credential seeding", () => {
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("App deployed successfully");
+  });
+
+  it("pushes auth config through the deployment endpoint with a workspace API key", async () => {
+    await t.givenProject(fixture("with-entities"));
+    const authDir = join(t.getTempDir(), "project", "base44", "auth");
+    await mkdir(authDir, { recursive: true });
+    await writeFile(
+      join(authDir, "config.jsonc"),
+      JSON.stringify({
+        enableUsernamePassword: true,
+        enableGoogleLogin: false,
+        enableMicrosoftLogin: false,
+        enableFacebookLogin: false,
+        enableAppleLogin: false,
+        ssoProviderName: null,
+        enableSSOLogin: false,
+        googleOAuthMode: "default",
+        googleOAuthClientId: null,
+        useWorkspaceSSO: false,
+      }),
+    );
+
+    const workspaceApiKey =
+      "b44k_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+    t.givenEnv({ BASE44_API_KEY: workspaceApiKey });
+    t.api.mockEntitiesPush({
+      created: ["Customer", "Product"],
+      updated: [],
+      deleted: [],
+    });
+    t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
+
+    let deploymentAuthConfigBody: unknown;
+    let deploymentApiKeyHeader: string | undefined;
+    let genericAppUpdateCalled = false;
+    t.api.mockRoute(
+      "PUT",
+      `/api/apps/${APP_ID}/deployment/auth-configuration`,
+      (req, res) => {
+        deploymentAuthConfigBody = req.body;
+        deploymentApiKeyHeader = req.headers.api_key as string | undefined;
+        res.status(200).json({ name: "auth_config", hash: "auth-hash" });
+      },
+    );
+    t.api.mockRoute("PUT", `/api/apps/${APP_ID}`, (_req, res) => {
+      genericAppUpdateCalled = true;
+      res.status(500).json({ error: "Unexpected generic app update" });
+    });
+
+    const result = await t.run("deploy", "-y");
+
+    t.expectResult(result).toSucceed();
+    expect(deploymentApiKeyHeader).toBe(workspaceApiKey);
+    expect(deploymentAuthConfigBody).toMatchObject({
+      enable_username_password: true,
+      enable_google_login: false,
+    });
+    expect(deploymentAuthConfigBody).not.toHaveProperty("auth_config");
+    expect(genericAppUpdateCalled).toBe(false);
   });
 
   it("ignores a non-workspace BASE44_API_KEY when OAuth auth exists", async () => {
