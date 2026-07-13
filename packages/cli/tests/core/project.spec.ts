@@ -44,7 +44,7 @@ describe("readProjectConfig", () => {
     expect(result.entities[0].name).toBe("Order");
     expect(result.functions).toHaveLength(1);
     expect(result.functions[0].name).toBe("process-order");
-    expect(result.functions[0].entry).toBe("index.ts");
+    expect(result.functions[0].entry).toBe("entry.ts");
     expect(result.agents).toEqual([]);
   });
 
@@ -100,10 +100,10 @@ describe("readProjectConfig", () => {
       });
       await writeJson(join(tmpDir, "base44/functions/local/function.jsonc"), {
         name: "crm__syncCustomer",
-        entry: "index.ts",
+        entry: "entry.ts",
       });
       await writeFile(
-        join(tmpDir, "base44/functions/local/index.ts"),
+        join(tmpDir, "base44/functions/local/entry.ts"),
         "export default async function handler() {}",
       );
 
@@ -118,11 +118,11 @@ describe("readProjectConfig", () => {
         ),
         {
           name: "syncCustomer",
-          entry: "index.ts",
+          entry: "entry.ts",
         },
       );
       await writeFile(
-        join(tmpDir, "plugins/crm/base44/functions/sync-customer/index.ts"),
+        join(tmpDir, "plugins/crm/base44/functions/sync-customer/entry.ts"),
         "export default async function handler() {}",
       );
 

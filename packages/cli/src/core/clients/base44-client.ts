@@ -7,7 +7,10 @@ import { randomUUID } from "node:crypto";
 import type { KyRequest, KyResponse, NormalizedOptions } from "ky";
 import ky from "ky";
 import {
+  getWorkspaceApiKeyFromEnv,
+  hasWorkspaceApiKeyAuth,
   isTokenExpired,
+  isWorkspaceApiKey,
   readAuth,
   refreshAndSaveTokens,
 } from "@/core/auth/config.js";
@@ -48,6 +51,10 @@ async function handleUnauthorized(
   response: KyResponse,
 ): Promise<Response | undefined> {
   if (response.status !== 401) {
+    return;
+  }
+
+  if (hasWorkspaceApiKeyAuth()) {
     return;
   }
 
@@ -97,6 +104,12 @@ export const base44Client = ky.create({
       },
       captureRequestBody,
       async (request) => {
+        const workspaceApiKey = getWorkspaceApiKeyFromEnv();
+        if (workspaceApiKey && isWorkspaceApiKey(workspaceApiKey)) {
+          request.headers.set("api_key", workspaceApiKey);
+          return;
+        }
+
         try {
           const auth = await readAuth();
 
@@ -134,5 +147,22 @@ export function getAppClient() {
   const { id } = getAppContext();
   return base44Client.extend({
     prefixUrl: new URL(`/api/apps/${id}/`, getBase44ApiUrl()).href,
+  });
+}
+
+/**
+ * Returns an HTTP client scoped to a specific app's sandbox-bridge endpoints.
+ * Unlike {@link getAppClient}, the app ID is passed explicitly rather than read
+ * from the local app context — sandbox commands operate on a remote app and do
+ * not require a local project (.app.jsonc / app source) to be present.
+ *
+ * @example
+ * const client = getSandboxClient(appId);
+ * const response = await client.post("read_file", { json: { paths } });
+ */
+export function getSandboxClient(appId: string) {
+  return base44Client.extend({
+    prefixUrl: new URL(`/api/apps/${appId}/sandbox-bridge/`, getBase44ApiUrl())
+      .href,
   });
 }

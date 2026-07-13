@@ -14,6 +14,7 @@ import { getLinkCommand } from "@/cli/commands/project/link.js";
 import { getLogsCommand } from "@/cli/commands/project/logs.js";
 import { getScaffoldCommand } from "@/cli/commands/project/scaffold.js";
 import { getVisibilityCommand } from "@/cli/commands/project/visibility.js";
+import { getSandboxCommand } from "@/cli/commands/sandbox/index.js";
 import { getSecretsCommand } from "@/cli/commands/secrets/index.js";
 import { getSiteCommand } from "@/cli/commands/site/index.js";
 import { getTypesCommand } from "@/cli/commands/types/index.js";
@@ -37,6 +38,12 @@ export function createProgram(context: CLIContext): Command {
     .addOption(
       new Option("--app-id <id>", "Base44 app ID to use").env(
         BASE44_APP_ID_ENV_VAR,
+      ),
+    )
+    .addOption(
+      new Option(
+        "--json",
+        "Output machine-readable JSON to stdout (status/logs go to stderr)",
       ),
     );
 
@@ -79,6 +86,9 @@ export function createProgram(context: CLIContext): Command {
 
   // Register secrets commands
   program.addCommand(getSecretsCommand());
+
+  // Register sandbox (remote development) commands
+  program.addCommand(getSandboxCommand());
 
   // Register auth config commands
   program.addCommand(getAuthCommand());

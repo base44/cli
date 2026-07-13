@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import { hasWorkspaceApiKeyAuth } from "@/core/auth/config.js";
 import { setAppVisibility } from "@/core/project/api.js";
 import type { Visibility } from "@/core/project/schema.js";
 import type { ProjectData } from "@/core/project/types.js";
@@ -91,7 +92,14 @@ export async function deployAll(
   });
   await agentResource.push(agents);
   await authConfigResource.push(authConfig);
-  const { results: connectorResults } = await pushConnectors(connectors);
+  // pushConnectors also reconciles: with an empty list it removes remote
+  // connectors that are no longer configured locally. Only skip that when a
+  // workspace API key is in use, since those principals get a 403 on the
+  // connectors-list endpoint. OAuth users must still reconcile removals.
+  const skipConnectorSync = connectors.length === 0 && hasWorkspaceApiKeyAuth();
+  const connectorResults = skipConnectorSync
+    ? []
+    : (await pushConnectors(connectors)).results;
 
   if (project.site?.outputDirectory) {
     const outputDir = resolve(project.root, project.site.outputDirectory);

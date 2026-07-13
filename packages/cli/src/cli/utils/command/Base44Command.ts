@@ -1,4 +1,5 @@
 import { Command } from "commander";
+import stripAnsi from "strip-ansi";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import {
   ensureAppContext,
@@ -14,6 +15,45 @@ import {
   formatPlainUpgradeMessage,
   startUpgradeCheck,
 } from "@/cli/utils/upgradeNotification.js";
+import { isCLIError } from "@/core/errors.js";
+
+/**
+ * Write a command result to stdout as a single JSON document (the `--json`
+ * contract). Commands that build their own machine output set `result.stdout`
+ * and we emit it verbatim; for everything else we wrap the human status line
+ * in `{ output }` so `--json` always yields valid JSON. The status line of a
+ * native command still goes to stderr so stdout stays a single JSON value.
+ */
+function writeJsonSuccess(result: RunCommandResult): void {
+  if (result.stdout) {
+    if (result.outroMessage) {
+      process.stderr.write(`${result.outroMessage}\n`);
+    }
+    process.stdout.write(result.stdout);
+    return;
+  }
+  process.stdout.write(
+    `${JSON.stringify({ output: stripAnsi(result.outroMessage ?? "") })}\n`,
+  );
+}
+
+/** Emit a failed command as a JSON error envelope on stdout (the `--json`
+ * contract), carrying the structured CLIError fields when present. */
+function writeJsonError(error: unknown): void {
+  const envelope: Record<string, unknown> = {
+    error: error instanceof Error ? error.message : String(error),
+  };
+  if (isCLIError(error)) {
+    envelope.code = error.code;
+    if (error.details.length > 0) {
+      envelope.details = error.details;
+    }
+    if (error.hints.length > 0) {
+      envelope.hints = error.hints;
+    }
+  }
+  process.stdout.write(`${JSON.stringify(envelope)}\n`);
+}
 
 interface Base44CommandOptions {
   /**
@@ -109,7 +149,10 @@ export class Base44Command extends Command {
   override action(fn: (ctx: CLIContext, ...args: any[]) => any): this {
     // biome-ignore lint/suspicious/noExplicitAny: must match Commander.js action() signature
     return super.action(async (...args: any[]) => {
-      const quiet = this.context.isNonInteractive;
+      // The global `--json` flag keeps stdout a pure JSON document: skip the
+      // clack framing and send the status line to stderr.
+      const jsonMode = this.context.jsonMode;
+      const quiet = this.context.isNonInteractive || jsonMode;
 
       if (!quiet) {
         await showCommandStart(this._commandOptions.fullBanner);
@@ -135,6 +178,14 @@ export class Base44Command extends Command {
             upgradeCheckPromise,
             this.context.distribution,
           );
+        } else if (jsonMode) {
+          writeJsonSuccess(result);
+          const upgradeInfo = await upgradeCheckPromise;
+          if (upgradeInfo) {
+            process.stderr.write(
+              `${formatPlainUpgradeMessage(upgradeInfo, this.context.distribution)}\n`,
+            );
+          }
         } else {
           if (result.outroMessage) {
             process.stdout.write(`${result.outroMessage}\n`);
@@ -150,7 +201,10 @@ export class Base44Command extends Command {
           }
         }
       } catch (error) {
-        if (quiet) {
+        if (jsonMode) {
+          // --json: emit the error as JSON on stdout (single machine channel).
+          writeJsonError(error);
+        } else if (quiet) {
           showPlainError(error);
         } else {
           showThemedError(error, this.context);

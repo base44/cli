@@ -6,6 +6,7 @@ import { listAvailableIntegrations } from "@/core/resources/connector/index.js";
 async function listAvailableAction({
   log,
   runTask,
+  jsonMode,
 }: CLIContext): Promise<RunCommandResult> {
   const { integrations } = await runTask(
     "Fetching available integrations from Base44",
@@ -17,6 +18,13 @@ async function listAvailableAction({
       errorMessage: "Failed to fetch available integrations",
     },
   );
+
+  if (jsonMode) {
+    return {
+      outroMessage: `Found ${integrations.length} available integrations.`,
+      stdout: `${JSON.stringify({ integrations }, null, 2)}\n`,
+    };
+  }
 
   if (integrations.length === 0) {
     return { outroMessage: "No available integrations found." };

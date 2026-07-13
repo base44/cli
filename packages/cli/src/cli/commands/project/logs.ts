@@ -1,5 +1,6 @@
 import type { Command } from "commander";
 import { Option } from "commander";
+import ms, { type StringValue } from "ms";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
 import { ApiError, InvalidInputError } from "@/core/errors.js";
@@ -7,10 +8,12 @@ import { readProjectConfig } from "@/core/index.js";
 import type {
   FunctionLogFilters,
   FunctionLogsResponse,
+  LogEnv,
   LogLevel,
 } from "@/core/resources/function/index.js";
 import {
   fetchFunctionLogs,
+  LogEnvSchema,
   LogLevelSchema,
   listDeployedFunctions,
 } from "@/core/resources/function/index.js";
@@ -22,13 +25,14 @@ interface LogsOptions {
   level?: string;
   limit?: string;
   order?: string;
-  json?: boolean;
+  env?: LogEnv;
+  follow?: boolean;
 }
 
 /**
  * Unified log entry for display.
  */
-interface LogEntry {
+export interface LogEntry {
   time: string;
   level: string;
   message: string;
@@ -58,6 +62,10 @@ function parseFunctionFilters(options: LogsOptions): FunctionLogFilters {
     filters.order = options.order.toLowerCase() as "asc" | "desc";
   }
 
+  if (options.env) {
+    filters.env = options.env;
+  }
+
   return filters;
 }
 
@@ -70,6 +78,10 @@ function parseFunctionNames(option: string | undefined): string[] {
 }
 
 function normalizeDatetime(value: string): string {
+  const duration = ms(value as StringValue);
+  if (duration !== undefined) {
+    return new Date(Date.now() - duration).toISOString();
+  }
   if (/Z$|[+-]\d{2}:\d{2}$/.test(value)) return value;
   return `${value}Z`;
 }
@@ -81,11 +93,79 @@ function formatEntry(entry: LogEntry): string {
   return `${time} ${level} ${message}`;
 }
 
+export interface FollowState {
+  lastTime: string;
+  boundaryKeys: Set<string>;
+}
+
+function entryKey(entry: LogEntry): string {
+  return `${entry.time} ${entry.message}`;
+}
+
+export function selectNewEntries(
+  entries: LogEntry[],
+  state: FollowState,
+): { fresh: LogEntry[]; nextState: FollowState } {
+  const fresh = entries.filter((e) => {
+    if (e.time < state.lastTime) return false;
+    if (e.time === state.lastTime && state.boundaryKeys.has(entryKey(e))) {
+      return false;
+    }
+    return true;
+  });
+
+  if (fresh.length === 0) return { fresh, nextState: state };
+
+  const newMax = fresh.reduce(
+    (max, e) => (e.time > max ? e.time : max),
+    state.lastTime,
+  );
+  const boundaryKeys =
+    newMax === state.lastTime ? new Set(state.boundaryKeys) : new Set<string>();
+  for (const e of fresh) {
+    if (e.time === newMax) boundaryKeys.add(entryKey(e));
+  }
+  return { fresh, nextState: { lastTime: newMax, boundaryKeys } };
+}
+
+function writeFollowLine(entry: LogEntry, jsonMode: boolean): void {
+  const line = jsonMode ? JSON.stringify(entry) : formatEntry(entry);
+  process.stdout.write(`${line}\n`);
+}
+
+async function followLogs(
+  functionNames: string[],
+  options: LogsOptions,
+  availableFunctionNames: string[],
+  jsonMode: boolean,
+): Promise<never> {
+  let state: FollowState = { lastTime: "", boundaryKeys: new Set() };
+  let first = true;
+
+  while (true) {
+    const pollOptions = first ? options : { ...options, since: state.lastTime };
+    const entries = await fetchLogsForFunctions(
+      functionNames,
+      pollOptions,
+      availableFunctionNames,
+    );
+    const { fresh, nextState } = selectNewEntries(entries, state);
+    state = nextState;
+    fresh.sort((a, b) => a.time.localeCompare(b.time));
+    for (const entry of fresh) writeFollowLine(entry, jsonMode);
+    first = false;
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+  }
+}
+
 /**
  * Build function logs output (log-file style).
  */
-function formatLogs(entries: LogEntry[]): string {
+function formatLogs(entries: LogEntry[], env: LogEnv): string {
   if (entries.length === 0) {
+    if (env === "prod") {
+      return "No production logs found. Has this app been published? Try --env preview to see draft logs.\n";
+    }
     return "No logs found matching the filters.\n";
   }
 
@@ -143,8 +223,16 @@ async function fetchLogsForFunctions(
       throw error;
     }
 
-    const entries = logs.map((entry) => normalizeLogEntry(entry, functionName));
-    allEntries.push(...entries);
+    // The backend does not filter by level for every runtime (per-app
+    // Cloudflare deployments return the full stream), so filter defensively
+    // here. Entry levels are already normalized by the response schema.
+    const matchingLogs = filters.level
+      ? logs.filter((entry) => entry.level === filters.level)
+      : logs;
+
+    allEntries.push(
+      ...matchingLogs.map((entry) => normalizeLogEntry(entry, functionName)),
+    );
   }
 
   // When fetching multiple functions, merge-sort the combined results
@@ -200,6 +288,26 @@ async function logsAction(
     };
   }
 
+  if (options.follow) {
+    if (options.until) {
+      throw new InvalidInputError(
+        "--until cannot be combined with --follow (a stream has no end).",
+      );
+    }
+    if (options.order) {
+      throw new InvalidInputError(
+        "--order cannot be combined with --follow (a live tail always streams oldest to newest).",
+      );
+    }
+    options.order = "asc"; // tail reads oldest -> newest
+    return followLogs(
+      functionNames,
+      options,
+      availableFunctionNames,
+      ctx.jsonMode,
+    );
+  }
+
   let entries = await fetchLogsForFunctions(
     functionNames,
     options,
@@ -212,11 +320,16 @@ async function logsAction(
     entries = entries.slice(0, limit);
   }
 
-  const logsOutput = options.json
+  const env = options.env ?? "preview";
+  const logsOutput = ctx.jsonMode
     ? `${JSON.stringify(entries, null, 2)}\n`
-    : formatLogs(entries);
+    : formatLogs(entries, env);
 
-  return { outroMessage: "Fetched logs", stdout: logsOutput };
+  const shouldOutputOutroMessage = !ctx.jsonMode;
+  return {
+    outroMessage: shouldOutputOutroMessage ? "Fetched logs" : undefined,
+    stdout: logsOutput,
+  };
 }
 
 export function getLogsCommand(): Command {
@@ -228,12 +341,12 @@ export function getLogsCommand(): Command {
     )
     .option(
       "--since <datetime>",
-      "Show logs from this time (ISO format)",
+      "Show logs from this time. ISO datetime or relative shorthand (e.g. 1h, 30m, 2d)",
       normalizeDatetime,
     )
     .option(
       "--until <datetime>",
-      "Show logs until this time (ISO format)",
+      "Show logs until this time. ISO datetime or relative shorthand (e.g. 1h, 30m, 2d)",
       normalizeDatetime,
     )
     .addOption(
@@ -242,8 +355,15 @@ export function getLogsCommand(): Command {
         .hideHelp(),
     )
     .option("-n, --limit <n>", "Results per page (1-1000, default: 50)")
+    .option("-f, --follow", "Stream new logs as they arrive")
     .addOption(
       new Option("--order <order>", "Sort order").choices(["asc", "desc"]),
+    )
+    .addOption(
+      new Option(
+        "--env <env>",
+        "Which deployment to read logs from: preview (current draft) or prod (published). Default: preview",
+      ).choices([...LogEnvSchema.options]),
     )
     .action(logsAction);
 }

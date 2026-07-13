@@ -17,7 +17,7 @@ export async function generateDeviceCode(): Promise<DeviceCodeResponse> {
   const response = await oauthClient.post("oauth/device/code", {
     json: {
       client_id: AUTH_CLIENT_ID,
-      scope: "apps:read apps:write",
+      scope: "apps:read apps:write sandbox:write",
     },
     throwHttpErrors: false,
   });

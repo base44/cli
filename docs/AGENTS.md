@@ -63,13 +63,14 @@ These apply to every task. See topic guides below for domain-specific rules.
 
 1. **Bun for everything** - Use `bun` commands for install, test, build, run
 2. **Zod validation** - Required for all external data (API responses, config files)
-3. **@clack/prompts only** - For all user interaction (prompts, spinners, logs). No `console.log`
+3. **@clack/prompts only** - For all user interaction (prompts, spinners, logs). No `console.log`. Under the global `--json` flag the lifecycle runs **silent** (prompts and spinners suppressed, logs routed to stderr) — never assume a TTY
 4. **ES Modules** - Use `.js` extensions in all imports
 5. **Cross-platform** - Use `path` module utilities, never hardcode separators
 6. **Zero-dependency distribution** - All packages go in `devDependencies`; they get bundled
 7. **No dynamic imports** - Use static imports at top of file, avoid `await import()`
 8. **consts.ts has no imports** - Keep `consts.ts` dependency-free to avoid circular deps
 9. **Keep docs updated** - Update files in `docs/` when architecture changes
+10. **Respect the global `--json` flag** - `--json` (global, exposed as `ctx.jsonMode`) makes stdout a single machine-readable JSON document **and enables silent mode**. Never write results with `process.stdout.write`/`console.log`; return them via `RunCommandResult.stdout` and put human status in `outroMessage`/`log` (the lifecycle routes those to stderr under `--json`). New commands that produce data should emit it as JSON `stdout` when `ctx.jsonMode` is set (see the `sandbox`/`connectors` commands); `Base44Command` already supplies a generic fallback (`{ "output": "<status>" }`) and a JSON error envelope, so any command stays parseable
 
 ## Topic Guides
 

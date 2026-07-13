@@ -53,6 +53,7 @@ The CLI will guide you through project setup. For step-by-step tutorials, see th
 | [`whoami`](https://docs.base44.com/developers/references/cli/commands/whoami) | Display the current authenticated user |
 | [`agents pull`](https://docs.base44.com/developers/references/cli/commands/agents-pull) | Pull agents from Base44 to local files |
 | [`agents push`](https://docs.base44.com/developers/references/cli/commands/agents-push) | Push local agents to Base44 |
+| [`connectors initiate`](https://docs.base44.com/developers/references/cli/commands/connectors-initiate) | Initialize a connector on an app and start its OAuth flow |
 | [`connectors pull`](https://docs.base44.com/developers/references/cli/commands/connectors-pull) | Pull connectors from Base44 to local files |
 | [`connectors push`](https://docs.base44.com/developers/references/cli/commands/connectors-push) | Push local connectors to Base44 |
 | [`entities push`](https://docs.base44.com/developers/references/cli/commands/entities-push) | Push local entities to Base44 |
@@ -60,9 +61,40 @@ The CLI will guide you through project setup. For step-by-step tutorials, see th
 | [`secrets list`](https://docs.base44.com/developers/references/cli/commands/secrets-list) | List project secret names |
 | [`secrets set`](https://docs.base44.com/developers/references/cli/commands/secrets-set) | Set one or more project secrets |
 | [`secrets delete`](https://docs.base44.com/developers/references/cli/commands/secrets-delete) | Delete a project secret |
+| [`sandbox ls`](https://docs.base44.com/developers/references/cli/commands/sandbox-ls) | List directory entries in an app's remote sandbox |
+| [`sandbox read`](https://docs.base44.com/developers/references/cli/commands/sandbox-read) | Read file contents from an app's remote sandbox |
+| [`sandbox write`](https://docs.base44.com/developers/references/cli/commands/sandbox-write) | Create or overwrite a file in an app's remote sandbox |
+| [`sandbox edit`](https://docs.base44.com/developers/references/cli/commands/sandbox-edit) | Apply exact old→new string edits to a file in the sandbox |
+| [`sandbox grep`](https://docs.base44.com/developers/references/cli/commands/sandbox-grep) | Search files for a pattern in an app's remote sandbox |
+| [`sandbox run`](https://docs.base44.com/developers/references/cli/commands/sandbox-run) | Run a shell command in an app's remote sandbox |
+| [`sandbox checkpoint`](https://docs.base44.com/developers/references/cli/commands/sandbox-checkpoint) | Create a restore-point checkpoint of an app's remote sandbox |
 | [`site deploy`](https://docs.base44.com/developers/references/cli/commands/site-deploy) | Deploy built site files to Base44 hosting |
 | [`site open`](https://docs.base44.com/developers/references/cli/commands/site-open) | Open the published site in your browser |
 | [`types generate`](https://docs.base44.com/developers/references/cli/commands/types-generate) | Generate TypeScript types from project resources |
+
+## Global flags
+
+These work with any command:
+
+| Flag | Description |
+| ---- | ----------- |
+| `--app-id <id>` | Target a Base44 app explicitly (overrides the linked project and `BASE44_APP_ID`) |
+| `--json` | Emit machine-readable JSON to stdout and run in silent mode |
+
+### `--json`
+
+Use `--json` for scripting and agent automation:
+
+- **stdout is a single JSON document** — pipe it straight into `jq`.
+- **Silent mode** — interactive prompts, the spinner, and human status lines are suppressed; all status and diagnostics go to **stderr**, so stdout stays pure JSON.
+- **Errors are JSON too** — a failure prints `{ "error": "...", "code": "...", "hints": [...] }` to stdout and exits non-zero, so you can parse success and failure from the same stream.
+- **Every command accepts it.** Commands with structured output (e.g. `sandbox`, `connectors`) return rich JSON; others fall back to `{ "output": "<status>" }`.
+
+```bash
+# Pure JSON on stdout, ready for jq
+base44 sandbox ls src --app-id app_123 --json | jq '.entries'
+base44 sandbox run "npm test" --app-id app_123 --json | jq '.exitCode'
+```
 
 ## AI agent skills
 

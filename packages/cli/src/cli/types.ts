@@ -8,6 +8,12 @@ export type Distribution = "npm" | "binary";
 export interface CLIContext {
   errorReporter: ErrorReporter;
   isNonInteractive: boolean;
+  /**
+   * The global `--json` flag is set. Commands should emit a machine-readable
+   * JSON document via `RunCommandResult.stdout` and skip human-oriented logs;
+   * the lifecycle keeps stdout pure (status/logs are routed to stderr).
+   */
+  jsonMode: boolean;
   distribution: Distribution;
   log: Logger;
   runTask: RunTaskFn;

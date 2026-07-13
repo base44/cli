@@ -188,15 +188,22 @@ export type FunctionWithCode = Omit<BackendFunction, "filePaths"> & {
 };
 
 /**
- * Log levels from Deno Deploy runtime.
+ * Log levels emitted by backend function runtimes.
  */
 export const LogLevelSchema = z.enum(["info", "warning", "error", "debug"]);
 
 export type LogLevel = z.infer<typeof LogLevelSchema>;
 
+export const LogEnvSchema = z.enum(["preview", "prod"]);
+
+export type LogEnv = z.infer<typeof LogEnvSchema>;
+
 const FunctionLogEntrySchema = z.object({
   time: z.string(),
-  level: LogLevelSchema,
+  level: z.preprocess(
+    (v) => (v === "warn" ? "warning" : !v || v === "log" ? "info" : v),
+    LogLevelSchema,
+  ),
   message: z.string(),
 });
 
@@ -210,4 +217,5 @@ export interface FunctionLogFilters {
   level?: LogLevel;
   limit?: number;
   order?: "asc" | "desc";
+  env?: LogEnv;
 }

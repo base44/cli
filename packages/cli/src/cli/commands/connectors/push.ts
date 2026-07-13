@@ -1,13 +1,17 @@
+import { resolve } from "node:path";
 import type { Logger } from "@base44-cli/logger";
 import type { Command } from "commander";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, theme } from "@/cli/utils/index.js";
 import { getConnectorsUrl } from "@/cli/utils/urls.js";
 import { readProjectConfig } from "@/core/index.js";
+import { getAppContext } from "@/core/project/index.js";
 import {
+  type ConnectorResource,
   type ConnectorSyncResult,
   type IntegrationType,
   pushConnectors,
+  readAllConnectors,
   type StripeSyncResult,
 } from "@/core/resources/connector/index.js";
 import {
@@ -15,6 +19,26 @@ import {
   type OAuthFlowStatus,
   promptOAuthFlows,
 } from "./oauth-prompt.js";
+
+interface PushOptions {
+  dir?: string;
+}
+
+/**
+ * Read the local connectors to push. When the app context comes from a linked
+ * project, read them from the project config. With an explicit --app-id /
+ * BASE44_APP_ID there is no project (no projectRoot), so read from ./connectors
+ * (overridable with --dir).
+ */
+async function readConnectorsToPush(
+  options: PushOptions,
+): Promise<ConnectorResource[]> {
+  if (!getAppContext().projectRoot) {
+    return readAllConnectors(resolve(options.dir ?? "connectors"));
+  }
+  const { connectors } = await readProjectConfig();
+  return connectors;
+}
 
 function printSummary(
   results: ConnectorSyncResult[],
@@ -90,22 +114,23 @@ function printSummary(
   }
 }
 
-async function pushConnectorsAction({
-  isNonInteractive,
-  log,
-  runTask,
-}: CLIContext): Promise<RunCommandResult> {
-  const { connectors } = await readProjectConfig();
+async function pushConnectorsAction(
+  { isNonInteractive, log, runTask, jsonMode }: CLIContext,
+  options: PushOptions,
+): Promise<RunCommandResult> {
+  const connectors = await readConnectorsToPush(options);
 
-  if (connectors.length === 0) {
-    log.info(
-      "No local connectors found - checking for remote connectors to remove",
-    );
-  } else {
-    const connectorNames = connectors.map((c) => c.type).join(", ");
-    log.info(
-      `Found ${connectors.length} connectors to push: ${connectorNames}`,
-    );
+  if (!jsonMode) {
+    if (connectors.length === 0) {
+      log.info(
+        "No local connectors found - checking for remote connectors to remove",
+      );
+    } else {
+      const connectorNames = connectors.map((c) => c.type).join(", ");
+      log.info(
+        `Found ${connectors.length} connectors to push: ${connectorNames}`,
+      );
+    }
   }
 
   const { results } = await runTask(
@@ -131,6 +156,17 @@ async function pushConnectorsAction({
       : "Some connectors still require authorization. Run 'base44 connectors push' or open the links above to authorize.";
   }
 
+  if (jsonMode) {
+    return {
+      outroMessage,
+      stdout: `${JSON.stringify(
+        { results, oauth: Object.fromEntries(oauthOutcomes) },
+        null,
+        2,
+      )}\n`,
+    };
+  }
+
   printSummary(results, oauthOutcomes, log);
   return { outroMessage };
 }
@@ -139,6 +175,10 @@ export function getConnectorsPushCommand(): Command {
   return new Base44Command("push")
     .description(
       "Push local connectors to Base44 (overwrites connectors on Base44)",
+    )
+    .option(
+      "--dir <path>",
+      "Directory to read connector files from (default: ./connectors when using --app-id)",
     )
     .action(pushConnectorsAction);
 }

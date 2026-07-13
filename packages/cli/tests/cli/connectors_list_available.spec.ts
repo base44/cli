@@ -1,8 +1,35 @@
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { fixture, setupCLITests } from "./testkit/index.js";
 
 describe("connectors list-available command", () => {
   const t = setupCLITests();
+
+  it("--json emits a pure JSON document to stdout", async () => {
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    t.api.mockAvailableIntegrationsList({
+      integrations: [
+        {
+          integration_type: "slack",
+          display_name: "Slack",
+          description: "Connect to Slack workspaces",
+          connection_config_fields: [],
+        },
+      ],
+    });
+
+    const result = await t.run(
+      "connectors",
+      "list-available",
+      "--app-id",
+      "test-app-id",
+      "--json",
+    );
+
+    t.expectResult(result).toSucceed();
+    const parsed = JSON.parse(result.stdout);
+    expect(parsed.integrations).toHaveLength(1);
+    expect(parsed.integrations[0].integrationType).toBe("slack");
+  });
 
   it("lists available integrations", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
@@ -88,5 +115,29 @@ describe("connectors list-available command", () => {
 
     t.expectResult(result).toFail();
     t.expectResult(result).toContain("No Base44 app ID found");
+  });
+
+  it("lists available integrations without a project using --app-id", async () => {
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    t.api.mockAvailableIntegrationsList({
+      integrations: [
+        {
+          integration_type: "slack",
+          display_name: "Slack",
+          description: "Connect to Slack workspaces",
+          connection_config_fields: [],
+        },
+      ],
+    });
+
+    const result = await t.run(
+      "connectors",
+      "list-available",
+      "--app-id",
+      "test-app-id",
+    );
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Slack");
   });
 });

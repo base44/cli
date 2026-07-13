@@ -45,6 +45,24 @@ The `base44Client` automatically handles token refresh:
 
 ## Environment-Supplied Credentials
 
+### Workspace API keys
+
+For machine-principal deploy flows, set `BASE44_API_KEY` to a workspace API key
+(`b44k_...`). The shared `base44Client` sends this as the `api_key` header on
+API requests and skips OAuth token refresh. This mode does not write
+`~/.base44/auth/auth.json`; `base44 whoami` reports the key prefix instead.
+
+Example:
+
+```bash
+BASE44_API_KEY=b44k_... BASE44_APP_ID=<app-id> base44 deploy --yes
+```
+
+Use this for CI or other non-interactive deployers that should act as a
+workspace-owned machine principal rather than a human user.
+
+### OAuth access/refresh tokens
+
 For non-interactive flows (CI, agents, provisioning tools) that hand off an
 app's credentials via the environment, the `ensureAuth` middleware calls
 `seedAuthFromEnv()`: when `BASE44_ACCESS_TOKEN` is set, it decodes the JWT
