@@ -1,3 +1,5 @@
+import { randomBytes } from "node:crypto";
+import { rm } from "node:fs/promises";
 import type { Server } from "node:http";
 import { dirname, join } from "node:path";
 import type { Logger } from "@base44-cli/logger";
@@ -10,6 +12,16 @@ import { createDevLogger } from "@/cli/dev/createDevLogger.js";
 import { FunctionManager } from "@/cli/dev/dev-server/function-manager.js";
 import { createFunctionRouter } from "@/cli/dev/dev-server/routes/functions.js";
 import { theme } from "@/cli/utils/index.js";
+import { ConfigInvalidError } from "@/core/errors.js";
+import {
+  deleteDevInstance,
+  getDataDir,
+  getMetaJsonPath,
+  readDataDirMeta,
+  type SeedState,
+  writeDataDirMeta,
+  writeDevInstance,
+} from "@/core/local-state/index.js";
 import type { ProjectData } from "@/core/project/types.js";
 import { Database } from "./db/database.js";
 import {
@@ -35,12 +47,80 @@ interface DevServerOptions {
   port?: number;
   denoWrapperPath: string;
   appId?: string;
+  /**
+   * Enable file-backed persistence and the dev.json instance descriptor under
+   * `<projectRoot>/.base44`. Requires `appId`. Omit for in-memory mode.
+   */
+  state?: {
+    projectRoot: string;
+    /** Delete the local data dir before loading (start clean). */
+    fresh?: boolean;
+  };
   loadResources: () => Promise<{
     functions: ProjectData["functions"];
     entities: ProjectData["entities"];
     project: ProjectData["project"];
     siteUrl?: string;
   }>;
+}
+
+interface PersistenceContext {
+  projectRoot: string;
+  appId: string;
+  dataDir: string;
+  /** Seed state carried over from an existing meta.json (null until seeded). */
+  seed: SeedState;
+}
+
+/**
+ * Prepare the on-disk data dir: honor `--fresh`, guard against reusing data
+ * that belongs to another app, and carry over the recorded seed state.
+ */
+async function preparePersistence(
+  options: DevServerOptions,
+  devLogger: ReturnType<typeof createDevLogger>,
+): Promise<PersistenceContext | undefined> {
+  if (!options.state || !options.appId) {
+    return undefined;
+  }
+
+  const { projectRoot, fresh } = options.state;
+  const appId = options.appId;
+  const dataDir = getDataDir(projectRoot);
+
+  if (fresh) {
+    await rm(dataDir, { recursive: true, force: true });
+    devLogger.log("--fresh: local data cleared");
+  }
+
+  const meta = await readDataDirMeta(dataDir);
+  if (meta.status === "corrupt") {
+    devLogger.warn(
+      `Ignoring corrupt ${getMetaJsonPath(dataDir)}; treating local data as new`,
+    );
+  }
+  if (meta.status === "ok" && meta.meta.appId !== appId) {
+    throw new ConfigInvalidError(
+      `Local dev data in ${dataDir} belongs to app "${meta.meta.appId}", but this project is linked to app "${appId}".`,
+      getMetaJsonPath(dataDir),
+      {
+        hints: [
+          {
+            message:
+              "Run 'base44 dev --fresh' to delete the local data and start clean",
+            command: "base44 dev --fresh",
+          },
+        ],
+      },
+    );
+  }
+
+  return {
+    projectRoot,
+    appId,
+    dataDir,
+    seed: meta.status === "ok" ? meta.meta.seed : null,
+  };
 }
 
 interface DevServerResult {
@@ -106,8 +186,17 @@ export async function createDevServer(
     );
   }
 
-  const db = new Database();
+  const persistence = await preparePersistence(options, devLogger);
+
+  const db = new Database({ dataDir: persistence?.dataDir });
   await db.load(entities);
+  if (persistence) {
+    await writeDataDirMeta(persistence.dataDir, {
+      formatVersion: 1,
+      appId: persistence.appId,
+      seed: persistence.seed,
+    });
+  }
   if (db.getCollectionNames().length > 0) {
     devLogger.log(`Loaded entities: ${db.getCollectionNames().join(", ")}`);
   }
@@ -201,6 +290,19 @@ export async function createDevServer(
     broadcastEntityEvent(io, appId, entityName, event);
   };
 
+  if (persistence) {
+    await writeDevInstance(persistence.projectRoot, {
+      appId: persistence.appId,
+      url: baseUrl,
+      port,
+      pid: process.pid,
+      dataDir: persistence.dataDir,
+      adminToken: randomBytes(32).toString("hex"),
+      startedAt: new Date().toISOString(),
+      seed: persistence.seed,
+    });
+  }
+
   const base44ConfigWatcher = new WatchBase44(
     {
       functions: join(dirname(project.configPath), project.functionsDir),
@@ -225,12 +327,8 @@ export async function createDevServer(
       }
 
       if (name === "entities") {
-        const previousEntityCount = db.getCollectionNames().length;
-        db.dropAll();
-        if (previousEntityCount > 0) {
-          devLogger.log("Entities directory changed, clearing data...");
-        }
-        await db.load(entities);
+        db.reloadSchemas(entities);
+        devLogger.log("Entities changed, schemas reloaded (data preserved)");
         if (db.getCollectionNames().length > 0) {
           devLogger.log(
             `Loaded entities: ${db.getCollectionNames().join(", ")}`,
@@ -284,6 +382,9 @@ export async function createDevServer(
   };
 
   const runShutdown = async () => {
+    if (persistence) {
+      await deleteDevInstance(persistence.projectRoot);
+    }
     base44ConfigWatcher.close();
     await io.close();
     await functionManager.stopAll();

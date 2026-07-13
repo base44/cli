@@ -1,4 +1,5 @@
 import type { Command } from "commander";
+import { getDevStatusCommand } from "@/cli/commands/dev/status.js";
 import { createDevServer } from "@/cli/dev/dev-server/main.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { type AppIdOptions, Base44Command, theme } from "@/cli/utils/index.js";
@@ -10,6 +11,7 @@ import { readProjectConfig } from "@/core/project/config.js";
 
 interface DevOptions {
   port?: string;
+  fresh?: boolean;
 }
 
 function localServerUrl(port: number): string {
@@ -44,6 +46,7 @@ async function devAction(
     log,
     port,
     appId,
+    state: { projectRoot: app.projectRoot, fresh: options.fresh === true },
     denoWrapperPath: getDenoWrapperPath(),
     loadResources: async () => {
       const { functions, entities, project } = await readProjectConfig();
@@ -63,6 +66,14 @@ export function getDevCommand(): Command {
   return new Base44Command("dev")
     .description("Start the development server")
     .option("-p, --port <number>", "Port for the development server")
-    .hook("preAction", validateDevOptions)
-    .action(devAction);
+    .option("--fresh", "Delete local data before starting")
+    .hook("preAction", (thisCommand, actionCommand) => {
+      // The hook also fires for subcommands (e.g. `dev status`); the
+      // --app-id restriction only applies to the default (server) action.
+      if (thisCommand === actionCommand) {
+        validateDevOptions(thisCommand);
+      }
+    })
+    .action(devAction)
+    .addCommand(getDevStatusCommand());
 }
