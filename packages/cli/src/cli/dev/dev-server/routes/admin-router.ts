@@ -36,6 +36,9 @@ export interface AdminRouterDeps {
   getStatus: () => Promise<DevServerStatus>;
   runSeed: (mode: SeedMode) => Promise<SeedSummary>;
   runReset: () => Promise<DevResetResult>;
+  getExport: (
+    entityNames?: string[],
+  ) => Promise<Record<string, Record<string, unknown>[]>>;
 }
 
 /** Seed/validation problems are the caller's to fix — report them as 400. */
@@ -68,6 +71,7 @@ export function createAdminRouter({
   getStatus,
   runSeed,
   runReset,
+  getExport,
 }: AdminRouterDeps): Router {
   const router = createRouter();
 
@@ -105,6 +109,20 @@ export function createAdminRouter({
       res.json(await runReset());
     } catch (error) {
       handleError(error, res, logger, "POST /_base44/dev/reset");
+    }
+  });
+
+  router.get("/export", async (req, res) => {
+    const entitiesParam =
+      typeof req.query.entities === "string" ? req.query.entities : undefined;
+    const entityNames = entitiesParam
+      ?.split(",")
+      .map((name) => name.trim())
+      .filter((name) => name.length > 0);
+    try {
+      res.json({ collections: await getExport(entityNames) });
+    } catch (error) {
+      handleError(error, res, logger, "GET /_base44/dev/export");
     }
   });
 

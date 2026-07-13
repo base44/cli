@@ -93,6 +93,8 @@ export const TestOverridesSchema = z.object({
     })
     .optional(),
   latestVersion: z.string().nullable().optional(),
+  /** Fakes the `base44/seed.ts` Deno run: skip spawning, return this exit code. */
+  seedScript: z.object({ exitCode: z.number() }).optional(),
 });
 
 export type TestOverrides = z.infer<typeof TestOverridesSchema>;

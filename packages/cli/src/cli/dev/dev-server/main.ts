@@ -11,6 +11,7 @@ import { dir } from "tmp-promise";
 import { createDevLogger, type DevLogger } from "@/cli/dev/createDevLogger.js";
 import { FunctionManager } from "@/cli/dev/dev-server/function-manager.js";
 import { createFunctionRouter } from "@/cli/dev/dev-server/routes/functions.js";
+import { runSeedScriptStep } from "@/cli/dev/seed-script-step.js";
 import { formatSeedCounts } from "@/cli/dev/seed-summary.js";
 import { theme } from "@/cli/utils/index.js";
 import { ConfigInvalidError } from "@/core/errors.js";
@@ -33,6 +34,7 @@ import {
   type SeedSummary,
 } from "@/core/resources/seed/index.js";
 import { Database } from "./db/database.js";
+import { exportCollections } from "./db/export.js";
 import { applySeeds } from "./db/seed.js";
 import {
   type BroadcastEntityEvent,
@@ -71,7 +73,15 @@ interface DevServerOptions {
     projectRoot: string;
     /** Delete the local data dir before loading (start clean). */
     fresh?: boolean;
+    /**
+     * Temporary internal instance (offline `dev seed`/`dev reset` script
+     * step): skip the dev.json descriptor and the startup auto-seed — the
+     * caller drives seeding through the admin endpoints.
+     */
+    ephemeral?: boolean;
   };
+  /** Log sink override (temporary instances log to stderr). */
+  logger?: DevLogger;
   loadResources: () => Promise<{
     functions: ProjectData["functions"];
     entities: ProjectData["entities"];
@@ -145,6 +155,16 @@ async function preparePersistence(
   };
 }
 
+interface StartupSeedOutcome {
+  seedState: SeedState;
+  /**
+   * Fixture summary + pending `seed.ts` path. The script step needs the
+   * listening server, so the caller runs it (and logs the single summary)
+   * after listen.
+   */
+  pending: { summary: SeedSummary; scriptPath: string | null } | null;
+}
+
 /**
  * Auto-seed on startup: apply fixtures (replace mode) when the data dir is
  * new, or hint when existing data was seeded from different seed files.
@@ -156,46 +176,50 @@ async function runStartupSeed(
   project: ProjectData["project"],
   persistence: PersistenceContext,
   devLogger: DevLogger,
-): Promise<SeedState> {
+): Promise<StartupSeedOutcome> {
   let seedData: SeedData | null = null;
   try {
     seedData = await readSeedFiles(project);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     devLogger.error(`Failed to read seed files: ${message}`);
-    return persistence.seed;
+    return { seedState: persistence.seed, pending: null };
   }
   if (!seedData) {
-    return persistence.seed;
+    return { seedState: persistence.seed, pending: null };
   }
 
   if (!persistence.isNew) {
     if (persistence.seed?.hash !== seedData.hash) {
       devLogger.log("Seed files changed — run `base44 dev seed` to apply");
     }
-    return persistence.seed;
+    return { seedState: persistence.seed, pending: null };
   }
 
   try {
     const summary = await applySeeds(db, seedData, { mode: "replace" });
-    devLogger.log(`Seeds applied: ${formatSeedCounts(summary).join("; ")}`);
-    for (const warning of summary.warnings) {
-      devLogger.warn(warning);
-    }
-    return { hash: seedData.hash, appliedAt: new Date().toISOString() };
+    return {
+      seedState: { hash: seedData.hash, appliedAt: new Date().toISOString() },
+      pending: { summary, scriptPath: seedData.scriptPath },
+    };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     devLogger.error(
       `Seeding failed: ${message}. Continuing with partially seeded data — fix the seed files and run 'base44 dev seed'.`,
     );
-    return persistence.seed;
+    return { seedState: persistence.seed, pending: null };
   }
 }
 
 interface DevServerResult {
   port: number;
+  url: string;
   server: Server;
   isServingFrontend: boolean;
+  /** Admin-endpoint token for this instance (also in dev.json when written). */
+  adminToken: string;
+  /** Gracefully stop the server (same path as SIGINT/SIGTERM). */
+  shutdown: () => Promise<void>;
 }
 
 export async function createDevServer(
@@ -239,7 +263,8 @@ export async function createDevServer(
     next();
   });
 
-  const devLogger = createDevLogger("backend", theme.styles.info);
+  const devLogger =
+    options.logger ?? createDevLogger("backend", theme.styles.info);
 
   const functionManager = new FunctionManager(
     functions,
@@ -260,9 +285,15 @@ export async function createDevServer(
   const db = new Database({ dataDir: persistence?.dataDir });
   await db.load(entities);
 
+  const ephemeral = options.state?.ephemeral === true;
   let seedState: SeedState = persistence?.seed ?? null;
+  let startupSeed: StartupSeedOutcome["pending"] = null;
   if (persistence) {
-    seedState = await runStartupSeed(db, project, persistence, devLogger);
+    if (!ephemeral) {
+      const outcome = await runStartupSeed(db, project, persistence, devLogger);
+      seedState = outcome.seedState;
+      startupSeed = outcome.pending;
+    }
     await writeDataDirMeta(persistence.dataDir, {
       formatVersion: 1,
       appId: persistence.appId,
@@ -290,17 +321,19 @@ export async function createDevServer(
 
   if (persistence) {
     const state = persistence;
-    writeInstanceFile = () =>
-      writeDevInstance(state.projectRoot, {
-        appId: state.appId,
-        url: baseUrl,
-        port,
-        pid: process.pid,
-        dataDir: state.dataDir,
-        adminToken,
-        startedAt,
-        seed: seedState,
-      });
+    if (!ephemeral) {
+      writeInstanceFile = () =>
+        writeDevInstance(state.projectRoot, {
+          appId: state.appId,
+          url: baseUrl,
+          port,
+          pid: process.pid,
+          dataDir: state.dataDir,
+          adminToken,
+          startedAt,
+          seed: seedState,
+        });
+    }
 
     const updateSeedState = async (next: SeedState) => {
       seedState = next;
@@ -325,6 +358,10 @@ export async function createDevServer(
         hash: seedData.hash,
         appliedAt: new Date().toISOString(),
       });
+      await runSeedScriptStep(summary, seedData.scriptPath, {
+        appId: state.appId,
+        baseUrl,
+      });
       return summary;
     };
 
@@ -339,6 +376,12 @@ export async function createDevServer(
           ? { hash: seedData.hash, appliedAt: new Date().toISOString() }
           : null,
       );
+      if (summary && seedData) {
+        await runSeedScriptStep(summary, seedData.scriptPath, {
+          appId: state.appId,
+          baseUrl,
+        });
+      }
       return {
         reset: true,
         seeded: summary?.applied ?? false,
@@ -369,6 +412,7 @@ export async function createDevServer(
         getStatus,
         runSeed,
         runReset,
+        getExport: (entityNames) => exportCollections(db, entityNames),
       }),
     );
   }
@@ -453,6 +497,22 @@ export async function createDevServer(
 
   await writeInstanceFile?.();
 
+  // The startup seed's `seed.ts` step needs the listening server; run it
+  // now, then log the single seed summary (fixtures + script outcome).
+  // Script failures only warn — the server keeps serving.
+  if (persistence && startupSeed) {
+    await runSeedScriptStep(startupSeed.summary, startupSeed.scriptPath, {
+      appId: persistence.appId,
+      baseUrl,
+    });
+    devLogger.log(
+      `Seeds applied: ${formatSeedCounts(startupSeed.summary).join("; ")}`,
+    );
+    for (const warning of startupSeed.summary.warnings) {
+      devLogger.warn(warning);
+    }
+  }
+
   const base44ConfigWatcher = new WatchBase44(
     {
       functions: join(dirname(project.configPath), project.functionsDir),
@@ -532,7 +592,9 @@ export async function createDevServer(
   };
 
   const runShutdown = async () => {
-    if (persistence) {
+    process.off("SIGINT", shutdown);
+    process.off("SIGTERM", shutdown);
+    if (persistence && !ephemeral) {
       await deleteDevInstance(persistence.projectRoot);
     }
     base44ConfigWatcher.close();
@@ -560,5 +622,12 @@ export async function createDevServer(
     serveRunner.start();
   }
 
-  return { port, server, isServingFrontend: serveRunner !== undefined };
+  return {
+    port,
+    url: baseUrl,
+    server,
+    isServingFrontend: serveRunner !== undefined,
+    adminToken,
+    shutdown,
+  };
 }

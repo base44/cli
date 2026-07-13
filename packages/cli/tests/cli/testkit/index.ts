@@ -35,6 +35,9 @@ export interface TestContext {
 
   givenLatestVersion: (version: string | null | undefined) => void;
 
+  /** Fake the base44/seed.ts Deno run with the given exit code */
+  givenSeedScriptResult: (exitCode: number) => void;
+
   /** Simulate piped stdin for the next run() call */
   givenStdin: (content: string) => void;
 
@@ -126,6 +129,8 @@ export function setupCLITests(): TestContext {
       await getKit().givenProject(fixturePath);
     },
     givenLatestVersion: (version) => getKit().givenLatestVersion(version),
+    givenSeedScriptResult: (exitCode) =>
+      getKit().givenSeedScriptResult(exitCode),
     givenStdin: (content) => getKit().givenStdin(content),
     givenEnv: (vars) => getKit().givenEnv(vars),
 

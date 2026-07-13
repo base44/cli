@@ -49,6 +49,7 @@ export interface RunLiveHandle {
 interface TestOverrides {
   appConfig?: { id: string; projectRoot: string };
   latestVersion?: string | null;
+  seedScript?: { exitCode: number };
 }
 
 export class CLITestkit {
@@ -127,6 +128,14 @@ export class CLITestkit {
    */
   givenLatestVersion(version: string | null | undefined): void {
     this.testOverrides.latestVersion = version;
+  }
+
+  /**
+   * Fake the `base44/seed.ts` Deno run: the CLI skips spawning Deno and
+   * reports the given exit code as the script result.
+   */
+  givenSeedScriptResult(exitCode: number): void {
+    this.testOverrides.seedScript = { exitCode };
   }
 
   /** Simulate piped stdin for the next run() call */

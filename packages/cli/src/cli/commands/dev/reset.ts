@@ -31,7 +31,12 @@ async function devResetAction(
   const instance = await readDevInstance(project.projectRoot);
   const result = instance
     ? await resetViaInstance(instance)
-    : await resetOffline(project);
+    : await resetOffline(project, log);
+
+  // Reset + fixtures succeeded but seed.ts failed: report, exit non-zero.
+  if (result.seed?.script?.ran === false) {
+    process.exitCode = 1;
+  }
 
   const outroMessage = result.seeded
     ? "Local data reset and seeds applied"

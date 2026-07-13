@@ -21,6 +21,10 @@ export function getExecWrapperPath(): string {
   return join(ASSETS_DIR, "deno-runtime", "exec.ts");
 }
 
+export function getSeedWrapperPath(): string {
+  return join(ASSETS_DIR, "deno-runtime", "seed.ts");
+}
+
 /**
  * For the npm distribution: copy bundled assets to the standard location
  * on first run. Binary entry handles its own extraction separately.

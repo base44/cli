@@ -36,7 +36,12 @@ async function devSeedAction(
   const instance = await readDevInstance(project.projectRoot);
   const summary = instance
     ? await seedViaInstance(instance, mode)
-    : await seedOffline(project, mode);
+    : await seedOffline(project, mode, log);
+
+  // Fixtures applied but seed.ts failed: report everything, exit non-zero.
+  if (summary.script?.ran === false) {
+    process.exitCode = 1;
+  }
 
   const outroMessage = summary.applied
     ? `Seeds applied (${summary.mode} mode)`

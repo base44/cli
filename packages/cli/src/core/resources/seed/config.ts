@@ -17,7 +17,7 @@ import {
  */
 export const USERS_FIXTURE_BASENAME = "users";
 
-/** Fixed script hook path, relative to the project config dir (phase C). */
+/** Fixed script hook path, relative to the project config dir. */
 const SEED_SCRIPT_FILENAME = "seed.ts";
 
 export interface SeedUsersFixture {
@@ -39,7 +39,7 @@ export interface SeedData {
   users: SeedUsersFixture | null;
   /** Entity fixtures, sorted alphabetically by filename (application order). */
   fixtures: SeedRecordsFixture[];
-  /** Absolute path of `seed.ts` when present; run by phase C, hashed here. */
+  /** Absolute path of `seed.ts` when present; run after fixtures, hashed here. */
   scriptPath: string | null;
   /** `sha256:<hex>` over all seed files; drives the "seed changed" hint. */
   hash: string;

@@ -45,8 +45,8 @@ export type SeedEntityCounts = z.infer<typeof SeedEntityCountsSchema>;
 /**
  * Result of one seed application. Returned by the applier, the
  * `POST /_base44/dev/seed` admin endpoint, and `base44 dev seed --json`.
- * `script` reports the `seed.ts` step (always null until the script runner
- * lands).
+ * `script` reports the `base44/seed.ts` step: null when the project has no
+ * script, `{ran: false}` plus a warning when it failed.
  */
 export const SeedSummarySchema = z.object({
   applied: z.boolean(),

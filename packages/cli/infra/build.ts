@@ -30,6 +30,7 @@ const copyDenoRuntime = () => {
   mkdirSync(outDir, { recursive: true });
   copyFileSync("./deno-runtime/main.ts", `${outDir}/main.ts`);
   copyFileSync("./deno-runtime/exec.ts", `${outDir}/exec.ts`);
+  copyFileSync("./deno-runtime/seed.ts", `${outDir}/seed.ts`);
   return outDir;
 };
 
