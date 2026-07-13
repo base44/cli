@@ -79,9 +79,6 @@ export async function deployAll(
     projectData;
 
   await setAppVisibility(project.visibility);
-  // Confirm visibility as soon as the change lands on the server. It's applied
-  // before the other resources and isn't rolled back if a later step fails, so
-  // surfacing it here keeps the "done" signal visible even on a partial deploy.
   if (project.visibility) {
     options?.onVisibilitySet?.(project.visibility);
   }
