@@ -10,13 +10,25 @@ import {
   InvalidInputError,
   SchemaValidationError,
 } from "@/core/errors.js";
-import { collectReachableBackendFiles } from "@/core/resources/function/reachability.js";
 import type {
   BackendFunction,
   FunctionConfig,
 } from "@/core/resources/function/schema.js";
 import { FunctionConfigSchema } from "@/core/resources/function/schema.js";
 import { pathExists, readJsonFile } from "@/core/utils/fs.js";
+
+/**
+ * Collect every file under `base44/shared/`. These are uploaded alongside each
+ * function so shared modules imported via `../../shared/...` bundle server-side.
+ * The bundler tree-shakes anything a given function doesn't import.
+ */
+async function readSharedFiles(functionsDir: string): Promise<string[]> {
+  const sharedDir = resolve(functionsDir, "..", "shared");
+  if (!(await pathExists(sharedDir))) {
+    return [];
+  }
+  return globby("**/*.{js,ts,json}", { cwd: sharedDir, absolute: true });
+}
 
 async function readFunctionConfig(configPath: string): Promise<FunctionConfig> {
   const parsed = await readJsonFile(configPath);
@@ -35,7 +47,7 @@ async function readFunctionConfig(configPath: string): Promise<FunctionConfig> {
 
 async function readFunction(
   configPath: string,
-  backendRoot: string,
+  sharedFiles: string[],
 ): Promise<BackendFunction> {
   const config = await readFunctionConfig(configPath);
   const functionDir = dirname(configPath);
@@ -55,18 +67,12 @@ async function readFunction(
     absolute: true,
   });
 
-  const { extra, outOfBounds } = await collectReachableBackendFiles(
-    entryPath,
-    filePaths,
-    backendRoot,
-  );
-  const allFilePaths = [...new Set([...filePaths, ...extra])];
+  const allFilePaths = [...new Set([...filePaths, ...sharedFiles])];
 
   const functionData: BackendFunction = {
     ...config,
     entryPath,
     filePaths: allFilePaths,
-    outOfBoundsImports: outOfBounds,
     source: { type: "project" },
   };
   return functionData;
@@ -96,10 +102,10 @@ export async function readAllFunctions(
     (entryFile) => !configFilesDirs.has(dirname(entryFile)),
   );
 
-  const backendRoot = resolve(functionsDir, "..");
+  const sharedFiles = await readSharedFiles(functionsDir);
 
   const functionsFromConfig = await Promise.all(
-    configFiles.map((configPath) => readFunction(configPath, backendRoot)),
+    configFiles.map((configPath) => readFunction(configPath, sharedFiles)),
   );
 
   const functionsWithoutConfig = await Promise.all(
@@ -110,12 +116,7 @@ export async function readAllFunctions(
         absolute: true,
       });
 
-      const { extra, outOfBounds } = await collectReachableBackendFiles(
-        entryFile,
-        filePaths,
-        backendRoot,
-      );
-      const allFilePaths = [...new Set([...filePaths, ...extra])];
+      const allFilePaths = [...new Set([...filePaths, ...sharedFiles])];
 
       const name = relative(functionsDir, functionDir).split(/[/\\]/).join("/");
       if (!name) {
@@ -137,7 +138,6 @@ export async function readAllFunctions(
         entry,
         entryPath: entryFile,
         filePaths: allFilePaths,
-        outOfBoundsImports: outOfBounds,
         source: { type: "project" },
       };
       return functionData;

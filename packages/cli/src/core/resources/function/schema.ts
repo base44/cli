@@ -144,15 +144,9 @@ export const FunctionConfigSchema = z.object({
   automations: z.array(AutomationSchema).optional(),
 });
 
-const OutOfBoundsImportSchema = z.object({
-  importer: z.string(),
-  specifier: z.string(),
-});
-
 const BackendFunctionSchema = FunctionConfigSchema.extend({
   entryPath: z.string().min(1, "Entry path cannot be empty"),
   filePaths: z.array(z.string()).min(1, "Function must have at least one file"),
-  outOfBoundsImports: z.array(OutOfBoundsImportSchema).optional().default([]),
   source: ResourceSourceSchema,
 });
 

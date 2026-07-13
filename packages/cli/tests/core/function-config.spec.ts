@@ -97,14 +97,14 @@ describe("readAllFunctions", () => {
     );
   });
 
-  it("includes shared files reachable via parent-escape relative imports", async () => {
+  it("uploads base44/shared/ files with every function", async () => {
     const functionsDir = resolve(
       FIXTURES_DIR,
       "function-shared-imports/base44/functions",
     );
     const result = await readAllFunctions(functionsDir);
 
-    expect(result).toHaveLength(4); // greet, farewell, hello-sibling, farewell-js-ext
+    expect(result).toHaveLength(3); // greet, farewell, hello-sibling
 
     for (const fn of result) {
       const hasShared = fn.filePaths.some((p) =>
@@ -116,26 +116,7 @@ describe("readAllFunctions", () => {
     }
   });
 
-  it("resolves .js-extension imports to .ts files (TS project convention)", async () => {
-    const functionsDir = resolve(
-      FIXTURES_DIR,
-      "function-shared-imports/base44/functions",
-    );
-    const result = await readAllFunctions(functionsDir);
-    const fn = result.find((f) => f.name === "farewell-js-ext");
-    expect(fn).toBeDefined();
-
-    // entry.ts imports "../../shared/response.js" — should resolve to response.ts
-    const hasShared = fn!.filePaths.some((p) =>
-      fwd(p).endsWith("shared/response.ts"),
-    );
-    expect(
-      hasShared,
-      "shared/response.ts should be found via .js-extension import",
-    ).toBe(true);
-  });
-
-  it("includes sibling files and transitively reaches shared through them", async () => {
+  it("includes sibling files from the function directory alongside shared", async () => {
     const functionsDir = resolve(
       FIXTURES_DIR,
       "function-shared-imports/base44/functions",
@@ -144,23 +125,20 @@ describe("readAllFunctions", () => {
     const fn = result.find((f) => f.name === "hello-sibling");
     expect(fn).toBeDefined();
 
-    // util.ts is a same-dir sibling picked up by the glob
+    // util.ts is a same-dir sibling picked up by the function-dir glob
     const hasUtil = fn!.filePaths.some((p) =>
       fwd(p).endsWith("hello-sibling/util.ts"),
     );
     expect(hasUtil, "sibling util.ts should be included").toBe(true);
 
-    // shared/response.ts is reachable transitively through util.ts
+    // shared/response.ts is included because the whole shared dir is uploaded
     const hasShared = fn!.filePaths.some((p) =>
       fwd(p).endsWith("shared/response.ts"),
     );
-    expect(
-      hasShared,
-      "shared/response.ts should be reachable via sibling",
-    ).toBe(true);
+    expect(hasShared, "shared/response.ts should be included").toBe(true);
   });
 
-  it("shared file path stays outside functions dir (correct relative path for deploy)", async () => {
+  it("shared file uses the function-dir-relative deploy path", async () => {
     const functionsDir = resolve(
       FIXTURES_DIR,
       "function-shared-imports/base44/functions",
@@ -180,40 +158,5 @@ describe("readAllFunctions", () => {
     );
     const rel = fwd(pathRelative(pathDirname(greet!.entryPath), sharedPath!));
     expect(rel).toBe("../../shared/response.ts");
-  });
-
-  it("does not include files outside base44/ even when imported", async () => {
-    const functionsDir = resolve(
-      FIXTURES_DIR,
-      "function-shared-imports/base44/functions",
-    );
-    const result = await readAllFunctions(functionsDir);
-    const greet = result.find((f) => f.name === "greet");
-    expect(greet).toBeDefined();
-
-    // greet/entry.ts imports from ../../../outside/secret.ts which is outside base44/
-    const hasOutside = greet!.filePaths.some((p) =>
-      fwd(p).includes("outside/secret.ts"),
-    );
-    expect(hasOutside, "files outside base44/ must not be collected").toBe(
-      false,
-    );
-  });
-
-  it("reports out-of-bounds imports so the CLI can block deployment", async () => {
-    const functionsDir = resolve(
-      FIXTURES_DIR,
-      "function-shared-imports/base44/functions",
-    );
-    const result = await readAllFunctions(functionsDir);
-    const greet = result.find((f) => f.name === "greet");
-    expect(greet).toBeDefined();
-
-    // greet/entry.ts imports ../../../outside/secret.ts which escapes base44/
-    const oob = greet!.outOfBoundsImports ?? [];
-    expect(oob.length).toBeGreaterThan(0);
-    const match = oob.find((o) => o.specifier.includes("outside/secret.ts"));
-    expect(match, "should report the out-of-bounds specifier").toBeDefined();
-    expect(fwd(match!.importer)).toContain("greet/entry.ts");
   });
 });
