@@ -46,6 +46,8 @@ export function getTemplatesDir(): string {
 
 No `assetsDir` parameter is passed through CLIContext or function signatures. Adding new asset types only requires putting them under **dist/assets/** and wiring the build; **build-binaries.ts** collects the whole `dist/assets/` folder with no per-item list.
 
+The Deno wrappers ship this way: `infra/build.ts` copies `deno-runtime/seed.ts` (seed-script runner) into `dist/assets/deno-runtime/` alongside `exec.ts` and `main.ts`.
+
 ## Homebrew Formula
 
 `infra/homebrew/base44.rb` is a template for the Homebrew tap formula. It downloads the `.tar.gz` archive for the user's platform from GitHub Releases. Homebrew auto-extracts the tarball, so the install block simply does `bin.install "base44"`.

@@ -80,6 +80,7 @@ Read these when working on the relevant area:
 - **[Making API calls](api-patterns.md)** - HTTP clients, Zod snake_case-to-camelCase transforms, `ApiError.fromHttpError()`
 - **[Working with resources](resources.md)** - `Resource<T>` interface, adding new resources, site module, unified deploy
 - **[Plugins](plugins.md)** - Plugin config, namespaces, entity extension rules, function namespacing, pull/deploy behavior
+- **[Local data & seeding](local-data.md)** - `.base44` state dir, dev.json, seed fixtures + `seed.ts`, admin endpoints, `dev seed/reset/status`, `data pull/dump`
 - **[Error handling](error-handling.md)** - Error hierarchy, throwing patterns, error codes, `CLIExitError`, `process.exit` ban
 - **[Writing tests](testing.md)** - Testkit, Given/When/Then pattern, API mocks, fixtures, test overrides
 - **[Telemetry & error reporting](telemetry.md)** - PostHog `ErrorReporter`, what's captured, disabling

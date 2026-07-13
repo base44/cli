@@ -2,7 +2,18 @@
 
 **Keywords:** seed, seeding, persistence, local data, dev server, fixtures, reset, data pull, NeDB, state dir, worktree isolation
 
-**Status:** Draft for review
+**Status:** Phases 1–3 implemented (see status update below)
+
+## Status update (2026-07-13)
+
+Phases 1–3 — persistence + lifecycle, seeding, and the remote bridge — are
+implemented on branch `claude/base44-cli-seed-feature-30br0e`, **including the
+programmatic `base44/seed.ts` hook**, which was pulled forward from the "Later"
+phase at user request: remote access is programmable-first (`ctx.remote({ dataEnv })`
+inside `seed.ts`), with `data pull`/`data dump` as the zero-code sugar. Sections
+2, 6, and 7 and Open question 1 below are revised to match what shipped; the
+research sections are unchanged. Contributor-facing architecture docs:
+[`local-data.md`](../local-data.md).
 
 ## Problem
 
@@ -106,10 +117,12 @@ Because state is project-relative, **every git worktree automatically gets isola
 data** — no flags, no config. This is the data-isolation half of the docker-style
 `dev` envs direction; the `dev.json` descriptor (§5) is the discovery half.
 
-### 2. Seed source: declarative fixtures in `base44/seed/`
+### 2. Seed source: declarative fixtures in `base44/seed/` + programmatic `base44/seed.ts`
 
-A new committed directory (configurable as `seedDir`, default `"seed"`, alongside
-`entitiesDir`/`functionsDir` in `base44/config.jsonc`):
+Seeds are **both** declarative fixtures and an optional programmatic script, run in
+that order (both shipped). Fixtures live in a new committed directory (configurable
+as `seedDir`, default `"seed"`, alongside `entitiesDir`/`functionsDir` in
+`base44/config.jsonc`):
 
 ```
 base44/seed/
@@ -159,16 +172,19 @@ Semantics:
 - Fixtures are plain data — reviewable, diffable, and writable by agents without
   running anything. Zod schemas for both file formats live in `core/`.
 
-Why declarative-first rather than a TS seed script: fixtures need no extra runtime
-(a `seed.ts` needs Deno, which today is only required when the app has functions),
-they match the existing JSONC resource convention (`base44/entities/<Name>.jsonc`),
-and they cover the observed asks (test users + baseline records + frozen remote
-snapshots). A **programmatic hook stays on the roadmap** (§7) as the escape hatch
-for generated/relational data — running `base44/seed.ts` in the existing Deno
-runtime with a service-role SDK client pointed at the local server, Convex-style.
-Designing fixtures first doesn't foreclose it; the two compose (fixtures, then
-script), and research shows platforms that shipped only one kind eventually grew
-the other.
+Why declarative-first rather than only a TS seed script: fixtures need no extra
+runtime (a `seed.ts` needs Deno, which is otherwise only required when the app has
+functions), they match the existing JSONC resource convention
+(`base44/entities/<Name>.jsonc`), and they cover the observed asks (test users +
+baseline records + frozen remote snapshots). **Shipped change:** the programmatic
+hook did not stay on the roadmap — at user request it shipped alongside fixtures,
+because remote access should be **programmable-first rather than pull-only**.
+`base44/seed.ts` runs after fixtures in the existing Deno runtime (exec-wrapper
+pattern) with a service-role SDK client bound to the local server (`ctx.base44`)
+and a remote client factory (`ctx.remote({ dataEnv })`) for the
+filter/transform/generate cases fixtures can't express. Deno is required only for
+this step: without it, fixtures still apply and the script step is reported as
+failed. The two compose (fixtures, then script), as research predicted.
 
 ### 3. Seed lifecycle
 
@@ -234,30 +250,41 @@ are the logs") and is the natural substrate for the planned docker-style
 this proposal just introduces it. When the default port is taken, `dev` should
 auto-pick a free one (parallel worktrees) and record it here.
 
-### 6. Remote bridge: `base44 data pull` / `base44 data dump`
+### 6. Remote bridge: programmable-first, `data pull` / `data dump` as sugar
 
 The single most-requested workflow ("develop against my real app's data") and
-exactly what one user hand-rolled:
+exactly what one user hand-rolled. As shipped, the **primary** bridge is
+programmatic: `base44/seed.ts` gets `ctx.remote({ dataEnv })` — an SDK client
+authenticated as the CLI user against the linked remote app (`dataEnv: "dev"`
+targets the dev data environment via the `X-Data-Env` header) — so
+filter/transform/subset pulls are ordinary code writing through `ctx.base44`. The
+zero-code commands cover the common case:
 
 ```
-base44 data pull [--entity <Name> ...] [--data-env prod|dev] [--limit <n>]
-  └─ fetch records from the linked remote app → write base44/seed/<Entity>.jsonc
+base44 data pull [--entity <Name> ...] [--data-env prod|dev] [--query <json>] [--limit <n>]
+  └─ fetch records from the linked remote app → write seed fixtures
      (read-only against remote; never writes to the remote DB)
 
 base44 data dump [--entity <Name> ...]
-  └─ local dev data → base44/seed/<Entity>.jsonc
+  └─ local dev data → seed fixtures
      ("I hand-crafted good data in the local UI — freeze it as the committed seed")
 ```
 
-- `pull` uses the existing runtime entities list API via `getAppClient()`
-  (paginated; the platform caps list responses at 5000/record page), honoring the
-  platform's `DataEnvironment` selector so an app's dev-environment data can be
-  pulled distinctly from prod data.
+- `pull` pages the existing runtime entities list API via `getAppClient()`
+  (limit/skip, page size 500), honoring the platform's `DataEnvironment` selector
+  (`--data-env`, `X-Data-Env: dev` header) and an optional `--query` JSON filter.
+- The API returns bare record arrays with no total count, so the reported `total`
+  always equals `pulled`; when pagination stops at `--limit` with a full last page,
+  the CLI notes "limit reached, more may exist".
 - Ids are preserved on pull/dump, which makes the resulting fixtures idempotent by
-  construction (stable-id upsert).
-- Default `--limit 1000` per entity with a clear "N of M pulled" message — seed
-  fixtures are for representative data, not full replication. A raw NDJSON snapshot
-  mode (import/export à la Convex) can come later if needed.
+  construction (stable-id upsert). `dump` strips NeDB's internal `_id`.
+- `dump` reads a running instance via the admin export endpoint, or the NeDB files
+  directly when none is running — and **never exports users in v1** (warn + skip):
+  user fixtures are `users.jsonc`-shaped (roles, passwords), not
+  entity-fixture-shaped.
+- Default `--limit 1000` per entity — seed fixtures are for representative data,
+  not full replication. A raw NDJSON snapshot mode (import/export à la Convex) can
+  come later if needed.
 - Sensitive data: pull is explicit and per-entity; an anonymization/subsetting story
   is deliberately out of scope for v1 (documented; see Open questions).
 
@@ -268,21 +295,24 @@ command.
 ### 7. Command surface & conventions
 
 New commands follow the existing factory pattern (`Base44Command`, `runTask`,
-non-interactive guards) and the global `--json` contract:
+non-interactive guards) and the global `--json` contract. Final surface as shipped:
 
-| Command | JSON stdout (shape sketch) |
+| Command | JSON stdout (shape as shipped) |
 |---|---|
-| `base44 dev seed` | `{ "applied": true, "users": 2, "records": { "Task": 12, "Project": 3 }, "mode": "upsert" }` |
-| `base44 dev reset` | `{ "reset": true, "seeded": true, "dataDir": ".base44/data" }` |
-| `base44 dev status` | contents of `dev.json` (minus `adminToken`) + `running: bool` |
-| `base44 data pull` | `{ "entities": { "Task": { "pulled": 120, "total": 120 } }, "wrote": ["base44/seed/Task.jsonc"] }` |
-| `base44 data dump` | same shape as pull |
+| `base44 dev` | unchanged default action + `--fresh` (wipe data dir before load) |
+| `base44 dev status` | `dev.json` minus `adminToken`/`pid`, plus `running: bool` (`{ "running": false }` when no instance) |
+| `base44 dev seed [--replace] [--force]` | `{ "applied": true, "mode": "upsert", "users": 2, "records": { "Task": { "created": 10, "updated": 2, "skipped": 0 } }, "script": { "ran": true } \| null, "warnings": [] }` |
+| `base44 dev reset [--force]` | `{ "reset": true, "seeded": true, "dataDir": "…", "seed": <seed summary> \| null }` |
+| `base44 data pull [--entity <names...>] [--data-env prod\|dev] [--query <json>] [--limit <n>] [--out <dir>] [--force]` | `{ "entities": { "Task": { "pulled": 120, "total": 120 } }, "wrote": ["…/seed/task.jsonc"] }` |
+| `base44 data dump [--entity <names...>] [--out <dir>] [--force]` | same shape as pull; user records are never dumped (warn + skip) |
 
-Destructive ops (`reset`, `seed --replace`) prompt in a TTY and require `--force`
-otherwise. `dev` becomes a command group with a default action, preserving plain
-`base44 dev` (and leaving room for `run -d` / `ps` / `logs` / `inspect` later).
+Destructive ops (`reset`, `seed --replace`, overwriting existing fixture files with
+`pull`/`dump`) prompt in a TTY and require `--force` otherwise. `dev` is now a
+command group with a default action, preserving plain `base44 dev` (and leaving
+room for `run -d` / `ps` / `logs` / `inspect` later).
 
-Rollout phases:
+Rollout phases (1–3 shipped; `base44/seed.ts` moved up from phase 4 — see status
+update):
 
 1. **Persistence + lifecycle** — `.base44/` state dir, file-backed NeDB, `--fresh`,
    keep-data-on-schema-change, `dev.json`, `dev status`, `.gitignore` templating.
@@ -310,12 +340,11 @@ locally with zero remote dependency.
 
 ## Open questions
 
-1. **Command naming:** `base44 dev seed/reset/status` (env-scoped, proposed) vs
-   top-level `base44 seed`. Proposal prefers the `dev` group — seeds are a local-dev
-   concept today, and it matches the docker-style direction. `data pull/dump` is
-   top-level because it touches the remote app, not just the env. Note: issue #285
+1. **Command naming — resolved (shipped):** `base44 dev seed/reset/status` under
+   the `dev` group, `data pull/dump` top-level, as proposed — seeds are a local-dev
+   concept, `data` touches the remote app. Still open for review: issue #285
    sketches `base44 entities record list`; if an `entities record` namespace lands,
-   `data` vs `entities record` naming should be reconciled.
+   `data` vs `entities record` naming must be reconciled.
 2. **Seed users vs production parity:** locally, seeded users can hold any role;
    there is no equivalent remote operation. Acceptable asymmetry, or should
    `users.jsonc` be explicitly documented as local-only? (Proposed: local-only,

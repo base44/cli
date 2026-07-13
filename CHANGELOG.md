@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- Local data persistence for `base44 dev`: file-backed database in a gitignored `.base44/` state dir, surviving restarts and entity-file edits; `--fresh` starts clean
+- `base44 dev status`, `base44 dev seed [--replace]`, and `base44 dev reset` commands (`dev` is now a command group with a default action)
+- Seed fixtures (`base44/seed/*.jsonc`, including `users.jsonc`) and a programmatic `base44/seed.ts` hook, auto-applied on first boot and reset
+- `base44 data pull` and `base44 data dump` to write seed fixtures from remote or local data
+- Local dev-server admin endpoints (`/_base44/dev/status|seed|reset|export`) guarded by a per-instance token
+
 ## [0.0.51] - 2026-04-28
 
 ### Added

@@ -71,6 +71,7 @@ tests/
     ├── function-discovery-entry-at-root/  # Error: entry at root
     ├── duplicate-function-names/  # Error: duplicate function names
     ├── with-zero-config-functions/  # Full project: zero-config + path-named functions (CLI integration)
+    ├── with-seed/                 # Project with seed fixtures (users.jsonc + entity fixtures) for dev seed/reset and data dump tests
     ├── with-site/                 # Project with site config
     ├── full-project/              # All resources combined
     ├── no-app-config/             # Unlinked project (no .app.jsonc)
@@ -139,6 +140,11 @@ await t.givenProject(fixture("with-entities"));
 // Mock the npm version check (null = no upgrade available, string = upgrade available)
 t.givenLatestVersion(null);           // Default: no upgrade notification
 t.givenLatestVersion("2.0.0");        // Simulate upgrade available
+
+// Fake the base44/seed.ts Deno run (no Deno needed): the runner skips
+// spawning and reports this exit code on the seed summary
+t.givenSeedScriptResult(0);           // Script "succeeds"
+t.givenSeedScriptResult(1);           // Script "fails" — summary gets script: { ran: false }
 ```
 
 ### When (Execute)
@@ -317,6 +323,7 @@ For behaviors that can't be mocked via the API server (like filesystem-based con
 **Current overrides:**
 - `appConfig` -- Mock app configuration (id, projectRoot). Set automatically by `givenProject()`
 - `latestVersion` -- Mock version check response (string for newer version, null for no update). Defaults to `null`
+- `seedScript` -- Fake the `base44/seed.ts` Deno run: `runSeedScript` skips spawning and returns `{ exitCode }`. Set via `t.givenSeedScriptResult(exitCode)`. (`runSeedScript` also has `spawnImpl`/`wrapperPath` injection seams for core unit tests.)
 
 ### Adding a New Override
 

@@ -1,6 +1,6 @@
 # Adding & Modifying CLI Commands
 
-**Keywords:** command, factory pattern, Base44Command, CLIContext, Logger, runTask, spinner, theming, chalk, program.ts, register, banner, intro, outro
+**Keywords:** command, factory pattern, Base44Command, CLIContext, Logger, runTask, spinner, theming, chalk, program.ts, register, banner, intro, outro, subcommand, command group, default action, Option.choices, force, confirmDestructiveAction
 
 Commands live in `src/cli/commands/<domain>/`. They use a **factory pattern** — each file exports a function that returns a `Base44Command`.
 
@@ -79,6 +79,64 @@ import { getMyCommand } from "@/cli/commands/<domain>/<action>.js";
 // Inside createProgram(context):
 program.addCommand(getMyCommand());
 ```
+
+## Command Groups
+
+### Group with a default action
+
+A `Base44Command` can both do work and host subcommands — `base44 dev` starts the server, `base44 dev status` is a subcommand (see `src/cli/commands/dev/index.ts`):
+
+```typescript
+export function getDevCommand(): Command {
+  return new Base44Command("dev")
+    .option("--fresh", "Delete local data before starting")
+    .hook("preAction", (thisCommand, actionCommand) => {
+      // preAction also fires for subcommands; validate only the default action
+      if (thisCommand === actionCommand) {
+        validateDevOptions(thisCommand);
+      }
+    })
+    .action(devAction)
+    .addCommand(getDevStatusCommand())
+    .addCommand(getDevSeedCommand())
+    .addCommand(getDevResetCommand());
+}
+```
+
+### Plain group (no action)
+
+A pure namespace is a bare Commander `Command` wrapping `Base44Command` subcommands — see `src/cli/commands/data/index.ts` (`base44 data pull|dump`). Register the group in `src/cli/program.ts` like any command.
+
+## Enum Options (`Option.choices`)
+
+For options with a fixed value set, use `.addOption()` with Commander's `Option` class — invalid values fail at parse time and help output lists the choices (see `src/cli/commands/data/pull.ts`):
+
+```typescript
+import { Option } from "commander";
+
+.addOption(
+  new Option("--data-env <env>", "Remote data environment to read from")
+    .choices(["prod", "dev"])
+    .default("prod"),
+)
+```
+
+## Destructive Operations (`--force` + Confirm)
+
+Destructive commands confirm in a TTY and require `--force` non-interactively. Use `confirmDestructiveAction` from `src/cli/commands/dev/seed-shared.ts`: `--force` skips, TTY prompts, non-interactive without `--force` throws `InvalidInputError`, and a declined prompt exits 0 via `CLIExitError`. Example from `src/cli/commands/dev/seed.ts`:
+
+```typescript
+if (mode === "replace") {
+  await confirmDestructiveAction(
+    isNonInteractive,
+    options.force === true,
+    "Replace mode deletes existing records in seeded collections. Continue?",
+    "--force is required to use --replace in non-interactive mode",
+  );
+}
+```
+
+For the local-data domain itself (seed lifecycle, dev-server state, `data pull/dump`), see [Local data & seeding](local-data.md).
 
 ## CLIContext (Automatic Injection)
 
