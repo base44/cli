@@ -19,7 +19,25 @@ describe("deploy command (unified)", () => {
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Visibility: private");
+    t.expectResult(result).toContain("App visibility set to private");
     expect(body).toEqual({ public_settings: "private_with_login" });
+  });
+
+  it("confirms visibility was applied even when a later step fails", async () => {
+    // Visibility is set before other resources and is not rolled back, so the
+    // "done" confirmation must survive a subsequent failure — otherwise the user
+    // can't tell the app's visibility already changed on the server.
+    await t.givenLoggedInWithProject(fixture("with-visibility-and-entities"));
+
+    t.api.mockRoute("PUT", `/api/apps/${t.api.appId}`, (_req, res) => {
+      res.status(200).json({});
+    });
+    t.api.mockEntitiesPushError({ status: 500, body: { error: "boom" } });
+
+    const result = await t.run("deploy", "-y");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("App visibility set to private");
   });
 
   it("fails when --yes is not provided in non-interactive mode", async () => {

@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 import { setAppVisibility } from "@/core/project/api.js";
+import type { Visibility } from "@/core/project/schema.js";
 import type { ProjectData } from "@/core/project/types.js";
 import { agentResource } from "@/core/resources/agent/index.js";
 import { authConfigResource } from "@/core/resources/auth-config/index.js";
@@ -59,6 +60,7 @@ interface DeployAllResult {
 interface DeployAllOptions {
   onFunctionStart?: (names: string[]) => void;
   onFunctionResult?: (result: SingleFunctionDeployResult) => void;
+  onVisibilitySet?: (visibility: Visibility) => void;
 }
 
 /**
@@ -76,6 +78,12 @@ export async function deployAll(
     projectData;
 
   await setAppVisibility(project.visibility);
+  // Confirm visibility as soon as the change lands on the server. It's applied
+  // before the other resources and isn't rolled back if a later step fails, so
+  // surfacing it here keeps the "done" signal visible even on a partial deploy.
+  if (project.visibility) {
+    options?.onVisibilitySet?.(project.visibility);
+  }
   await entityResource.push(entities);
   await deployFunctionsSequentially(functions, {
     onStart: options?.onFunctionStart,

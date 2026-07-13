@@ -102,6 +102,9 @@ export async function deployAction(
   const functionTotal = functions.length;
 
   const result = await deployAll(projectData, {
+    onVisibilitySet: (level) => {
+      log.success(`App visibility set to ${level}`);
+    },
     onFunctionStart: (names) => {
       const label = names.length === 1 ? names[0] : `${names.length} functions`;
       log.step(
