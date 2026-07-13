@@ -1,4 +1,6 @@
 import type { Command } from "commander";
+import { getDevResetCommand } from "@/cli/commands/dev/reset.js";
+import { getDevSeedCommand } from "@/cli/commands/dev/seed.js";
 import { getDevStatusCommand } from "@/cli/commands/dev/status.js";
 import { createDevServer } from "@/cli/dev/dev-server/main.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
@@ -75,5 +77,7 @@ export function getDevCommand(): Command {
       }
     })
     .action(devAction)
-    .addCommand(getDevStatusCommand());
+    .addCommand(getDevStatusCommand())
+    .addCommand(getDevSeedCommand())
+    .addCommand(getDevResetCommand());
 }

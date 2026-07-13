@@ -48,6 +48,7 @@ export const ProjectConfigSchema = z.object({
   agentsDir: z.string().optional().default("agents"),
   connectorsDir: z.string().optional().default("connectors"),
   authDir: z.string().optional().default("auth"),
+  seedDir: z.string().optional().default("seed"),
   plugin: PluginMetadataSchema.optional(),
   plugins: z.array(PluginReferenceSchema).optional().default([]),
 });

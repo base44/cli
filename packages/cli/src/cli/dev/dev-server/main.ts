@@ -8,9 +8,10 @@ import express from "express";
 import getPort from "get-port";
 import { createProxyMiddleware } from "http-proxy-middleware";
 import { dir } from "tmp-promise";
-import { createDevLogger } from "@/cli/dev/createDevLogger.js";
+import { createDevLogger, type DevLogger } from "@/cli/dev/createDevLogger.js";
 import { FunctionManager } from "@/cli/dev/dev-server/function-manager.js";
 import { createFunctionRouter } from "@/cli/dev/dev-server/routes/functions.js";
+import { formatSeedCounts } from "@/cli/dev/seed-summary.js";
 import { theme } from "@/cli/utils/index.js";
 import { ConfigInvalidError } from "@/core/errors.js";
 import {
@@ -23,12 +24,27 @@ import {
   writeDevInstance,
 } from "@/core/local-state/index.js";
 import type { ProjectData } from "@/core/project/types.js";
+import {
+  type DevResetResult,
+  emptySeedSummary,
+  readSeedFiles,
+  type SeedData,
+  type SeedMode,
+  type SeedSummary,
+} from "@/core/resources/seed/index.js";
 import { Database } from "./db/database.js";
+import { applySeeds } from "./db/seed.js";
 import {
   type BroadcastEntityEvent,
   broadcastEntityEvent,
   createRealtimeServer,
+  type EntityEvent,
 } from "./realtime.js";
+import {
+  createAdminRouter,
+  DEV_ADMIN_BASE_PATH,
+  type DevServerStatus,
+} from "./routes/admin-router.js";
 import { createAuthRouter } from "./routes/auth-router.js";
 import { createEntityRoutes } from "./routes/entities/entities-router.js";
 import {
@@ -70,6 +86,11 @@ interface PersistenceContext {
   dataDir: string;
   /** Seed state carried over from an existing meta.json (null until seeded). */
   seed: SeedState;
+  /**
+   * True when the data dir has no (valid) meta.json — first boot, after
+   * `--fresh`, or corrupt meta. Triggers the auto-seed.
+   */
+  isNew: boolean;
 }
 
 /**
@@ -120,7 +141,55 @@ async function preparePersistence(
     appId,
     dataDir,
     seed: meta.status === "ok" ? meta.meta.seed : null,
+    isNew: meta.status !== "ok",
   };
+}
+
+/**
+ * Auto-seed on startup: apply fixtures (replace mode) when the data dir is
+ * new, or hint when existing data was seeded from different seed files.
+ * Failures are logged and never crash the dev server — it keeps serving with
+ * whatever data applied. Returns the seed state to record in meta/dev.json.
+ */
+async function runStartupSeed(
+  db: Database,
+  project: ProjectData["project"],
+  persistence: PersistenceContext,
+  devLogger: DevLogger,
+): Promise<SeedState> {
+  let seedData: SeedData | null = null;
+  try {
+    seedData = await readSeedFiles(project);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    devLogger.error(`Failed to read seed files: ${message}`);
+    return persistence.seed;
+  }
+  if (!seedData) {
+    return persistence.seed;
+  }
+
+  if (!persistence.isNew) {
+    if (persistence.seed?.hash !== seedData.hash) {
+      devLogger.log("Seed files changed — run `base44 dev seed` to apply");
+    }
+    return persistence.seed;
+  }
+
+  try {
+    const summary = await applySeeds(db, seedData, { mode: "replace" });
+    devLogger.log(`Seeds applied: ${formatSeedCounts(summary).join("; ")}`);
+    for (const warning of summary.warnings) {
+      devLogger.warn(warning);
+    }
+    return { hash: seedData.hash, appliedAt: new Date().toISOString() };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    devLogger.error(
+      `Seeding failed: ${message}. Continuing with partially seeded data — fix the seed files and run 'base44 dev seed'.`,
+    );
+    return persistence.seed;
+  }
 }
 
 interface DevServerResult {
@@ -190,11 +259,14 @@ export async function createDevServer(
 
   const db = new Database({ dataDir: persistence?.dataDir });
   await db.load(entities);
+
+  let seedState: SeedState = persistence?.seed ?? null;
   if (persistence) {
+    seedState = await runStartupSeed(db, project, persistence, devLogger);
     await writeDataDirMeta(persistence.dataDir, {
       formatVersion: 1,
       appId: persistence.appId,
-      seed: persistence.seed,
+      seed: seedState,
     });
   }
   if (db.getCollectionNames().length > 0) {
@@ -211,6 +283,95 @@ export async function createDevServer(
 
   const authRouter = createAuthRouter(db, devLogger);
   app.use("/api/apps/:appId/auth", authRouter);
+
+  const startedAt = new Date().toISOString();
+  const adminToken = randomBytes(32).toString("hex");
+  let writeInstanceFile: (() => Promise<void>) | undefined;
+
+  if (persistence) {
+    const state = persistence;
+    writeInstanceFile = () =>
+      writeDevInstance(state.projectRoot, {
+        appId: state.appId,
+        url: baseUrl,
+        port,
+        pid: process.pid,
+        dataDir: state.dataDir,
+        adminToken,
+        startedAt,
+        seed: seedState,
+      });
+
+    const updateSeedState = async (next: SeedState) => {
+      seedState = next;
+      await writeDataDirMeta(state.dataDir, {
+        formatVersion: 1,
+        appId: state.appId,
+        seed: next,
+      });
+      await writeInstanceFile?.();
+    };
+
+    const seedEmit = (entityName: string, event: EntityEvent) =>
+      emitEntityEvent(state.appId, entityName, event);
+
+    const runSeed = async (mode: SeedMode): Promise<SeedSummary> => {
+      const seedData = await readSeedFiles(project);
+      if (!seedData) {
+        return emptySeedSummary(mode);
+      }
+      const summary = await applySeeds(db, seedData, { mode, emit: seedEmit });
+      await updateSeedState({
+        hash: seedData.hash,
+        appliedAt: new Date().toISOString(),
+      });
+      return summary;
+    };
+
+    const runReset = async (): Promise<DevResetResult> => {
+      await db.resetData();
+      const seedData = await readSeedFiles(project);
+      const summary = seedData
+        ? await applySeeds(db, seedData, { mode: "replace", emit: seedEmit })
+        : null;
+      await updateSeedState(
+        seedData
+          ? { hash: seedData.hash, appliedAt: new Date().toISOString() }
+          : null,
+      );
+      return {
+        reset: true,
+        seeded: summary?.applied ?? false,
+        dataDir: state.dataDir,
+        seed: summary,
+      };
+    };
+
+    const getStatus = async (): Promise<DevServerStatus> => {
+      const collections: Record<string, number> = {};
+      for (const name of db.getCollectionNames()) {
+        collections[name] = (await db.getCollection(name)?.countAsync({})) ?? 0;
+      }
+      return {
+        appId: state.appId,
+        port,
+        startedAt,
+        seed: seedState,
+        collections,
+      };
+    };
+
+    app.use(
+      DEV_ADMIN_BASE_PATH,
+      createAdminRouter({
+        adminToken,
+        logger: devLogger,
+        getStatus,
+        runSeed,
+        runReset,
+      }),
+    );
+  }
 
   const { path: mediaFilesDir } = await dir();
 
@@ -290,18 +451,7 @@ export async function createDevServer(
     broadcastEntityEvent(io, appId, entityName, event);
   };
 
-  if (persistence) {
-    await writeDevInstance(persistence.projectRoot, {
-      appId: persistence.appId,
-      url: baseUrl,
-      port,
-      pid: process.pid,
-      dataDir: persistence.dataDir,
-      adminToken: randomBytes(32).toString("hex"),
-      startedAt: new Date().toISOString(),
-      seed: persistence.seed,
-    });
-  }
+  await writeInstanceFile?.();
 
   const base44ConfigWatcher = new WatchBase44(
     {

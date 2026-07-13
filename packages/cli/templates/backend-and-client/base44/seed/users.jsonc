@@ -1,0 +1,21 @@
+// Local seed users for `base44 dev`.
+// Applied automatically on the first dev-server boot (empty local data) and
+// on demand via `base44 dev seed`. Users are upserted by email.
+//
+// - "role": "admin" or "user" (default "user")
+// - "password": enables email/password login against the local dev server
+// - "full_name" and any custom User-entity fields are optional
+[
+  {
+    "email": "admin@example.com",
+    "full_name": "Ada Admin",
+    "role": "admin",
+    "password": "admin1234"
+  },
+  {
+    "email": "user@example.com",
+    "full_name": "Uma User",
+    "role": "user",
+    "password": "user1234"
+  }
+]

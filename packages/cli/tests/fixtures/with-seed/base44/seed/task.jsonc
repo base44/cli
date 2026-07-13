@@ -1,0 +1,17 @@
+// Task fixture: two stable-id records (upsertable) and one id-less record.
+[
+  {
+    "id": "task-1",
+    "title": "First seeded task",
+    "completed": true,
+    "created_by": "admin@seed.dev"
+  },
+  {
+    "id": "task-2",
+    "title": "Second seeded task",
+    "created_by": "member@seed.dev"
+  },
+  {
+    "title": "Task without a stable id"
+  }
+]

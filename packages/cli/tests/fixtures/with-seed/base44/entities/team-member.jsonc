@@ -1,0 +1,11 @@
+{
+  "name": "TeamMember",
+  "type": "object",
+  "properties": {
+    "nickname": {
+      "type": "string",
+      "description": "Member nickname"
+    }
+  },
+  "required": ["nickname"]
+}

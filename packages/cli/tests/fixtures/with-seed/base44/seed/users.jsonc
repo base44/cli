@@ -1,0 +1,13 @@
+// Seed users: upserted by email; password enables local /login.
+[
+  {
+    "email": "admin@seed.dev",
+    "full_name": "Seed Admin",
+    "role": "admin",
+    "password": "seedadmin1"
+  },
+  {
+    "email": "member@seed.dev",
+    "password": "seedmember1"
+  }
+]

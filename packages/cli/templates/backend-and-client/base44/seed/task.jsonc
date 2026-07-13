@@ -1,0 +1,29 @@
+// Seed records for the Task entity (file name matches the entity name).
+// Applied automatically on the first `base44 dev` boot (empty local data) and
+// on demand via `base44 dev seed`.
+//
+// - "id" is optional but recommended: records with a stable id are upserted
+//   when you re-run `base44 dev seed`; records without an id are only
+//   inserted in replace mode (first boot, `dev seed --replace`, `dev reset`)
+//   and skipped otherwise.
+// - "created_by" references a seeded user's email from users.jsonc.
+[
+  {
+    "id": "task-welcome",
+    "title": "Welcome to Base44 — this task was seeded",
+    "completed": true,
+    "created_by": "admin@example.com"
+  },
+  {
+    "id": "task-edit-seeds",
+    "title": "Edit base44/seed/*.jsonc and run `base44 dev seed`",
+    "completed": false,
+    "created_by": "user@example.com"
+  },
+  {
+    "id": "task-reset",
+    "title": "Run `base44 dev reset` to start over with fresh seed data",
+    "completed": false,
+    "created_by": "user@example.com"
+  }
+]

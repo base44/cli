@@ -3,7 +3,7 @@ import Datastore from "@seald-io/nedb";
 import { nanoid } from "nanoid";
 import { readAuth } from "@/core/index.js";
 import type { Entity } from "@/core/resources/entity/schema.js";
-import { getNowISOTimestamp } from "../utils.js";
+import { buildUserDocument } from "./users.js";
 import { type EntityRecord, Validator } from "./validator.js";
 
 // Developer can't create collection with names that are not alphanumeric.
@@ -116,19 +116,27 @@ export class Database {
       return;
     }
 
-    const now = getNowISOTimestamp();
-    await collection.insertAsync({
-      id: nanoid(),
-      email: userInfo.email,
-      full_name: userInfo.name,
-      is_service: false,
-      is_verified: true,
-      disabled: null,
-      role: "admin",
-      collaborator_role: "editor",
-      created_date: now,
-      updated_date: now,
-    });
+    await collection.insertAsync(
+      buildUserDocument({
+        id: nanoid(),
+        email: userInfo.email,
+        fullName: userInfo.name,
+        role: "admin",
+      }),
+    );
+  }
+
+  /**
+   * Delete every document from every collection (datastore files are kept),
+   * then re-insert the bootstrap CLI login user.
+   */
+  async resetData() {
+    await Promise.all(
+      Array.from(this.collections.values(), (collection) =>
+        collection.removeAsync({}, { multi: true }),
+      ),
+    );
+    await this.bootstrapCliUser();
   }
 
   /** Compact file-backed datafiles after load; no-op for in-memory mode. */

@@ -1,8 +1,8 @@
 import type Datastore from "@seald-io/nedb";
 import type { Request, Response, Router } from "express";
 import { Router as createRouter, json } from "express";
-import { nanoid } from "nanoid";
 import type { DevLogger } from "@/cli/dev/createDevLogger.js";
+import { prepareRecordForCreate } from "@/cli/dev/dev-server/db/create-record.js";
 import type { Database } from "@/cli/dev/dev-server/db/database.js";
 import { applyFLS, checkRLS } from "@/cli/dev/dev-server/db/rls.js";
 import {
@@ -93,17 +93,14 @@ export async function createEntityRoutes(
     now: string,
   ): EntityRecord | undefined {
     const { _id, ...recordBody } = body;
-    const ownerFields = {
-      created_by: currentUser?.email,
-      created_by_id: currentUser?.id,
-    };
 
     if (
       !checkRLS(
         schema.rls?.create,
         {
           ...recordBody,
-          ...ownerFields,
+          created_by: currentUser?.email,
+          created_by_id: currentUser?.id,
         },
         currentUser,
       )
@@ -111,21 +108,13 @@ export async function createEntityRoutes(
       return undefined;
     }
 
-    const filteredBody = applyFLS(
-      db.prepareRecord(entityName, recordBody),
-      schema,
-      currentUser,
-      "write",
-    );
-    db.validate(entityName, filteredBody);
-
-    return {
-      ...filteredBody,
-      id: nanoid(),
-      ...ownerFields,
-      created_date: now,
-      updated_date: now,
-    };
+    return prepareRecordForCreate(db, entityName, schema, recordBody, {
+      actor: currentUser,
+      owner: currentUser
+        ? { email: currentUser.email, id: currentUser.id }
+        : undefined,
+      now,
+    });
   }
 
   const userRouter = createUserRouter(db, logger);

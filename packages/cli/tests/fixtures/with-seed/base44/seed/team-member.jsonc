@@ -1,0 +1,7 @@
+// Kebab-case file name resolves to the "TeamMember" entity.
+[
+  {
+    "id": "tm-1",
+    "nickname": "kb"
+  }
+]

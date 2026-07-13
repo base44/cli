@@ -17,7 +17,8 @@ export type UserDocument = Document<{
   role: "admin" | "user";
 }>;
 
-const SERVICE_USER: UserDocument = {
+/** Synthetic principal for service-role requests; bypasses RLS and FLS. */
+export const SERVICE_USER: UserDocument = {
   _id: "service-role",
   id: "service-role",
   email: SERVICE_ROLE_EMAIL,
