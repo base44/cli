@@ -10,6 +10,12 @@ export const FUNCTION_CONFIG_GLOB = `**/function.${CONFIG_FILE_EXTENSION_GLOB}`;
 export const ENTRY_FILE_GLOB = "**/entry.{js,ts}";
 
 /**
+ * Glob for source files bundled into a backend function's deploy payload —
+ * used for both the function directory and the shared (`base44/shared/`) dir.
+ */
+export const BACKEND_FILE_GLOB = "**/*.{js,ts,json,jsonc}";
+
+/**
  * Exclude paths where any segment contains a dot.
  */
 export const ENTRY_IGNORE_DOT_PATHS = ["**/*.*/**"];

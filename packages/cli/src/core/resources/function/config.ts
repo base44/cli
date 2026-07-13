@@ -1,6 +1,7 @@
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { globby } from "globby";
 import {
+  BACKEND_FILE_GLOB,
   ENTRY_FILE_GLOB,
   ENTRY_IGNORE_DOT_PATHS,
   FUNCTION_CONFIG_GLOB,
@@ -27,7 +28,7 @@ async function readSharedFiles(functionsDir: string): Promise<string[]> {
   if (!(await pathExists(sharedDir))) {
     return [];
   }
-  return globby("**/*.{js,ts,json}", { cwd: sharedDir, absolute: true });
+  return globby(BACKEND_FILE_GLOB, { cwd: sharedDir, absolute: true });
 }
 
 async function readFunctionConfig(configPath: string): Promise<FunctionConfig> {
@@ -62,7 +63,7 @@ async function readFunction(
     );
   }
 
-  const filePaths = await globby("**/*.{js,ts,json}", {
+  const filePaths = await globby(BACKEND_FILE_GLOB, {
     cwd: functionDir,
     absolute: true,
   });
@@ -111,7 +112,7 @@ export async function readAllFunctions(
   const functionsWithoutConfig = await Promise.all(
     entryFilesWithoutConfig.map(async (entryFile) => {
       const functionDir = dirname(entryFile);
-      const filePaths = await globby("**/*.{js,ts,json}", {
+      const filePaths = await globby(BACKEND_FILE_GLOB, {
         cwd: functionDir,
         absolute: true,
       });

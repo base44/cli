@@ -113,6 +113,14 @@ describe("readAllFunctions", () => {
       expect(hasShared, `${fn.name} should include shared/response.ts`).toBe(
         true,
       );
+
+      // .jsonc shared files are uploaded too
+      const hasJsonc = fn.filePaths.some((p) =>
+        fwd(p).endsWith("shared/constants.jsonc"),
+      );
+      expect(hasJsonc, `${fn.name} should include shared/constants.jsonc`).toBe(
+        true,
+      );
     }
   });
 

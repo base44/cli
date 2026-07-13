@@ -1,0 +1,4 @@
+{
+  // shared config consumed at runtime
+  "greeting": "hello"
+}
