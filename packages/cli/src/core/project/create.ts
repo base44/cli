@@ -10,6 +10,8 @@ interface CreateProjectOptions {
   description?: string;
   path: string;
   template: Template;
+  /** Workspace to create the app in. Omit for the caller's personal workspace. */
+  organizationId?: string;
 }
 
 interface CreateProjectResult {
@@ -37,12 +39,18 @@ async function assertProjectNotExists(dirPath: string): Promise<void> {
 export async function createProjectFiles(
   options: CreateProjectOptions,
 ): Promise<CreateProjectResult> {
-  const { name, description, path: basePath, template } = options;
+  const {
+    name,
+    description,
+    path: basePath,
+    template,
+    organizationId,
+  } = options;
 
   await assertProjectNotExists(basePath);
 
   // Create the project via API to get the app ID
-  const { projectId } = await createProject(name, description);
+  const { projectId } = await createProject(name, description, organizationId);
 
   // Render the template to the destination path
   await renderTemplate(template, basePath, { name, description, projectId });

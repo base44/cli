@@ -68,6 +68,20 @@ export const CreateProjectResponseSchema = z.looseObject({
   id: z.string(),
 });
 
+export const AppDetailSchema = z
+  .looseObject({
+    id: z.string(),
+    name: z.string().optional(),
+    organization_id: z.string().nullish(),
+  })
+  .transform((data) => ({
+    id: data.id,
+    name: data.name,
+    organizationId: data.organization_id ?? undefined,
+  }));
+
+export type AppDetail = z.infer<typeof AppDetailSchema>;
+
 export const ProjectSchema = z
   .object({
     id: z.string(),

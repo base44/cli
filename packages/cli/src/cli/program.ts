@@ -18,6 +18,7 @@ import { getSandboxCommand } from "@/cli/commands/sandbox/index.js";
 import { getSecretsCommand } from "@/cli/commands/secrets/index.js";
 import { getSiteCommand } from "@/cli/commands/site/index.js";
 import { getTypesCommand } from "@/cli/commands/types/index.js";
+import { getWorkspaceCommand } from "@/cli/commands/workspace/index.js";
 import { Base44Command } from "@/cli/utils/index.js";
 import { BASE44_APP_ID_ENV_VAR } from "@/core/consts.js";
 import packageJson from "../../package.json";
@@ -71,6 +72,9 @@ export function createProgram(context: CLIContext): Command {
   program.addCommand(getVisibilityCommand());
   program.addCommand(getLinkCommand());
   program.addCommand(getEjectCommand());
+
+  // Register workspace commands
+  program.addCommand(getWorkspaceCommand());
 
   // Register entities commands
   program.addCommand(getEntitiesPushCommand());

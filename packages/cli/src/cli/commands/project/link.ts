@@ -24,11 +24,14 @@ import {
   writeAppConfig,
 } from "@/core/project/index.js";
 import { readExplicitAppId } from "./app-id-options.js";
+import { resolveWorkspaceId } from "./workspace-select.js";
 
 interface LinkOptions {
   create?: boolean;
   name?: string;
   description?: string;
+  workspace?: string;
+  org?: string;
 }
 
 type LinkAction = "create" | "choose";
@@ -242,10 +245,16 @@ async function link(
       ? { name: options.name!.trim(), description: options.description?.trim() }
       : await promptForNewProjectDetails();
 
+    const organizationId = await resolveWorkspaceId(
+      ctx,
+      options.workspace ?? options.org,
+      !isNonInteractive,
+    );
+
     const { projectId } = await runTask(
       "Creating project on Base44...",
       async () => {
-        return await createProject(name, description);
+        return await createProject(name, description, organizationId);
       },
       {
         successMessage: "Project created successfully",
@@ -282,6 +291,13 @@ export function getLinkCommand(): Command {
         "Project name (required when --create is used)",
       )
       .option("-d, --description <description>", "Project description")
+      .option(
+        "-w, --workspace <id>",
+        "Workspace (organization) ID to create the app in when using --create (defaults to your personal workspace)",
+      )
+      .addOption(
+        new CommanderOption("--org <id>", "Alias for --workspace").hideHelp(),
+      )
       // TODO: Remove legacy --project-id aliases once docs and Base44 CLI skills use --app-id.
       .addOption(
         new CommanderOption(

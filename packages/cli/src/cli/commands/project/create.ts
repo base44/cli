@@ -1,7 +1,7 @@
 import { basename, resolve } from "node:path";
 import type { Option } from "@clack/prompts";
 import { group, select, text } from "@clack/prompts";
-import { Argument, type Command } from "commander";
+import { Argument, type Command, Option as CommanderOption } from "commander";
 import kebabCase from "lodash/kebabCase";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import {
@@ -25,6 +25,7 @@ import {
   getTemplateById,
   printProjectSummary,
 } from "./scaffold-shared.js";
+import { resolveWorkspaceId } from "./workspace-select.js";
 
 interface CreateOptions {
   name?: string;
@@ -32,6 +33,8 @@ interface CreateOptions {
   template?: string;
   deploy?: boolean;
   skills?: boolean;
+  workspace?: string;
+  org?: string;
 }
 
 function validateCreateOptions(command: Command): void {
@@ -107,6 +110,7 @@ async function createInteractive(
       projectPath: result.projectPath as string,
       deploy: options.deploy,
       skills: options.skills,
+      workspaceId: options.workspace ?? options.org,
       isInteractive: true,
     },
     ctx,
@@ -130,6 +134,7 @@ async function createNonInteractive(
       projectPath: options.path!,
       deploy: options.deploy,
       skills: options.skills,
+      workspaceId: options.workspace ?? options.org,
       isInteractive: false,
     },
     ctx,
@@ -144,6 +149,7 @@ async function executeCreate(
     projectPath,
     deploy,
     skills,
+    workspaceId: flagWorkspaceId,
     isInteractive,
   }: {
     template: Template;
@@ -152,6 +158,7 @@ async function executeCreate(
     projectPath: string;
     deploy?: boolean;
     skills?: boolean;
+    workspaceId?: string;
     isInteractive: boolean;
   },
   ctx: CLIContext,
@@ -159,6 +166,12 @@ async function executeCreate(
   const { log, runTask } = ctx;
   const name = rawName.trim();
   const resolvedPath = resolve(projectPath);
+
+  const organizationId = await resolveWorkspaceId(
+    ctx,
+    flagWorkspaceId,
+    isInteractive,
+  );
 
   const { projectId } = await runTask(
     "Setting up your project...",
@@ -168,6 +181,7 @@ async function executeCreate(
         description: description?.trim(),
         path: resolvedPath,
         template,
+        organizationId,
       });
     },
     {
@@ -221,27 +235,38 @@ async function createAction(
 }
 
 export function getCreateCommand(): Command {
-  return new Base44Command("create", {
-    requireAppContext: false,
-    fullBanner: true,
-  })
-    .description("Create a new Base44 project")
-    .addArgument(new Argument("name", "Project name").argOptional())
-    .option("-p, --path <path>", "Path where to create the project")
-    .option(
-      "-t, --template <id>",
-      "Template ID (e.g., backend-only, backend-and-client)",
-    )
-    .option("--deploy", "Build and deploy the site")
-    .option("--no-skills", "Skip AI agent skills installation")
-    .addHelpText(
-      "after",
-      `
+  return (
+    new Base44Command("create", {
+      requireAppContext: false,
+      fullBanner: true,
+    })
+      .description("Create a new Base44 project")
+      .addArgument(new Argument("name", "Project name").argOptional())
+      .option("-p, --path <path>", "Path where to create the project")
+      .option(
+        "-t, --template <id>",
+        "Template ID (e.g., backend-only, backend-and-client)",
+      )
+      .option("--deploy", "Build and deploy the site")
+      .option("--no-skills", "Skip AI agent skills installation")
+      .option(
+        "-w, --workspace <id>",
+        "Workspace (organization) ID to create the app in (defaults to your personal workspace)",
+      )
+      // Hidden alias for --workspace.
+      .addOption(
+        new CommanderOption("--org <id>", "Alias for --workspace").hideHelp(),
+      )
+      .addHelpText(
+        "after",
+        `
 Examples:
   $ base44 create my-app                                         Creates a base44 project at ./my-app
   $ base44 create my-todo-app --template backend-and-client      Creates a base44 backend-and-client project at ./my-todo-app
-  $ base44 create my-app --path ./projects/my-app --deploy       Creates a base44 project at ./project/my-app and deploys it`,
-    )
-    .hook("preAction", validateCreateOptions)
-    .action(createAction);
+  $ base44 create my-app --path ./projects/my-app --deploy       Creates a base44 project at ./project/my-app and deploys it
+  $ base44 create my-app --workspace 507f1f77bcf86cd799439011     Creates a base44 project in the given workspace`,
+      )
+      .hook("preAction", validateCreateOptions)
+      .action(createAction)
+  );
 }

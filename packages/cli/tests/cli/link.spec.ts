@@ -156,6 +156,33 @@ describe("link command", () => {
     t.expectResult(result).toContain("new-created-app-id");
   });
 
+  it("creates the linked app in the workspace passed via --workspace", async () => {
+    await t.givenLoggedInWithProject(fixture("no-app-config"));
+    t.api.mockListWorkspaces([
+      { id: "ws-personal", name: "Personal", user_role: "owner" },
+      { id: "ws-acme", name: "Acme Inc", user_role: "admin" },
+    ]);
+    t.api.mockRoute("POST", "/api/apps", (req, res) => {
+      res.status(200).json({
+        id: `app-in-${req.body.organization_id ?? "personal"}`,
+        name: req.body.name,
+      });
+    });
+
+    const result = await t.run(
+      "link",
+      "--create",
+      "--name",
+      "Workspace App",
+      "--workspace",
+      "ws-acme",
+    );
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Project linked");
+    t.expectResult(result).toContain("app-in-ws-acme");
+  });
+
   it("links project with --description flag", async () => {
     await t.givenLoggedInWithProject(fixture("no-app-config"));
     t.api.mockCreateApp({ id: "app-with-desc", name: "App With Description" });
