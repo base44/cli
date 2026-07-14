@@ -3,7 +3,12 @@ import { setupCLITests } from "./testkit/index.js";
 
 const WORKSPACES = [
   { id: "ws-personal", name: "My Workspace", user_role: "owner" },
-  { id: "ws-acme", name: "Acme Inc", user_role: "admin", subscription_tier: "enterprise" },
+  {
+    id: "ws-acme",
+    name: "Acme Inc",
+    user_role: "admin",
+    subscription_tier: "enterprise",
+  },
 ];
 
 describe("workspace get command", () => {

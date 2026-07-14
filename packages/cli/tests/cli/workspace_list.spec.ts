@@ -66,7 +66,13 @@ describe("workspace list command", () => {
       { id: "ws-globex", name: "Globex", user_role: "admin" },
     ]);
 
-    const result = await t.run("workspace", "list", "--role", "admin", "--json");
+    const result = await t.run(
+      "workspace",
+      "list",
+      "--role",
+      "admin",
+      "--json",
+    );
 
     t.expectResult(result).toSucceed();
     const parsed = JSON.parse(result.stdout);
