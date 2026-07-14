@@ -42,6 +42,19 @@ export async function listWorkspaces(): Promise<WorkspaceListEntry[]> {
 }
 
 /**
+ * Fetch a single workspace the current user belongs to, by ID. Returns
+ * `undefined` when the user is not a member of a workspace with that ID.
+ * Backed by {@link listWorkspaces} — there is no per-workspace GET the CLI
+ * principal is authorized for, and reusing the list keeps the shape identical.
+ */
+export async function getWorkspace(
+  id: string,
+): Promise<WorkspaceListEntry | undefined> {
+  const workspaces = await listWorkspaces();
+  return workspaces.find((w) => w.id === id);
+}
+
+/**
  * Move an existing app to another workspace. The caller must be an editor of
  * both the source (per its transfer policy) and the target workspace; the
  * server enforces this and returns a 403 otherwise.
