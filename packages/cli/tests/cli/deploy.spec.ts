@@ -12,6 +12,7 @@ describe("deploy command (unified)", () => {
       body = req.body;
       res.status(200).json({});
     });
+    t.api.mockAgentSkillsFetch({ items: [], total: 0 });
     t.api.mockConnectorsList({ integrations: [] });
     t.api.mockStripeStatus({ stripe_mode: null });
 
@@ -87,6 +88,7 @@ describe("deploy command (unified)", () => {
       deleted: [],
     });
     t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
+    t.api.mockAgentSkillsFetch({ items: [], total: 0 });
     t.api.mockConnectorsList({ integrations: [] });
     t.api.mockStripeStatus({ stripe_mode: null });
 
@@ -104,6 +106,7 @@ describe("deploy command (unified)", () => {
       deleted: [],
     });
     t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
+    t.api.mockAgentSkillsFetch({ items: [], total: 0 });
     t.api.mockConnectorsList({ integrations: [] });
     t.api.mockStripeStatus({ stripe_mode: null });
 
@@ -118,6 +121,7 @@ describe("deploy command (unified)", () => {
     t.api.mockEntitiesPush({ created: ["Order"], updated: [], deleted: [] });
     t.api.mockSingleFunctionDeploy({ status: "deployed" });
     t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
+    t.api.mockAgentSkillsFetch({ items: [], total: 0 });
     t.api.mockConnectorsList({ integrations: [] });
     t.api.mockStripeStatus({ stripe_mode: null });
 
@@ -132,6 +136,7 @@ describe("deploy command (unified)", () => {
     t.api.mockEntitiesPush({ created: [], updated: [], deleted: [] });
     t.api.mockSingleFunctionDeploy({ status: "deployed" });
     t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
+    t.api.mockAgentSkillsFetch({ items: [], total: 0 });
     t.api.mockConnectorsList({ integrations: [] });
 
     const result = await t.run("deploy", "-y");
@@ -145,6 +150,7 @@ describe("deploy command (unified)", () => {
     t.api.mockEntitiesPush({ created: ["Task"], updated: [], deleted: [] });
     t.api.mockSingleFunctionDeploy({ status: "deployed" });
     t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
+    t.api.mockAgentSkillsFetch({ items: [], total: 0 });
     t.api.mockConnectorsList({ integrations: [] });
     t.api.mockStripeStatus({ stripe_mode: null });
     t.api.mockSiteDeploy({ app_url: "https://full-project.base44.app" });
@@ -164,6 +170,7 @@ describe("deploy command (unified)", () => {
       updated: [],
       deleted: [],
     });
+    t.api.mockAgentSkillsFetch({ items: [], total: 0 });
     t.api.mockConnectorsList({ integrations: [] });
     t.api.mockStripeStatus({ stripe_mode: null });
 
@@ -181,6 +188,7 @@ describe("deploy command (unified)", () => {
       updated: ["order_assistant"],
       deleted: [],
     });
+    t.api.mockAgentSkillsFetch({ items: [], total: 0 });
     t.api.mockConnectorsList({ integrations: [] });
     t.api.mockStripeStatus({ stripe_mode: null });
 
@@ -194,6 +202,7 @@ describe("deploy command (unified)", () => {
     await t.givenLoggedInWithProject(fixture("with-connectors"));
     t.api.mockEntitiesPush({ created: [], updated: [], deleted: [] });
     t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
+    t.api.mockAgentSkillsFetch({ items: [], total: 0 });
     t.api.mockConnectorsList({ integrations: [] });
     t.api.mockStripeStatus({ stripe_mode: null });
     t.api.mockConnectorSet({
@@ -212,6 +221,7 @@ describe("deploy command (unified)", () => {
     await t.givenLoggedInWithProject(fixture("with-connectors"));
     t.api.mockEntitiesPush({ created: [], updated: [], deleted: [] });
     t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
+    t.api.mockAgentSkillsFetch({ items: [], total: 0 });
     t.api.mockConnectorsList({ integrations: [] });
     t.api.mockStripeStatus({ stripe_mode: null });
     t.api.mockConnectorSet({
@@ -232,6 +242,7 @@ describe("deploy command (unified)", () => {
     t.api.mockEntitiesPush({ created: [], updated: [], deleted: [] });
     t.api.mockFunctionsPush({ deployed: [], deleted: [], errors: null });
     t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
+    t.api.mockAgentSkillsFetch({ items: [], total: 0 });
     t.api.mockConnectorsList({ integrations: [] });
     t.api.mockStripeStatus({ stripe_mode: null });
     t.api.mockConnectorSet({

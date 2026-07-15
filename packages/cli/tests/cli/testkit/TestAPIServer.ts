@@ -57,6 +57,11 @@ interface AgentsFetchResponse {
   total: number;
 }
 
+interface AgentSkillsFetchResponse {
+  items: Array<{ name: string; description: string; body: string }>;
+  total: number;
+}
+
 interface FunctionLogEntry {
   time: string;
   level: "info" | "warning" | "error" | "debug";
@@ -423,6 +428,54 @@ export class TestAPIServer {
       "GET",
       `/api/apps/${this.appId}/agent-configs`,
       response,
+    );
+  }
+
+  // ─── AGENT SKILLS ENDPOINTS ──────────────────────────────
+
+  /** Mock GET /api/apps/{appId}/agent-skills - fetch remote agent skills (also used internally by push to reconcile) */
+  mockAgentSkillsFetch(response: AgentSkillsFetchResponse): this {
+    return this.addRoute(
+      "GET",
+      `/api/apps/${this.appId}/agent-skills`,
+      response,
+    );
+  }
+
+  /** Mock POST /api/apps/{appId}/agent-skills - create a skill */
+  mockAgentSkillsCreate(): this {
+    return this.addRoute(
+      "POST",
+      `/api/apps/${this.appId}/agent-skills`,
+      {},
+      201,
+    );
+  }
+
+  /** Mock PUT /api/apps/{appId}/agent-skills/{name} - update a skill */
+  mockAgentSkillsUpdate(): this {
+    return this.addRoute(
+      "PUT",
+      `/api/apps/${this.appId}/agent-skills/:name`,
+      {},
+    );
+  }
+
+  /** Mock DELETE /api/apps/{appId}/agent-skills/{name} - delete a skill */
+  mockAgentSkillsDelete(): this {
+    return this.addRoute(
+      "DELETE",
+      `/api/apps/${this.appId}/agent-skills/:name`,
+      {},
+      204,
+    );
+  }
+
+  mockAgentSkillsFetchError(error: ErrorResponse): this {
+    return this.addErrorRoute(
+      "GET",
+      `/api/apps/${this.appId}/agent-skills`,
+      error,
     );
   }
 

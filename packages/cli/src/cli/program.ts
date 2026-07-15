@@ -1,4 +1,5 @@
 import { Command, Option } from "commander";
+import { getAgentSkillsCommand } from "@/cli/commands/agent-skills/index.js";
 import { getAgentsCommand } from "@/cli/commands/agents/index.js";
 import { getAuthCommand } from "@/cli/commands/auth/index.js";
 import { getLoginCommand } from "@/cli/commands/auth/login.js";
@@ -77,6 +78,9 @@ export function createProgram(context: CLIContext): Command {
 
   // Register agents commands
   program.addCommand(getAgentsCommand());
+
+  // Register agent-skills commands
+  program.addCommand(getAgentSkillsCommand());
 
   // Register connectors commands
   program.addCommand(getConnectorsCommand());
