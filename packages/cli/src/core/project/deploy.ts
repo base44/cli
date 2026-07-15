@@ -4,6 +4,7 @@ import { setAppVisibility } from "@/core/project/api.js";
 import type { Visibility } from "@/core/project/schema.js";
 import type { ProjectData } from "@/core/project/types.js";
 import { agentResource } from "@/core/resources/agent/index.js";
+import { agentSkillResource } from "@/core/resources/agent-skill/index.js";
 import { authConfigResource } from "@/core/resources/auth-config/index.js";
 import {
   type ConnectorSyncResult,
@@ -23,12 +24,20 @@ import { deploySite } from "@/core/site/index.js";
  * @returns true if there are entities, functions, agents, connectors, or a configured site to deploy
  */
 export function hasResourcesToDeploy(projectData: ProjectData): boolean {
-  const { project, entities, functions, agents, connectors, authConfig } =
-    projectData;
+  const {
+    project,
+    entities,
+    functions,
+    agents,
+    agentSkills,
+    connectors,
+    authConfig,
+  } = projectData;
   const hasSite = Boolean(project.site?.outputDirectory);
   const hasEntities = entities.length > 0;
   const hasFunctions = functions.length > 0;
   const hasAgents = agents.length > 0;
+  const hasAgentSkills = agentSkills.length > 0;
   const hasConnectors = connectors.length > 0;
   const hasAuthConfig = authConfig.length > 0;
   const hasVisibility = Boolean(project.visibility);
@@ -37,6 +46,7 @@ export function hasResourcesToDeploy(projectData: ProjectData): boolean {
     hasEntities ||
     hasFunctions ||
     hasAgents ||
+    hasAgentSkills ||
     hasConnectors ||
     hasAuthConfig ||
     hasVisibility ||
@@ -75,8 +85,15 @@ export async function deployAll(
   projectData: ProjectData,
   options?: DeployAllOptions,
 ): Promise<DeployAllResult> {
-  const { project, entities, functions, agents, connectors, authConfig } =
-    projectData;
+  const {
+    project,
+    entities,
+    functions,
+    agents,
+    agentSkills,
+    connectors,
+    authConfig,
+  } = projectData;
 
   await setAppVisibility(project.visibility);
   if (project.visibility) {
@@ -87,6 +104,7 @@ export async function deployAll(
     onStart: options?.onFunctionStart,
     onResult: options?.onFunctionResult,
   });
+  await agentSkillResource.push(agentSkills);
   await agentResource.push(agents);
   await authConfigResource.push(authConfig);
   // pushConnectors also reconciles: with an empty list it removes remote
