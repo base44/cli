@@ -29,6 +29,7 @@ export const AgentConfigSchema = z.looseObject({
   description: z.string().trim().min(1, "Description is required"),
   instructions: z.string().trim().min(1, "Instructions are required"),
   tool_configs: z.array(ToolConfigSchema).optional().default([]),
+  selected_skill_names: z.array(z.string()).optional().default([]),
   memory_config: MemoryConfigSchema.optional(),
   whatsapp_greeting: z.string().nullable().optional(),
 });

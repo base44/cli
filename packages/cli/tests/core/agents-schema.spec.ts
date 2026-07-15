@@ -60,4 +60,28 @@ describe("AgentConfigSchema memory_config", () => {
     expect(result.data.model).toBe("claude_sonnet_4_6");
     expect(result.data.selected_skill_names).toEqual(["billing-help"]);
   });
+
+  it("parses selected_skill_names and passes through selected_workspace_skill_ids", () => {
+    const parsed = AgentConfigSchema.parse({
+      name: "helper",
+      description: "d",
+      instructions: "i",
+      selected_skill_names: ["weekly-report"],
+      selected_workspace_skill_ids: ["6512f2a1b3c4d5e6f7a8b9c0"],
+    });
+    expect(parsed.selected_skill_names).toEqual(["weekly-report"]);
+    // looseObject keeps unknown workspace ids without a typed field
+    expect(
+      (parsed as Record<string, unknown>).selected_workspace_skill_ids,
+    ).toEqual(["6512f2a1b3c4d5e6f7a8b9c0"]);
+  });
+
+  it("defaults selected_skill_names to an empty array", () => {
+    const parsed = AgentConfigSchema.parse({
+      name: "helper",
+      description: "d",
+      instructions: "i",
+    });
+    expect(parsed.selected_skill_names).toEqual([]);
+  });
 });

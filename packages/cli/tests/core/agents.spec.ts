@@ -53,6 +53,7 @@ describe("pushAgents", () => {
             entity_name: "User",
           },
         ],
+        selected_skill_names: [],
         whatsapp_greeting: "Hello!",
       },
     ];
@@ -76,6 +77,7 @@ describe("pushAgents", () => {
               entity_name: "User",
             },
           ],
+          selected_skill_names: [],
           whatsapp_greeting: "Hello!",
         },
       ],
@@ -91,6 +93,7 @@ describe("pushAgents", () => {
         description: "Test",
         instructions: "Do stuff",
         tool_configs: [],
+        selected_skill_names: [],
       },
     ];
 
@@ -112,6 +115,7 @@ describe("pushAgents", () => {
           description: "Test",
           instructions: "Do stuff",
           tool_configs: [],
+          selected_skill_names: [],
         },
       ],
       timeout: 60_000,
@@ -125,6 +129,7 @@ describe("pushAgents", () => {
         description: "Test",
         instructions: "Do stuff",
         tool_configs: [],
+        selected_skill_names: [],
       },
     ];
 
@@ -148,6 +153,7 @@ describe("pushAgents", () => {
         description: "Test",
         instructions: "Do stuff",
         tool_configs: [],
+        selected_skill_names: [],
       },
     ];
 
@@ -167,6 +173,7 @@ describe("pushAgents", () => {
         description: "Test",
         instructions: "Do stuff",
         tool_configs: [],
+        selected_skill_names: [],
       },
     ];
 
