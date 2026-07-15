@@ -8,10 +8,6 @@ interface ListOptions {
   role?: string;
 }
 
-function pluralize(n: number): string {
-  return `${n} workspace${n !== 1 ? "s" : ""}`;
-}
-
 async function listWorkspacesAction(
   { log, runTask, jsonMode }: CLIContext,
   options: ListOptions,
@@ -27,11 +23,10 @@ async function listWorkspacesAction(
     workspaces = workspaces.filter((w) => w.userRole?.toLowerCase() === role);
   }
 
+  const summary = `${workspaces.length} workspace${workspaces.length !== 1 ? "s" : ""}`;
+
   if (jsonMode) {
-    return {
-      outroMessage: pluralize(workspaces.length),
-      stdout: toJsonStdout(workspaces),
-    };
+    return { outroMessage: summary, stdout: toJsonStdout(workspaces) };
   }
 
   for (const workspace of workspaces) {
@@ -40,7 +35,7 @@ async function listWorkspacesAction(
     );
   }
 
-  return { outroMessage: pluralize(workspaces.length) };
+  return { outroMessage: summary };
 }
 
 export function getWorkspaceListCommand(): Command {
