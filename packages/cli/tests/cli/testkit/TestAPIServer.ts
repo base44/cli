@@ -593,6 +593,17 @@ export class TestAPIServer {
     return this.addRoute("GET", "/api/apps", response);
   }
 
+  /** Mock GET /api/apps/{appId} - Fetch a single app's details. Keyed off the
+   * response's own `id`, so tests can mock apps other than the context app. */
+  mockGetApp(response: {
+    id: string;
+    name?: string;
+    organization_id?: string | null;
+    is_managed_source_code?: boolean;
+  }): this {
+    return this.addRoute("GET", `/api/apps/${response.id}`, response);
+  }
+
   /** Mock GET /api/workspace/workspaces - List the user's workspaces */
   mockListWorkspaces(workspaces: WorkspaceResponse[]): this {
     return this.addRoute("GET", "/api/workspace/workspaces", { workspaces });
