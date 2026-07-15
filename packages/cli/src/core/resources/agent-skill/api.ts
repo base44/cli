@@ -8,7 +8,7 @@ import type {
 } from "./schema.js";
 import { ListAgentSkillsResponseSchema } from "./schema.js";
 
-async function fetchAgentSkills(): Promise<ListAgentSkillsResponse> {
+export async function fetchAgentSkills(): Promise<ListAgentSkillsResponse> {
   const appClient = getAppClient();
   let response: KyResponse;
   try {
