@@ -57,6 +57,20 @@ describe("dev command", () => {
     );
   });
 
+  it("errors with a link hint when unlinked in non-interactive mode", async () => {
+    // Agents run `dev` non-interactively and cannot answer prompts, so an
+    // unlinked project must keep failing with the "run base44 link" guidance
+    // rather than dropping into the interactive link flow.
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    await t.givenProject(fixture("no-app-config"), { linked: false });
+
+    const result = await t.run("dev");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("App not configured");
+    t.expectResult(result).toContain("base44 link");
+  });
+
   it("starts dev server successfully", async () => {
     await t.givenLoggedInWithProject(fixture("full-project"));
 

@@ -25,7 +25,10 @@ export interface TestContext {
   givenLoggedIn: (user: { email: string; name: string }) => Promise<void>;
 
   /** Set up project directory by copying fixture to temp dir */
-  givenProject: (fixturePath: string) => Promise<void>;
+  givenProject: (
+    fixturePath: string,
+    options?: { linked?: boolean },
+  ) => Promise<void>;
 
   /** Combined: login + project setup (most common pattern) */
   givenLoggedInWithProject: (
@@ -120,7 +123,8 @@ export function setupCLITests(): TestContext {
 
     // Given methods
     givenLoggedIn: (user) => getKit().givenLoggedIn(user),
-    givenProject: (fixturePath) => getKit().givenProject(fixturePath),
+    givenProject: (fixturePath, options) =>
+      getKit().givenProject(fixturePath, options),
     givenLoggedInWithProject: async (fixturePath, user = defaultUser) => {
       await getKit().givenLoggedIn(user);
       await getKit().givenProject(fixturePath);

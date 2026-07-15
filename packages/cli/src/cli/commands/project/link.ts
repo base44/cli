@@ -14,7 +14,7 @@ import {
   ConfigNotFoundError,
   InvalidInputError,
 } from "@/core/errors.js";
-import type { Project } from "@/core/project/index.js";
+import type { AppContext, Project } from "@/core/project/index.js";
 import {
   appConfigExists,
   createProject,
@@ -135,21 +135,11 @@ async function promptForExistingProject(
   return selectedProject;
 }
 
-async function link(
-  ctx: CLIContext,
-  options: LinkOptions,
-  command: Command,
-): Promise<RunCommandResult> {
-  const { log, runTask, isNonInteractive } = ctx;
-  const appId = readExplicitAppId(command).value;
-
-  const skipPrompts = !!options.create || !!appId;
-  if (!skipPrompts && isNonInteractive) {
-    throw new InvalidInputError(
-      "--create with --name, or --app-id, is required in non-interactive mode",
-    );
-  }
-
+/**
+ * Resolve the project root and assert it is not already linked. Shared by the
+ * `link` command and the interactive link flow that `dev` triggers.
+ */
+async function requireUnlinkedProjectRoot(): Promise<string> {
   const projectRoot = findProjectRoot();
 
   if (!projectRoot) {
@@ -172,6 +162,165 @@ async function link(
     );
   }
 
+  return projectRoot.root;
+}
+
+/**
+ * Link an existing Base44 project. When `appId` is provided it is validated
+ * against the account's linkable projects; otherwise the user picks one.
+ * Returns the linked app id, or `null` when the account has no linkable
+ * projects.
+ */
+async function linkExistingProject(
+  ctx: CLIContext,
+  projectRootPath: string,
+  appId?: string,
+): Promise<string | null> {
+  const { runTask } = ctx;
+
+  const projects = await runTask(
+    "Fetching projects...",
+    async () => listProjects(),
+    {
+      successMessage: "Projects fetched",
+      errorMessage: "Failed to fetch projects",
+    },
+  );
+
+  const linkableProjects = projects.filter(
+    (p) => p.isManagedSourceCode !== true,
+  );
+
+  if (!linkableProjects.length) {
+    return null;
+  }
+
+  let linkedAppId: string;
+
+  if (appId) {
+    // Validate that the provided app ID exists and is linkable
+    const project = linkableProjects.find((p) => p.id === appId);
+    if (!project) {
+      throw new InvalidInputError(
+        `App with ID "${appId}" not found or not available for linking.`,
+        {
+          hints: [
+            { message: "Check the app ID is correct" },
+            {
+              message:
+                "Use 'base44 link' without --app-id to see available projects",
+            },
+          ],
+        },
+      );
+    }
+    linkedAppId = appId;
+  } else {
+    const selectedProject = await promptForExistingProject(linkableProjects);
+    linkedAppId = selectedProject.id;
+  }
+
+  await runTask(
+    "Linking project...",
+    async () => {
+      await writeAppConfig(projectRootPath, linkedAppId);
+      setAppContext({ id: linkedAppId, projectRoot: projectRootPath });
+    },
+    {
+      successMessage: "Project linked successfully",
+      errorMessage: "Failed to link project",
+    },
+  );
+
+  return linkedAppId;
+}
+
+/** Create a new Base44 project and link it, returning the new app id. */
+async function createAndLinkProject(
+  ctx: CLIContext,
+  projectRootPath: string,
+  details: { name: string; description?: string },
+): Promise<string> {
+  const { runTask } = ctx;
+
+  const { projectId } = await runTask(
+    "Creating project on Base44...",
+    async () => {
+      return await createProject(details.name, details.description);
+    },
+    {
+      successMessage: "Project created successfully",
+      errorMessage: "Failed to create project",
+    },
+  );
+
+  await writeAppConfig(projectRootPath, projectId);
+
+  // Set app context in cache for sync access to getDashboardUrl
+  setAppContext({ id: projectId, projectRoot: projectRootPath });
+
+  return projectId;
+}
+
+/**
+ * Run the interactive link flow (prompt to create a new project or choose an
+ * existing one), write `.app.jsonc`, and return the resolved app context.
+ *
+ * Used by `base44 link` (no flags) and by `base44 dev` when a human runs it in
+ * an unlinked project, so linking starts inline instead of erroring out.
+ */
+export async function linkProjectInteractive(
+  ctx: CLIContext,
+): Promise<AppContext> {
+  const projectRootPath = await requireUnlinkedProjectRoot();
+
+  const action = await promptForLinkAction();
+
+  let finalAppId: string;
+  if (action === "choose") {
+    const linkedAppId = await linkExistingProject(ctx, projectRootPath);
+    if (!linkedAppId) {
+      throw new ConfigNotFoundError(
+        "No projects available for linking. Create a new project first.",
+        {
+          hints: [
+            {
+              message:
+                "Run 'base44 link --create --name <name>' to create and link a new project",
+            },
+          ],
+        },
+      );
+    }
+    finalAppId = linkedAppId;
+  } else {
+    finalAppId = await createAndLinkProject(
+      ctx,
+      projectRootPath,
+      await promptForNewProjectDetails(),
+    );
+  }
+
+  return { id: finalAppId, projectRoot: projectRootPath };
+}
+
+async function link(
+  ctx: CLIContext,
+  options: LinkOptions,
+  command: Command,
+): Promise<RunCommandResult> {
+  const { log, isNonInteractive } = ctx;
+  const appId = readExplicitAppId(command).value;
+
+  const skipPrompts = !!options.create || !!appId;
+  if (!skipPrompts && isNonInteractive) {
+    throw new InvalidInputError(
+      "--create with --name, or --app-id, is required in non-interactive mode",
+    );
+  }
+
+  const projectRootPath = await requireUnlinkedProjectRoot();
+
   let finalAppId: string | undefined;
   const action = appId
     ? "choose"
@@ -180,85 +329,18 @@ async function link(
       : await promptForLinkAction();
 
   if (action === "choose") {
-    const projects = await runTask(
-      "Fetching projects...",
-      async () => listProjects(),
-      {
-        successMessage: "Projects fetched",
-        errorMessage: "Failed to fetch projects",
-      },
-    );
+    finalAppId =
+      (await linkExistingProject(ctx, projectRootPath, appId)) ?? undefined;
 
-    const linkableProjects = projects.filter(
-      (p) => p.isManagedSourceCode !== true,
-    );
-
-    if (!linkableProjects.length) {
+    if (finalAppId === undefined) {
       return { outroMessage: "No projects available for linking" };
     }
-
-    let linkedAppId: string;
-
-    if (appId) {
-      // Validate that the provided app ID exists and is linkable
-      const project = linkableProjects.find((p) => p.id === appId);
-      if (!project) {
-        throw new InvalidInputError(
-          `App with ID "${appId}" not found or not available for linking.`,
-          {
-            hints: [
-              { message: "Check the app ID is correct" },
-              {
-                message:
-                  "Use 'base44 link' without --app-id to see available projects",
-              },
-            ],
-          },
-        );
-      }
-      linkedAppId = appId;
-    } else {
-      const selectedProject = await promptForExistingProject(linkableProjects);
-      linkedAppId = selectedProject.id;
-    }
-
-    await runTask(
-      "Linking project...",
-      async () => {
-        await writeAppConfig(projectRoot.root, linkedAppId);
-        setAppContext({ id: linkedAppId, projectRoot: projectRoot.root });
-      },
-      {
-        successMessage: "Project linked successfully",
-        errorMessage: "Failed to link project",
-      },
-    );
-
-    finalAppId = linkedAppId;
-  }
-
-  if (action === "create") {
-    const { name, description } = options.create
+  } else {
+    const details = options.create
       ? { name: options.name!.trim(), description: options.description?.trim() }
       : await promptForNewProjectDetails();
 
-    const { projectId } = await runTask(
-      "Creating project on Base44...",
-      async () => {
-        return await createProject(name, description);
-      },
-      {
-        successMessage: "Project created successfully",
-        errorMessage: "Failed to create project",
-      },
-    );
-
-    await writeAppConfig(projectRoot.root, projectId);
-
-    // Set app context in cache for sync access to getDashboardUrl
-    setAppContext({ id: projectId, projectRoot: projectRoot.root });
-
-    finalAppId = projectId;
+    finalAppId = await createAndLinkProject(ctx, projectRootPath, details);
   }
 
   log.message(

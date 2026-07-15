@@ -55,6 +55,7 @@ export class CLITestkit {
   private tempDir: string;
   private env: Record<string, string> = {};
   private projectDir?: string;
+  private linkProject = true;
   // Default latestVersion to null to skip npm version check in tests
   private testOverrides: TestOverrides = { latestVersion: null };
   private stdinContent: string | undefined = undefined;
@@ -113,9 +114,18 @@ export class CLITestkit {
     );
   }
 
-  /** Set up project directory by copying fixture to temp dir */
-  async givenProject(fixturePath: string): Promise<void> {
+  /**
+   * Copy a fixture into a temp project dir. By default the project is treated
+   * as linked (an `appConfig` test override is injected). Pass
+   * `{ linked: false }` to leave it unlinked, so app-context resolution runs
+   * against the fixture's real files (e.g. a scaffold without `.app.jsonc`).
+   */
+  async givenProject(
+    fixturePath: string,
+    options: { linked?: boolean } = {},
+  ): Promise<void> {
     this.projectDir = join(this.tempDir, "project");
+    this.linkProject = options.linked ?? true;
     await cp(fixturePath, this.projectDir, { recursive: true });
   }
 
@@ -313,7 +323,7 @@ export class CLITestkit {
   // ─── PRIVATE HELPERS ───────────────────────────────────────────
 
   private setupEnvOverrides(): void {
-    if (this.projectDir) {
+    if (this.projectDir && this.linkProject) {
       this.testOverrides.appConfig = {
         id: this.api.appId,
         projectRoot: this.projectDir,
