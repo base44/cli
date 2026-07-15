@@ -19,6 +19,7 @@ import {
 } from "@/core/project/schema.js";
 import type { ProjectData, ProjectRoot } from "@/core/project/types.js";
 import { agentResource } from "@/core/resources/agent/index.js";
+import { agentSkillResource } from "@/core/resources/agent-skill/index.js";
 import { authConfigResource } from "@/core/resources/auth-config/index.js";
 import { connectorResource } from "@/core/resources/connector/index.js";
 import type { Entity } from "@/core/resources/entity/index.js";
@@ -61,6 +62,7 @@ class ProjectConfigReader {
       entities,
       functions,
       agents: localResources.agents,
+      agentSkills: localResources.agentSkills,
       connectors: localResources.connectors,
       authConfig: localResources.authConfig,
     };
@@ -105,16 +107,17 @@ class ProjectConfigReader {
     project: ProjectConfig,
   ): Promise<ProjectResources> {
     const configDir = dirname(configPath);
-    const [entities, functions, agents, connectors, authConfig] =
+    const [entities, functions, agents, agentSkills, connectors, authConfig] =
       await Promise.all([
         entityResource.readAll(join(configDir, project.entitiesDir)),
         functionResource.readAll(join(configDir, project.functionsDir)),
         agentResource.readAll(join(configDir, project.agentsDir)),
+        agentSkillResource.readAll(join(configDir, project.agentSkillsDir)),
         connectorResource.readAll(join(configDir, project.connectorsDir)),
         authConfigResource.readAll(join(configDir, project.authDir)),
       ]);
 
-    return { entities, functions, agents, connectors, authConfig };
+    return { entities, functions, agents, agentSkills, connectors, authConfig };
   }
 
   private assertPluginProjectDoesNotLoadPlugins(
@@ -185,6 +188,7 @@ class ProjectConfigReader {
       entities: markPluginEntities(resources.entities, namespace),
       functions: namespacePluginFunctions(resources.functions, namespace),
       agents: [],
+      agentSkills: [],
       connectors: [],
       authConfig: [],
     };
@@ -241,6 +245,7 @@ class ProjectConfigReader {
       entities,
       functions,
       agents: [],
+      agentSkills: [],
       connectors: [],
       authConfig: [],
     };
