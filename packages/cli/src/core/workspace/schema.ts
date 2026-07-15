@@ -44,17 +44,3 @@ export const MoveAppResponseSchema = z
   }));
 
 export type MoveAppResult = z.infer<typeof MoveAppResponseSchema>;
-
-/**
- * Workspace roles that permit creating and moving apps. The server ultimately
- * enforces this; the CLI uses it only to filter interactive pickers so users
- * aren't offered a target they'll get a 403 on.
- */
-const APP_EDITOR_ROLES = ["owner", "admin", "editor"] as const;
-
-export function canCreateAppsInWorkspace(role: string | undefined): boolean {
-  return (
-    role !== undefined &&
-    (APP_EDITOR_ROLES as readonly string[]).includes(role.toLowerCase())
-  );
-}

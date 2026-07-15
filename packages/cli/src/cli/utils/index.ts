@@ -1,6 +1,7 @@
 export * from "@base44-cli/logger";
 export * from "./banner.js";
 export * from "./command/index.js";
+export * from "./json.js";
 export * from "./prompts.js";
 export * from "./runTask.js";
 export * from "./secret-input.js";

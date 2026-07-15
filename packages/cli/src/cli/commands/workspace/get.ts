@@ -1,9 +1,9 @@
 import type { Command } from "commander";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
-import { Base44Command, theme } from "@/cli/utils/index.js";
+import { Base44Command, theme, toJsonStdout } from "@/cli/utils/index.js";
 import { InvalidInputError } from "@/core/errors.js";
 import { getWorkspace } from "@/core/index.js";
-import { toJsonStdout, workspaceTag } from "./shared.js";
+import { workspaceTag } from "./shared.js";
 
 async function getWorkspaceAction(
   { runTask, log, jsonMode }: CLIContext,

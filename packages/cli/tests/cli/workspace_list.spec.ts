@@ -20,7 +20,7 @@ describe("workspace list command", () => {
     t.expectResult(result).toContain("2 workspaces");
   });
 
-  it("emits a JSON array with --json (personal workspace flagged first)", async () => {
+  it("emits the exact workspaces array with --json (personal flagged first)", async () => {
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
     t.api.mockListWorkspaces([
       { id: "ws-personal", name: "My Workspace", user_role: "owner" },
@@ -30,31 +30,19 @@ describe("workspace list command", () => {
     const result = await t.run("workspace", "list", "--json");
 
     t.expectResult(result).toSucceed();
-    const parsed = JSON.parse(result.stdout);
-    expect(parsed).toHaveLength(2);
-    expect(parsed[0]).toMatchObject({
-      id: "ws-personal",
-      userRole: "owner",
-      isPersonal: true,
-    });
-    expect(parsed[1]).toMatchObject({ id: "ws-acme", isPersonal: false });
-  });
-
-  it("filters to workspaces the user can create apps in with --can-create", async () => {
-    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
-    t.api.mockListWorkspaces([
-      { id: "ws-personal", name: "My Workspace", user_role: "owner" },
-      { id: "ws-acme", name: "Acme Inc", user_role: "editor" },
-      { id: "ws-view", name: "View Only", user_role: "viewer" },
-    ]);
-
-    const result = await t.run("workspace", "list", "--can-create", "--json");
-
-    t.expectResult(result).toSucceed();
-    const parsed = JSON.parse(result.stdout);
-    expect(parsed.map((w: { id: string }) => w.id)).toEqual([
-      "ws-personal",
-      "ws-acme",
+    expect(JSON.parse(result.stdout)).toEqual([
+      {
+        id: "ws-personal",
+        name: "My Workspace",
+        userRole: "owner",
+        isPersonal: true,
+      },
+      {
+        id: "ws-acme",
+        name: "Acme Inc",
+        userRole: "editor",
+        isPersonal: false,
+      },
     ]);
   });
 
@@ -75,10 +63,19 @@ describe("workspace list command", () => {
     );
 
     t.expectResult(result).toSucceed();
-    const parsed = JSON.parse(result.stdout);
-    expect(parsed.map((w: { id: string }) => w.id)).toEqual([
-      "ws-acme",
-      "ws-globex",
+    expect(JSON.parse(result.stdout)).toEqual([
+      {
+        id: "ws-acme",
+        name: "Acme Inc",
+        userRole: "admin",
+        isPersonal: false,
+      },
+      {
+        id: "ws-globex",
+        name: "Globex",
+        userRole: "admin",
+        isPersonal: false,
+      },
     ]);
   });
 

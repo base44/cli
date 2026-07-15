@@ -1,11 +1,10 @@
 import type { Command } from "commander";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
-import { Base44Command, theme } from "@/cli/utils/index.js";
-import { canCreateAppsInWorkspace, listWorkspaces } from "@/core/index.js";
-import { toJsonStdout, workspaceTag } from "./shared.js";
+import { Base44Command, theme, toJsonStdout } from "@/cli/utils/index.js";
+import { listWorkspaces } from "@/core/index.js";
+import { workspaceTag } from "./shared.js";
 
 interface ListOptions {
-  canCreate?: boolean;
   role?: string;
 }
 
@@ -23,9 +22,6 @@ async function listWorkspacesAction(
     { errorMessage: "Failed to fetch workspaces" },
   );
 
-  if (options.canCreate) {
-    workspaces = workspaces.filter((w) => canCreateAppsInWorkspace(w.userRole));
-  }
   if (options.role) {
     const role = options.role.toLowerCase();
     workspaces = workspaces.filter((w) => w.userRole?.toLowerCase() === role);
@@ -50,10 +46,6 @@ async function listWorkspacesAction(
 export function getWorkspaceListCommand(): Command {
   return new Base44Command("list", { requireAppContext: false })
     .description("List the workspaces you belong to")
-    .option(
-      "--can-create",
-      "Only workspaces you can create or move apps into (owner/admin/editor)",
-    )
     .option(
       "--role <role>",
       "Only workspaces where your role matches (owner, admin, editor, viewer)",

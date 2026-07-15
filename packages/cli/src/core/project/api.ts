@@ -106,7 +106,7 @@ export async function listProjects(): Promise<ProjectsResponse> {
 
 /**
  * Fetch a single app's details, including the workspace (`organizationId`) it
- * currently belongs to. Used to show the source workspace before a move.
+ * currently belongs to.
  */
 export async function getApp(appId: string): Promise<AppDetail> {
   let response: KyResponse;

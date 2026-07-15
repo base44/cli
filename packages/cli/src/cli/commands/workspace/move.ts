@@ -2,110 +2,42 @@ import type { Option as PromptOption } from "@clack/prompts";
 import { confirm, isCancel, select } from "@clack/prompts";
 import type { Command } from "commander";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
-import { Base44Command, onPromptCancel, theme } from "@/cli/utils/index.js";
+import {
+  Base44Command,
+  onPromptCancel,
+  theme,
+  toJsonStdout,
+} from "@/cli/utils/index.js";
 import { InvalidInputError } from "@/core/errors.js";
 import {
-  canCreateAppsInWorkspace,
   getApp,
   getAppContext,
   listWorkspaces,
   moveAppToWorkspace,
-  type WorkspaceListEntry,
 } from "@/core/index.js";
-import { toJsonStdout } from "./shared.js";
 
 interface MoveOptions {
   disconnectIntegrations?: boolean;
   yes?: boolean;
 }
 
-function workspaceName(
-  workspaces: WorkspaceListEntry[],
-  id: string | undefined,
-): string {
-  if (!id) return "unknown workspace";
-  return workspaces.find((w) => w.id === id)?.name ?? id;
+interface TargetSelection {
+  targetWorkspaceId: string;
+  fromName: string;
+  toName: string;
 }
 
 /**
- * Resolve the target workspace for a move: validate an explicit id, prompt when
- * interactive, or fail fast in non-interactive mode without one.
+ * Interactive target selection: pick from every workspace you belong to except
+ * the app's current one. No role filtering — the server authorizes the move and
+ * returns a clear reason if it's not allowed (matches the web builder). Only
+ * runs in interactive mode, so the workspace/app fetch happens only when needed.
  */
-async function resolveTargetWorkspace(
-  target: string | undefined,
-  workspaces: WorkspaceListEntry[],
-  currentWorkspaceId: string | undefined,
-  isInteractive: boolean,
-): Promise<string> {
-  const eligible = workspaces.filter(
-    (w) => canCreateAppsInWorkspace(w.userRole) && w.id !== currentWorkspaceId,
-  );
-
-  if (target) {
-    const match = workspaces.find((w) => w.id === target);
-    if (!match) {
-      throw new InvalidInputError(
-        `Workspace "${target}" not found, or you are not a member of it.`,
-        {
-          hints: [
-            { message: "Run 'base44 workspace list' to see your workspaces" },
-          ],
-        },
-      );
-    }
-    if (target === currentWorkspaceId) {
-      throw new InvalidInputError("The app is already in that workspace.");
-    }
-    if (!canCreateAppsInWorkspace(match.userRole)) {
-      throw new InvalidInputError(
-        `You don't have permission to move apps into workspace "${match.name}" (your role: ${match.userRole ?? "unknown"}).`,
-      );
-    }
-    return match.id;
-  }
-
-  if (!isInteractive) {
-    throw new InvalidInputError(
-      "A target workspace ID is required in non-interactive mode.",
-      {
-        hints: [
-          { message: "Usage: base44 workspace move <workspace-id>" },
-          { message: "Run 'base44 workspace list' to see your workspaces" },
-        ],
-      },
-    );
-  }
-
-  if (eligible.length === 0) {
-    throw new InvalidInputError(
-      "No other workspaces available to move this app into.",
-    );
-  }
-
-  const options: PromptOption<string>[] = eligible.map((w) => ({
-    value: w.id,
-    label: `${w.name} (${w.userRole ?? "member"})`,
-  }));
-  const selected = await select({
-    message: "Move the app to which workspace?",
-    options,
-  });
-  if (isCancel(selected)) {
-    onPromptCancel();
-  }
-  return selected as string;
-}
-
-async function moveAction(
+async function promptForTargetWorkspace(
   ctx: CLIContext,
-  target: string | undefined,
-  options: MoveOptions,
-): Promise<RunCommandResult> {
-  const { runTask, isNonInteractive, jsonMode } = ctx;
-  const isInteractive = !isNonInteractive && !jsonMode;
-  const { id: appId } = getAppContext();
-
-  const { workspaces, currentWorkspaceId } = await runTask(
+  appId: string,
+): Promise<TargetSelection> {
+  const { workspaces, currentWorkspaceId } = await ctx.runTask(
     "Fetching workspaces...",
     async () => {
       const [workspaces, app] = await Promise.all([
@@ -117,25 +49,89 @@ async function moveAction(
     { errorMessage: "Failed to fetch workspaces" },
   );
 
-  const targetWorkspaceId = await resolveTargetWorkspace(
-    target,
-    workspaces,
-    currentWorkspaceId,
-    isInteractive,
-  );
+  const destinations = workspaces.filter((w) => w.id !== currentWorkspaceId);
+  if (destinations.length === 0) {
+    throw new InvalidInputError(
+      "No other workspaces available to move this app into.",
+    );
+  }
 
-  if (isInteractive && !options.yes) {
-    const proceed = await confirm({
-      message: `Move this app from ${theme.styles.bold(
-        workspaceName(workspaces, currentWorkspaceId),
-      )} to ${theme.styles.bold(workspaceName(workspaces, targetWorkspaceId))}?`,
-    });
-    if (isCancel(proceed)) {
-      onPromptCancel();
+  const options: PromptOption<string>[] = destinations.map((w) => ({
+    value: w.id,
+    label: `${w.name} (${w.userRole ?? "member"})`,
+  }));
+  const selected = await select({
+    message: "Move the app to which workspace?",
+    options,
+  });
+  if (isCancel(selected)) {
+    onPromptCancel();
+  }
+  const targetWorkspaceId = selected as string;
+
+  const nameOf = (id: string | undefined): string =>
+    workspaces.find((w) => w.id === id)?.name ?? id ?? "unknown workspace";
+  return {
+    targetWorkspaceId,
+    fromName: nameOf(currentWorkspaceId),
+    toName: nameOf(targetWorkspaceId),
+  };
+}
+
+async function moveAction(
+  ctx: CLIContext,
+  target: string | undefined,
+  options: MoveOptions,
+): Promise<RunCommandResult> {
+  const { runTask, isNonInteractive, jsonMode } = ctx;
+  const isInteractive = !isNonInteractive && !jsonMode;
+  const { id: appId } = getAppContext();
+
+  let targetWorkspaceId: string;
+  let toLabel: string;
+
+  if (target) {
+    // Explicit target: don't pre-validate — the server authorizes the move and
+    // surfaces any block reason (e.g. "Only workspace admins and owners can
+    // move apps out of this workspace").
+    targetWorkspaceId = target;
+    toLabel = target;
+    if (isInteractive && !options.yes) {
+      const proceed = await confirm({
+        message: `Move this app to workspace ${theme.styles.bold(target)}?`,
+      });
+      if (isCancel(proceed)) {
+        onPromptCancel();
+      }
+      if (!proceed) {
+        return { outroMessage: "Move cancelled" };
+      }
     }
-    if (!proceed) {
-      return { outroMessage: "Move cancelled" };
+  } else if (isInteractive) {
+    const picked = await promptForTargetWorkspace(ctx, appId);
+    targetWorkspaceId = picked.targetWorkspaceId;
+    toLabel = picked.toName;
+    if (!options.yes) {
+      const proceed = await confirm({
+        message: `Move this app from ${theme.styles.bold(picked.fromName)} to ${theme.styles.bold(picked.toName)}?`,
+      });
+      if (isCancel(proceed)) {
+        onPromptCancel();
+      }
+      if (!proceed) {
+        return { outroMessage: "Move cancelled" };
+      }
     }
+  } else {
+    throw new InvalidInputError(
+      "A target workspace ID is required in non-interactive mode.",
+      {
+        hints: [
+          { message: "Usage: base44 workspace move <workspace-id>" },
+          { message: "Run 'base44 workspace list' to see your workspaces" },
+        ],
+      },
+    );
   }
 
   const result = await runTask(
@@ -147,15 +143,11 @@ async function moveAction(
     { errorMessage: "Failed to move app" },
   );
 
-  const targetName = workspaceName(workspaces, targetWorkspaceId);
   if (jsonMode) {
-    return {
-      outroMessage: `App moved to ${targetName}`,
-      stdout: toJsonStdout(result),
-    };
+    return { outroMessage: "App moved", stdout: toJsonStdout(result) };
   }
 
-  return { outroMessage: `App moved to ${theme.styles.bold(targetName)}` };
+  return { outroMessage: `App moved to ${theme.styles.bold(toLabel)}` };
 }
 
 export function getWorkspaceMoveCommand(): Command {

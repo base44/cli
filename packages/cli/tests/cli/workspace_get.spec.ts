@@ -33,9 +33,9 @@ describe("workspace get command", () => {
     const result = await t.run("workspace", "get", "ws-personal", "--json");
 
     t.expectResult(result).toSucceed();
-    const parsed = JSON.parse(result.stdout);
-    expect(parsed).toMatchObject({
+    expect(JSON.parse(result.stdout)).toEqual({
       id: "ws-personal",
+      name: "My Workspace",
       userRole: "owner",
       isPersonal: true,
     });

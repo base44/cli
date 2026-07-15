@@ -141,45 +141,4 @@ describe("create command", () => {
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("app-in-ws-acme");
   });
-
-  it("rejects --workspace for a workspace the user is not a member of", async () => {
-    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
-    t.api.mockListWorkspaces([
-      { id: "ws-personal", name: "Personal", user_role: "owner" },
-    ]);
-
-    const result = await t.run(
-      "create",
-      "WS App",
-      "--path",
-      join(t.getTempDir(), "ws-missing"),
-      "--workspace",
-      "ws-nope",
-      "--no-skills",
-    );
-
-    t.expectResult(result).toFail();
-    t.expectResult(result).toContain("not found");
-  });
-
-  it("rejects --workspace when the user lacks create permission", async () => {
-    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
-    t.api.mockListWorkspaces([
-      { id: "ws-personal", name: "Personal", user_role: "owner" },
-      { id: "ws-view", name: "View Only", user_role: "viewer" },
-    ]);
-
-    const result = await t.run(
-      "create",
-      "WS App",
-      "--path",
-      join(t.getTempDir(), "ws-viewer"),
-      "--workspace",
-      "ws-view",
-      "--no-skills",
-    );
-
-    t.expectResult(result).toFail();
-    t.expectResult(result).toContain("permission");
-  });
 });
