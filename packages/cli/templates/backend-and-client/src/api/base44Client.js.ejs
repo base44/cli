@@ -2,4 +2,8 @@ import { createClient } from '@base44/sdk';
 
 export const base44 = createClient({
   appId: '<%= projectId %>',
+  // `base44 dev` injects VITE_BASE44_APP_BASE_URL (http://localhost:<port>) so the
+  // SDK targets the local dev backend; unset in prod builds, so it falls back to
+  // the SDK's default server.
+  serverUrl: import.meta.env.VITE_BASE44_APP_BASE_URL || undefined,
 });
