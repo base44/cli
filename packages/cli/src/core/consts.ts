@@ -30,6 +30,15 @@ export const PROJECT_CONFIG_PATTERNS = [
 // Environment variables
 export const BASE44_APP_ID_ENV_VAR = "BASE44_APP_ID";
 
+// Local development server
+/**
+ * Default port the local `base44 dev` server binds to. `exec --local` targets
+ * this port unless `--port` is passed.
+ * NOTE: keep in sync with `DEFAULT_PORT` in `cli/dev/dev-server/main.ts` (that
+ * module owns the dev server and could later import this constant).
+ */
+export const DEFAULT_DEV_SERVER_PORT = 4400;
+
 // Types generation
 export const TYPES_OUTPUT_SUBDIR = ".types";
 export const TYPES_FILENAME = "types.d.ts";

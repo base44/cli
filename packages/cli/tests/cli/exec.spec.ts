@@ -125,4 +125,54 @@ describe("exec command", () => {
 
     expect(result.exitCode).toBe(42);
   });
+
+  // ─── LOCAL DEV SERVER (--local) ──────────────────────────────
+
+  it("targets the local dev server with a local user JWT when --local is set", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+    // The TestAPIServer stands in for `base44 dev`; point --local at its port.
+    // No mockAuthToken / mockSiteUrl: local mode must NOT call the remote
+    // token/published-url endpoints (it would 404 here if it did).
+    const port = new URL(t.api.baseUrl).port;
+
+    let capturedAuth: string | undefined;
+    t.api.mockRoute(
+      "GET",
+      `/api/apps/${t.api.appId}/entities/Task`,
+      (req, res) => {
+        capturedAuth = req.headers.authorization;
+        res.json([{ id: "1", title: "Local Task" }]);
+      },
+    );
+
+    t.givenStdin(
+      "const tasks = await base44.entities.Task.list();\n" +
+        "console.log(JSON.stringify(tasks));",
+    );
+
+    const result = await t.run("exec", "--local", "--port", port);
+
+    t.expectResult(result).toSucceed();
+    expect(result.stdout).toContain('{"id":"1","title":"Local Task"}');
+    // Local auth is a JWT minted for the current user, not the remote app-user
+    // token — decode the `sub` claim to prove it.
+    expect(capturedAuth?.startsWith("Bearer ")).toBe(true);
+    const jwtPayload = JSON.parse(
+      Buffer.from(
+        capturedAuth!.slice("Bearer ".length).split(".")[1],
+        "base64url",
+      ).toString(),
+    );
+    expect(jwtPayload.sub).toBe("test@example.com");
+  });
+
+  it("rejects --port without --local", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+    t.givenStdin("console.log(1)");
+
+    const result = await t.run("exec", "--port", "4400");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("--port can only be used with --local");
+  });
 });
