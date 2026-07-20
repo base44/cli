@@ -14,6 +14,8 @@ interface RunScriptOptions {
    * rather than fetched via `getSiteUrl()` / `getAppUserToken()`.
    */
   local?: { serverUrl: string; token: string };
+  privileged?: boolean;
+  dataEnv?: string;
 }
 
 interface RunScriptResult {
@@ -23,7 +25,7 @@ interface RunScriptResult {
 export async function runScript(
   options: RunScriptOptions,
 ): Promise<RunScriptResult> {
-  const { appId, code, local } = options;
+  const { appId, code, local, privileged, dataEnv } = options;
 
   verifyDenoInstalled("to run scripts with exec");
 
@@ -60,6 +62,8 @@ export async function runScript(
             BASE44_APP_ID: appId,
             BASE44_ACCESS_TOKEN: appUserToken,
             BASE44_APP_BASE_URL: appBaseUrl,
+            ...(privileged ? { BASE44_PRIVILEGED: "true" } : {}),
+            ...(dataEnv ? { BASE44_DATA_ENV: dataEnv } : {}),
           },
           stdio: "inherit",
         },

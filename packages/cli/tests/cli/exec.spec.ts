@@ -175,4 +175,143 @@ describe("exec command", () => {
     t.expectResult(result).toFail();
     t.expectResult(result).toContain("--port can only be used with --local");
   });
+
+  // ─── PRIVILEGED / DATA-ENV HEADERS (ported from #435) ─────────
+
+  it("sends the X-Bypass-RLS header when --privileged is set", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+    t.api.mockAuthToken("test-app-token");
+    t.api.mockSiteUrl({ url: t.api.baseUrl });
+
+    let capturedHeaders: Record<string, string | undefined> = {};
+    t.api.mockRoute(
+      "GET",
+      `/api/apps/${t.api.appId}/entities/Task`,
+      (req, res) => {
+        capturedHeaders = req.headers as Record<string, string | undefined>;
+        res.json([]);
+      },
+    );
+    t.givenStdin("await base44.entities.Task.list();");
+
+    const result = await t.run("exec", "--privileged");
+
+    t.expectResult(result).toSucceed();
+    expect(capturedHeaders["x-bypass-rls"]).toBe("true");
+  });
+
+  it("does not send the X-Bypass-RLS header without --privileged", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+    t.api.mockAuthToken("test-app-token");
+    t.api.mockSiteUrl({ url: t.api.baseUrl });
+
+    let capturedHeaders: Record<string, string | undefined> = {};
+    t.api.mockRoute(
+      "GET",
+      `/api/apps/${t.api.appId}/entities/Task`,
+      (req, res) => {
+        capturedHeaders = req.headers as Record<string, string | undefined>;
+        res.json([]);
+      },
+    );
+    t.givenStdin("await base44.entities.Task.list();");
+
+    const result = await t.run("exec");
+
+    t.expectResult(result).toSucceed();
+    expect(capturedHeaders["x-bypass-rls"]).toBeUndefined();
+  });
+
+  it("sends the X-Data-Env header with the given value", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+    t.api.mockAuthToken("test-app-token");
+    t.api.mockSiteUrl({ url: t.api.baseUrl });
+
+    let capturedHeaders: Record<string, string | undefined> = {};
+    t.api.mockRoute(
+      "GET",
+      `/api/apps/${t.api.appId}/entities/Task`,
+      (req, res) => {
+        capturedHeaders = req.headers as Record<string, string | undefined>;
+        res.json([]);
+      },
+    );
+    t.givenStdin("await base44.entities.Task.list();");
+
+    const result = await t.run("exec", "--data-env", "dev");
+
+    t.expectResult(result).toSucceed();
+    expect(capturedHeaders["x-data-env"]).toBe("dev");
+  });
+
+  it("does not send the X-Data-Env header without --data-env", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+    t.api.mockAuthToken("test-app-token");
+    t.api.mockSiteUrl({ url: t.api.baseUrl });
+
+    let capturedHeaders: Record<string, string | undefined> = {};
+    t.api.mockRoute(
+      "GET",
+      `/api/apps/${t.api.appId}/entities/Task`,
+      (req, res) => {
+        capturedHeaders = req.headers as Record<string, string | undefined>;
+        res.json([]);
+      },
+    );
+    t.givenStdin("await base44.entities.Task.list();");
+
+    const result = await t.run("exec");
+
+    t.expectResult(result).toSucceed();
+    expect(capturedHeaders["x-data-env"]).toBeUndefined();
+  });
+
+  it("sends both headers when --privileged and --data-env are combined", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+    t.api.mockAuthToken("test-app-token");
+    t.api.mockSiteUrl({ url: t.api.baseUrl });
+
+    let capturedHeaders: Record<string, string | undefined> = {};
+    t.api.mockRoute(
+      "GET",
+      `/api/apps/${t.api.appId}/entities/Task`,
+      (req, res) => {
+        capturedHeaders = req.headers as Record<string, string | undefined>;
+        res.json([]);
+      },
+    );
+    t.givenStdin("await base44.entities.Task.list();");
+
+    const result = await t.run("exec", "--privileged", "--data-env", "dev");
+
+    t.expectResult(result).toSucceed();
+    expect(capturedHeaders["x-bypass-rls"]).toBe("true");
+    expect(capturedHeaders["x-data-env"]).toBe("dev");
+  });
+
+  it("passes BASE44_PRIVILEGED to the Deno subprocess with --privileged", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+    t.api.mockAuthToken("test-app-token");
+    t.api.mockSiteUrl({ url: "https://test-app.base44.app" });
+    t.givenStdin(
+      'console.log("PRIVILEGED=" + Deno.env.get("BASE44_PRIVILEGED"));',
+    );
+
+    const result = await t.run("exec", "--privileged");
+
+    t.expectResult(result).toSucceed();
+    expect(result.stdout).toContain("PRIVILEGED=true");
+  });
+
+  it("passes BASE44_DATA_ENV to the Deno subprocess with --data-env", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+    t.api.mockAuthToken("test-app-token");
+    t.api.mockSiteUrl({ url: "https://test-app.base44.app" });
+    t.givenStdin('console.log("DATA_ENV=" + Deno.env.get("BASE44_DATA_ENV"));');
+
+    const result = await t.run("exec", "--data-env", "dev");
+
+    t.expectResult(result).toSucceed();
+    expect(result.stdout).toContain("DATA_ENV=dev");
+  });
 });

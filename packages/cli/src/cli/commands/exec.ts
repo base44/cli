@@ -10,6 +10,8 @@ import { readAuth } from "@/core/index.js";
 interface ExecOptions {
   local?: boolean;
   port?: string;
+  privileged?: boolean;
+  dataEnv?: string;
 }
 
 function readStdin(): Promise<string> {
@@ -91,7 +93,13 @@ async function execAction(
       )
     : undefined;
 
-  const { exitCode } = await runScript({ appId: app!.id, code, local });
+  const { exitCode } = await runScript({
+    appId: app!.id,
+    code,
+    local,
+    privileged: options.privileged,
+    dataEnv: options.dataEnv,
+  });
 
   if (exitCode !== 0) {
     process.exitCode = exitCode;
@@ -101,21 +109,38 @@ async function execAction(
 }
 
 export function getExecCommand(): Command {
-  return new Base44Command("exec")
-    .description(
-      "Run a script with the Base44 SDK pre-authenticated as the current user",
-    )
-    .option(
-      "--local",
-      "Run against the local `base44 dev` server instead of the deployed app",
-    )
-    .option(
-      "--port <number>",
-      `Port the local dev server is on (with --local; defaults to ${DEFAULT_DEV_SERVER_PORT})`,
-    )
-    .addHelpText(
-      "after",
-      `
+  return (
+    new Base44Command("exec")
+      .description(
+        "Run a script with the Base44 SDK pre-authenticated as the current user",
+      )
+      .option(
+        "--local",
+        "Run against the local `base44 dev` server instead of the deployed app",
+      )
+      .option(
+        "--port <number>",
+        `Port the local dev server is on (with --local; defaults to ${DEFAULT_DEV_SERVER_PORT})`,
+      )
+      // QUESTION(@netanelgilad): remote exec already requires app owner/editor (its
+      // token endpoint is on AppAdminRouter / is_genuine_editor). Separately, the
+      // X-Bypass-RLS header itself is NOT re-gated at the standard entity-CRUD route
+      // (_is_bypass_rls_request has no owner/admin check there), and it may be
+      // stripped at the prod edge (untested). Intended exposure?
+      .option(
+        "--privileged",
+        "Run with admin privileges (bypass RLS). Requires app owner/editor role.",
+      )
+      // QUESTION(@netanelgilad): value is passed through raw. The backend honors
+      // only "dev" and "prod" on X-Data-Env; "share" is host-derived and unknown
+      // values silently fall through to prod. Should the CLI validate this?
+      .option(
+        "--data-env <environment>",
+        "Data environment to run against (e.g. dev, prod)",
+      )
+      .addHelpText(
+        "after",
+        `
 Examples:
   Run a script file:
     $ cat ./script.ts | base44 exec
@@ -124,7 +149,11 @@ Examples:
     $ echo "const users = await base44.entities.User.list()" | base44 exec
 
   Against the local dev server (base44 dev must be running):
-    $ echo "await base44.entities.Task.create({ title: 'seed' })" | base44 exec --local`,
-    )
-    .action(execAction);
+    $ echo "await base44.entities.Task.create({ title: 'seed' })" | base44 exec --local
+
+  With privileged access (bypass RLS):
+    $ echo "const all = await base44.entities.Task.list()" | base44 exec --privileged`,
+      )
+      .action(execAction)
+  );
 }
