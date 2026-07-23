@@ -109,35 +109,29 @@ async function execAction(
 }
 
 export function getExecCommand(): Command {
-  return (
-    new Base44Command("exec")
-      .description(
-        "Run a script with the Base44 SDK pre-authenticated as the current user",
-      )
-      .option(
-        "--local",
-        "Run against the local `base44 dev` server instead of the deployed app",
-      )
-      .option(
-        "--port <number>",
-        `Port the local dev server is on (with --local; defaults to ${DEFAULT_DEV_SERVER_PORT})`,
-      )
-      // QUESTION(@netanelgilad): remote exec already requires app owner/editor (its
-      // token endpoint is on AppAdminRouter / is_genuine_editor). Separately, the
-      // X-Bypass-RLS header itself is NOT re-gated at the standard entity-CRUD route
-      // (_is_bypass_rls_request has no owner/admin check there), and it may be
-      // stripped at the prod edge (untested). Intended exposure?
-      .option(
-        "--privileged",
-        "Run with admin privileges (bypass RLS). Requires app owner/editor role.",
-      )
-      .option(
-        "--data-env <environment>",
-        "Data environment to run against (e.g. dev, prod)",
-      )
-      .addHelpText(
-        "after",
-        `
+  return new Base44Command("exec")
+    .description(
+      "Run a script with the Base44 SDK pre-authenticated as the current user",
+    )
+    .option(
+      "--local",
+      "Run against the local `base44 dev` server instead of the deployed app",
+    )
+    .option(
+      "--port <number>",
+      `Port the local dev server is on (with --local; defaults to ${DEFAULT_DEV_SERVER_PORT})`,
+    )
+    .option(
+      "--privileged",
+      "Run with admin privileges (bypass RLS). Requires app owner/editor role.",
+    )
+    .option(
+      "--data-env <environment>",
+      "Data environment to run against (e.g. dev, prod)",
+    )
+    .addHelpText(
+      "after",
+      `
 Examples:
   Run a script file:
     $ cat ./script.ts | base44 exec
@@ -150,7 +144,6 @@ Examples:
 
   With privileged access (bypass RLS):
     $ echo "const all = await base44.entities.Task.list()" | base44 exec --privileged`,
-      )
-      .action(execAction)
-  );
+    )
+    .action(execAction);
 }
