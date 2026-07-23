@@ -139,7 +139,7 @@ async function pushConnectorsAction(
     yes: options.yes,
     log,
     warning:
-      "This overwrites your app's connectors with your local copy. Remote connectors not present locally will be removed.",
+      "This will overwrite your app's connectors with your local copy and remove any not present locally.",
   });
   if (!proceed) {
     return { outroMessage: "Push cancelled" };

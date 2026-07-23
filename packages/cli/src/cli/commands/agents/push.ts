@@ -25,7 +25,7 @@ async function pushAgentsAction(
     yes: options.yes,
     log,
     warning:
-      "This replaces all remote agent configs with your local agents. Remote agents not present locally will be deleted.",
+      "This will replace all remote agent configs with your local agents and delete any not present locally.",
   });
   if (!proceed) {
     return { outroMessage: "Push cancelled" };

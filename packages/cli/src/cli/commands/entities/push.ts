@@ -26,7 +26,7 @@ async function pushEntitiesAction(
     yes: options.yes,
     log,
     warning:
-      "This overwrites your app's entities with your local copy. Remote entities not present locally will be deleted.",
+      "This will overwrite your app's entities with your local copy and delete any not present locally.",
   });
   if (!proceed) {
     return { outroMessage: "Push cancelled" };
