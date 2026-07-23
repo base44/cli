@@ -60,6 +60,6 @@ export function getAgentsPushCommand(): Command {
     .description(
       "Push local agents to Base44 (replaces all remote agent configs)",
     )
-    .option("-y, --yes", "Skip the confirmation prompt")
+    .option("-y, --yes", "Skip confirmation prompt")
     .action(pushAgentsAction);
 }

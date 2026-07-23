@@ -192,6 +192,6 @@ export function getConnectorsPushCommand(): Command {
       "--dir <path>",
       "Directory to read connector files from (default: ./connectors when using --app-id)",
     )
-    .option("-y, --yes", "Skip the confirmation prompt")
+    .option("-y, --yes", "Skip confirmation prompt")
     .action(pushConnectorsAction);
 }

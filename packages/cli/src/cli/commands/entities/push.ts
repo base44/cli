@@ -63,7 +63,7 @@ export function getEntitiesPushCommand(): Command {
     .addCommand(
       new Base44Command("push")
         .description("Push local entities to Base44")
-        .option("-y, --yes", "Skip the confirmation prompt")
+        .option("-y, --yes", "Skip confirmation prompt")
         .action(pushEntitiesAction),
     );
 }
