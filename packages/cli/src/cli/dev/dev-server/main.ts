@@ -258,6 +258,10 @@ export async function createDevServer(
         VITE_BASE44_APP_BASE_URL: baseUrl,
       },
       logger: createDevLogger("frontend", theme.colors.base44Orange),
+      onUrl: (url) =>
+        devLogger.log(
+          `Open your app in the browser: ${theme.colors.links(url)}`,
+        ),
     });
   }
 

@@ -100,6 +100,8 @@ describe("dev command", () => {
     expect(output).toContain("[frontend]");
     // The backend is announced (labeled) before the frontend output.
     expect(output).toContain("Backend running on http://localhost:");
+    // The frontend URL sniffed from the serve output is surfaced to the user.
+    expect(output).toContain("Open your app in the browser:");
   });
 
   it("tears the dev server down when the frontend exits", async () => {

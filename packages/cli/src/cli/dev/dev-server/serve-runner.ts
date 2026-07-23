@@ -8,13 +8,19 @@ interface ServeRunnerOptions {
   cwd: string;
   env: Record<string, string>;
   logger: DevLogger;
+  /** Called once with the first local URL the serve command prints (e.g. Vite's). */
+  onUrl?: (url: string) => void;
 }
+
+const LOCALHOST_URL = /https?:\/\/(?:localhost|127\.0\.0\.1):\d+/;
 
 export class ServeRunner {
   private readonly command: string;
   private readonly cwd: string;
   private readonly env: Record<string, string>;
   private readonly logger: DevLogger;
+  private readonly onUrl?: (url: string) => void;
+  private urlReported = false;
   private child?: ChildProcess;
   private stopping = false;
   private stopPromise?: Promise<void>;
@@ -25,6 +31,7 @@ export class ServeRunner {
     this.cwd = options.cwd;
     this.env = options.env;
     this.logger = options.logger;
+    this.onUrl = options.onUrl;
   }
 
   start(): void {
@@ -121,7 +128,19 @@ export class ServeRunner {
         this.logger.error(line);
       } else {
         this.logger.log(line);
+        this.reportUrl(line);
       }
+    }
+  }
+
+  private reportUrl(line: string): void {
+    if (this.urlReported || !this.onUrl) {
+      return;
+    }
+    const match = line.match(LOCALHOST_URL);
+    if (match) {
+      this.urlReported = true;
+      this.onUrl(match[0]);
     }
   }
 }
