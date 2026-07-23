@@ -69,7 +69,7 @@ describe("env credential seeding", () => {
       res.status(200).json({ created: ["customer"], updated: [], deleted: [] });
     });
 
-    const result = await t.run("entities", "push");
+    const result = await t.run("entities", "push", "--yes");
 
     t.expectResult(result).toSucceed();
     expect(authHeader).toBe(`Bearer ${jwt}`);
@@ -102,7 +102,7 @@ describe("env credential seeding", () => {
       res.status(200).json({ created: ["customer"], updated: [], deleted: [] });
     });
 
-    const result = await t.run("entities", "push");
+    const result = await t.run("entities", "push", "--yes");
 
     t.expectResult(result).toSucceed();
     expect(apiKeyHeader).toBe(workspaceApiKey);
@@ -121,7 +121,7 @@ describe("env credential seeding", () => {
       body: { error: "Unauthorized", detail: "Invalid API key" },
     });
 
-    const result = await t.run("entities", "push");
+    const result = await t.run("entities", "push", "--yes");
 
     t.expectResult(result).toFail();
     t.expectResult(result).toContain("workspace API key");
@@ -225,7 +225,7 @@ describe("env credential seeding", () => {
       res.status(200).json({ created: ["customer"], updated: [], deleted: [] });
     });
 
-    const result = await t.run("entities", "push");
+    const result = await t.run("entities", "push", "--yes");
 
     t.expectResult(result).toSucceed();
     expect(apiKeyHeader).toBeUndefined();
