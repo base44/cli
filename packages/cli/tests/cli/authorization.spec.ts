@@ -81,5 +81,8 @@ describe("token refresh on 401", () => {
     const result = await t.run("agents", "push", "--yes");
 
     t.expectResult(result).toFail();
+    // Assert the real auth-failure reason, not just a non-zero exit — otherwise
+    // an unrelated early failure (e.g. a missing --yes guard) would pass this.
+    t.expectResult(result).toContain("Unauthorized");
   });
 });
