@@ -131,9 +131,6 @@ export function getExecCommand(): Command {
         "--privileged",
         "Run with admin privileges (bypass RLS). Requires app owner/editor role.",
       )
-      // QUESTION(@netanelgilad): value is passed through raw. The backend honors
-      // only "dev" and "prod" on X-Data-Env; "share" is host-derived and unknown
-      // values silently fall through to prod. Should the CLI validate this?
       .option(
         "--data-env <environment>",
         "Data environment to run against (e.g. dev, prod)",

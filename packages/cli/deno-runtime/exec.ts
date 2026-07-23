@@ -41,11 +41,6 @@ import { createClient } from "npm:@base44/sdk";
 
 const customHeaders: Record<string, string> = {};
 if (isPrivileged) customHeaders["X-Bypass-RLS"] = "true";
-// QUESTION(@netanelgilad): backend get_data_environment_from_request honors only
-// "dev" and "prod" on X-Data-Env ("share" is host-derived, unknown values fall
-// through to prod). It applies to entity CRUD, but for backend-function invocations
-// a caller-supplied "dev" is dropped by trusted_request_data_env (prod/no-signal
-// pass through). Intended scope for --data-env?
 if (dataEnv) customHeaders["X-Data-Env"] = dataEnv;
 
 const base44 = createClient({
