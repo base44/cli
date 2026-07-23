@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 import type { Logger } from "@base44-cli/logger";
 import type { Command } from "commander";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
-import { Base44Command, theme } from "@/cli/utils/index.js";
+import { Base44Command, confirmPush, theme } from "@/cli/utils/index.js";
 import { getConnectorsUrl } from "@/cli/utils/urls.js";
 import { readProjectConfig } from "@/core/index.js";
 import { getAppContext } from "@/core/project/index.js";
@@ -22,6 +22,7 @@ import {
 
 interface PushOptions {
   dir?: string;
+  yes?: boolean;
 }
 
 /**
@@ -133,6 +134,17 @@ async function pushConnectorsAction(
     }
   }
 
+  const proceed = await confirmPush({
+    isNonInteractive,
+    yes: options.yes,
+    log,
+    warning:
+      "This overwrites your app's connectors with your local copy. Remote connectors not present locally will be removed.",
+  });
+  if (!proceed) {
+    return { outroMessage: "Push cancelled" };
+  }
+
   const { results } = await runTask(
     "Pushing connectors to Base44",
     async () => {
@@ -180,5 +192,6 @@ export function getConnectorsPushCommand(): Command {
       "--dir <path>",
       "Directory to read connector files from (default: ./connectors when using --app-id)",
     )
+    .option("-y, --yes", "Skip the confirmation prompt")
     .action(pushConnectorsAction);
 }

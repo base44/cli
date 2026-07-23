@@ -7,7 +7,7 @@ describe("entities push command", () => {
   it("warns when no entities found in project", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
 
-    const result = await t.run("entities", "push");
+    const result = await t.run("entities", "push", "--yes");
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("No entities found in project");
@@ -16,7 +16,7 @@ describe("entities push command", () => {
   it("fails when not in a project directory", async () => {
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
 
-    const result = await t.run("entities", "push");
+    const result = await t.run("entities", "push", "--yes");
 
     t.expectResult(result).toFail();
     t.expectResult(result).toContain("No Base44 app ID found");
@@ -30,7 +30,7 @@ describe("entities push command", () => {
       deleted: [],
     });
 
-    const result = await t.run("entities", "push");
+    const result = await t.run("entities", "push", "--yes");
 
     t.expectResult(result).toContain("Found 2 entities to push");
     t.expectResult(result).toContain("Customer");
@@ -45,7 +45,7 @@ describe("entities push command", () => {
       deleted: [],
     });
 
-    const result = await t.run("entities", "push");
+    const result = await t.run("entities", "push", "--yes");
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Entities pushed successfully");
@@ -56,7 +56,7 @@ describe("entities push command", () => {
   it("fails with helpful error when entity is missing required fields", async () => {
     await t.givenLoggedInWithProject(fixture("invalid-entity"));
 
-    const result = await t.run("entities", "push");
+    const result = await t.run("entities", "push", "--yes");
 
     t.expectResult(result).toFail();
     t.expectResult(result).toContain("name");
@@ -65,7 +65,7 @@ describe("entities push command", () => {
   it("fails with helpful error when config has invalid JSON", async () => {
     await t.givenLoggedInWithProject(fixture("invalid-json"));
 
-    const result = await t.run("entities", "push");
+    const result = await t.run("entities", "push", "--yes");
 
     t.expectResult(result).toFail();
     t.expectResult(result).toContain("config.jsonc");
@@ -78,8 +78,19 @@ describe("entities push command", () => {
       body: { error: "Internal server error" },
     });
 
+    const result = await t.run("entities", "push", "--yes");
+
+    t.expectResult(result).toFail();
+  });
+
+  it("fails when --yes is not provided in non-interactive mode", async () => {
+    await t.givenLoggedInWithProject(fixture("with-entities"));
+
     const result = await t.run("entities", "push");
 
     t.expectResult(result).toFail();
+    t.expectResult(result).toContain(
+      "--yes is required in non-interactive mode",
+    );
   });
 });
