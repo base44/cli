@@ -120,6 +120,18 @@ export async function generateContent(
 
   const actorInterfaces = actorResults.map((r) => r.decls).filter(Boolean);
 
+  // Actors import their base class from the bundler-served virtual module
+  // "base44:runtime/actors"; map that specifier to the SDK's actor exports so
+  // the import typechecks. ActorRegistry carries the app-specific augmentation
+  // declared for the SDK package above.
+  const actorRuntimeModule = actors.length
+    ? source`
+        declare module 'base44:runtime/actors' {
+          export { Actor, type Conn, type ActorRegistry } from '${sdkPackage}';
+        }
+      `
+    : "";
+
   return [
     HEADER,
     "export {};", // module context — ensures declare module augments rather than replaces the SDK package
@@ -130,6 +142,7 @@ export async function generateContent(
         ${registries.join("\n\n")}
       }
     `,
+    actorRuntimeModule,
   ]
     .filter(Boolean)
     .join("\n\n");
