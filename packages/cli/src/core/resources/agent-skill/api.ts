@@ -32,6 +32,10 @@ export async function fetchAgentSkills(): Promise<ListAgentSkillsResponse> {
 export async function pushAgentSkills(
   skills: AgentSkill[],
 ): Promise<SyncAgentSkillsResult> {
+  if (skills.length === 0) {
+    return { created: [], updated: [], deleted: [] };
+  }
+
   const appClient = getAppClient();
   const remote = await fetchAgentSkills();
   const remoteByName = new Map(remote.items.map((s) => [s.name, s]));

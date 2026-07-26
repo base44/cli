@@ -56,4 +56,14 @@ describe("pushAgentSkills reconcile", () => {
     );
     expect(del).toHaveBeenCalledWith("agent-skills/remove");
   });
+
+  it("returns empty result and makes no HTTP calls when local skills is empty", async () => {
+    const result = await pushAgentSkills([]);
+
+    expect(result).toEqual({ created: [], updated: [], deleted: [] });
+    expect(get).not.toHaveBeenCalled();
+    expect(post).not.toHaveBeenCalled();
+    expect(put).not.toHaveBeenCalled();
+    expect(del).not.toHaveBeenCalled();
+  });
 });

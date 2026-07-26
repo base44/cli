@@ -143,7 +143,6 @@ describe("env credential seeding", () => {
       deleted: [],
     });
     t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
-    t.api.mockAgentSkillsFetch({ items: [], total: 0 });
     t.api.mockConnectorsListError({
       status: 403,
       body: { error: "Forbidden", detail: "Workspace keys cannot list" },
@@ -184,7 +183,6 @@ describe("env credential seeding", () => {
       deleted: [],
     });
     t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
-    t.api.mockAgentSkillsFetch({ items: [], total: 0 });
 
     let deploymentAuthConfigBody: unknown;
     let deploymentApiKeyHeader: string | undefined;
