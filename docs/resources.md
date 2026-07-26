@@ -1,8 +1,8 @@
 # Working with Resources
 
-**Keywords:** resource, entity, function, agent, connector, push, readAll, deploy, site, tar.gz, deployAll, ProjectData
+**Keywords:** resource, entity, function, agent, agent skill, connector, push, readAll, deploy, site, tar.gz, deployAll, ProjectData
 
-Resources are project-specific collections (entities, functions, agents, connectors) that can be read from the filesystem and pushed to the Base44 API.
+Resources are project-specific collections (entities, functions, agents, agent skills, connectors) that can be read from the filesystem and pushed to the Base44 API.
 
 ## Resource Interface
 
@@ -62,6 +62,38 @@ Functions are read from the project's functions directory (e.g. `base44/function
 
 If both exist in the same folder (e.g. `function.jsonc` and `entry.ts`), the config wins: the function is loaded from the config and the name/entry come from the config file. Duplicate function names (same path or same config name) cause an error.
 
+## Agent skills
+
+Agent skills are reusable instruction snippets stored as markdown files under `base44/agent-skills/<name>.md` (path configurable via `agentSkillsDir` in `config.jsonc`). Each file has a frontmatter `description` and a body that is the skill's instructions:
+
+```md
+---
+description: Summarize the week's completed tasks grouped by assignee.
+---
+
+When the user asks for a weekly report:
+1. Read all Tasks completed in the last 7 days.
+2. Group them by assignee and count done vs. carried-over.
+3. Return a short markdown table, newest first.
+```
+
+The filename (without `.md`) is the skill's name. Skills are app-scoped and shared across all agents in the app -- an agent opts into a skill by adding its name to `selected_skill_names` in the agent's config:
+
+```jsonc
+"selected_skill_names": ["weekly-report"],
+```
+
+Workspace-level skills (shared across apps) are not managed by the CLI. An agent's `selected_workspace_skill_ids` field is left untouched by pull/push/deploy -- only `selected_skill_names` (app skills) is read from and written to local files.
+
+Manage app skills directly with:
+
+```bash
+base44 agent-skills pull   # Fetch remote skills into base44/agent-skills/
+base44 agent-skills push   # Push local skill files to Base44 (reconciles: creates, updates, deletes)
+```
+
+`base44 deploy` pushes agent skills before agents, so agents can reference newly-added or renamed skills in the same deploy.
+
 ## Site Module (Not a Resource)
 
 The site module at `packages/cli/src/core/site/` handles deploying built frontend files. It follows a different pattern than resources:
@@ -101,9 +133,10 @@ const { appUrl } = await deployAll(projectData);
 What it deploys (in order):
 1. Entities (via `entityResource.push()`)
 2. Functions (via `functionResource.push()`)
-3. Agents (via `agentResource.push()`)
-4. Connectors (via `pushConnectors()`) -- may return OAuth redirect URLs
-5. Site (if `site.outputDirectory` is configured)
+3. Agent skills (via `agentSkillResource.push()`)
+4. Agents (via `agentResource.push()`)
+5. Connectors (via `pushConnectors()`) -- may return OAuth redirect URLs
+6. Site (if `site.outputDirectory` is configured)
 
 ```bash
 base44 deploy        # With confirmation prompt

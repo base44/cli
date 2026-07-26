@@ -8,6 +8,7 @@
       "allowed_operations": ["read", "create", "update", "delete"]
     }
   ],
+  "selected_skill_names": ["weekly-report"],
   // Optional: let the agent remember facts across conversations.
   // scope: "user" (per end-user), "global" (shared), or "both".
   "memory_config": {
