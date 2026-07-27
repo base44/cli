@@ -6,6 +6,10 @@
 
 - App visibility: `base44 visibility <public|private|workspace>` sets it on the server directly (accepts `--app-id` to target any app). Also configurable via `"visibility"` in `config.jsonc`, which `base44 deploy` applies. New projects scaffold `"visibility": "public"`.
 
+### Fixed
+
+- Newly scaffolded apps talk to the local dev backend under `base44 dev`: the generated client reads the `VITE_BASE44_APP_BASE_URL` env var the dev server injects, falling back to the production server when unset (e.g. plain `npm run dev`).
+
 ## [0.0.51] - 2026-04-28
 
 ### Added

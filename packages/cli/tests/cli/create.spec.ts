@@ -76,6 +76,34 @@ describe("create command", () => {
     expect(config).toContain('"visibility": "public"');
   });
 
+  it("scaffolds a client that targets the dev server URL injected by base44 dev", async () => {
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    t.api.mockCreateApp({ id: "dev-url-app-id", name: "Dev Url App" });
+
+    const projectPath = join(t.getTempDir(), "dev-url-app");
+
+    const result = await t.run(
+      "create",
+      "Dev Url App",
+      "--path",
+      projectPath,
+      "--template",
+      "backend-and-client",
+      "--no-skills",
+    );
+
+    t.expectResult(result).toSucceed();
+
+    const client = await readFile(
+      join(projectPath, "src", "api", "base44Client.js"),
+      "utf-8",
+    );
+    expect(client).toContain("dev-url-app-id");
+    expect(client).toContain(
+      "serverUrl: import.meta.env.VITE_BASE44_APP_BASE_URL || undefined",
+    );
+  });
+
   it("infers path from name when --path is not provided", async () => {
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
     t.api.mockCreateApp({ id: "inferred-path-id", name: "My App" });
