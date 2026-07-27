@@ -241,6 +241,81 @@ describe("dev command", () => {
     t.expectResult(result).toSucceed();
   });
 
+  // An app written entirely against the legacy Deno surface must keep working
+  // untouched now that the wrapper also serves default exports.
+  describe("existing Deno-syntax app", () => {
+    const cases = [
+      { fn: "classic", shape: "serve(handler)" },
+      { fn: "serve-options", shape: "serve(options, handler)" },
+      { fn: "serve-object", shape: "serve({ handler })" },
+    ];
+
+    for (const { fn, shape } of cases) {
+      it(`serves a function using Deno.${shape}`, async () => {
+        await t.givenLoggedInWithProject(fixture("legacy-deno-app"));
+        t.givenEnv({ LEGACY_APP_SECRET: "legacy-env-value" });
+
+        const handle = await t.runLive("dev");
+        const devServerUrl = await waitForDevServer(handle);
+
+        const response = await fetch(
+          `${devServerUrl}/api/apps/${t.api.appId}/functions/${fn}`,
+          { headers: { "X-App-Id": t.api.appId } },
+        );
+
+        expect(response.status).toBe(200);
+        const body = (await response.json()) as Record<string, unknown>;
+        expect(body.shape).toBe(shape);
+
+        const result = await handle.stop();
+        t.expectResult(result).toSucceed();
+      });
+    }
+
+    it("still reads Deno.env and receives the injected service token", async () => {
+      await t.givenLoggedInWithProject(fixture("legacy-deno-app"));
+      t.givenEnv({ LEGACY_APP_SECRET: "legacy-env-value" });
+
+      const handle = await t.runLive("dev");
+      const devServerUrl = await waitForDevServer(handle);
+
+      const response = await fetch(
+        `${devServerUrl}/api/apps/${t.api.appId}/functions/classic`,
+        { headers: { "X-App-Id": t.api.appId } },
+      );
+
+      const body = (await response.json()) as Record<string, unknown>;
+      expect(body.secret).toBe("legacy-env-value");
+      expect(body.serviceAuth).toBe(true);
+
+      const result = await handle.stop();
+      t.expectResult(result).toSucceed();
+    });
+
+    it("resolves shared/ and sibling imports", async () => {
+      await t.givenLoggedInWithProject(fixture("legacy-deno-app"));
+
+      const handle = await t.runLive("dev");
+      const devServerUrl = await waitForDevServer(handle);
+
+      const response = await fetch(
+        `${devServerUrl}/api/apps/${t.api.appId}/functions/shared-import`,
+        { headers: { "X-App-Id": t.api.appId } },
+      );
+
+      expect(response.status).toBe(200);
+      const body = (await response.json()) as Record<string, unknown>;
+      expect(body).toMatchObject({
+        shape: "shared",
+        version: "legacy-1",
+        sibling: "sibling-ok",
+      });
+
+      const result = await handle.stop();
+      t.expectResult(result).toSucceed();
+    });
+  });
+
   it("allows service-role JWTs to bypass denied entity create RLS", async () => {
     await t.givenLoggedInWithProject(fixture("with-private-note-entity"));
 

@@ -1,0 +1,92 @@
+{
+  "version": "5",
+  "specifiers": {
+    "jsr:@std/internal@^1.0.14": "1.0.14",
+    "jsr:@std/path@1": "1.1.6"
+  },
+  "jsr": {
+    "@std/internal@1.0.14": {
+      "integrity": "291516b3d4c35024d6ffbc0a9df5bf4c64116e05b50012cf846710152d2ffdf7"
+    },
+    "@std/path@1.1.6": {
+      "integrity": "c68485c2a4dfbb5ae3cc74fae4e8c4e5d874cf8a8ed12927917235c758b46cbe",
+      "dependencies": [
+        "jsr:@std/internal"
+      ]
+    }
+  },
+  "workspace": {
+    "packageJson": {
+      "dependencies": [
+        "npm:@biomejs/biome@2",
+        "npm:knip@^5.83.1"
+      ]
+    },
+    "members": {
+      "packages/cli": {
+        "packageJson": {
+          "dependencies": [
+            "npm:@base44/sdk@~0.8.23",
+            "npm:@clack/prompts@^1.0.1",
+            "npm:@seald-io/nedb@^4.1.2",
+            "npm:@types/bun@^1.2.15",
+            "npm:@types/common-tags@^1.8.4",
+            "npm:@types/cors@^2.8.19",
+            "npm:@types/deno@^2.5.0",
+            "npm:@types/ejs@^3.1.5",
+            "npm:@types/express@^5.0.6",
+            "npm:@types/json-schema@^7.0.15",
+            "npm:@types/jsonwebtoken@^9.0.10",
+            "npm:@types/lodash@^4.17.24",
+            "npm:@types/ms@^2.1.0",
+            "npm:@types/multer@2",
+            "npm:@types/node@^22.10.5",
+            "npm:@vercel/detect-agent@^1.1.0",
+            "npm:chalk@^5.6.2",
+            "npm:chokidar@5",
+            "npm:commander@^12.1.0",
+            "npm:common-tags@^1.8.2",
+            "npm:cors@^2.8.5",
+            "npm:dotenv@17.3.1",
+            "npm:ejs@^3.1.10",
+            "npm:execa@^9.6.1",
+            "npm:express@^5.0.1",
+            "npm:front-matter@^4.0.2",
+            "npm:get-port@^7.1.0",
+            "npm:globby@^16.1.0",
+            "npm:http-proxy-middleware@^3.0.5",
+            "npm:json-schema-to-typescript@^15.0.4",
+            "npm:json5@^2.2.3",
+            "npm:jsonwebtoken@^9.0.3",
+            "npm:ky@^1.14.2",
+            "npm:lodash@^4.17.23",
+            "npm:ms@^2.1.3",
+            "npm:multer@2",
+            "npm:nanoid@^5.1.6",
+            "npm:open@11",
+            "npm:outdent@0.8",
+            "npm:p-wait-for@6",
+            "npm:posthog-node@5.21.2",
+            "npm:qs@^6.12.3",
+            "npm:socket.io@^4.8.3",
+            "npm:strip-ansi@^7.1.2",
+            "npm:tar@^7.5.4",
+            "npm:tmp-promise@^3.0.3",
+            "npm:typescript@^5.7.2",
+            "npm:vitest@^4.0.16",
+            "npm:yaml@^2.8.2",
+            "npm:zod@^4.3.5"
+          ]
+        }
+      },
+      "packages/logger": {
+        "packageJson": {
+          "dependencies": [
+            "npm:@clack/prompts@^1.0.1",
+            "npm:typescript@^5.7.2"
+          ]
+        }
+      }
+    }
+  }
+}
