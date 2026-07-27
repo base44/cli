@@ -71,4 +71,4 @@ The signatures match the deployed module: `secrets.get(name): string | undefined
 
 Deployed on Cloudflare, the bundler serves `base44:runtime` as a virtual module and invokes the function's default-export handler — the same contract this wrapper implements, so a function behaves the same locally and deployed.
 
-The exception is an app whose backend project is still activated on `v1`/`v2`. There is no bundler on that path, so `base44:runtime` will not resolve and a default-export handler is never served — while both work locally. New apps activate on Cloudflare, so this affects already-activated projects only.
+The exception is an app whose backend project is still activated on `v1`/`v2`. There is no bundler on that deploy path, so `base44:runtime` will not resolve and a default-export handler is never served — even though both work under `base44 dev` (on either local runtime). New apps activate on Cloudflare, so this affects already-activated projects only.
