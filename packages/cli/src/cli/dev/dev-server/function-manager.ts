@@ -4,7 +4,6 @@ import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import getPort from "get-port";
 import type { DevLogger } from "@/cli/dev/createDevLogger.js";
-import { buildImportMapArg } from "@/cli/dev/dev-server/import-map.js";
 import { InternalError, InvalidInputError } from "@/core/errors.js";
 import type { BackendFunction } from "@/core/resources/function/schema.js";
 import { verifyDenoInstalled } from "@/core/utils/index.js";
@@ -129,17 +128,17 @@ export class FunctionManager {
     // written for the deployed runtime resolve their imports here too. Shipped
     // alongside the wrapper in the same assets directory.
     //
-    // Merged with the project's own Deno import map rather than passed
-    // directly: Deno honours exactly one, so overriding would break aliases
-    // that resolve today.
-    const importMapArg = buildImportMapArg(
-      join(dirname(this.wrapperPath), "import-map.json"),
-      globalThis.process.cwd(),
-    );
+    // Deliberately only this map, not merged with the project's own deno.json.
+    // Deno never applied that config here anyway — it resolves config from the
+    // entry point, which is this wrapper, outside the project — and deploy
+    // uploads only files under `base44/`, so a project-level alias could never
+    // resolve server-side. Supporting one locally would mean code that runs in
+    // `base44 dev` and fails on deploy.
+    const importMapPath = join(dirname(this.wrapperPath), "import-map.json");
 
     const process = spawn(
       "deno",
-      ["run", "--allow-all", "--import-map", importMapArg, this.wrapperPath],
+      ["run", "--allow-all", "--import-map", importMapPath, this.wrapperPath],
       {
         env: {
           ...globalThis.process.env,

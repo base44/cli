@@ -49,9 +49,11 @@ A module that calls `Deno.serve` while being imported serves itself, and its def
 
 Deployed functions import secrets and post-response helpers from `base44:runtime`. That module does not exist on a developer machine, so `import-map.json` maps the specifier onto `base44-runtime.ts`.
 
-Deno honours exactly one import map, so this one is **merged with the project's own** rather than handed over directly — see `src/cli/dev/dev-server/import-map.ts`. If the project has a `deno.json` or `deno.jsonc`, its `imports` and `scopes` are read and combined with the Base44 entries, and every relative specifier is made absolute first (relative entries resolve against the file that declared them, so combining two maps without absolutising would silently re-point them). Base44 entries win on conflict, so a project cannot repoint `base44:runtime` away from the shim. The merged map is passed as a `data:` URL, so nothing is written to disk.
+`function-manager.ts` passes it to Deno with `--import-map`, and passes **only** this map — it is not merged with the project's own `deno.json`.
 
-Without this merge, supplying our import map would override the project's and break aliases that resolve today.
+That is deliberate. Deno resolves its config from the entry point, which is this wrapper inside the assets directory, so a project-level `deno.json` was never applied to locally run functions in the first place. It also could not work deployed: `loadFunctionCode` uploads only files under the function directory and `base44/shared/`, and the bundler writes its own `deno.json`, so a project-root alias has nothing to resolve against server-side. Supporting one locally would mean code that runs under `base44 dev` and fails on deploy.
+
+`--import-map` is still preferred over `--config`, which would additionally suppress discovery of a project `deno.json` for everything else it configures.
 
 The signatures match the deployed module (`infra/base44-userapp-bundler/src/runtime/` in `base44-dev/apper`): `secrets.get(name): string | undefined` and `waitUntil<T>(promise: Promise<T>): Promise<T>`. Only where the value comes from differs:
 

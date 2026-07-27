@@ -69,7 +69,7 @@ Deploy ships file contents verbatim — the source is never parsed or linted —
 - `export default async function (req) { ... }` — matches the deployed runtime.
 - `Deno.serve(handler)` — legacy, still accepted. A module that calls `Deno.serve` while being imported serves itself and its default export is ignored.
 
-Entry files may also import `secrets` and `waitUntil` from `base44:runtime`. That module has no on-disk existence locally; `base44 dev` supplies it via an import map, merged with the project's own `deno.json` so existing aliases keep resolving. Either handler shape can be combined with either secrets API (`base44:runtime` or `Deno.env`). See [`packages/cli/backend-runtime/README.md`](../packages/cli/backend-runtime/README.md) for the local implementation and its two intentional differences from production.
+Entry files may also import `secrets` and `waitUntil` from `base44:runtime`. That module has no on-disk existence locally; `base44 dev` supplies it via an import map. Either handler shape can be combined with either secrets API (`base44:runtime` or `Deno.env`). A project-level `deno.json` import map is not applied to functions — locally or deployed — since only files under `base44/` are uploaded. See [`packages/cli/backend-runtime/README.md`](../packages/cli/backend-runtime/README.md) for the local implementation and its intentional differences from production.
 
 ## Site Module (Not a Resource)
 

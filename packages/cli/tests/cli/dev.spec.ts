@@ -212,35 +212,6 @@ describe("dev command", () => {
     t.expectResult(result).toSucceed();
   });
 
-  it("merges the project's own Deno import map instead of overriding it", async () => {
-    await t.givenLoggedInWithProject(fixture("with-project-deno-config"));
-
-    const handle = await t.runLive("dev");
-    const devServerUrl = await waitForDevServer(handle);
-
-    const response = await fetch(
-      `${devServerUrl}/api/apps/${t.api.appId}/functions/hello`,
-      {
-        headers: {
-          "X-App-Id": t.api.appId,
-        },
-      },
-    );
-
-    expect(response.status).toBe(200);
-    const body = (await response.json()) as Record<string, unknown>;
-    // The project's own `deno.json` alias still resolves — supplying our
-    // import map must not replace theirs.
-    expect(body.greeting).toBe("from-project-alias");
-    // The legacy Deno API is untouched...
-    expect(body.denoEnv).toBe("readable");
-    // ...while `base44:runtime` resolves in the very same function.
-    expect(body.runtimeSecrets).toBe("function");
-
-    const result = await handle.stop();
-    t.expectResult(result).toSucceed();
-  });
-
   // An app written entirely against the legacy Deno surface must keep working
   // untouched now that the wrapper also serves default exports.
   describe("existing Deno-syntax app", () => {
