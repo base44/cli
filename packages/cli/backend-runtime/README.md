@@ -22,30 +22,24 @@ This wrapper is started by `base44 dev` when the workerd runtime is unavailable 
 
 | File | Purpose |
 | --- | --- |
-| `main.ts` | Wrapper that `base44 dev` runs per function. Patches `Deno.serve` to inject the CLI-allocated port, imports the user's entry file, and serves its handler. |
+| `main.ts` | Wrapper that `base44 dev` runs per function. Imports the user's entry file and serves its handler on the CLI-allocated port. |
 | `exec.ts` | Wrapper for `base44 exec`. Exposes a pre-authenticated `base44` client as a global, then imports the user's script. |
 | `base44-runtime.ts` | Local implementation of the `base44:runtime` module. |
 | `import-map.json` | Maps the `base44:runtime` specifier onto `base44-runtime.ts`. |
 
 `main.ts`, `import-map.json`, and `base44-runtime.ts` must stay in the same directory — `function-manager.ts` locates the import map relative to the wrapper.
 
-## Supported handler shapes
+## Handler contract
 
-Both are supported, and a function may mix either handler shape with either secrets API.
+A function default-exports an async request handler:
 
 ```ts
-// Preferred — matches the deployed runtime.
 export default async function (req: Request): Promise<Response> {
   return Response.json({ ok: true });
 }
 ```
 
-```ts
-// Legacy — still accepted.
-Deno.serve((req: Request) => Response.json({ ok: true }));
-```
-
-A module that calls `Deno.serve` while being imported serves itself, and its default export is ignored. This mirrors the deployed bundler's precedence. If a module neither calls `Deno.serve` nor exports a handler, the wrapper exits with a clear error rather than hanging until the dev server's readiness timeout.
+A module that exports no handler exits with a clear error rather than hanging until the dev server's readiness timeout.
 
 ## The `base44:runtime` module
 
@@ -75,6 +69,6 @@ The signatures match the deployed module: `secrets.get(name): string | undefined
 
 ## Relationship to the deployed runtime
 
-Deployed on Cloudflare, both conventions are supported the same way: the bundler injects a full `globalThis.Deno` (`@deno/shim-deno`) whose `serve` captures the handler rather than listening, and serves `base44:runtime` as a virtual module. When a function both calls `Deno.serve` and exports a default, the `Deno.serve` capture wins. This wrapper mirrors that precedence, so a function behaves the same locally and deployed.
+Deployed on Cloudflare, the bundler serves `base44:runtime` as a virtual module and invokes the function's default-export handler — the same contract this wrapper implements, so a function behaves the same locally and deployed.
 
-The exception is a legacy app whose backend project is still activated on `v1`/`v2`. There is no bundler on that path, so `base44:runtime` will not resolve and a default-export handler is never served — while both work here. New apps activate on Cloudflare, so this affects already-activated projects only.
+The exception is an app whose backend project is still activated on `v1`/`v2`. There is no bundler on that path, so `base44:runtime` will not resolve and a default-export handler is never served — while both work locally. New apps activate on Cloudflare, so this affects already-activated projects only.

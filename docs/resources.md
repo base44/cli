@@ -64,12 +64,11 @@ If both exist in the same folder (e.g. `function.jsonc` and `entry.ts`), the con
 
 ### Entry file contract
 
-Deploy ships file contents verbatim — the source is never parsed or linted — so this contract is enforced only when running locally. An entry file exposes its handler in one of two ways:
+Deploy ships file contents verbatim — the source is never parsed or linted — so this contract is enforced only when running locally. An entry file default-exports an async request handler:
 
-- `export default async function (req) { ... }` — matches the deployed runtime.
-- `Deno.serve(handler)` — legacy, still accepted. A module that calls `Deno.serve` while being imported serves itself and its default export is ignored.
+- `export default async function (req) { ... }` — takes a `Request`, returns a `Response`.
 
-Entry files may also import `secrets` and `waitUntil` from `base44:runtime`. Locally, `base44 dev` runs functions on workerd via Miniflare by default — each function is bundled with esbuild + `@deno/loader` (`src/cli/dev/dev-server/function-bundler.ts`), with `base44:runtime` served as a virtual module, secrets as real Worker env bindings and `waitUntil` riding `ctx.waitUntil`. The Deno wrapper remains as a fallback (compiled binaries, `B44_DEV_FUNCTIONS_RUNTIME=deno`) and supplies `base44:runtime` via an import map there. Either handler shape can be combined with either secrets API (`base44:runtime` or `Deno.env`). A project-level `deno.json` import map is not applied to functions — locally or deployed — since only files under `base44/` are uploaded. See [`packages/cli/backend-runtime/README.md`](../packages/cli/backend-runtime/README.md) for the local implementation and its intentional differences from production.
+Entry files may also import `secrets` and `waitUntil` from `base44:runtime`. Locally, `base44 dev` runs functions on workerd via Miniflare by default — each function is bundled with esbuild + `@deno/loader` (`src/cli/dev/dev-server/function-bundler.ts`), with `base44:runtime` served as a virtual module, secrets as real Worker env bindings and `waitUntil` riding `ctx.waitUntil`. A fallback runtime covers installations where workerd is unavailable (compiled binaries, `B44_DEV_FUNCTIONS_RUNTIME=deno`) and supplies `base44:runtime` via an import map. A project-level `deno.json` import map is not applied to functions — locally or deployed — since only files under `base44/` are uploaded. See [`packages/cli/backend-runtime/README.md`](../packages/cli/backend-runtime/README.md) for the local implementation and its intentional differences from production.
 
 ## Site Module (Not a Resource)
 
