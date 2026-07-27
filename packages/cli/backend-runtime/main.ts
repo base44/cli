@@ -20,6 +20,8 @@
 // Make this file a module for top-level await support
 export {};
 
+import type { Base44Bridge } from "./base44-runtime.ts";
+
 const functionPath = Deno.env.get("FUNCTION_PATH");
 const port = parseInt(Deno.env.get("FUNCTION_PORT") || "8000", 10);
 const functionName = Deno.env.get("FUNCTION_NAME") || "unknown";
@@ -78,6 +80,37 @@ const patchedServe = (
 Object.defineProperty(Deno, "serve", {
   value: patchedServe,
   writable: true,
+  configurable: true,
+});
+
+// Local stand-in for the bridge the deployed Worker entry installs. It must be
+// in place before the function is imported, because module-scope code may read
+// a secret. Deployed, secrets come from the request's Worker env binding and
+// `waitUntil` rides `ctx.waitUntil`; locally secrets come from this process's
+// environment and the server is long-lived, so there is nothing to hold open —
+// in-flight work is only tracked so a rejection is reported against the
+// function instead of surfacing as an unhandled rejection.
+const inFlight = new Set<Promise<unknown>>();
+
+const base44Bridge: Base44Bridge = {
+  secrets: {
+    get: (name: string) => Deno.env.get(name),
+  },
+  waitUntil: (promise: Promise<unknown>) => {
+    const tracked = Promise.resolve(promise)
+      .catch((error: unknown) => {
+        console.error(`[${functionName}] waitUntil task failed:`, error);
+      })
+      .finally(() => {
+        inFlight.delete(tracked);
+      });
+    inFlight.add(tracked);
+  },
+};
+
+Object.defineProperty(globalThis, "Base44", {
+  value: base44Bridge,
+  writable: false,
   configurable: true,
 });
 

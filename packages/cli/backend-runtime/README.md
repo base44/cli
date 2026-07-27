@@ -55,7 +55,18 @@ That is deliberate. Deno resolves its config from the entry point, which is this
 
 `--import-map` is still preferred over `--config`, which would additionally suppress discovery of a project `deno.json` for everything else it configures.
 
-The signatures match the deployed module (`infra/base44-userapp-bundler/src/runtime/` in `base44-dev/apper`): `secrets.get(name): string | undefined` and `waitUntil<T>(promise: Promise<T>): Promise<T>`. Only where the value comes from differs:
+### Architecture — a delegator over a host bridge
+
+`base44-runtime.ts` mirrors the deployed module (`infra/base44-userapp-bundler/src/runtime/` in `base44-dev/apper`): it holds no state and reads no environment. Both exports delegate to a `globalThis.Base44` bridge that the **host** installs before the function is loaded — `main.ts` here, the generated Worker entry when deployed.
+
+| | host | secrets source | `waitUntil` |
+| --- | --- | --- | --- |
+| deployed | generated Worker entry | request's Worker env binding (per-request `AsyncLocalStorage`) | `ctx.waitUntil` |
+| local | `main.ts` | this process's environment | tracked; rejections logged |
+
+Keeping both sides the same shape means a change to what a secret *is* only touches the host, never the module — so swapping the local source (say, to fetched secrets) needs no change to `base44-runtime.ts`. The bridge is installed before the dynamic import, so a secret read at module scope works. Importing `base44:runtime` with no bridge present throws a clear error rather than failing obscurely.
+
+The signatures match the deployed module: `secrets.get(name): string | undefined` and `waitUntil<T>(promise: Promise<T>): Promise<T>`. Only where the value comes from differs:
 
 - **`secrets.get(name)`** reads the environment `base44 dev` was started with, where deployed it reads the Worker env binding of the current request. Values stored with `base44 secrets set` are deliberately not fetched, so a production secret is never copied onto a developer machine — export the variable in your shell instead. An unset name reads as `undefined`, as deployed; it does not throw. Deployed, a few reserved names are filtered to `undefined`, which is not reproduced locally.
 - **`waitUntil(promise)`** has nothing to hold open locally, since the function is a long-lived server process, where deployed it rides `ctx.waitUntil`. The promise is tracked only so a rejection is reported against the function instead of surfacing as an unhandled rejection. It returns the same promise either way, so it composes.
