@@ -68,7 +68,7 @@ async function promptForLinkAction(): Promise<LinkAction> {
   actionOptions.push({
     value: "choose",
     label: "Link an existing project",
-    hint: "Choose from one of your available projects previously created by the Base44 CLI",
+    hint: "Choose from one of your existing Base44 apps",
   });
 
   const action = await select({
@@ -115,15 +115,11 @@ async function promptForNewProjectDetails() {
   };
 }
 
-async function promptForExistingProject(
-  linkableProjects: Project[],
-): Promise<Project> {
-  const projectOptions: PromptOption<Project>[] = linkableProjects.map(
-    (project) => ({
-      value: project,
-      label: project.name,
-    }),
-  );
+async function promptForExistingProject(projects: Project[]): Promise<Project> {
+  const projectOptions: PromptOption<Project>[] = projects.map((project) => ({
+    value: project,
+    label: project.name,
+  }));
 
   const selectedProject = await select({
     message: "Choose a project to link",
@@ -192,36 +188,28 @@ async function link(
       },
     );
 
-    const linkableProjects = projects.filter(
-      (p) => p.isManagedSourceCode !== true,
-    );
-
-    if (!linkableProjects.length) {
+    if (!projects.length) {
       return { outroMessage: "No projects available for linking" };
     }
 
     let linkedAppId: string;
 
     if (appId) {
-      // Validate that the provided app ID exists and is linkable
-      const project = linkableProjects.find((p) => p.id === appId);
+      const project = projects.find((p) => p.id === appId);
       if (!project) {
-        throw new InvalidInputError(
-          `App with ID "${appId}" not found or not available for linking.`,
-          {
-            hints: [
-              { message: "Check the app ID is correct" },
-              {
-                message:
-                  "Use 'base44 link' without --app-id to see available projects",
-              },
-            ],
-          },
-        );
+        throw new InvalidInputError(`App with ID "${appId}" not found.`, {
+          hints: [
+            { message: "Check the app ID is correct" },
+            {
+              message:
+                "Use 'base44 link' without --app-id to see available projects",
+            },
+          ],
+        });
       }
       linkedAppId = appId;
     } else {
-      const selectedProject = await promptForExistingProject(linkableProjects);
+      const selectedProject = await promptForExistingProject(projects);
       linkedAppId = selectedProject.id;
     }
 

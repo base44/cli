@@ -65,6 +65,23 @@ describe("link command", () => {
     expect(appConfig).toContain("existing-app-id");
   });
 
+  it("links an editor-created app (managed source code)", async () => {
+    await t.givenLoggedInWithProject(fixture("no-app-config"));
+    t.api.mockListProjects([
+      {
+        id: "editor-app-id",
+        name: "Editor App",
+        is_managed_source_code: true,
+      },
+    ]);
+
+    const result = await t.run("link", "--app-id", "editor-app-id");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Project linked");
+    t.expectResult(result).toContain("editor-app-id");
+  });
+
   it("links an existing app with legacy --project-id", async () => {
     await t.givenLoggedInWithProject(fixture("no-app-config"));
     t.api.mockListProjects([
