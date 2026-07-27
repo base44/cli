@@ -6,6 +6,10 @@
 
 - App visibility: `base44 visibility <public|private|workspace>` sets it on the server directly (accepts `--app-id` to target any app). Also configurable via `"visibility"` in `config.jsonc`, which `base44 deploy` applies. New projects scaffold `"visibility": "public"`.
 
+### Changed
+
+- The `backend-and-client` template now scaffolds the same client convention editor-created apps use: `@base44/vite-plugin` + `src/lib/app-params.js`, with the SDK client on same-origin `/api` (`serverUrl: ''`). Under `base44 dev` the plugin proxies `/api` to the local dev backend, so scaffolded apps get local entities and functions; the app id resolves from env / `base44/.app.jsonc` instead of being baked into source.
+
 ### Fixed
 
 - `base44 link` now lists editor-created apps; previously only apps created by the CLI could be linked.
