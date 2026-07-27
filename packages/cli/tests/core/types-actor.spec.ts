@@ -70,13 +70,10 @@ describe("actor type generation", () => {
     expect(out).toContain(
       '"GameRoom": { toClient: GameRoomToClientInit | GameRoomToClientDied; toServer: GameRoomToServerDir }',
     );
-    // The bundler-served virtual module is mapped to the SDK's actor exports so
-    // `import { Actor } from "base44:runtime/actors"` typechecks (ActorRegistry
-    // carries the app-specific augmentation).
+    // The bundler-served virtual module exports ONLY the Actor base class (the
+    // one value whose runtime the bundler swaps); pure types come from the SDK.
     expect(out).toContain("declare module 'base44:runtime/actors'");
-    expect(out).toContain(
-      "export { Actor, type Conn, type ActorRegistry } from '@base44/sdk'",
-    );
+    expect(out).toContain("export { Actor } from '@base44/sdk'");
     // Output is valid TS: no `export interface` spliced inside a type literal
     // (the failure mode of the old regex-based extraction).
     expect(out).not.toMatch(/\{[^}]*export interface/);
