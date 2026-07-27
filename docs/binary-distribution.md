@@ -1,6 +1,6 @@
 # Binary Distribution
 
-**Keywords:** binary, binaries, homebrew, brew, standalone, compile, bun build, assets, templates, deno-runtime, checksums, archive, tar.gz
+**Keywords:** binary, binaries, homebrew, brew, standalone, compile, bun build, assets, templates, backend-runtime, checksums, archive, tar.gz
 
 The CLI is distributed in two ways: as an npm package (`base44`) and as standalone compiled binaries for Homebrew / direct download.
 
@@ -9,7 +9,7 @@ The CLI is distributed in two ways: as an npm package (`base44`) and as standalo
 The binary release pipeline has two steps:
 
 1. **`infra/build-binaries.ts`** — compiles self-contained executables using `bun build --compile`:
-   - Creates `dist/assets.tar.gz` from **dist/assets/** (templates + deno-runtime)
+   - Creates `dist/assets.tar.gz` from **dist/assets/** (templates + backend-runtime)
    - Cross-compiles for 5 targets (macOS arm64/x64, Linux arm64/x64, Windows x64)
 
 2. **`infra/package-binaries.ts`** — packages each binary for release:

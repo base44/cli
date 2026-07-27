@@ -4,6 +4,13 @@
  * This script is executed by Deno to run user functions.
  * It patches Deno.serve to inject a dynamic port before importing the user's function.
  *
+ * Two handler shapes are supported:
+ * - `export default async function (req) { ... }` — the shape the deployed
+ *   runtime expects. The wrapper serves it after importing the module.
+ * - `Deno.serve(handler)` — the legacy shape. A module that calls Deno.serve
+ *   while being imported serves itself and its default export is ignored,
+ *   mirroring the deployed bundler's precedence.
+ *
  * Environment variables:
  * - FUNCTION_PATH: Absolute path to the user's function entry file
  * - FUNCTION_PORT: Port number for the function to listen on
@@ -25,6 +32,10 @@ if (!functionPath) {
 // Store the original Deno.serve
 const originalServe = Deno.serve.bind(Deno);
 
+// Set when the user's module calls Deno.serve while it is being imported.
+// Such a module serves itself, so its default export (if any) is ignored.
+let servedDuringImport = false;
+
 // Patch Deno.serve to inject our port and add onListen callback.
 const patchedServe = (
   optionsOrHandler:
@@ -33,6 +44,8 @@ const patchedServe = (
     | (Deno.ServeOptions & { handler: Deno.ServeHandler }),
   maybeHandler?: Deno.ServeHandler,
 ): Deno.HttpServer<Deno.NetAddr> => {
+  servedDuringImport = true;
+
   const onListen = () => {
     // This message is used by FunctionManager to detect when the function is ready
     console.log(`[${functionName}] Listening on http://localhost:${port}`);
@@ -68,13 +81,56 @@ Object.defineProperty(Deno, "serve", {
   configurable: true,
 });
 
+type FetchHandler = (req: Request) => Response | Promise<Response>;
+
+/**
+ * Pull the request handler off the user's module namespace, accepting both
+ * `export default async function (req)` and the `export default { fetch }`
+ * object form.
+ */
+const resolveDefaultHandler = (
+  module: Record<string, unknown>,
+): FetchHandler | null => {
+  const exported = module.default;
+
+  if (typeof exported === "function") {
+    return exported as FetchHandler;
+  }
+
+  if (exported && typeof exported === "object") {
+    const { fetch } = exported as { fetch?: unknown };
+    if (typeof fetch === "function") {
+      return (fetch as FetchHandler).bind(exported);
+    }
+  }
+
+  return null;
+};
+
 console.log(`[${functionName}] Starting function from ${functionPath}`);
 
-// Dynamically import the user's function
-// The function will call Deno.serve which is now patched to use our port
+// Dynamically import the user's function. A legacy function calls Deno.serve
+// during import, which is now patched to use our port.
+let functionModule: Record<string, unknown>;
 try {
-  await import(functionPath);
+  functionModule = await import(functionPath);
 } catch (error) {
   console.error(`[${functionName}] Failed to load function:`, error);
   Deno.exit(1);
+}
+
+// Nothing served itself during import, so the module is expected to export a
+// handler. Serving it here goes through the same patched Deno.serve, so the
+// readiness line still gets printed exactly once.
+if (!servedDuringImport) {
+  const handler = resolveDefaultHandler(functionModule);
+
+  if (!handler) {
+    console.error(
+      `[${functionName}] No request handler found. Export one with \`export default async function (req) { ... }\`.`,
+    );
+    Deno.exit(1);
+  }
+
+  Deno.serve(handler);
 }

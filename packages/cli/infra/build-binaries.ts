@@ -4,7 +4,7 @@
  * Prerequisites: run `bun run build` first so that dist/cli/ and dist/assets/ exist.
  *
  * Steps:
- *   1. Create dist/assets.tar.gz from dist/assets/ (templates + deno-runtime)
+ *   1. Create dist/assets.tar.gz from dist/assets/ (templates + backend-runtime)
  *   2. Cross-compile for each platform with `bun build --compile`
  *
  * After this, run `bun run package:binaries` to archive and checksum.
@@ -53,7 +53,9 @@ const WINDOWS_ICON = join(ROOT, "infra", "base44.ico");
 for (const required of [
 	"dist/cli/index.js",
 	"dist/assets/templates/templates.json",
-	"dist/assets/deno-runtime/main.ts",
+	"dist/assets/backend-runtime/main.ts",
+	"dist/assets/backend-runtime/import-map.json",
+	"dist/assets/backend-runtime/base44-runtime.ts",
 ]) {
 	if (!existsSync(join(ROOT, required))) {
 		console.error(

@@ -1,8 +1,10 @@
 import type { ChildProcess } from "node:child_process";
 import { spawn } from "node:child_process";
+import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import getPort from "get-port";
 import type { DevLogger } from "@/cli/dev/createDevLogger.js";
+import { buildImportMapArg } from "@/cli/dev/dev-server/import-map.js";
 import { InternalError, InvalidInputError } from "@/core/errors.js";
 import type { BackendFunction } from "@/core/resources/function/schema.js";
 import { verifyDenoInstalled } from "@/core/utils/index.js";
@@ -123,15 +125,31 @@ export class FunctionManager {
   private spawnFunction(func: BackendFunction, port: number): ChildProcess {
     this.logger.log(`Spawning function "${func.name}" on port ${port}`);
 
-    const process = spawn("deno", ["run", "--allow-all", this.wrapperPath], {
-      env: {
-        ...globalThis.process.env,
-        FUNCTION_PATH: pathToFileURL(func.entryPath).href,
-        FUNCTION_PORT: String(port),
-        FUNCTION_NAME: func.name,
+    // Maps the `base44:runtime` specifier onto the local shim so functions
+    // written for the deployed runtime resolve their imports here too. Shipped
+    // alongside the wrapper in the same assets directory.
+    //
+    // Merged with the project's own Deno import map rather than passed
+    // directly: Deno honours exactly one, so overriding would break aliases
+    // that resolve today.
+    const importMapArg = buildImportMapArg(
+      join(dirname(this.wrapperPath), "import-map.json"),
+      globalThis.process.cwd(),
+    );
+
+    const process = spawn(
+      "deno",
+      ["run", "--allow-all", "--import-map", importMapArg, this.wrapperPath],
+      {
+        env: {
+          ...globalThis.process.env,
+          FUNCTION_PATH: pathToFileURL(func.entryPath).href,
+          FUNCTION_PORT: String(port),
+          FUNCTION_NAME: func.name,
+        },
+        stdio: ["pipe", "pipe", "pipe"],
       },
-      stdio: ["pipe", "pipe", "pipe"],
-    });
+    );
 
     return process;
   }
@@ -201,7 +219,7 @@ export class FunctionManager {
 
       const onData = (data: Buffer) => {
         const output = data.toString();
-        // We relay on the fact that logic in `deno-runtime/main.ts` will print `Listening on` when function is up and ready.
+        // We relay on the fact that logic in `backend-runtime/main.ts` will print `Listening on` when function is up and ready.
         if (output.includes("Listening on")) {
           runningFunc.ready = true;
           clearTimeout(timeout);

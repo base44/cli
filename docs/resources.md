@@ -62,6 +62,15 @@ Functions are read from the project's functions directory (e.g. `base44/function
 
 If both exist in the same folder (e.g. `function.jsonc` and `entry.ts`), the config wins: the function is loaded from the config and the name/entry come from the config file. Duplicate function names (same path or same config name) cause an error.
 
+### Entry file contract
+
+Deploy ships file contents verbatim — the source is never parsed or linted — so this contract is enforced only when running locally. An entry file exposes its handler in one of two ways:
+
+- `export default async function (req) { ... }` — matches the deployed runtime.
+- `Deno.serve(handler)` — legacy, still accepted. A module that calls `Deno.serve` while being imported serves itself and its default export is ignored.
+
+Entry files may also import `secrets` and `waitUntil` from `base44:runtime`. That module has no on-disk existence locally; `base44 dev` supplies it via an import map, merged with the project's own `deno.json` so existing aliases keep resolving. Either handler shape can be combined with either secrets API (`base44:runtime` or `Deno.env`). See [`packages/cli/backend-runtime/README.md`](../packages/cli/backend-runtime/README.md) for the local implementation and its two intentional differences from production.
+
 ## Site Module (Not a Resource)
 
 The site module at `packages/cli/src/core/site/` handles deploying built frontend files. It follows a different pattern than resources:
