@@ -2,9 +2,9 @@ import type { ChildProcess } from "node:child_process";
 import { spawn } from "node:child_process";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
-import getPort from "get-port";
 import type { DevLogger } from "@/cli/dev/createDevLogger.js";
-import { InternalError, InvalidInputError } from "@/core/errors.js";
+import { BaseFunctionManager } from "@/cli/dev/dev-server/base-function-manager.js";
+import { InternalError } from "@/core/errors.js";
 import type { BackendFunction } from "@/core/resources/function/schema.js";
 import { verifyDenoInstalled } from "@/core/utils/index.js";
 
@@ -16,11 +16,12 @@ interface RunningFunction {
   ready: boolean;
 }
 
-export class FunctionManager {
-  private functions: Map<string, BackendFunction>;
-  private running: Map<string, RunningFunction> = new Map();
-  private starting: Map<string, Promise<number>> = new Map();
-  private logger: DevLogger;
+/**
+ * Runs each function in a Deno subprocess via the backend-runtime wrapper.
+ * Fallback runtime — the default is workerd (miniflare-function-manager.ts);
+ * see function-runtime.ts for how the choice is made.
+ */
+export class FunctionManager extends BaseFunctionManager<RunningFunction> {
   private wrapperPath: string;
 
   constructor(
@@ -28,8 +29,7 @@ export class FunctionManager {
     logger: DevLogger,
     wrapperPath: string,
   ) {
-    this.functions = new Map(functions.map((f) => [f.name, f]));
-    this.logger = logger;
+    super(functions, logger);
     this.wrapperPath = wrapperPath;
 
     if (functions.length > 0) {
@@ -37,45 +37,11 @@ export class FunctionManager {
     }
   }
 
-  getFunctionNames(): string[] {
-    return Array.from(this.functions.keys());
+  protected override isReady(running: RunningFunction): boolean {
+    return running.ready;
   }
 
-  async ensureRunning(name: string): Promise<number> {
-    const backendFunction = this.functions.get(name);
-    if (!backendFunction) {
-      throw new InvalidInputError(`Function "${name}" not found`, {
-        hints: [{ message: "Check available functions in your project" }],
-      });
-    }
-
-    const existing = this.running.get(name);
-    if (existing?.ready) {
-      return existing.port;
-    }
-
-    const pending = this.starting.get(name);
-    if (pending) {
-      return pending;
-    }
-
-    const promise = this.startFunction(name, backendFunction);
-    this.starting.set(name, promise);
-
-    try {
-      return await promise;
-    } finally {
-      if (!this.starting.has(name) && this.running.has(name)) {
-        // We can end up here if user called `stopAll()` while one of the processes is being initialized.
-        // In this case we need to kill the process, to avoid zombies running around.
-        this.running.get(name)?.process.kill();
-        this.running.delete(name);
-      }
-      this.starting.delete(name);
-    }
-  }
-
-  private async startFunction(
+  protected async startFunction(
     name: string,
     backendFunction: BackendFunction,
   ): Promise<number> {
@@ -94,31 +60,17 @@ export class FunctionManager {
     return this.waitForReady(name, runningFunc);
   }
 
-  async reload(functions: BackendFunction[]): Promise<void> {
-    await this.stopAll();
-    this.functions = new Map(functions.map((f) => [f.name, f]));
-  }
-
-  async stopAll(): Promise<void> {
-    await Promise.all(
-      Array.from(this.running, ([name, { process: proc }]) => {
-        this.logger.log(`Stopping function: ${name}`);
-        const exited = new Promise<void>((r) => proc.once("exit", () => r()));
-        if (process.platform === "win32" && proc.pid) {
-          spawn("taskkill", ["/pid", String(proc.pid), "/T", "/F"]);
-        } else {
-          proc.kill();
-        }
-        return exited;
-      }),
-    );
-    this.running.clear();
-    this.starting.clear();
-  }
-
-  private async allocatePort(): Promise<number> {
-    const usedPorts = Array.from(this.running.values()).map((r) => r.port);
-    return getPort({ exclude: usedPorts });
+  protected async stopFunction(
+    _name: string,
+    { process: proc }: RunningFunction,
+  ): Promise<void> {
+    const exited = new Promise<void>((r) => proc.once("exit", () => r()));
+    if (process.platform === "win32" && proc.pid) {
+      spawn("taskkill", ["/pid", String(proc.pid), "/T", "/F"]);
+    } else {
+      proc.kill();
+    }
+    await exited;
   }
 
   private spawnFunction(func: BackendFunction, port: number): ChildProcess {

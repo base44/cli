@@ -31,7 +31,7 @@ packages/cli/src/
 
 ### Distribution
 
-Zero-dependency npm package. All runtime dependencies are bundled into `dist/index.js` at build time. Every dependency goes in `devDependencies`. Users only download the bundled code. Standalone binaries are also built for Homebrew / direct download via `bun run build:binaries` (see [Binary distribution](binary-distribution.md)).
+Near-zero-dependency npm package. Runtime dependencies are bundled into `dist/index.js` at build time and go in `devDependencies` — with one deliberate exception: the local workerd function runtime (`miniflare`, `esbuild`, `@deno/loader`) ships native binaries/WASM that cannot be bundled, so those three are real `dependencies`, marked external in the build, and imported dynamically only when `base44 dev` runs functions. Standalone binaries are also built for Homebrew / direct download via `bun run build:binaries` (see [Binary distribution](binary-distribution.md)); they exclude the workerd runtime and `base44 dev` falls back to the Deno runtime there.
 
 ### Path Alias
 
@@ -66,8 +66,8 @@ These apply to every task. See topic guides below for domain-specific rules.
 3. **@clack/prompts only** - For all user interaction (prompts, spinners, logs). No `console.log`. Under the global `--json` flag the lifecycle runs **silent** (prompts and spinners suppressed, logs routed to stderr) — never assume a TTY
 4. **ES Modules** - Use `.js` extensions in all imports
 5. **Cross-platform** - Use `path` module utilities, never hardcode separators
-6. **Zero-dependency distribution** - All packages go in `devDependencies`; they get bundled
-7. **No dynamic imports** - Use static imports at top of file, avoid `await import()`
+6. **Zero-dependency distribution** - All packages go in `devDependencies`; they get bundled. Sole exception: the workerd function-runtime packages (`miniflare`, `esbuild`, `@deno/loader`) are real `dependencies` — native binaries/WASM cannot bundle
+7. **No dynamic imports** - Use static imports at top of file, avoid `await import()`. Sole exception: the external workerd runtime packages are imported dynamically (see `function-bundler.ts` / `function-runtime.ts`) so they load only when dev runs functions, and so the compiled binary can detect their absence and fall back to Deno
 8. **consts.ts has no imports** - Keep `consts.ts` dependency-free to avoid circular deps
 9. **Keep docs updated** - Update files in `docs/` when architecture changes
 10. **Respect the global `--json` flag** - `--json` (global, exposed as `ctx.jsonMode`) makes stdout a single machine-readable JSON document **and enables silent mode**. Never write results with `process.stdout.write`/`console.log`; return them via `RunCommandResult.stdout` and put human status in `outroMessage`/`log` (the lifecycle routes those to stderr under `--json`). New commands that produce data should emit it as JSON `stdout` when `ctx.jsonMode` is set (see the `sandbox`/`connectors` commands); `Base44Command` already supplies a generic fallback (`{ "output": "<status>" }`) and a JSON error envelope, so any command stays parseable

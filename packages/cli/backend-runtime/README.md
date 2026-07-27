@@ -1,6 +1,8 @@
 # Backend Runtime
 
-The local stand-in for the deployed backend function runtime.
+The **fallback** local runtime for backend functions.
+
+The default local runtime is workerd via Miniflare (`src/cli/dev/dev-server/miniflare-function-manager.ts` + `function-bundler.ts`) — the same runtime functions deploy to. This Deno-based wrapper is used when the workerd runtime is unavailable: in the compiled standalone binary (which cannot ship workerd's native executable) or when forced with `B44_DEV_FUNCTIONS_RUNTIME=deno`. `base44 exec` also always runs on Deno via `exec.ts`.
 
 Everything in this folder runs in **Deno**, not Node.js. The folder is named for its role rather than for Deno because the deployed runtime it emulates is Cloudflare Workers — but the local executor is Deno, and that is why these files are kept apart from `src/`.
 
@@ -14,7 +16,7 @@ This folder has its own `tsconfig.json` with Deno types (`@types/deno`) instead 
 
 ## Usage
 
-This server is started automatically by `base44 dev` to handle local function deployments.
+This wrapper is started by `base44 dev` when the workerd runtime is unavailable (see above). `exec.ts` is used by every `base44 exec` invocation.
 
 ## Files
 

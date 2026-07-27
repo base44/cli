@@ -5,10 +5,10 @@ import { Router } from "express";
 import { createProxyMiddleware } from "http-proxy-middleware";
 import type { DevLogger } from "@/cli/dev/createDevLogger.js";
 import { createServiceAuthorizationHeader } from "@/cli/dev/dev-server/auth/tokens.js";
-import type { FunctionManager } from "@/cli/dev/dev-server/function-manager.js";
+import type { FunctionRuntime } from "@/cli/dev/dev-server/function-runtime.js";
 
 export function createFunctionRouter(
-  manager: FunctionManager,
+  manager: FunctionRuntime,
   logger: DevLogger,
 ): Router {
   const router = Router({ mergeParams: true });

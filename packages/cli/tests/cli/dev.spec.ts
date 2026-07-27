@@ -212,6 +212,34 @@ describe("dev command", () => {
     t.expectResult(result).toSucceed();
   });
 
+  it("serves both conventions under the Deno fallback runtime", async () => {
+    // The compiled standalone binary cannot resolve miniflare and falls back
+    // to the Deno subprocess; forcing it here keeps that path covered by the
+    // npm-mode suite too.
+    await t.givenLoggedInWithProject(fixture("with-runtime-api-function"));
+    t.givenEnv({
+      B44_DEV_FUNCTIONS_RUNTIME: "deno",
+      RUNTIME_API_TEST_SECRET: "from-the-environment",
+    });
+
+    const handle = await t.runLive("dev");
+    const devServerUrl = await waitForDevServer(handle);
+
+    const response = await fetch(
+      `${devServerUrl}/api/apps/${t.api.appId}/functions/hello`,
+      { headers: { "X-App-Id": t.api.appId } },
+    );
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body.secret).toBe("from-the-environment");
+    expect(body.missing).toBe("undefined");
+    expect(body.composed).toBe("post-response work");
+
+    const result = await handle.stop();
+    t.expectResult(result).toSucceed();
+  });
+
   // An app written entirely against the legacy Deno surface must keep working
   // untouched now that the wrapper also serves default exports.
   describe("existing Deno-syntax app", () => {
