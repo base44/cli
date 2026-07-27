@@ -127,7 +127,7 @@ if (!servedDuringImport) {
 
   if (!handler) {
     console.error(
-      `[${functionName}] No request handler found. Export one with \`export default async function (req) { ... }\`.`,
+      `[${functionName}] The function must export default a request handler or call Deno.serve()`,
     );
     Deno.exit(1);
   }

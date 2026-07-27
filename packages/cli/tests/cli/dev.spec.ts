@@ -198,16 +198,15 @@ describe("dev command", () => {
 
     expect(response.status).toBe(200);
     const body = (await response.json()) as Record<string, unknown>;
-    // The handler ran, so `export default` was picked up and `waitUntil` did
-    // not blow up the request.
+    // The handler ran, so `export default` was picked up.
     expect(body.method).toBe("GET");
     // `secrets.get` reads the environment the dev server was started with.
     expect(body.secret).toBe("from-the-environment");
-    // An unset secret throws rather than returning undefined, matching the
-    // deployed runtime.
-    expect(body.missing).toEqual(
-      expect.stringContaining('Secret "DEFINITELY_NOT_SET" is not set'),
-    );
+    // An unset secret reads as undefined rather than throwing, matching the
+    // deployed signature `get(name: string): string | undefined`.
+    expect(body.missing).toBe("undefined");
+    // `waitUntil` returns the same promise so it composes, as in production.
+    expect(body.composed).toBe("post-response work");
 
     const result = await handle.stop();
     t.expectResult(result).toSucceed();

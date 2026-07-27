@@ -53,7 +53,13 @@ Deno honours exactly one import map, so this one is **merged with the project's 
 
 Without this merge, supplying our import map would override the project's and break aliases that resolve today.
 
-Two differences from the deployed runtime are intentional:
+The signatures match the deployed module (`infra/base44-userapp-bundler/src/runtime/` in `base44-dev/apper`): `secrets.get(name): string | undefined` and `waitUntil<T>(promise: Promise<T>): Promise<T>`. Only where the value comes from differs:
 
-- **`secrets.get(name)`** reads from the environment `base44 dev` was started with. Values stored with `base44 secrets set` are deliberately not fetched, so a production secret is never copied onto a developer machine. Export the variable in your shell to exercise a function that reads it. Reading an unset secret throws, matching production.
-- **`waitUntil(promise)`** has nothing to hold open locally, since the function is a long-lived server process. The promise is tracked only so a rejection is reported against the function instead of surfacing as an unhandled rejection.
+- **`secrets.get(name)`** reads the environment `base44 dev` was started with, where deployed it reads the Worker env binding of the current request. Values stored with `base44 secrets set` are deliberately not fetched, so a production secret is never copied onto a developer machine — export the variable in your shell instead. An unset name reads as `undefined`, as deployed; it does not throw. Deployed, a few reserved names are filtered to `undefined`, which is not reproduced locally.
+- **`waitUntil(promise)`** has nothing to hold open locally, since the function is a long-lived server process, where deployed it rides `ctx.waitUntil`. The promise is tracked only so a rejection is reported against the function instead of surfacing as an unhandled rejection. It returns the same promise either way, so it composes.
+
+## Relationship to the deployed runtime
+
+Deployed on Cloudflare, both conventions are supported the same way: the bundler injects a full `globalThis.Deno` (`@deno/shim-deno`) whose `serve` captures the handler rather than listening, and serves `base44:runtime` as a virtual module. When a function both calls `Deno.serve` and exports a default, the `Deno.serve` capture wins. This wrapper mirrors that precedence, so a function behaves the same locally and deployed.
+
+The exception is a legacy app whose backend project is still activated on `v1`/`v2`. There is no bundler on that path, so `base44:runtime` will not resolve and a default-export handler is never served — while both work here. New apps activate on Cloudflare, so this affects already-activated projects only.
