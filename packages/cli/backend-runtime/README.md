@@ -51,7 +51,7 @@ Deployed functions import secrets and post-response helpers from `base44:runtime
 
 `function-manager.ts` passes it to Deno with `--import-map`, and passes **only** this map — it is not merged with the project's own `deno.json`.
 
-That is deliberate. Deno resolves its config from the entry point, which is this wrapper inside the assets directory, so a project-level `deno.json` was never applied to locally run functions in the first place. It also could not work deployed: `loadFunctionCode` uploads only files under the function directory and `base44/shared/`, and the bundler writes its own `deno.json`, so a project-root alias has nothing to resolve against server-side. Supporting one locally would mean code that runs under `base44 dev` and fails on deploy.
+That is deliberate. Deno resolves its config from the entry point, which is this wrapper inside the assets directory, so a project-level `deno.json` was never applied to locally run functions in the first place. It also could not work deployed: only the files collected for a function are uploaded, and the bundler writes its own `deno.json`, so a project-root alias has nothing to resolve against server-side. Supporting one locally would mean code that runs under `base44 dev` and fails on deploy.
 
 `--import-map` is still preferred over `--config`, which would additionally suppress discovery of a project `deno.json` for everything else it configures.
 

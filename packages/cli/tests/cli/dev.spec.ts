@@ -263,21 +263,21 @@ describe("dev command", () => {
       t.expectResult(result).toSucceed();
     });
 
-    it("resolves shared/ and sibling imports", async () => {
+    it("resolves relative imports between a function's own files", async () => {
       await t.givenLoggedInWithProject(fixture("legacy-deno-app"));
 
       const handle = await t.runLive("dev");
       const devServerUrl = await waitForDevServer(handle);
 
       const response = await fetch(
-        `${devServerUrl}/api/apps/${t.api.appId}/functions/shared-import`,
+        `${devServerUrl}/api/apps/${t.api.appId}/functions/relative-imports`,
         { headers: { "X-App-Id": t.api.appId } },
       );
 
       expect(response.status).toBe(200);
       const body = (await response.json()) as Record<string, unknown>;
       expect(body).toMatchObject({
-        shape: "shared",
+        shape: "relative",
         version: "legacy-1",
         sibling: "sibling-ok",
       });
