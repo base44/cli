@@ -9,6 +9,12 @@
 ### Fixed
 
 - `base44 link` now lists editor-created apps; previously only apps created by the CLI could be linked.
+- `base44 dev` accepts sessions from production-minted tokens (e.g. Google OAuth round-trips): a valid
+  token whose subject never registered locally now gets a local user record instead of a 404 on `User/me`
+  that left the app stuck logged out.
+- `base44 dev` handles `/api/apps/auth/logout` locally and redirects back to the app's `from_url`;
+  previously the request bounced to production, which drops localhost redirect targets and stranded the
+  browser on base44.com.
 
 ## [0.0.51] - 2026-04-28
 

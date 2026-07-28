@@ -11,7 +11,7 @@ import {
   PRIVATE_USER_COLLECTION,
   USER_COLLECTION,
 } from "../db/database.js";
-import { getNowISOTimestamp } from "../utils.js";
+import { deriveFullNameFromEmail, getNowISOTimestamp } from "../utils.js";
 
 const TEN_MINUTES = 10 * 60 * 1000;
 
@@ -184,8 +184,7 @@ export function createAuthRouter(db: Database, logger: DevLogger): Router {
 
         const collection = db.getCollection(USER_COLLECTION);
         const now = getNowISOTimestamp();
-        const nameFromEmailMatch = /^([^@]+)/.exec(email);
-        const fullName = nameFromEmailMatch ? nameFromEmailMatch[1] : email;
+        const fullName = deriveFullNameFromEmail(email);
         await collection?.insertAsync({
           id: privateUserData.id,
           email: email,

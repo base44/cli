@@ -1,6 +1,7 @@
 import type { Document } from "@seald-io/nedb";
 import type { Request } from "express";
 import jwt, { type JwtPayload } from "jsonwebtoken";
+import { nanoid } from "nanoid";
 import {
   isServiceSubject,
   SERVICE_ROLE_EMAIL,
@@ -9,6 +10,10 @@ import {
   type Database,
   USER_COLLECTION,
 } from "@/cli/dev/dev-server/db/database.js";
+import {
+  deriveFullNameFromEmail,
+  getNowISOTimestamp,
+} from "@/cli/dev/dev-server/utils.js";
 
 export type UserDocument = Document<{
   email: string;
@@ -64,12 +69,47 @@ export async function resolveCurrentUser(
       .getCollection(USER_COLLECTION)
       ?.findOneAsync<UserDocument>({ email: subject });
 
-    if (!currentUser) {
+    if (currentUser) {
+      return { ok: true, user: currentUser };
+    }
+
+    // Tokens minted by production (e.g. Google OAuth round-trips) carry
+    // subjects that never registered locally — create them on first sight so
+    // the session works instead of 404ing on User/me.
+    const externallyAuthenticatedUser = await createLocalUser(db, subject);
+
+    if (!externallyAuthenticatedUser) {
       return { ok: false, reason: "not_found" };
     }
 
-    return { ok: true, user: currentUser };
+    return { ok: true, user: externallyAuthenticatedUser };
   } catch {
     return { ok: false, reason: "invalid" };
   }
+}
+
+async function createLocalUser(
+  db: Database,
+  email: string,
+): Promise<UserDocument | undefined> {
+  const collection = db.getCollection(USER_COLLECTION);
+  if (!collection) {
+    return undefined;
+  }
+
+  const now = getNowISOTimestamp();
+  const inserted = await collection.insertAsync({
+    id: nanoid(),
+    email,
+    full_name: deriveFullNameFromEmail(email),
+    is_service: false,
+    is_verified: true,
+    disabled: null,
+    role: "user",
+    collaborator_role: "editor",
+    created_date: now,
+    updated_date: now,
+  });
+
+  return inserted as unknown as UserDocument;
 }

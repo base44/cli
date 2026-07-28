@@ -8,12 +8,13 @@ describe("auth in dev", () => {
   const t = setupCLITests();
   let handle: RunLiveHandle;
   let base44: Base44Client;
+  let serverUrl: string;
 
   beforeEach(async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
 
     handle = await t.runLive("dev");
-    const serverUrl = await waitForDevServer(handle);
+    serverUrl = await waitForDevServer(handle);
 
     base44 = createClient({
       appId: t.kit.api.appId,
@@ -59,5 +60,42 @@ describe("auth in dev", () => {
       await base44.auth.loginViaEmailPassword(email, password);
 
     expect(jwt.decode(access_token_login)?.sub).toBe(email);
+  });
+
+  it("creates a local user for a valid token whose subject never registered locally", async () => {
+    const email = "oauth-minted@example.com";
+    const externalToken = jwt.sign({}, "external-secret", { subject: email });
+
+    const authedClient = createClient({
+      appId: t.kit.api.appId,
+      serverUrl,
+      token: externalToken,
+    });
+
+    const me = await authedClient.auth.me();
+    expect(me.email).toBe(email);
+
+    const meAgain = await authedClient.auth.me();
+    expect(meAgain.id).toBe(me.id);
+  });
+
+  it("redirects logout back to a localhost from_url instead of production", async () => {
+    const fromUrl = "http://localhost:5173/";
+    const response = await fetch(
+      `${serverUrl}/api/apps/auth/logout?from_url=${encodeURIComponent(fromUrl)}`,
+      { redirect: "manual" },
+    );
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe(fromUrl);
+  });
+
+  it("does not redirect logout to foreign origins", async () => {
+    const response = await fetch(
+      `${serverUrl}/api/apps/auth/logout?from_url=${encodeURIComponent("https://evil.example.com/")}`,
+      { redirect: "manual" },
+    );
+
+    expect(response.status).toBe(200);
   });
 });

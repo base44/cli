@@ -30,6 +30,18 @@ import { WatchBase44 } from "./watcher.js";
 const DEFAULT_PORT = 4400;
 const BASE44_APP_URL = "https://base44.app";
 
+function isLocalRedirectTarget(value: string): boolean {
+  try {
+    const { protocol, hostname } = new URL(value);
+    return (
+      (protocol === "http:" || protocol === "https:") &&
+      (hostname === "localhost" || hostname === "127.0.0.1")
+    );
+  } catch {
+    return false;
+  }
+}
+
 interface DevServerOptions {
   log: Logger;
   port?: number;
@@ -78,6 +90,18 @@ export async function createDevServer(
       credentials: true,
     }),
   );
+
+  // Handled locally (and registered before the auth redirect below): local
+  // sessions are JWTs the SDK already cleared client-side, and production's
+  // logout drops foreign from_url targets — bouncing there strands the
+  // browser on base44.com instead of returning to the app.
+  app.get("/api/apps/auth/logout", (req, res) => {
+    const fromUrl = req.query.from_url;
+    if (typeof fromUrl === "string" && isLocalRedirectTarget(fromUrl)) {
+      return res.redirect(fromUrl);
+    }
+    res.send("Logged out");
+  });
 
   // Redirect OAuth routes to base44.app directly — proxying breaks the
   // redirect flow and session cookies set by the provider.

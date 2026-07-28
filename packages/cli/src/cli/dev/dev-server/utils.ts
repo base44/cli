@@ -17,3 +17,8 @@ export function stripInternalFields<T extends Record<string, unknown>>(
 export const getNowISOTimestamp = () => {
   return new Date().toISOString().replace("Z", "000");
 };
+
+export const deriveFullNameFromEmail = (email: string) => {
+  const nameFromEmailMatch = /^([^@]+)/.exec(email);
+  return nameFromEmailMatch ? nameFromEmailMatch[1] : email;
+};
