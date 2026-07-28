@@ -23,7 +23,7 @@ describe("agent-skills push command", () => {
     t.expectResult(result).toContain("No Base44 app ID found");
   });
 
-  it("finds and lists agent skills in project", async () => {
+  it("creates a new skill and shows the result", async () => {
     await t.givenLoggedInWithProject(fixture("with-agent-skills"));
     t.api.mockAgentSkillsFetch({ items: [], total: 0 });
     t.api.mockAgentSkillsCreate();
@@ -32,17 +32,24 @@ describe("agent-skills push command", () => {
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Found 1 agent skills to push");
+    t.expectResult(result).toContain("Created: weekly-report");
   });
 
-  it("pushes agent skills successfully and shows results", async () => {
+  it("updates changed skills and deletes remote-only skills", async () => {
     await t.givenLoggedInWithProject(fixture("with-agent-skills"));
+    // Remote has weekly-report (different body -> update) and old-skill (not
+    // local -> delete). Local only has weekly-report.
     t.api.mockAgentSkillsFetch({
       items: [
+        {
+          name: "weekly-report",
+          description: "Stale description",
+          body: "Stale body that differs from local.",
+        },
         { name: "old-skill", description: "Old skill", body: "Old body" },
       ],
-      total: 1,
+      total: 2,
     });
-    t.api.mockAgentSkillsCreate();
     t.api.mockAgentSkillsUpdate();
     t.api.mockAgentSkillsDelete();
 
@@ -50,7 +57,7 @@ describe("agent-skills push command", () => {
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Agent skills pushed");
-    t.expectResult(result).toContain("Created: weekly-report");
+    t.expectResult(result).toContain("Updated: weekly-report");
     t.expectResult(result).toContain("Deleted: old-skill");
   });
 
@@ -64,5 +71,16 @@ describe("agent-skills push command", () => {
     const result = await t.run("agent-skills", "push", "--yes");
 
     t.expectResult(result).toFail();
+  });
+
+  it("fails when --yes is not provided in non-interactive mode", async () => {
+    await t.givenLoggedInWithProject(fixture("with-agent-skills"));
+
+    const result = await t.run("agent-skills", "push");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain(
+      "--yes is required in non-interactive mode",
+    );
   });
 });

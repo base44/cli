@@ -78,4 +78,30 @@ describe("agent-skill config", () => {
       await readAllAgentSkills(join(tmpdir(), "nope-does-not-exist")),
     ).toEqual([]);
   });
+
+  it("rejects a skill file whose name is not lowercase-hyphenated", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "skills-"));
+    try {
+      await writeFile(
+        join(dir, "Bad_Name.md"),
+        "---\ndescription: has a bad name\n---\n\nbody\n",
+      );
+      await expect(readAllAgentSkills(dir)).rejects.toThrow();
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects a skill file with an empty body", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "skills-"));
+    try {
+      await writeFile(
+        join(dir, "empty-body.md"),
+        "---\ndescription: has no body\n---\n",
+      );
+      await expect(readAllAgentSkills(dir)).rejects.toThrow();
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
 });
