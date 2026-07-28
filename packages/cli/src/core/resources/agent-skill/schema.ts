@@ -18,12 +18,11 @@ export const AgentSkillSchema = z.object({
 
 export type AgentSkill = z.infer<typeof AgentSkillSchema>;
 
-export const AgentSkillApiResponseSchema = z.object({
+const AgentSkillApiResponseSchema = z.object({
   name: z.string(),
   description: z.string(),
   body: z.string(),
 });
-export type AgentSkillApiResponse = z.infer<typeof AgentSkillApiResponseSchema>;
 
 export const ListAgentSkillsResponseSchema = z.object({
   items: z.array(AgentSkillApiResponseSchema),

@@ -20,7 +20,7 @@ async function pushAction({
     "Pushing agent skills to Base44",
     () => pushAgentSkills(agentSkills),
     {
-      successMessage: "Agent skills pushed",
+      successMessage: "Agent skills pushed successfully",
       errorMessage: "Failed to push agent skills",
     },
   );
@@ -37,6 +37,8 @@ async function pushAction({
 
 export function getAgentSkillsPushCommand(): Command {
   return new Base44Command("push")
-    .description("Push local agent skills to Base44")
+    .description(
+      "Push local agent skills to Base44 (replaces all remote agent skills)",
+    )
     .action(pushAction);
 }

@@ -19,7 +19,7 @@ async function pullAction({
     "Fetching agent skills from Base44",
     () => fetchAgentSkills(),
     {
-      successMessage: "Agent skills fetched",
+      successMessage: "Agent skills fetched successfully",
       errorMessage: "Failed to fetch agent skills",
     },
   );
@@ -28,7 +28,7 @@ async function pullAction({
     "Syncing skill files",
     () => writeAgentSkills(dir, remote.items),
     {
-      successMessage: "Skill files synced",
+      successMessage: "Skill files synced successfully",
       errorMessage: "Failed to sync skill files",
     },
   );
@@ -43,6 +43,8 @@ async function pullAction({
 
 export function getAgentSkillsPullCommand(): Command {
   return new Base44Command("pull")
-    .description("Pull agent skills from Base44 to local files")
+    .description(
+      "Pull agent skills from Base44 to local files (replaces all local agent skills)",
+    )
     .action(pullAction);
 }
