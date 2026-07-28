@@ -7,7 +7,7 @@ import getPort from "get-port";
 import { createProxyMiddleware } from "http-proxy-middleware";
 import { dir } from "tmp-promise";
 import { createDevLogger } from "@/cli/dev/createDevLogger.js";
-import { FunctionManager } from "@/cli/dev/dev-server/function-manager.js";
+import { createFunctionRuntime } from "@/cli/dev/dev-server/function-runtime.js";
 import { createFunctionRouter } from "@/cli/dev/dev-server/routes/functions.js";
 import { theme } from "@/cli/utils/index.js";
 import type { ProjectData } from "@/core/project/types.js";
@@ -92,7 +92,7 @@ export async function createDevServer(
 
   const devLogger = createDevLogger("backend", theme.styles.info);
 
-  const functionManager = new FunctionManager(
+  const functionManager = await createFunctionRuntime(
     functions,
     devLogger,
     options.denoWrapperPath,

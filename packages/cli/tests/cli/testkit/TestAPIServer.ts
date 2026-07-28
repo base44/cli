@@ -209,6 +209,21 @@ interface ListProjectsResponse {
   is_managed_source_code?: boolean;
 }
 
+interface WorkspaceResponse {
+  id: string;
+  name: string;
+  user_role?: string | null;
+  subscription_tier?: string | null;
+  is_enterprise?: boolean | null;
+}
+
+interface MoveAppResponse {
+  success?: boolean;
+  message?: string;
+  app_id?: string;
+  new_workspace_id?: string;
+}
+
 interface ErrorResponse {
   status: number;
   body?: unknown;
@@ -576,6 +591,32 @@ export class TestAPIServer {
 
   mockListProjects(response: ListProjectsResponse[]): this {
     return this.addRoute("GET", "/api/apps", response);
+  }
+
+  /** Mock GET /api/workspace/workspaces - List the user's workspaces */
+  mockListWorkspaces(workspaces: WorkspaceResponse[]): this {
+    return this.addRoute("GET", "/api/workspace/workspaces", { workspaces });
+  }
+
+  mockListWorkspacesError(error: ErrorResponse): this {
+    return this.addErrorRoute("GET", "/api/workspace/workspaces", error);
+  }
+
+  /** Mock POST /api/apps/{appId}/metadata/move-to-workspace - Move an app */
+  mockMoveApp(response: MoveAppResponse): this {
+    return this.addRoute(
+      "POST",
+      `/api/apps/${this.appId}/metadata/move-to-workspace`,
+      response,
+    );
+  }
+
+  mockMoveAppError(error: ErrorResponse): this {
+    return this.addErrorRoute(
+      "POST",
+      `/api/apps/${this.appId}/metadata/move-to-workspace`,
+      error,
+    );
   }
 
   mockProjectEject(tarContent: Uint8Array = new Uint8Array()): this {

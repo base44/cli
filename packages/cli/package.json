@@ -1,6 +1,6 @@
 {
     "name": "base44",
-    "version": "0.1.4",
+    "version": "0.1.6",
     "description": "Base44 CLI - Unified interface for managing Base44 applications",
     "type": "module",
     "bin": {
@@ -93,5 +93,10 @@
     },
     "engines": {
         "node": ">=20.19.0"
+    },
+    "dependencies": {
+        "@deno/loader": "https://npm.jsr.io/~/11/@jsr/deno__loader/0.5.0.tgz",
+        "esbuild": "0.28.0",
+        "miniflare": "4.20260722.0"
     }
 }

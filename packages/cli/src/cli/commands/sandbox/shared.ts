@@ -1,6 +1,10 @@
 import { readStdin } from "@/cli/utils/index.js";
 import { InvalidInputError } from "@/core/errors.js";
 
+// Re-exported from the shared util so both sandbox and workspace commands use
+// one implementation of the `--json` serializer.
+export { toJsonStdout } from "@/cli/utils/index.js";
+
 /**
  * Resolve a payload that may come from a flag or piped stdin.
  * Returns the flag value when set, otherwise reads stdin (without trimming, so
@@ -19,13 +23,6 @@ export async function resolveFlagOrStdin(
     );
   }
   return readStdin(flagName, { trim: false });
-}
-
-/**
- * Serialize a tool result as pretty JSON for stdout (JSON-first output).
- */
-export function toJsonStdout(result: unknown): string {
-  return `${JSON.stringify(result, null, 2)}\n`;
 }
 
 /**

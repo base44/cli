@@ -1,13 +1,17 @@
 import { Command } from "commander";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
-import { Base44Command } from "@/cli/utils/index.js";
+import { Base44Command, confirmPush } from "@/cli/utils/index.js";
 import { readProjectConfig } from "@/core/index.js";
 import { pushEntities } from "@/core/resources/entity/index.js";
 
-async function pushEntitiesAction({
-  log,
-  runTask,
-}: CLIContext): Promise<RunCommandResult> {
+interface PushOptions {
+  yes?: boolean;
+}
+
+async function pushEntitiesAction(
+  { isNonInteractive, log, runTask }: CLIContext,
+  options: PushOptions,
+): Promise<RunCommandResult> {
   const { entities } = await readProjectConfig();
 
   if (entities.length === 0) {
@@ -16,6 +20,17 @@ async function pushEntitiesAction({
 
   const entityNames = entities.map((e) => e.name).join(", ");
   log.info(`Found ${entities.length} entities to push: ${entityNames}`);
+
+  const proceed = await confirmPush({
+    isNonInteractive,
+    yes: options.yes,
+    log,
+    warning:
+      "This will overwrite your app's entities with your local copy and delete any not present locally.",
+  });
+  if (!proceed) {
+    return { outroMessage: "Push cancelled" };
+  }
 
   const result = await runTask(
     "Pushing entities to Base44",
@@ -48,6 +63,7 @@ export function getEntitiesPushCommand(): Command {
     .addCommand(
       new Base44Command("push")
         .description("Push local entities to Base44")
+        .option("-y, --yes", "Skip confirmation prompt")
         .action(pushEntitiesAction),
     );
 }

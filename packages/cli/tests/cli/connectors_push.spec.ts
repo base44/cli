@@ -9,7 +9,7 @@ describe("connectors push command", () => {
     t.api.mockConnectorsList({ integrations: [] });
     t.api.mockStripeStatus({ stripe_mode: null });
 
-    const result = await t.run("connectors", "push");
+    const result = await t.run("connectors", "push", "--yes");
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("No local connectors found");
@@ -18,10 +18,21 @@ describe("connectors push command", () => {
   it("fails when not in a project directory", async () => {
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
 
-    const result = await t.run("connectors", "push");
+    const result = await t.run("connectors", "push", "--yes");
 
     t.expectResult(result).toFail();
     t.expectResult(result).toContain("No Base44 app ID found");
+  });
+
+  it("fails when --yes is not provided in non-interactive mode", async () => {
+    await t.givenLoggedInWithProject(fixture("with-connectors"));
+
+    const result = await t.run("connectors", "push");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain(
+      "--yes is required in non-interactive mode",
+    );
   });
 
   it("finds and lists connectors in project", async () => {
@@ -34,7 +45,7 @@ describe("connectors push command", () => {
       already_authorized: true,
     });
 
-    const result = await t.run("connectors", "push");
+    const result = await t.run("connectors", "push", "--yes");
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Found 3 connectors to push");
@@ -50,7 +61,7 @@ describe("connectors push command", () => {
       already_authorized: true,
     });
 
-    const result = await t.run("connectors", "push");
+    const result = await t.run("connectors", "push", "--yes");
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("googlecalendar");
@@ -68,7 +79,7 @@ describe("connectors push command", () => {
     t.api.mockStripeStatus({ stripe_mode: null });
     t.api.mockConnectorRemove({ status: "removed", integration_type: "slack" });
 
-    const result = await t.run("connectors", "push");
+    const result = await t.run("connectors", "push", "--yes");
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("slack");
@@ -84,7 +95,7 @@ describe("connectors push command", () => {
       body: { error: "Server error" },
     });
 
-    const result = await t.run("connectors", "push");
+    const result = await t.run("connectors", "push", "--yes");
 
     // Errors are handled per-connector, command still succeeds
     t.expectResult(result).toSucceed();
@@ -101,7 +112,7 @@ describe("connectors push command", () => {
       already_authorized: false,
     });
 
-    const result = await t.run("connectors", "push");
+    const result = await t.run("connectors", "push", "--yes");
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("needs authorization");
@@ -121,7 +132,7 @@ describe("connectors push command", () => {
       other_user_email: "other@example.com",
     });
 
-    const result = await t.run("connectors", "push");
+    const result = await t.run("connectors", "push", "--yes");
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Already connected by another user");
@@ -142,7 +153,7 @@ describe("connectors push command", () => {
         claim_url: "https://connect.stripe.com/setup/claim/xxx",
       });
 
-      const result = await t.run("connectors", "push");
+      const result = await t.run("connectors", "push", "--yes");
 
       t.expectResult(result).toSucceed();
       t.expectResult(result).toContain("Found 2 connectors to push");
@@ -161,7 +172,7 @@ describe("connectors push command", () => {
         already_authorized: true,
       });
 
-      const result = await t.run("connectors", "push");
+      const result = await t.run("connectors", "push", "--yes");
 
       t.expectResult(result).toSucceed();
       t.expectResult(result).toContain("Synced: slack, stripe");
@@ -173,7 +184,7 @@ describe("connectors push command", () => {
       t.api.mockStripeStatus({ stripe_mode: "sandbox" });
       t.api.mockStripeRemove({ success: true });
 
-      const result = await t.run("connectors", "push");
+      const result = await t.run("connectors", "push", "--yes");
 
       t.expectResult(result).toSucceed();
       t.expectResult(result).toContain("Removed:");
@@ -194,7 +205,7 @@ describe("connectors push command", () => {
         body: { error: "Stripe install failed" },
       });
 
-      const result = await t.run("connectors", "push");
+      const result = await t.run("connectors", "push", "--yes");
 
       t.expectResult(result).toSucceed();
       t.expectResult(result).toContain("Failed: stripe");

@@ -25,23 +25,39 @@ const runBuild = async (config: BuildConfig) => {
   return result;
 };
 
-const copyDenoRuntime = () => {
-  const outDir = "./dist/assets/deno-runtime";
+const copyBackendRuntime = () => {
+  const outDir = "./dist/assets/backend-runtime";
   mkdirSync(outDir, { recursive: true });
-  copyFileSync("./deno-runtime/main.ts", `${outDir}/main.ts`);
-  copyFileSync("./deno-runtime/exec.ts", `${outDir}/exec.ts`);
+  copyFileSync("./backend-runtime/main.ts", `${outDir}/main.ts`);
+  copyFileSync("./backend-runtime/exec.ts", `${outDir}/exec.ts`);
+  // The import map and the module it points at must land next to main.ts —
+  // function-manager.ts resolves the config relative to the wrapper.
+  copyFileSync("./backend-runtime/import-map.json", `${outDir}/import-map.json`);
+  copyFileSync(
+    "./backend-runtime/base44-runtime.ts",
+    `${outDir}/base44-runtime.ts`,
+  );
   return outDir;
 };
+
+// Runtime dependencies of the local workerd function runtime. They cannot be
+// bundled (workerd and esbuild ship native binaries; @deno/loader ships WASM),
+// so they are real npm `dependencies` resolved from node_modules at runtime —
+// the one deliberate exception to the zero-dependency distribution rule. The
+// standalone binary excludes them too and `base44 dev` falls back to the Deno
+// runtime there.
+export const RUNTIME_EXTERNALS = ["miniflare", "esbuild", "@deno/loader"];
 
 const runAllBuilds = async () => {
   const cli = await runBuild({
     entrypoints: ["./src/cli/index.ts"],
     outdir: "./dist/cli",
+    external: RUNTIME_EXTERNALS,
   });
-  const denoRuntimePath = copyDenoRuntime();
+  const backendRuntimePath = copyBackendRuntime();
   return {
     cli,
-    denoRuntimePath,
+    backendRuntimePath,
   };
 };
 
@@ -59,7 +75,7 @@ if (process.argv.includes("--watch")) {
     const time = new Date().toLocaleTimeString();
     console.log(chalk.dim(`[${time}]`), chalk.gray(`${filename} ${event}d`));
 
-    const { cli, denoRuntimePath } = await runAllBuilds();
+    const { cli, backendRuntimePath } = await runAllBuilds();
     if (cli.success && cli.outputs.length > 0) {
       console.log(
         chalk.green(`  ✓ Rebuilt`),
@@ -70,22 +86,22 @@ if (process.argv.includes("--watch")) {
     console.log(
       chalk.green(`  ✓ Copied`),
       chalk.dim(`→`),
-      chalk.cyan(denoRuntimePath),
+      chalk.cyan(backendRuntimePath),
     );
   };
 
   await runAllBuilds();
 
-  for (const dir of ["./src", "./deno-runtime"]) {
+  for (const dir of ["./src", "./backend-runtime"]) {
     watch(dir, { recursive: true }, changeHandler);
   }
 
   // Keep process alive
   await new Promise(() => {});
 } else {
-  const { cli, denoRuntimePath } = await runAllBuilds();
+  const { cli, backendRuntimePath } = await runAllBuilds();
   console.log(chalk.green.bold(`\n✓ Build complete\n`));
   console.log(chalk.dim("  Output:"));
   console.log(`  ${formatOutput(cli.outputs)}`);
-  console.log(`  ${chalk.cyan(denoRuntimePath)}`);
+  console.log(`  ${chalk.cyan(backendRuntimePath)}`);
 }

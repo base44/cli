@@ -13,12 +13,16 @@ export function getTemplatesIndexPath(): string {
   return join(ASSETS_DIR, "templates", "templates.json");
 }
 
+function getBackendRuntimeDir(): string {
+  return join(ASSETS_DIR, "backend-runtime");
+}
+
 export function getDenoWrapperPath(): string {
-  return join(ASSETS_DIR, "deno-runtime", "main.ts");
+  return join(getBackendRuntimeDir(), "main.ts");
 }
 
 export function getExecWrapperPath(): string {
-  return join(ASSETS_DIR, "deno-runtime", "exec.ts");
+  return join(getBackendRuntimeDir(), "exec.ts");
 }
 
 /**
@@ -26,7 +30,11 @@ export function getExecWrapperPath(): string {
  * on first run. Binary entry handles its own extraction separately.
  */
 export function ensureNpmAssets(sourceDir: string): void {
-  if (existsSync(ASSETS_DIR)) return;
+  // The version directory existing is not proof its contents are current. An
+  // install that predates a renamed or added asset directory leaves the old
+  // layout in place, so re-copy whenever an expected directory is missing
+  // rather than only when the version directory is.
+  if (existsSync(ASSETS_DIR) && existsSync(getBackendRuntimeDir())) return;
   if (!existsSync(sourceDir)) return;
   cpSync(sourceDir, ASSETS_DIR, { recursive: true });
 }

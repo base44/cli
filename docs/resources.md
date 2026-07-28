@@ -62,6 +62,14 @@ Functions are read from the project's functions directory (e.g. `base44/function
 
 If both exist in the same folder (e.g. `function.jsonc` and `entry.ts`), the config wins: the function is loaded from the config and the name/entry come from the config file. Duplicate function names (same path or same config name) cause an error.
 
+### Entry file contract
+
+Deploy ships file contents verbatim — the source is never parsed or linted — so this contract is enforced only when running locally. An entry file default-exports an async request handler:
+
+- `export default async function (req) { ... }` — takes a `Request`, returns a `Response`.
+
+Entry files may also import `secrets` and `waitUntil` from `base44:runtime`. Locally, `base44 dev` runs functions on workerd via Miniflare by default — each function is bundled with esbuild + `@deno/loader` (`src/cli/dev/dev-server/function-bundler.ts`), with `base44:runtime` served as a virtual module, secrets as real Worker env bindings and `waitUntil` riding `ctx.waitUntil`. A fallback runtime covers installations where workerd is unavailable (compiled binaries, `B44_DEV_FUNCTIONS_RUNTIME=deno`) and supplies `base44:runtime` via an import map. A project-level `deno.json` import map is not applied to functions — locally or deployed — since only files under `base44/` are uploaded. See [`packages/cli/backend-runtime/README.md`](../packages/cli/backend-runtime/README.md) for the local implementation and its intentional differences from production.
+
 ## Agent skills
 
 Agent skills are app-scoped instruction snippets shared across the app's agents. Unlike other resources they are stored as one markdown file per skill under the agent-skills directory (`base44/agent-skills/`, or `agentSkillsDir` in `config.jsonc`): the filename (without `.md`) is the skill name, the frontmatter `description` is the summary, and the body is the instruction text. Agents reference skills by name via `selected_skill_names`; `selected_workspace_skill_ids` (org-shared workspace skills) is not managed here and is passed through pull/push/deploy untouched.

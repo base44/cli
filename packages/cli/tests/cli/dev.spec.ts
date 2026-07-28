@@ -180,6 +180,141 @@ describe("dev command", () => {
     t.expectResult(result).toSucceed();
   });
 
+  it("serves a function that exports a default handler and imports base44:runtime", async () => {
+    await t.givenLoggedInWithProject(fixture("with-runtime-api-function"));
+    t.givenEnv({ RUNTIME_API_TEST_SECRET: "from-the-environment" });
+
+    const handle = await t.runLive("dev");
+    const devServerUrl = await waitForDevServer(handle);
+
+    const response = await fetch(
+      `${devServerUrl}/api/apps/${t.api.appId}/functions/hello`,
+      {
+        headers: {
+          "X-App-Id": t.api.appId,
+        },
+      },
+    );
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as Record<string, unknown>;
+    // The handler ran, so `export default` was picked up.
+    expect(body.method).toBe("GET");
+    // `secrets.get` reads the environment the dev server was started with.
+    expect(body.secret).toBe("from-the-environment");
+    // An unset secret reads as undefined rather than throwing, matching the
+    // deployed signature `get(name: string): string | undefined`.
+    expect(body.missing).toBe("undefined");
+    // `waitUntil` returns the same promise so it composes, as in production.
+    expect(body.composed).toBe("post-response work");
+
+    const result = await handle.stop();
+    t.expectResult(result).toSucceed();
+  });
+
+  it("serves both conventions under the Deno fallback runtime", async () => {
+    // The compiled standalone binary cannot resolve miniflare and falls back
+    // to the Deno subprocess; forcing it here keeps that path covered by the
+    // npm-mode suite too.
+    await t.givenLoggedInWithProject(fixture("with-runtime-api-function"));
+    t.givenEnv({
+      B44_DEV_FUNCTIONS_RUNTIME: "deno",
+      RUNTIME_API_TEST_SECRET: "from-the-environment",
+    });
+
+    const handle = await t.runLive("dev");
+    const devServerUrl = await waitForDevServer(handle);
+
+    const response = await fetch(
+      `${devServerUrl}/api/apps/${t.api.appId}/functions/hello`,
+      { headers: { "X-App-Id": t.api.appId } },
+    );
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body.secret).toBe("from-the-environment");
+    expect(body.missing).toBe("undefined");
+    expect(body.composed).toBe("post-response work");
+
+    const result = await handle.stop();
+    t.expectResult(result).toSucceed();
+  });
+
+  // An app written entirely against the legacy Deno surface must keep working
+  // untouched now that the wrapper also serves default exports.
+  describe("existing Deno-syntax app", () => {
+    const cases = [
+      { fn: "classic", shape: "serve(handler)" },
+      { fn: "serve-options", shape: "serve(options, handler)" },
+      { fn: "serve-object", shape: "serve({ handler })" },
+    ];
+
+    for (const { fn, shape } of cases) {
+      it(`serves a function using Deno.${shape}`, async () => {
+        await t.givenLoggedInWithProject(fixture("legacy-deno-app"));
+        t.givenEnv({ LEGACY_APP_SECRET: "legacy-env-value" });
+
+        const handle = await t.runLive("dev");
+        const devServerUrl = await waitForDevServer(handle);
+
+        const response = await fetch(
+          `${devServerUrl}/api/apps/${t.api.appId}/functions/${fn}`,
+          { headers: { "X-App-Id": t.api.appId } },
+        );
+
+        expect(response.status).toBe(200);
+        const body = (await response.json()) as Record<string, unknown>;
+        expect(body.shape).toBe(shape);
+
+        const result = await handle.stop();
+        t.expectResult(result).toSucceed();
+      });
+    }
+
+    it("still reads Deno.env and receives the injected service token", async () => {
+      await t.givenLoggedInWithProject(fixture("legacy-deno-app"));
+      t.givenEnv({ LEGACY_APP_SECRET: "legacy-env-value" });
+
+      const handle = await t.runLive("dev");
+      const devServerUrl = await waitForDevServer(handle);
+
+      const response = await fetch(
+        `${devServerUrl}/api/apps/${t.api.appId}/functions/classic`,
+        { headers: { "X-App-Id": t.api.appId } },
+      );
+
+      const body = (await response.json()) as Record<string, unknown>;
+      expect(body.secret).toBe("legacy-env-value");
+      expect(body.serviceAuth).toBe(true);
+
+      const result = await handle.stop();
+      t.expectResult(result).toSucceed();
+    });
+
+    it("resolves relative imports between a function's own files", async () => {
+      await t.givenLoggedInWithProject(fixture("legacy-deno-app"));
+
+      const handle = await t.runLive("dev");
+      const devServerUrl = await waitForDevServer(handle);
+
+      const response = await fetch(
+        `${devServerUrl}/api/apps/${t.api.appId}/functions/relative-imports`,
+        { headers: { "X-App-Id": t.api.appId } },
+      );
+
+      expect(response.status).toBe(200);
+      const body = (await response.json()) as Record<string, unknown>;
+      expect(body).toMatchObject({
+        shape: "relative",
+        version: "legacy-1",
+        sibling: "sibling-ok",
+      });
+
+      const result = await handle.stop();
+      t.expectResult(result).toSucceed();
+    });
+  });
+
   it("allows service-role JWTs to bypass denied entity create RLS", async () => {
     await t.givenLoggedInWithProject(fixture("with-private-note-entity"));
 

@@ -109,4 +109,36 @@ describe("create command", () => {
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Project created successfully");
   });
+
+  // ─── WORKSPACE TARGETING ──────────────────────────────────────
+
+  it("creates the app in the workspace passed via --workspace", async () => {
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    t.api.mockListWorkspaces([
+      { id: "ws-personal", name: "Personal", user_role: "owner" },
+      { id: "ws-acme", name: "Acme Inc", user_role: "admin" },
+    ]);
+    // Reflect the received organization_id back in the created app id so the
+    // test can prove it was forwarded in the POST body.
+    t.api.mockRoute("POST", "/api/apps", (req, res) => {
+      res.status(200).json({
+        id: `app-in-${req.body.organization_id ?? "personal"}`,
+        name: req.body.name,
+      });
+    });
+
+    const projectPath = join(t.getTempDir(), "ws-app");
+    const result = await t.run(
+      "create",
+      "WS App",
+      "--path",
+      projectPath,
+      "--workspace",
+      "ws-acme",
+      "--no-skills",
+    );
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("app-in-ws-acme");
+  });
 });

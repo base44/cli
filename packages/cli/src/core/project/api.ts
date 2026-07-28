@@ -5,8 +5,13 @@ import { extract } from "tar";
 import { base44Client, getAppClient } from "@/core/clients/index.js";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";
 import { getAppContext } from "@/core/project/app-config.js";
-import type { ProjectsResponse, Visibility } from "@/core/project/schema.js";
+import type {
+  AppDetail,
+  ProjectsResponse,
+  Visibility,
+} from "@/core/project/schema.js";
 import {
+  AppDetailSchema,
   CreateProjectResponseSchema,
   ProjectsResponseSchema,
 } from "@/core/project/schema.js";
@@ -19,7 +24,11 @@ const PUBLIC_SETTINGS: Record<Visibility, string> = {
   workspace: "workspace_with_login",
 };
 
-export async function createProject(projectName: string, description?: string) {
+export async function createProject(
+  projectName: string,
+  description?: string,
+  organizationId?: string,
+) {
   let response: KyResponse;
   try {
     response = await base44Client.post("api/apps", {
@@ -28,6 +37,9 @@ export async function createProject(projectName: string, description?: string) {
         user_description: description ?? `Backend for '${projectName}'`,
         is_managed_source_code: false,
         public_settings: PUBLIC_SETTINGS.public,
+        // Omit unless targeting a specific workspace; the server otherwise
+        // defaults the app to the caller's personal workspace.
+        ...(organizationId ? { organization_id: organizationId } : {}),
       },
     });
   } catch (error) {
@@ -82,6 +94,31 @@ export async function listProjects(): Promise<ProjectsResponse> {
 
   const result = ProjectsResponseSchema.safeParse(await response.json());
 
+  if (!result.success) {
+    throw new SchemaValidationError(
+      "Invalid response from server",
+      result.error,
+    );
+  }
+
+  return result.data;
+}
+
+/**
+ * Fetch a single app's details, including the workspace (`organizationId`) it
+ * currently belongs to.
+ */
+export async function getApp(appId: string): Promise<AppDetail> {
+  let response: KyResponse;
+  try {
+    response = await base44Client.get(`api/apps/${appId}`, {
+      searchParams: { fields: "id,name,organization_id" },
+    });
+  } catch (error) {
+    throw await ApiError.fromHttpError(error, "fetching app");
+  }
+
+  const result = AppDetailSchema.safeParse(await response.json());
   if (!result.success) {
     throw new SchemaValidationError(
       "Invalid response from server",

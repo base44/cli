@@ -44,7 +44,7 @@ describe("token refresh on 401", () => {
       deleted: [],
     });
 
-    const result = await t.run("agents", "push");
+    const result = await t.run("agents", "push", "--yes");
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Agents pushed successfully");
@@ -59,7 +59,7 @@ describe("token refresh on 401", () => {
       deleted: [],
     });
 
-    const result = await t.run("entities", "push");
+    const result = await t.run("entities", "push", "--yes");
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Entities pushed");
@@ -78,8 +78,11 @@ describe("token refresh on 401", () => {
       res.status(401).json({ error: "Unauthorized" });
     });
 
-    const result = await t.run("agents", "push");
+    const result = await t.run("agents", "push", "--yes");
 
     t.expectResult(result).toFail();
+    // Assert the real auth-failure reason, not just a non-zero exit — otherwise
+    // an unrelated early failure (e.g. a missing --yes guard) would pass this.
+    t.expectResult(result).toContain("Unauthorized");
   });
 });

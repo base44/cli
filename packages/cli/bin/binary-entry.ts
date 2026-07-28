@@ -1,7 +1,7 @@
 /**
  * Entry point for standalone compiled binaries (built with `bun build --compile`).
  *
- * This file embeds a single assets tarball (templates + deno-runtime) into the
+ * This file embeds a single assets tarball (templates + backend-runtime) into the
  * binary and extracts it to ~/.base44/assets/<version>/ on first run.
  * The npm distribution uses bin/run.js instead — this file is only used
  * for the compiled binary path.
@@ -25,7 +25,11 @@ const assetsDir = join(homedir(), ".base44", "assets", VERSION);
 // Extract assets if this version hasn't been unpacked yet.
 // Bun.file() reads from the virtual $bunfs, then we write to real disk
 // so the rest of the CLI can access these files normally.
-if (!existsSync(assetsDir)) {
+//
+// The directory existing is not proof its contents are current: an install
+// that predates a renamed or added asset directory would otherwise keep the
+// stale layout forever, so check for an expected directory too.
+if (!existsSync(assetsDir) || !existsSync(join(assetsDir, "backend-runtime"))) {
   mkdirSync(assetsDir, { recursive: true });
   const bytes = await Bun.file(assetsTarball).bytes();
   const archive = new Bun.Archive(bytes);

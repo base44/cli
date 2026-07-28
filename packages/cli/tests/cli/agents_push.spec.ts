@@ -8,7 +8,7 @@ describe("agents push command", () => {
     await t.givenLoggedInWithProject(fixture("basic"));
     t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
 
-    const result = await t.run("agents", "push");
+    const result = await t.run("agents", "push", "--yes");
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("No local agents found");
@@ -17,7 +17,7 @@ describe("agents push command", () => {
   it("fails when not in a project directory", async () => {
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
 
-    const result = await t.run("agents", "push");
+    const result = await t.run("agents", "push", "--yes");
 
     t.expectResult(result).toFail();
     t.expectResult(result).toContain("No Base44 app ID found");
@@ -31,7 +31,7 @@ describe("agents push command", () => {
       deleted: [],
     });
 
-    const result = await t.run("agents", "push");
+    const result = await t.run("agents", "push", "--yes");
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Found 3 agents to push");
@@ -45,7 +45,7 @@ describe("agents push command", () => {
       deleted: ["old_agent"],
     });
 
-    const result = await t.run("agents", "push");
+    const result = await t.run("agents", "push", "--yes");
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Agents pushed successfully");
@@ -57,7 +57,7 @@ describe("agents push command", () => {
   it("fails with helpful error when agent has empty name", async () => {
     await t.givenLoggedInWithProject(fixture("invalid-agent"));
 
-    const result = await t.run("agents", "push");
+    const result = await t.run("agents", "push", "--yes");
 
     t.expectResult(result).toFail();
   });
@@ -66,8 +66,19 @@ describe("agents push command", () => {
     await t.givenLoggedInWithProject(fixture("with-agents"));
     t.api.mockAgentsPushError({ status: 401, body: { error: "Unauthorized" } });
 
+    const result = await t.run("agents", "push", "--yes");
+
+    t.expectResult(result).toFail();
+  });
+
+  it("fails when --yes is not provided in non-interactive mode", async () => {
+    await t.givenLoggedInWithProject(fixture("with-agents"));
+
     const result = await t.run("agents", "push");
 
     t.expectResult(result).toFail();
+    t.expectResult(result).toContain(
+      "--yes is required in non-interactive mode",
+    );
   });
 });
