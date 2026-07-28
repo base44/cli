@@ -10,8 +10,6 @@ import {
 import type { AgentSkill } from "./schema.js";
 import { AgentSkillSchema } from "./schema.js";
 
-// ponytail: descriptions are single-line (backend max 1024, no newlines), so a
-// minimal `key: value` frontmatter reader is enough — no YAML dependency.
 function parseSkillFile(raw: string): { description: string; body: string } {
   const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
   if (!match) {
