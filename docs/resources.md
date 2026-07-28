@@ -74,8 +74,6 @@ Entry files may also import `secrets` and `waitUntil` from `base44:runtime`. Loc
 
 Agent skills are app-scoped instruction snippets shared across the app's agents. Unlike other resources they are stored as one markdown file per skill under the agent-skills directory (`base44/agent-skills/`, or `agentSkillsDir` in `config.jsonc`): the filename (without `.md`) is the skill name, the frontmatter `description` is the summary, and the body is the instruction text. Agents reference skills by name via `selected_skill_names`; `selected_workspace_skill_ids` (org-shared workspace skills) is not managed here and is passed through pull/push/deploy untouched.
 
-Two behaviors differ from the other resources. The backend has no bulk skills endpoint, so `push` reconciles per skill against the remote set (create/update/delete); an empty local set is a no-op rather than a mass delete (matching agents), so a deploy without skills never wipes remote ones. And `deploy` pushes skills before agents, because the backend rejects an agent that references a skill that doesn't exist yet.
-
 ## Site Module (Not a Resource)
 
 The site module at `packages/cli/src/core/site/` handles deploying built frontend files. It follows a different pattern than resources:
