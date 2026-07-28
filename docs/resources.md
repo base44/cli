@@ -64,35 +64,9 @@ If both exist in the same folder (e.g. `function.jsonc` and `entry.ts`), the con
 
 ## Agent skills
 
-Agent skills are reusable instruction snippets stored as markdown files under `base44/agent-skills/<name>.md` (path configurable via `agentSkillsDir` in `config.jsonc`). Each file has a frontmatter `description` and a body that is the skill's instructions:
+Agent skills are app-scoped instruction snippets shared across the app's agents. Unlike other resources they are stored as one markdown file per skill under the agent-skills directory (`base44/agent-skills/`, or `agentSkillsDir` in `config.jsonc`): the filename (without `.md`) is the skill name, the frontmatter `description` is the summary, and the body is the instruction text. Agents reference skills by name via `selected_skill_names`; `selected_workspace_skill_ids` (org-shared workspace skills) is not managed here and is passed through pull/push/deploy untouched.
 
-```md
----
-description: Summarize the week's completed tasks grouped by assignee.
----
-
-When the user asks for a weekly report:
-1. Read all Tasks completed in the last 7 days.
-2. Group them by assignee and count done vs. carried-over.
-3. Return a short markdown table, newest first.
-```
-
-The filename (without `.md`) is the skill's name. Skills are app-scoped and shared across all agents in the app -- an agent opts into a skill by adding its name to `selected_skill_names` in the agent's config:
-
-```jsonc
-"selected_skill_names": ["weekly-report"],
-```
-
-Workspace-level skills (shared across apps) are not managed by the CLI. An agent's `selected_workspace_skill_ids` field is left untouched by pull/push/deploy -- only `selected_skill_names` (app skills) is read from and written to local files.
-
-Manage app skills directly with:
-
-```bash
-base44 agent-skills pull   # Fetch remote skills into base44/agent-skills/
-base44 agent-skills push   # Push local skill files to Base44 (reconciles: creates, updates, deletes)
-```
-
-`base44 deploy` pushes agent skills before agents, so agents can reference newly-added or renamed skills in the same deploy.
+Two behaviors differ from the other resources. The backend has no bulk skills endpoint, so `push` reconciles per skill against the remote set (create/update/delete); an empty local set is a no-op rather than a mass delete (matching agents), so a deploy without skills never wipes remote ones. And `deploy` pushes skills before agents, because the backend rejects an agent that references a skill that doesn't exist yet.
 
 ## Site Module (Not a Resource)
 
