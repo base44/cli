@@ -8,7 +8,7 @@ describe("agent-skills push command", () => {
     await t.givenLoggedInWithProject(fixture("basic"));
     t.api.mockAgentSkillsFetch({ items: [], total: 0 });
 
-    const result = await t.run("agent-skills", "push");
+    const result = await t.run("agent-skills", "push", "--yes");
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("No local agent skills found");
@@ -17,7 +17,7 @@ describe("agent-skills push command", () => {
   it("fails when not in a project directory", async () => {
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
 
-    const result = await t.run("agent-skills", "push");
+    const result = await t.run("agent-skills", "push", "--yes");
 
     t.expectResult(result).toFail();
     t.expectResult(result).toContain("No Base44 app ID found");
@@ -28,7 +28,7 @@ describe("agent-skills push command", () => {
     t.api.mockAgentSkillsFetch({ items: [], total: 0 });
     t.api.mockAgentSkillsCreate();
 
-    const result = await t.run("agent-skills", "push");
+    const result = await t.run("agent-skills", "push", "--yes");
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Found 1 agent skills to push");
@@ -46,7 +46,7 @@ describe("agent-skills push command", () => {
     t.api.mockAgentSkillsUpdate();
     t.api.mockAgentSkillsDelete();
 
-    const result = await t.run("agent-skills", "push");
+    const result = await t.run("agent-skills", "push", "--yes");
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Agent skills pushed");
@@ -61,7 +61,7 @@ describe("agent-skills push command", () => {
       body: { error: "Unauthorized" },
     });
 
-    const result = await t.run("agent-skills", "push");
+    const result = await t.run("agent-skills", "push", "--yes");
 
     t.expectResult(result).toFail();
   });
