@@ -22,7 +22,11 @@ function loadMiniflare(): Promise<MiniflareModule> {
   return miniflareModulePromise;
 }
 
-// Newest date the pinned workerd supports; bump alongside the miniflare dep.
+// Must be supported by the workerd that ships with the *exact-pinned*
+// miniflare dependency — bump the two together. A floating miniflare range
+// bit us here once: an install resolved an older 4.x whose workerd rejected
+// this date and every function failed with "The Workers runtime failed to
+// start".
 const COMPATIBILITY_DATE = "2026-06-01";
 
 interface RunningFunction {

@@ -18,7 +18,7 @@
       "dependencies": {
         "@deno/loader": "https://npm.jsr.io/~/11/@jsr/deno__loader/0.5.0.tgz",
         "esbuild": "0.28.0",
-        "miniflare": "^4",
+        "miniflare": "4.20260722.0",
       },
       "devDependencies": {
         "@base44-cli/logger": "workspace:*",
