@@ -4,6 +4,7 @@ import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
 import { InvalidInputError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/index.js";
+import { generateTypesFile, updateProjectConfig } from "@/core/types/index.js";
 import { pathExists, writeFile } from "@/core/utils/fs.js";
 
 function buildActorScaffold(actorName: string): string {
@@ -47,6 +48,20 @@ async function newActorAction(
 
   const entryPath = join(actorDir, "entry.ts");
   await writeFile(entryPath, buildActorScaffold(actorName));
+
+  // Regenerate types so the scaffolded `base44:runtime/actors` import resolves
+  // in the editor immediately (re-read to pick up the actor just written).
+  const { entities, functions, agents, connectors, actors } =
+    await readProjectConfig();
+  await generateTypesFile({
+    projectRoot: project.root,
+    entities,
+    functions,
+    agents,
+    connectors,
+    actors,
+  });
+  await updateProjectConfig(project.root);
 
   return {
     outroMessage: `Created actor "${actorName}" at ${entryPath}`,
