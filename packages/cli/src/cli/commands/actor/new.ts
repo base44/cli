@@ -7,7 +7,8 @@ import { readProjectConfig } from "@/core/index.js";
 import { pathExists, writeFile } from "@/core/utils/fs.js";
 
 function buildActorScaffold(actorName: string): string {
-  return `import { Actor, type Conn } from "@base44/sdk";
+  return `import { Actor } from "base44:runtime/actors";
+import type { Conn } from "@base44/sdk";
 
 interface State {
   // shared state broadcast to all clients
