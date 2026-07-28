@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const SKILL_NAME_REGEX = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+const SKILL_NAME_REGEX = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 export const AgentSkillSchema = z.object({
   name: z

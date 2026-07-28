@@ -26,9 +26,6 @@ export async function fetchAgentSkills(): Promise<ListAgentSkillsResponse> {
   return result.data;
 }
 
-// The backend has no bulk skills endpoint, so we reconcile per-name.
-// ponytail: non-atomic reconcile against POST/PUT/DELETE. If a bulk
-// `PUT agent-skills` lands, replace this body with a single call.
 export async function pushAgentSkills(
   skills: AgentSkill[],
 ): Promise<SyncAgentSkillsResult> {
