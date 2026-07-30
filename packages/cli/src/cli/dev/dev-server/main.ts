@@ -24,7 +24,6 @@ import {
   createFileToken,
   createIntegrationRoutes,
 } from "./routes/integrations.js";
-import { ServeRunner } from "./serve-runner.js";
 import { WatchBase44 } from "./watcher.js";
 
 const DEFAULT_PORT = 4400;
@@ -34,7 +33,6 @@ interface DevServerOptions {
   log: Logger;
   port?: number;
   denoWrapperPath: string;
-  appId?: string;
   loadResources: () => Promise<{
     functions: ProjectData["functions"];
     entities: ProjectData["entities"];
@@ -46,7 +44,7 @@ interface DevServerOptions {
 interface DevServerResult {
   port: number;
   server: Server;
-  isServingFrontend: boolean;
+  shutdown: () => Promise<void>;
 }
 
 export async function createDevServer(
@@ -245,22 +243,6 @@ export async function createDevServer(
   });
   await base44ConfigWatcher.start();
 
-  // Run the frontend dev server when the project configures a `site.serveCommand`
-  // and we have an app id to inject. It runs from the project root.
-  const serveCommand = project.site?.serveCommand;
-  let serveRunner: ServeRunner | undefined;
-  if (options.appId && serveCommand) {
-    serveRunner = new ServeRunner({
-      command: serveCommand,
-      cwd: project.root,
-      env: {
-        VITE_BASE44_APP_ID: options.appId,
-        VITE_BASE44_APP_BASE_URL: baseUrl,
-      },
-      logger: createDevLogger("frontend", theme.colors.base44Orange),
-    });
-  }
-
   const handleShutdownError = (error: unknown) => {
     const errorMessage = error instanceof Error ? error.message : String(error);
     devLogger.error(`Failed to shut down dev server: ${errorMessage}`);
@@ -287,7 +269,6 @@ export async function createDevServer(
     base44ConfigWatcher.close();
     await io.close();
     await functionManager.stopAll();
-    await serveRunner?.stop();
     await closeServerIfRunning();
   };
 
@@ -299,15 +280,5 @@ export async function createDevServer(
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
 
-  // If the frontend dies, tear the whole dev environment down.
-  serveRunner?.onExit(() => {
-    void shutdown().finally(() => process.exit(1));
-  });
-
-  if (serveRunner) {
-    devLogger.log(`Backend running on ${baseUrl}`);
-    serveRunner.start();
-  }
-
-  return { port, server, isServingFrontend: serveRunner !== undefined };
+  return { port, server, shutdown };
 }
