@@ -9,15 +9,13 @@ import { pathExists, writeFile } from "@/core/utils/fs.js";
 
 function buildActorScaffold(actorName: string): string {
   return `import { Actor } from "base44:runtime/actors";
-import type { Conn } from "@base44/sdk";
+import type { ActorRegistry, Conn } from "@base44/sdk";
 
-interface Incoming {
-  // messages clients send to this actor (schema toServer)
-}
-
-interface Outgoing {
-  // messages this actor sends to clients (schema toClient)
-}
+// Message types are generated from ./schema.jsonc by \`base44 types generate\` —
+// the same source the client is typed from, so the two can't drift.
+type Messages = ActorRegistry["${actorName}"];
+type Incoming = Messages["toServer"];
+type Outgoing = Messages["toClient"];
 
 export class ${actorName} extends Actor<Incoming, Outgoing> {
   handleConnect(conn: Conn<Outgoing>) {
@@ -28,6 +26,30 @@ export class ${actorName} extends Actor<Incoming, Outgoing> {
   }
   handleTick() {}
   handleClose(conn: Conn<Outgoing>) {}
+}
+`;
+}
+
+// Starter message catalog. Each message is a type-less object schema (the
+// generator injects the \`type\` discriminant); shared shapes go under \`types\`
+// and are referenced via #/types/<Name>.
+function buildActorSchema(): string {
+  return `{
+  "types": {},
+  // Messages this actor sends to clients (server → client).
+  "toClient": {
+    "welcome": {
+      "properties": { "message": { "type": "string" } },
+      "required": ["message"]
+    }
+  },
+  // Messages clients send to this actor (client → server).
+  "toServer": {
+    "hello": {
+      "properties": { "name": { "type": "string" } },
+      "required": ["name"]
+    }
+  }
 }
 `;
 }
@@ -48,9 +70,11 @@ async function newActorAction(
 
   const entryPath = join(actorDir, "entry.ts");
   await writeFile(entryPath, buildActorScaffold(actorName));
+  await writeFile(join(actorDir, "schema.jsonc"), buildActorSchema());
 
-  // Regenerate types so the scaffolded `base44:runtime/actors` import resolves
-  // in the editor immediately (re-read to pick up the actor just written).
+  // Regenerate types so the scaffolded `base44:runtime/actors` import + the
+  // schema-derived ActorRegistry types resolve immediately (re-read to pick up
+  // the actor and its schema just written).
   const { entities, functions, agents, connectors, actors } =
     await readProjectConfig();
   await generateTypesFile({
@@ -64,7 +88,7 @@ async function newActorAction(
   await updateProjectConfig(project.root);
 
   return {
-    outroMessage: `Created actor "${actorName}" at ${entryPath}`,
+    outroMessage: `Created actor "${actorName}" at ${entryPath} — define its messages in schema.jsonc`,
   };
 }
 
