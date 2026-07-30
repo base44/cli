@@ -2,14 +2,19 @@ import { join } from "node:path";
 import { source, stripIndent } from "common-tags";
 import type { JSONSchema4 } from "json-schema";
 import { compile } from "json-schema-to-typescript";
-import { getTypesOutputPath } from "@/core/config.js";
+import { getActorRuntimeTypesPath, getTypesOutputPath } from "@/core/config.js";
 import { TypeGenerationError } from "@/core/errors.js";
 import type { Actor } from "@/core/resources/actor/schema.js";
 import type { AgentConfig } from "@/core/resources/agent/index.js";
 import type { ConnectorResource } from "@/core/resources/connector/index.js";
 import type { Entity } from "@/core/resources/entity/index.js";
 import type { BackendFunction } from "@/core/resources/function/index.js";
-import { readJsonFile, writeFile } from "@/core/utils/fs.js";
+import {
+  deleteFile,
+  pathExists,
+  readJsonFile,
+  writeFile,
+} from "@/core/utils/fs.js";
 
 interface GenerateTypesInput {
   projectRoot: string;
@@ -69,6 +74,27 @@ export async function generateTypesFile(
 ): Promise<void> {
   const content = await generateContent(input);
   await writeFile(getTypesOutputPath(input.projectRoot), content);
+
+  // The base44:runtime/actors virtual module must be an AMBIENT declaration, so
+  // it lives in its own script-context file. types.d.ts is a module (it has
+  // exports), where `declare module 'base44:runtime/actors'` is a failed
+  // augmentation of a non-existent module and the import never resolves.
+  const runtimePath = getActorRuntimeTypesPath(input.projectRoot);
+  if (input.actors.length) {
+    const sdkPackage = await detectSdkPackageName(input.projectRoot);
+    await writeFile(runtimePath, actorRuntimeDeclaration(sdkPackage));
+  } else if (await pathExists(runtimePath)) {
+    await deleteFile(runtimePath);
+  }
+}
+
+/** Ambient declaration that makes `base44:runtime/actors` resolve pre-deploy. */
+function actorRuntimeDeclaration(sdkPackage: SdkPackageName): string {
+  return `${HEADER}\n\n${source`
+    declare module 'base44:runtime/actors' {
+      export { Actor } from '${sdkPackage}';
+    }
+  `}\n`;
 }
 
 export async function generateContent(
@@ -120,18 +146,9 @@ export async function generateContent(
 
   const actorInterfaces = actorResults.map((r) => r.decls).filter(Boolean);
 
-  // Actors import ONLY their base class from the bundler-served virtual module
-  // "base44:runtime/actors" (the one value whose runtime the bundler swaps).
-  // Pure types (Conn, ActorRegistry, ...) are imported from the SDK directly —
-  // they have no runtime, and ActorRegistry is augmented onto the SDK above.
-  const actorRuntimeModule = actors.length
-    ? source`
-        declare module 'base44:runtime/actors' {
-          export { Actor } from '${sdkPackage}';
-        }
-      `
-    : "";
-
+  // NOTE: the `base44:runtime/actors` virtual module is declared in a separate
+  // ambient file (see generateTypesFile) — it must NOT go here, because this
+  // file is a module and the declaration would be a failed augmentation.
   return [
     HEADER,
     "export {};", // module context — ensures declare module augments rather than replaces the SDK package
@@ -142,7 +159,6 @@ export async function generateContent(
         ${registries.join("\n\n")}
       }
     `,
-    actorRuntimeModule,
   ]
     .filter(Boolean)
     .join("\n\n");
