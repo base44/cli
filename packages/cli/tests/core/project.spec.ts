@@ -209,7 +209,7 @@ describe("readProjectConfig", () => {
   it("throws on invalid agent skill file", async () => {
     await expect(
       readProjectConfig(resolve(FIXTURES_DIR, "invalid-agent-skill")),
-    ).rejects.toThrow();
+    ).rejects.toThrow(/Invalid skill file/);
   });
 
   it("throws on duplicate agent names", async () => {

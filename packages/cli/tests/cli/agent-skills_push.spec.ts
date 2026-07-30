@@ -4,9 +4,8 @@ import { fixture, setupCLITests } from "./testkit/index.js";
 describe("agent-skills push command", () => {
   const t = setupCLITests();
 
-  it("warns when no agent skills found in project", async () => {
+  it("warns and makes no agent-skills requests when none found in project", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
-    t.api.mockAgentSkillsFetch({ items: [], total: 0 });
 
     const result = await t.run("agent-skills", "push", "--yes");
 

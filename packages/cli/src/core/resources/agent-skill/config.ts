@@ -1,5 +1,7 @@
 import { join } from "node:path";
+import frontmatter from "front-matter";
 import { globby } from "globby";
+import { stringify as stringifyYaml } from "yaml";
 import { SchemaValidationError } from "@/core/errors.js";
 import {
   deleteFile,
@@ -11,23 +13,19 @@ import type { AgentSkill } from "./schema.js";
 import { AgentSkillSchema } from "./schema.js";
 
 function parseSkillFile(raw: string): { description: string; body: string } {
-  const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
-  if (!match) {
-    return { description: "", body: raw.trim() };
-  }
-  const [, frontmatter, body] = match;
-  let description = "";
-  for (const line of frontmatter.split(/\r?\n/)) {
-    const kv = line.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
-    if (kv && kv[1] === "description") {
-      description = kv[2].trim().replace(/^["']|["']$/g, "");
-    }
-  }
+  const { attributes, body } = frontmatter<{ description?: unknown }>(raw);
+  const description =
+    typeof attributes.description === "string"
+      ? attributes.description.trim()
+      : "";
   return { description, body: body.trim() };
 }
 
 function serializeSkillFile(skill: AgentSkill): string {
-  return `---\ndescription: ${skill.description}\n---\n\n${skill.body}\n`;
+  const frontmatterBlock = stringifyYaml({
+    description: skill.description,
+  }).trimEnd();
+  return `---\n${frontmatterBlock}\n---\n\n${skill.body}\n`;
 }
 
 export async function readAllAgentSkills(dir: string): Promise<AgentSkill[]> {
