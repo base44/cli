@@ -17,7 +17,8 @@ type Messages = ActorRegistry["${actorName}"];
 type Incoming = Messages["toServer"];
 type Outgoing = Messages["toClient"];
 
-export class ${actorName} extends Actor<Incoming, Outgoing> {
+// The deploy bundler imports the actor as the entry's default export.
+export default class ${actorName} extends Actor<Incoming, Outgoing> {
   handleConnect(conn: Conn<Outgoing>) {
     console.log("Connected:", conn.id);
   }
