@@ -11,23 +11,23 @@ function buildActorScaffold(actorName: string): string {
   return `import { Actor } from "base44:runtime/actors";
 import type { Conn } from "@base44/sdk";
 
-interface State {
-  // shared state broadcast to all clients
+interface Incoming {
+  // messages clients send to this actor (schema toServer)
 }
 
-interface Message {
-  // messages sent from clients
+interface Outgoing {
+  // messages this actor sends to clients (schema toClient)
 }
 
-export class ${actorName} extends Actor<State, Message> {
-  handleConnect(conn: Conn) {
-    console.log("Connected:", conn.userId);
+export class ${actorName} extends Actor<Incoming, Outgoing> {
+  handleConnect(conn: Conn<Outgoing>) {
+    console.log("Connected:", conn.id);
   }
-  handleMessage(conn: Conn, msg: Message) {
+  handleMessage(conn: Conn<Outgoing>, msg: Incoming) {
     console.log("Message:", msg);
   }
   handleTick() {}
-  handleClose(conn: Conn) {}
+  handleClose(conn: Conn<Outgoing>) {}
 }
 `;
 }
