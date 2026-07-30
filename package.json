@@ -12,7 +12,6 @@
     "knip:fix": "knip --fix"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.0.0",
     "knip": "^5.83.1"
   },
   "workspaces": [
