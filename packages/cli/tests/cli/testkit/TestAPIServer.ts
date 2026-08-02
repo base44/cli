@@ -225,6 +225,37 @@ interface DeploymentFinalizeResponse {
   deployment_id: string;
 }
 
+interface DomainPayload {
+  hostname: string;
+  cname_target: string;
+  status: string | null;
+  ssl_status: string | null;
+  active: boolean;
+  pending_deployment?: boolean;
+  verification: {
+    ownership_verification?: unknown;
+    ownership_verification_http?: unknown;
+    ssl_validation_records?: unknown[] | null;
+    ssl_validation_errors?: unknown[] | null;
+  };
+}
+
+interface DomainsListResponse {
+  domains: DomainPayload[];
+}
+
+interface RemoveDomainResponse {
+  hostname: string;
+  deleted: boolean;
+}
+
+/** The app document (only the fields the CLI's slug commands consume). */
+interface AppPayload {
+  id: string;
+  name?: string;
+  slug?: string | null;
+}
+
 /** A parsed part of a multipart/form-data request body. */
 interface MultipartField {
   name: string;
@@ -323,7 +354,7 @@ interface ErrorResponse {
 
 // ─── ROUTE HANDLER TYPES ─────────────────────────────────────
 
-type Method = "GET" | "POST" | "PUT" | "DELETE";
+type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 interface RouteEntry {
   method: Method;
@@ -401,6 +432,7 @@ export class TestAPIServer {
         | "get"
         | "post"
         | "put"
+        | "patch"
         | "delete";
       this.app[method](entry.path, entry.handler);
     }
@@ -760,6 +792,81 @@ export class TestAPIServer {
       },
     });
     return this;
+  }
+
+  // ─── CUSTOM DOMAIN ENDPOINTS ─────────────────────────────
+
+  /** Captured JSON bodies of POST domains requests. */
+  readonly domainAddRequests: unknown[] = [];
+
+  /** Mock POST /api/apps/{appId}/domains (connect a domain). */
+  mockDomainAdd(response: DomainPayload): this {
+    this.pendingRoutes.push({
+      method: "POST",
+      path: `/api/apps/${this.appId}/domains`,
+      handler: (req, res) => {
+        this.domainAddRequests.push(req.body);
+        res.status(200).json(response);
+      },
+    });
+    return this;
+  }
+
+  mockDomainAddError(error: ErrorResponse): this {
+    return this.addErrorRoute("POST", `/api/apps/${this.appId}/domains`, error);
+  }
+
+  /** Mock GET /api/apps/{appId}/domains (list). */
+  mockDomainList(response: DomainsListResponse): this {
+    return this.addRoute("GET", `/api/apps/${this.appId}/domains`, response);
+  }
+
+  /** Mock DELETE /api/apps/{appId}/domains/{hostname}. */
+  mockDomainRemove(hostname: string, response: RemoveDomainResponse): this {
+    return this.addRoute(
+      "DELETE",
+      `/api/apps/${this.appId}/domains/${encodeURIComponent(hostname)}`,
+      response,
+    );
+  }
+
+  mockDomainRemoveError(hostname: string, error: ErrorResponse): this {
+    return this.addErrorRoute(
+      "DELETE",
+      `/api/apps/${this.appId}/domains/${encodeURIComponent(hostname)}`,
+      error,
+    );
+  }
+
+  // ─── SLUG ENDPOINTS ──────────────────────────────────────
+
+  /** Mock GET /api/apps/{appId} (the app document; used for slug reads). */
+  mockAppGet(response: AppPayload): this {
+    return this.addRoute("GET", `/api/apps/${this.appId}`, response);
+  }
+
+  /** Captured JSON bodies of PATCH metadata/slug requests. */
+  readonly slugUpdateRequests: unknown[] = [];
+
+  /** Mock PATCH /api/apps/{appId}/metadata/slug (returns the updated app). */
+  mockSlugUpdate(response: AppPayload): this {
+    this.pendingRoutes.push({
+      method: "PATCH",
+      path: `/api/apps/${this.appId}/metadata/slug`,
+      handler: (req, res) => {
+        this.slugUpdateRequests.push(req.body);
+        res.status(200).json(response);
+      },
+    });
+    return this;
+  }
+
+  mockSlugUpdateError(error: ErrorResponse): this {
+    return this.addErrorRoute(
+      "PATCH",
+      `/api/apps/${this.appId}/metadata/slug`,
+      error,
+    );
   }
 
   // ─── SECRETS ENDPOINTS ───────────────────────────────────

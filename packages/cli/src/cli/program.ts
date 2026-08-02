@@ -7,6 +7,7 @@ import { getLogoutCommand } from "@/cli/commands/auth/logout.js";
 import { getWhoamiCommand } from "@/cli/commands/auth/whoami.js";
 import { getConnectorsCommand } from "@/cli/commands/connectors/index.js";
 import { getDashboardCommand } from "@/cli/commands/dashboard/index.js";
+import { getDomainsCommand } from "@/cli/commands/domains/index.js";
 import { getEntitiesPushCommand } from "@/cli/commands/entities/push.js";
 import { getFunctionsCommand } from "@/cli/commands/functions/index.js";
 import { getBuildCommand } from "@/cli/commands/project/build.js";
@@ -19,6 +20,7 @@ import { getVisibilityCommand } from "@/cli/commands/project/visibility.js";
 import { getSandboxCommand } from "@/cli/commands/sandbox/index.js";
 import { getSecretsCommand } from "@/cli/commands/secrets/index.js";
 import { getSiteCommand } from "@/cli/commands/site/index.js";
+import { getSlugCommand } from "@/cli/commands/slug/index.js";
 import { getTypesCommand } from "@/cli/commands/types/index.js";
 import { getWorkspaceCommand } from "@/cli/commands/workspace/index.js";
 import { Base44Command } from "@/cli/utils/index.js";
@@ -93,6 +95,12 @@ export function createProgram(context: CLIContext): Command {
 
   // Register functions commands
   program.addCommand(getFunctionsCommand());
+
+  // Register custom domain commands
+  program.addCommand(getDomainsCommand());
+
+  // Register slug commands
+  program.addCommand(getSlugCommand());
 
   // Register secrets commands
   program.addCommand(getSecretsCommand());

@@ -269,6 +269,14 @@ export class InvalidInputError extends UserError {
 }
 
 /**
+ * Thrown when a polled operation (e.g. waiting for a custom domain to become
+ * active) does not reach the desired state within its time budget.
+ */
+export class TimeoutError extends UserError {
+  readonly code = "TIMEOUT";
+}
+
+/**
  * Thrown when a required external dependency is not installed (e.g., Deno, Git).
  */
 export class DependencyNotFoundError extends UserError {

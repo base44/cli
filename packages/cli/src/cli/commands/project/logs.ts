@@ -270,6 +270,20 @@ async function logsAction(
   options: LogsOptions,
 ): Promise<RunCommandResult> {
   validateLimit(options.limit);
+
+  if (options.follow) {
+    if (options.until) {
+      throw new InvalidInputError(
+        "--until cannot be combined with --follow (a stream has no end).",
+      );
+    }
+    if (options.order) {
+      throw new InvalidInputError(
+        "--order cannot be combined with --follow (a live tail always streams oldest to newest).",
+      );
+    }
+  }
+
   const specifiedFunctions = parseFunctionNames(options.function);
   const localProjectRoot = ctx.app?.projectRoot;
 
@@ -289,16 +303,6 @@ async function logsAction(
   }
 
   if (options.follow) {
-    if (options.until) {
-      throw new InvalidInputError(
-        "--until cannot be combined with --follow (a stream has no end).",
-      );
-    }
-    if (options.order) {
-      throw new InvalidInputError(
-        "--order cannot be combined with --follow (a live tail always streams oldest to newest).",
-      );
-    }
     options.order = "asc"; // tail reads oldest -> newest
     return followLogs(
       functionNames,
