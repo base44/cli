@@ -298,6 +298,20 @@ t.api.mockFunctionLogs("my-function", [
 t.api.mockFunctionLogsError("my-function", { status: 500, body: { error: "Server error" } });
 ```
 
+### Deployment Mocks
+
+See [deployments.md](deployments.md) for the API contract. Requests are captured for assertions: `t.api.deploymentCreateRequests` (JSON bodies), `t.api.presignedUploadRequests` (raw body, Content-Type, Authorization), and `t.api.finalizeRequests` (parsed multipart fields).
+
+```typescript
+t.api.mockDeploymentCreate({
+  deployment_id: "app-1-git-a1b2c3d4e5f6",
+  // {type: "s3", uploads: [...]} or null (nothing owed)
+  asset_uploads: { type: "s3", uploads: [{ path, content_type, content_length, url }] },
+});
+t.api.mockPresignedUpload("/main.js"); // serves a presigned-style PUT target
+t.api.mockDeploymentFinalize({ deployment_id: "app-1-git-a1b2c3d4e5f6" });
+```
+
 ### Custom Route Mock
 
 For advanced scenarios (e.g. stateful responses across retries):

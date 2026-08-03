@@ -202,6 +202,88 @@ interface CreateAppResponse {
   name: string;
 }
 
+// ─── DEPLOYMENTS TYPES ──────────────────────────────────────
+
+interface DeploymentCreateResponse {
+  deployment_id: string;
+  /** Where the assets still owed should go; null/omitted = nothing owed. */
+  asset_uploads?: {
+    type: "s3";
+    uploads: Array<{
+      path: string;
+      content_type: string;
+      content_length: number;
+      url: string;
+    }>;
+  } | null;
+}
+
+interface DeploymentFinalizeResponse {
+  deployment_id: string;
+}
+
+/** A parsed part of a multipart/form-data request body. */
+interface MultipartField {
+  name: string;
+  filename?: string;
+  contentType?: string;
+  data: Buffer;
+}
+
+/**
+ * Minimal multipart/form-data parser for captured raw request bodies
+ * (the global express.raw middleware buffers multipart bodies as-is).
+ */
+function parseMultipart(
+  body: Buffer,
+  contentTypeHeader: string,
+): MultipartField[] {
+  const boundaryMatch = /boundary=(?:"([^"]+)"|([^;]+))/.exec(
+    contentTypeHeader,
+  );
+  if (!boundaryMatch) {
+    throw new Error(`No multipart boundary in: ${contentTypeHeader}`);
+  }
+  const boundary = `--${boundaryMatch[1] ?? boundaryMatch[2]}`;
+
+  const fields: MultipartField[] = [];
+  const raw = body.toString("binary");
+  const sections = raw.split(boundary).slice(1, -1); // drop preamble + closing "--"
+
+  for (const section of sections) {
+    const part = section.replace(/^\r\n/, "");
+    const headerEnd = part.indexOf("\r\n\r\n");
+    if (headerEnd === -1) continue;
+
+    const headerBlock = part.slice(0, headerEnd);
+    const data = Buffer.from(
+      part.slice(headerEnd + 4).replace(/\r\n$/, ""),
+      "binary",
+    );
+
+    const nameMatch = /name="([^"]*)"/.exec(headerBlock);
+    const filenameMatch = /filename="([^"]*)"/.exec(headerBlock);
+    const typeMatch = /content-type:\s*([^\r\n]+)/i.exec(headerBlock);
+
+    fields.push({
+      name: nameMatch?.[1] ?? "",
+      filename: filenameMatch?.[1],
+      contentType: typeMatch?.[1].trim(),
+      data,
+    });
+  }
+
+  return fields;
+}
+
+/** A captured presigned-style asset PUT. */
+interface CapturedPresignedUpload {
+  path: string;
+  authorization?: string;
+  contentType?: string;
+  data: Buffer;
+}
+
 interface ListProjectsResponse {
   id: string;
   name: string;
@@ -567,6 +649,72 @@ export class TestAPIServer {
       `/api/apps/${this.appId}/functions-mgmt/${encodeURIComponent(functionName)}/logs`,
       response,
     );
+  }
+
+  // ─── DEPLOYMENT ENDPOINTS ─────────────────────────────────
+
+  /** Captured JSON bodies of POST deployments requests. */
+  readonly deploymentCreateRequests: unknown[] = [];
+  /** Captured presigned-style asset PUTs (see mockPresignedUpload). */
+  readonly presignedUploadRequests: CapturedPresignedUpload[] = [];
+  /** Captured multipart fields of finalize requests. */
+  readonly finalizeRequests: MultipartField[][] = [];
+
+  /**
+   * Mock POST /api/apps/{appId}/deployments. Captures the JSON request body
+   * in `deploymentCreateRequests`.
+   */
+  mockDeploymentCreate(response: DeploymentCreateResponse): this {
+    this.pendingRoutes.push({
+      method: "POST",
+      path: `/api/apps/${this.appId}/deployments`,
+      handler: (req, res) => {
+        this.deploymentCreateRequests.push(req.body);
+        res.status(200).json(response);
+      },
+    });
+    return this;
+  }
+
+  /**
+   * Register a presigned-style PUT target for a static asset: serves
+   * PUT /presigned{path} — point `asset_uploads[].url` at
+   * `${baseUrl}/presigned{path}` — capturing the raw body, Content-Type,
+   * and any Authorization header in `presignedUploadRequests`.
+   */
+  mockPresignedUpload(path: string): this {
+    this.pendingRoutes.push({
+      method: "PUT",
+      path: `/presigned${path}`,
+      handler: (req, res) => {
+        this.presignedUploadRequests.push({
+          path,
+          authorization: req.headers.authorization,
+          contentType: req.headers["content-type"],
+          data: req.body as Buffer,
+        });
+        res.status(200).end();
+      },
+    });
+    return this;
+  }
+
+  /**
+   * Mock POST /api/apps/{appId}/deployments/{id}/finalize. Captures the
+   * multipart fields in `finalizeRequests`.
+   */
+  mockDeploymentFinalize(response: DeploymentFinalizeResponse): this {
+    this.pendingRoutes.push({
+      method: "POST",
+      path: `/api/apps/${this.appId}/deployments/:deploymentId/finalize`,
+      handler: (req, res) => {
+        this.finalizeRequests.push(
+          parseMultipart(req.body as Buffer, req.headers["content-type"] ?? ""),
+        );
+        res.status(200).json(response);
+      },
+    });
+    return this;
   }
 
   // ─── SECRETS ENDPOINTS ───────────────────────────────────

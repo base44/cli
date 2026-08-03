@@ -76,17 +76,22 @@ Agent skills are app-scoped instruction snippets shared across the app's agents.
 
 ## Site Module (Not a Resource)
 
-The site module at `packages/cli/src/core/site/` handles deploying built frontend files. It follows a different pattern than resources:
+The site module at `packages/cli/src/core/site/` handles deploying an app's built output. It follows a different pattern than resources — there is no item list, so no `readAll`/`push`.
 
-- Reads built artifacts (JS, CSS, HTML) from the output directory
-- Gets configuration from `site.outputDirectory` in project config
-- Creates a tar.gz archive and uploads it via `POST /api/apps/{app_id}/deploy-dist`
+It owns **which transport ships the build**. `deployAppSite()` in `deploy-app.ts` is the single entry point both `base44 deploy` and `base44 site deploy` call:
+
+- `site.outputDirectory` ships as a static site: through the deployments API when the env-gated lane is enabled (see [deployments.md](deployments.md)), else the legacy path — tar.gz the built files and upload via `POST /api/apps/{app_id}/deploy-dist`.
+- No `site.outputDirectory` → `{ kind: "none" }`.
 
 ```typescript
-import { deploySite } from "@/core/site/index.js";
+import { deployAppSite } from "@/core/site/index.js";
 
-const { appUrl } = await deploySite("./dist");
+const result = await deployAppSite(project, { gitHash });
+// { kind: "static-deployment", deploymentId, gitHash }
+// | { kind: "static", appUrl } | { kind: "none" }
 ```
+
+`detectAppDeployKind()` answers what would ship right now — used for the deploy summary and spinner labels. It answers for the current state of the tree, so a build step invalidates it.
 
 ### Deploy Flow
 
@@ -116,7 +121,7 @@ What it deploys (in order):
 3. Agent skills (via `agentSkillResource.push()`)
 4. Agents (via `agentResource.push()`)
 5. Connectors (via `pushConnectors()`) -- may return OAuth redirect URLs
-6. Site (if `site.outputDirectory` is configured)
+6. Site — via `deployAppSite()`, which picks the transport (see [Site Module](#site-module-not-a-resource)). The deploy command passes `site: false` to `deployAll()` and handles this step itself, after the optional build step has produced whatever the site ships.
 
 ```bash
 base44 deploy        # With confirmation prompt

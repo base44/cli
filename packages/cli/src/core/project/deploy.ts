@@ -33,7 +33,11 @@ export function hasResourcesToDeploy(projectData: ProjectData): boolean {
     connectors,
     authConfig,
   } = projectData;
-  const hasSite = Boolean(project.site?.outputDirectory);
+  // A build command counts: a full-stack project may configure nothing but
+  // the build, and a generated artifact won't be on disk until it has run.
+  const hasSite = Boolean(
+    project.site?.outputDirectory || project.site?.buildCommand,
+  );
   const hasEntities = entities.length > 0;
   const hasFunctions = functions.length > 0;
   const hasAgents = agents.length > 0;
@@ -71,6 +75,13 @@ interface DeployAllResult {
 interface DeployAllOptions {
   onFunctionStart?: (names: string[]) => void;
   onFunctionResult?: (result: SingleFunctionDeployResult) => void;
+  /**
+   * Deploy the legacy static site (tar.gz upload) when configured.
+   * The unified deploy command passes false and handles the site itself,
+   * so full-stack (Workers) projects can take the deployments path instead.
+   * @default true
+   */
+  site?: boolean;
   onVisibilitySet?: (visibility: Visibility) => void;
 }
 
@@ -116,7 +127,7 @@ export async function deployAll(
     ? []
     : (await pushConnectors(connectors)).results;
 
-  if (project.site?.outputDirectory) {
+  if ((options?.site ?? true) && project.site?.outputDirectory) {
     const outputDir = resolve(project.root, project.site.outputDirectory);
     const { appUrl } = await deploySite(outputDir);
     return { appUrl, connectorResults };

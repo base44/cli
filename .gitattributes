@@ -1,0 +1,3 @@
+# Test fixtures are hashed byte-for-byte by the deploy tests; CRLF checkout
+# on Windows would change the bytes and break the content-addressed hashes.
+packages/cli/tests/fixtures/** text=auto eol=lf
