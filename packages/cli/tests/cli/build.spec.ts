@@ -103,4 +103,22 @@ describe("deploy --build", () => {
     t.expectResult(result).toFail();
     t.expectResult(result).toContain("Build failed");
   });
+
+  it("--build fails when the project has no site.buildCommand", async () => {
+    await t.givenLoggedInWithProject(fixture("with-site"));
+
+    const result = await t.run("deploy", "--yes", "--build");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("No site build command found");
+  });
+
+  it("--build fails when the project has no site configuration", async () => {
+    await t.givenLoggedInWithProject(fixture("with-entities"));
+
+    const result = await t.run("deploy", "--yes", "--build");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("No site build command found");
+  });
 });

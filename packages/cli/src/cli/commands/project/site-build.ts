@@ -45,15 +45,29 @@ export async function maybeBuildBeforeDeploy(
   project: ProjectData["project"],
   build?: boolean,
 ): Promise<void> {
-  if (!ctx.app || !project.site?.outputDirectory) {
+  if (!ctx.app) {
     return;
   }
 
-  const shouldBuild = await shouldBuildBeforeDeploy({
-    build,
-    isNonInteractive: ctx.isNonInteractive,
-    buildCommand: project.site.buildCommand,
-  });
+  // An explicit --build must be loud when there is nothing to build:
+  // runSiteBuild throws ConfigNotFoundError when buildCommand is missing.
+  if (build === true) {
+    await runSiteBuild(ctx, {
+      root: project.root,
+      buildCommand: project.site?.buildCommand,
+      appId: ctx.app.id,
+    });
+    return;
+  }
+
+  if (build === false || !project.site?.outputDirectory) {
+    return;
+  }
+
+  const shouldBuild = await shouldAskToBuild(
+    ctx.isNonInteractive,
+    project.site.buildCommand,
+  );
   if (shouldBuild) {
     await runSiteBuild(ctx, {
       root: project.root,
@@ -63,24 +77,11 @@ export async function maybeBuildBeforeDeploy(
   }
 }
 
-interface BuildBeforeDeployChoice {
-  build?: boolean;
-  isNonInteractive: boolean;
-  buildCommand?: string;
-}
-
-async function shouldBuildBeforeDeploy({
-  build,
-  isNonInteractive,
-  buildCommand,
-}: BuildBeforeDeployChoice): Promise<boolean> {
-  if (!buildCommand) {
-    return false;
-  }
-  if (build !== undefined) {
-    return build;
-  }
-  if (isNonInteractive) {
+async function shouldAskToBuild(
+  isNonInteractive: boolean,
+  buildCommand?: string,
+): Promise<boolean> {
+  if (!buildCommand || isNonInteractive) {
     return false;
   }
   const answer = await confirm({
