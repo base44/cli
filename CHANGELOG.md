@@ -7,6 +7,7 @@
 - App visibility: `base44 visibility <public|private|workspace>` sets it on the server directly (accepts `--app-id` to target any app). Also configurable via `"visibility"` in `config.jsonc`, which `base44 deploy` applies. New projects scaffold `"visibility": "public"`.
 - `base44 build` runs the site's `buildCommand` with `VITE_BASE44_APP_ID` injected, so built bundles always carry the linked app's id.
 - `base44 deploy` (and `base44 site deploy`) can now build first: interactive runs ask, and `--build` / `--no-build` pre-answer the prompt.
+- `base44 dev --remote` serves the frontend against the production backend: it runs `site.serveCommand` with `VITE_BASE44_APP_ID` and `VITE_BASE44_APP_BASE_URL` pointing at the app's own published URL, without starting the local backend. Fails if the app has no published URL.
 
 ### Fixed
 
