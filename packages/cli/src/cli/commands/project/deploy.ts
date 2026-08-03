@@ -6,10 +6,7 @@ import {
   promptOAuthFlows,
 } from "@/cli/commands/connectors/oauth-prompt.js";
 import { formatDeployResult } from "@/cli/commands/functions/formatDeployResult.js";
-import {
-  runSiteBuild,
-  shouldBuildBeforeDeploy,
-} from "@/cli/commands/project/site-build.js";
+import { maybeBuildBeforeDeploy } from "@/cli/commands/project/site-build.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import {
   Base44Command,
@@ -103,20 +100,7 @@ export async function deployAction(
     log.info(`Deploying:\n${summaryLines.join("\n")}`);
   }
 
-  if (ctx.app && project.site?.outputDirectory) {
-    const shouldBuild = await shouldBuildBeforeDeploy({
-      build: options.build,
-      isNonInteractive,
-      buildCommand: project.site.buildCommand,
-    });
-    if (shouldBuild) {
-      await runSiteBuild(ctx, {
-        root: project.root,
-        buildCommand: project.site.buildCommand,
-        appId: ctx.app.id,
-      });
-    }
-  }
+  await maybeBuildBeforeDeploy(ctx, project, options.build);
 
   // Deploy resources with per-function progress
   let functionCompleted = 0;

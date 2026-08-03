@@ -1,10 +1,7 @@
 import { resolve } from "node:path";
 import { confirm, isCancel } from "@clack/prompts";
 import type { Command } from "commander";
-import {
-  runSiteBuild,
-  shouldBuildBeforeDeploy,
-} from "@/cli/commands/project/site-build.js";
+import { maybeBuildBeforeDeploy } from "@/cli/commands/project/site-build.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
 import { ConfigNotFoundError, InvalidInputError } from "@/core/errors.js";
@@ -50,20 +47,7 @@ async function deployAction(
     }
   }
 
-  if (ctx.app && project.site?.outputDirectory) {
-    const shouldBuild = await shouldBuildBeforeDeploy({
-      build: options.build,
-      isNonInteractive,
-      buildCommand: project.site.buildCommand,
-    });
-    if (shouldBuild) {
-      await runSiteBuild(ctx, {
-        root: project.root,
-        buildCommand: project.site.buildCommand,
-        appId: ctx.app.id,
-      });
-    }
-  }
+  await maybeBuildBeforeDeploy(ctx, project, options.build);
 
   const result = await runTask(
     "Creating archive and deploying site...",

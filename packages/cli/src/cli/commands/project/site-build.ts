@@ -2,6 +2,7 @@ import { confirm, isCancel } from "@clack/prompts";
 import { execa } from "execa";
 import type { CLIContext } from "@/cli/types.js";
 import { ConfigNotFoundError } from "@/core/errors.js";
+import type { ProjectData } from "@/core/project/types.js";
 
 interface SiteBuildTarget {
   root: string;
@@ -39,13 +40,36 @@ export async function runSiteBuild(
   );
 }
 
+export async function maybeBuildBeforeDeploy(
+  ctx: Pick<CLIContext, "runTask" | "isNonInteractive" | "app">,
+  project: ProjectData["project"],
+  build?: boolean,
+): Promise<void> {
+  if (!ctx.app || !project.site?.outputDirectory) {
+    return;
+  }
+
+  const shouldBuild = await shouldBuildBeforeDeploy({
+    build,
+    isNonInteractive: ctx.isNonInteractive,
+    buildCommand: project.site.buildCommand,
+  });
+  if (shouldBuild) {
+    await runSiteBuild(ctx, {
+      root: project.root,
+      buildCommand: project.site.buildCommand,
+      appId: ctx.app.id,
+    });
+  }
+}
+
 interface BuildBeforeDeployChoice {
   build?: boolean;
   isNonInteractive: boolean;
   buildCommand?: string;
 }
 
-export async function shouldBuildBeforeDeploy({
+async function shouldBuildBeforeDeploy({
   build,
   isNonInteractive,
   buildCommand,
