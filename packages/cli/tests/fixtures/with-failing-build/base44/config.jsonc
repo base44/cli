@@ -1,7 +1,6 @@
 {
   "name": "Failing Build Project",
   "site": {
-    "buildCommand": "node -e \"process.exit(1)\"",
-    "outputDirectory": "site-output"
+    "buildCommand": "node -e \"process.exit(1)\""
   }
 }

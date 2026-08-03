@@ -1,7 +1,6 @@
 {
   "name": "Buildable Site Project",
   "site": {
-    "buildCommand": "node -e \"require('fs').writeFileSync('build-env.txt', 'BUILD_APP=' + process.env.VITE_BASE44_APP_ID)\"",
-    "outputDirectory": "site-output"
+    "buildCommand": "node -e \"require('fs').writeFileSync('build-env.txt', 'BUILD_APP=' + process.env.VITE_BASE44_APP_ID)\""
   }
 }
