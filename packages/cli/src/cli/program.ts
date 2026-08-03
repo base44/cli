@@ -9,6 +9,7 @@ import { getConnectorsCommand } from "@/cli/commands/connectors/index.js";
 import { getDashboardCommand } from "@/cli/commands/dashboard/index.js";
 import { getEntitiesPushCommand } from "@/cli/commands/entities/push.js";
 import { getFunctionsCommand } from "@/cli/commands/functions/index.js";
+import { getBuildCommand } from "@/cli/commands/project/build.js";
 import { getCreateCommand } from "@/cli/commands/project/create.js";
 import { getDeployCommand } from "@/cli/commands/project/deploy.js";
 import { getLinkCommand } from "@/cli/commands/project/link.js";
@@ -69,6 +70,7 @@ export function createProgram(context: CLIContext): Command {
   program.addCommand(getCreateCommand());
   program.addCommand(getScaffoldCommand());
   program.addCommand(getDashboardCommand());
+  program.addCommand(getBuildCommand());
   program.addCommand(getDeployCommand());
   program.addCommand(getVisibilityCommand());
   program.addCommand(getLinkCommand());
