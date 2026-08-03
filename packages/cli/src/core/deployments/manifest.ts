@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { readdir, readFile, stat } from "node:fs/promises";
-import { join } from "node:path";
+import { extname, join } from "node:path";
 import { InvalidInputError } from "@/core/errors.js";
 import { pathExists, readTextFile } from "@/core/utils/fs.js";
 import type {
@@ -20,6 +20,48 @@ const ALWAYS_SKIPPED_FILES = new Set([
   "wrangler.json",
   ".dev.vars",
 ]);
+
+const MIME_TYPES: Record<string, string> = {
+  ".html": "text/html",
+  ".htm": "text/html",
+  ".css": "text/css",
+  ".js": "text/javascript",
+  ".mjs": "text/javascript",
+  ".json": "application/json",
+  ".map": "application/json",
+  ".txt": "text/plain",
+  ".xml": "application/xml",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".avif": "image/avif",
+  ".ico": "image/x-icon",
+  ".woff": "font/woff",
+  ".woff2": "font/woff2",
+  ".ttf": "font/ttf",
+  ".otf": "font/otf",
+  ".eot": "application/vnd.ms-fontobject",
+  ".mp3": "audio/mpeg",
+  ".mp4": "video/mp4",
+  ".webm": "video/webm",
+  ".pdf": "application/pdf",
+  ".wasm": "application/wasm",
+  ".webmanifest": "application/manifest+json",
+};
+
+/**
+ * Content type for a cf-arm multipart upload part. The s3 arm never uses
+ * this — there the server signs each Content-Type into the presigned URL
+ * and the CLI echoes it verbatim.
+ */
+function getAssetContentType(filePath: string): string {
+  return (
+    MIME_TYPES[extname(filePath).toLowerCase()] ?? "application/octet-stream"
+  );
+}
 
 /**
  * Content-addressed asset hash: first 32 hex chars of
@@ -140,7 +182,12 @@ export async function buildAssetManifest(
 
     manifest[`/${relativePath}`] = { hash, size };
     if (!filesByHash.has(hash)) {
-      filesByHash.set(hash, { absolutePath, hash, size });
+      filesByHash.set(hash, {
+        absolutePath,
+        hash,
+        size,
+        contentType: getAssetContentType(absolutePath),
+      });
     }
   }
 

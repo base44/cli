@@ -1,0 +1,4 @@
+{
+  "configPath": "../../build/server/wrangler.json",
+  "auxiliaryWorkers": []
+}

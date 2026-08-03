@@ -72,6 +72,7 @@ tests/
     ├── duplicate-function-names/  # Error: duplicate function names
     ├── with-zero-config-functions/  # Full project: zero-config + path-named functions (CLI integration)
     ├── with-site/                 # Project with site config
+    ├── fullstack-project/         # Full-stack Workers artifact (.wrangler redirect + build output)
     ├── full-project/              # All resources combined
     ├── no-app-config/             # Unlinked project (no .app.jsonc)
     └── invalid-*/                 # Error case fixtures
@@ -298,17 +299,19 @@ t.api.mockFunctionLogs("my-function", [
 t.api.mockFunctionLogsError("my-function", { status: 500, body: { error: "Server error" } });
 ```
 
-### Deployment Mocks
+### Deployment (Full-Stack) Mocks
 
-See [deployments.md](deployments.md) for the API contract. Requests are captured for assertions: `t.api.deploymentCreateRequests` (JSON bodies), `t.api.presignedUploadRequests` (raw body, Content-Type, Authorization), and `t.api.finalizeRequests` (parsed multipart fields).
+See [deployments.md](deployments.md) for the API contract. Requests are captured for assertions: `t.api.deploymentCreateRequests` (JSON bodies), `t.api.assetUploadRequests` (Authorization header, `base64` query, multipart fields), and `t.api.finalizeRequests` (parsed multipart fields).
 
 ```typescript
 t.api.mockDeploymentCreate({
   deployment_id: "app-1-git-a1b2c3d4e5f6",
-  // {type: "s3", uploads: [...]} or null (nothing owed)
-  asset_uploads: { type: "s3", uploads: [{ path, content_type, content_length, url }] },
+  // cf arm shown; also {type: "s3", uploads: [...]} or null (nothing owed)
+  asset_uploads: { type: "cf", url, jwt: "session-jwt", buckets: [["<hash>"]] },
 });
-t.api.mockPresignedUpload("/main.js"); // serves a presigned-style PUT target
+t.api.mockAssetUpload("completion-jwt"); // serves the cf asset-upload target, responds 201 {result:{jwt}}
+t.api.mockAssetUploadError({ status: 500, body: { error: "Server error" } });
+t.api.mockPresignedUpload("/main.js"); // serves a presigned-style PUT target (s3 arm)
 t.api.mockDeploymentFinalize({ deployment_id: "app-1-git-a1b2c3d4e5f6" });
 ```
 

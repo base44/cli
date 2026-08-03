@@ -25,6 +25,8 @@ async function deployAction(
 
   const { project } = await readProjectConfig();
 
+  // A full-stack build artifact ships as a Workers deployment; without one
+  // the site is the configured output directory.
   const kind = await detectAppDeployKind(project);
 
   if (kind === "none") {
@@ -34,13 +36,20 @@ async function deployAction(
           message:
             'Add \'site.outputDirectory\' to your config.jsonc (e.g., "site": { "outputDirectory": "dist" })',
         },
+        {
+          message:
+            "Full-stack apps ship from their build artifact — run your framework's build first",
+        },
       ],
     });
   }
 
   if (!options.yes) {
     const shouldDeploy = await confirm({
-      message: `Deploy site from ${project.site?.outputDirectory}?`,
+      message:
+        kind === "full-stack"
+          ? "Deploy full-stack app?"
+          : `Deploy site from ${project.site?.outputDirectory}?`,
     });
 
     if (isCancel(shouldDeploy) || !shouldDeploy) {
@@ -54,7 +63,7 @@ async function deployAction(
     gitHash: options.gitHash,
   });
 
-  if (result.kind === "static-deployment") {
+  if (result.kind === "full-stack" || result.kind === "static-deployment") {
     // A build has no URL of its own: what production serves is decided when
     // the app is published from the builder, not by this deploy.
     return {
@@ -78,7 +87,9 @@ async function deployAction(
 
 export function getSiteDeployCommand(): Command {
   return new Base44Command("deploy")
-    .description("Deploy the built site to Base44 hosting")
+    .description(
+      "Deploy the built site to Base44 hosting (full-stack apps deploy their Workers build)",
+    )
     .option("-y, --yes", "Skip confirmation prompt")
     .option(
       "--git-hash <hash>",

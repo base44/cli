@@ -4,6 +4,11 @@ import type { AppDeployResult, AppSiteTarget } from "@/core/site/index.js";
 import { deployAppSite, detectAppDeployKind } from "@/core/site/index.js";
 
 const TASK_LABELS = {
+  "full-stack": {
+    start: "Deploying full-stack app...",
+    success: theme.colors.base44Orange("Full-stack app deployed"),
+    error: "Full-stack deploy failed",
+  },
   "static-deployment": {
     start: "Deploying site...",
     success: "Site deployed",
@@ -49,6 +54,9 @@ export async function runAppSiteDeploy(
           },
           onAssetUpload: ({ uploadedFiles, totalFiles }) => {
             updateMessage(`Uploaded ${uploadedFiles} of ${totalFiles} assets`);
+          },
+          onWorker: ({ moduleCount }) => {
+            updateMessage(`Deploying worker (${moduleCount} modules)…`);
           },
         },
       }),

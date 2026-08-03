@@ -1,5 +1,11 @@
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { describe, it } from "vitest";
 import { fixture, setupCLITests } from "./testkit/index.js";
+
+/** The commit the fullstack fixture's "build" came from (not a git repo). */
+const GIT_HASH = "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0";
+const DEPLOYMENT_ID = "test-app-git-a1b2c3d4e5f6";
 
 describe("site deploy command", () => {
   const t = setupCLITests();
@@ -42,6 +48,46 @@ describe("site deploy command", () => {
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Site deployed successfully");
     t.expectResult(result).toContain("https://my-app.base44.app");
+  });
+
+  it("deploys the Workers build for a full-stack project", async () => {
+    await t.givenLoggedInWithProject(fixture("fullstack-project"));
+    t.api.mockDeploymentCreate({
+      deployment_id: DEPLOYMENT_ID,
+      asset_uploads: null,
+    });
+    t.api.mockDeploymentFinalize({ deployment_id: DEPLOYMENT_ID });
+
+    const result = await t.run("site", "deploy", "-y", "--git-hash", GIT_HASH);
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Full-stack app deployed");
+    t.expectResult(result).toContain(DEPLOYMENT_ID);
+  });
+
+  it("prefers the Workers build over the tar.gz upload when both are possible", async () => {
+    // A full-stack artifact carries the server too, so uploading the static
+    // output directory instead would silently drop the worker.
+    await t.givenLoggedInWithProject(fixture("fullstack-project"));
+    await writeFile(
+      join(t.getTempDir(), "project", "base44", "config.jsonc"),
+      JSON.stringify({
+        name: "Fullstack Project",
+        site: { outputDirectory: "build/client" },
+      }),
+    );
+    t.api.mockSiteDeploy({ app_url: "https://legacy.base44.app" });
+    t.api.mockDeploymentCreate({
+      deployment_id: DEPLOYMENT_ID,
+      asset_uploads: null,
+    });
+    t.api.mockDeploymentFinalize({ deployment_id: DEPLOYMENT_ID });
+
+    const result = await t.run("site", "deploy", "-y", "--git-hash", GIT_HASH);
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Full-stack app deployed");
+    t.expectResult(result).toNotContain("https://legacy.base44.app");
   });
 
   it("fails when API returns error", async () => {

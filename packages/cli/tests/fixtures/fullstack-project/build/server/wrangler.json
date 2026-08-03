@@ -1,0 +1,31 @@
+{
+  "name": "fullstack-project",
+  "main": "index.js",
+  "no_bundle": true,
+  "rules": [
+    {
+      "type": "ESModule",
+      "globs": ["**/*.js", "**/*.mjs"]
+    }
+  ],
+  "assets": {
+    "directory": "../client"
+  },
+  "compatibility_date": "2025-04-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    "MY_VAR": "my-value"
+  },
+  "kv_namespaces": [],
+  "d1_databases": [],
+  "r2_buckets": [],
+  "durable_objects": {
+    "bindings": []
+  },
+  "services": [],
+  "queues": {
+    "producers": [],
+    "consumers": []
+  },
+  "hyperdrive": []
+}

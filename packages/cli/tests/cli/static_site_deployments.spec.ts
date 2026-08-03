@@ -26,6 +26,7 @@ const FIXTURE_SIZES: Record<string, number> = Object.fromEntries(
 
 interface CreateBody {
   git_hash: string;
+  config?: { main?: string; compatibility_flags?: string[] };
   asset_manifest: Record<string, { hash: string; size: number }>;
 }
 
@@ -181,5 +182,28 @@ describe("deploy command (static site through the deployments API, env-gated)", 
     t.expectResult(result).toFail();
     t.expectResult(result).toContain("--git-hash");
     expect(t.api.deploymentCreateRequests).toHaveLength(0);
+  });
+
+  it("prefers a full-stack artifact over the static lane (cf arm)", async () => {
+    await t.givenLoggedInWithProject(fixture("fullstack-project"));
+    t.givenEnv({ BASE44_STATIC_DEPLOYMENTS: "1" });
+    mockResourcePushes();
+    // Nothing owed on the cf arm: asset_uploads is null either way, and the
+    // request carrying a worker config is what selects the arm.
+    t.api.mockDeploymentCreate({
+      deployment_id: DEPLOYMENT_ID,
+      asset_uploads: null,
+    });
+    t.api.mockDeploymentFinalize({ deployment_id: DEPLOYMENT_ID });
+
+    const result = await t.run("deploy", "-y", "--git-hash", GIT_HASH);
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Full-stack app deployed");
+    // The framework-emitted wrangler config wins detection and is sent.
+    const body = t.api.deploymentCreateRequests[0] as CreateBody;
+    expect(body.config?.main).toBe("index.js");
+    expect(body.config?.compatibility_flags).toEqual(["nodejs_compat"]);
+    expect(t.api.presignedUploadRequests).toHaveLength(0);
   });
 });

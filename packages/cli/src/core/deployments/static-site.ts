@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { InvalidInputError } from "@/core/errors.js";
+import { ApiError, InvalidInputError } from "@/core/errors.js";
 import { getAppContext } from "@/core/project/app-config.js";
 import { createDeployment, finalizeStaticDeployment } from "./api.js";
 import { buildAssetManifest } from "./manifest.js";
@@ -53,6 +53,12 @@ export async function deployStaticSite(options: {
     git_hash: gitHash,
     asset_manifest: assets.manifest,
   });
+  if (created.assetUploads && created.assetUploads.type !== "s3") {
+    throw new ApiError(
+      `The server answered a static-site deploy with the "${created.assetUploads.type}" upload target.`,
+    );
+  }
+
   // The uploads always exclude index.html; null means every asset is already
   // stored (re-deploying a commit is idempotent).
   const totalAssets = Object.keys(assets.manifest).length;

@@ -202,20 +202,23 @@ interface CreateAppResponse {
   name: string;
 }
 
-// ─── DEPLOYMENTS TYPES ──────────────────────────────────────
+// ─── DEPLOYMENTS (FULL-STACK) TYPES ─────────────────────────
 
 interface DeploymentCreateResponse {
   deployment_id: string;
   /** Where the assets still owed should go; null/omitted = nothing owed. */
-  asset_uploads?: {
-    type: "s3";
-    uploads: Array<{
-      path: string;
-      content_type: string;
-      content_length: number;
-      url: string;
-    }>;
-  } | null;
+  asset_uploads?:
+    | { type: "cf"; url: string; jwt: string; buckets: string[][] }
+    | {
+        type: "s3";
+        uploads: Array<{
+          path: string;
+          content_type: string;
+          content_length: number;
+          url: string;
+        }>;
+      }
+    | null;
 }
 
 interface DeploymentFinalizeResponse {
@@ -274,6 +277,13 @@ function parseMultipart(
   }
 
   return fields;
+}
+
+/** A captured asset bucket upload request. */
+interface CapturedAssetUpload {
+  authorization?: string;
+  base64Query?: string;
+  fields: MultipartField[];
 }
 
 /** A captured presigned-style asset PUT. */
@@ -651,10 +661,12 @@ export class TestAPIServer {
     );
   }
 
-  // ─── DEPLOYMENT ENDPOINTS ─────────────────────────────────
+  // ─── DEPLOYMENT (FULL-STACK) ENDPOINTS ───────────────────
 
   /** Captured JSON bodies of POST deployments requests. */
   readonly deploymentCreateRequests: unknown[] = [];
+  /** Captured asset bucket uploads (POST to the upload_url). */
+  readonly assetUploadRequests: CapturedAssetUpload[] = [];
   /** Captured presigned-style asset PUTs (see mockPresignedUpload). */
   readonly presignedUploadRequests: CapturedPresignedUpload[] = [];
   /** Captured multipart fields of finalize requests. */
@@ -671,6 +683,33 @@ export class TestAPIServer {
       handler: (req, res) => {
         this.deploymentCreateRequests.push(req.body);
         res.status(200).json(response);
+      },
+    });
+    return this;
+  }
+
+  /**
+   * Register a Cloudflare-style assets upload endpoint: serves
+   * POST /cf-assets/upload — point the cf arm's `url` at
+   * `${baseUrl}/cf-assets/upload` — capturing each request's Authorization
+   * header, base64 query param, and multipart fields in
+   * `assetUploadRequests`, responding 201 with the completion JWT
+   * (Cloudflare's reply shape).
+   */
+  mockAssetUpload(completionJwt: string): this {
+    this.pendingRoutes.push({
+      method: "POST",
+      path: "/cf-assets/upload",
+      handler: (req, res) => {
+        this.assetUploadRequests.push({
+          authorization: req.headers.authorization,
+          base64Query: String(req.query.base64 ?? ""),
+          fields: parseMultipart(
+            req.body as Buffer,
+            req.headers["content-type"] ?? "",
+          ),
+        });
+        res.status(201).json({ result: { jwt: completionJwt } });
       },
     });
     return this;
@@ -699,9 +738,15 @@ export class TestAPIServer {
     return this;
   }
 
+  /** Mock the Cloudflare assets endpoint to always fail with the given error. */
+  mockAssetUploadError(error: ErrorResponse): this {
+    return this.addErrorRoute("POST", "/cf-assets/upload", error);
+  }
+
   /**
    * Mock POST /api/apps/{appId}/deployments/{id}/finalize. Captures the
-   * multipart fields in `finalizeRequests`.
+   * multipart fields (payload JSON + one file field per module) in
+   * `finalizeRequests`.
    */
   mockDeploymentFinalize(response: DeploymentFinalizeResponse): this {
     this.pendingRoutes.push({

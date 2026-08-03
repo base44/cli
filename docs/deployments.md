@@ -1,8 +1,8 @@
-# Deployments API (Static Sites)
+# Full-Stack Deployments
 
-**Keywords:** deployments, static site, asset manifest, hash, git hash, commit, presigned, S3, finalize, index.html sentinel, BASE44_STATIC_DEPLOYMENTS, upload
+**Keywords:** deployments, full-stack, Cloudflare Workers, wrangler, no_bundle, asset manifest, hash, git hash, commit, buckets, presigned, upload session, finalize, .assetsignore, .wrangler/deploy/config.json, static site, presigned, S3, target
 
-Deployments ship an app's built output addressed by the commit that produced it. The core module is `src/core/deployments/` (`git-hash.ts`, `manifest.ts`, `static-site.ts`, `upload.ts`, `api.ts`, `schema.ts`). Today it carries the env-gated static-site lane; the create response is an ADT designed so a worker (`cf`) arm can slot in next to the static (`s3`) arm without protocol changes — that is the progressive-upgrade path for full-stack apps.
+Full-stack deployments upload framework builds (React Router 7, TanStack Start, Astro 6, vinext — anything built with `@cloudflare/vite-plugin`) as Workers on Base44. The core module is `src/core/deployments/` (`wrangler-config.ts`, `manifest.ts`, `modules.ts`, `upload.ts`, `api.ts`, `deploy.ts`).
 
 **Deploying builds — it never publishes.** A deployment is addressed by the commit that produced the build: the server derives the deployment id from `git_hash`, so one commit means one deployment and re-deploying a commit is idempotent. What production serves is decided by the platform publish flow, not by this CLI — there is no `--prod`, no promote/rollback, and no deployment list/logs surface.
 
@@ -10,36 +10,56 @@ Deployments ship an app's built output addressed by the commit that produced it.
 
 `resolveGitHash(projectRoot, explicit?)` — an explicit `--git-hash` wins; otherwise `git rev-parse HEAD` in the project root. No hash (not a git checkout, no flag) or a non-hex value fails fast with guidance. Pattern: `^[a-fA-F0-9]{7,64}$` (same validation as the server).
 
+## Artifact Detection
+
+Both `base44 deploy` and `base44 site deploy` route through `deployAppSite()` in `core/site/` (see [resources.md](resources.md#site-module-not-a-resource)), which takes this path whenever an artifact is detected and falls back to the static-site transports otherwise.
+
+`detectFullStackArtifact(projectRoot)` looks for exactly one thing: `.wrangler/deploy/config.json`, the redirect file emitted by `@cloudflare/vite-plugin` builds. Its `configPath` points at the generated `wrangler.json`, **relative to the redirect file's directory**.
+
+A hand-authored root `wrangler.jsonc` / `wrangler.json` / `wrangler.toml` is **not** an artifact. Those are written for wrangler's own bundler, which this path never runs — so they'd fail the `no_bundle` gate below anyway, and detecting one would only hijack the deploy away from the static upload the project actually wants.
+
+The resolved config must have `no_bundle: true`; otherwise the deploy fails with "this framework's output requires bundling; not yet supported". Only the fields a deploy acts on are declared in the schema — bindings (`kv_namespaces`, `d1_databases`, `durable_objects`, `queues`, ...) and the worker `name` are ignored outright: not forwarded, not validated, not warned about. `vars` are **not sent** — a worker's environment is the app's secrets and built-ins — and are surfaced as a warning when present, as are `_headers`/`_redirects` contents and `run_worker_first` route arrays (no server-side support yet).
+
 ## API Contract (app-scoped, via `getAppClient()`)
 
-1. `POST deployments` — JSON body: `git_hash` (required) and `asset_manifest` (`{"/path": {hash, size}}`). The response is `{deployment_id, asset_uploads}` where `deployment_id` is a handle for the rest of the flow and `asset_uploads` says where the assets still owed should go, discriminated on `type`:
-   - `{type: "s3", uploads: [{path, content_type, content_length, url}]}` — one presigned S3 PUT per asset still to upload, **always excluding `/index.html`** (finalize carries it).
+1. `POST deployments` — JSON body: `git_hash` (required), `config` (`main`, `compatibility_date`, `compatibility_flags`, `assets` — Cloudflare's own vocabulary: `html_handling`, `not_found_handling`, `run_worker_first` bool; **omitted entirely for a static-site deploy** — the presence of a worker config is what selects the storage target server-side), `asset_manifest` (`{"/path": {hash, size}}`). The response is `{deployment_id, asset_uploads}` where `deployment_id` is a handle for the rest of the flow (no URL, no script name) and `asset_uploads` says where the assets still owed should go, discriminated on `type`:
+   - `{type: "cf", url, jwt, buckets}` — a worker deploy: `buckets` are asset hashes grouped by Cloudflare, `url` is Cloudflare's assets upload endpoint, `jwt` is the upload-session token.
+   - `{type: "s3", uploads: [{path, content_type, content_length, url}]}` — a static deploy: one presigned S3 PUT per asset still to upload, **always excluding `/index.html`** (finalize writes it).
    - `null` — nothing owed: no assets, or the build already exists (re-deploying a commit is idempotent).
-2. **Asset upload — bytes never pass through the backend.** Each upload's raw file bytes are `PUT` directly to its presigned `url` with the signed `content_type` sent verbatim (the URL also signs `content_length`, so the body must be exactly the declared bytes). The URL itself is the credential, so no auth headers and never the app client. Per file: 3 attempts with exponential backoff, concurrency 3.
-3. `POST deployments/{id}/finalize` — multipart with exactly one file field named `index.html` carrying the index.html bytes (contentType `text/html`) — no other fields. index.html is the sentinel that completes the deployment, which is also why it never appears in the uploads. Returns `{deployment_id}`.
+2. **Asset upload — bytes never pass through the backend.** cf: for each bucket, `POST` multipart/form-data **directly to the given `url`** with `?base64=true` and `Authorization: Bearer <jwt>`; each field: name = file hash, value = base64 file bytes, contentType = the file's real MIME type. Buckets upload with concurrency 3; each bucket retries up to 3 times with exponential backoff, a 429 waits out the window without burning an attempt, and a 401/403 maps to "upload session expired — rerun deploy". The final bucket's response carries `{"result": {"jwt": "<completion token>"}}`. s3: each upload's raw file bytes are `PUT` directly to its presigned `url` with the signed `content_type` sent verbatim (the URL also signs `content_length`, so the body must be exactly the declared bytes) — the URL itself is the credential, so no auth headers and never the app client; per file: 3 attempts with exponential backoff, concurrency 3.
+3. `POST deployments/{id}/finalize` — multipart, shape follows which arm the request selected:
+   - **worker**: field `payload` = JSON `{"completion_jwt": string|null}` plus one file field per module (name = module path, contentType `application/javascript+module` for esm / `application/source-map` for `.map`). `completion_jwt` is null when `asset_uploads` came back null — the server holds the session token that completes the asset set. Bundle cap: 50 MB.
+   - **static**: exactly one file field named `index.html` carrying the index.html bytes (contentType `text/html`) — no `payload`, no modules. index.html is the sentinel that completes the deployment, which is also why it never appears in the uploads.
+
+   Returns `{deployment_id}` for both.
 
 ## Asset Manifest & Hashing
 
 `hash = first 32 hex chars of sha256(utf8(app_id) || raw file bytes)` — see `hashAsset()` in `src/core/deployments/manifest.ts`. The app-id salt is a cache-poisoning defense: a tenant can only produce hash collisions with its own files.
 
-The output directory is walked recursively. `.assetsignore` at the root is honored (minimal gitignore-style matching: exact names, `*`/`**` globs, directory patterns; no negation). `.assetsignore` itself, `wrangler.json`, and `.dev.vars` are always skipped. Files over 25 MiB fail with a per-file error; total file count is capped at 100,000. Manifest keys are `/`-prefixed forward-slash paths.
+The assets directory (from `assets.directory`, relative to the config dir) is walked recursively. `.assetsignore` at the assets root is honored (minimal gitignore-style matching: exact names, `*`/`**` globs, directory patterns; no negation). `.assetsignore` itself, `wrangler.json`, and `.dev.vars` are always skipped. Files over 25 MiB fail with a per-file error; total file count is capped at 100,000. Manifest keys are `/`-prefixed forward-slash paths.
 
-Content types are deliberately **not** derived client-side: the server decides each asset's Content-Type, signs it into the presigned URL, and the CLI echoes it verbatim — deriving our own value would 403 on any mapping difference.
+## Module Collection
 
-## The Static Lane (experimental, env-gated)
+Entry = `main` from the wrangler config. With `no_bundle: true`, every file under the config dir matching the `rules` globs is included, excluding `wrangler.json` and `.dev.vars`, preserving relative paths as module names. `.map` files next to modules (or all of them when `upload_source_maps` is set) are included as `sourcemap`. Total module payload is capped at 40 MB client-side (the server enforces 50 MB).
 
-With `BASE44_STATIC_DEPLOYMENTS=1` (or `true`; internal gate, not user-facing yet), a project with `site.outputDirectory` deploys through the deployments API instead of the legacy tar.gz upload: the output directory becomes the asset manifest (index.html included — it is only ever excluded from uploads), the CLI PUTs each requested file directly to its presigned URL and finalizes with the index.html bytes; today's serving keeps working because the server stores the result the way the legacy site upload does. Same command, same `--git-hash` addressing, same `--json` output (`{deploymentId, gitHash}`).
+## Command UX
 
-Both `base44 deploy` and `base44 site deploy` route through `deployAppSite()` in `core/site/` (see [resources.md](resources.md#site-module-not-a-resource)), which picks the transport (`static-deployment` vs legacy `static`). The primary automated consumer is the platform's build/deploy sandbox, which runs `base44 deploy -y --json --git-hash <commit>` with a scoped `apps:deploy` workspace key — so the sandbox and a human at a terminal go through the exact same door.
+**`base44 deploy [--git-hash <hash>] [--build|--no-build]`** — the optional build step is `maybeBuildBeforeDeploy` (`--build` forces it, `--no-build` skips it, otherwise an interactive ask). Then, if a full-stack artifact is detected it replaces the static site upload; otherwise the site ships over the static transport. Progress: "Found N static assets (M new)" → "Uploaded X of Y assets" → "Deploying worker (K modules)…" → summary row `Deployment: <id> (commit <hash>)`. Under `--json`, stdout is a single `{deploymentId, gitHash}` document.
+
+The primary automated consumer is the platform's build/deploy sandbox, which runs this command with a scoped `apps:deploy` workspace key and the checkout's commit — so the sandbox and a human at a terminal go through the exact same door.
+
+## Static Sites through the Deployments API (experimental, env-gated)
+
+With `BASE44_STATIC_DEPLOYMENTS=1` (or `true`; internal gate, not user-facing yet), a project with `site.outputDirectory` and **no** full-stack artifact deploys through the deployments API instead of the legacy tar.gz upload: the output directory becomes the asset manifest (index.html included — it is only ever excluded from uploads), and the create request carries **no `config`**, which the server answers with the `s3` arm of the discriminated create response. The CLI PUTs each requested file directly to its presigned URL and finalizes with the index.html bytes; today's serving keeps working because the server stores the result the way the legacy site upload does. Same command, same `--git-hash` addressing, same `--json` output. This is the progressive-upgrade path: when the app later adopts a server framework, its emitted wrangler artifact wins detection, the create request carries the worker config, and the server flips to the `cf` arm — one CLI protocol, zero CLI change (`src/core/deployments/static-site.ts`).
 
 ## Testing
 
-`TestAPIServer` mocks: `mockDeploymentCreate` (captures the JSON body in `deploymentCreateRequests`; echoes whatever response shape you pass — `asset_uploads` is `{type: "s3", ...}` or `null`), `mockPresignedUpload(path)` (serves a presigned-style `PUT /presigned{path}` target, captures body/Content-Type/Authorization in `presignedUploadRequests`), `mockDeploymentFinalize` (captures multipart fields in `finalizeRequests`). Fixture: `tests/fixtures/with-site/` (static output dir) — not a git repo, so specs pass `--git-hash`. Unit tests live in `tests/core/deployments-*.spec.ts`.
+`TestAPIServer` mocks: `mockDeploymentCreate` (captures the JSON body in `deploymentCreateRequests`; echoes whatever response shape you pass — `asset_uploads` selects the arm: `{type: "cf", ...}`, `{type: "s3", ...}` or `null`), `mockAssetUpload` (serves a Cloudflare-style `POST /cf-assets/upload` target, captures the Authorization header, `?base64=true` query and multipart fields in `assetUploadRequests`, responds 201 with the completion jwt), `mockPresignedUpload(path)` (serves a presigned-style `PUT /presigned{path}` target, captures body/Content-Type/Authorization in `presignedUploadRequests`), `mockDeploymentFinalize` (captures fields in `finalizeRequests`). Fixtures: `tests/fixtures/fullstack-project/` (redirect file + `build/server` worker + `build/client` assets with `.assetsignore`) and `tests/fixtures/with-site/` (static output dir) — not git repos, so specs pass `--git-hash`. Unit tests live in `tests/core/deployments-*.spec.ts`.
 
 ## Rules (Deployments-Specific)
 
 - **Never re-derive the asset hash** — always go through `hashAsset()` so the app-id salt stays consistent
-- **Never derive an upload's Content-Type client-side** — the server signs it into the presigned URL; echo the signed value verbatim
-- **Presigned PUTs carry no auth headers and never use the app client** — the URL itself is the scoped credential
+- **Asset bytes never pass through the backend** — cf buckets POST directly to Cloudflare authorized by the upload-session jwt (and never through the app client, which would leak app auth); s3 PUTs go directly to the presigned URLs, where the URL itself is the credential and no auth header may be sent
 - **`git_hash` is required** — a build with no commit behind it has no address and could never be published
-- **Legacy behavior stays identical** when the gate is off — the tar.gz site path must not change
+- **Legacy behavior stays identical** when no full-stack artifact exists — the tar.gz site path must not change

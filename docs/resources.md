@@ -80,18 +80,19 @@ The site module at `packages/cli/src/core/site/` handles deploying an app's buil
 
 It owns **which transport ships the build**. `deployAppSite()` in `deploy-app.ts` is the single entry point both `base44 deploy` and `base44 site deploy` call:
 
-- `site.outputDirectory` ships as a static site: through the deployments API when the env-gated lane is enabled (see [deployments.md](deployments.md)), else the legacy path — tar.gz the built files and upload via `POST /api/apps/{app_id}/deploy-dist`.
-- No `site.outputDirectory` → `{ kind: "none" }`.
+- A full-stack (Workers) artifact wins when one is present — see [deployments.md](deployments.md). It carries the server too, so shipping the static output directory instead would silently drop the worker.
+- Otherwise `site.outputDirectory` ships as a static site: through the deployments API when the env-gated lane is enabled, else the legacy path — tar.gz the built files and upload via `POST /api/apps/{app_id}/deploy-dist`.
+- Neither applies → `{ kind: "none" }`.
 
 ```typescript
 import { deployAppSite } from "@/core/site/index.js";
 
 const result = await deployAppSite(project, { gitHash });
-// { kind: "static-deployment", deploymentId, gitHash }
+// { kind: "full-stack" | "static-deployment", deploymentId, gitHash }
 // | { kind: "static", appUrl } | { kind: "none" }
 ```
 
-`detectAppDeployKind()` answers what would ship right now — used for the deploy summary and spinner labels. It answers for the current state of the tree, so a build step invalidates it.
+`detectAppDeployKind()` answers what would ship right now — used for the deploy summary and spinner labels. It answers for the current state of the tree; the full-stack artifact is itself a build output, so a build step invalidates it.
 
 ### Deploy Flow
 

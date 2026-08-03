@@ -86,7 +86,9 @@ export async function deployAction(
   if (project.visibility) {
     summaryLines.push(`  - Visibility: ${project.visibility}`);
   }
-  if (project.site?.outputDirectory) {
+  if (plannedSite === "full-stack") {
+    summaryLines.push("  - Full-stack app");
+  } else if (project.site?.outputDirectory) {
     summaryLines.push(`  - Site from ${project.site.outputDirectory}`);
   }
 
@@ -154,7 +156,9 @@ export async function deployAction(
     );
   }
   const deployment =
-    siteResult.kind === "static-deployment" ? siteResult : undefined;
+    siteResult.kind === "full-stack" || siteResult.kind === "static-deployment"
+      ? siteResult
+      : undefined;
   if (deployment) {
     printDeploymentSummary(deployment, log);
   }
