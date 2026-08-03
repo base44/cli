@@ -41,3 +41,66 @@ describe("build command", () => {
     t.expectResult(result).toFail();
   });
 });
+
+describe("deploy --build", () => {
+  const t = setupCLITests();
+
+  const mockDeployApi = () => {
+    t.api.mockConnectorsList({ integrations: [] });
+    t.api.mockStripeStatus({ stripe_mode: null });
+    t.api.mockSiteDeploy({ app_url: "https://buildable.base44.app" });
+  };
+
+  it("builds before deploying when --build is passed", async () => {
+    await t.givenLoggedInWithProject(fixture("with-buildable-site"));
+    mockDeployApi();
+
+    const result = await t.run("deploy", "--yes", "--build");
+
+    t.expectResult(result).toSucceed();
+    expect(await t.readProjectFile("build-env.txt")).toBe(
+      `BUILD_APP=${t.api.appId}`,
+    );
+  });
+
+  it("does not build when the build flag is absent in non-interactive mode", async () => {
+    await t.givenLoggedInWithProject(fixture("with-buildable-site"));
+    mockDeployApi();
+
+    const result = await t.run("deploy", "--yes");
+
+    t.expectResult(result).toSucceed();
+    expect(await t.readProjectFile("build-env.txt")).toBeNull();
+  });
+
+  it("does not build with --no-build", async () => {
+    await t.givenLoggedInWithProject(fixture("with-buildable-site"));
+    mockDeployApi();
+
+    const result = await t.run("deploy", "--yes", "--no-build");
+
+    t.expectResult(result).toSucceed();
+    expect(await t.readProjectFile("build-env.txt")).toBeNull();
+  });
+
+  it("site deploy --build builds before uploading", async () => {
+    await t.givenLoggedInWithProject(fixture("with-buildable-site"));
+    t.api.mockSiteDeploy({ app_url: "https://buildable.base44.app" });
+
+    const result = await t.run("site", "deploy", "--yes", "--build");
+
+    t.expectResult(result).toSucceed();
+    expect(await t.readProjectFile("build-env.txt")).toBe(
+      `BUILD_APP=${t.api.appId}`,
+    );
+  });
+
+  it("fails the deploy when the build fails", async () => {
+    await t.givenLoggedInWithProject(fixture("with-failing-build"));
+
+    const result = await t.run("deploy", "--yes", "--build");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("Build failed");
+  });
+});

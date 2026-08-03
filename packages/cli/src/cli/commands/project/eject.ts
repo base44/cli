@@ -183,7 +183,11 @@ async function eject(
         },
       );
 
-      await deployAction(ctx, { yes: true, projectRoot: resolvedPath });
+      await deployAction(ctx, {
+        yes: true,
+        build: false,
+        projectRoot: resolvedPath,
+      });
     }
   }
 

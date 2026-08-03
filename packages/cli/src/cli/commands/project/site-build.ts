@@ -1,3 +1,4 @@
+import { confirm, isCancel } from "@clack/prompts";
 import { execa } from "execa";
 import type { CLIContext } from "@/cli/types.js";
 import { ConfigNotFoundError } from "@/core/errors.js";
@@ -36,4 +37,30 @@ export async function runSiteBuild(
       errorMessage: "Build failed",
     },
   );
+}
+
+interface BuildBeforeDeployChoice {
+  build?: boolean;
+  isNonInteractive: boolean;
+  buildCommand?: string;
+}
+
+export async function shouldBuildBeforeDeploy({
+  build,
+  isNonInteractive,
+  buildCommand,
+}: BuildBeforeDeployChoice): Promise<boolean> {
+  if (!buildCommand) {
+    return false;
+  }
+  if (build !== undefined) {
+    return build;
+  }
+  if (isNonInteractive) {
+    return false;
+  }
+  const answer = await confirm({
+    message: `Build the site first? (runs '${buildCommand}' with your app id)`,
+  });
+  return !isCancel(answer) && answer;
 }
