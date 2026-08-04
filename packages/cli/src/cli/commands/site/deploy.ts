@@ -178,6 +178,6 @@ function parseConcurrency(value: string): number {
 function staticDeploymentsEnabled(
   env: NodeJS.ProcessEnv = process.env,
 ): boolean {
-  const value = env["BASE44_STATIC_DEPLOYMENTS"];
+  const value = env.BASE44_STATIC_DEPLOYMENTS;
   return value === "1" || value === "true";
 }
