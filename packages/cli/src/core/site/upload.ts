@@ -1,5 +1,4 @@
 import { readFile } from "node:fs/promises";
-import { setTimeout as sleep } from "node:timers/promises";
 import ky from "ky";
 import pMap from "p-map";
 import { ApiError, InternalError } from "@/core/errors.js";
@@ -14,7 +13,7 @@ export const DEFAULT_UPLOAD_CONCURRENCY = 3;
 /** Each worker holds a whole file in memory, so the ceiling is a memory bound. */
 export const MAX_UPLOAD_CONCURRENCY = 50;
 
-const MAX_ATTEMPTS_PER_UPLOAD = 3;
+const MAX_UPLOAD_ATTEMPTS = 3;
 const RETRY_BASE_DELAY_MS = 500;
 
 /**
@@ -36,7 +35,7 @@ export async function uploadPresignedAssets(
   await pMap(
     uploads,
     async (upload) => {
-      await uploadPresignedAssetWithRetry(upload, assets);
+      await uploadPresignedAsset(upload, assets);
       uploadedFiles++;
       onProgress?.({ uploadedFiles, totalFiles: uploads.length });
     },
@@ -44,7 +43,7 @@ export async function uploadPresignedAssets(
   );
 }
 
-async function uploadPresignedAssetWithRetry(
+async function uploadPresignedAsset(
   upload: PresignedAssetUpload,
   assets: AssetManifestResult,
 ): Promise<void> {
@@ -57,24 +56,21 @@ async function uploadPresignedAssetWithRetry(
   }
   const content = await readFile(file.absolutePath);
 
-  let lastError: unknown;
-  for (let attempt = 0; attempt < MAX_ATTEMPTS_PER_UPLOAD; attempt++) {
-    if (attempt > 0) {
-      await sleep(RETRY_BASE_DELAY_MS * 2 ** (attempt - 1));
-    }
-    try {
-      await ky.put(upload.url, {
-        body: new Uint8Array(content),
-        // The server signed this exact Content-Type into the URL — deriving
-        // our own value would 403 on any mapping difference.
-        headers: { "Content-Type": upload.contentType },
-        timeout: 120_000,
-        retry: 0,
-      });
-      return;
-    } catch (error) {
-      lastError = error;
-    }
+  try {
+    await ky.put(upload.url, {
+      body: new Uint8Array(content),
+      // The server signed this exact Content-Type into the URL — deriving
+      // our own value would 403 on any mapping difference.
+      headers: { "Content-Type": upload.contentType },
+      timeout: 120_000,
+      // ky retries network errors and 408/429/5xx only, so a 403 from an
+      // expired URL fails fast instead of burning every attempt.
+      retry: {
+        limit: MAX_UPLOAD_ATTEMPTS - 1,
+        delay: (attempt) => RETRY_BASE_DELAY_MS * 2 ** (attempt - 1),
+      },
+    });
+  } catch (error) {
+    throw await ApiError.fromHttpError(error, "uploading static assets");
   }
-  throw await ApiError.fromHttpError(lastError, "uploading static assets");
 }

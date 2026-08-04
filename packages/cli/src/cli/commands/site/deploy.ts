@@ -12,7 +12,6 @@ import {
   deploySite,
   deployStaticSite,
   MAX_UPLOAD_CONCURRENCY,
-  staticDeploymentsEnabled,
 } from "@/core/site/index.js";
 import { isGitCommitHash } from "@/core/utils/git.js";
 
@@ -174,4 +173,11 @@ function parseConcurrency(value: string): number {
     );
   }
   return parsed;
+}
+
+function staticDeploymentsEnabled(
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  const value = env["BASE44_STATIC_DEPLOYMENTS"];
+  return value === "1" || value === "true";
 }

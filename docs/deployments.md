@@ -2,13 +2,13 @@
 
 **Keywords:** deployments, static site, asset manifest, hash, git hash, commit, presigned, S3, finalize, index.html sentinel, BASE44_STATIC_DEPLOYMENTS, upload
 
-Deployments ship an app's built output addressed by the commit that produced it. This is a transport of the site module, not a module of its own, so it lives directly in `src/core/site/`: `gate.ts` (the env gate), `manifest.ts` (asset walk + hashing), `static-site.ts` (the flow), `upload.ts` (presigned PUTs), with the requests and responses in the shared `api.ts` / `schema.ts` next to the legacy tar.gz upload. Today it carries the env-gated static-site lane; the create response is an ADT designed so a worker (`cf`) arm can slot in next to the static (`s3`) arm without protocol changes — that is the progressive-upgrade path for full-stack apps.
+Deployments ship an app's built output addressed by the commit that produced it. This is a transport of the site module, not a module of its own, so it lives directly in `src/core/site/`: `manifest.ts` (asset walk + hashing), `static-site.ts` (the flow), `upload.ts` (presigned PUTs), with the requests and responses in the shared `api.ts` / `schema.ts` next to the legacy tar.gz upload. Today it carries the env-gated static-site lane; the create response is an ADT designed so a worker (`cf`) arm can slot in next to the static (`s3`) arm without protocol changes — that is the progressive-upgrade path for full-stack apps.
 
 **Deploying builds — it never publishes.** A deployment is addressed by the commit that produced the build: the server derives the deployment id from `git_hash`, so one commit means one deployment and re-deploying a commit is idempotent. What production serves is decided by the platform publish flow, not by this CLI — there is no `--prod`, no promote/rollback, and no deployment list/logs surface.
 
 ## The Commit Address
 
-`--git-hash` carries it, and there is no fallback: the flag is what selects this lane, so a deploy without one is the legacy tar.gz upload. `deployStaticSite()` rejects a value that is not hex — `isGitCommitHash()` in `src/core/utils/git.ts`, pattern `^[a-fA-F0-9]{7,64}$`, the same validation as the server.
+`--git-hash` carries it, and there is no fallback: the flag is what selects this lane, so a deploy without one is the legacy tar.gz upload. A non-hex value is rejected by the option's `argParser` before the action runs — `isGitCommitHash()` in `src/core/utils/git.ts`, pattern `^[a-fA-F0-9]{7,64}$`, the same validation as the server.
 
 ## API Contract (app-scoped, via `getAppClient()`)
 
@@ -28,7 +28,7 @@ Content types are deliberately **not** derived client-side: the server decides e
 
 ## The Static Lane (experimental, env-gated)
 
-Two switches, in order. **`BASE44_STATIC_DEPLOYMENTS=1`** (or `true`) is the release gate, read by `staticDeploymentsEnabled()` in `gate.ts` and consulted in exactly one place — `getSiteDeployCommand()`, which registers `--git-hash` only when it is set. **`--git-hash <commit>`** is then the runtime switch: passing it deploys through the deployments API, omitting it takes the legacy tar.gz upload. So with the gate off the flag does not exist and the lane is unreachable; with it on, the flow is chosen per invocation.
+Two switches, in order. **`BASE44_STATIC_DEPLOYMENTS=1`** (or `true`) is the release gate, read by `staticDeploymentsEnabled()` and consulted in exactly one place — `getSiteDeployCommand()`, which registers `--git-hash` only when it is set. **`--git-hash <commit>`** is then the runtime switch: passing it deploys through the deployments API, omitting it takes the legacy tar.gz upload. So with the gate off the flag does not exist and the lane is unreachable; with it on, the flow is chosen per invocation.
 
 On the lane, the output directory becomes the asset manifest (index.html included — it is only ever excluded from uploads), the CLI PUTs each requested file directly to its presigned URL and finalizes with the index.html bytes; today's serving keeps working because the server stores the result the way the legacy site upload does. `--json` emits `{deploymentId, gitHash}`.
 
