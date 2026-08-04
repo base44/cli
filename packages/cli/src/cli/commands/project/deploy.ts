@@ -102,8 +102,8 @@ export async function deployAction(
 
   await maybeBuildBeforeDeploy(ctx, project, options.build);
 
-  // Deploy resources with per-function progress. The site ships below,
-  // from whatever the build produced.
+  // Deploy resources with per-function progress; the site ships below, from
+  // whatever the build produced.
   let functionCompleted = 0;
   const functionTotal = functions.length;
 
@@ -126,8 +126,6 @@ export async function deployAction(
     },
   });
 
-  // No `--git-hash` here: the commit override is only exposed on
-  // `base44 site deploy`, so a unified deploy always addresses HEAD.
   const siteResult = await runAppSiteDeploy(ctx, project);
 
   // Handle connector-specific post-deploy flows

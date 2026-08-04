@@ -12,11 +12,9 @@ const MAX_ATTEMPTS_PER_UPLOAD = 3;
 const RETRY_BASE_DELAY_MS = 500;
 
 /**
- * PUT static assets directly to their presigned S3 URLs (the `s3` create
- * arm). A presigned URL carries its own authorization in the query string, so
- * each request is a plain fetch — never the app client, never an
- * Authorization header. Uploads run with concurrency 3;
- * each file gets 3 attempts with exponential backoff.
+ * PUT static assets directly to their presigned S3 URLs. A presigned URL
+ * carries its own authorization in the query string, so each request is a plain
+ * fetch — never the app client, never an Authorization header.
  */
 export async function uploadPresignedAssets(
   uploads: PresignedAssetUpload[],

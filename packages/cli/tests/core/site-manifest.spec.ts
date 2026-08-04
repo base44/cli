@@ -7,8 +7,6 @@ import { buildAssetManifest, hashAsset } from "@/core/site/manifest.js";
 
 describe("hashAsset", () => {
   it("computes the first 32 hex chars of sha256(utf8(app_id) || bytes)", () => {
-    // Known vector: sha256("test-app-id" + "hello world") =
-    // b24ad526981fbac802de45c88c134ba4... (first 32 hex chars)
     expect(hashAsset("test-app-id", Buffer.from("hello world"))).toBe(
       "b24ad526981fbac802de45c88c134ba4",
     );
@@ -86,8 +84,6 @@ describe("buildAssetManifest", () => {
   });
 
   it("honors .assetsignore negation", async () => {
-    // The shape wrangler's own generated .assetsignore uses — re-including a
-    // committed example file next to the secrets it excludes.
     await writeFile(
       join(assetsDir, ".assetsignore"),
       [
@@ -106,8 +102,8 @@ describe("buildAssetManifest", () => {
 
     const { manifest } = await buildAssetManifest(assetsDir, "test-app-id");
 
-    // `!.dev.vars.example` rescues the file; `!secrets/public.txt` does not,
-    // because git cannot re-include a file under an excluded directory.
+    // `!secrets/public.txt` does not rescue: git cannot re-include a file
+    // under an excluded directory.
     expect(Object.keys(manifest).sort()).toEqual([
       "/.dev.vars.example",
       "/index.html",
@@ -125,8 +121,6 @@ describe("buildAssetManifest", () => {
 
     const { manifest } = await buildAssetManifest(assetsDir, "test-app-id");
 
-    // A glob library would expand these and drop foo.js / baz.js; gitignore
-    // semantics match the literal filename instead.
     expect(Object.keys(manifest).sort()).toEqual(["/baz.js", "/foo.js"]);
   });
 
@@ -147,8 +141,6 @@ describe("buildAssetManifest", () => {
 
     const { manifest } = await buildAssetManifest(assetsDir, "test-app-id");
 
-    // An anchored pattern only matches at the assets root — the same name
-    // deeper in the tree survives; `**` still crosses directories.
     expect(Object.keys(manifest).sort()).toEqual([
       "/nested/keep.txt",
       "/nested/root-only.txt/keep",

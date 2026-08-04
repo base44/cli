@@ -18,8 +18,7 @@ const TASK_LABELS = {
 
 /**
  * Run the project's site deploy behind a spinner, adapting the labels and the
- * progress stream to whichever transport applies. The kind is detected here
- * only to pick the messages; `deployAppSite` decides for itself what to ship.
+ * progress stream to whichever transport applies.
  */
 export async function runAppSiteDeploy(
   { runTask, log, staticDeployments }: CLIContext,

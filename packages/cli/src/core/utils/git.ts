@@ -1,9 +1,6 @@
 import { execa } from "execa";
 
-/**
- * A git commit hash: 7–64 hex chars, abbreviated or full. The deployments API
- * validates commit addresses with the same pattern.
- */
+/** Abbreviated or full commit hash — the same pattern the server validates. */
 const GIT_HASH_PATTERN = /^[a-fA-F0-9]{7,64}$/;
 
 export function isGitCommitHash(value: string): boolean {

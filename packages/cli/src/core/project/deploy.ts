@@ -76,9 +76,8 @@ interface DeployAllOptions {
   onFunctionStart?: (names: string[]) => void;
   onFunctionResult?: (result: SingleFunctionDeployResult) => void;
   /**
-   * Deploy the legacy static site (tar.gz upload) when configured.
-   * The unified deploy command passes false and handles the site itself,
-   * so full-stack (Workers) projects can take the deployments path instead.
+   * Deploy the legacy static site (tar.gz upload) when configured. The unified
+   * deploy command passes false and handles the site itself.
    * @default true
    */
   site?: boolean;

@@ -10,14 +10,9 @@ import { uploadPresignedAssets } from "./upload.js";
 
 /**
  * Deploy a static site build through the deployments API: hash the output
- * directory into an asset manifest and create the deployment at the commit's
- * address with no worker config — which the server answers with the `s3` arm
- * of the discriminated create response — then PUT the requested files
- * directly to their presigned URLs and finalize with the index.html bytes.
- *
- * This is the progressive-upgrade path: when the app later adopts a server
- * framework, the create request carries its worker config and the server
- * answers with the `cf` arm instead — same CLI protocol, zero CLI change.
+ * directory into an asset manifest, create the deployment at the commit's
+ * address with no worker config, PUT the requested files to their presigned
+ * URLs, and finalize with the index.html bytes.
  */
 export async function deployStaticSite(options: {
   outputDir: string;
@@ -41,11 +36,8 @@ export async function deployStaticSite(options: {
     git_hash: gitHash,
     asset_manifest: assets.manifest,
   });
-  // The uploads always exclude index.html; null means every asset is already
-  // stored (re-deploying a commit is idempotent).
-  const totalAssets = Object.keys(assets.manifest).length;
   progress?.onAssets?.({
-    totalAssets,
+    totalAssets: Object.keys(assets.manifest).length,
     newAssets: created.assetUploads?.uploads.length ?? 0,
   });
 
@@ -66,11 +58,7 @@ export async function deployStaticSite(options: {
   return { deploymentId: finalized.deploymentId, gitHash };
 }
 
-/**
- * The commit this build came from — a deployment is addressed by it, so the
- * hash is required. An explicit hash (flag/automation) wins; otherwise it
- * comes from the git checkout at the project root.
- */
+/** An explicit hash (flag/automation) wins over the checkout's HEAD. */
 async function resolveGitHash(
   projectRoot: string,
   explicit?: string,

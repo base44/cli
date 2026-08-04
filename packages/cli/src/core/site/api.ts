@@ -14,8 +14,6 @@ import {
 } from "@/core/site/schema.js";
 import { readFile } from "@/core/utils/fs.js";
 
-// ─── LEGACY TAR.GZ UPLOAD ────────────────────────────────────
-
 /**
  * Uploads a tar.gz archive file to the Base44 hosting API.
  *
@@ -52,8 +50,6 @@ export async function uploadSite(archivePath: string): Promise<DeployResponse> {
   return result.data;
 }
 
-// ─── DEPLOYMENTS API ─────────────────────────────────────────
-
 export async function createDeployment(
   request: CreateDeploymentRequest,
 ): Promise<CreateDeploymentResponse> {
@@ -82,10 +78,8 @@ export async function createDeployment(
 }
 
 /**
- * Finalize a static-site (s3-target) deployment. The form carries exactly one
- * file part — `index.html` — and nothing else (no `payload`, no modules):
- * index.html is always excluded from the presigned uploads and travels
- * through finalize as the sentinel that completes the deployment.
+ * The form carries exactly one file part — `index.html`, the sentinel that
+ * completes the deployment — and nothing else.
  */
 export async function finalizeStaticDeployment(
   deploymentId: string,

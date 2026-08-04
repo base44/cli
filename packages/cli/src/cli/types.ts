@@ -16,9 +16,8 @@ export interface CLIContext {
   jsonMode: boolean;
   /**
    * The experimental static-site deployments lane is on for this process
-   * (`BASE44_STATIC_DEPLOYMENTS`). This is the only place the gate is read —
-   * commands pass it down, so no layer below re-reads the environment and the
-   * whole run agrees on one answer.
+   * (`BASE44_STATIC_DEPLOYMENTS`). The only place that gate is read; commands
+   * pass it down rather than re-reading the environment.
    */
   staticDeployments: boolean;
   distribution: Distribution;

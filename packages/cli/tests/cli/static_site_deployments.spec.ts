@@ -50,8 +50,7 @@ describe("site deploy command (static site through the deployments API, env-gate
               type: "s3" as const,
               uploads: uploadPaths.map((path) => ({
                 path,
-                // The server derives this server-side and signs it into the URL; the
-                // CLI must echo it verbatim rather than derive its own.
+                // Deliberately not what the CLI would derive: the signed value wins.
                 content_type: `${SIGNED_CONTENT_TYPES[path]}; charset=utf-8`,
                 content_length: FIXTURE_SIZES[path],
                 url: `${t.api.baseUrl}/presigned${path}`,
@@ -67,10 +66,6 @@ describe("site deploy command (static site through the deployments API, env-gate
     return await readFile(join(fixture("with-site"), "site-output", name));
   }
 
-  // The whole lane is internal until the server side ships: with the gate off
-  // nothing about it may reach a user, not even a flag in --help. And even with
-  // the gate on the override lives only on `site deploy` — the command the
-  // build sandbox drives.
   it("keeps --git-hash out of the help while the gate is off", async () => {
     const siteDeployHelp = await t.run("site", "deploy", "--help");
 
@@ -115,12 +110,9 @@ describe("site deploy command (static site through the deployments API, env-gate
     await t.givenLoggedInWithProject(fixture("with-site"));
     t.givenEnv({ BASE44_STATIC_DEPLOYMENTS: "1" });
     mockResourcePushes();
-    // Available, and must go untouched: taking the legacy path would succeed.
+    // Must go untouched: taking the legacy path would have succeeded.
     t.api.mockSiteDeploy({ app_url: "https://legacy.example.com" });
 
-    // The fixture is not a git checkout and `base44 deploy` has no override, so
-    // the lane fails on the missing commit address — which is itself the proof
-    // that it took the lane instead of the legacy tar.gz upload.
     const result = await t.run("deploy", "-y");
 
     t.expectResult(result).toFail();
@@ -152,9 +144,6 @@ describe("site deploy command (static site through the deployments API, env-gate
     t.expectResult(result).toContain("Site deployed");
     t.expectResult(result).toContain(DEPLOYMENT_ID);
 
-    // Create request: the commit address, NO config field at all (that is
-    // what selects the static arm), and index.html IS in the manifest — it
-    // is only ever excluded from the uploads.
     expect(t.api.deploymentCreateRequests).toHaveLength(1);
     const body = t.api.deploymentCreateRequests[0] as CreateBody;
     expect(body.git_hash).toBe(GIT_HASH);
@@ -165,8 +154,6 @@ describe("site deploy command (static site through the deployments API, env-gate
       "/styles.css",
     ]);
 
-    // Raw bytes PUT directly to the presigned URLs: the computed content
-    // type, no auth header (the URL itself is the credential).
     expect(t.api.presignedUploadRequests).toHaveLength(2);
     const byPath = new Map(
       t.api.presignedUploadRequests.map((r) => [r.path, r]),
@@ -180,8 +167,6 @@ describe("site deploy command (static site through the deployments API, env-gate
     expect(styles?.contentType).toBe("text/css; charset=utf-8");
     expect(styles?.authorization).toBeUndefined();
 
-    // Finalize: exactly one file part — the index.html bytes. No payload,
-    // no modules.
     expect(t.api.finalizeRequests).toHaveLength(1);
     const fields = t.api.finalizeRequests[0];
     expect(fields.map((f) => f.name)).toEqual(["index.html"]);

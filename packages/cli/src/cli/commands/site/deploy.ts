@@ -83,12 +83,8 @@ export function getSiteDeployCommand(staticDeployments = false): Command {
     .option("--build", "Build the site before deploying (skips the prompt)")
     .option("--no-build", "Deploy without building (skips the prompt)");
 
-  // `--git-hash` addresses a deployments-API deploy by the commit that produced
-  // the build, so it only means anything on that lane — and that lane is
-  // internal until the server side ships. Registering it only when the lane is
-  // on keeps it out of `--help` and makes it an unknown option otherwise, as if
-  // it did not exist. This is the command the build sandbox drives, so it is
-  // the only one that exposes the override.
+  // Only registered on the enabled lane, so with the gate off the flag is
+  // absent from --help and rejected as an unknown option.
   if (staticDeployments) {
     command.addOption(
       new Option(

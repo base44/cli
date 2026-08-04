@@ -45,7 +45,6 @@ async function runCLI(options?: RunCLIOptions): Promise<void> {
     errorReporter,
     isNonInteractive,
     jsonMode,
-    // Read the lane gate once, after bootstrap-env has loaded .env files.
     staticDeployments: staticDeploymentsEnabled(),
     distribution: options?.distribution ?? "npm",
     log,
