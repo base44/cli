@@ -78,20 +78,19 @@ Agent skills are app-scoped instruction snippets shared across the app's agents.
 
 The site module at `packages/cli/src/core/site/` handles deploying an app's built output. It follows a different pattern than resources — there is no item list, so no `readAll`/`push`.
 
-It owns **which transport ships the build**. `deployAppSite()` in `deploy-app.ts` is the entry point `base44 site deploy` calls (`base44 deploy` still goes through `deployAll()`'s legacy site step):
-
-- `site.outputDirectory` ships as a static site: through the deployments API when the env-gated lane is enabled (`gate.ts`, `manifest.ts`, `static-site.ts`, `upload.ts` — see [deployments.md](deployments.md)), else the legacy path, tar.gz the built files and upload via `POST /api/apps/{app_id}/deploy-dist`. Both transports share the module's `api.ts` and `schema.ts`.
-- No `site.outputDirectory` → `{ kind: "none" }`.
+It exposes **two ways to ship `site.outputDirectory`**, and the caller picks:
 
 ```typescript
-import { deployAppSite } from "@/core/site/index.js";
+import { deploySite, deployStaticSite } from "@/core/site/index.js";
 
-const result = await deployAppSite(project, { gitHash });
-// { kind: "static-deployment", deploymentId, gitHash }
-// | { kind: "static", appUrl } | { kind: "none" }
+// Legacy: tar.gz the built files, POST /api/apps/{app_id}/deploy-dist
+const { appUrl } = await deploySite(outputDir);
+
+// Deployments API (env-gated lane, see deployments.md)
+const { deploymentId } = await deployStaticSite({ outputDir, gitHash });
 ```
 
-`detectAppDeployKind()` answers what would ship right now — used to pick the spinner labels. It answers for the current state of the tree, so a build step invalidates it.
+`base44 site deploy` chooses between them on whether `--git-hash` was passed; `base44 deploy` always uses `deploySite()` via `deployAll()`. The lane's own files are `gate.ts`, `manifest.ts`, `static-site.ts`, and `upload.ts`; both transports share the module's `api.ts` and `schema.ts`.
 
 ### Deploy Flow
 

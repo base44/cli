@@ -1,13 +1,17 @@
+import { resolve } from "node:path";
 import { confirm, isCancel } from "@clack/prompts";
 import type { Command } from "commander";
 import { Option } from "commander";
 import { maybeBuildBeforeDeploy } from "@/cli/commands/project/site-build.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
-import { Base44Command } from "@/cli/utils/index.js";
+import { Base44Command, theme } from "@/cli/utils/index.js";
 import { ConfigNotFoundError, InvalidInputError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/project/index.js";
-import { runAppSiteDeploy } from "./run-app-deploy.js";
-import { staticDeploymentsEnabled } from "@/core/site/index.js";
+import {
+  deploySite,
+  deployStaticSite,
+  staticDeploymentsEnabled,
+} from "@/core/site/index.js";
 
 interface DeployOptions {
   yes?: boolean;
@@ -51,30 +55,70 @@ async function deployAction(
 
   await maybeBuildBeforeDeploy(ctx, project, options.build);
 
-  const result = await runAppSiteDeploy(ctx, project, {
-    gitHash: options.gitHash,
-  });
+  const outputDir = resolve(project.root, outputDirectory);
 
-  if (result.kind === "static-deployment") {
-    // A build has no URL of its own: what production serves is decided when
-    // the app is published from the builder, not by this deploy.
-    return {
-      outroMessage: `Deployment ${result.deploymentId} (commit ${result.gitHash.slice(0, 12)})`,
-      stdout: ctx.jsonMode
-        ? `${JSON.stringify(
-            { deploymentId: result.deploymentId, gitHash: result.gitHash },
-            null,
-            2,
-          )}\n`
-        : undefined,
-    };
+  // A commit means a deployments-API deploy: a deployment is addressed by the
+  // commit that produced the build. Without one, ship the legacy tar.gz upload.
+  return options.gitHash
+    ? await deployToDeploymentsApi(ctx, outputDir, options.gitHash)
+    : await deployTarball(ctx, outputDir);
+}
+
+async function deployToDeploymentsApi(
+  { runTask, log, jsonMode }: CLIContext,
+  outputDir: string,
+  gitHash: string,
+): Promise<RunCommandResult> {
+  const progressLines: string[] = [];
+
+  const { deploymentId } = await runTask(
+    "Deploying site...",
+    async (updateMessage) =>
+      await deployStaticSite({
+        outputDir,
+        gitHash,
+        progress: {
+          onAssets: ({ totalAssets, newAssets }) => {
+            const line = `Found ${totalAssets} static assets (${newAssets} new)`;
+            progressLines.push(line);
+            updateMessage(line);
+          },
+          onAssetUpload: ({ uploadedFiles, totalFiles }) => {
+            updateMessage(`Uploaded ${uploadedFiles} of ${totalFiles} assets`);
+          },
+        },
+      }),
+    { successMessage: "Site deployed", errorMessage: "Site deploy failed" },
+  );
+
+  for (const line of progressLines) {
+    log.message(theme.styles.dim(line));
   }
 
-  if (result.kind === "static") {
-    return { outroMessage: `Visit your site at: ${result.appUrl}` };
-  }
+  // A build has no URL of its own: what production serves is decided when the
+  // app is published from the builder, not by this deploy.
+  return {
+    outroMessage: `Deployment ${deploymentId} (commit ${gitHash.slice(0, 12)})`,
+    stdout: jsonMode
+      ? `${JSON.stringify({ deploymentId, gitHash }, null, 2)}\n`
+      : undefined,
+  };
+}
 
-  return { outroMessage: "Nothing to deploy" };
+async function deployTarball(
+  { runTask }: CLIContext,
+  outputDir: string,
+): Promise<RunCommandResult> {
+  const { appUrl } = await runTask(
+    "Creating archive and deploying site...",
+    async () => await deploySite(outputDir),
+    {
+      successMessage: "Site deployed successfully",
+      errorMessage: "Deployment failed",
+    },
+  );
+
+  return { outroMessage: `Visit your site at: ${appUrl}` };
 }
 
 export function getSiteDeployCommand(): Command {
@@ -90,7 +134,7 @@ export function getSiteDeployCommand(): Command {
     command.addOption(
       new Option(
         "--git-hash <hash>",
-        "Commit the build came from (defaults to the checkout's HEAD)",
+        "Commit the build came from — deploys through the deployments API",
       ),
     );
   }

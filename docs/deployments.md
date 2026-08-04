@@ -6,9 +6,9 @@ Deployments ship an app's built output addressed by the commit that produced it.
 
 **Deploying builds — it never publishes.** A deployment is addressed by the commit that produced the build: the server derives the deployment id from `git_hash`, so one commit means one deployment and re-deploying a commit is idempotent. What production serves is decided by the platform publish flow, not by this CLI — there is no `--prod`, no promote/rollback, and no deployment list/logs surface.
 
-## Git Hash Resolution
+## The Commit Address
 
-`deployStaticSite()` resolves its own address: an explicit `--git-hash` wins, otherwise the checked-out commit at the project root. No hash (not a git checkout, no flag) or a non-hex value fails fast with guidance. The git plumbing is general-purpose and lives in `src/core/utils/git.ts` — `getGitHead(cwd)` and `isGitCommitHash(value)` (pattern `^[a-fA-F0-9]{7,64}$`, the same validation as the server).
+`--git-hash` carries it, and there is no fallback: the flag is what selects this lane, so a deploy without one is the legacy tar.gz upload. `deployStaticSite()` rejects a value that is not hex — `isGitCommitHash()` in `src/core/utils/git.ts`, pattern `^[a-fA-F0-9]{7,64}$`, the same validation as the server.
 
 ## API Contract (app-scoped, via `getAppClient()`)
 
@@ -28,15 +28,17 @@ Content types are deliberately **not** derived client-side: the server decides e
 
 ## The Static Lane (experimental, env-gated)
 
-`staticDeploymentsEnabled()` in `gate.ts` is the switch, and it is read in exactly one place: `runCLI()` resolves it into `CLIContext.staticDeployments` after `.env` files load, and every layer below is *told* the answer (`deployAppSite({staticDeployments})`, `getSiteDeployCommand(staticDeployments)`). Core never reads the environment, so the flag registration and the transport choice cannot disagree. With `BASE44_STATIC_DEPLOYMENTS=1` (or `true`; internal gate, not user-facing yet), a project with `site.outputDirectory` deploys through the deployments API instead of the legacy tar.gz upload: the output directory becomes the asset manifest (index.html included — it is only ever excluded from uploads), the CLI PUTs each requested file directly to its presigned URL and finalizes with the index.html bytes; today's serving keeps working because the server stores the result the way the legacy site upload does. Same commands, same `--json` output (`{deploymentId, gitHash}`).
+Two switches, in order. **`BASE44_STATIC_DEPLOYMENTS=1`** (or `true`) is the release gate, read by `staticDeploymentsEnabled()` in `gate.ts` and consulted in exactly one place — `getSiteDeployCommand()`, which registers `--git-hash` only when it is set. **`--git-hash <commit>`** is then the runtime switch: passing it deploys through the deployments API, omitting it takes the legacy tar.gz upload. So with the gate off the flag does not exist and the lane is unreachable; with it on, the flow is chosen per invocation.
 
-**The lane is reachable only from `base44 site deploy`.** That is the command the build sandbox drives — it ships the site, not the whole project — so the whole lane lives behind that one entry point: it routes through `deployAppSite()` (see [resources.md](resources.md#site-module-not-a-resource)), which picks the transport (`static-deployment` vs legacy `static`), and `--git-hash` is registered in `getSiteDeployCommand()` only when `staticDeployments` is true. With the gate off the flag is absent from `--help` and rejected as an unknown option.
+On the lane, the output directory becomes the asset manifest (index.html included — it is only ever excluded from uploads), the CLI PUTs each requested file directly to its presigned URL and finalizes with the index.html bytes; today's serving keeps working because the server stores the result the way the legacy site upload does. `--json` emits `{deploymentId, gitHash}`.
+
+**The lane is reachable only from `base44 site deploy`** — the command the build sandbox drives, since it ships the site rather than the whole project. The fork is a plain `if` in that command's action: `options.gitHash` present → `deployStaticSite()`, absent → `deploySite()` (the tar.gz upload). There is no transport-abstraction layer between the command and the two flows; each branch owns its spinner labels and its result shape.
 
 `base44 deploy` is untouched by this lane: it keeps shipping the site through `deployAll()`'s legacy tar.gz step exactly as before, gate on or off. The sandbox runs `base44 site deploy -y --json --git-hash <commit>` with a scoped `apps:deploy` workspace key. When the unified deploy should adopt the lane too, that is a deliberate follow-up.
 
 ## Testing
 
-`TestAPIServer` mocks: `mockDeploymentCreate` (captures the JSON body in `deploymentCreateRequests`; echoes whatever response shape you pass — `asset_uploads` is `{type: "s3", ...}` or `null`), `mockPresignedUpload(path)` (serves a presigned-style `PUT /presigned{path}` target, captures body/Content-Type/Authorization in `presignedUploadRequests`), `mockDeploymentFinalize` (captures multipart fields in `finalizeRequests`). Fixture: `tests/fixtures/with-site/` (static output dir) — not a git repo, so specs pass `--git-hash`. Manifest and ignore-pattern unit tests live in `tests/core/site-manifest.spec.ts`.
+`TestAPIServer` mocks: `mockDeploymentCreate` (captures the JSON body in `deploymentCreateRequests`; echoes whatever response shape you pass — `asset_uploads` is `{type: "s3", ...}` or `null`), `mockPresignedUpload(path)` (serves a presigned-style `PUT /presigned{path}` target, captures body/Content-Type/Authorization in `presignedUploadRequests`), `mockDeploymentFinalize` (captures multipart fields in `finalizeRequests`). Fixture: `tests/fixtures/with-site/` (static output dir); specs pass `--git-hash` to select the lane. Manifest and ignore-pattern unit tests live in `tests/core/site-manifest.spec.ts`.
 
 ## Rules (Deployments-Specific)
 

@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { fixture, setupCLITests } from "./testkit/index.js";
 
-/** The commit the fixture "build" came from (the fixture is not a git repo). */
+/** The commit the fixture "build" came from. */
 const GIT_HASH = "0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c";
 const DEPLOYMENT_ID = "test-app-git-0f1e2d3c4b5a";
 
@@ -180,14 +180,26 @@ describe("site deploy command (static site through the deployments API, env-gate
     });
   });
 
-  it("requires a commit hash outside a git checkout", async () => {
+  it("takes the legacy path when the gate is on but no commit is passed", async () => {
     await t.givenLoggedInWithProject(fixture("with-site"));
     t.givenEnv({ BASE44_STATIC_DEPLOYMENTS: "1" });
+    t.api.mockSiteDeploy({ app_url: "https://legacy.example.com" });
 
     const result = await t.run("site", "deploy", "-y");
 
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("https://legacy.example.com");
+    expect(t.api.deploymentCreateRequests).toHaveLength(0);
+  });
+
+  it("rejects a --git-hash that is not a commit hash", async () => {
+    await t.givenLoggedInWithProject(fixture("with-site"));
+    t.givenEnv({ BASE44_STATIC_DEPLOYMENTS: "1" });
+
+    const result = await t.run("site", "deploy", "-y", "--git-hash", "nope");
+
     t.expectResult(result).toFail();
-    t.expectResult(result).toContain("--git-hash");
+    t.expectResult(result).toContain("not a git commit hash");
     expect(t.api.deploymentCreateRequests).toHaveLength(0);
   });
 });
