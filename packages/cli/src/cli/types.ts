@@ -14,11 +14,6 @@ export interface CLIContext {
    * the lifecycle keeps stdout pure (status/logs are routed to stderr).
    */
   jsonMode: boolean;
-  /**
-   * The experimental static-site deployments lane is on for this process
-   * (`BASE44_STATIC_DEPLOYMENTS`). The only place that gate is read; commands
-   * pass it down rather than re-reading the environment.
-   */
   distribution: Distribution;
   log: Logger;
   runTask: RunTaskFn;
