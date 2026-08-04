@@ -103,7 +103,11 @@ export async function completeProjectSetup(
           await execa({ cwd: resolvedPath, shell: true })`${installCommand}`;
 
           updateMessage("Building project...");
-          await execa({ cwd: resolvedPath, shell: true })`${buildCommand}`;
+          await execa({
+            cwd: resolvedPath,
+            shell: true,
+            env: { VITE_BASE44_APP_ID: projectId },
+          })`${buildCommand}`;
 
           updateMessage("Deploying site...");
           return await deploySite(join(resolvedPath, outputDirectory));

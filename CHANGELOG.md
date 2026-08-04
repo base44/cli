@@ -9,6 +9,10 @@
 - `base44 deploy` (and `base44 site deploy`) can now build first: interactive runs ask, and `--build` / `--no-build` pre-answer the prompt.
 - `base44 dev --remote` serves the frontend against the production backend: it runs `site.serveCommand` with `VITE_BASE44_APP_ID` and `VITE_BASE44_APP_BASE_URL` pointing at the app's own published URL, without starting the local backend. Fails if the app has no published URL.
 
+### Changed
+
+- The `backend-and-client` template now scaffolds the same client convention editor-created apps use: `@base44/vite-plugin` + `src/lib/app-params.js`, with the SDK client on same-origin `/api` (`serverUrl: ''`). Under `base44 dev` the plugin proxies `/api` to the local dev backend, so scaffolded apps get local entities and functions; the app id is injected via `VITE_BASE44_APP_ID` by `base44 dev`, `base44 dev --remote`, and the build/deploy commands instead of being baked into source.
+
 ### Fixed
 
 - `base44 link` now lists editor-created apps; previously only apps created by the CLI could be linked.

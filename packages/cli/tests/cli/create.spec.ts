@@ -76,6 +76,52 @@ describe("create command", () => {
     expect(config).toContain('"visibility": "public"');
   });
 
+  it("scaffolds backend-and-client with the editor-app client convention", async () => {
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    t.api.mockCreateApp({ id: "convention-app-id", name: "Convention App" });
+
+    const projectPath = join(t.getTempDir(), "convention-app");
+
+    const result = await t.run(
+      "create",
+      "Convention App",
+      "--path",
+      projectPath,
+      "--template",
+      "backend-and-client",
+      "--no-skills",
+    );
+
+    t.expectResult(result).toSucceed();
+
+    const client = await readFile(
+      join(projectPath, "src", "api", "base44Client.js"),
+      "utf-8",
+    );
+    expect(client).toContain("serverUrl: ''");
+    expect(client).toContain("@/lib/app-params");
+    expect(client).not.toContain("convention-app-id");
+
+    const appParams = await readFile(
+      join(projectPath, "src", "lib", "app-params.js"),
+      "utf-8",
+    );
+    expect(appParams).toContain("VITE_BASE44_APP_ID");
+    expect(appParams).toContain("VITE_BASE44_APP_BASE_URL");
+
+    const viteConfig = await readFile(
+      join(projectPath, "vite.config.js"),
+      "utf-8",
+    );
+    expect(viteConfig).toContain("@base44/vite-plugin");
+
+    const appConfig = await readFile(
+      join(projectPath, "base44", ".app.jsonc"),
+      "utf-8",
+    );
+    expect(appConfig).toContain("convention-app-id");
+  });
+
   it("infers path from name when --path is not provided", async () => {
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
     t.api.mockCreateApp({ id: "inferred-path-id", name: "My App" });

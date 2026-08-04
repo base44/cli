@@ -16,7 +16,10 @@ export async function deploySite(
       `Output directory does not exist: ${siteOutputDir}. Make sure to build your project first.`,
       {
         hints: [
-          { message: "Run your build command (e.g., 'npm run build') first" },
+          {
+            message:
+              "Run 'base44 build' first (it injects your app id; a bare 'npm run build' does not)",
+          },
         ],
       },
     );
@@ -29,7 +32,10 @@ export async function deploySite(
       siteOutputDir,
       {
         hints: [
-          { message: "Run your build command (e.g., 'npm run build') first" },
+          {
+            message:
+              "Run 'base44 build' first (it injects your app id; a bare 'npm run build' does not)",
+          },
         ],
       },
     );
