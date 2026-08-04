@@ -25,13 +25,11 @@ import type {
   ConnectorSyncResult,
   StripeSyncResult,
 } from "@/core/resources/connector/index.js";
-import { detectAppDeployKind } from "@/core/site/index.js";
 
 interface DeployOptions {
   yes?: boolean;
   build?: boolean;
   projectRoot?: string;
-  gitHash?: string;
 }
 
 export async function deployAction(
@@ -47,12 +45,7 @@ export async function deployAction(
   const { project, entities, functions, agents, connectors, authConfig } =
     projectData;
 
-  // Best-effort pre-build look at what the site step would ship, for the
-  // summary and the no-resources check. The build below can change the
-  // answer, so the deploy itself decides again.
-  const plannedSite = await detectAppDeployKind(project);
-
-  if (!hasResourcesToDeploy(projectData) && plannedSite === "none") {
+  if (!hasResourcesToDeploy(projectData)) {
     return {
       outroMessage: "No resources found to deploy",
     };
@@ -133,9 +126,9 @@ export async function deployAction(
     },
   });
 
-  const siteResult = await runAppSiteDeploy(ctx, project, {
-    gitHash: options.gitHash,
-  });
+  // No `--git-hash` here: the commit override is only exposed on
+  // `base44 site deploy`, so a unified deploy always addresses HEAD.
+  const siteResult = await runAppSiteDeploy(ctx, project);
 
   // Handle connector-specific post-deploy flows
   const connectorResults = result.connectorResults ?? [];
@@ -192,10 +185,6 @@ export function getDeployCommand(): Command {
       "Deploy all project resources (entities, functions, agents, connectors, and site)",
     )
     .option("-y, --yes", "Skip confirmation prompt")
-    .option(
-      "--git-hash <hash>",
-      "Commit the build came from (defaults to the checkout's HEAD)",
-    )
     .option("--build", "Build the site before deploying (skips the prompt)")
     .option("--no-build", "Deploy without building (skips the prompt)")
     .action(deployAction);

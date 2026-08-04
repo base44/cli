@@ -29,7 +29,7 @@ interface CreateBody {
   asset_manifest: Record<string, { hash: string; size: number }>;
 }
 
-describe("deploy command (static site through the deployments API, env-gated)", () => {
+describe("site deploy command (static site through the deployments API, env-gated)", () => {
   const t = setupCLITests();
 
   /** Mocks hit by the unified deploy's resource-push phase (no resources). */
@@ -67,12 +67,72 @@ describe("deploy command (static site through the deployments API, env-gated)", 
     return await readFile(join(fixture("with-site"), "site-output", name));
   }
 
-  it("keeps the legacy tar.gz site upload when the gate is off", async () => {
+  // The whole lane is internal until the server side ships: with the gate off
+  // nothing about it may reach a user, not even a flag in --help. And even with
+  // the gate on the override lives only on `site deploy` — the command the
+  // build sandbox drives.
+  it("keeps --git-hash out of the help while the gate is off", async () => {
+    const siteDeployHelp = await t.run("site", "deploy", "--help");
+
+    t.expectResult(siteDeployHelp).toSucceed();
+    t.expectResult(siteDeployHelp).toContain("--build");
+    t.expectResult(siteDeployHelp).toNotContain("--git-hash");
+  });
+
+  it("rejects --git-hash outright while the gate is off", async () => {
     await t.givenLoggedInWithProject(fixture("with-site"));
+
+    const result = await t.run("site", "deploy", "-y", "--git-hash", GIT_HASH);
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("unknown option");
+    expect(t.api.deploymentCreateRequests).toHaveLength(0);
+  });
+
+  it("shows --git-hash on site deploy once the gate is on", async () => {
+    t.givenEnv({ BASE44_STATIC_DEPLOYMENTS: "1" });
+
+    const result = await t.run("site", "deploy", "--help");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("--git-hash");
+  });
+
+  it("never exposes --git-hash on the unified deploy, gate on or off", async () => {
+    t.givenEnv({ BASE44_STATIC_DEPLOYMENTS: "1" });
+    await t.givenLoggedInWithProject(fixture("with-site"));
+
+    const help = await t.run("deploy", "--help");
+    const passed = await t.run("deploy", "-y", "--git-hash", GIT_HASH);
+
+    t.expectResult(help).toSucceed();
+    t.expectResult(help).toNotContain("--git-hash");
+    t.expectResult(passed).toFail();
+    t.expectResult(passed).toContain("unknown option");
+  });
+
+  it("still routes the unified deploy's site through the lane when gated on", async () => {
+    await t.givenLoggedInWithProject(fixture("with-site"));
+    t.givenEnv({ BASE44_STATIC_DEPLOYMENTS: "1" });
     mockResourcePushes();
+    // Available, and must go untouched: taking the legacy path would succeed.
     t.api.mockSiteDeploy({ app_url: "https://legacy.example.com" });
 
+    // The fixture is not a git checkout and `base44 deploy` has no override, so
+    // the lane fails on the missing commit address — which is itself the proof
+    // that it took the lane instead of the legacy tar.gz upload.
     const result = await t.run("deploy", "-y");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("base44 site deploy --git-hash");
+    t.expectResult(result).toNotContain("legacy.example.com");
+  });
+
+  it("keeps the legacy tar.gz site upload when the gate is off", async () => {
+    await t.givenLoggedInWithProject(fixture("with-site"));
+    t.api.mockSiteDeploy({ app_url: "https://legacy.example.com" });
+
+    const result = await t.run("site", "deploy", "-y");
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("https://legacy.example.com");
@@ -82,16 +142,15 @@ describe("deploy command (static site through the deployments API, env-gated)", 
   it("deploys the site output through the deployments API when gated on", async () => {
     await t.givenLoggedInWithProject(fixture("with-site"));
     t.givenEnv({ BASE44_STATIC_DEPLOYMENTS: "1" });
-    mockResourcePushes();
     mockStaticCreate(["/main.js", "/styles.css"]);
     t.api.mockDeploymentFinalize({ deployment_id: DEPLOYMENT_ID });
 
-    const result = await t.run("deploy", "-y", "--git-hash", GIT_HASH);
+    const result = await t.run("site", "deploy", "-y", "--git-hash", GIT_HASH);
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Found 3 static assets (2 new)");
     t.expectResult(result).toContain("Site deployed");
-    t.expectResult(result).toContain(`Deployment: ${DEPLOYMENT_ID}`);
+    t.expectResult(result).toContain(DEPLOYMENT_ID);
 
     // Create request: the commit address, NO config field at all (that is
     // what selects the static arm), and index.html IS in the manifest — it
@@ -134,11 +193,10 @@ describe("deploy command (static site through the deployments API, env-gated)", 
   it("sends no PUTs and still finalizes when every asset is already stored", async () => {
     await t.givenLoggedInWithProject(fixture("with-site"));
     t.givenEnv({ BASE44_STATIC_DEPLOYMENTS: "true" });
-    mockResourcePushes();
     mockStaticCreate([]);
     t.api.mockDeploymentFinalize({ deployment_id: DEPLOYMENT_ID });
 
-    const result = await t.run("deploy", "-y", "--git-hash", GIT_HASH);
+    const result = await t.run("site", "deploy", "-y", "--git-hash", GIT_HASH);
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Found 3 static assets (0 new)");
@@ -152,11 +210,11 @@ describe("deploy command (static site through the deployments API, env-gated)", 
   it("emits a single JSON document with --json", async () => {
     await t.givenLoggedInWithProject(fixture("with-site"));
     t.givenEnv({ BASE44_STATIC_DEPLOYMENTS: "1" });
-    mockResourcePushes();
     mockStaticCreate(["/main.js", "/styles.css"]);
     t.api.mockDeploymentFinalize({ deployment_id: DEPLOYMENT_ID });
 
     const result = await t.run(
+      "site",
       "deploy",
       "-y",
       "--git-hash",
@@ -174,9 +232,8 @@ describe("deploy command (static site through the deployments API, env-gated)", 
   it("requires a commit hash outside a git checkout", async () => {
     await t.givenLoggedInWithProject(fixture("with-site"));
     t.givenEnv({ BASE44_STATIC_DEPLOYMENTS: "1" });
-    mockResourcePushes();
 
-    const result = await t.run("deploy", "-y");
+    const result = await t.run("site", "deploy", "-y");
 
     t.expectResult(result).toFail();
     t.expectResult(result).toContain("--git-hash");

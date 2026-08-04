@@ -104,7 +104,7 @@ export function createProgram(context: CLIContext): Command {
   program.addCommand(getAuthCommand());
 
   // Register site commands
-  program.addCommand(getSiteCommand());
+  program.addCommand(getSiteCommand(context.staticDeployments));
 
   // Register types command
   program.addCommand(getTypesCommand());

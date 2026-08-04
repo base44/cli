@@ -2,25 +2,11 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { InvalidInputError } from "@/core/errors.js";
 import { getAppContext } from "@/core/project/app-config.js";
+import { getGitHead, isGitCommitHash } from "@/core/utils/git.js";
 import { createDeployment, finalizeStaticDeployment } from "./api.js";
 import { buildAssetManifest } from "./manifest.js";
 import type { DeploymentProgress } from "./schema.js";
 import { uploadPresignedAssets } from "./upload.js";
-
-/**
- * Internal gate for the experimental static-site deployments-API lane. Not
- * user-facing yet: when set to "1" or "true", `base44 deploy` sends the
- * configured site output through the deployments API instead of the legacy
- * tar.gz site upload.
- */
-const STATIC_DEPLOYMENTS_ENV = "BASE44_STATIC_DEPLOYMENTS";
-
-export function staticDeploymentsEnabled(
-  env: NodeJS.ProcessEnv = process.env,
-): boolean {
-  const value = env[STATIC_DEPLOYMENTS_ENV];
-  return value === "1" || value === "true";
-}
 
 /**
  * Deploy a static site build through the deployments API: hash the output
@@ -35,10 +21,12 @@ export function staticDeploymentsEnabled(
  */
 export async function deployStaticSite(options: {
   outputDir: string;
-  gitHash: string;
+  projectRoot: string;
+  gitHash?: string;
   progress?: DeploymentProgress;
 }): Promise<{ deploymentId: string; gitHash: string }> {
-  const { outputDir, gitHash, progress } = options;
+  const { outputDir, projectRoot, progress } = options;
+  const gitHash = await resolveGitHash(projectRoot, options.gitHash);
 
   const assets = await buildAssetManifest(outputDir, getAppContext().id);
   // Finalize carries the index.html bytes by contract, so its absence is a
@@ -76,4 +64,32 @@ export async function deployStaticSite(options: {
   );
 
   return { deploymentId: finalized.deploymentId, gitHash };
+}
+
+/**
+ * The commit this build came from — a deployment is addressed by it, so the
+ * hash is required. An explicit hash (flag/automation) wins; otherwise it
+ * comes from the git checkout at the project root.
+ */
+async function resolveGitHash(
+  projectRoot: string,
+  explicit?: string,
+): Promise<string> {
+  const hash = explicit ?? (await getGitHead(projectRoot));
+  if (!hash || !isGitCommitHash(hash)) {
+    throw new InvalidInputError(
+      explicit
+        ? `'${explicit}' is not a git commit hash.`
+        : "Deployments are addressed by the commit that produced the build, and no git commit was found.",
+      {
+        hints: [
+          {
+            message:
+              "Run the deploy from a git checkout, or pass the commit explicitly: base44 site deploy --git-hash <commit>.",
+          },
+        ],
+      },
+    );
+  }
+  return hash;
 }

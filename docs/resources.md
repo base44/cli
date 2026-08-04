@@ -80,7 +80,7 @@ The site module at `packages/cli/src/core/site/` handles deploying an app's buil
 
 It owns **which transport ships the build**. `deployAppSite()` in `deploy-app.ts` is the single entry point both `base44 deploy` and `base44 site deploy` call:
 
-- `site.outputDirectory` ships as a static site: through the deployments API when the env-gated lane is enabled (see [deployments.md](deployments.md)), else the legacy path — tar.gz the built files and upload via `POST /api/apps/{app_id}/deploy-dist`.
+- `site.outputDirectory` ships as a static site: through the deployments API when the env-gated lane is enabled (`gate.ts`, `manifest.ts`, `static-site.ts`, `upload.ts` — see [deployments.md](deployments.md)), else the legacy path, tar.gz the built files and upload via `POST /api/apps/{app_id}/deploy-dist`. Both transports share the module's `api.ts` and `schema.ts`.
 - No `site.outputDirectory` → `{ kind: "none" }`.
 
 ```typescript

@@ -1,11 +1,11 @@
 import { confirm, isCancel } from "@clack/prompts";
 import type { Command } from "commander";
+import { Option } from "commander";
 import { maybeBuildBeforeDeploy } from "@/cli/commands/project/site-build.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
 import { ConfigNotFoundError, InvalidInputError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/project/index.js";
-import { detectAppDeployKind } from "@/core/site/index.js";
 import { runAppSiteDeploy } from "./run-app-deploy.js";
 
 interface DeployOptions {
@@ -25,9 +25,9 @@ async function deployAction(
 
   const { project } = await readProjectConfig();
 
-  const kind = await detectAppDeployKind(project);
+  const outputDirectory = project.site?.outputDirectory;
 
-  if (kind === "none") {
+  if (!outputDirectory) {
     throw new ConfigNotFoundError("No site configuration found.", {
       hints: [
         {
@@ -40,7 +40,7 @@ async function deployAction(
 
   if (!options.yes) {
     const shouldDeploy = await confirm({
-      message: `Deploy site from ${project.site?.outputDirectory}?`,
+      message: `Deploy site from ${outputDirectory}?`,
     });
 
     if (isCancel(shouldDeploy) || !shouldDeploy) {
@@ -76,15 +76,27 @@ async function deployAction(
   return { outroMessage: "Nothing to deploy" };
 }
 
-export function getSiteDeployCommand(): Command {
-  return new Base44Command("deploy")
-    .description("Deploy the built site to Base44 hosting")
+export function getSiteDeployCommand(staticDeployments = false): Command {
+  const command = new Base44Command("deploy")
+    .description("Deploy built site files to Base44 hosting")
     .option("-y, --yes", "Skip confirmation prompt")
-    .option(
-      "--git-hash <hash>",
-      "Commit the build came from (defaults to the checkout's HEAD)",
-    )
     .option("--build", "Build the site before deploying (skips the prompt)")
-    .option("--no-build", "Deploy without building (skips the prompt)")
-    .action(deployAction);
+    .option("--no-build", "Deploy without building (skips the prompt)");
+
+  // `--git-hash` addresses a deployments-API deploy by the commit that produced
+  // the build, so it only means anything on that lane — and that lane is
+  // internal until the server side ships. Registering it only when the lane is
+  // on keeps it out of `--help` and makes it an unknown option otherwise, as if
+  // it did not exist. This is the command the build sandbox drives, so it is
+  // the only one that exposes the override.
+  if (staticDeployments) {
+    command.addOption(
+      new Option(
+        "--git-hash <hash>",
+        "Commit the build came from (defaults to the checkout's HEAD)",
+      ),
+    );
+  }
+
+  return command.action(deployAction);
 }

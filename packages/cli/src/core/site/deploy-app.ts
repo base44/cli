@@ -1,11 +1,7 @@
 import { resolve } from "node:path";
-import type { DeploymentProgress } from "@/core/deployments/index.js";
-import {
-  deployStaticSite,
-  resolveGitHash,
-  staticDeploymentsEnabled,
-} from "@/core/deployments/index.js";
 import { deploySite } from "@/core/site/deploy.js";
+import type { DeploymentProgress } from "./schema.js";
+import { deployStaticSite } from "./static-site.js";
 
 /** The project fields an app deploy reads. */
 export interface AppSiteTarget {
@@ -21,6 +17,15 @@ export type AppDeployResult =
   | { kind: "static"; appUrl: string }
   | { kind: "none" };
 
+/**
+ * Whether the deployments-API lane is on for this run. The gate is read once
+ * at the CLI edge (`CLIContext.staticDeployments`) and passed down — core is
+ * told which transport to use and never reads the environment itself.
+ */
+interface StaticDeploymentsOption {
+  staticDeployments?: boolean;
+}
+
 type AppDeployPlan =
   | { kind: "static-deployment"; outputDir: string }
   | { kind: "static"; outputDir: string }
@@ -30,13 +35,16 @@ type AppDeployPlan =
  * A static output ships through the deployments API when the lane is
  * enabled, and as the legacy tar.gz upload otherwise.
  */
-async function planAppDeploy(target: AppSiteTarget): Promise<AppDeployPlan> {
+function planAppDeploy(
+  target: AppSiteTarget,
+  staticDeployments: boolean,
+): AppDeployPlan {
   const outputDirectory = target.site?.outputDirectory;
   if (!outputDirectory) {
     return { kind: "none" };
   }
   const outputDir = resolve(target.root, outputDirectory);
-  return staticDeploymentsEnabled()
+  return staticDeployments
     ? { kind: "static-deployment", outputDir }
     : { kind: "static", outputDir };
 }
@@ -45,10 +53,11 @@ async function planAppDeploy(target: AppSiteTarget): Promise<AppDeployPlan> {
  * How the project's built output would ship right now. This only answers for
  * the current state of the tree — call it again after any build step.
  */
-export async function detectAppDeployKind(
+export function detectAppDeployKind(
   target: AppSiteTarget,
-): Promise<AppDeployKind> {
-  return (await planAppDeploy(target)).kind;
+  options: StaticDeploymentsOption = {},
+): AppDeployKind {
+  return planAppDeploy(target, options.staticDeployments ?? false).kind;
 }
 
 /**
@@ -59,16 +68,19 @@ export async function detectAppDeployKind(
  */
 export async function deployAppSite(
   target: AppSiteTarget,
-  options: { gitHash?: string; progress?: DeploymentProgress } = {},
+  options: StaticDeploymentsOption & {
+    gitHash?: string;
+    progress?: DeploymentProgress;
+  } = {},
 ): Promise<AppDeployResult> {
-  const plan = await planAppDeploy(target);
+  const plan = planAppDeploy(target, options.staticDeployments ?? false);
 
   switch (plan.kind) {
     case "static-deployment": {
-      const gitHash = await resolveGitHash(target.root, options.gitHash);
-      const { deploymentId } = await deployStaticSite({
+      const { deploymentId, gitHash } = await deployStaticSite({
         outputDir: plan.outputDir,
-        gitHash,
+        projectRoot: target.root,
+        gitHash: options.gitHash,
         progress: options.progress,
       });
       return { kind: "static-deployment", deploymentId, gitHash };

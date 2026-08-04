@@ -22,26 +22,23 @@ const TASK_LABELS = {
  * only to pick the messages; `deployAppSite` decides for itself what to ship.
  */
 export async function runAppSiteDeploy(
-  { runTask, log }: CLIContext,
+  { runTask, log, staticDeployments }: CLIContext,
   target: AppSiteTarget,
   options: { gitHash?: string } = {},
 ): Promise<AppDeployResult> {
-  const kind = await detectAppDeployKind(target);
+  const kind = detectAppDeployKind(target, { staticDeployments });
   if (kind === "none") return { kind: "none" };
 
   const labels = TASK_LABELS[kind];
   const progressLines: string[] = [];
-  const warnings: string[] = [];
 
   const result = await runTask(
     labels.start,
     async (updateMessage) =>
       await deployAppSite(target, {
+        staticDeployments,
         gitHash: options.gitHash,
         progress: {
-          onWarning: (message) => {
-            warnings.push(message);
-          },
           onAssets: ({ totalAssets, newAssets }) => {
             const line = `Found ${totalAssets} static assets (${newAssets} new)`;
             progressLines.push(line);
@@ -60,9 +57,6 @@ export async function runAppSiteDeploy(
 
   for (const line of progressLines) {
     log.message(theme.styles.dim(line));
-  }
-  for (const warning of warnings) {
-    log.warn(warning);
   }
 
   return result;

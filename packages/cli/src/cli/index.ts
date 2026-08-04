@@ -6,6 +6,7 @@ import { ClackLogger, SimpleLogger } from "@base44-cli/logger";
 import { createProgram } from "@/cli/program.js";
 import { ensureNpmAssets } from "@/core/assets.js";
 import { readAuth } from "@/core/auth/index.js";
+import { staticDeploymentsEnabled } from "@/core/site/index.js";
 import { CLIExitError } from "./errors.js";
 import { ErrorReporter } from "./telemetry/error-reporter.js";
 import { addCommandInfoToErrorReporter } from "./telemetry/index.js";
@@ -44,6 +45,8 @@ async function runCLI(options?: RunCLIOptions): Promise<void> {
     errorReporter,
     isNonInteractive,
     jsonMode,
+    // Read the lane gate once, after bootstrap-env has loaded .env files.
+    staticDeployments: staticDeploymentsEnabled(),
     distribution: options?.distribution ?? "npm",
     log,
     runTask,
