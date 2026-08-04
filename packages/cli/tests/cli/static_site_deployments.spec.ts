@@ -30,14 +30,8 @@ interface CreateBody {
   asset_manifest: Record<string, { hash: string; size: number }>;
 }
 
-describe("deploy command (static site through the deployments API, env-gated)", () => {
+describe("site deploy command (static site through the deployments API, env-gated)", () => {
   const t = setupCLITests();
-
-  function mockResourcePushes() {
-    t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
-    t.api.mockConnectorsList({ integrations: [] });
-    t.api.mockStripeStatus({ stripe_mode: null });
-  }
 
   /** The s3 create arm: presigned PUT targets for the requested paths. */
   function mockStaticCreate(uploadPaths: string[]) {
@@ -68,10 +62,9 @@ describe("deploy command (static site through the deployments API, env-gated)", 
 
   it("keeps the legacy tar.gz site upload when the gate is off", async () => {
     await t.givenLoggedInWithProject(fixture("with-site"));
-    mockResourcePushes();
     t.api.mockSiteDeploy({ app_url: "https://legacy.example.com" });
 
-    const result = await t.run("deploy", "-y");
+    const result = await t.run("site", "deploy", "-y");
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("https://legacy.example.com");
@@ -81,16 +74,15 @@ describe("deploy command (static site through the deployments API, env-gated)", 
   it("deploys the site output through the deployments API when gated on", async () => {
     await t.givenLoggedInWithProject(fixture("with-site"));
     t.givenEnv({ BASE44_STATIC_DEPLOYMENTS: "1" });
-    mockResourcePushes();
     mockStaticCreate(["/main.js", "/styles.css"]);
     t.api.mockDeploymentFinalize({ deployment_id: DEPLOYMENT_ID });
 
-    const result = await t.run("deploy", "-y", "--git-hash", GIT_HASH);
+    const result = await t.run("site", "deploy", "-y", "--git-hash", GIT_HASH);
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Found 3 static assets (2 new)");
     t.expectResult(result).toContain("Site deployed");
-    t.expectResult(result).toContain(`Deployment: ${DEPLOYMENT_ID}`);
+    t.expectResult(result).toContain(`Deployment ${DEPLOYMENT_ID}`);
 
     expect(t.api.deploymentCreateRequests).toHaveLength(1);
     const body = t.api.deploymentCreateRequests[0] as CreateBody;
@@ -126,11 +118,10 @@ describe("deploy command (static site through the deployments API, env-gated)", 
   it("sends no PUTs and still finalizes when every asset is already stored", async () => {
     await t.givenLoggedInWithProject(fixture("with-site"));
     t.givenEnv({ BASE44_STATIC_DEPLOYMENTS: "true" });
-    mockResourcePushes();
     mockStaticCreate([]);
     t.api.mockDeploymentFinalize({ deployment_id: DEPLOYMENT_ID });
 
-    const result = await t.run("deploy", "-y", "--git-hash", GIT_HASH);
+    const result = await t.run("site", "deploy", "-y", "--git-hash", GIT_HASH);
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Found 3 static assets (0 new)");
@@ -144,11 +135,11 @@ describe("deploy command (static site through the deployments API, env-gated)", 
   it("emits a single JSON document with --json", async () => {
     await t.givenLoggedInWithProject(fixture("with-site"));
     t.givenEnv({ BASE44_STATIC_DEPLOYMENTS: "1" });
-    mockResourcePushes();
     mockStaticCreate(["/main.js", "/styles.css"]);
     t.api.mockDeploymentFinalize({ deployment_id: DEPLOYMENT_ID });
 
     const result = await t.run(
+      "site",
       "deploy",
       "-y",
       "--git-hash",
@@ -166,9 +157,8 @@ describe("deploy command (static site through the deployments API, env-gated)", 
   it("requires a commit hash outside a git checkout", async () => {
     await t.givenLoggedInWithProject(fixture("with-site"));
     t.givenEnv({ BASE44_STATIC_DEPLOYMENTS: "1" });
-    mockResourcePushes();
 
-    const result = await t.run("deploy", "-y");
+    const result = await t.run("site", "deploy", "-y");
 
     t.expectResult(result).toFail();
     t.expectResult(result).toContain("--git-hash");
@@ -179,7 +169,7 @@ describe("deploy command (static site through the deployments API, env-gated)", 
     await t.givenLoggedInWithProject(fixture("with-site"));
     t.givenEnv({ BASE44_STATIC_DEPLOYMENTS: "1" });
 
-    const result = await t.run("deploy", "-y", "--git-hash", "nope");
+    const result = await t.run("site", "deploy", "-y", "--git-hash", "nope");
 
     t.expectResult(result).toFail();
     t.expectResult(result).toContain("Expected a git commit hash");
@@ -189,11 +179,11 @@ describe("deploy command (static site through the deployments API, env-gated)", 
   it("uploads every asset under a --concurrency override", async () => {
     await t.givenLoggedInWithProject(fixture("with-site"));
     t.givenEnv({ BASE44_STATIC_DEPLOYMENTS: "1" });
-    mockResourcePushes();
     mockStaticCreate(["/main.js", "/styles.css"]);
     t.api.mockDeploymentFinalize({ deployment_id: DEPLOYMENT_ID });
 
     const result = await t.run(
+      "site",
       "deploy",
       "-y",
       "--git-hash",
@@ -210,8 +200,8 @@ describe("deploy command (static site through the deployments API, env-gated)", 
     await t.givenLoggedInWithProject(fixture("with-site"));
     t.givenEnv({ BASE44_STATIC_DEPLOYMENTS: "1" });
 
-    const zero = await t.run("deploy", "-y", "--concurrency", "0");
-    const huge = await t.run("deploy", "-y", "--concurrency", "999");
+    const zero = await t.run("site", "deploy", "-y", "--concurrency", "0");
+    const huge = await t.run("site", "deploy", "-y", "--concurrency", "999");
 
     t.expectResult(zero).toFail();
     t.expectResult(zero).toContain("between 1 and 50");
@@ -222,14 +212,13 @@ describe("deploy command (static site through the deployments API, env-gated)", 
   it("prefers a full-stack artifact over the static lane (cf arm)", async () => {
     await t.givenLoggedInWithProject(fixture("fullstack-project"));
     t.givenEnv({ BASE44_STATIC_DEPLOYMENTS: "1" });
-    mockResourcePushes();
     t.api.mockDeploymentCreate({
       deployment_id: DEPLOYMENT_ID,
       asset_uploads: null,
     });
     t.api.mockDeploymentFinalize({ deployment_id: DEPLOYMENT_ID });
 
-    const result = await t.run("deploy", "-y", "--git-hash", GIT_HASH);
+    const result = await t.run("site", "deploy", "-y", "--git-hash", GIT_HASH);
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Full-stack app deployed");

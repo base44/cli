@@ -1,12 +1,17 @@
 import { confirm, isCancel } from "@clack/prompts";
 import type { Command } from "commander";
+import { InvalidArgumentError, Option } from "commander";
 import { maybeBuildBeforeDeploy } from "@/cli/commands/project/site-build.js";
-import { addDeploymentOptions } from "@/cli/commands/site/deploy-options.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
 import { ConfigNotFoundError, InvalidInputError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/project/index.js";
-import { detectAppDeployKind } from "@/core/site/index.js";
+import {
+  DEFAULT_UPLOAD_CONCURRENCY,
+  detectAppDeployKind,
+  MAX_UPLOAD_CONCURRENCY,
+} from "@/core/site/index.js";
+import { isGitCommitHash } from "@/core/utils/git.js";
 import { runAppSiteDeploy } from "./run-app-deploy.js";
 
 interface DeployOptions {
@@ -87,13 +92,46 @@ async function deployAction(
 }
 
 export function getSiteDeployCommand(): Command {
-  const command = new Base44Command("deploy")
+  return new Base44Command("deploy")
     .description(
       "Deploy the built site to Base44 hosting (full-stack apps deploy their Workers build)",
     )
     .option("-y, --yes", "Skip confirmation prompt")
     .option("--build", "Build the site before deploying (skips the prompt)")
-    .option("--no-build", "Deploy without building (skips the prompt)");
+    .option("--no-build", "Deploy without building (skips the prompt)")
+    .addOption(
+      new Option(
+        "--git-hash <hash>",
+        "Commit the build came from (defaults to the checkout's HEAD)",
+      ).argParser(parseGitHash),
+    )
+    .addOption(
+      new Option("--concurrency <n>", "Parallel asset uploads")
+        .default(DEFAULT_UPLOAD_CONCURRENCY)
+        .argParser(parseConcurrency),
+    )
+    .action(deployAction);
+}
 
-  return addDeploymentOptions(command).action(deployAction);
+function parseGitHash(value: string): string {
+  if (!isGitCommitHash(value)) {
+    throw new InvalidArgumentError(
+      "Expected a git commit hash (7-64 hex chars).",
+    );
+  }
+  return value;
+}
+
+function parseConcurrency(value: string): number {
+  const parsed = Number(value);
+  if (
+    !Number.isInteger(parsed) ||
+    parsed < 1 ||
+    parsed > MAX_UPLOAD_CONCURRENCY
+  ) {
+    throw new InvalidArgumentError(
+      `Expected a whole number between 1 and ${MAX_UPLOAD_CONCURRENCY}.`,
+    );
+  }
+  return parsed;
 }

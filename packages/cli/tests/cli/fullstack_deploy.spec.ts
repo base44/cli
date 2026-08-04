@@ -30,17 +30,10 @@ interface CreateBody {
   asset_manifest: Record<string, { hash: string; size: number }>;
 }
 
-describe("deploy command (full-stack)", () => {
+describe("site deploy command (full-stack)", () => {
   const t = setupCLITests();
 
-  function mockResourcePushes() {
-    t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
-    t.api.mockConnectorsList({ integrations: [] });
-    t.api.mockStripeStatus({ stripe_mode: null });
-  }
-
   function mockHappyPath(options?: { buckets?: string[][] }) {
-    mockResourcePushes();
     const htmlHash = assetHash(t.api.appId, INDEX_HTML);
     const jsHash = assetHash(t.api.appId, APP_JS);
     t.api.mockDeploymentCreate({
@@ -61,12 +54,12 @@ describe("deploy command (full-stack)", () => {
     await t.givenLoggedInWithProject(fixture("fullstack-project"));
     const { htmlHash, jsHash } = mockHappyPath();
 
-    const result = await t.run("deploy", "-y", "--git-hash", GIT_HASH);
+    const result = await t.run("site", "deploy", "-y", "--git-hash", GIT_HASH);
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Found 2 static assets (2 new)");
     t.expectResult(result).toContain("Full-stack app deployed");
-    t.expectResult(result).toContain(`Deployment: ${DEPLOYMENT_ID}`);
+    t.expectResult(result).toContain(`Deployment ${DEPLOYMENT_ID}`);
 
     expect(t.api.deploymentCreateRequests).toHaveLength(1);
     const body = t.api.deploymentCreateRequests[0] as CreateBody;
@@ -130,14 +123,13 @@ describe("deploy command (full-stack)", () => {
 
   it("finalizes with a null completion token when every asset is already stored", async () => {
     await t.givenLoggedInWithProject(fixture("fullstack-project"));
-    mockResourcePushes();
     t.api.mockDeploymentCreate({
       deployment_id: DEPLOYMENT_ID,
       asset_uploads: null,
     });
     t.api.mockDeploymentFinalize({ deployment_id: DEPLOYMENT_ID });
 
-    const result = await t.run("deploy", "-y", "--git-hash", GIT_HASH);
+    const result = await t.run("site", "deploy", "-y", "--git-hash", GIT_HASH);
 
     t.expectResult(result).toSucceed();
     expect(t.api.assetUploadRequests).toHaveLength(0);
@@ -151,15 +143,20 @@ describe("deploy command (full-stack)", () => {
 
   it("normalizes and requires a commit hash", async () => {
     await t.givenLoggedInWithProject(fixture("fullstack-project"));
-    mockResourcePushes();
 
-    const noHash = await t.run("deploy", "-y");
+    const noHash = await t.run("site", "deploy", "-y");
     t.expectResult(noHash).toFail();
     t.expectResult(noHash).toContain("--git-hash");
 
     // Rejected by the option's argParser, before the action (and any resource
     // push) runs.
-    const badHash = await t.run("deploy", "-y", "--git-hash", "not-a-hash");
+    const badHash = await t.run(
+      "site",
+      "deploy",
+      "-y",
+      "--git-hash",
+      "not-a-hash",
+    );
     t.expectResult(badHash).toFail();
     t.expectResult(badHash).toContain("Expected a git commit hash");
     expect(t.api.deploymentCreateRequests).toHaveLength(0);
@@ -170,6 +167,7 @@ describe("deploy command (full-stack)", () => {
     mockHappyPath();
 
     const result = await t.run(
+      "site",
       "deploy",
       "-y",
       "--json",
@@ -199,7 +197,7 @@ describe("deploy command (full-stack)", () => {
     await writeFile(configPath, JSON.stringify(config));
     mockHappyPath();
 
-    const result = await t.run("deploy", "-y", "--git-hash", GIT_HASH);
+    const result = await t.run("site", "deploy", "-y", "--git-hash", GIT_HASH);
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("no 'nodejs_compat' compatibility flag");
@@ -209,7 +207,6 @@ describe("deploy command (full-stack)", () => {
 
   it("retries a bucket upload after a transient failure, resending the body", async () => {
     await t.givenLoggedInWithProject(fixture("fullstack-project"));
-    mockResourcePushes();
     const htmlHash = assetHash(t.api.appId, INDEX_HTML);
     t.api.mockDeploymentCreate({
       deployment_id: DEPLOYMENT_ID,
@@ -223,7 +220,7 @@ describe("deploy command (full-stack)", () => {
     t.api.mockAssetUploadAfterFailures(2, "completion-jwt");
     t.api.mockDeploymentFinalize({ deployment_id: DEPLOYMENT_ID });
 
-    const result = await t.run("deploy", "-y", "--git-hash", GIT_HASH);
+    const result = await t.run("site", "deploy", "-y", "--git-hash", GIT_HASH);
 
     t.expectResult(result).toSucceed();
     expect(t.api.assetUploadRequests).toHaveLength(3);
@@ -244,7 +241,6 @@ describe("deploy command (full-stack)", () => {
 
   it("surfaces a session-expired error when Cloudflare rejects the session jwt", async () => {
     await t.givenLoggedInWithProject(fixture("fullstack-project"));
-    mockResourcePushes();
     t.api.mockDeploymentCreate({
       deployment_id: DEPLOYMENT_ID,
       asset_uploads: {
@@ -256,7 +252,7 @@ describe("deploy command (full-stack)", () => {
     });
     t.api.mockAssetUploadError({ status: 401, body: { error: "expired" } });
 
-    const result = await t.run("deploy", "-y", "--git-hash", GIT_HASH);
+    const result = await t.run("site", "deploy", "-y", "--git-hash", GIT_HASH);
 
     t.expectResult(result).toFail();
     t.expectResult(result).toContain("upload session has expired");
@@ -264,13 +260,12 @@ describe("deploy command (full-stack)", () => {
 
   it("fails when the deployment API rejects the create call", async () => {
     await t.givenLoggedInWithProject(fixture("fullstack-project"));
-    mockResourcePushes();
     t.api.mockError("post", `/api/apps/${t.api.appId}/deployments`, {
       status: 422,
       body: { message: "unsupported artifact" },
     });
 
-    const result = await t.run("deploy", "-y", "--git-hash", GIT_HASH);
+    const result = await t.run("site", "deploy", "-y", "--git-hash", GIT_HASH);
 
     t.expectResult(result).toFail();
     t.expectResult(result).toContain("unsupported artifact");

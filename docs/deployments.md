@@ -14,7 +14,7 @@ Two kinds go through the same protocol, and the create request decides which: a 
 
 ## Artifact Detection
 
-Both `base44 deploy` and `base44 site deploy` route through `deployAppSite()` in `core/site/` (see [resources.md](resources.md#site-module-not-a-resource)), which takes the full-stack path whenever an artifact is detected and falls back to the static-site transports otherwise.
+`base44 site deploy` routes through `deployAppSite()` in `core/site/` (see [resources.md](resources.md#site-module-not-a-resource)), which takes the full-stack path whenever an artifact is detected and falls back to the static-site transports otherwise. **This lane is reachable only from `site deploy`** — `base44 deploy` ships the site through `deployAll()`'s legacy tar.gz step and has none of these flags.
 
 `detectFullStackArtifact(projectRoot)` looks for exactly one thing: `.wrangler/deploy/config.json`, the redirect file emitted by `@cloudflare/vite-plugin` builds. Its `configPath` points at the generated `wrangler.json`, **relative to the redirect file's directory**.
 
@@ -53,9 +53,9 @@ Entry = `main` from the wrangler config. With `no_bundle: true`, every file unde
 
 ## Command UX
 
-**`base44 deploy [--git-hash <hash>] [--concurrency <n>] [--build|--no-build]`** — the optional build step is `maybeBuildBeforeDeploy` (`--build` forces it, `--no-build` skips it, otherwise an interactive ask). Then, if a full-stack artifact is detected it replaces the static site upload; otherwise the site ships over the static transport. Progress: "Found N static assets (M new)" → "Uploaded X of Y assets" → "Deploying worker (K modules)…" → summary row `Deployment: <id> (commit <hash>)`. Under `--json`, stdout is a single `{deploymentId, gitHash}` document.
+**`base44 site deploy [--git-hash <hash>] [--concurrency <n>] [--build|--no-build]`** — the optional build step is `maybeBuildBeforeDeploy` (`--build` forces it, `--no-build` skips it, otherwise an interactive ask). Then, if a full-stack artifact is detected it ships as a Workers deployment; otherwise the site output ships over whichever static transport applies. Progress: "Found N static assets (M new)" → "Uploaded X of Y assets" → "Deploying worker (K modules)…" → outro `Deployment <id> (commit <hash>)`. Under `--json`, stdout is a single `{deploymentId, gitHash}` document.
 
-`base44 site deploy` takes the same deployment flags and ships only the site. Both get them from `addDeploymentOptions()` in `src/cli/commands/site/deploy-options.ts` — one definition, so the commit address and the upload concurrency mean the same thing on each command.
+`base44 deploy` is deliberately untouched by this: it deploys the project's resources and ships the site through `deployAll()`'s legacy tar.gz step, exactly as before, and neither `--git-hash` nor `--concurrency` exists on it. Adopting the lane there is a separate decision — it would need a commit address the unified deploy has no way to take.
 
 The primary automated consumer is the platform's build/deploy sandbox, which runs this command with a scoped `apps:deploy` workspace key and the checkout's commit — so the sandbox and a human at a terminal go through the exact same door.
 

@@ -78,7 +78,7 @@ Agent skills are app-scoped instruction snippets shared across the app's agents.
 
 The site module at `packages/cli/src/core/site/` handles deploying an app's built output. It follows a different pattern than resources — there is no item list, so no `readAll`/`push`.
 
-It owns **which transport ships the build**. `deployAppSite()` in `deploy-app.ts` is the single entry point both `base44 deploy` and `base44 site deploy` call:
+It owns **which transport ships the build**. `deployAppSite()` in `deploy-app.ts` is the entry point `base44 site deploy` calls:
 
 - A full-stack (Workers) artifact wins when one is present — see [deployments.md](deployments.md). It carries the server too, so shipping the static output directory instead would silently drop the worker.
 - Otherwise `site.outputDirectory` ships as a static site: through the deployments API when the env-gated lane is enabled, else the legacy path — tar.gz the built files and upload via `POST /api/apps/{app_id}/deploy-dist`.
@@ -92,7 +92,9 @@ const result = await deployAppSite(project, { gitHash });
 // | { kind: "static", appUrl } | { kind: "none" }
 ```
 
-`detectAppDeployKind()` answers what would ship right now — used for the deploy summary and spinner labels. It answers for the current state of the tree; the full-stack artifact is itself a build output, so a build step invalidates it.
+`detectAppDeployKind()` answers what would ship right now — used for the confirmation prompt and spinner labels. It answers for the current state of the tree; the full-stack artifact is itself a build output, so a build step invalidates it.
+
+`base44 deploy` does **not** go through this. It ships the site through `deployAll()`'s legacy tar.gz step, so the full-stack and deployments-API transports are reachable only from `base44 site deploy` — they need a commit address the unified deploy has no way to take.
 
 One flow per file: `full-stack.ts` (Workers), `static-site.ts` (deployments-API static), `deploy.ts` (legacy tar.gz). The first two share `manifest.ts`, `upload.ts`, `git-hash.ts`, and the module's `api.ts` / `schema.ts`; see [deployments.md](deployments.md).
 
@@ -124,7 +126,7 @@ What it deploys (in order):
 3. Agent skills (via `agentSkillResource.push()`)
 4. Agents (via `agentResource.push()`)
 5. Connectors (via `pushConnectors()`) -- may return OAuth redirect URLs
-6. Site — via `deployAppSite()`, which picks the transport (see [Site Module](#site-module-not-a-resource)). The deploy command passes `site: false` to `deployAll()` and handles this step itself, after the optional build step has produced whatever the site ships.
+6. Site (if `site.outputDirectory` is configured) — the legacy tar.gz upload. The full-stack and deployments-API transports are not reachable from here; see [deployments.md](deployments.md).
 
 ```bash
 base44 deploy        # With confirmation prompt
