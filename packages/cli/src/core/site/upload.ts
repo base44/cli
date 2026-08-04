@@ -1,5 +1,7 @@
 import { readFile } from "node:fs/promises";
+import { setTimeout as sleep } from "node:timers/promises";
 import ky from "ky";
+import pMap from "p-map";
 import { ApiError, InternalError } from "@/core/errors.js";
 import type {
   AssetManifestResult,
@@ -7,7 +9,11 @@ import type {
   PresignedAssetUpload,
 } from "./schema.js";
 
-const UPLOAD_CONCURRENCY = 3;
+export const DEFAULT_UPLOAD_CONCURRENCY = 3;
+
+/** Each worker holds a whole file in memory, so the ceiling is a memory bound. */
+export const MAX_UPLOAD_CONCURRENCY = 50;
+
 const MAX_ATTEMPTS_PER_UPLOAD = 3;
 const RETRY_BASE_DELAY_MS = 500;
 
@@ -19,25 +25,22 @@ const RETRY_BASE_DELAY_MS = 500;
 export async function uploadPresignedAssets(
   uploads: PresignedAssetUpload[],
   assets: AssetManifestResult,
-  onProgress?: (progress: AssetUploadProgress) => void,
+  options: {
+    concurrency?: number;
+    onProgress?: (progress: AssetUploadProgress) => void;
+  } = {},
 ): Promise<void> {
+  const { concurrency = DEFAULT_UPLOAD_CONCURRENCY, onProgress } = options;
   let uploadedFiles = 0;
 
-  let nextUpload = 0;
-  const worker = async (): Promise<void> => {
-    while (nextUpload < uploads.length) {
-      const upload = uploads[nextUpload++];
+  await pMap(
+    uploads,
+    async (upload) => {
       await uploadPresignedAssetWithRetry(upload, assets);
       uploadedFiles++;
       onProgress?.({ uploadedFiles, totalFiles: uploads.length });
-    }
-  };
-
-  await Promise.all(
-    Array.from(
-      { length: Math.min(UPLOAD_CONCURRENCY, uploads.length) },
-      worker,
-    ),
+    },
+    { concurrency },
   );
 }
 
@@ -74,8 +77,4 @@ async function uploadPresignedAssetWithRetry(
     }
   }
   throw await ApiError.fromHttpError(lastError, "uploading static assets");
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }

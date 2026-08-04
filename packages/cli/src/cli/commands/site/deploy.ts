@@ -8,8 +8,10 @@ import { Base44Command, theme } from "@/cli/utils/index.js";
 import { ConfigNotFoundError, InvalidInputError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/project/index.js";
 import {
+  DEFAULT_UPLOAD_CONCURRENCY,
   deploySite,
   deployStaticSite,
+  MAX_UPLOAD_CONCURRENCY,
   staticDeploymentsEnabled,
 } from "@/core/site/index.js";
 import { isGitCommitHash } from "@/core/utils/git.js";
@@ -18,6 +20,7 @@ interface DeployOptions {
   yes?: boolean;
   build?: boolean;
   gitHash?: string;
+  concurrency?: number;
 }
 
 async function deployAction(
@@ -60,8 +63,10 @@ async function deployAction(
 
   // A commit means a deployments-API deploy: a deployment is addressed by the
   // commit that produced the build. Without one, ship the legacy tar.gz upload.
-  return options.gitHash
-    ? await deployToDeploymentsApi(ctx, outputDir, options.gitHash)
+  const { gitHash, concurrency } = options;
+
+  return gitHash
+    ? await deployToDeploymentsApi(ctx, outputDir, gitHash, concurrency)
     : await deployTarball(ctx, outputDir);
 }
 
@@ -69,6 +74,7 @@ async function deployToDeploymentsApi(
   { runTask, log, jsonMode }: CLIContext,
   outputDir: string,
   gitHash: string,
+  concurrency?: number,
 ): Promise<RunCommandResult> {
   const progressLines: string[] = [];
 
@@ -78,6 +84,7 @@ async function deployToDeploymentsApi(
       await deployStaticSite({
         outputDir,
         gitHash,
+        concurrency,
         progress: {
           onAssets: ({ totalAssets, newAssets }) => {
             const line = `Found ${totalAssets} static assets (${newAssets} new)`;
@@ -145,7 +152,26 @@ export function getSiteDeployCommand(): Command {
         return value;
       }),
     );
+    command.addOption(
+      new Option("--concurrency <n>", "Parallel asset uploads")
+        .default(DEFAULT_UPLOAD_CONCURRENCY)
+        .argParser(parseConcurrency),
+    );
   }
 
   return command.action(deployAction);
+}
+
+function parseConcurrency(value: string): number {
+  const parsed = Number(value);
+  if (
+    !Number.isInteger(parsed) ||
+    parsed < 1 ||
+    parsed > MAX_UPLOAD_CONCURRENCY
+  ) {
+    throw new InvalidArgumentError(
+      `Expected a whole number between 1 and ${MAX_UPLOAD_CONCURRENCY}.`,
+    );
+  }
+  return parsed;
 }
