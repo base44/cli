@@ -53,6 +53,20 @@ describe("entities push command", () => {
     t.expectResult(result).toContain("Updated: Product");
   });
 
+  it("pushes entities with snake_case names", async () => {
+    await t.givenLoggedInWithProject(fixture("with-snake-case-entities"));
+    t.api.mockEntitiesPush({
+      created: ["line_items"],
+      updated: [],
+      deleted: [],
+    });
+
+    const result = await t.run("entities", "push");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Created: line_items");
+  });
+
   it("fails with helpful error when entity is missing required fields", async () => {
     await t.givenLoggedInWithProject(fixture("invalid-entity"));
 
