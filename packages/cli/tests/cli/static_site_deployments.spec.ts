@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { fixture, setupCLITests } from "./testkit/index.js";
 
-/** The commit the fixture "build" came from (the fixture is not a git repo). */
+/** The commit the fixture "build" came from. */
 const GIT_HASH = "0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c";
 const DEPLOYMENT_ID = "test-app-git-0f1e2d3c4b5a";
 
@@ -33,7 +33,6 @@ interface CreateBody {
 describe("deploy command (static site through the deployments API, env-gated)", () => {
   const t = setupCLITests();
 
-  /** Mocks hit by the unified deploy's resource-push phase (no resources). */
   function mockResourcePushes() {
     t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
     t.api.mockConnectorsList({ integrations: [] });
@@ -51,8 +50,7 @@ describe("deploy command (static site through the deployments API, env-gated)", 
               type: "s3" as const,
               uploads: uploadPaths.map((path) => ({
                 path,
-                // The server derives this server-side and signs it into the URL; the
-                // CLI must echo it verbatim rather than derive its own.
+                // Deliberately not what the CLI would derive: the signed value wins.
                 content_type: `${SIGNED_CONTENT_TYPES[path]}; charset=utf-8`,
                 content_length: FIXTURE_SIZES[path],
                 url: `${t.api.baseUrl}/presigned${path}`,
@@ -94,9 +92,6 @@ describe("deploy command (static site through the deployments API, env-gated)", 
     t.expectResult(result).toContain("Site deployed");
     t.expectResult(result).toContain(`Deployment: ${DEPLOYMENT_ID}`);
 
-    // Create request: the commit address, NO config field at all (that is
-    // what selects the static arm), and index.html IS in the manifest — it
-    // is only ever excluded from the uploads.
     expect(t.api.deploymentCreateRequests).toHaveLength(1);
     const body = t.api.deploymentCreateRequests[0] as CreateBody;
     expect(body.git_hash).toBe(GIT_HASH);
@@ -107,8 +102,6 @@ describe("deploy command (static site through the deployments API, env-gated)", 
       "/styles.css",
     ]);
 
-    // Raw bytes PUT directly to the presigned URLs: the computed content
-    // type, no auth header (the URL itself is the credential).
     expect(t.api.presignedUploadRequests).toHaveLength(2);
     const byPath = new Map(
       t.api.presignedUploadRequests.map((r) => [r.path, r]),
@@ -122,8 +115,6 @@ describe("deploy command (static site through the deployments API, env-gated)", 
     expect(styles?.contentType).toBe("text/css; charset=utf-8");
     expect(styles?.authorization).toBeUndefined();
 
-    // Finalize: exactly one file part — the index.html bytes. No payload,
-    // no modules.
     expect(t.api.finalizeRequests).toHaveLength(1);
     const fields = t.api.finalizeRequests[0];
     expect(fields.map((f) => f.name)).toEqual(["index.html"]);
@@ -232,8 +223,6 @@ describe("deploy command (static site through the deployments API, env-gated)", 
     await t.givenLoggedInWithProject(fixture("fullstack-project"));
     t.givenEnv({ BASE44_STATIC_DEPLOYMENTS: "1" });
     mockResourcePushes();
-    // Nothing owed on the cf arm: asset_uploads is null either way, and the
-    // request carrying a worker config is what selects the arm.
     t.api.mockDeploymentCreate({
       deployment_id: DEPLOYMENT_ID,
       asset_uploads: null,
@@ -244,7 +233,6 @@ describe("deploy command (static site through the deployments API, env-gated)", 
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Full-stack app deployed");
-    // The framework-emitted wrangler config wins detection and is sent.
     const body = t.api.deploymentCreateRequests[0] as CreateBody;
     expect(body.config?.main).toBe("index.js");
     expect(body.config?.compatibility_flags).toEqual(["nodejs_compat"]);

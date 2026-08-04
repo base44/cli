@@ -21,11 +21,9 @@ const MAX_UPLOAD_ATTEMPTS = 3;
 const RETRY_BASE_DELAY_MS = 500;
 
 /**
- * Retry policy shared by both upload arms. ky retries network errors and its
- * default status codes only (408/413/429/500/502/503/504), which is exactly
- * what these uploads want: an expired credential (401/403) fails fast instead
- * of burning every attempt, and a 429 waits out the server's `Retry-After`
- * rather than a delay we invented.
+ * Shared by both upload arms. ky's default status codes are exactly what these
+ * uploads want: an expired credential (401/403) fails fast instead of burning
+ * every attempt, and a 429 waits out the server's `Retry-After`.
  */
 const UPLOAD_RETRY = {
   limit: MAX_UPLOAD_ATTEMPTS - 1,
@@ -34,8 +32,7 @@ const UPLOAD_RETRY = {
 
 /**
  * POST the requested asset buckets directly to Cloudflare, authorized by the
- * upload-session jwt from create. The final response carries the completion
- * JWT required to finalize.
+ * upload-session jwt from create, and return the completion JWT finalize needs.
  */
 export async function uploadAssetBuckets(
   target: CfAssetUploads,
@@ -82,15 +79,15 @@ async function uploadAssetBucket(
 
   let response: KyResponse;
   try {
-    // Straight to Cloudflare: the upload-session jwt is the credential, so this
-    // never goes through the app client (and must not carry app auth).
+    // Straight to Cloudflare under the upload-session jwt — never the app
+    // client, and never app auth.
     response = await ky.post(target.url, {
       searchParams: { base64: "true" },
       headers: { Authorization: `Bearer ${target.jwt}` },
       body: formData,
       timeout: 120_000,
-      // POST is absent from ky's default retry methods, so it must be named
-      // explicitly or these uploads would never retry at all.
+      // POST is absent from ky's default retry methods, so naming it is what
+      // makes these uploads retry at all.
       retry: { ...UPLOAD_RETRY, methods: ["post"] },
     });
   } catch (error) {
@@ -135,10 +132,9 @@ async function buildBucketForm(
 }
 
 /**
- * PUT static assets directly to their presigned S3 URLs (the `s3` create
- * arm). A presigned URL carries its own authorization in the query string, so
- * each request is a plain fetch — never the app client, never an
- * Authorization header.
+ * PUT static assets directly to their presigned S3 URLs. A presigned URL
+ * carries its own authorization in the query string, so each request is a plain
+ * fetch — never the app client, never an Authorization header.
  */
 export async function uploadPresignedAssets(
   uploads: PresignedAssetUpload[],

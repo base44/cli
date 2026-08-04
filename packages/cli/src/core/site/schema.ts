@@ -17,16 +17,11 @@ export const PublishedUrlResponseSchema = z.object({
   url: z.string(),
 });
 
-// ─── SHARED ──────────────────────────────────────────────────
-
-/** Worker module types accepted by the deployments API. */
 export type ModuleType = "esm" | "sourcemap" | "wasm" | "text" | "data";
 
-/** A collected worker module (bytes are read lazily at finalize time). */
 export interface WorkerModule {
-  /** Module name: path relative to the wrangler config dir (forward slashes). */
+  /** Path relative to the wrangler config dir, forward slashes. */
   name: string;
-  /** Absolute path on disk. */
   absolutePath: string;
   size: number;
   type: ModuleType;
@@ -38,9 +33,7 @@ export interface AssetManifestEntry {
   size: number;
 }
 
-/** A static asset discovered in the assets directory, keyed by hash. */
 export interface AssetFile {
-  /** Absolute path on disk. */
   absolutePath: string;
   hash: string;
   size: number;
@@ -48,35 +41,26 @@ export interface AssetFile {
 }
 
 export interface AssetManifestResult {
-  /** URL path → { hash, size }, ready for the create-deployment payload. */
   manifest: Record<string, AssetManifestEntry>;
-  /** Hash → file info, used to serve upload buckets. */
   filesByHash: Map<string, AssetFile>;
 }
 
-/** Progress of an in-flight asset upload set. */
 export interface AssetUploadProgress {
   uploadedFiles: number;
   totalFiles: number;
 }
 
-/** Progress callbacks a deploy fires as it moves through its stages. */
 export interface DeploymentProgress {
-  /** Fired for non-fatal issues worth surfacing to the user. */
   onWarning?: (message: string) => void;
-  /** Fired after the deployment is created: total assets and how many need uploading. */
   onAssets?: (info: { totalAssets: number; newAssets: number }) => void;
-  /** Fired after each asset upload completes. */
   onAssetUpload?: (progress: AssetUploadProgress) => void;
-  /** Fired before the worker modules are uploaded (finalize). */
   onWorker?: (info: { moduleCount: number }) => void;
 }
 
 /**
  * Request payload for POST deployments (sent as snake_case JSON). `config` is
  * what selects the deploy target server-side: a worker config means a
- * Cloudflare deployment; a request with no `config` field at all is a
- * static-site deployment.
+ * Cloudflare deployment, no `config` field at all a static-site deployment.
  */
 export interface CreateDeploymentRequest {
   git_hash: string;
@@ -93,26 +77,26 @@ export interface CreateDeploymentRequest {
   asset_manifest: Record<string, AssetManifestEntry>;
 }
 
-// ─── RESPONSES ───────────────────────────────────────────────
-
-/** A static asset the server wants uploaded, with its presigned S3 URL. */
 export interface PresignedAssetUpload {
-  /** Manifest path of the asset ("/assets/app.js"). */
   path: string;
   /** Content-Type signed into the URL — the PUT must send it verbatim. */
   contentType: string;
-  /** Byte count signed into the URL — the PUT body must be exactly this long. */
   contentLength: number;
   /** Presigned S3 URL — the URL itself is the credential. */
   url: string;
 }
 
-/** The `cf` arm's upload target: asset buckets POSTed directly to Cloudflare,
- * authorized by the upload-session token. The last bucket's reply carries the
- * completion token finalize wants back. */
+/**
+ * The `cf` arm's upload target. Exactly one bucket reply carries the completion
+ * token finalize wants back: the server decides completeness by manifest
+ * membership ("every file in the manifest has been uploaded"), so the token
+ * goes to whichever request completes the set — NOT to the last bucket in this
+ * array. Buckets upload concurrently, so read the token opportunistically from
+ * whichever reply carries one; indexing the final bucket would usually read an
+ * empty result and throw away a token already in hand.
+ */
 export interface CfAssetUploads {
   type: "cf";
-  /** Cloudflare's assets upload endpoint. */
   url: string;
   /** Upload-session token — sent as `Authorization: Bearer`. */
   jwt: string;
@@ -126,11 +110,9 @@ interface S3AssetUploads {
 }
 
 /**
- * POST deployments answers `{deployment_id, asset_uploads}` where
- * `asset_uploads` says where the assets still owed should go — `cf` (direct
- * bucket POSTs to Cloudflare, when the request carried a worker `config`) or
- * `s3` (direct presigned PUTs, when it carried none) — and is null when
- * nothing is owed (no assets, or the build already exists).
+ * `asset_uploads` says where the assets still owed should go, discriminated on
+ * `type` — `cf` when the request carried a worker config, `s3` when it carried
+ * none — and is null when nothing is owed.
  */
 export const CreateDeploymentResponseSchema = z
   .object({
@@ -188,9 +170,8 @@ export type CreateDeploymentResponse = z.infer<
 >;
 
 /**
- * Response of an asset bucket upload — Cloudflare's reply, relayed verbatim
- * by the backend. Only the final response carries the completion token, so
- * everything is optional here.
+ * Cloudflare's reply to a bucket upload, relayed verbatim by the backend. Only
+ * the reply that completes the asset set carries a token, hence all-optional.
  */
 export const AssetUploadResponseSchema = z.looseObject({
   result: z

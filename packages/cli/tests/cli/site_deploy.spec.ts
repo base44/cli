@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, it } from "vitest";
 import { fixture, setupCLITests } from "./testkit/index.js";
 
-/** The commit the fullstack fixture's "build" came from (not a git repo). */
+/** The fullstack fixture is not a git repo, so these deploys pass --git-hash. */
 const GIT_HASH = "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0";
 const DEPLOYMENT_ID = "test-app-git-a1b2c3d4e5f6";
 

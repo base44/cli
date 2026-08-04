@@ -4,7 +4,6 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { fixture, setupCLITests } from "./testkit/index.js";
 
-/** Same algorithm as core: first 32 hex chars of sha256(utf8(appId) || bytes). */
 function assetHash(appId: string, content: string): string {
   return createHash("sha256")
     .update(Buffer.from(appId, "utf8"))
@@ -16,7 +15,7 @@ function assetHash(appId: string, content: string): string {
 const INDEX_HTML = "<h1>Hello</h1>\n";
 const APP_JS = 'console.log("app");\n';
 
-/** The commit the fixture "build" came from (the fixture is not a git repo). */
+/** The fixture is not a git repo, so every deploy passes --git-hash. */
 const GIT_HASH = "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0";
 const DEPLOYMENT_ID = "test-app-git-a1b2c3d4e5f6";
 
@@ -34,7 +33,6 @@ interface CreateBody {
 describe("deploy command (full-stack)", () => {
   const t = setupCLITests();
 
-  /** Mocks hit by the unified deploy's resource-push phase (no resources). */
   function mockResourcePushes() {
     t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
     t.api.mockConnectorsList({ integrations: [] });
@@ -70,30 +68,24 @@ describe("deploy command (full-stack)", () => {
     t.expectResult(result).toContain("Full-stack app deployed");
     t.expectResult(result).toContain(`Deployment: ${DEPLOYMENT_ID}`);
 
-    // Create request: the commit address + manifest (salted hashes)
     expect(t.api.deploymentCreateRequests).toHaveLength(1);
     const body = t.api.deploymentCreateRequests[0] as CreateBody;
     expect(body.git_hash).toBe(GIT_HASH);
     expect(body.config.main).toBe("index.js");
     expect(body.config.compatibility_date).toBe("2025-04-01");
     expect(body.config.compatibility_flags).toEqual(["nodejs_compat"]);
-    // vars / modules metadata are deliberately not part of the payload
     expect(body).not.toHaveProperty("modules");
     expect(body.config).not.toHaveProperty("vars");
     expect(body.asset_manifest).toEqual({
       "/index.html": { hash: htmlHash, size: INDEX_HTML.length },
       "/assets/app-123.js": { hash: jsHash, size: APP_JS.length },
     });
-    // .assetsignore honored: ignored.txt and .assetsignore itself excluded
     expect(Object.keys(body.asset_manifest)).not.toContain("/ignored.txt");
     expect(Object.keys(body.asset_manifest)).not.toContain("/.assetsignore");
 
-    // The fixture's wrangler config carries vars — surfaced, not sent
+    // The fixture's wrangler config carries vars — surfaced, not sent.
     t.expectResult(result).toContain("wrangler 'vars' are not supported");
 
-    // Direct bucket uploads: two buckets, base64 form fields named by hash,
-    // POSTed straight to the given URL under the upload-session jwt (never
-    // the app's own auth).
     expect(t.api.assetUploadRequests).toHaveLength(2);
     for (const upload of t.api.assetUploadRequests) {
       expect(upload.authorization).toBe("Bearer upload-session-jwt");
@@ -115,7 +107,6 @@ describe("deploy command (full-stack)", () => {
       /^text\/html(;\s*charset=utf-8)?$/i,
     );
 
-    // Finalize: payload carries the completion jwt + one field per module
     expect(t.api.finalizeRequests).toHaveLength(1);
     const finalizeFields = t.api.finalizeRequests[0];
     const payloadField = finalizeFields.find((f) => f.name === "payload");
@@ -149,8 +140,6 @@ describe("deploy command (full-stack)", () => {
     const result = await t.run("deploy", "-y", "--git-hash", GIT_HASH);
 
     t.expectResult(result).toSucceed();
-    // Nothing owed: nothing to upload — the server holds the session token
-    // that completes the asset set, so the client sends null.
     expect(t.api.assetUploadRequests).toHaveLength(0);
     const payloadField = t.api.finalizeRequests[0].find(
       (f) => f.name === "payload",
@@ -164,14 +153,12 @@ describe("deploy command (full-stack)", () => {
     await t.givenLoggedInWithProject(fixture("fullstack-project"));
     mockResourcePushes();
 
-    // The fixture is not a git checkout, so a deploy without --git-hash has
-    // no commit to address the deployment by.
     const noHash = await t.run("deploy", "-y");
     t.expectResult(noHash).toFail();
     t.expectResult(noHash).toContain("--git-hash");
 
-    // A malformed hash is rejected by the option's argParser, before the
-    // action (and any resource push) runs.
+    // Rejected by the option's argParser, before the action (and any resource
+    // push) runs.
     const badHash = await t.run("deploy", "-y", "--git-hash", "not-a-hash");
     t.expectResult(badHash).toFail();
     t.expectResult(badHash).toContain("Expected a git commit hash");
@@ -200,7 +187,6 @@ describe("deploy command (full-stack)", () => {
 
   it("warns when the wrangler config lacks the nodejs_compat flag (e.g. Astro 6)", async () => {
     await t.givenLoggedInWithProject(fixture("fullstack-project"));
-    // Astro 6's generated wrangler.json can ship without compatibility flags.
     const configPath = join(
       t.getTempDir(),
       "project",
@@ -234,8 +220,6 @@ describe("deploy command (full-stack)", () => {
         buckets: [[htmlHash]],
       },
     });
-    // 503 twice, then succeed — the bucket POST must be retried, which only
-    // happens because "post" is named in the retry methods.
     t.api.mockAssetUploadAfterFailures(2, "completion-jwt");
     t.api.mockDeploymentFinalize({ deployment_id: DEPLOYMENT_ID });
 
@@ -243,8 +227,8 @@ describe("deploy command (full-stack)", () => {
 
     t.expectResult(result).toSucceed();
     expect(t.api.assetUploadRequests).toHaveLength(3);
-    // Every attempt carried the full multipart body: ky keeps a pristine
-    // request to clone from, so the FormData is not consumed by attempt one.
+    // Every attempt carried the full body: ky clones a pristine request, so
+    // attempt one does not consume the FormData.
     for (const upload of t.api.assetUploadRequests) {
       expect(upload.authorization).toBe("Bearer upload-session-jwt");
       const field = upload.fields.find((f) => f.name === htmlHash);
@@ -252,7 +236,6 @@ describe("deploy command (full-stack)", () => {
         Buffer.from(field?.data.toString() ?? "", "base64").toString(),
       ).toBe(INDEX_HTML);
     }
-    // The completion token from the successful attempt reaches finalize.
     const payload = t.api.finalizeRequests[0].find((f) => f.name === "payload");
     expect(JSON.parse(payload?.data.toString() ?? "{}")).toEqual({
       completion_jwt: "completion-jwt",

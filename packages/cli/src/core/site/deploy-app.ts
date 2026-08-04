@@ -6,13 +6,11 @@ import type { DeploymentProgress } from "./schema.js";
 import { deployStaticSite, staticDeploymentsEnabled } from "./static-site.js";
 import { detectFullStackArtifact } from "./wrangler-config.js";
 
-/** The project fields an app deploy reads. */
 export interface AppSiteTarget {
   root: string;
   site?: { outputDirectory?: string };
 }
 
-/** Which transport ships this project's built output. */
 type AppDeployKind = "full-stack" | "static-deployment" | "static" | "none";
 
 export type AppDeployResult =
@@ -28,10 +26,9 @@ type AppDeployPlan =
   | { kind: "none" };
 
 /**
- * A full-stack (Workers) artifact wins over the static output directory: it
- * carries the server too, so shipping the static output instead would
- * silently drop the worker. A static output ships through the deployments
- * API when the lane is enabled, and as the legacy tar.gz upload otherwise.
+ * A full-stack artifact wins over the static output directory: it carries the
+ * server too, so shipping the static output instead would silently drop the
+ * worker.
  */
 async function planAppDeploy(target: AppSiteTarget): Promise<AppDeployPlan> {
   if (await detectFullStackArtifact(target.root)) {
@@ -47,11 +44,7 @@ async function planAppDeploy(target: AppSiteTarget): Promise<AppDeployPlan> {
     : { kind: "static", outputDir };
 }
 
-/**
- * How the project's built output would ship right now. The full-stack
- * artifact is itself a build output, so this only answers for the current
- * state of the tree — call it again after any build step.
- */
+/** How the built output would ship right now — a build step invalidates it. */
 export async function detectAppDeployKind(
   target: AppSiteTarget,
 ): Promise<AppDeployKind> {
@@ -59,11 +52,10 @@ export async function detectAppDeployKind(
 }
 
 /**
- * Deploy the project's built output over whichever transport applies —
- * a Workers deployment addressed by commit for full-stack builds, a
- * deployments-API static deployment when the lane is enabled, the legacy
- * tar.gz upload otherwise. Returns `{ kind: "none" }` when the project has
- * nothing to ship.
+ * Deploy the project's built output over whichever transport applies — a
+ * Workers deployment addressed by commit for full-stack builds, a
+ * deployments-API static deployment when the lane is enabled, the legacy tar.gz
+ * upload otherwise.
  */
 export async function deployAppSite(
   target: AppSiteTarget,

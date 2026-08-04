@@ -6,9 +6,8 @@ import {
 import { isGitCommitHash } from "@/core/utils/git.js";
 
 /**
- * The deployment flags shared by `base44 deploy` and `base44 site deploy`.
- * Both ship the project's built output through the same path, so the commit
- * address and the upload concurrency have to mean the same thing on each.
+ * Shared by `base44 deploy` and `base44 site deploy`: both ship the built output
+ * through the same path, so these have to mean the same thing on each.
  */
 export function addDeploymentOptions<
   T extends { addOption: (option: Option) => T },

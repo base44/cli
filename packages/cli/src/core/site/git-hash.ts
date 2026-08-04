@@ -2,11 +2,7 @@ import { execa } from "execa";
 import { InvalidInputError } from "@/core/errors.js";
 import { isGitCommitHash } from "@/core/utils/git.js";
 
-/**
- * The commit this build came from — a deployment is addressed by it, so the
- * hash is required. An explicit hash (flag/automation) wins; otherwise it
- * comes from the git checkout at the project root.
- */
+/** An explicit hash (flag/automation) wins over the checkout's HEAD. */
 export async function resolveGitHash(
   projectRoot: string,
   explicit?: string,

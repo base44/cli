@@ -26,9 +26,8 @@ function toPosix(path: string): string {
 /**
  * Collect the worker modules for an unbundled (no_bundle) build: the entry
  * module plus every file under the config dir matching the config's rules
- * globs, preserving relative paths as module names. `.map` files next to
- * collected modules (or all of them when `upload_source_maps` is set) are
- * included as sourcemaps. Total payload is capped at 40 MB.
+ * globs, keyed by relative path. `.map` files next to collected modules (or all
+ * of them when `upload_source_maps` is set) ride along as sourcemaps.
  */
 export async function collectModules(
   config: ResolvedWranglerConfig,
@@ -86,8 +85,6 @@ export async function collectModules(
     }
   }
 
-  // Source maps: all of them when upload_source_maps is set, otherwise only
-  // the ones sitting next to a collected module.
   if (config.uploadSourceMaps) {
     const maps = await globby("**/*.map", {
       cwd: config.configDir,

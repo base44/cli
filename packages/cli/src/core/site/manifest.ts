@@ -52,11 +52,7 @@ const MIME_TYPES: Record<string, string> = {
   ".webmanifest": "application/manifest+json",
 };
 
-/**
- * Content type for a cf-arm multipart upload part. The s3 arm never uses
- * this — there the server signs each Content-Type into the presigned URL
- * and the CLI echoes it verbatim.
- */
+/** Only the cf arm reads this; the s3 arm echoes the signed Content-Type. */
 function getAssetContentType(filePath: string): string {
   return (
     MIME_TYPES[extname(filePath).toLowerCase()] ?? "application/octet-stream"
@@ -64,10 +60,9 @@ function getAssetContentType(filePath: string): string {
 }
 
 /**
- * Content-addressed asset hash: first 32 hex chars of
- * sha256(utf8(app_id) || raw file bytes). Salting with the app id means a
- * tenant can only produce hash collisions with their own files, so a
- * malicious upload cannot poison another app's asset cache.
+ * First 32 hex chars of sha256(utf8(app_id) || raw file bytes). The app-id salt
+ * means a tenant can only collide with their own files, so a malicious upload
+ * cannot poison another app's asset cache.
  */
 export function hashAsset(appId: string, content: Buffer): string {
   return createHash("sha256")

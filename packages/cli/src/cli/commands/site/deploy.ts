@@ -27,8 +27,6 @@ async function deployAction(
 
   const { project } = await readProjectConfig();
 
-  // A full-stack build artifact ships as a Workers deployment; without one
-  // the site is the configured output directory.
   const kind = await detectAppDeployKind(project);
 
   if (kind === "none") {
@@ -67,8 +65,8 @@ async function deployAction(
   });
 
   if (result.kind === "full-stack" || result.kind === "static-deployment") {
-    // A build has no URL of its own: what production serves is decided when
-    // the app is published from the builder, not by this deploy.
+    // No URL: what production serves is decided when the app is published from
+    // the builder, not by this deploy.
     return {
       outroMessage: `Deployment ${result.deploymentId} (commit ${result.gitHash.slice(0, 12)})`,
       stdout: ctx.jsonMode

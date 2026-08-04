@@ -127,8 +127,7 @@ describe("wrangler config resolution", () => {
   });
 
   it("does not treat a hand-authored root wrangler config as an artifact", async () => {
-    // Root configs target wrangler's own bundler; detecting one would hijack
-    // the deploy away from the static upload the project actually wants.
+    // Detecting one would hijack the deploy away from the static upload.
     await writeFile(join(root, "wrangler.jsonc"), JSON.stringify(BASE_CONFIG));
     await writeFile(join(root, "wrangler.json"), JSON.stringify(BASE_CONFIG));
     await writeFile(join(root, "wrangler.toml"), 'name = "test-worker"\n');

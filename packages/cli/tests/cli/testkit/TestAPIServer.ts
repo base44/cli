@@ -202,7 +202,7 @@ interface CreateAppResponse {
   name: string;
 }
 
-// ─── DEPLOYMENTS (FULL-STACK) TYPES ─────────────────────────
+// ─── DEPLOYMENTS TYPES ──────────────────────────────────────
 
 interface DeploymentCreateResponse {
   deployment_id: string;
@@ -279,7 +279,6 @@ function parseMultipart(
   return fields;
 }
 
-/** A captured asset bucket upload request. */
 interface CapturedAssetUpload {
   authorization?: string;
   base64Query?: string;
@@ -661,7 +660,7 @@ export class TestAPIServer {
     );
   }
 
-  // ─── DEPLOYMENT (FULL-STACK) ENDPOINTS ───────────────────
+  // ─── DEPLOYMENT ENDPOINTS ─────────────────────────────────
 
   /** Captured JSON bodies of POST deployments requests. */
   readonly deploymentCreateRequests: unknown[] = [];
@@ -691,10 +690,8 @@ export class TestAPIServer {
   /**
    * Register a Cloudflare-style assets upload endpoint: serves
    * POST /cf-assets/upload — point the cf arm's `url` at
-   * `${baseUrl}/cf-assets/upload` — capturing each request's Authorization
-   * header, base64 query param, and multipart fields in
-   * `assetUploadRequests`, responding 201 with the completion JWT
-   * (Cloudflare's reply shape).
+   * `${baseUrl}/cf-assets/upload`. Captures each request in
+   * `assetUploadRequests`.
    */
   mockAssetUpload(completionJwt: string): this {
     return this.mockAssetUploadAfterFailures(0, completionJwt);
@@ -702,9 +699,8 @@ export class TestAPIServer {
 
   /**
    * Same target as {@link mockAssetUpload}, but the first `failures` requests
-   * answer 503 before it starts succeeding — every attempt is still recorded in
-   * `assetUploadRequests`, so a spec can assert the upload was retried and that
-   * the retried request carried the same body.
+   * answer 503. Every attempt is still recorded, so a spec can assert what the
+   * retried request carried.
    */
   mockAssetUploadAfterFailures(failures: number, completionJwt: string): this {
     let seen = 0;
@@ -761,8 +757,7 @@ export class TestAPIServer {
 
   /**
    * Mock POST /api/apps/{appId}/deployments/{id}/finalize. Captures the
-   * multipart fields (payload JSON + one file field per module) in
-   * `finalizeRequests`.
+   * multipart fields in `finalizeRequests`.
    */
   mockDeploymentFinalize(response: DeploymentFinalizeResponse): this {
     this.pendingRoutes.push({

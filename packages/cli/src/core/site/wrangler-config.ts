@@ -6,15 +6,13 @@ import { pathExists, readJsonFile } from "@/core/utils/fs.js";
 /** Redirect file emitted by @cloudflare/vite-plugin builds, at project root. */
 const WRANGLER_REDIRECT_PATH = join(".wrangler", "deploy", "config.json");
 
-// Loose: extra fields emitted by framework adapters (auxiliaryWorkers,
-// Astro 6's prerenderWorkerConfigPath, ...) are ignored for now.
 const RedirectConfigSchema = z.looseObject({
   configPath: z.string().min(1),
 });
 
-// Only the fields a Base44 deploy acts on are declared. Everything else
-// (bindings, worker name, ...) rides along in the loose passthrough and is
-// ignored — the deploy neither forwards nor validates it.
+// Only the fields a Base44 deploy acts on. Everything else (bindings, worker
+// name, ...) rides along in the loose passthrough, neither forwarded nor
+// validated.
 const WranglerConfigSchema = z.looseObject({
   main: z.string().min(1, "wrangler config is missing a 'main' entry module"),
   no_bundle: z.boolean().optional(),
@@ -53,13 +51,10 @@ export interface ResolvedAssetsConfig {
 }
 
 export interface ResolvedWranglerConfig {
-  /** Absolute path of the wrangler.json that was used. */
   configPath: string;
-  /** Absolute directory containing the wrangler config; module paths are relative to it. */
+  /** Module paths — `main` and the rules globs — are relative to this. */
   configDir: string;
-  /** Entry module path, relative to configDir (as written in the config). */
   main: string;
-  /** Absolute path of the static assets directory, or null when no assets. */
   assetsDirectory: string | null;
   assetsConfig: ResolvedAssetsConfig | null;
   compatibilityDate: string | null;
@@ -70,14 +65,13 @@ export interface ResolvedWranglerConfig {
 }
 
 /**
- * Detect a full-stack (Cloudflare Workers) build artifact in the project:
- * the redirect file emitted by @cloudflare/vite-plugin builds. Returns its
- * absolute path, or null when the project has no full-stack artifact.
+ * Detect a full-stack (Cloudflare Workers) build artifact: the redirect file
+ * emitted by @cloudflare/vite-plugin builds.
  *
  * A hand-authored root wrangler config is deliberately not an artifact. Those
- * are written for wrangler's own bundler, which this path never runs (see the
- * no_bundle gate below), so detecting one would only hijack the deploy away
- * from the static upload it was going to do.
+ * target wrangler's own bundler, which this path never runs (see the no_bundle
+ * gate below), so detecting one would hijack the deploy away from the static
+ * upload it was going to do.
  */
 export async function detectFullStackArtifact(
   projectRoot: string,
@@ -86,11 +80,7 @@ export async function detectFullStackArtifact(
   return (await pathExists(redirectPath)) ? redirectPath : null;
 }
 
-/**
- * Resolve and validate the wrangler config for a full-stack deploy.
- * Throws with a clear message when there is no artifact, or when the build
- * still requires bundling.
- */
+/** Throws when there is no artifact, or when the build still needs bundling. */
 export async function resolveWranglerConfig(
   projectRoot: string,
 ): Promise<ResolvedWranglerConfig> {
@@ -158,7 +148,7 @@ async function resolveRedirectedConfigPath(
     );
   }
 
-  // configPath is relative to the redirect file's directory (wrangler semantics).
+  // Relative to the redirect file's own directory (wrangler semantics).
   const configPath = resolve(dirname(redirectPath), result.data.configPath);
   if (!(await pathExists(configPath))) {
     throw new ConfigInvalidError(

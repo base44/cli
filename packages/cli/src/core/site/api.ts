@@ -109,10 +109,8 @@ export async function finalizeDeployment(
 }
 
 /**
- * Finalize a static-site (s3-target) deployment. The form carries exactly one
- * file part — `index.html` — and nothing else (no `payload`, no modules):
- * index.html is always excluded from the presigned uploads and travels
- * through finalize as the sentinel that completes the deployment.
+ * The form carries exactly one file part — `index.html`, the sentinel that
+ * completes the deployment — and nothing else.
  */
 export async function finalizeStaticDeployment(
   deploymentId: string,

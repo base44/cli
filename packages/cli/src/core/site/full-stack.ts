@@ -20,7 +20,7 @@ interface FullStackDeployResult {
  * buckets directly to Cloudflare, then finalize with the worker modules.
  *
  * Builds only — nothing here publishes. What production serves is decided by
- * the platform publish flow, and re-deploying the same commit is idempotent.
+ * the platform publish flow.
  */
 export async function deployFullStack(options: {
   projectRoot: string;
@@ -32,18 +32,16 @@ export async function deployFullStack(options: {
 
   const config = await resolveWranglerConfig(projectRoot);
 
-  // Some frameworks (e.g. Astro 6) emit a wrangler.json without any
-  // compatibility flags; server code using Node built-ins would then fail at
-  // runtime. Warn instead of injecting the flag — the config is generated, so
-  // the fix belongs in the framework/adapter settings.
+  // Warn rather than inject the flag: the config is generated, so the fix
+  // belongs in the framework's adapter settings.
   if (!config.compatibilityFlags.includes("nodejs_compat")) {
     progress?.onWarning?.(
       "The wrangler config has no 'nodejs_compat' compatibility flag; Node.js built-ins will be unavailable at runtime. Enable it in your framework's Cloudflare adapter settings if your server code needs Node APIs.",
     );
   }
 
-  // A worker's environment is the app's secrets and built-ins — a deploy can't
-  // introduce env of its own, so wrangler `vars` never reach the worker.
+  // A deploy can't introduce env of its own, so wrangler `vars` never reach
+  // the worker.
   if (config.vars && Object.keys(config.vars).length > 0) {
     progress?.onWarning?.(
       "wrangler 'vars' are not supported and were ignored — a worker's environment comes from the app's secrets (base44 secrets set).",
@@ -82,9 +80,8 @@ export async function deployFullStack(options: {
     : 0;
   progress?.onAssets?.({ totalAssets, newAssets });
 
-  // No uploads owed means every asset is already stored (or there are none):
-  // the server holds the token that completes the asset set, so the
-  // completion JWT stays null.
+  // Nothing owed means the server already holds the token that completes the
+  // asset set, so the completion JWT stays null.
   const completionJwt = created.assetUploads
     ? await uploadAssetBuckets(created.assetUploads, assets.filesByHash, {
         concurrency,
@@ -103,10 +100,9 @@ export async function deployFullStack(options: {
 }
 
 /**
- * The subset of the wrangler assets config the deployments API accepts.
- * `_headers`/`_redirects` contents and `run_worker_first` route arrays have no
- * server-side support yet — dropping them silently would change runtime
- * behavior, so each drop is surfaced as a warning.
+ * The subset of the wrangler assets config the deployments API accepts. The
+ * unsupported fields would change runtime behavior if dropped silently, so each
+ * drop is surfaced as a warning.
  */
 function buildAssetsConfig(
   assetsConfig: {

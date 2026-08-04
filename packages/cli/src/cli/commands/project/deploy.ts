@@ -49,9 +49,9 @@ export async function deployAction(
   const { project, entities, functions, agents, connectors, authConfig } =
     projectData;
 
-  // Best-effort pre-build look at what the site step would ship, for the
-  // summary and the no-resources check. The build below can change the
-  // answer, so the deploy itself decides again.
+  // Pre-build look at what the site step would ship, for the summary and the
+  // no-resources check. The build below can change the answer, so the deploy
+  // decides again for itself.
   const plannedSite = await detectAppDeployKind(project);
 
   if (!hasResourcesToDeploy(projectData) && plannedSite === "none") {
@@ -113,8 +113,8 @@ export async function deployAction(
 
   await maybeBuildBeforeDeploy(ctx, project, options.build);
 
-  // Deploy resources with per-function progress. The site ships below,
-  // from whatever the build produced.
+  // Deploy resources with per-function progress; the site ships below, from
+  // whatever the build produced.
   let functionCompleted = 0;
   const functionTotal = functions.length;
 
@@ -186,8 +186,8 @@ function printDeploymentSummary(
   deployment: { deploymentId: string; gitHash: string },
   log: Logger,
 ): void {
-  // A build has no URL of its own: what production serves is decided when the
-  // app is published from the builder, not by this deploy.
+  // No URL: what production serves is decided when the app is published from
+  // the builder, not by this deploy.
   log.message(
     `${theme.styles.header("Deployment")}: ${deployment.deploymentId} ${theme.styles.dim(`(commit ${deployment.gitHash.slice(0, 12)})`)}`,
   );

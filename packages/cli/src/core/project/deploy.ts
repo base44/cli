@@ -33,8 +33,8 @@ export function hasResourcesToDeploy(projectData: ProjectData): boolean {
     connectors,
     authConfig,
   } = projectData;
-  // A build command counts: a full-stack project may configure nothing but
-  // the build, and a generated artifact won't be on disk until it has run.
+  // A build command counts: a full-stack project may configure nothing else,
+  // and its artifact is not on disk until the build has run.
   const hasSite = Boolean(
     project.site?.outputDirectory || project.site?.buildCommand,
   );
@@ -76,9 +76,8 @@ interface DeployAllOptions {
   onFunctionStart?: (names: string[]) => void;
   onFunctionResult?: (result: SingleFunctionDeployResult) => void;
   /**
-   * Deploy the legacy static site (tar.gz upload) when configured.
-   * The unified deploy command passes false and handles the site itself,
-   * so full-stack (Workers) projects can take the deployments path instead.
+   * Deploy the legacy static site (tar.gz upload) when configured. The unified
+   * deploy command passes false and handles the site itself.
    * @default true
    */
   site?: boolean;

@@ -8,10 +8,9 @@ import type { DeploymentProgress } from "./schema.js";
 import { uploadPresignedAssets } from "./upload.js";
 
 /**
- * Internal gate for the experimental static-site deployments-API lane. Not
- * user-facing yet: when set to "1" or "true", `base44 deploy` sends the
- * configured site output through the deployments API instead of the legacy
- * tar.gz site upload.
+ * Internal gate for the experimental static-site deployments-API lane, not
+ * user-facing yet: with it off, a static output keeps taking the legacy tar.gz
+ * upload.
  */
 const STATIC_DEPLOYMENTS_ENV = "BASE44_STATIC_DEPLOYMENTS";
 
@@ -24,14 +23,9 @@ export function staticDeploymentsEnabled(
 
 /**
  * Deploy a static site build through the deployments API: hash the output
- * directory into an asset manifest and create the deployment at the commit's
- * address with no worker config — which the server answers with the `s3` arm
- * of the discriminated create response — then PUT the requested files
- * directly to their presigned URLs and finalize with the index.html bytes.
- *
- * This is the progressive-upgrade path: when the app later adopts a server
- * framework, the create request carries its worker config and the server
- * answers with the `cf` arm instead — same CLI protocol, zero CLI change.
+ * directory into an asset manifest, create the deployment at the commit's
+ * address with no worker config, PUT the requested files to their presigned
+ * URLs, and finalize with the index.html bytes.
  */
 export async function deployStaticSite(options: {
   outputDir: string;
@@ -60,11 +54,8 @@ export async function deployStaticSite(options: {
     );
   }
 
-  // The uploads always exclude index.html; null means every asset is already
-  // stored (re-deploying a commit is idempotent).
-  const totalAssets = Object.keys(assets.manifest).length;
   progress?.onAssets?.({
-    totalAssets,
+    totalAssets: Object.keys(assets.manifest).length,
     newAssets: created.assetUploads?.uploads.length ?? 0,
   });
 
