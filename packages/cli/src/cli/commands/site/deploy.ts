@@ -7,6 +7,7 @@ import { Base44Command } from "@/cli/utils/index.js";
 import { ConfigNotFoundError, InvalidInputError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/project/index.js";
 import { runAppSiteDeploy } from "./run-app-deploy.js";
+import { staticDeploymentsEnabled } from "@/core/site/index.js";
 
 interface DeployOptions {
   yes?: boolean;
@@ -76,7 +77,7 @@ async function deployAction(
   return { outroMessage: "Nothing to deploy" };
 }
 
-export function getSiteDeployCommand(staticDeployments = false): Command {
+export function getSiteDeployCommand(): Command {
   const command = new Base44Command("deploy")
     .description("Deploy built site files to Base44 hosting")
     .option("-y, --yes", "Skip confirmation prompt")
@@ -85,7 +86,7 @@ export function getSiteDeployCommand(staticDeployments = false): Command {
 
   // Only registered on the enabled lane, so with the gate off the flag is
   // absent from --help and rejected as an unknown option.
-  if (staticDeployments) {
+  if (staticDeploymentsEnabled()) {
     command.addOption(
       new Option(
         "--git-hash <hash>",

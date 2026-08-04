@@ -45,7 +45,6 @@ async function runCLI(options?: RunCLIOptions): Promise<void> {
     errorReporter,
     isNonInteractive,
     jsonMode,
-    staticDeployments: staticDeploymentsEnabled(),
     distribution: options?.distribution ?? "npm",
     log,
     runTask,

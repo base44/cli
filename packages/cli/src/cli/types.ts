@@ -19,7 +19,6 @@ export interface CLIContext {
    * (`BASE44_STATIC_DEPLOYMENTS`). The only place that gate is read; commands
    * pass it down rather than re-reading the environment.
    */
-  staticDeployments: boolean;
   distribution: Distribution;
   log: Logger;
   runTask: RunTaskFn;
