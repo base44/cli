@@ -78,21 +78,21 @@ Agent skills are app-scoped instruction snippets shared across the app's agents.
 
 The site module at `packages/cli/src/core/site/` handles deploying an app's built output. It follows a different pattern than resources — there is no item list, so no `readAll`/`push`.
 
-It owns **which transport ships the build**. `deployAppSite()` in `deploy-app.ts` is the entry point `base44 site deploy` calls:
+It owns **which transport ships the build**, but not the shipping itself: `planAppDeploy()` in `deploy-app.ts` only decides, and `base44 site deploy` calls the chosen flow.
+
+```typescript
+import { planAppDeploy } from "@/core/site/index.js";
+
+const plan = await planAppDeploy(project);
+// { kind: "full-stack" } | { kind: "static-deployment", outputDir }
+// | { kind: "static", outputDir } | { kind: "none" }
+```
 
 - A full-stack (Workers) artifact wins when one is present — see [deployments.md](deployments.md). It carries the server too, so shipping the static output directory instead would silently drop the worker.
 - Otherwise `site.outputDirectory` ships as a static site: through the deployments API when the env-gated lane is enabled, else the legacy path — tar.gz the built files and upload via `POST /api/apps/{app_id}/deploy-dist`.
 - Neither applies → `{ kind: "none" }`.
 
-```typescript
-import { deployAppSite } from "@/core/site/index.js";
-
-const result = await deployAppSite(project, { gitHash });
-// { kind: "full-stack" | "static-deployment", deploymentId, gitHash }
-// | { kind: "static", appUrl } | { kind: "none" }
-```
-
-`detectAppDeployKind()` answers what would ship right now — used for the confirmation prompt and spinner labels. It answers for the current state of the tree; the full-stack artifact is itself a build output, so a build step invalidates it.
+The plan answers for the current state of the tree, and the full-stack artifact is itself a build output — so the command plans once before the build (for the prompt and the no-config error) and again after it, which is the answer it acts on.
 
 `base44 deploy` does **not** go through this. It ships the site through `deployAll()`'s legacy tar.gz step, so the full-stack and deployments-API transports are reachable only from `base44 site deploy` — they need a commit address the unified deploy has no way to take.
 

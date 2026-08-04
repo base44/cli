@@ -14,7 +14,7 @@ Two kinds go through the same protocol, and the create request decides which: a 
 
 ## Artifact Detection
 
-`base44 site deploy` routes through `deployAppSite()` in `core/site/` (see [resources.md](resources.md#site-module-not-a-resource)), which takes the full-stack path whenever an artifact is detected and falls back to the static-site transports otherwise. **This lane is reachable only from `site deploy`** — `base44 deploy` ships the site through `deployAll()`'s legacy tar.gz step and has none of these flags.
+`base44 site deploy` picks its transport from `planAppDeploy()` in `core/site/` (see [resources.md](resources.md#site-module-not-a-resource)) — the full-stack path whenever an artifact is detected, the static-site transports otherwise — and calls that flow behind a spinner. **This lane is reachable only from `site deploy`** — `base44 deploy` ships the site through `deployAll()`'s legacy tar.gz step and has none of these flags.
 
 `detectFullStackArtifact(projectRoot)` looks for exactly one thing: `.wrangler/deploy/config.json`, the redirect file emitted by `@cloudflare/vite-plugin` builds. Its `configPath` points at the generated `wrangler.json`, **relative to the redirect file's directory**.
 
