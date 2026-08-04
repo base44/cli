@@ -311,6 +311,13 @@ describe("logs command", () => {
     t.expectResult(result).toFail();
   });
 
+  it("documents --level in --help", async () => {
+    const result = await t.run("logs", "--help");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("--level <level>");
+  });
+
   it("filters function logs by --level", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
     t.api.mockFunctionLogs("my-function", [

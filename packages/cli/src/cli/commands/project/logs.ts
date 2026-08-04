@@ -350,9 +350,9 @@ export function getLogsCommand(): Command {
       normalizeDatetime,
     )
     .addOption(
-      new Option("--level <level>", "Filter by log level")
-        .choices([...LogLevelSchema.options])
-        .hideHelp(),
+      new Option("--level <level>", "Filter by log level").choices([
+        ...LogLevelSchema.options,
+      ]),
     )
     .option("-n, --limit <n>", "Results per page (1-1000, default: 50)")
     .option("-f, --follow", "Stream new logs as they arrive")
