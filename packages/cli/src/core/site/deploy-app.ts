@@ -70,7 +70,11 @@ export async function detectAppDeployKind(
  */
 export async function deployAppSite(
   target: AppSiteTarget,
-  options: { gitHash?: string; progress?: DeploymentProgress } = {},
+  options: {
+    gitHash?: string;
+    concurrency?: number;
+    progress?: DeploymentProgress;
+  } = {},
 ): Promise<AppDeployResult> {
   const plan = await planAppDeploy(target);
 
@@ -80,6 +84,7 @@ export async function deployAppSite(
       const { deploymentId } = await deployFullStack({
         projectRoot: target.root,
         gitHash,
+        concurrency: options.concurrency,
         progress: options.progress,
       });
       return { kind: "full-stack", deploymentId, gitHash };
@@ -89,6 +94,7 @@ export async function deployAppSite(
       const { deploymentId } = await deployStaticSite({
         outputDir: plan.outputDir,
         gitHash,
+        concurrency: options.concurrency,
         progress: options.progress,
       });
       return { kind: "static-deployment", deploymentId, gitHash };

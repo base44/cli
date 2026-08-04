@@ -299,14 +299,15 @@ t.api.mockFunctionLogs("my-function", [
 t.api.mockFunctionLogsError("my-function", { status: 500, body: { error: "Server error" } });
 ```
 
-### Deployment (Full-Stack) Mocks
+### Deployment Mocks
 
-See [deployments.md](deployments.md) for the API contract. Requests are captured for assertions: `t.api.deploymentCreateRequests` (JSON bodies), `t.api.assetUploadRequests` (Authorization header, `base64` query, multipart fields), and `t.api.finalizeRequests` (parsed multipart fields).
+See [deployments.md](deployments.md) for the API contract. Requests are captured for assertions: `t.api.deploymentCreateRequests` (JSON bodies), `t.api.assetUploadRequests` (cf arm — Authorization header, `base64` query, multipart fields), `t.api.presignedUploadRequests` (s3 arm — raw body, Content-Type, Authorization), and `t.api.finalizeRequests` (parsed multipart fields).
 
 ```typescript
 t.api.mockDeploymentCreate({
   deployment_id: "app-1-git-a1b2c3d4e5f6",
-  // cf arm shown; also {type: "s3", uploads: [...]} or null (nothing owed)
+  // cf arm shown; also {type: "s3", uploads: [{path, content_type, content_length, url}]}
+  // or null (nothing owed)
   asset_uploads: { type: "cf", url, jwt: "session-jwt", buckets: [["<hash>"]] },
 });
 t.api.mockAssetUpload("completion-jwt"); // serves the cf asset-upload target, responds 201 {result:{jwt}}

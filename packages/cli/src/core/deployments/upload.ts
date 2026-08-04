@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import ky, { HTTPError } from "ky";
+import pMap from "p-map";
 import { ApiError, InternalError } from "@/core/errors.js";
 import { uploadAssetBucket } from "./api.js";
 import type {
@@ -10,8 +11,12 @@ import type {
   PresignedAssetUpload,
 } from "./schema.js";
 
-const UPLOAD_CONCURRENCY = 3;
-const MAX_ATTEMPTS_PER_UPLOAD = 3;
+export const DEFAULT_UPLOAD_CONCURRENCY = 3;
+
+/** Each worker holds a whole file in memory, so the ceiling is a memory bound. */
+export const MAX_UPLOAD_CONCURRENCY = 50;
+
+const MAX_UPLOAD_ATTEMPTS = 3;
 const RETRY_BASE_DELAY_MS = 500;
 // A 429 from the upload endpoint is a pause, not a failure — wait out the
 // window and go again, without burning the regular error-retry attempts.
@@ -20,38 +25,35 @@ const RATE_LIMIT_DELAY_MS = 15_000;
 
 /**
  * POST the requested asset buckets directly to Cloudflare, authorized by the
- * upload-session jwt from create. Buckets are uploaded with concurrency 3;
- * each bucket is retried up to 3 times with exponential backoff. The final
- * response carries the completion JWT required to finalize.
+ * upload-session jwt from create. Each bucket is retried up to 3 times with
+ * exponential backoff. The final response carries the completion JWT required
+ * to finalize.
  */
 export async function uploadAssetBuckets(
   target: CfAssetUploads,
   filesByHash: Map<string, AssetFile>,
-  onProgress?: (progress: AssetUploadProgress) => void,
+  options: {
+    concurrency?: number;
+    onProgress?: (progress: AssetUploadProgress) => void;
+  } = {},
 ): Promise<string | null> {
+  const { concurrency = DEFAULT_UPLOAD_CONCURRENCY, onProgress } = options;
   const { buckets } = target;
   const totalFiles = buckets.reduce((sum, bucket) => sum + bucket.length, 0);
   let uploadedFiles = 0;
   let completionJwt: string | null = null;
 
-  let nextBucket = 0;
-  const worker = async (): Promise<void> => {
-    while (nextBucket < buckets.length) {
-      const bucket = buckets[nextBucket++];
+  await pMap(
+    buckets,
+    async (bucket) => {
       const jwt = await uploadBucketWithRetry(target, bucket, filesByHash);
       if (jwt) {
         completionJwt = jwt;
       }
       uploadedFiles += bucket.length;
       onProgress?.({ uploadedFiles, totalFiles });
-    }
-  };
-
-  await Promise.all(
-    Array.from(
-      { length: Math.min(UPLOAD_CONCURRENCY, buckets.length) },
-      worker,
-    ),
+    },
+    { concurrency },
   );
 
   if (!completionJwt) {
@@ -72,7 +74,7 @@ async function uploadBucketWithRetry(
   let rateLimitWaits = 0;
   const formData = await buildBucketForm(bucket, filesByHash);
 
-  for (let attempt = 0; attempt < MAX_ATTEMPTS_PER_UPLOAD; attempt++) {
+  for (let attempt = 0; attempt < MAX_UPLOAD_ATTEMPTS; attempt++) {
     if (attempt > 0) {
       await sleep(RETRY_BASE_DELAY_MS * 2 ** (attempt - 1));
     }
@@ -135,35 +137,31 @@ async function buildBucketForm(
  * PUT static assets directly to their presigned S3 URLs (the `s3` create
  * arm). A presigned URL carries its own authorization in the query string, so
  * each request is a plain fetch — never the app client, never an
- * Authorization header. Same policy as the bucket uploads: concurrency 3,
- * 3 attempts with exponential backoff per file.
+ * Authorization header.
  */
 export async function uploadPresignedAssets(
   uploads: PresignedAssetUpload[],
   assets: AssetManifestResult,
-  onProgress?: (progress: AssetUploadProgress) => void,
+  options: {
+    concurrency?: number;
+    onProgress?: (progress: AssetUploadProgress) => void;
+  } = {},
 ): Promise<void> {
+  const { concurrency = DEFAULT_UPLOAD_CONCURRENCY, onProgress } = options;
   let uploadedFiles = 0;
 
-  let nextUpload = 0;
-  const worker = async (): Promise<void> => {
-    while (nextUpload < uploads.length) {
-      const upload = uploads[nextUpload++];
-      await uploadPresignedAssetWithRetry(upload, assets);
+  await pMap(
+    uploads,
+    async (upload) => {
+      await uploadPresignedAsset(upload, assets);
       uploadedFiles++;
       onProgress?.({ uploadedFiles, totalFiles: uploads.length });
-    }
-  };
-
-  await Promise.all(
-    Array.from(
-      { length: Math.min(UPLOAD_CONCURRENCY, uploads.length) },
-      worker,
-    ),
+    },
+    { concurrency },
   );
 }
 
-async function uploadPresignedAssetWithRetry(
+async function uploadPresignedAsset(
   upload: PresignedAssetUpload,
   assets: AssetManifestResult,
 ): Promise<void> {
@@ -176,26 +174,23 @@ async function uploadPresignedAssetWithRetry(
   }
   const content = await readFile(file.absolutePath);
 
-  let lastError: unknown;
-  for (let attempt = 0; attempt < MAX_ATTEMPTS_PER_UPLOAD; attempt++) {
-    if (attempt > 0) {
-      await sleep(RETRY_BASE_DELAY_MS * 2 ** (attempt - 1));
-    }
-    try {
-      await ky.put(upload.url, {
-        body: new Uint8Array(content),
-        // The server signed this exact Content-Type into the URL — deriving
-        // our own value would 403 on any mapping difference.
-        headers: { "Content-Type": upload.contentType },
-        timeout: 120_000,
-        retry: 0,
-      });
-      return;
-    } catch (error) {
-      lastError = error;
-    }
+  try {
+    await ky.put(upload.url, {
+      body: new Uint8Array(content),
+      // The server signed this exact Content-Type into the URL — deriving
+      // our own value would 403 on any mapping difference.
+      headers: { "Content-Type": upload.contentType },
+      timeout: 120_000,
+      // ky retries network errors and 408/429/5xx only, so a 403 from an
+      // expired URL fails fast instead of burning every attempt.
+      retry: {
+        limit: MAX_UPLOAD_ATTEMPTS - 1,
+        delay: (attempt) => RETRY_BASE_DELAY_MS * 2 ** (attempt - 1),
+      },
+    });
+  } catch (error) {
+    throw await ApiError.fromHttpError(error, "uploading static assets");
   }
-  throw await ApiError.fromHttpError(lastError, "uploading static assets");
 }
 
 function sleep(ms: number): Promise<void> {

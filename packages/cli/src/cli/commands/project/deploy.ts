@@ -7,6 +7,7 @@ import {
 } from "@/cli/commands/connectors/oauth-prompt.js";
 import { formatDeployResult } from "@/cli/commands/functions/formatDeployResult.js";
 import { maybeBuildBeforeDeploy } from "@/cli/commands/project/site-build.js";
+import { addDeploymentOptions } from "@/cli/commands/site/deploy-options.js";
 import { runAppSiteDeploy } from "@/cli/commands/site/run-app-deploy.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import {
@@ -32,6 +33,7 @@ interface DeployOptions {
   build?: boolean;
   projectRoot?: string;
   gitHash?: string;
+  concurrency?: number;
 }
 
 export async function deployAction(
@@ -137,6 +139,7 @@ export async function deployAction(
 
   const siteResult = await runAppSiteDeploy(ctx, project, {
     gitHash: options.gitHash,
+    concurrency: options.concurrency,
   });
 
   // Handle connector-specific post-deploy flows
@@ -191,18 +194,15 @@ function printDeploymentSummary(
 }
 
 export function getDeployCommand(): Command {
-  return new Base44Command("deploy")
+  const command = new Base44Command("deploy")
     .description(
       "Deploy all project resources (entities, functions, agents, connectors, and site)",
     )
     .option("-y, --yes", "Skip confirmation prompt")
-    .option(
-      "--git-hash <hash>",
-      "Commit the build came from (defaults to the checkout's HEAD)",
-    )
     .option("--build", "Build the site before deploying (skips the prompt)")
-    .option("--no-build", "Deploy without building (skips the prompt)")
-    .action(deployAction);
+    .option("--no-build", "Deploy without building (skips the prompt)");
+
+  return addDeploymentOptions(command).action(deployAction);
 }
 
 async function handleOAuthConnectors(

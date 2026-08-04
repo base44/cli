@@ -36,9 +36,10 @@ export function staticDeploymentsEnabled(
 export async function deployStaticSite(options: {
   outputDir: string;
   gitHash: string;
+  concurrency?: number;
   progress?: DeploymentProgress;
 }): Promise<{ deploymentId: string; gitHash: string }> {
-  const { outputDir, gitHash, progress } = options;
+  const { outputDir, gitHash, concurrency, progress } = options;
 
   const assets = await buildAssetManifest(outputDir, getAppContext().id);
   // Finalize carries the index.html bytes by contract, so its absence is a
@@ -68,11 +69,10 @@ export async function deployStaticSite(options: {
   });
 
   if (created.assetUploads) {
-    await uploadPresignedAssets(
-      created.assetUploads.uploads,
-      assets,
-      progress?.onAssetUpload,
-    );
+    await uploadPresignedAssets(created.assetUploads.uploads, assets, {
+      concurrency,
+      onProgress: progress?.onAssetUpload,
+    });
   }
 
   const indexHtml = await readFile(join(outputDir, "index.html"));

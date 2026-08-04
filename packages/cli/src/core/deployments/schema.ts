@@ -56,13 +56,6 @@ export interface DeploymentProgress {
 }
 
 /**
- * A deployment is addressed by the commit that produced it: the server derives
- * the deployment id from `git_hash`, so one commit means one deployment and
- * re-deploying a commit is idempotent. Same pattern the server validates.
- */
-export const GIT_HASH_PATTERN = /^[a-fA-F0-9]{7,64}$/;
-
-/**
  * Request payload for POST deployments (sent as snake_case JSON). `config` is
  * what selects the deploy target server-side: a worker config means a
  * Cloudflare deployment; a request with no `config` field at all is a

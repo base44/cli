@@ -1,6 +1,7 @@
 import { confirm, isCancel } from "@clack/prompts";
 import type { Command } from "commander";
 import { maybeBuildBeforeDeploy } from "@/cli/commands/project/site-build.js";
+import { addDeploymentOptions } from "@/cli/commands/site/deploy-options.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
 import { ConfigNotFoundError, InvalidInputError } from "@/core/errors.js";
@@ -12,6 +13,7 @@ interface DeployOptions {
   yes?: boolean;
   build?: boolean;
   gitHash?: string;
+  concurrency?: number;
 }
 
 async function deployAction(
@@ -61,6 +63,7 @@ async function deployAction(
 
   const result = await runAppSiteDeploy(ctx, project, {
     gitHash: options.gitHash,
+    concurrency: options.concurrency,
   });
 
   if (result.kind === "full-stack" || result.kind === "static-deployment") {
@@ -86,16 +89,13 @@ async function deployAction(
 }
 
 export function getSiteDeployCommand(): Command {
-  return new Base44Command("deploy")
+  const command = new Base44Command("deploy")
     .description(
       "Deploy the built site to Base44 hosting (full-stack apps deploy their Workers build)",
     )
     .option("-y, --yes", "Skip confirmation prompt")
-    .option(
-      "--git-hash <hash>",
-      "Commit the build came from (defaults to the checkout's HEAD)",
-    )
     .option("--build", "Build the site before deploying (skips the prompt)")
-    .option("--no-build", "Deploy without building (skips the prompt)")
-    .action(deployAction);
+    .option("--no-build", "Deploy without building (skips the prompt)");
+
+  return addDeploymentOptions(command).action(deployAction);
 }

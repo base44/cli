@@ -25,9 +25,10 @@ interface FullStackDeployResult {
 export async function deployFullStack(options: {
   projectRoot: string;
   gitHash: string;
+  concurrency?: number;
   progress?: DeploymentProgress;
 }): Promise<FullStackDeployResult> {
-  const { projectRoot, gitHash, progress } = options;
+  const { projectRoot, gitHash, concurrency, progress } = options;
 
   const config = await resolveWranglerConfig(projectRoot);
 
@@ -85,11 +86,10 @@ export async function deployFullStack(options: {
   // the server holds the token that completes the asset set, so the
   // completion JWT stays null.
   const completionJwt = created.assetUploads
-    ? await uploadAssetBuckets(
-        created.assetUploads,
-        assets.filesByHash,
-        progress?.onAssetUpload,
-      )
+    ? await uploadAssetBuckets(created.assetUploads, assets.filesByHash, {
+        concurrency,
+        onProgress: progress?.onAssetUpload,
+      })
     : null;
 
   progress?.onWorker?.({ moduleCount: modules.length });

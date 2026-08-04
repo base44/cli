@@ -7,8 +7,6 @@ import { buildAssetManifest, hashAsset } from "@/core/deployments/manifest.js";
 
 describe("hashAsset", () => {
   it("computes the first 32 hex chars of sha256(utf8(app_id) || bytes)", () => {
-    // Known vector: sha256("test-app-id" + "hello world") =
-    // b24ad526981fbac802de45c88c134ba4... (first 32 hex chars)
     expect(hashAsset("test-app-id", Buffer.from("hello world"))).toBe(
       "b24ad526981fbac802de45c88c134ba4",
     );
@@ -60,6 +58,8 @@ describe("buildAssetManifest", () => {
       size: 15,
     });
     const entry = manifest["/assets/app.js"];
+    expect(filesByHash.get(entry.hash)?.size).toBe(entry.size);
+    // Only the cf arm reads contentType; the s3 arm echoes the signed value.
     expect(filesByHash.get(entry.hash)?.contentType).toBe("text/javascript");
     expect(filesByHash.get(manifest["/index.html"].hash)?.contentType).toBe(
       "text/html",
@@ -86,6 +86,79 @@ describe("buildAssetManifest", () => {
       "/keep.txt",
       "/nested/keep.js",
     ]);
+  });
+
+  it("honors .assetsignore negation", async () => {
+    await writeFile(
+      join(assetsDir, ".assetsignore"),
+      [
+        ".dev.vars*",
+        "!.dev.vars.example",
+        "secrets/",
+        "!secrets/public.txt",
+      ].join("\n"),
+    );
+    await writeFile(join(assetsDir, "index.html"), "hi");
+    await writeFile(join(assetsDir, ".dev.vars.local"), "drop");
+    await writeFile(join(assetsDir, ".dev.vars.example"), "keep");
+    await mkdir(join(assetsDir, "secrets"));
+    await writeFile(join(assetsDir, "secrets", "key.pem"), "drop");
+    await writeFile(join(assetsDir, "secrets", "public.txt"), "drop");
+
+    const { manifest } = await buildAssetManifest(assetsDir, "test-app-id");
+
+    // `!secrets/public.txt` does not rescue: git cannot re-include a file
+    // under an excluded directory.
+    expect(Object.keys(manifest).sort()).toEqual([
+      "/.dev.vars.example",
+      "/index.html",
+    ]);
+  });
+
+  it("treats braces and extglobs as literal names, like gitignore", async () => {
+    await writeFile(
+      join(assetsDir, ".assetsignore"),
+      ["{foo,bar}.js", "+(baz|qux).js"].join("\n"),
+    );
+    await writeFile(join(assetsDir, "foo.js"), "keep");
+    await writeFile(join(assetsDir, "baz.js"), "keep");
+    await writeFile(join(assetsDir, "{foo,bar}.js"), "drop");
+
+    const { manifest } = await buildAssetManifest(assetsDir, "test-app-id");
+
+    expect(Object.keys(manifest).sort()).toEqual(["/baz.js", "/foo.js"]);
+  });
+
+  it("anchors .assetsignore patterns that contain a slash", async () => {
+    await writeFile(
+      join(assetsDir, ".assetsignore"),
+      ["/root-only.txt", "nested/drop.txt", "**/*.map"].join("\n"),
+    );
+    await writeFile(join(assetsDir, "root-only.txt"), "drop");
+    await mkdir(join(assetsDir, "nested", "root-only.txt"), {
+      recursive: true,
+    });
+    await writeFile(join(assetsDir, "nested", "root-only.txt", "keep"), "keep");
+    await writeFile(join(assetsDir, "nested", "drop.txt"), "drop");
+    await writeFile(join(assetsDir, "nested", "keep.txt"), "keep");
+    await writeFile(join(assetsDir, "app.js.map"), "drop");
+    await writeFile(join(assetsDir, "nested", "app.js.map"), "drop");
+
+    const { manifest } = await buildAssetManifest(assetsDir, "test-app-id");
+
+    expect(Object.keys(manifest).sort()).toEqual([
+      "/nested/keep.txt",
+      "/nested/root-only.txt/keep",
+    ]);
+  });
+
+  it("includes dotfiles that are not ignored", async () => {
+    await mkdir(join(assetsDir, ".well-known"));
+    await writeFile(join(assetsDir, ".well-known", "security.txt"), "contact");
+
+    const { manifest } = await buildAssetManifest(assetsDir, "test-app-id");
+
+    expect(Object.keys(manifest)).toEqual(["/.well-known/security.txt"]);
   });
 
   it("always skips .assetsignore, wrangler.json, and .dev.vars", async () => {

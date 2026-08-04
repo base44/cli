@@ -170,9 +170,12 @@ describe("deploy command (full-stack)", () => {
     t.expectResult(noHash).toFail();
     t.expectResult(noHash).toContain("--git-hash");
 
+    // A malformed hash is rejected by the option's argParser, before the
+    // action (and any resource push) runs.
     const badHash = await t.run("deploy", "-y", "--git-hash", "not-a-hash");
     t.expectResult(badHash).toFail();
-    t.expectResult(badHash).toContain("not a git commit hash");
+    t.expectResult(badHash).toContain("Expected a git commit hash");
+    expect(t.api.deploymentCreateRequests).toHaveLength(0);
   });
 
   it("outputs a single JSON document with --json", async () => {

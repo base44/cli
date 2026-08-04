@@ -1,6 +1,6 @@
 import { execa } from "execa";
 import { InvalidInputError } from "@/core/errors.js";
-import { GIT_HASH_PATTERN } from "./schema.js";
+import { isGitCommitHash } from "@/core/utils/git.js";
 
 /**
  * The commit this build came from — a deployment is addressed by it, so the
@@ -12,7 +12,7 @@ export async function resolveGitHash(
   explicit?: string,
 ): Promise<string> {
   const hash = explicit ?? (await gitHead(projectRoot));
-  if (!hash || !GIT_HASH_PATTERN.test(hash)) {
+  if (!hash || !isGitCommitHash(hash)) {
     throw new InvalidInputError(
       explicit
         ? `'${explicit}' is not a git commit hash.`

@@ -29,7 +29,7 @@ const TASK_LABELS = {
 export async function runAppSiteDeploy(
   { runTask, log }: CLIContext,
   target: AppSiteTarget,
-  options: { gitHash?: string } = {},
+  options: { gitHash?: string; concurrency?: number } = {},
 ): Promise<AppDeployResult> {
   const kind = await detectAppDeployKind(target);
   if (kind === "none") return { kind: "none" };
@@ -43,6 +43,7 @@ export async function runAppSiteDeploy(
     async (updateMessage) =>
       await deployAppSite(target, {
         gitHash: options.gitHash,
+        concurrency: options.concurrency,
         progress: {
           onWarning: (message) => {
             warnings.push(message);

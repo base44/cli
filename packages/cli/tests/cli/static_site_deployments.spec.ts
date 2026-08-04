@@ -184,6 +184,50 @@ describe("deploy command (static site through the deployments API, env-gated)", 
     expect(t.api.deploymentCreateRequests).toHaveLength(0);
   });
 
+  it("rejects a --git-hash that is not a commit hash", async () => {
+    await t.givenLoggedInWithProject(fixture("with-site"));
+    t.givenEnv({ BASE44_STATIC_DEPLOYMENTS: "1" });
+
+    const result = await t.run("deploy", "-y", "--git-hash", "nope");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("Expected a git commit hash");
+    expect(t.api.deploymentCreateRequests).toHaveLength(0);
+  });
+
+  it("uploads every asset under a --concurrency override", async () => {
+    await t.givenLoggedInWithProject(fixture("with-site"));
+    t.givenEnv({ BASE44_STATIC_DEPLOYMENTS: "1" });
+    mockResourcePushes();
+    mockStaticCreate(["/main.js", "/styles.css"]);
+    t.api.mockDeploymentFinalize({ deployment_id: DEPLOYMENT_ID });
+
+    const result = await t.run(
+      "deploy",
+      "-y",
+      "--git-hash",
+      GIT_HASH,
+      "--concurrency",
+      "1",
+    );
+
+    t.expectResult(result).toSucceed();
+    expect(t.api.presignedUploadRequests).toHaveLength(2);
+  });
+
+  it("rejects a --concurrency outside the allowed range", async () => {
+    await t.givenLoggedInWithProject(fixture("with-site"));
+    t.givenEnv({ BASE44_STATIC_DEPLOYMENTS: "1" });
+
+    const zero = await t.run("deploy", "-y", "--concurrency", "0");
+    const huge = await t.run("deploy", "-y", "--concurrency", "999");
+
+    t.expectResult(zero).toFail();
+    t.expectResult(zero).toContain("between 1 and 50");
+    t.expectResult(huge).toFail();
+    t.expectResult(huge).toContain("between 1 and 50");
+  });
+
   it("prefers a full-stack artifact over the static lane (cf arm)", async () => {
     await t.givenLoggedInWithProject(fixture("fullstack-project"));
     t.givenEnv({ BASE44_STATIC_DEPLOYMENTS: "1" });
