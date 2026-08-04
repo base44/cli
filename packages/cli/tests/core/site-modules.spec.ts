@@ -2,8 +2,8 @@ import { mkdir, mkdtemp, rm, truncate, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { collectModules } from "@/core/deployments/modules.js";
-import type { ResolvedWranglerConfig } from "@/core/deployments/wrangler-config.js";
+import { collectModules } from "@/core/site/modules.js";
+import type { ResolvedWranglerConfig } from "@/core/site/wrangler-config.js";
 
 describe("collectModules", () => {
   let configDir: string;

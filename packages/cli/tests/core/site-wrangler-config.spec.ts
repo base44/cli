@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   detectFullStackArtifact,
   resolveWranglerConfig,
-} from "@/core/deployments/wrangler-config.js";
+} from "@/core/site/wrangler-config.js";
 
 const FIXTURES_DIR = resolve(__dirname, "../fixtures");
 

@@ -2,7 +2,7 @@ import { InvalidArgumentError, Option } from "commander";
 import {
   DEFAULT_UPLOAD_CONCURRENCY,
   MAX_UPLOAD_CONCURRENCY,
-} from "@/core/deployments/index.js";
+} from "@/core/site/index.js";
 import { isGitCommitHash } from "@/core/utils/git.js";
 
 /**

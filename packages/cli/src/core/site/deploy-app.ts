@@ -1,13 +1,10 @@
 import { resolve } from "node:path";
-import type { DeploymentProgress } from "@/core/deployments/index.js";
-import {
-  deployFullStack,
-  deployStaticSite,
-  detectFullStackArtifact,
-  resolveGitHash,
-  staticDeploymentsEnabled,
-} from "@/core/deployments/index.js";
 import { deploySite } from "@/core/site/deploy.js";
+import { deployFullStack } from "./full-stack.js";
+import { resolveGitHash } from "./git-hash.js";
+import type { DeploymentProgress } from "./schema.js";
+import { deployStaticSite, staticDeploymentsEnabled } from "./static-site.js";
+import { detectFullStackArtifact } from "./wrangler-config.js";
 
 /** The project fields an app deploy reads. */
 export interface AppSiteTarget {

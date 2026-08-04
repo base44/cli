@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, truncate, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { buildAssetManifest, hashAsset } from "@/core/deployments/manifest.js";
+import { buildAssetManifest, hashAsset } from "@/core/site/manifest.js";
 
 describe("hashAsset", () => {
   it("computes the first 32 hex chars of sha256(utf8(app_id) || bytes)", () => {

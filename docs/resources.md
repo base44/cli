@@ -94,6 +94,8 @@ const result = await deployAppSite(project, { gitHash });
 
 `detectAppDeployKind()` answers what would ship right now — used for the deploy summary and spinner labels. It answers for the current state of the tree; the full-stack artifact is itself a build output, so a build step invalidates it.
 
+One flow per file: `full-stack.ts` (Workers), `static-site.ts` (deployments-API static), `deploy.ts` (legacy tar.gz). The first two share `manifest.ts`, `upload.ts`, `git-hash.ts`, and the module's `api.ts` / `schema.ts`; see [deployments.md](deployments.md).
+
 ### Deploy Flow
 
 1. Validate output directory exists and has files
