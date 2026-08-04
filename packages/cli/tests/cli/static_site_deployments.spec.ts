@@ -32,13 +32,6 @@ interface CreateBody {
 describe("site deploy command (static site through the deployments API, env-gated)", () => {
   const t = setupCLITests();
 
-  /** Mocks hit by the unified deploy's resource-push phase (no resources). */
-  function mockResourcePushes() {
-    t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
-    t.api.mockConnectorsList({ integrations: [] });
-    t.api.mockStripeStatus({ stripe_mode: null });
-  }
-
   /** The s3 create arm: presigned PUT targets for the requested paths. */
   function mockStaticCreate(uploadPaths: string[]) {
     t.api.mockDeploymentCreate({
@@ -91,33 +84,6 @@ describe("site deploy command (static site through the deployments API, env-gate
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("--git-hash");
-  });
-
-  it("never exposes --git-hash on the unified deploy, gate on or off", async () => {
-    t.givenEnv({ BASE44_STATIC_DEPLOYMENTS: "1" });
-    await t.givenLoggedInWithProject(fixture("with-site"));
-
-    const help = await t.run("deploy", "--help");
-    const passed = await t.run("deploy", "-y", "--git-hash", GIT_HASH);
-
-    t.expectResult(help).toSucceed();
-    t.expectResult(help).toNotContain("--git-hash");
-    t.expectResult(passed).toFail();
-    t.expectResult(passed).toContain("unknown option");
-  });
-
-  it("still routes the unified deploy's site through the lane when gated on", async () => {
-    await t.givenLoggedInWithProject(fixture("with-site"));
-    t.givenEnv({ BASE44_STATIC_DEPLOYMENTS: "1" });
-    mockResourcePushes();
-    // Must go untouched: taking the legacy path would have succeeded.
-    t.api.mockSiteDeploy({ app_url: "https://legacy.example.com" });
-
-    const result = await t.run("deploy", "-y");
-
-    t.expectResult(result).toFail();
-    t.expectResult(result).toContain("base44 site deploy --git-hash");
-    t.expectResult(result).toNotContain("legacy.example.com");
   });
 
   it("keeps the legacy tar.gz site upload when the gate is off", async () => {

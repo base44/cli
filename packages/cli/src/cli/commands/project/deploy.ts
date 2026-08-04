@@ -7,7 +7,6 @@ import {
 } from "@/cli/commands/connectors/oauth-prompt.js";
 import { formatDeployResult } from "@/cli/commands/functions/formatDeployResult.js";
 import { maybeBuildBeforeDeploy } from "@/cli/commands/project/site-build.js";
-import { runAppSiteDeploy } from "@/cli/commands/site/run-app-deploy.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import {
   Base44Command,
@@ -42,14 +41,15 @@ export async function deployAction(
   }
 
   const projectData = await readProjectConfig(options.projectRoot);
-  const { project, entities, functions, agents, connectors, authConfig } =
-    projectData;
 
   if (!hasResourcesToDeploy(projectData)) {
     return {
       outroMessage: "No resources found to deploy",
     };
   }
+
+  const { project, entities, functions, agents, connectors, authConfig } =
+    projectData;
 
   // Build summary of what will be deployed
   const summaryLines: string[] = [];
@@ -102,13 +102,11 @@ export async function deployAction(
 
   await maybeBuildBeforeDeploy(ctx, project, options.build);
 
-  // Deploy resources with per-function progress; the site ships below, from
-  // whatever the build produced.
+  // Deploy resources with per-function progress
   let functionCompleted = 0;
   const functionTotal = functions.length;
 
   const result = await deployAll(projectData, {
-    site: false,
     onVisibilitySet: (level) => {
       log.success(`App visibility set to ${level}`);
     },
@@ -126,8 +124,6 @@ export async function deployAction(
     },
   });
 
-  const siteResult = await runAppSiteDeploy(ctx, project);
-
   // Handle connector-specific post-deploy flows
   const connectorResults = result.connectorResults ?? [];
   await handleOAuthConnectors(connectorResults, isNonInteractive, options, log);
@@ -139,42 +135,13 @@ export async function deployAction(
   log.message(
     `${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl())}`,
   );
-  if (siteResult.kind === "static") {
+  if (result.appUrl) {
     log.message(
-      `${theme.styles.header("App URL")}: ${theme.colors.links(siteResult.appUrl)}`,
+      `${theme.styles.header("App URL")}: ${theme.colors.links(result.appUrl)}`,
     );
   }
-  const deployment =
-    siteResult.kind === "static-deployment" ? siteResult : undefined;
-  if (deployment) {
-    printDeploymentSummary(deployment, log);
-  }
 
-  return {
-    outroMessage: "App deployed successfully",
-    stdout:
-      ctx.jsonMode && deployment
-        ? `${JSON.stringify(
-            {
-              deploymentId: deployment.deploymentId,
-              gitHash: deployment.gitHash,
-            },
-            null,
-            2,
-          )}\n`
-        : undefined,
-  };
-}
-
-function printDeploymentSummary(
-  deployment: { deploymentId: string; gitHash: string },
-  log: Logger,
-): void {
-  // A build has no URL of its own: what production serves is decided when the
-  // app is published from the builder, not by this deploy.
-  log.message(
-    `${theme.styles.header("Deployment")}: ${deployment.deploymentId} ${theme.styles.dim(`(commit ${deployment.gitHash.slice(0, 12)})`)}`,
-  );
+  return { outroMessage: "App deployed successfully" };
 }
 
 export function getDeployCommand(): Command {

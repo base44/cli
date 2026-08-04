@@ -78,7 +78,7 @@ Agent skills are app-scoped instruction snippets shared across the app's agents.
 
 The site module at `packages/cli/src/core/site/` handles deploying an app's built output. It follows a different pattern than resources — there is no item list, so no `readAll`/`push`.
 
-It owns **which transport ships the build**. `deployAppSite()` in `deploy-app.ts` is the single entry point both `base44 deploy` and `base44 site deploy` call:
+It owns **which transport ships the build**. `deployAppSite()` in `deploy-app.ts` is the entry point `base44 site deploy` calls (`base44 deploy` still goes through `deployAll()`'s legacy site step):
 
 - `site.outputDirectory` ships as a static site: through the deployments API when the env-gated lane is enabled (`gate.ts`, `manifest.ts`, `static-site.ts`, `upload.ts` — see [deployments.md](deployments.md)), else the legacy path, tar.gz the built files and upload via `POST /api/apps/{app_id}/deploy-dist`. Both transports share the module's `api.ts` and `schema.ts`.
 - No `site.outputDirectory` → `{ kind: "none" }`.
@@ -91,7 +91,7 @@ const result = await deployAppSite(project, { gitHash });
 // | { kind: "static", appUrl } | { kind: "none" }
 ```
 
-`detectAppDeployKind()` answers what would ship right now — used for the deploy summary and spinner labels. It answers for the current state of the tree, so a build step invalidates it.
+`detectAppDeployKind()` answers what would ship right now — used to pick the spinner labels. It answers for the current state of the tree, so a build step invalidates it.
 
 ### Deploy Flow
 
@@ -121,7 +121,7 @@ What it deploys (in order):
 3. Agent skills (via `agentSkillResource.push()`)
 4. Agents (via `agentResource.push()`)
 5. Connectors (via `pushConnectors()`) -- may return OAuth redirect URLs
-6. Site — via `deployAppSite()`, which picks the transport (see [Site Module](#site-module-not-a-resource)). The deploy command passes `site: false` to `deployAll()` and handles this step itself, after the optional build step has produced whatever the site ships.
+6. Site (if `site.outputDirectory` is configured) — the legacy tar.gz upload. The env-gated deployments-API lane is reachable only from `base44 site deploy`, not from here (see [deployments.md](deployments.md)).
 
 ```bash
 base44 deploy        # With confirmation prompt
