@@ -1,7 +1,7 @@
 import { resolve } from "node:path";
 import { confirm, isCancel } from "@clack/prompts";
 import type { Command } from "commander";
-import { Option } from "commander";
+import { InvalidArgumentError, Option } from "commander";
 import { maybeBuildBeforeDeploy } from "@/cli/commands/project/site-build.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, theme } from "@/cli/utils/index.js";
@@ -12,6 +12,7 @@ import {
   deployStaticSite,
   staticDeploymentsEnabled,
 } from "@/core/site/index.js";
+import { isGitCommitHash } from "@/core/utils/git.js";
 
 interface DeployOptions {
   yes?: boolean;
@@ -135,7 +136,14 @@ export function getSiteDeployCommand(): Command {
       new Option(
         "--git-hash <hash>",
         "Commit the build came from — deploys through the deployments API",
-      ),
+      ).argParser((value) => {
+        if (!isGitCommitHash(value)) {
+          throw new InvalidArgumentError(
+            "Expected a git commit hash (7-64 hex chars).",
+          );
+        }
+        return value;
+      }),
     );
   }
 

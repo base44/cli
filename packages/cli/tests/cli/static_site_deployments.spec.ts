@@ -199,7 +199,7 @@ describe("site deploy command (static site through the deployments API, env-gate
     const result = await t.run("site", "deploy", "-y", "--git-hash", "nope");
 
     t.expectResult(result).toFail();
-    t.expectResult(result).toContain("not a git commit hash");
+    t.expectResult(result).toContain("Expected a git commit hash");
     expect(t.api.deploymentCreateRequests).toHaveLength(0);
   });
 });

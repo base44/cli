@@ -2,7 +2,6 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { InvalidInputError } from "@/core/errors.js";
 import { getAppContext } from "@/core/project/app-config.js";
-import { isGitCommitHash } from "@/core/utils/git.js";
 import { createDeployment, finalizeStaticDeployment } from "./api.js";
 import { buildAssetManifest } from "./manifest.js";
 import type { DeploymentProgress } from "./schema.js";
@@ -20,9 +19,6 @@ export async function deployStaticSite(options: {
   progress?: DeploymentProgress;
 }): Promise<{ deploymentId: string }> {
   const { outputDir, gitHash, progress } = options;
-  if (!isGitCommitHash(gitHash)) {
-    throw new InvalidInputError(`'${gitHash}' is not a git commit hash.`);
-  }
 
   const assets = await buildAssetManifest(outputDir, getAppContext().id);
   // Finalize carries the index.html bytes by contract, so its absence is a
