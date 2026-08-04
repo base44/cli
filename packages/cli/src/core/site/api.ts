@@ -1,5 +1,4 @@
 import type { KyResponse } from "ky";
-import ky from "ky";
 import { getAppClient } from "@/core/clients/index.js";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";
 import type {
@@ -11,7 +10,6 @@ import type {
   WorkerModule,
 } from "@/core/site/schema.js";
 import {
-  AssetUploadResponseSchema,
   CreateDeploymentResponseSchema,
   DeployResponseSchema,
   FinalizeDeploymentResponseSchema,
@@ -87,31 +85,6 @@ export async function createDeployment(
     );
   }
   return result.data;
-}
-
-/**
- * POST one bucket of asset bytes directly to Cloudflare's assets endpoint,
- * authorized by the upload-session jwt from create. The final bucket's
- * response carries the completion token. Errors are NOT wrapped here: the
- * caller owns retry and error mapping per bucket.
- */
-export async function uploadAssetBucket(
-  target: { url: string; jwt: string },
-  formData: FormData,
-): Promise<string | null> {
-  // Straight to Cloudflare: the upload-session jwt is the credential, so this
-  // never goes through the app client (and must not carry app auth).
-  const response: KyResponse = await ky.post(target.url, {
-    searchParams: { base64: "true" },
-    headers: { Authorization: `Bearer ${target.jwt}` },
-    body: formData,
-    timeout: 120_000,
-    retry: 0,
-  });
-
-  const parsed = AssetUploadResponseSchema.safeParse(await response.json());
-  const jwt = parsed.success ? parsed.data.result?.jwt : null;
-  return jwt || null;
 }
 
 export async function finalizeDeployment(

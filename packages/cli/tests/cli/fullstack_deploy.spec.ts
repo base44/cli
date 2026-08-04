@@ -221,6 +221,44 @@ describe("deploy command (full-stack)", () => {
     expect(body.config.compatibility_flags).toEqual([]);
   });
 
+  it("retries a bucket upload after a transient failure, resending the body", async () => {
+    await t.givenLoggedInWithProject(fixture("fullstack-project"));
+    mockResourcePushes();
+    const htmlHash = assetHash(t.api.appId, INDEX_HTML);
+    t.api.mockDeploymentCreate({
+      deployment_id: DEPLOYMENT_ID,
+      asset_uploads: {
+        type: "cf",
+        url: `${t.api.baseUrl}/cf-assets/upload`,
+        jwt: "upload-session-jwt",
+        buckets: [[htmlHash]],
+      },
+    });
+    // 503 twice, then succeed — the bucket POST must be retried, which only
+    // happens because "post" is named in the retry methods.
+    t.api.mockAssetUploadAfterFailures(2, "completion-jwt");
+    t.api.mockDeploymentFinalize({ deployment_id: DEPLOYMENT_ID });
+
+    const result = await t.run("deploy", "-y", "--git-hash", GIT_HASH);
+
+    t.expectResult(result).toSucceed();
+    expect(t.api.assetUploadRequests).toHaveLength(3);
+    // Every attempt carried the full multipart body: ky keeps a pristine
+    // request to clone from, so the FormData is not consumed by attempt one.
+    for (const upload of t.api.assetUploadRequests) {
+      expect(upload.authorization).toBe("Bearer upload-session-jwt");
+      const field = upload.fields.find((f) => f.name === htmlHash);
+      expect(
+        Buffer.from(field?.data.toString() ?? "", "base64").toString(),
+      ).toBe(INDEX_HTML);
+    }
+    // The completion token from the successful attempt reaches finalize.
+    const payload = t.api.finalizeRequests[0].find((f) => f.name === "payload");
+    expect(JSON.parse(payload?.data.toString() ?? "{}")).toEqual({
+      completion_jwt: "completion-jwt",
+    });
+  }, 20_000);
+
   it("surfaces a session-expired error when Cloudflare rejects the session jwt", async () => {
     await t.givenLoggedInWithProject(fixture("fullstack-project"));
     mockResourcePushes();

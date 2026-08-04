@@ -1,8 +1,8 @@
 import { readFile } from "node:fs/promises";
+import type { KyResponse } from "ky";
 import ky, { HTTPError } from "ky";
 import pMap from "p-map";
 import { ApiError, InternalError } from "@/core/errors.js";
-import { uploadAssetBucket } from "./api.js";
 import type {
   AssetFile,
   AssetManifestResult,
@@ -10,6 +10,7 @@ import type {
   CfAssetUploads,
   PresignedAssetUpload,
 } from "./schema.js";
+import { AssetUploadResponseSchema } from "./schema.js";
 
 export const DEFAULT_UPLOAD_CONCURRENCY = 3;
 
@@ -18,16 +19,23 @@ export const MAX_UPLOAD_CONCURRENCY = 50;
 
 const MAX_UPLOAD_ATTEMPTS = 3;
 const RETRY_BASE_DELAY_MS = 500;
-// A 429 from the upload endpoint is a pause, not a failure — wait out the
-// window and go again, without burning the regular error-retry attempts.
-const MAX_RATE_LIMIT_WAITS = 10;
-const RATE_LIMIT_DELAY_MS = 15_000;
+
+/**
+ * Retry policy shared by both upload arms. ky retries network errors and its
+ * default status codes only (408/413/429/500/502/503/504), which is exactly
+ * what these uploads want: an expired credential (401/403) fails fast instead
+ * of burning every attempt, and a 429 waits out the server's `Retry-After`
+ * rather than a delay we invented.
+ */
+const UPLOAD_RETRY = {
+  limit: MAX_UPLOAD_ATTEMPTS - 1,
+  delay: (attempt: number) => RETRY_BASE_DELAY_MS * 2 ** (attempt - 1),
+} as const;
 
 /**
  * POST the requested asset buckets directly to Cloudflare, authorized by the
- * upload-session jwt from create. Each bucket is retried up to 3 times with
- * exponential backoff. The final response carries the completion JWT required
- * to finalize.
+ * upload-session jwt from create. The final response carries the completion
+ * JWT required to finalize.
  */
 export async function uploadAssetBuckets(
   target: CfAssetUploads,
@@ -46,7 +54,7 @@ export async function uploadAssetBuckets(
   await pMap(
     buckets,
     async (bucket) => {
-      const jwt = await uploadBucketWithRetry(target, bucket, filesByHash);
+      const jwt = await uploadAssetBucket(target, bucket, filesByHash);
       if (jwt) {
         completionJwt = jwt;
       }
@@ -65,49 +73,42 @@ export async function uploadAssetBuckets(
   return completionJwt;
 }
 
-async function uploadBucketWithRetry(
+async function uploadAssetBucket(
   target: CfAssetUploads,
   bucket: string[],
   filesByHash: Map<string, AssetFile>,
 ): Promise<string | null> {
-  let lastError: unknown;
-  let rateLimitWaits = 0;
   const formData = await buildBucketForm(bucket, filesByHash);
 
-  for (let attempt = 0; attempt < MAX_UPLOAD_ATTEMPTS; attempt++) {
-    if (attempt > 0) {
-      await sleep(RETRY_BASE_DELAY_MS * 2 ** (attempt - 1));
+  let response: KyResponse;
+  try {
+    // Straight to Cloudflare: the upload-session jwt is the credential, so this
+    // never goes through the app client (and must not carry app auth).
+    response = await ky.post(target.url, {
+      searchParams: { base64: "true" },
+      headers: { Authorization: `Bearer ${target.jwt}` },
+      body: formData,
+      timeout: 120_000,
+      // POST is absent from ky's default retry methods, so it must be named
+      // explicitly or these uploads would never retry at all.
+      retry: { ...UPLOAD_RETRY, methods: ["post"] },
+    });
+  } catch (error) {
+    if (
+      error instanceof HTTPError &&
+      (error.response.status === 401 || error.response.status === 403)
+    ) {
+      throw new ApiError(
+        "This deploy's upload session has expired — rerun deploy. Already-uploaded assets are skipped on the next attempt.",
+        { statusCode: error.response.status, cause: error },
+      );
     }
-    try {
-      return await uploadAssetBucket(target, formData);
-    } catch (error) {
-      if (
-        error instanceof HTTPError &&
-        error.response.status === 429 &&
-        rateLimitWaits < MAX_RATE_LIMIT_WAITS
-      ) {
-        rateLimitWaits++;
-        attempt--; // a throttle is not a failed attempt
-        await sleep(RATE_LIMIT_DELAY_MS);
-        continue;
-      }
-      lastError = error;
-    }
+    throw await ApiError.fromHttpError(error, "uploading assets to Cloudflare");
   }
 
-  if (
-    lastError instanceof HTTPError &&
-    (lastError.response.status === 401 || lastError.response.status === 403)
-  ) {
-    throw new ApiError(
-      "This deploy's upload session has expired — rerun deploy. Already-uploaded assets are skipped on the next attempt.",
-      { statusCode: lastError.response.status, cause: lastError },
-    );
-  }
-  throw await ApiError.fromHttpError(
-    lastError,
-    "uploading assets to Cloudflare",
-  );
+  const parsed = AssetUploadResponseSchema.safeParse(await response.json());
+  const jwt = parsed.success ? parsed.data.result?.jwt : null;
+  return jwt || null;
 }
 
 async function buildBucketForm(
@@ -181,18 +182,10 @@ async function uploadPresignedAsset(
       // our own value would 403 on any mapping difference.
       headers: { "Content-Type": upload.contentType },
       timeout: 120_000,
-      // ky retries network errors and 408/429/5xx only, so a 403 from an
-      // expired URL fails fast instead of burning every attempt.
-      retry: {
-        limit: MAX_UPLOAD_ATTEMPTS - 1,
-        delay: (attempt) => RETRY_BASE_DELAY_MS * 2 ** (attempt - 1),
-      },
+      // PUT is already a default retry method.
+      retry: UPLOAD_RETRY,
     });
   } catch (error) {
     throw await ApiError.fromHttpError(error, "uploading static assets");
   }
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }

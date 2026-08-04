@@ -697,6 +697,17 @@ export class TestAPIServer {
    * (Cloudflare's reply shape).
    */
   mockAssetUpload(completionJwt: string): this {
+    return this.mockAssetUploadAfterFailures(0, completionJwt);
+  }
+
+  /**
+   * Same target as {@link mockAssetUpload}, but the first `failures` requests
+   * answer 503 before it starts succeeding — every attempt is still recorded in
+   * `assetUploadRequests`, so a spec can assert the upload was retried and that
+   * the retried request carried the same body.
+   */
+  mockAssetUploadAfterFailures(failures: number, completionJwt: string): this {
+    let seen = 0;
     this.pendingRoutes.push({
       method: "POST",
       path: "/cf-assets/upload",
@@ -709,6 +720,11 @@ export class TestAPIServer {
             req.headers["content-type"] ?? "",
           ),
         });
+        seen++;
+        if (seen <= failures) {
+          res.status(503).json({ error: "Service Unavailable" });
+          return;
+        }
         res.status(201).json({ result: { jwt: completionJwt } });
       },
     });
