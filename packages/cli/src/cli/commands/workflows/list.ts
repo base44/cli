@@ -4,6 +4,11 @@ import { Base44Command } from "@/cli/utils/index.js";
 import type { WorkflowListItem } from "@/core/resources/workflow/index.js";
 import { listWorkflows } from "@/core/resources/workflow/index.js";
 import { rethrowLegacyAppAsExplanation } from "./legacy-app.js";
+import { MAX_LIMIT, parseLimit } from "./limit.js";
+
+interface ListOptions {
+  limit?: string;
+}
 
 function formatWorkflowLine(workflow: WorkflowListItem): string {
   const lastRun = workflow.lastRunAt
@@ -16,14 +21,14 @@ function formatWorkflowLine(workflow: WorkflowListItem): string {
   return `${workflow.name}  [${workflow.status}]  runs: ${workflow.totalRuns}, ${lastRun}${failures}`;
 }
 
-async function listAction({
-  log,
-  runTask,
-  jsonMode,
-}: CLIContext): Promise<RunCommandResult> {
+async function listAction(
+  { log, runTask, jsonMode }: CLIContext,
+  options: ListOptions,
+): Promise<RunCommandResult> {
+  const limit = parseLimit(options.limit);
   const workflows = await runTask(
     "Fetching workflows from Base44",
-    async () => listWorkflows().catch(rethrowLegacyAppAsExplanation),
+    async () => listWorkflows(limit).catch(rethrowLegacyAppAsExplanation),
     {
       successMessage: "Workflows fetched successfully",
       errorMessage: "Failed to fetch workflows",
@@ -51,5 +56,9 @@ async function listAction({
 export function getWorkflowsListCommand(): Command {
   return new Base44Command("list")
     .description("List this app's workflows")
+    .option(
+      "-n, --limit <n>",
+      `Number of workflows to return (1-${MAX_LIMIT}, default: 30)`,
+    )
     .action(listAction);
 }

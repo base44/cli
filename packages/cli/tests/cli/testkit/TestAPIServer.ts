@@ -687,8 +687,26 @@ export class TestAPIServer {
   /** Captured query params of workflow runs requests. */
   readonly workflowRunsRequests: Record<string, string>[] = [];
 
+  /** Captured query params of workflows list requests. */
+  readonly workflowsListRequests: Record<string, string>[] = [];
+
   mockWorkflowsList(response: WorkflowsListResponse): this {
-    return this.addRoute("GET", `/api/apps/${this.appId}/workflows`, response);
+    this.pendingRoutes.push({
+      method: "GET",
+      path: `/api/apps/${this.appId}/workflows`,
+      handler: (req, res) => {
+        this.workflowsListRequests.push(
+          Object.fromEntries(
+            Object.entries(req.query).map(([key, value]) => [
+              key,
+              String(value),
+            ]),
+          ),
+        );
+        res.status(200).json(response);
+      },
+    });
+    return this;
   }
 
   mockWorkflowsListError(error: ErrorResponse): this {

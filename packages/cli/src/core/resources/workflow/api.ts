@@ -11,12 +11,19 @@ import {
   ListWorkflowsResponseSchema,
 } from "./schema.js";
 
-export async function listWorkflows(): Promise<ListWorkflowsResponse> {
+export async function listWorkflows(
+  limit?: number,
+): Promise<ListWorkflowsResponse> {
   const appClient = getAppClient();
+
+  const searchParams = new URLSearchParams();
+  if (limit !== undefined) {
+    searchParams.set("limit", String(limit));
+  }
 
   let response: KyResponse;
   try {
-    response = await appClient.get("workflows");
+    response = await appClient.get("workflows", { searchParams });
   } catch (error) {
     throw await ApiError.fromHttpError(error, "listing workflows");
   }

@@ -63,6 +63,25 @@ describe("workflows list command", () => {
     t.expectResult(result).toContain("no workflows");
   });
 
+  it("--limit is sent to the API", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+    t.api.mockWorkflowsList([]);
+
+    const result = await t.run("workflows", "list", "--limit", "200");
+
+    t.expectResult(result).toSucceed();
+    expect(t.api.workflowsListRequests[0]).toMatchObject({ limit: "200" });
+  });
+
+  it("rejects an out-of-range limit", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+
+    const result = await t.run("workflows", "list", "--limit", "500");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("between 1 and 200");
+  });
+
   it("explains apps that predate Workflows instead of a bare 403", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
     t.api.mockWorkflowsListError({

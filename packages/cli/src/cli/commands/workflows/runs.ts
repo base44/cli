@@ -2,7 +2,6 @@ import type { Command } from "commander";
 import { Option } from "commander";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, normalizeDatetime } from "@/cli/utils/index.js";
-import { InvalidInputError } from "@/core/errors.js";
 import type {
   WorkflowRun,
   WorkflowRunStatus,
@@ -13,24 +12,12 @@ import {
   WorkflowRunStatusSchema,
 } from "@/core/resources/workflow/index.js";
 import { rethrowLegacyAppAsExplanation } from "./legacy-app.js";
+import { MAX_LIMIT, parseLimit } from "./limit.js";
 
 interface RunsOptions {
   status?: WorkflowRunStatus;
   since?: string;
   limit?: string;
-}
-
-const MAX_LIMIT = 200;
-
-function parseLimit(limit: string | undefined): number | undefined {
-  if (limit === undefined) return undefined;
-  const parsed = Number.parseInt(limit, 10);
-  if (Number.isNaN(parsed) || parsed < 1 || parsed > MAX_LIMIT) {
-    throw new InvalidInputError(
-      `Invalid limit: "${limit}". Must be a number between 1 and ${MAX_LIMIT}.`,
-    );
-  }
-  return parsed;
 }
 
 function formatDuration(durationMs: number): string {
