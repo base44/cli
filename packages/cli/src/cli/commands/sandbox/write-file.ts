@@ -3,10 +3,11 @@ import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
 import { getAppContext } from "@/core/project/index.js";
 import { writeFile } from "@/core/resources/sandbox/api.js";
-import { resolveFlagOrStdin, toJsonStdout } from "./shared.js";
+import { resolveContentSource, toJsonStdout } from "./shared.js";
 
 interface WriteFileOptions {
   content?: string;
+  file?: string;
   overwrite?: boolean;
 }
 
@@ -16,7 +17,7 @@ async function writeFileAction(
   options: WriteFileOptions,
 ): Promise<RunCommandResult> {
   const { id: appId } = getAppContext();
-  const content = await resolveFlagOrStdin(options.content, "--content");
+  const content = await resolveContentSource(options.content, options.file);
 
   const result = await runTask("Writing file", () =>
     writeFile(appId, { path, content, overwrite: options.overwrite }),
@@ -30,13 +31,15 @@ export function getSandboxWriteFileCommand(): Command {
     .description("Create or overwrite a file in an app's remote sandbox")
     .argument("<path>", "File path relative to the app root")
     .option("--content <content>", "File content (if omitted, read from stdin)")
+    .option("--file <path>", "Read the content from a local file")
     .option("--overwrite", "Overwrite the file if it already exists")
     .addHelpText(
       "after",
       `
 Examples:
   $ echo "hello" | base44 sandbox write notes.txt
-  $ base44 sandbox write notes.txt --content "hello" --overwrite`,
+  $ base44 sandbox write notes.txt --content "hello" --overwrite
+  $ base44 sandbox write notes.txt --file ./local-notes.txt`,
     )
     .action(writeFileAction);
 }

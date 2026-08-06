@@ -3,6 +3,7 @@ import { getSandboxCheckpointCommand } from "./checkpoint.js";
 import { getSandboxEditFileCommand } from "./edit-file.js";
 import { getSandboxGrepCommand } from "./grep.js";
 import { getSandboxListDirectoryCommand } from "./list-directory.js";
+import { getSandboxPushSkillsCommand } from "./push-skills.js";
 import { getSandboxReadFileCommand } from "./read-file.js";
 import { getSandboxRunCommandCommand } from "./run-command.js";
 import { getSandboxWriteFileCommand } from "./write-file.js";
@@ -16,5 +17,6 @@ export function getSandboxCommand(): Command {
     .addCommand(getSandboxEditFileCommand())
     .addCommand(getSandboxGrepCommand())
     .addCommand(getSandboxRunCommandCommand())
-    .addCommand(getSandboxCheckpointCommand());
+    .addCommand(getSandboxCheckpointCommand())
+    .addCommand(getSandboxPushSkillsCommand());
 }
