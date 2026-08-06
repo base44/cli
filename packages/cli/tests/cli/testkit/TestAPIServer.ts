@@ -70,6 +70,37 @@ interface FunctionLogEntry {
 
 type FunctionLogsResponse = FunctionLogEntry[];
 
+interface WorkflowListItem {
+  id: string;
+  name: string;
+  status: string;
+  description?: string | null;
+  status_reason?: string | null;
+  total_runs?: number;
+  consecutive_failures?: number;
+  last_run_at?: string | null;
+  last_run_status?: string | null;
+}
+
+type WorkflowsListResponse = WorkflowListItem[];
+
+interface WorkflowRunItem {
+  run_id: string;
+  workflow_id: string;
+  workflow_name?: string;
+  trigger_type?: string;
+  status: string;
+  started_at?: string | null;
+  completed_at?: string | null;
+  duration_ms?: number;
+  steps_count?: number;
+  error_message?: string | null;
+  is_test_run?: boolean;
+  status_reason?: string;
+}
+
+type WorkflowRunsResponse = WorkflowRunItem[];
+
 type SecretsListResponse = Record<string, string>;
 
 interface SecretsSetResponse {
@@ -648,6 +679,50 @@ export class TestAPIServer {
       "GET",
       `/api/apps/${this.appId}/functions-mgmt/${encodeURIComponent(functionName)}/logs`,
       response,
+    );
+  }
+
+  // ─── WORKFLOW ENDPOINTS ───────────────────────────────────
+
+  /** Captured query params of workflow runs requests. */
+  readonly workflowRunsRequests: Record<string, string>[] = [];
+
+  mockWorkflowsList(response: WorkflowsListResponse): this {
+    return this.addRoute("GET", `/api/apps/${this.appId}/workflows`, response);
+  }
+
+  mockWorkflowsListError(error: ErrorResponse): this {
+    return this.addErrorRoute(
+      "GET",
+      `/api/apps/${this.appId}/workflows`,
+      error,
+    );
+  }
+
+  mockWorkflowRuns(response: WorkflowRunsResponse): this {
+    this.pendingRoutes.push({
+      method: "GET",
+      path: `/api/apps/${this.appId}/workflows/runs`,
+      handler: (req, res) => {
+        this.workflowRunsRequests.push(
+          Object.fromEntries(
+            Object.entries(req.query).map(([key, value]) => [
+              key,
+              String(value),
+            ]),
+          ),
+        );
+        res.status(200).json(response);
+      },
+    });
+    return this;
+  }
+
+  mockWorkflowRunsError(error: ErrorResponse): this {
+    return this.addErrorRoute(
+      "GET",
+      `/api/apps/${this.appId}/workflows/runs`,
+      error,
     );
   }
 

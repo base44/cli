@@ -74,6 +74,10 @@ Entry files may also import `secrets` and `waitUntil` from `base44:runtime`. Loc
 
 Agent skills are app-scoped instruction snippets shared across the app's agents. Unlike other resources they are stored as one markdown file per skill under the agent-skills directory (`base44/agent-skills/`, or `agentSkillsDir` in `config.jsonc`): the filename (without `.md`) is the skill name, the frontmatter `description` is the summary, and the body is the instruction text. Agents reference skills by name via `selected_skill_names`; `selected_workspace_skill_ids` (org-shared workspace skills) is not managed here and is passed through pull/push/deploy untouched.
 
+## Workflow Module (Read-Only, Not a Resource)
+
+The workflow module at `packages/cli/src/core/resources/workflow/` is read-only — workflows are authored in the builder, not pulled/pushed from local files, so there is no `Resource<T>` implementation. It exposes `listWorkflows()` and `listWorkflowRuns(filters)` over `GET /api/apps/{app_id}/workflows[/runs]`, consumed by the `workflows list` / `workflows runs` commands. Apps that predate the Workflows system return 403 from these endpoints; the commands translate that into an explanation.
+
 ## Site Module (Not a Resource)
 
 The site module at `packages/cli/src/core/site/` handles deploying an app's built output. It follows a different pattern than resources — there is no item list, so no `readAll`/`push`.

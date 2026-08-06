@@ -1,8 +1,7 @@
 import type { Command } from "commander";
 import { Option } from "commander";
-import ms, { type StringValue } from "ms";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
-import { Base44Command } from "@/cli/utils/index.js";
+import { Base44Command, normalizeDatetime } from "@/cli/utils/index.js";
 import { ApiError, InvalidInputError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/index.js";
 import type {
@@ -75,15 +74,6 @@ function parseFunctionNames(option: string | undefined): string[] {
     .split(",")
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
-}
-
-function normalizeDatetime(value: string): string {
-  const duration = ms(value as StringValue);
-  if (duration !== undefined) {
-    return new Date(Date.now() - duration).toISOString();
-  }
-  if (/Z$|[+-]\d{2}:\d{2}$/.test(value)) return value;
-  return `${value}Z`;
 }
 
 function formatEntry(entry: LogEntry): string {

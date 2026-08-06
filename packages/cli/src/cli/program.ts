@@ -20,6 +20,7 @@ import { getSandboxCommand } from "@/cli/commands/sandbox/index.js";
 import { getSecretsCommand } from "@/cli/commands/secrets/index.js";
 import { getSiteCommand } from "@/cli/commands/site/index.js";
 import { getTypesCommand } from "@/cli/commands/types/index.js";
+import { getWorkflowsCommand } from "@/cli/commands/workflows/index.js";
 import { getWorkspaceCommand } from "@/cli/commands/workspace/index.js";
 import { Base44Command } from "@/cli/utils/index.js";
 import { BASE44_APP_ID_ENV_VAR } from "@/core/consts.js";
@@ -93,6 +94,9 @@ export function createProgram(context: CLIContext): Command {
 
   // Register functions commands
   program.addCommand(getFunctionsCommand());
+
+  // Register workflows commands
+  program.addCommand(getWorkflowsCommand());
 
   // Register secrets commands
   program.addCommand(getSecretsCommand());
