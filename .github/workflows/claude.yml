@@ -30,6 +30,9 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Wix gateway proxy (mandatory)
+        uses: ./.github/actions/wix-gateway-proxy
+
       - name: Run Claude Code
         id: claude
         uses: anthropics/claude-code-action@v1

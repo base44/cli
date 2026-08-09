@@ -15,6 +15,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Wix gateway proxy (mandatory)
+        uses: ./.github/actions/wix-gateway-proxy
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -116,6 +119,10 @@ jobs:
           fi
 
           echo "✅ Safety check passed. Package name is safe to publish."
+
+      - name: Unpin npm registry for first-party publish
+        # The embargo would refuse the just-built version; installs above stayed gatewayed.
+        run: sudo sed -i '/registry\.npmjs\.org/d' /etc/hosts
 
       - name: Publish preview package
         env:

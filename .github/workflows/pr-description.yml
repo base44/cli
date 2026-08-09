@@ -23,6 +23,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Wix gateway proxy (mandatory)
+        uses: ./.github/actions/wix-gateway-proxy
+
       - name: Run Claude to Generate PR Description
         id: claude-description
         uses: anthropics/claude-code-action@v1

@@ -25,6 +25,9 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Wix gateway proxy (mandatory)
+        uses: ./.github/actions/wix-gateway-proxy
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:

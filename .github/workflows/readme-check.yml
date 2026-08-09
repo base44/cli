@@ -25,6 +25,9 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Wix gateway proxy (mandatory)
+        uses: ./.github/actions/wix-gateway-proxy
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:

@@ -1,0 +1,37 @@
+name: Check Wix Gateway Proxy
+
+# No paths or branches filter: this is meant to be a required status check, and
+# a filtered workflow leaves unrelated PRs pending forever. It also keeps
+# stacked PRs (which target other branches) covered.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check-wix-proxy:
+    name: Wix Gateway Proxy
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Wix gateway proxy (mandatory)
+        uses: ./.github/actions/wix-gateway-proxy
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install PyYAML
+        run: pip install --require-hashes -r .github/scripts/requirements-check-wix-proxy.txt
+
+      - name: Test the proxy-step checker
+        run: python3 .github/scripts/test_check_wix_proxy_steps.py
+
+      - name: Check every job runs the Wix gateway proxy
+        run: python3 .github/scripts/check_wix_proxy_steps.py

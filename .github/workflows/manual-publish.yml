@@ -32,6 +32,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout for wix gateway proxy
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          sparse-checkout: .github
+
+      - name: Wix gateway proxy (mandatory)
+        uses: ./.github/actions/wix-gateway-proxy
+
       - name: Generate a token
         id: generate-token
         uses: actions/create-github-app-token@v2
@@ -111,6 +119,10 @@ jobs:
           echo "Version: ${{ env.NEW_VERSION }}"
           echo "NPM tag: ${{ github.event.inputs.npm_tag }}"
           echo "Dry run: ${{ github.event.inputs.dry_run }}"
+
+      - name: Unpin npm registry for first-party publish
+        # The embargo would refuse the just-built version; installs above stayed gatewayed.
+        run: sudo sed -i '/registry\.npmjs\.org/d' /etc/hosts
 
       - name: Publish to NPM
         working-directory: ${{ env.CLI_PACKAGE_DIR }}
