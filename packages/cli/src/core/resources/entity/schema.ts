@@ -1,34 +1,23 @@
 import { z } from "zod";
 import { ResourceSourceSchema } from "@/core/resources/types.js";
 
+// This file mirrors the platform's contract; it must never be stricter. The
+// authority is backend/app/user_apps/entities/rls_validation.py
+// (SUPPORTED_FIELD_OPERATORS, OPEN_RULE_VALUES, _user_condition_valid) plus
+// backend/app/json_schema_utils.py (validate_json_schema). A stricter rule here
+// rejects apps that production accepts and evaluates, and it fails the *whole*
+// project read — so an unrelated entity file blocks every command.
 const FieldConditionSchema = z.union([
   z.string(),
   z.number(),
   z.boolean(),
   z.null(),
-  z.looseObject({
-    $in: z.unknown().optional(),
-    $nin: z.unknown().optional(),
-    $ne: z.unknown().optional(),
-    $all: z.unknown().optional(),
-  }),
+  z.looseObject({}),
 ]);
 
-const userConditionAllowedKeys = new Set(["role", "email", "id"]);
-
-const UserConditionSchema = z
-  .looseObject({
-    role: z.string().optional(),
-    email: z.string().optional(),
-    id: z.string().optional(),
-  })
-  .refine(
-    (val) =>
-      Object.keys(val).every(
-        (key) => userConditionAllowedKeys.has(key) || key.startsWith("data."),
-      ),
-    "Keys must be role, email, id, or match data.* pattern",
-  );
+// The engine compares user attributes by exact equality; it constrains neither
+// the attribute names nor their scalar types, so neither do we.
+const UserConditionSchema = z.looseObject({});
 
 const rlsConditionAllowedKeys = new Set([
   "user_condition",
@@ -63,7 +52,21 @@ const RLSConditionSchema = z.looseObject({
   },
 });
 
-const fieldConditionOperators = new Set(["$in", "$nin", "$ne", "$all"]);
+// Mirrors SUPPORTED_FIELD_OPERATORS in rls_validation.py.
+const fieldConditionOperators = new Set([
+  "$eq",
+  "$ne",
+  "$in",
+  "$nin",
+  "$gt",
+  "$gte",
+  "$lt",
+  "$lte",
+  "$exists",
+  "$all",
+  "$size",
+  "$elemMatch",
+]);
 
 const isValidFieldCondition = (value: unknown): boolean => {
   if (
@@ -89,7 +92,13 @@ const RefineRLSConditionSchema = RLSConditionSchema.refine(
   "Field condition values must be a primitive or an operator object ($in, $nin, $ne, $all)",
 );
 
-const RLSRuleSchema = z.union([z.boolean(), RefineRLSConditionSchema]);
+// OPEN_RULE_VALUES in rls_validation.py: null, true, {}, "" all mean "open".
+const RLSRuleSchema = z.union([
+  z.boolean(),
+  z.null(),
+  z.literal(""),
+  RefineRLSConditionSchema,
+]);
 
 const EntityRLSSchema = z.looseObject({
   create: RLSRuleSchema.optional(),
@@ -108,7 +117,9 @@ const FieldRLSSchema = z.looseObject({
 });
 
 export const PropertyDefinitionSchema = z.looseObject({
-  type: z.string(),
+  // JSON Schema allows a union (`["string", "null"]`), and validate_json_schema
+  // only requires the key to be present.
+  type: z.union([z.string(), z.array(z.string())]),
   title: z.string().optional(),
   description: z.string().optional(),
   minLength: z.number().int().min(0).optional(),
@@ -138,7 +149,11 @@ export const EntitySchema = z.looseObject({
   name: z
     .string()
     .min(1)
-    .regex(/^[a-zA-Z0-9]+$/, "Entity name must be alphanumeric only"),
+    // ENTITY_NAME_PATTERN in backend/app/user_apps/common/entity_name_validation.py.
+    .regex(
+      /^\w+$/,
+      "Entity name must contain only letters, numbers, and underscores",
+    ),
   title: z.string().optional(),
   description: z.string().optional(),
   properties: z.record(z.string(), PropertyDefinitionSchema).default({}),
