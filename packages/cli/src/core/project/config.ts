@@ -308,11 +308,11 @@ export async function readProjectConfig(
 }
 
 /**
- * Reads and validates the project config file alone — entity, function, agent,
- * agent-skill, connector, and auth files are neither read nor validated.
+ * Reads and validates the project config file alone — none of the project's
+ * resource files are read or validated.
  *
- * For commands that touch none of those resources: an invalid resource file is
- * unrelated to the work and must not fail them.
+ * For a command that consumes no resources, an invalid resource file is unrelated
+ * to the work and must not fail it.
  *
  * @param projectRoot - Optional path to start searching from. Defaults to cwd.
  * @returns The project config, with its root and config path.

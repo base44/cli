@@ -31,8 +31,8 @@ async function deployAction(
     throw new InvalidInputError("--yes is required in non-interactive mode");
   }
 
-  // Config only: a site deploy reads none of the project's entity/function/
-  // agent/connector/auth files, so an invalid one must not fail it.
+  // Config only: a site deploy reads none of the project's resource files, so an
+  // invalid one must not fail it.
   const project = await readProjectSettings();
 
   const outputDirectory = project.site?.outputDirectory;
