@@ -115,6 +115,10 @@ interface SingleFunctionDeployResponse {
   status: "deployed" | "unchanged";
 }
 
+interface SingleActorDeployResponse {
+  status: "deployed" | "unchanged";
+}
+
 interface AutomationBase {
   name: string;
   description?: string | null;
@@ -527,6 +531,15 @@ export class TestAPIServer {
     );
   }
 
+  /** Mock PUT /api/apps/{appId}/actors/{name} - Deploy single actor */
+  mockSingleActorDeploy(response: SingleActorDeployResponse): this {
+    return this.addRoute(
+      "PUT",
+      `/api/apps/${this.appId}/actors/:name`,
+      response,
+    );
+  }
+
   mockSiteDeploy(response: SiteDeployResponse): this {
     return this.addRoute(
       "POST",
@@ -919,6 +932,15 @@ export class TestAPIServer {
     return this.addErrorRoute(
       "PUT",
       `/api/apps/${this.appId}/backend-functions/:name`,
+      error,
+    );
+  }
+
+  /** Mock single actor deploy to return an error */
+  mockSingleActorDeployError(error: ErrorResponse): this {
+    return this.addErrorRoute(
+      "PUT",
+      `/api/apps/${this.appId}/actors/:name`,
       error,
     );
   }

@@ -1,17 +1,17 @@
-import { basename, dirname, join, relative } from "node:path";
+import { basename, dirname, relative } from "node:path";
 import { globby } from "globby";
-import { ENTRY_FILE_GLOB, ENTRY_IGNORE_DOT_PATHS } from "@/core/consts.js";
-import { InvalidInputError } from "@/core/errors.js";
-import type {
-  Actor,
-  ActorMessageSchema,
-} from "@/core/resources/actor/schema.js";
-import { ActorSchemaFileSchema } from "@/core/resources/actor/schema.js";
-import { pathExists, readJsonFile } from "@/core/utils/fs.js";
+import {
+  BACKEND_FILE_GLOB,
+  ENTRY_FILE_GLOB,
+  ENTRY_IGNORE_DOT_PATHS,
+} from "@/core/consts.js";
+import { ConfigInvalidError, InvalidInputError } from "@/core/errors.js";
+import type { Actor } from "@/core/resources/actor/schema.js";
+import { pathExists } from "@/core/utils/fs.js";
 
 async function readActor(entryFile: string, actorsDir: string): Promise<Actor> {
   const actorDir = dirname(entryFile);
-  const filePaths = await globby("**/*.ts", {
+  const filePaths = await globby(BACKEND_FILE_GLOB, {
     cwd: actorDir,
     absolute: true,
   });
@@ -30,29 +30,12 @@ async function readActor(entryFile: string, actorsDir: string): Promise<Actor> {
     );
   }
 
-  const entry = basename(entryFile);
-
-  const schemaPath = join(actorDir, "schema.jsonc");
-  let messageSchema: ActorMessageSchema | undefined;
-  if (await pathExists(schemaPath)) {
-    const parsed = await readJsonFile(schemaPath);
-    const result = ActorSchemaFileSchema.safeParse(parsed);
-    if (result.success) {
-      messageSchema = {
-        types: result.data.types as Record<string, unknown> | undefined,
-        toClient: result.data.toClient as Record<string, unknown> | undefined,
-        toServer: result.data.toServer as Record<string, unknown> | undefined,
-      };
-    }
-  }
-
   return {
     name,
-    entry,
+    entry: basename(entryFile),
     entryPath: entryFile,
     filePaths,
     source: { type: "project" },
-    messageSchema,
   };
 }
 
@@ -74,7 +57,7 @@ export async function readAllActors(actorsDir: string): Promise<Actor[]> {
   const names = new Set<string>();
   for (const actor of actors) {
     if (names.has(actor.name)) {
-      throw new InvalidInputError(
+      throw new ConfigInvalidError(
         `Duplicate actor name "${actor.name}" in ${actorsDir}`,
       );
     }

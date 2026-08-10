@@ -3,7 +3,10 @@ import { hasWorkspaceApiKeyAuth } from "@/core/auth/config.js";
 import { setAppVisibility } from "@/core/project/api.js";
 import type { Visibility } from "@/core/project/schema.js";
 import type { ProjectData } from "@/core/project/types.js";
-import { deployActorsSequentially } from "@/core/resources/actor/deploy.js";
+import {
+  deployActorsSequentially,
+  type SingleActorDeployResult,
+} from "@/core/resources/actor/deploy.js";
 import { agentResource } from "@/core/resources/agent/index.js";
 import { agentSkillResource } from "@/core/resources/agent-skill/index.js";
 import { authConfigResource } from "@/core/resources/auth-config/index.js";
@@ -75,11 +78,13 @@ interface DeployAllResult {
 interface DeployAllOptions {
   onFunctionStart?: (names: string[]) => void;
   onFunctionResult?: (result: SingleFunctionDeployResult) => void;
+  onActorStart?: (names: string[]) => void;
+  onActorResult?: (result: SingleActorDeployResult) => void;
   onVisibilitySet?: (visibility: Visibility) => void;
 }
 
 /**
- * Deploys all project resources (entities, functions, agents, connectors, and site) to Base44.
+ * Deploys all project resources (entities, functions, actors, agents, connectors, and site) to Base44.
  *
  * @param projectData - The project configuration and resources to deploy
  * @param options - Optional progress callbacks for resource deployment
@@ -109,7 +114,10 @@ export async function deployAll(
     onStart: options?.onFunctionStart,
     onResult: options?.onFunctionResult,
   });
-  await deployActorsSequentially(actors);
+  await deployActorsSequentially(actors, {
+    onStart: options?.onActorStart,
+    onResult: options?.onActorResult,
+  });
   await agentSkillResource.push(agentSkills);
   await agentResource.push(agents);
   await authConfigResource.push(authConfig);

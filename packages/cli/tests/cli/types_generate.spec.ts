@@ -49,10 +49,6 @@ describe("types generate command", () => {
     // Contains the ActorNameRegistry with the actor name
     expect(typesContent).toContain("ActorNameRegistry");
     expect(typesContent).toContain(`"ChatRoom": true`);
-
-    // Contains the ActorRegistry with typed inbound/outbound (from schema.jsonc)
-    expect(typesContent).toContain("ActorRegistry");
-    expect(typesContent).toContain(`"ChatRoom"`);
   });
 
   it("updates tsconfig.json to include types path", async () => {

@@ -210,6 +210,13 @@ t.api.mockFunctionsPush({ deployed: ["handler"], deleted: [], errors: null });
 t.api.mockFunctionsPushError({ status: 400, body: { error: "Invalid" } });
 ```
 
+### Actor Mocks
+
+```typescript
+t.api.mockSingleActorDeploy({ status: "deployed" });
+t.api.mockSingleActorDeployError({ status: 400, body: { error: "Invalid" } });
+```
+
 ### Agent Mocks
 
 ```typescript

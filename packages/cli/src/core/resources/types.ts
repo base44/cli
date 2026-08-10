@@ -11,6 +11,16 @@ export const ResourceSourceSchema = z.discriminatedUnion("type", [
 ]);
 
 /**
+ * Per-item outcome of a sequential deploy (functions, actors).
+ */
+export interface SingleDeployResult {
+  name: string;
+  status: "deployed" | "unchanged" | "error";
+  error?: string | null;
+  durationMs?: number;
+}
+
+/**
  * Base interface for all project resources (entities, functions, etc.).
  * Resources are project-specific collections that can be loaded from the filesystem
  * and pushed to the Base44 API.

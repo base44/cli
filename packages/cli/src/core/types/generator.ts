@@ -1,20 +1,14 @@
-import { join } from "node:path";
 import { source, stripIndent } from "common-tags";
 import type { JSONSchema4 } from "json-schema";
 import { compile } from "json-schema-to-typescript";
-import { getActorRuntimeTypesPath, getTypesOutputPath } from "@/core/config.js";
+import { getTypesOutputPath } from "@/core/config.js";
 import { TypeGenerationError } from "@/core/errors.js";
-import type { Actor } from "@/core/resources/actor/schema.js";
+import type { Actor } from "@/core/resources/actor/index.js";
 import type { AgentConfig } from "@/core/resources/agent/index.js";
 import type { ConnectorResource } from "@/core/resources/connector/index.js";
 import type { Entity } from "@/core/resources/entity/index.js";
 import type { BackendFunction } from "@/core/resources/function/index.js";
-import {
-  deleteFile,
-  pathExists,
-  readJsonFile,
-  writeFile,
-} from "@/core/utils/fs.js";
+import { writeFile } from "@/core/utils/fs.js";
 
 interface GenerateTypesInput {
   projectRoot: string;
@@ -43,29 +37,6 @@ const EMPTY_TEMPLATE = stripIndent`
   }
 `;
 
-const SDK_PACKAGE_NAMES = ["@base44/sdk", "@base44-preview/sdk"] as const;
-type SdkPackageName = (typeof SDK_PACKAGE_NAMES)[number];
-
-async function detectSdkPackageName(
-  projectRoot: string,
-): Promise<SdkPackageName> {
-  try {
-    const pkg = (await readJsonFile(
-      join(projectRoot, "package.json"),
-    )) as Record<string, unknown>;
-    const deps = {
-      ...(pkg.dependencies as object),
-      ...(pkg.devDependencies as object),
-    };
-    for (const name of SDK_PACKAGE_NAMES) {
-      if (name in deps) return name;
-    }
-  } catch {
-    // ignore
-  }
-  return "@base44/sdk";
-}
-
 /**
  * Generate and write types.d.ts file.
  */
@@ -74,34 +45,10 @@ export async function generateTypesFile(
 ): Promise<void> {
   const content = await generateContent(input);
   await writeFile(getTypesOutputPath(input.projectRoot), content);
-
-  // The base44:runtime/actors virtual module must be an AMBIENT declaration, so
-  // it lives in its own script-context file. types.d.ts is a module (it has
-  // exports), where `declare module 'base44:runtime/actors'` is a failed
-  // augmentation of a non-existent module and the import never resolves.
-  const runtimePath = getActorRuntimeTypesPath(input.projectRoot);
-  if (input.actors.length) {
-    const sdkPackage = await detectSdkPackageName(input.projectRoot);
-    await writeFile(runtimePath, actorRuntimeDeclaration(sdkPackage));
-  } else if (await pathExists(runtimePath)) {
-    await deleteFile(runtimePath);
-  }
 }
 
-/** Ambient declaration that makes `base44:runtime/actors` resolve pre-deploy. */
-function actorRuntimeDeclaration(sdkPackage: SdkPackageName): string {
-  return `${HEADER}\n\n${source`
-    declare module 'base44:runtime/actors' {
-      export { Actor } from '${sdkPackage}';
-    }
-  `}\n`;
-}
-
-export async function generateContent(
-  input: GenerateTypesInput,
-): Promise<string> {
+async function generateContent(input: GenerateTypesInput): Promise<string> {
   const { entities, functions, agents, connectors, actors } = input;
-  const sdkPackage = await detectSdkPackageName(input.projectRoot);
 
   if (
     !entities.length &&
@@ -113,10 +60,9 @@ export async function generateContent(
     return EMPTY_TEMPLATE;
   }
 
-  const [entityInterfaces, actorResults] = await Promise.all([
-    Promise.all(entities.map((e) => compileEntity(e))),
-    Promise.all(actors.map((a) => compileActor(a))),
-  ]);
+  const entityInterfaces = await Promise.all(
+    entities.map((e) => compileEntity(e)),
+  );
 
   // Build registry entries
   const registryEntries: [string, string[]][] = [
@@ -128,15 +74,6 @@ export async function generateContent(
     ["AgentNameRegistry", agents.map((a) => `"${a.name}": true;`)],
     ["ConnectorTypeRegistry", connectors.map((c) => `"${c.type}": true;`)],
     ["ActorNameRegistry", actors.map((a) => `"${a.name}": true;`)],
-    [
-      "ActorRegistry",
-      actors
-        .filter((a) => a.messageSchema)
-        .map((a) => {
-          const idx = actors.indexOf(a);
-          return `"${a.name}": ${actorResults[idx].entry};`;
-        }),
-    ],
   ];
 
   // Generate registries (only for non-empty entries)
@@ -144,18 +81,11 @@ export async function generateContent(
     .filter(([, entries]) => entries.length > 0)
     .map(([name, entries]) => registry(name, entries));
 
-  const actorInterfaces = actorResults.map((r) => r.decls).filter(Boolean);
-
-  // NOTE: the `base44:runtime/actors` virtual module is declared in a separate
-  // ambient file (see generateTypesFile) — it must NOT go here, because this
-  // file is a module and the declaration would be a failed augmentation.
   return [
     HEADER,
-    "export {};", // module context — ensures declare module augments rather than replaces the SDK package
     entityInterfaces.join("\n\n"),
-    actorInterfaces.join("\n\n"),
     source`
-      declare module '${sdkPackage}' {
+      declare module '@base44/sdk' {
         ${registries.join("\n\n")}
       }
     `,
@@ -187,150 +117,6 @@ async function compileEntity(entity: Entity): Promise<string> {
       error,
     );
   }
-}
-
-interface ActorCompileResult {
-  /** Top-level `export` declarations: one interface per message + shared types. */
-  decls: string;
-  /** The registry value, e.g. `{ toClient: FooInit | FooTick; toServer: FooJoin }`. */
-  entry: string;
-}
-
-/**
- * An actor's `schema.jsonc` is a *catalog* of named messages:
- *   { types?: { Pt, Snake, … }, toClient: { init, tick, … }, toServer: { join, … } }
- * Each message is a flat object schema (no `type` field — the generator injects
- * `type: "<name>"` as the discriminant). We compile the whole catalog in ONE pass
- * so json-schema-to-typescript emits a named interface per message plus the shared
- * types, then assemble the toClient/toServer unions from those names. This avoids
- * scraping the compiler output (the old regex broke on unions and `$defs`), and
- * because every message is a single flat object, the fragile multi-declaration
- * case never arises.
- */
-async function compileActor(actor: Actor): Promise<ActorCompileResult> {
-  const { messageSchema } = actor;
-  if (!messageSchema) {
-    return { decls: "", entry: "{ toClient: unknown; toServer: unknown }" };
-  }
-
-  const prefix = toPascalCase(actor.name);
-  const types = (messageSchema.types ?? {}) as Record<string, JSONSchema4>;
-  const toClient = (messageSchema.toClient ?? {}) as Record<
-    string,
-    JSONSchema4
-  >;
-  const toServer = (messageSchema.toServer ?? {}) as Record<
-    string,
-    JSONSchema4
-  >;
-
-  // Shared types are prefixed with the actor name so names (Pt, Snake, …) can't
-  // collide across actors or with entity interfaces. Messages additionally carry
-  // their direction, since the same name (e.g. "message") may appear in both
-  // directions.
-  const typeName = (key: string) => `${prefix}${toPascalCase(key)}`;
-  const msgName = (dir: "ToClient" | "ToServer", key: string) =>
-    `${prefix}${dir}${toPascalCase(key)}`;
-
-  const defs: Record<string, JSONSchema4> = {};
-  const add = (name: string, schema: JSONSchema4) => {
-    if (name in defs) {
-      throw new TypeGenerationError(
-        `Duplicate generated type "${name}" in actor "${actor.name}" — a shared type and a message resolve to the same name.`,
-        actor.name,
-      );
-    }
-    defs[name] = { ...schema, title: name };
-  };
-
-  // Shared types are emitted as-is (author writes `type: "object"` etc.); their
-  // author-facing `#/types/X` refs are rewritten to the prefixed `#/$defs/` names.
-  for (const [key, schema] of Object.entries(types)) {
-    add(typeName(key), rewriteTypeRefs(schema, typeName) as JSONSchema4);
-  }
-
-  // Each message → one flat object (a full JSON Schema, like an entity) with the
-  // `type` discriminant injected from its key.
-  const compileMessages = (
-    msgs: Record<string, JSONSchema4>,
-    dir: "ToClient" | "ToServer",
-  ): string[] =>
-    Object.entries(msgs).map(([key, schema]) => {
-      const name = msgName(dir, key);
-      const rewritten = rewriteTypeRefs(schema, typeName) as JSONSchema4;
-      add(name, {
-        type: "object",
-        ...rewritten,
-        properties: { type: { const: key }, ...(rewritten.properties ?? {}) },
-        required: [
-          "type",
-          ...((rewritten.required as string[] | undefined) ?? []),
-        ],
-        additionalProperties: false,
-      });
-      return name;
-    });
-
-  const toClientNames = compileMessages(toClient, "ToClient");
-  const toServerNames = compileMessages(toServer, "ToServer");
-
-  // Root union over every message keeps all defs reachable so the compiler emits
-  // them; we keep its whole output verbatim (no scraping).
-  const allNames = [...toClientNames, ...toServerNames];
-  const rootName = `${prefix}Message`;
-  const rootSchema = {
-    title: rootName,
-    $defs: defs,
-    oneOf: allNames.map((n) => ({ $ref: `#/$defs/${n}` })),
-  } as unknown as JSONSchema4;
-
-  let decls = "";
-  try {
-    decls = (
-      await compile(rootSchema, rootName, {
-        bannerComment: "",
-        additionalProperties: false,
-        strictIndexSignatures: true,
-      })
-    ).trim();
-  } catch (error) {
-    throw new TypeGenerationError(
-      `Failed to generate types for actor "${actor.name}"`,
-      actor.name,
-      error,
-    );
-  }
-
-  const union = (names: string[]) =>
-    names.length ? names.join(" | ") : "never";
-  return {
-    decls,
-    entry: `{ toClient: ${union(toClientNames)}; toServer: ${union(toServerNames)} }`,
-  };
-}
-
-/** Rewrite author-facing `#/types/X` refs to the prefixed `#/$defs/<defName>`. */
-function rewriteTypeRefs(
-  node: unknown,
-  defName: (key: string) => string,
-): unknown {
-  if (Array.isArray(node)) {
-    return node.map((n) => rewriteTypeRefs(n, defName));
-  }
-  if (node && typeof node === "object") {
-    const out: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(node)) {
-      const match =
-        key === "$ref" && typeof value === "string"
-          ? value.match(/^#\/types\/(.+)$/)
-          : null;
-      out[key] = match
-        ? `#/$defs/${defName(match[1])}`
-        : rewriteTypeRefs(value, defName);
-    }
-    return out;
-  }
-  return node;
 }
 
 function registry(name: string, entries: string[]): string {

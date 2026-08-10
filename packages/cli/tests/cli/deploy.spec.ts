@@ -96,6 +96,22 @@ describe("deploy command (unified)", () => {
     t.expectResult(result).toContain("App deployed successfully");
   });
 
+  it("deploys actors with unified deploy", async () => {
+    await t.givenLoggedInWithProject(fixture("with-actors"));
+    t.api.mockSingleActorDeploy({ status: "deployed" });
+    t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
+    t.api.mockConnectorsList({ integrations: [] });
+    t.api.mockStripeStatus({ stripe_mode: null });
+
+    const result = await t.run("deploy", "-y");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("1 actor");
+    t.expectResult(result).toContain("Deploying ChatRoom");
+    t.expectResult(result).toContain("deployed");
+    t.expectResult(result).toContain("App deployed successfully");
+  });
+
   it("deploys entities successfully with --yes flag", async () => {
     await t.givenLoggedInWithProject(fixture("with-entities"));
     t.api.mockEntitiesPush({

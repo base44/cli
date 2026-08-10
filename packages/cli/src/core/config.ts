@@ -26,16 +26,6 @@ export function getTypesOutputPath(projectRoot: string): string {
   return join(projectRoot, PROJECT_SUBDIR, TYPES_OUTPUT_SUBDIR, TYPES_FILENAME);
 }
 
-/**
- * Ambient declaration for the `base44:runtime/actors` virtual module. Kept in
- * its own script-context file (no exports) so the `declare module` is an ambient
- * declaration — in the module-scoped types.d.ts it would be a failed augmentation
- * of a non-existent module and never resolve.
- */
-export function getActorRuntimeTypesPath(projectRoot: string): string {
-  return join(projectRoot, PROJECT_SUBDIR, TYPES_OUTPUT_SUBDIR, "runtime.d.ts");
-}
-
 export function getBase44ApiUrl(): string {
   return process.env.BASE44_API_URL || "https://app.base44.com";
 }

@@ -9,6 +9,7 @@ import type {
   FunctionFile,
   FunctionWithCode,
 } from "@/core/resources/function/schema.js";
+import type { SingleDeployResult } from "@/core/resources/types.js";
 import { readTextFile } from "@/core/utils/fs.js";
 
 async function loadFunctionCode(
@@ -25,12 +26,7 @@ async function loadFunctionCode(
   return { ...fn, files: resolvedFiles };
 }
 
-export interface SingleFunctionDeployResult {
-  name: string;
-  status: "deployed" | "unchanged" | "error";
-  error?: string | null;
-  durationMs?: number;
-}
+export type SingleFunctionDeployResult = SingleDeployResult;
 
 async function deployOne(
   fn: BackendFunction,

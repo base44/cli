@@ -6,12 +6,12 @@ export const CONFIG_FILE_EXTENSION_GLOB = "{json,jsonc}";
 /** Glob for discovering function config files at any depth under functions dir. */
 export const FUNCTION_CONFIG_GLOB = `**/function.${CONFIG_FILE_EXTENSION_GLOB}`;
 
-/** Glob for zero-config function entry files (any depth). */
+/** Glob for zero-config function and actor entry files (any depth). */
 export const ENTRY_FILE_GLOB = "**/entry.{js,ts}";
 
 /**
- * Glob for source files bundled into a backend function's deploy payload —
- * used for both the function directory and the shared (`base44/shared/`) dir.
+ * Glob for source files bundled into a function's or actor's deploy payload —
+ * for functions it also covers the shared (`base44/shared/`) dir.
  */
 export const BACKEND_FILE_GLOB = "**/*.{js,ts,json,jsonc}";
 

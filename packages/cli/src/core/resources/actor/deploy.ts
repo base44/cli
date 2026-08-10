@@ -2,6 +2,7 @@ import { dirname, relative } from "node:path";
 import { deploySingleActor } from "@/core/resources/actor/api.js";
 import type { Actor } from "@/core/resources/actor/schema.js";
 import type { FunctionFile } from "@/core/resources/function/schema.js";
+import type { SingleDeployResult } from "@/core/resources/types.js";
 import { readTextFile } from "@/core/utils/fs.js";
 
 async function loadActorCode(
@@ -18,12 +19,7 @@ async function loadActorCode(
   return { name: actor.name, entry: actor.entry, files: resolvedFiles };
 }
 
-export interface SingleActorDeployResult {
-  name: string;
-  status: "deployed" | "unchanged" | "error";
-  error?: string | null;
-  durationMs?: number;
-}
+export type SingleActorDeployResult = SingleDeployResult;
 
 async function deployOne(actor: Actor): Promise<SingleActorDeployResult> {
   const start = Date.now();
