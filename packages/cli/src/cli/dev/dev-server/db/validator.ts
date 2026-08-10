@@ -35,8 +35,6 @@ const fieldTypes = [
   "boolean",
   "array",
   "object",
-  // Only meaningful inside a union (`["string", "null"]`), which is how a
-  // nullable field is expressed.
   "null",
 ];
 
@@ -130,7 +128,6 @@ export class Validator {
       return { hasError: false };
     }
 
-    // A JSON Schema union (`["string", "null"]`) passes if any member matches.
     if (Array.isArray(property.type)) {
       const types = property.type;
       const matched = types.some(

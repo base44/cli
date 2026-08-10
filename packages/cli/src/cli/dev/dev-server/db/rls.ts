@@ -154,9 +154,6 @@ export function checkRLS(
   user: Record<string, unknown> | undefined,
 ): boolean {
   if (user?.is_service === true) return true;
-  // OPEN_RULE_VALUES in the platform's rls_validation.py: absent, null, "", {}
-  // and true all impose no restriction, so they must not fall through to the
-  // condition evaluator (which denies anonymous users before evaluating).
   if (rule === undefined || rule === null || rule === "") return true;
   if (typeof rule === "object" && Object.keys(rule).length === 0) return true;
   if (typeof rule === "boolean") return rule;

@@ -41,22 +41,19 @@ describe("dev server validation of union field types", () => {
     }) as unknown as Entity;
 
   const validate = (type: unknown, value: unknown) =>
-    new Validator().validateFieldTypes({ price: value }, entity(type));
+    new Validator().validate({ price: value }, entity(type), true);
 
   it("accepts either member of a nullable union", () => {
-    expect(validate(["string", "null"], "4.20").hasError).toBe(false);
-    expect(validate(["string", "null"], null).hasError).toBe(false);
+    expect(() => validate(["string", "null"], "4.20")).not.toThrow();
+    expect(() => validate(["string", "null"], null)).not.toThrow();
   });
 
   it("rejects a value matching no member, naming both", () => {
-    const result = validate(["string", "null"], 42);
-
-    expect(result.hasError).toBe(true);
-    expect(JSON.stringify(result.error)).toContain("string or null");
+    expect(() => validate(["string", "null"], 42)).toThrow(/string or null/);
   });
 
   it("still validates a plain single type", () => {
-    expect(validate("string", "ok").hasError).toBe(false);
-    expect(validate("string", 42).hasError).toBe(true);
+    expect(() => validate("string", "ok")).not.toThrow();
+    expect(() => validate("string", 42)).toThrow();
   });
 });

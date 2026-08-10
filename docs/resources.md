@@ -40,6 +40,25 @@ export const entityResource: Resource<Entity> = {
 };
 ```
 
+## Resource schemas mirror the platform — never tighten them
+
+A resource schema validates files the **platform** wrote, so the platform's own
+validator is the contract. Anything stricter here rejects an app that production
+accepts and evaluates, and because `readProjectConfig()` reads every resource up
+front, one such file fails *every* command — `deploy`, `entities push/pull`,
+`functions deploy` — whether or not it touches that resource.
+
+For entities the authorities are `backend/app/user_apps/entities/rls_validation.py`
+(`SUPPORTED_FIELD_OPERATORS`, `OPEN_RULE_VALUES`, `_user_condition_valid`),
+`backend/app/json_schema_utils.py` (`validate_json_schema`), and
+`backend/app/user_apps/common/entity_name_validation.py` (`ENTITY_NAME_PATTERN`)
+in the apper repo. Check against them before adding or narrowing a rule; a
+re-derived "obvious" rule is how `EntitySchema` came to reject a quarter of real
+publishes. Rejecting a shape the engine cannot evaluate (an unsupported operator,
+an operator inside `user_condition`) is correct — that's a real defect, not
+strictness. `base44 dev` interprets the same files locally, so a schema change
+usually needs a matching change in `src/cli/dev/dev-server/db/`.
+
 ## Adding a New Resource
 
 1. Create folder: `packages/cli/src/core/resources/<name>/`

@@ -1,23 +1,55 @@
 import { z } from "zod";
 import { ResourceSourceSchema } from "@/core/resources/types.js";
 
-// This file mirrors the platform's contract; it must never be stricter. The
-// authority is backend/app/user_apps/entities/rls_validation.py
-// (SUPPORTED_FIELD_OPERATORS, OPEN_RULE_VALUES, _user_condition_valid) plus
-// backend/app/json_schema_utils.py (validate_json_schema). A stricter rule here
-// rejects apps that production accepts and evaluates, and it fails the *whole*
-// project read — so an unrelated entity file blocks every command.
-const FieldConditionSchema = z.union([
-  z.string(),
-  z.number(),
-  z.boolean(),
-  z.null(),
-  z.looseObject({}),
+const fieldConditionOperators = new Set([
+  "$eq",
+  "$ne",
+  "$in",
+  "$nin",
+  "$gt",
+  "$gte",
+  "$lt",
+  "$lte",
+  "$exists",
+  "$all",
+  "$size",
+  "$elemMatch",
 ]);
 
-// The engine compares user attributes by exact equality; it constrains neither
-// the attribute names nor their scalar types, so neither do we.
-const UserConditionSchema = z.looseObject({});
+const isScalar = (value: unknown): boolean =>
+  value === null || ["string", "number", "boolean"].includes(typeof value);
+
+const isValidFieldCondition = (value: unknown): boolean => {
+  if (isScalar(value)) {
+    return true;
+  }
+  if (typeof value === "object" && !Array.isArray(value)) {
+    return Object.keys(value as object).every((k) =>
+      fieldConditionOperators.has(k),
+    );
+  }
+  return false;
+};
+
+const supportedOperators = [...fieldConditionOperators].sort().join(", ");
+
+const FieldConditionSchema = z
+  .union([z.string(), z.number(), z.boolean(), z.null(), z.looseObject({})])
+  .refine(
+    isValidFieldCondition,
+    `Field condition values must be a primitive or an operator object (${supportedOperators})`,
+  );
+
+const UserConditionSchema = z
+  .looseObject({})
+  .refine(
+    (val) =>
+      Object.keys(val).length > 0 &&
+      Object.entries(val).every(
+        ([key, value]) => !key.startsWith("$") && isScalar(value),
+      ),
+    "user_condition compares user attributes by exact equality: a non-empty object of attribute: scalar pairs, no operators",
+  );
 
 const rlsConditionAllowedKeys = new Set([
   "user_condition",
@@ -52,47 +84,15 @@ const RLSConditionSchema = z.looseObject({
   },
 });
 
-// Mirrors SUPPORTED_FIELD_OPERATORS in rls_validation.py.
-const fieldConditionOperators = new Set([
-  "$eq",
-  "$ne",
-  "$in",
-  "$nin",
-  "$gt",
-  "$gte",
-  "$lt",
-  "$lte",
-  "$exists",
-  "$all",
-  "$size",
-  "$elemMatch",
-]);
-
-const isValidFieldCondition = (value: unknown): boolean => {
-  if (
-    value === null ||
-    typeof value === "string" ||
-    typeof value === "number" ||
-    typeof value === "boolean"
-  ) {
-    return true;
-  }
-  if (typeof value === "object") {
-    return Object.keys(value).every((k) => fieldConditionOperators.has(k));
-  }
-  return false;
-};
-
 const RefineRLSConditionSchema = RLSConditionSchema.refine(
   (val) =>
     Object.entries(val).every(
       ([key, value]) =>
         rlsConditionAllowedKeys.has(key) || isValidFieldCondition(value),
     ),
-  "Field condition values must be a primitive or an operator object ($in, $nin, $ne, $all)",
+  `Field condition values must be a primitive or an operator object (${supportedOperators})`,
 );
 
-// OPEN_RULE_VALUES in rls_validation.py: null, true, {}, "" all mean "open".
 const RLSRuleSchema = z.union([
   z.boolean(),
   z.null(),
@@ -117,8 +117,6 @@ const FieldRLSSchema = z.looseObject({
 });
 
 export const PropertyDefinitionSchema = z.looseObject({
-  // JSON Schema allows a union (`["string", "null"]`), and validate_json_schema
-  // only requires the key to be present.
   type: z.union([z.string(), z.array(z.string())]),
   title: z.string().optional(),
   description: z.string().optional(),
@@ -149,7 +147,6 @@ export const EntitySchema = z.looseObject({
   name: z
     .string()
     .min(1)
-    // ENTITY_NAME_PATTERN in backend/app/user_apps/common/entity_name_validation.py.
     .regex(
       /^\w+$/,
       "Entity name must contain only letters, numbers, and underscores",

@@ -54,6 +54,32 @@ describe("EntitySchema accepts what the platform accepts", () => {
     ).toBe(false);
   });
 
+  it("enforces the operator allowlist on built-in fields too", () => {
+    // created_by is an allowlisted KEY, so the node-level refine short-circuits
+    // on it — the field schema is the only thing checking its value.
+    expect(
+      parse({ rls: { read: { created_by: { $gte: "x" } } } }).success,
+    ).toBe(true);
+    expect(
+      parse({ rls: { read: { created_by: { $contains: "x" } } } }).success,
+    ).toBe(false);
+  });
+
+  it("rejects a user_condition the engine can only evaluate as never-match", () => {
+    // Exact equality only: an operator or a non-scalar silently matches nothing
+    // at runtime, which blocks all access rather than granting it.
+    expect(
+      parse({ rls: { read: { user_condition: { role: { $in: ["a"] } } } } })
+        .success,
+    ).toBe(false);
+    expect(
+      parse({ rls: { read: { user_condition: { role: ["a"] } } } }).success,
+    ).toBe(false);
+    expect(parse({ rls: { read: { user_condition: {} } } }).success).toBe(
+      false,
+    );
+  });
+
   it("does not restrict which user attributes a user_condition compares", () => {
     const result = parse({
       rls: {
