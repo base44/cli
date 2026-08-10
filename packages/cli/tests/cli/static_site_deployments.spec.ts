@@ -180,6 +180,31 @@ describe("site deploy command (static site through the deployments API, env-gate
     });
   });
 
+  it("reports the rejected status in the --json error envelope", async () => {
+    await t.givenLoggedInWithProject(fixture("with-site"));
+    t.givenEnv({ BASE44_STATIC_DEPLOYMENTS: "1" });
+    t.api.mockError("post", "/api/apps/test-app-id/deployments", {
+      status: 401,
+      body: { message: "API key is not valid" },
+    });
+
+    const result = await t.run(
+      "site",
+      "deploy",
+      "-y",
+      "--git-hash",
+      GIT_HASH,
+      "--json",
+    );
+
+    t.expectResult(result).toFail();
+    // A caller reading only `error` can't tell a rejected key from a 500.
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      code: "API_ERROR",
+      statusCode: 401,
+    });
+  });
+
   it("takes the legacy path when the gate is on but no commit is passed", async () => {
     await t.givenLoggedInWithProject(fixture("with-site"));
     t.givenEnv({ BASE44_STATIC_DEPLOYMENTS: "1" });
