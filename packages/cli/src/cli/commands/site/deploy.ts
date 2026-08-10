@@ -6,7 +6,7 @@ import { maybeBuildBeforeDeploy } from "@/cli/commands/project/site-build.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, theme } from "@/cli/utils/index.js";
 import { ConfigNotFoundError, InvalidInputError } from "@/core/errors.js";
-import { readProjectConfig } from "@/core/project/index.js";
+import { readProjectSettings } from "@/core/project/index.js";
 import {
   DEFAULT_UPLOAD_CONCURRENCY,
   deploySite,
@@ -31,7 +31,9 @@ async function deployAction(
     throw new InvalidInputError("--yes is required in non-interactive mode");
   }
 
-  const { project } = await readProjectConfig();
+  // Config only: a site deploy reads none of the project's entity/function/
+  // agent/connector/auth files, so an invalid one must not fail it.
+  const project = await readProjectSettings();
 
   const outputDirectory = project.site?.outputDirectory;
 

@@ -34,6 +34,8 @@ On the lane, the output directory becomes the asset manifest (index.html include
 
 **The lane is reachable only from `base44 site deploy`** — the command the build sandbox drives, since it ships the site rather than the whole project. The fork is a plain `if` in that command's action: `options.gitHash` present → `deployStaticSite()`, absent → `deploySite()` (the tar.gz upload). There is no transport-abstraction layer between the command and the two flows; each branch owns its spinner labels and its result shape.
 
+**Config only, no resources.** `site deploy` reads the project config through `readProjectSettings()`, not `readProjectConfig()`: it ships the built output and touches none of the entity/function/agent/agent-skill/connector/auth files, so an invalid one must not fail it. It used to — builder apps carry entity schemas the CLI's `EntitySchema` rejects, and every publish through this lane failed with `SCHEMA_INVALID` before reaching a single asset. Commands that do consume those resources keep using `readProjectConfig()`.
+
 `base44 deploy` is untouched by this lane: it keeps shipping the site through `deployAll()`'s legacy tar.gz step exactly as before, gate on or off. The sandbox runs `base44 site deploy -y --json --git-hash <commit>` with a scoped `apps:deploy` workspace key. When the unified deploy should adopt the lane too, that is a deliberate follow-up.
 
 ## Testing

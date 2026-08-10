@@ -6,7 +6,7 @@ import type { ConnectorResource } from "@/core/resources/connector/index.js";
 import type { Entity } from "@/core/resources/entity/index.js";
 import type { BackendFunction } from "@/core/resources/function/index.js";
 
-interface ProjectWithPaths extends ProjectConfig {
+export interface ProjectWithPaths extends ProjectConfig {
   root: string;
   configPath: string;
 }
