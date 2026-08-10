@@ -13,11 +13,11 @@ const parse = (patch: Record<string, unknown>) =>
 
 /**
  * Every shape below was taken from a real production entity file that this
- * schema rejected, blocking the app's publish. The platform accepts and
- * evaluates all of them — see rls_validation.py and validate_json_schema.
+ * schema rejected, blocking the app's publish. The server accepts and evaluates
+ * all of them.
  */
 describe("EntitySchema accepts what the platform accepts", () => {
-  it("treats null and empty-string RLS rules as open, like OPEN_RULE_VALUES", () => {
+  it("treats null and empty-string RLS rules as open, like the server", () => {
     expect(parse({ rls: { read: null } }).success).toBe(true);
     expect(parse({ rls: { create: "" } }).success).toBe(true);
     expect(parse({ rls: { read: true, create: false } }).success).toBe(true);
@@ -47,8 +47,8 @@ describe("EntitySchema accepts what the platform accepts", () => {
   });
 
   it("rejects an operator the engine cannot evaluate", () => {
-    // $contains isn't in SUPPORTED_FIELD_OPERATORS — it silently matches
-    // nothing at runtime, so it is a genuine defect worth failing on.
+    // An unsupported operator silently matches nothing at runtime, so it is a
+    // genuine defect worth failing on.
     expect(
       parse({ rls: { read: { "data.tags": { $contains: 1 } } } }).success,
     ).toBe(false);
@@ -116,7 +116,7 @@ describe("EntitySchema accepts what the platform accepts", () => {
   });
 
   it("still rejects a name the platform itself rejects", () => {
-    // Dotted names fail ENTITY_NAME_PATTERN (^\w+$) server-side too.
+    // Dotted names fail the server's name rule (^\w+$) too.
     const result = parse({ name: "commerce.Coupon" });
 
     expect(result.success).toBe(false);

@@ -4,14 +4,14 @@ import { Validator } from "@/cli/dev/dev-server/db/validator.js";
 import type { Entity } from "@/core/resources/entity/schema.js";
 
 /**
- * `base44 dev` interprets locally what the platform interprets in production,
- * so it has to accept the same entity shapes the schema now allows — otherwise
- * a file that publishes fine behaves differently against the local server.
+ * `base44 dev` interprets locally what the server interprets in production, so it
+ * has to accept the same entity shapes the schema now allows — otherwise a file
+ * that publishes fine behaves differently against the local server.
  */
 describe("dev server RLS open-rule values", () => {
   const record = { id: "1", data: {} };
 
-  it("treats every OPEN_RULE_VALUE as no restriction, even anonymously", () => {
+  it("treats every open-rule value as no restriction, even anonymously", () => {
     for (const rule of [undefined, null, "", true, {}] as const) {
       expect(
         checkRLS(rule, record, undefined),

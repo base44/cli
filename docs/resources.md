@@ -40,24 +40,20 @@ export const entityResource: Resource<Entity> = {
 };
 ```
 
-## Resource schemas mirror the platform — never tighten them
+## Client-side validation must match server-side validation
 
-A resource schema validates files the **platform** wrote, so the platform's own
-validator is the contract. Anything stricter here rejects an app that production
-accepts and evaluates, and because `readProjectConfig()` reads every resource up
-front, one such file fails *every* command — `deploy`, `entities push/pull`,
-`functions deploy` — whether or not it touches that resource.
+A resource schema validates files the server wrote and will read back, so the
+server's validation is the contract — never be stricter than it. Anything stricter
+rejects an app the server accepts, and because `readProjectConfig()` reads every
+resource up front, one such file fails *every* command (`deploy`,
+`entities push/pull`, `functions deploy`) whether or not it touches that resource.
+A hand-derived entity schema once rejected a quarter of real publishes this way.
 
-For entities the authorities are `backend/app/user_apps/entities/rls_validation.py`
-(`SUPPORTED_FIELD_OPERATORS`, `OPEN_RULE_VALUES`, `_user_condition_valid`),
-`backend/app/json_schema_utils.py` (`validate_json_schema`), and
-`backend/app/user_apps/common/entity_name_validation.py` (`ENTITY_NAME_PATTERN`)
-in the apper repo. Check against them before adding or narrowing a rule; a
-re-derived "obvious" rule is how `EntitySchema` came to reject a quarter of real
-publishes. Rejecting a shape the engine cannot evaluate (an unsupported operator,
-an operator inside `user_condition`) is correct — that's a real defect, not
-strictness. `base44 dev` interprets the same files locally, so a schema change
-usually needs a matching change in `src/cli/dev/dev-server/db/`.
+So before adding or narrowing a rule, confirm the server rejects that shape too.
+Rejecting something the server cannot evaluate — an unsupported operator, or an
+operator where only exact equality is applied — is correct; that's a real defect,
+not strictness. `base44 dev` interprets these same files locally, so a schema
+change usually needs a matching change in `src/cli/dev/dev-server/db/`.
 
 ## Adding a New Resource
 
