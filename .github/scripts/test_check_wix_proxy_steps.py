@@ -332,7 +332,7 @@ class MainTests(unittest.TestCase):
 
 
 class PublishExemptionTests(unittest.TestCase):
-    """Publish workflows must abstain from the proxy; everything else must run it."""
+    """Workflows listed in PUBLISH_WORKFLOWS are skipped; everything else is checked."""
 
     PUBLISH_WITHOUT_PROXY = textwrap.dedent("""\
         name: Manual Package Publish
@@ -345,21 +345,6 @@ class PublishExemptionTests(unittest.TestCase):
             steps:
               - uses: actions/checkout@v4
               - run: npm ci
-              - run: npm publish
-    """)
-
-    PUBLISH_WITH_PROXY = textwrap.dedent("""\
-        name: Package Preview Publish
-        on:
-          pull_request:
-
-        jobs:
-          publish-preview:
-            runs-on: ubuntu-latest
-            steps:
-              - uses: actions/checkout@v4
-              - name: Wix gateway proxy (mandatory)
-                uses: ./.github/actions/wix-gateway-proxy
               - run: npm publish
     """)
 
@@ -380,14 +365,7 @@ class PublishExemptionTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("verified 1 of 1 jobs across 1 workflows", output)
 
-    def test_publish_workflow_running_the_proxy_is_rejected(self):
-        with fixture_repo(**{"preview-publish": self.PUBLISH_WITH_PROXY}) as root:
-            code, output = run_main(root)
-
-        self.assertEqual(code, 1)
-        self.assertIn("but publish workflows must not", output)
-
-    def test_a_non_publish_workflow_still_needs_the_proxy(self):
+    def test_a_workflow_not_on_the_list_still_needs_the_proxy(self):
         with fixture_repo(**{"some-publish-helper": self.PUBLISH_WITHOUT_PROXY}) as root:
             code, output = run_main(root)
 

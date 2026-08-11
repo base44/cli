@@ -1,24 +1,7 @@
 [install]
-# Supply-chain cooldown — Wix secplatform interim policy for OSS repos.
-#
-# Bun resolves only package versions published at least this long ago, so a
-# compromised release cannot enter bun.lock inside the window. This is what lets
-# the publish workflows run without the embargo gateway, which cannot carry
-# `npm publish` today (see .github/workflows/manual-publish.yml).
-#
-# Units are SECONDS, unlike npm's `min-release-age`, which takes days.
-# 604800 = 7 days.
-#
-# Applies at resolution time: `bun install` without a lockfile entry, `bun add`,
-# `bun update`. `bun install --frozen-lockfile`, which is all CI runs, installs
-# bun.lock verbatim and never resolves, so it is unaffected by design.
-#
-# Known gaps, accepted knowingly rather than discovered later:
-#   - `bunx` accepts --minimum-release-age but does not enforce it
-#     (oven-sh/bun#30748). Do not fetch tooling with bunx in a release path;
-#     the publish workflows use `npm version` / `npm pkg set` instead.
-#   - `bun update --latest` skips the cooldown for transitive deps
-#     (oven-sh/bun#25305).
-#   - No bypass when an update fixes a known vulnerability
-#     (oven-sh/bun#26065) — use minimumReleaseAgeExcludes for that case.
-minimumReleaseAge = 604800
+# Supply-chain cooldown: Bun resolves only versions published at least this long
+# ago, so a compromised release cannot enter bun.lock inside the window. Seconds,
+# unlike npm's min-release-age (days). Applies to `bun add`/`bun update`, not to
+# `bun install --frozen-lockfile` (resolves nothing) and not to `bunx`, which
+# accepts the flag without enforcing it (oven-sh/bun#30748).
+minimumReleaseAge = 604800 # 7 days
