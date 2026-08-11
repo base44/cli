@@ -45,20 +45,20 @@ jobs:
     steps:
       - name: Generate a token
         id: generate-token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
         with:
           app-id: ${{ vars.BASE44_GITHUB_ACTIONS_APP_ID }}
           private-key: ${{ secrets.BASE44_GITHUB_ACTIONS_APP_PRIVATE_KEY }}
           owner: base44
 
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
           token: ${{ steps.generate-token.outputs.token }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: ".node-version"
           registry-url: "https://registry.npmjs.org"
@@ -68,12 +68,12 @@ jobs:
 
       - name: Setup Bun
         id: setup-bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: latest
 
       - name: Cache Bun dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: ~/.bun/install/cache
           key: ${{ runner.os }}-bun-${{ steps.setup-bun.outputs.bun-version }}-${{ hashFiles('**/bun.lock') }}
@@ -106,7 +106,7 @@ jobs:
 
       - name: Upload sourcemaps to PostHog
         if: github.event.inputs.dry_run == 'false'
-        uses: PostHog/upload-source-maps@v0.4.6
+        uses: PostHog/upload-source-maps@e798a054427efc710af080354f8450d3c154c584 # v0.4.6
         with:
           directory: ./${{ env.CLI_PACKAGE_DIR }}/dist/cli
           env-id: ${{ vars.POSTHOG_PROJECT_ID }}
@@ -180,7 +180,7 @@ jobs:
 
       - name: Notify skills repo
         if: github.event.inputs.dry_run == 'false' && github.event.inputs.notify_skills_repo == 'true'
-        uses: peter-evans/repository-dispatch@v4
+        uses: peter-evans/repository-dispatch@28959ce8df70de7be546dd1250a005dd32156697 # v4
         with:
           token: ${{ steps.generate-token.outputs.token }}
           repository: base44/skills
