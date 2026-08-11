@@ -4,4 +4,4 @@
 # unlike npm's min-release-age (days). Applies to `bun add`/`bun update`, not to
 # `bun install --frozen-lockfile` (resolves nothing) and not to `bunx`, which
 # accepts the flag without enforcing it (oven-sh/bun#30748).
-minimumReleaseAge = 604800 # 7 days
+minimumReleaseAge = 1209600 # 14 days
