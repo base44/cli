@@ -25,6 +25,17 @@ export const StreamLogEventSchema = z.object({
 
 export type StreamLogEvent = z.infer<typeof StreamLogEventSchema>;
 
+const StreamEndEventSchema = z.object({
+  reason: z.string(),
+  retriable: z.boolean(),
+});
+
+export type StreamEndEvent = z.infer<typeof StreamEndEventSchema>;
+
+export type StreamEvent =
+  | { kind: "log"; log: StreamLogEvent }
+  | { kind: "end"; end: StreamEndEvent };
+
 export interface LogStreamFilters {
   functions?: string[];
   env?: LogEnv;
@@ -60,11 +71,21 @@ async function buildStreamAuthHeaders(): Promise<Record<string, string>> {
   return { Authorization: `Bearer ${auth.accessToken}` };
 }
 
-export function parseStreamEventLine(line: string): StreamLogEvent | null {
-  if (!line.startsWith("data:")) return null;
+export function parseStreamEvent(
+  eventName: string,
+  data: string,
+): StreamEvent | null {
   try {
-    const result = StreamLogEventSchema.safeParse(JSON.parse(line.slice(5)));
-    return result.success ? result.data : null;
+    const payload = JSON.parse(data);
+    if (eventName === "end") {
+      const result = StreamEndEventSchema.safeParse(payload);
+      return result.success ? { kind: "end", end: result.data } : null;
+    }
+    if (eventName === "") {
+      const result = StreamLogEventSchema.safeParse(payload);
+      return result.success ? { kind: "log", log: result.data } : null;
+    }
+    return null;
   } catch {
     return null;
   }
@@ -92,16 +113,26 @@ async function* readLines(
 
 async function* readStreamEvents(
   body: ReadableStream<Uint8Array>,
-): AsyncGenerator<StreamLogEvent> {
+): AsyncGenerator<StreamEvent> {
+  let eventName = "";
   for await (const line of readLines(body)) {
-    const event = parseStreamEventLine(line);
-    if (event) yield event;
+    if (line.startsWith("event:")) {
+      eventName = line.slice(6).trim();
+      continue;
+    }
+    if (line.startsWith("data:")) {
+      const event = parseStreamEvent(eventName, line.slice(5));
+      eventName = "";
+      if (event) yield event;
+      continue;
+    }
+    if (line.trim() === "") eventName = "";
   }
 }
 
 export async function openLogStream(
   filters: LogStreamFilters,
-): Promise<AsyncGenerator<StreamLogEvent> | null> {
+): Promise<AsyncGenerator<StreamEvent> | null> {
   let response: Response;
   try {
     response = await fetch(buildStreamUrl(filters), {

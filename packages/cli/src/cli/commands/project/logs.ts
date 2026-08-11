@@ -11,6 +11,8 @@ import type {
   LogEnv,
   LogLevel,
   LogStreamFilters,
+  StreamEndEvent,
+  StreamEvent,
   StreamLogEvent,
 } from "@/core/resources/function/index.js";
 import {
@@ -127,6 +129,8 @@ function writeFollowLine(entry: LogEntry, jsonMode: boolean): void {
   process.stdout.write(`${line}\n`);
 }
 
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 function streamEventToLogEntry(event: StreamLogEvent): LogEntry {
   return {
     time: event.time,
@@ -138,24 +142,35 @@ function streamEventToLogEntry(event: StreamLogEvent): LogEntry {
   };
 }
 
-async function printStreamUntilDrop(
-  stream: AsyncGenerator<StreamLogEvent>,
+interface StreamEnding {
+  lastTime: string;
+  producedEvents: boolean;
+  end: StreamEndEvent | null;
+}
+
+async function printStreamUntilEnd(
+  stream: AsyncGenerator<StreamEvent>,
   levelFilter: string | undefined,
   jsonMode: boolean,
   startTime: string,
-): Promise<string> {
+): Promise<StreamEnding> {
   let lastTime = startTime;
+  let producedEvents = false;
   try {
     for await (const event of stream) {
-      if (levelFilter && event.level !== levelFilter) continue;
-      writeFollowLine(streamEventToLogEntry(event), jsonMode);
-      if (event.time > lastTime) lastTime = event.time;
+      producedEvents = true;
+      if (event.kind === "end")
+        return { lastTime, producedEvents, end: event.end };
+      if (levelFilter && event.log.level !== levelFilter) continue;
+      writeFollowLine(streamEventToLogEntry(event.log), jsonMode);
+      if (event.log.time > lastTime) lastTime = event.log.time;
     }
   } catch {}
-  return lastTime;
+  return { lastTime, producedEvents, end: null };
 }
 
-const STREAM_CONNECT_ATTEMPTS = 2;
+const STREAM_RECONNECT_DELAY_MS = 1_000;
+const MAX_DROPS_SINCE_LAST_EVENT = 2;
 
 interface StreamAttemptResult {
   everConnected: boolean;
@@ -172,16 +187,26 @@ async function streamUntilExhausted(
   };
   let everConnected = false;
   let lastTime = "";
-  for (let attempt = 0; attempt < STREAM_CONNECT_ATTEMPTS; attempt++) {
+  let dropsSinceLastEvent = 0;
+  while (true) {
     const stream = await openLogStream(filters);
     if (!stream) break;
     everConnected = true;
-    lastTime = await printStreamUntilDrop(
+    const ending = await printStreamUntilEnd(
       stream,
       options.level,
       jsonMode,
       lastTime,
     );
+    lastTime = ending.lastTime;
+    if (ending.end) {
+      if (!ending.end.retriable) break;
+      dropsSinceLastEvent = 0;
+    } else {
+      dropsSinceLastEvent = ending.producedEvents ? 1 : dropsSinceLastEvent + 1;
+      if (dropsSinceLastEvent >= MAX_DROPS_SINCE_LAST_EVENT) break;
+    }
+    await delay(STREAM_RECONNECT_DELAY_MS);
   }
   return { everConnected, lastTime };
 }
@@ -230,7 +255,7 @@ async function pollLogs(
     fresh.sort((a, b) => a.time.localeCompare(b.time));
     for (const entry of fresh) writeFollowLine(entry, jsonMode);
     first = false;
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    await delay(2000);
   }
 }
 

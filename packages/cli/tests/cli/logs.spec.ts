@@ -4,7 +4,7 @@ import {
   type LogEntry,
   selectNewEntries,
 } from "@/cli/commands/project/logs.js";
-import { parseStreamEventLine } from "@/core/resources/function/index.js";
+import { parseStreamEvent } from "@/core/resources/function/index.js";
 import { fixture, setupCLITests } from "./testkit/index.js";
 
 function entry(time: string, message: string): LogEntry {
@@ -73,45 +73,64 @@ describe("selectNewEntries (follow dedup)", () => {
   });
 });
 
-describe("parseStreamEventLine (SSE log stream)", () => {
-  it("parses a data line into a stream log event", () => {
-    const event = parseStreamEventLine(
-      'data: {"time":"2024-01-15T10:00:00Z","level":"info","function":"my-fn","message":"hello"}',
+describe("parseStreamEvent (SSE log stream)", () => {
+  it("parses an unnamed data payload into a log event", () => {
+    const event = parseStreamEvent(
+      "",
+      '{"time":"2024-01-15T10:00:00Z","level":"info","function":"my-fn","message":"hello"}',
     );
 
     expect(event).toEqual({
-      time: "2024-01-15T10:00:00Z",
-      level: "info",
-      function: "my-fn",
-      message: "hello",
+      kind: "log",
+      log: {
+        time: "2024-01-15T10:00:00Z",
+        level: "info",
+        function: "my-fn",
+        message: "hello",
+      },
     });
   });
 
   it("normalizes level warn to warning", () => {
-    const event = parseStreamEventLine(
-      'data: {"time":"2024-01-15T10:00:00Z","level":"warn","function":"my-fn","message":"careful"}',
+    const event = parseStreamEvent(
+      "",
+      '{"time":"2024-01-15T10:00:00Z","level":"warn","function":"my-fn","message":"careful"}',
     );
 
-    expect(event?.level).toBe("warning");
+    expect(event?.kind === "log" && event.log.level).toBe("warning");
   });
 
   it("keeps unattributed lines (null function)", () => {
-    const event = parseStreamEventLine(
-      'data: {"time":"2024-01-15T10:00:00Z","level":"error","function":null,"message":"boom"}',
+    const event = parseStreamEvent(
+      "",
+      '{"time":"2024-01-15T10:00:00Z","level":"error","function":null,"message":"boom"}',
     );
 
-    expect(event).not.toBeNull();
-    expect(event?.function).toBeNull();
+    expect(event?.kind === "log" && event.log.function).toBeNull();
   });
 
-  it("ignores keepalive comments and blank lines", () => {
-    expect(parseStreamEventLine(": ping")).toBeNull();
-    expect(parseStreamEventLine("")).toBeNull();
+  it("parses the typed end event with reason and retriable", () => {
+    const event = parseStreamEvent(
+      "end",
+      '{"reason":"tail_unavailable","retriable":false}',
+    );
+
+    expect(event).toEqual({
+      kind: "end",
+      end: { reason: "tail_unavailable", retriable: false },
+    });
   });
 
-  it("ignores malformed data lines", () => {
-    expect(parseStreamEventLine("data: not-json")).toBeNull();
-    expect(parseStreamEventLine('data: {"level":"info"}')).toBeNull();
+  it("ignores unknown event names", () => {
+    expect(
+      parseStreamEvent("progress", '{"reason":"x","retriable":true}'),
+    ).toBeNull();
+  });
+
+  it("ignores malformed payloads", () => {
+    expect(parseStreamEvent("", "not-json")).toBeNull();
+    expect(parseStreamEvent("", '{"level":"info"}')).toBeNull();
+    expect(parseStreamEvent("end", '{"reason":"x"}')).toBeNull();
   });
 });
 
