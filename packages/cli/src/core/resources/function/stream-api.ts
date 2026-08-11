@@ -91,17 +91,43 @@ export function parseStreamEvent(
   }
 }
 
+const STREAM_SILENCE_TIMEOUT_MS = 60_000;
+
+interface StreamReader {
+  read(): Promise<{ done: boolean; value?: Uint8Array }>;
+  cancel(): Promise<unknown>;
+  releaseLock(): void;
+}
+
+async function readOrSilence(
+  reader: StreamReader,
+): Promise<{ done: boolean; value?: Uint8Array } | "silence"> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const silence = new Promise<"silence">((resolve) => {
+    timer = setTimeout(() => resolve("silence"), STREAM_SILENCE_TIMEOUT_MS);
+  });
+  try {
+    return await Promise.race([reader.read(), silence]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function* readLines(
   body: ReadableStream<Uint8Array>,
 ): AsyncGenerator<string> {
-  const reader = body.getReader();
+  const reader: StreamReader = body.getReader();
   const decoder = new TextDecoder();
   let buffered = "";
   try {
     while (true) {
-      const { done, value } = await reader.read();
-      if (done) return;
-      buffered += decoder.decode(value, { stream: true });
+      const result = await readOrSilence(reader);
+      if (result === "silence") {
+        await reader.cancel();
+        return;
+      }
+      if (result.done || !result.value) return;
+      buffered += decoder.decode(result.value, { stream: true });
       const lines = buffered.split("\n");
       buffered = lines.pop() ?? "";
       yield* lines;
@@ -130,9 +156,16 @@ async function* readStreamEvents(
   }
 }
 
+const STREAM_CONNECT_TIMEOUT_MS = 10_000;
+
 export async function openLogStream(
   filters: LogStreamFilters,
 ): Promise<AsyncGenerator<StreamEvent> | null> {
+  const connectPhase = new AbortController();
+  const connectTimer = setTimeout(
+    () => connectPhase.abort(),
+    STREAM_CONNECT_TIMEOUT_MS,
+  );
   let response: Response;
   try {
     response = await fetch(buildStreamUrl(filters), {
@@ -140,9 +173,12 @@ export async function openLogStream(
         Accept: "text/event-stream",
         ...(await buildStreamAuthHeaders()),
       },
+      signal: connectPhase.signal,
     });
   } catch {
     return null;
+  } finally {
+    clearTimeout(connectTimer);
   }
   if (!response.ok || !response.body) return null;
   return readStreamEvents(response.body);
