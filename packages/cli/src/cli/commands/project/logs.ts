@@ -1,3 +1,4 @@
+import type { Logger } from "@base44-cli/logger";
 import type { Command } from "commander";
 import { Option } from "commander";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
@@ -9,12 +10,15 @@ import type {
   FunctionLogsResponse,
   LogEnv,
   LogLevel,
+  LogStreamFilters,
+  StreamLogEvent,
 } from "@/core/resources/function/index.js";
 import {
   fetchFunctionLogs,
   LogEnvSchema,
   LogLevelSchema,
   listDeployedFunctions,
+  openLogStream,
 } from "@/core/resources/function/index.js";
 
 interface LogsOptions {
@@ -123,14 +127,123 @@ function writeFollowLine(entry: LogEntry, jsonMode: boolean): void {
   process.stdout.write(`${line}\n`);
 }
 
+function streamEventToLogEntry(event: StreamLogEvent): LogEntry {
+  return {
+    time: event.time,
+    level: event.level,
+    message: event.function
+      ? `[${event.function}] ${event.message}`
+      : event.message,
+    source: event.function ?? "",
+  };
+}
+
+async function printStreamUntilDrop(
+  stream: AsyncGenerator<StreamLogEvent>,
+  levelFilter: string | undefined,
+  jsonMode: boolean,
+  startTime: string,
+): Promise<string> {
+  let lastTime = startTime;
+  try {
+    for await (const event of stream) {
+      if (levelFilter && event.level !== levelFilter) continue;
+      writeFollowLine(streamEventToLogEntry(event), jsonMode);
+      if (event.time > lastTime) lastTime = event.time;
+    }
+  } catch {}
+  return lastTime;
+}
+
+const STREAM_CONNECT_ATTEMPTS = 2;
+
+interface StreamAttemptResult {
+  everConnected: boolean;
+  lastTime: string;
+}
+
+async function followViaStream(
+  options: LogsOptions,
+  jsonMode: boolean,
+  startTime: string,
+): Promise<StreamAttemptResult> {
+  const filters: LogStreamFilters = {
+    functions: parseFunctionNames(options.function),
+    env: options.env,
+  };
+  let everConnected = false;
+  let lastTime = startTime;
+  for (let attempt = 0; attempt < STREAM_CONNECT_ATTEMPTS; attempt++) {
+    const stream = await openLogStream(filters);
+    if (!stream) break;
+    everConnected = true;
+    lastTime = await printStreamUntilDrop(
+      stream,
+      options.level,
+      jsonMode,
+      lastTime,
+    );
+  }
+  return { everConnected, lastTime };
+}
+
+async function printBackfill(
+  functionNames: string[],
+  options: LogsOptions,
+  availableFunctionNames: string[],
+  jsonMode: boolean,
+): Promise<string> {
+  const entries = await fetchLogsForFunctions(
+    functionNames,
+    options,
+    availableFunctionNames,
+  );
+  entries.sort((a, b) => a.time.localeCompare(b.time));
+  for (const entry of entries) writeFollowLine(entry, jsonMode);
+  return entries.at(-1)?.time ?? "";
+}
+
 async function followLogs(
   functionNames: string[],
   options: LogsOptions,
   availableFunctionNames: string[],
   jsonMode: boolean,
+  logger: Logger,
 ): Promise<never> {
-  let state: FollowState = { lastTime: "", boundaryKeys: new Set() };
-  let first = true;
+  let backfilledUntil = "";
+  if (options.since) {
+    backfilledUntil = await printBackfill(
+      functionNames,
+      options,
+      availableFunctionNames,
+      jsonMode,
+    );
+  }
+  const { everConnected, lastTime } = await followViaStream(
+    options,
+    jsonMode,
+    backfilledUntil,
+  );
+  logger.warn(
+    everConnected
+      ? "Realtime stream disconnected — falling back to polling (lines may lag ~20-30s)."
+      : "Realtime stream unavailable — falling back to polling (lines may lag ~20-30s).",
+  );
+  return pollLogs(functionNames, options, availableFunctionNames, jsonMode, {
+    lastTime,
+    boundaryKeys: new Set(),
+  });
+}
+
+async function pollLogs(
+  functionNames: string[],
+  options: LogsOptions,
+  availableFunctionNames: string[],
+  jsonMode: boolean,
+  initialState: FollowState,
+): Promise<never> {
+  let state = initialState;
+  let first = state.lastTime === "";
 
   while (true) {
     const pollOptions = first ? options : { ...options, since: state.lastTime };
@@ -295,6 +408,7 @@ async function logsAction(
       options,
       availableFunctionNames,
       ctx.jsonMode,
+      ctx.log,
     );
   }
 

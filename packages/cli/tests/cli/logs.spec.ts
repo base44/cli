@@ -4,6 +4,7 @@ import {
   type LogEntry,
   selectNewEntries,
 } from "@/cli/commands/project/logs.js";
+import { parseStreamEventLine } from "@/core/resources/function/index.js";
 import { fixture, setupCLITests } from "./testkit/index.js";
 
 function entry(time: string, message: string): LogEntry {
@@ -69,6 +70,48 @@ describe("selectNewEntries (follow dedup)", () => {
 
     expect(fresh).toHaveLength(0);
     expect(nextState).toBe(first);
+  });
+});
+
+describe("parseStreamEventLine (SSE log stream)", () => {
+  it("parses a data line into a stream log event", () => {
+    const event = parseStreamEventLine(
+      'data: {"time":"2024-01-15T10:00:00Z","level":"info","function":"my-fn","message":"hello"}',
+    );
+
+    expect(event).toEqual({
+      time: "2024-01-15T10:00:00Z",
+      level: "info",
+      function: "my-fn",
+      message: "hello",
+    });
+  });
+
+  it("normalizes level warn to warning", () => {
+    const event = parseStreamEventLine(
+      'data: {"time":"2024-01-15T10:00:00Z","level":"warn","function":"my-fn","message":"careful"}',
+    );
+
+    expect(event?.level).toBe("warning");
+  });
+
+  it("keeps unattributed lines (null function)", () => {
+    const event = parseStreamEventLine(
+      'data: {"time":"2024-01-15T10:00:00Z","level":"error","function":null,"message":"boom"}',
+    );
+
+    expect(event).not.toBeNull();
+    expect(event?.function).toBeNull();
+  });
+
+  it("ignores keepalive comments and blank lines", () => {
+    expect(parseStreamEventLine(": ping")).toBeNull();
+    expect(parseStreamEventLine("")).toBeNull();
+  });
+
+  it("ignores malformed data lines", () => {
+    expect(parseStreamEventLine("data: not-json")).toBeNull();
+    expect(parseStreamEventLine('data: {"level":"info"}')).toBeNull();
   });
 });
 
