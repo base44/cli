@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """Fail if any GitHub Actions job skips the mandatory Wix gateway proxy action.
 
-There is no opt-out marker by design. A job that genuinely cannot run the proxy
-(a non-ubuntu runner, say) changes this script in the same PR, so the exception
-gets reviewed in the open.
+There is still no per-job opt-out marker by design. A job that genuinely cannot
+run the proxy changes this script in the same PR, so the exception gets reviewed
+in the open — which is exactly how PUBLISH_WORKFLOWS below came to exist.
+
+The rule is bidirectional: non-publish jobs must run the proxy, and publish jobs
+must not.
 """
 
 from __future__ import annotations
@@ -18,6 +21,28 @@ PROXY_ACTION = "./.github/actions/wix-gateway-proxy"
 # The action copies .github/certs/wix-embargo.pem via a path relative to itself,
 # so a sparse checkout has to materialize both directories.
 REQUIRED_PATHS = (".github/actions/wix-gateway-proxy", ".github/certs")
+
+# Workflows that must NOT route npm through the embargo gateway.
+#
+# secplatform's interim policy for OSS repos (Dima Ryskin): use embargo for
+# non-publish tasks, and protect publish tasks with an enforced lockfile
+# (`bun install --frozen-lockfile`) plus a package manager that honors a
+# minimal-age directive (`minimumReleaseAge` in bunfig.toml) instead. Those jobs
+# resolve nothing, so dropping the gateway does not widen what they can pull.
+# The gateway cannot carry a publish today — `npm publish` sends
+# `PUT /<package>`, which misses its `^~ /-/` passthrough block, and it sets no
+# client_max_body_size so nginx's 1 MB default rejects a packument carrying the
+# base64 tarball.
+#
+# Keyed on exact filename, and every exemption is printed on success, so this
+# cannot quietly grow. Revisit once the embargo publish bug is fixed: these
+# workflows should go back to being gatewayed like everything else.
+PUBLISH_WORKFLOWS = frozenset(
+    {
+        ".github/workflows/manual-publish.yml",
+        ".github/workflows/preview-publish.yml",
+    }
+)
 
 FIX_HINT = """Every job must run the Wix gateway proxy immediately after a checkout that
 puts it on disk, or that job's npm installs bypass the Wix embargo gateway.
@@ -118,6 +143,20 @@ def job_problem(job: dict, workflows: frozenset[str]) -> str | None:
     return _checkout_problem(steps[0])
 
 
+def publish_job_problem(job: dict) -> str | None:
+    """Describe why this publish job wrongly runs the proxy, or None if it abstains."""
+    if "uses" in job:
+        return None
+    steps = job.get("steps") or []
+    if any(_uses(step) == PROXY_ACTION for step in steps):
+        return (
+            "runs the Wix gateway proxy, but publish workflows must not: the gateway "
+            "cannot carry `npm publish`, so these workflows rely on the committed "
+            "lockfile plus min-release-age in .npmrc instead"
+        )
+    return None
+
+
 def _job_lines(text: str) -> dict[str, int]:
     document = yaml.compose(text)
     if document is None:
@@ -133,16 +172,23 @@ def main(repo_root: pathlib.Path = REPO_ROOT) -> int:
     paths = sorted(p for p in workflows_dir.iterdir() if p.suffix in (".yml", ".yaml"))
     workflows = frozenset(p.relative_to(repo_root).as_posix() for p in paths)
     problems = []
-    jobs = calls = 0
+    jobs = calls = exempt = 0
+    exempt_paths = set()
 
     for path in paths:
+        rel = path.relative_to(repo_root).as_posix()
         text = path.read_text(encoding="utf-8")
         lines = _job_lines(text)
         for job_id, job in ((yaml.safe_load(text) or {}).get("jobs") or {}).items():
             job = job or {}
-            jobs += 1
-            calls += "uses" in job
-            problem = job_problem(job, workflows)
+            if rel in PUBLISH_WORKFLOWS:
+                exempt += 1
+                exempt_paths.add(rel)
+                problem = publish_job_problem(job)
+            else:
+                jobs += 1
+                calls += "uses" in job
+                problem = job_problem(job, workflows)
             if problem:
                 problems.append((path.relative_to(repo_root), lines[job_id], job_id, problem))
 
@@ -156,9 +202,14 @@ def main(repo_root: pathlib.Path = REPO_ROOT) -> int:
 
     print(
         f"Wix gateway proxy: verified {jobs - calls} of {jobs} jobs across "
-        f"{len(paths)} workflows ({calls} reusable-workflow calls delegate to "
-        f"the workflow they call)."
+        f"{len(paths) - len(exempt_paths)} workflows ({calls} reusable-workflow calls "
+        f"delegate to the workflow they call)."
     )
+    if exempt:
+        print(
+            f"Publish workflows exempt by policy, and verified to abstain "
+            f"({exempt} job(s)): " + ", ".join(sorted(exempt_paths))
+        )
     return 0
 
 

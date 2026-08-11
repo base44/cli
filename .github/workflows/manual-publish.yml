@@ -27,19 +27,33 @@ on:
 env:
   CLI_PACKAGE_DIR: packages/cli
 
+# This workflow deliberately does NOT run the Wix gateway proxy.
+#
+# secplatform's interim policy for OSS repos (Dima Ryskin): use embargo for
+# non-publish tasks, and protect publish tasks with an enforced lockfile plus a
+# package manager honoring a minimal-age directive — here `minimumReleaseAge` in
+# bunfig.toml. The gateway cannot carry a publish today: `npm publish` sends
+# `PUT /<package>`, which matches neither its `^~ /-/` passthrough block nor
+# `~ \.tgz$` and so lands in `location /` (proxy_metadata, a read path with
+# caching); it also sets no client_max_body_size, so nginx's 1 MB default rejects
+# a packument carrying the base64 tarball. This workflow used to pin the registry
+# and then strip the pin from /etc/hosts just before publishing; that hack is gone.
+#
+# `bun install --frozen-lockfile` below installs bun.lock verbatim and resolves
+# nothing, so removing the gateway does not widen what this job can pull.
+#
+# check-wix-proxy.yml enforces the split: the proxy is mandatory everywhere
+# except the two publish workflows, where it is forbidden.
 jobs:
   publish:
     runs-on: ubuntu-latest
+    permissions:
+      # contents: write for the release commit, tag, and GitHub Release.
+      # id-token: write for npm trusted publishing (OIDC).
+      contents: write
+      id-token: write
 
     steps:
-      - name: Checkout for wix gateway proxy
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          sparse-checkout: .github
-
-      - name: Wix gateway proxy (mandatory)
-        uses: ./.github/actions/wix-gateway-proxy
-
       - name: Generate a token
         id: generate-token
         uses: actions/create-github-app-token@v2
@@ -60,8 +74,9 @@ jobs:
           node-version-file: ".node-version"
           registry-url: "https://registry.npmjs.org"
 
-      - name: Update npm
-        run: npm install -g npm@latest
+      # No `npm install -g npm@latest`. Trusted publishing needs npm >= 11.5.1 and
+      # setup-node resolves `.node-version` (24) to the newest 24.x, which bundles
+      # npm >= 11.17.0. The upgrade was also a needless registry fetch.
 
       - name: Setup Bun
         id: setup-bun
@@ -82,13 +97,13 @@ jobs:
 
       - name: Set version
         working-directory: ${{ env.CLI_PACKAGE_DIR }}
+        # `npm version` takes both a keyword (patch/minor/major) and an explicit
+        # version, so it replaces the old branch. It also replaces `bunx json-bump`:
+        # json-bump is declared in no manifest, so bunx fetched it from the registry
+        # at run time — outside bun.lock, and outside the cooldown, since bunx
+        # accepts --minimum-release-age without enforcing it (oven-sh/bun#30748).
         run: |
-          VERSION_INPUT="${{ github.event.inputs.version }}"
-          if [[ "$VERSION_INPUT" =~ ^(patch|minor|major)$ ]]; then
-            bunx json-bump package.json --$VERSION_INPUT
-          else
-            bunx json-bump package.json --replace="$VERSION_INPUT"
-          fi
+          npm version "${{ github.event.inputs.version }}" --no-git-tag-version --no-workspaces
           echo "NEW_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
 
       - name: Build package
@@ -120,11 +135,13 @@ jobs:
           echo "NPM tag: ${{ github.event.inputs.npm_tag }}"
           echo "Dry run: ${{ github.event.inputs.dry_run }}"
 
-      - name: Unpin npm registry for first-party publish
-        # The embargo would refuse the just-built version; installs above stayed gatewayed.
-        run: sudo sed -i '/registry\.npmjs\.org/d' /etc/hosts
-
       - name: Publish to NPM
+        # Authenticates via npm trusted publishing (OIDC) using `id-token: write`
+        # above — no NODE_AUTH_TOKEN/NPM_TOKEN, so no npm credential reaches the
+        # build. Requires a trusted publisher for `base44` registered on npmjs.com
+        # against this repo AND this workflow filename (the registry keys on the
+        # filename, so each publish workflow needs its own entry). Provenance is
+        # then generated automatically.
         working-directory: ${{ env.CLI_PACKAGE_DIR }}
         run: |
           # Remove devDependencies before publish (everything is bundled)
@@ -190,9 +207,3 @@ jobs:
               "release_url": "${{ env.RELEASE_URL }}",
               "release_name": "Release v${{ env.NEW_VERSION }}"
             }
-
-permissions:
-  contents: write
-  packages: write
-  pull-requests: read
-  id-token: write

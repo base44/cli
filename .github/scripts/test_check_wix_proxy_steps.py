@@ -331,6 +331,70 @@ class MainTests(unittest.TestCase):
         self.assertIn('Job "build" does not run the Wix gateway proxy.', output)
 
 
+class PublishExemptionTests(unittest.TestCase):
+    """Publish workflows must abstain from the proxy; everything else must run it."""
+
+    PUBLISH_WITHOUT_PROXY = textwrap.dedent("""\
+        name: Manual Package Publish
+        on:
+          workflow_dispatch:
+
+        jobs:
+          publish:
+            runs-on: ubuntu-latest
+            steps:
+              - uses: actions/checkout@v4
+              - run: npm ci
+              - run: npm publish
+    """)
+
+    PUBLISH_WITH_PROXY = textwrap.dedent("""\
+        name: Package Preview Publish
+        on:
+          pull_request:
+
+        jobs:
+          publish-preview:
+            runs-on: ubuntu-latest
+            steps:
+              - uses: actions/checkout@v4
+              - name: Wix gateway proxy (mandatory)
+                uses: ./.github/actions/wix-gateway-proxy
+              - run: npm publish
+    """)
+
+    def test_publish_workflow_may_omit_the_proxy(self):
+        with fixture_repo(**{"manual-publish": self.PUBLISH_WITHOUT_PROXY}) as root:
+            code, output = run_main(root)
+
+        self.assertEqual(code, 0)
+        self.assertIn("exempt by policy", output)
+        self.assertIn(".github/workflows/manual-publish.yml", output)
+
+    def test_exempt_jobs_are_not_counted_as_verified(self):
+        with fixture_repo(
+            **{"manual-publish": self.PUBLISH_WITHOUT_PROXY, "good": COMPLIANT_WORKFLOW}
+        ) as root:
+            code, output = run_main(root)
+
+        self.assertEqual(code, 0)
+        self.assertIn("verified 1 of 1 jobs across 1 workflows", output)
+
+    def test_publish_workflow_running_the_proxy_is_rejected(self):
+        with fixture_repo(**{"preview-publish": self.PUBLISH_WITH_PROXY}) as root:
+            code, output = run_main(root)
+
+        self.assertEqual(code, 1)
+        self.assertIn("but publish workflows must not", output)
+
+    def test_a_non_publish_workflow_still_needs_the_proxy(self):
+        with fixture_repo(**{"some-publish-helper": self.PUBLISH_WITHOUT_PROXY}) as root:
+            code, output = run_main(root)
+
+        self.assertEqual(code, 1)
+        self.assertIn("does not run the Wix gateway proxy", output)
+
+
 class RepositoryTests(unittest.TestCase):
     def test_every_job_in_this_repository_runs_the_proxy(self):
         self.assertEqual(checker.main(), 0)
