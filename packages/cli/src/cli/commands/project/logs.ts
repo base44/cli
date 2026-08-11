@@ -162,17 +162,16 @@ interface StreamAttemptResult {
   lastTime: string;
 }
 
-async function followViaStream(
+async function streamUntilExhausted(
   options: LogsOptions,
   jsonMode: boolean,
-  startTime: string,
 ): Promise<StreamAttemptResult> {
   const filters: LogStreamFilters = {
     functions: parseFunctionNames(options.function),
     env: options.env,
   };
   let everConnected = false;
-  let lastTime = startTime;
+  let lastTime = "";
   for (let attempt = 0; attempt < STREAM_CONNECT_ATTEMPTS; attempt++) {
     const stream = await openLogStream(filters);
     if (!stream) break;
@@ -187,22 +186,6 @@ async function followViaStream(
   return { everConnected, lastTime };
 }
 
-async function printBackfill(
-  functionNames: string[],
-  options: LogsOptions,
-  availableFunctionNames: string[],
-  jsonMode: boolean,
-): Promise<string> {
-  const entries = await fetchLogsForFunctions(
-    functionNames,
-    options,
-    availableFunctionNames,
-  );
-  entries.sort((a, b) => a.time.localeCompare(b.time));
-  for (const entry of entries) writeFollowLine(entry, jsonMode);
-  return entries.at(-1)?.time ?? "";
-}
-
 async function followLogs(
   functionNames: string[],
   options: LogsOptions,
@@ -210,19 +193,9 @@ async function followLogs(
   jsonMode: boolean,
   logger: Logger,
 ): Promise<never> {
-  let backfilledUntil = "";
-  if (options.since) {
-    backfilledUntil = await printBackfill(
-      functionNames,
-      options,
-      availableFunctionNames,
-      jsonMode,
-    );
-  }
-  const { everConnected, lastTime } = await followViaStream(
+  const { everConnected, lastTime } = await streamUntilExhausted(
     options,
     jsonMode,
-    backfilledUntil,
   );
   logger.warn(
     everConnected
@@ -392,6 +365,11 @@ async function logsAction(
   }
 
   if (options.follow) {
+    if (options.since) {
+      throw new InvalidInputError(
+        "--since cannot be combined with --follow yet (the realtime stream starts from now).",
+      );
+    }
     if (options.until) {
       throw new InvalidInputError(
         "--until cannot be combined with --follow (a stream has no end).",

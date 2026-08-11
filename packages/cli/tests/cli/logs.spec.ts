@@ -308,6 +308,22 @@ describe("logs command", () => {
     t.expectResult(result).toContain("No production logs found");
   });
 
+  it("rejects --follow combined with --since", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+
+    const result = await t.run(
+      "logs",
+      "--function",
+      "my-function",
+      "--follow",
+      "--since",
+      "1h",
+    );
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("--since cannot be combined");
+  });
+
   it("rejects --follow combined with --order", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
 
