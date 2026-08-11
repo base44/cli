@@ -4,12 +4,30 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
 
+# Split into two jobs on purpose, and the split is the security control:
+#
+#   build   — fully gatewayed. Every dependency install happens here, behind the
+#             Wix embargo gateway, so the cooldown applies to the whole tree.
+#             This job never unpins the registry and holds no publish credential.
+#   publish — installs nothing. It only downloads the artifact build produced and
+#             runs `npm publish`. Because no dependency is ever resolved in this
+#             job, unpinning the registry cannot pull an un-embargoed package.
+#
+# Previously both happened in one job, so "nothing is installed after the unpin"
+# was true only by step ordering — a comment, not a guarantee. Now it holds by
+# construction: the publish job has no package manager install step at all.
 jobs:
-  publish-preview:
+  build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     defaults:
       run:
         working-directory: packages/cli
+    outputs:
+      version: ${{ steps.preview_info.outputs.version }}
+      package_name: ${{ steps.preview_info.outputs.package_name }}
+      full_package: ${{ steps.preview_info.outputs.full_package }}
 
     steps:
       - name: Checkout code
@@ -22,11 +40,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version-file: ".node-version"
-          registry-url: "https://registry.npmjs.org"
 
-      - name: Update npm
-        run: npm install -g npm@latest
-        working-directory: .
+      # No `npm install -g npm@latest`. Trusted publishing needs npm >= 11.5.1 and
+      # every Node 24.x release bundles npm >= 11.6.2, so `.node-version` already
+      # clears the floor. Upgrading would also fetch npm through the gateway, which
+      # refuses a release until it clears the cooldown — a self-inflicted flake.
 
       - name: Setup Bun
         id: setup-bun
@@ -120,13 +138,74 @@ jobs:
 
           echo "✅ Safety check passed. Package name is safe to publish."
 
+      # Carries the renamed, preview-versioned package over to the publish job so it
+      # never has to install or build anything itself.
+      - name: Upload package for publish
+        uses: actions/upload-artifact@v4
+        with:
+          name: cli-preview-package
+          path: |
+            packages/cli
+            !packages/cli/node_modules
+          include-hidden-files: true
+          retention-days: 1
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      # id-token: write for npm trusted publishing (OIDC).
+      # pull-requests: write for the install-instructions comment.
+      contents: read
+      id-token: write
+      pull-requests: write
+    defaults:
+      run:
+        working-directory: packages/cli
+
+    steps:
+      - name: Checkout for wix gateway proxy
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          sparse-checkout: .github
+
+      - name: Wix gateway proxy (mandatory)
+        uses: ./.github/actions/wix-gateway-proxy
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".node-version"
+          registry-url: "https://registry.npmjs.org"
+
+      # This is the whole reason the job needs no install and no build.
+      - name: Download built package
+        uses: actions/download-artifact@v4
+        with:
+          name: cli-preview-package
+          path: packages/cli
+
       - name: Unpin npm registry for first-party publish
-        # The embargo would refuse the just-built version; installs above stayed gatewayed.
+        # TEMPORARY — remove once the embargo gateway handles publish itself.
+        # The gateway is *meant* to pass publish upstream, but `npm publish` sends
+        # `PUT /<package>`, which matches neither the `^~ /-/` passthrough block nor
+        # `~ \.tgz$`, so it lands in `location /` (proxy_metadata — a read path, with
+        # caching). The gateway also sets no client_max_body_size, so nginx's 1 MB
+        # default rejects a packument carrying the base64 tarball. Tracked by
+        # secplatform.
+        #
+        # Unpinning is safe here specifically because this job installs nothing:
+        # no dependency is resolved while the gateway is bypassed, and no npm
+        # credential exists in the job to be stolen.
         run: sudo sed -i '/registry\.npmjs\.org/d' /etc/hosts
 
       - name: Publish preview package
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        # Authenticates via npm trusted publishing (OIDC) using `id-token: write`
+        # above — NODE_AUTH_TOKEN/secrets.NPM_TOKEN deliberately removed so no npm
+        # credential reaches the build. Requires a trusted publisher for
+        # `@base44-preview/cli` registered on npmjs.com against this repo AND this
+        # workflow filename (the registry keys on the filename, so this workflow
+        # needs its own entry, separate from manual-publish.yml).
         run: |
           # Remove devDependencies before publish (everything is bundled)
           jq 'del(.devDependencies)' package.json > package.json.tmp && mv package.json.tmp package.json
@@ -137,22 +216,11 @@ jobs:
             exit 1
           fi
 
-      - name: Restore original package.json
-        if: always()
-        run: |
-          if [ -f package.json.bak ]; then
-            mv package.json.bak package.json
-            echo "✅ Original package.json restored"
-          else
-            echo "❌ WARNING: Backup file package.json.bak not found"
-            echo "This could indicate an earlier step failed"
-          fi
-
       - name: Comment PR with install instructions
         uses: actions/github-script@v6
         with:
           script: |
-            const fullPackage = '${{ steps.preview_info.outputs.full_package }}';
+            const fullPackage = '${{ needs.build.outputs.full_package }}';
             const installCmd = `npm i ${fullPackage}`;
             const aliasInstallCmd = `npm i "base44@npm:${fullPackage}"`;
 
@@ -232,7 +300,3 @@ jobs:
               }
             }
 
-permissions:
-  contents: read
-  pull-requests: write
-  id-token: write
