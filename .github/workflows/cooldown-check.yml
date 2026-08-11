@@ -1,0 +1,43 @@
+name: Supply-chain Cooldown Check
+
+# Proves the `minimumReleaseAge` cooldown in bunfig.toml actually rejects a
+# freshly published release — the test Dima Ryskin asked for as the review of the
+# interim policy, using electron-nightly for reliably "fresh" versions.
+#
+# Deliberately does NOT run the Wix gateway proxy: with embargo in front, the
+# gateway would refuse the fresh version and this would prove nothing about Bun's
+# guardrail, which is what the publish workflows rely on. check-wix-proxy.yml
+# knows about this exemption and verifies the job abstains.
+#
+# Uses no third-party actions. `oven-sh/setup-bun` is not on the org allowlist
+# (github_owned_allowed only), and SHA pinning is now required — so Bun is
+# installed from a run step and actions/checkout is pinned by SHA.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "bunfig.toml"
+      - ".github/scripts/check_cooldown.sh"
+      - ".github/workflows/cooldown-check.yml"
+
+jobs:
+  cooldown:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      # actions/checkout v7.0.1, SHA-pinned per the org policy.
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Install Bun
+        # Not oven-sh/setup-bun: third-party actions are not allowlisted for this
+        # org, and the cooldown does not apply to Bun's own installer anyway.
+        run: |
+          curl -fsSL https://bun.sh/install | bash
+          echo "$HOME/.bun/bin" >>"$GITHUB_PATH"
+
+      - name: Verify the cooldown rejects a fresh release
+        run: bash .github/scripts/check_cooldown.sh

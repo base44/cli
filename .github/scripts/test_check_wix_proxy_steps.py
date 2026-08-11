@@ -331,8 +331,8 @@ class MainTests(unittest.TestCase):
         self.assertIn('Job "build" does not run the Wix gateway proxy.', output)
 
 
-class PublishExemptionTests(unittest.TestCase):
-    """Publish workflows must abstain from the proxy; everything else must run it."""
+class GatewayExemptionTests(unittest.TestCase):
+    """Exempt workflows must abstain from the proxy; everything else must run it."""
 
     PUBLISH_WITHOUT_PROXY = textwrap.dedent("""\
         name: Manual Package Publish
@@ -368,8 +368,17 @@ class PublishExemptionTests(unittest.TestCase):
             code, output = run_main(root)
 
         self.assertEqual(code, 0)
-        self.assertIn("exempt by policy", output)
+        self.assertIn("Exempt by policy", output)
         self.assertIn(".github/workflows/manual-publish.yml", output)
+
+    def test_each_exemption_prints_its_reason(self):
+        # An exemption is only reviewable if the run says why it exists.
+        with fixture_repo(**{"cooldown-check": self.PUBLISH_WITHOUT_PROXY}) as root:
+            code, output = run_main(root)
+
+        self.assertEqual(code, 0)
+        expected = checker.GATEWAY_EXEMPT_WORKFLOWS[".github/workflows/cooldown-check.yml"]
+        self.assertIn(expected, output)
 
     def test_exempt_jobs_are_not_counted_as_verified(self):
         with fixture_repo(
@@ -385,7 +394,7 @@ class PublishExemptionTests(unittest.TestCase):
             code, output = run_main(root)
 
         self.assertEqual(code, 1)
-        self.assertIn("but publish workflows must not", output)
+        self.assertIn("this workflow is exempt and must not", output)
 
     def test_a_non_publish_workflow_still_needs_the_proxy(self):
         with fixture_repo(**{"some-publish-helper": self.PUBLISH_WITHOUT_PROXY}) as root:

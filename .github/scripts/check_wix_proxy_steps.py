@@ -3,10 +3,10 @@
 
 There is still no per-job opt-out marker by design. A job that genuinely cannot
 run the proxy changes this script in the same PR, so the exception gets reviewed
-in the open — which is exactly how PUBLISH_WORKFLOWS below came to exist.
+in the open — which is exactly how GATEWAY_EXEMPT_WORKFLOWS below came to exist.
 
-The rule is bidirectional: non-publish jobs must run the proxy, and publish jobs
-must not.
+The rule is bidirectional: jobs must run the proxy, and jobs in an exempt
+workflow must not.
 """
 
 from __future__ import annotations
@@ -34,15 +34,17 @@ REQUIRED_PATHS = (".github/actions/wix-gateway-proxy", ".github/certs")
 # client_max_body_size so nginx's 1 MB default rejects a packument carrying the
 # base64 tarball.
 #
-# Keyed on exact filename, and every exemption is printed on success, so this
-# cannot quietly grow. Revisit once the embargo publish bug is fixed: these
-# workflows should go back to being gatewayed like everything else.
-PUBLISH_WORKFLOWS = frozenset(
-    {
-        ".github/workflows/manual-publish.yml",
-        ".github/workflows/preview-publish.yml",
-    }
-)
+# Keyed on exact filename, each with the reason it abstains, and every exemption
+# is printed on success — so this cannot quietly grow. Revisit once the embargo
+# publish bug is fixed: the publish workflows should go back to being gatewayed
+# like everything else.
+GATEWAY_EXEMPT_WORKFLOWS = {
+    ".github/workflows/manual-publish.yml": "publishes; installs are frozen-lockfile only",
+    ".github/workflows/preview-publish.yml": "publishes; installs are frozen-lockfile only",
+    # The gateway would reject the fresh release itself, so a gatewayed run could
+    # not tell us whether Bun's cooldown works. This job exists to prove it does.
+    ".github/workflows/cooldown-check.yml": "must reach the registry ungatewayed to test the cooldown",
+}
 
 FIX_HINT = """Every job must run the Wix gateway proxy immediately after a checkout that
 puts it on disk, or that job's npm installs bypass the Wix embargo gateway.
@@ -143,16 +145,15 @@ def job_problem(job: dict, workflows: frozenset[str]) -> str | None:
     return _checkout_problem(steps[0])
 
 
-def publish_job_problem(job: dict) -> str | None:
-    """Describe why this publish job wrongly runs the proxy, or None if it abstains."""
+def exempt_job_problem(job: dict, reason: str) -> str | None:
+    """Describe why this exempt job wrongly runs the proxy, or None if it abstains."""
     if "uses" in job:
         return None
     steps = job.get("steps") or []
     if any(_uses(step) == PROXY_ACTION for step in steps):
         return (
-            "runs the Wix gateway proxy, but publish workflows must not: the gateway "
-            "cannot carry `npm publish`, so these workflows rely on the committed "
-            "lockfile plus min-release-age in .npmrc instead"
+            "runs the Wix gateway proxy, but this workflow is exempt and must not "
+            f"({reason})"
         )
     return None
 
@@ -181,10 +182,10 @@ def main(repo_root: pathlib.Path = REPO_ROOT) -> int:
         lines = _job_lines(text)
         for job_id, job in ((yaml.safe_load(text) or {}).get("jobs") or {}).items():
             job = job or {}
-            if rel in PUBLISH_WORKFLOWS:
+            if rel in GATEWAY_EXEMPT_WORKFLOWS:
                 exempt += 1
                 exempt_paths.add(rel)
-                problem = publish_job_problem(job)
+                problem = exempt_job_problem(job, GATEWAY_EXEMPT_WORKFLOWS[rel])
             else:
                 jobs += 1
                 calls += "uses" in job
@@ -206,10 +207,9 @@ def main(repo_root: pathlib.Path = REPO_ROOT) -> int:
         f"delegate to the workflow they call)."
     )
     if exempt:
-        print(
-            f"Publish workflows exempt by policy, and verified to abstain "
-            f"({exempt} job(s)): " + ", ".join(sorted(exempt_paths))
-        )
+        print(f"Exempt by policy, and verified to abstain ({exempt} job(s)):")
+        for rel in sorted(exempt_paths):
+            print(f"  {rel} — {GATEWAY_EXEMPT_WORKFLOWS[rel]}")
     return 0
 
 
