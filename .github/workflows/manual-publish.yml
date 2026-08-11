@@ -27,41 +27,44 @@ on:
 env:
   CLI_PACKAGE_DIR: packages/cli
 
+# Split into two jobs on purpose, and the split is the security control:
+#
+#   build   — fully gatewayed. Every dependency install happens here, behind the
+#             Wix embargo gateway, so the cooldown applies to the whole tree.
+#             This job never unpins the registry and holds no publish credential.
+#   publish — installs nothing. It only downloads the artifact build produced and
+#             runs `npm publish`. Because no dependency is ever resolved in this
+#             job, unpinning the registry cannot pull an un-embargoed package.
+#
+# Previously both happened in one job, so "nothing is installed after the unpin"
+# was true only by step ordering — a comment, not a guarantee. Now it holds by
+# construction: the publish job has no package manager install step at all.
 jobs:
-  publish:
+  build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      new_version: ${{ steps.version.outputs.new_version }}
 
     steps:
-      - name: Checkout for wix gateway proxy
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          sparse-checkout: .github
-
-      - name: Wix gateway proxy (mandatory)
-        uses: ./.github/actions/wix-gateway-proxy
-
-      - name: Generate a token
-        id: generate-token
-        uses: actions/create-github-app-token@v2
-        with:
-          app-id: ${{ vars.BASE44_GITHUB_ACTIONS_APP_ID }}
-          private-key: ${{ secrets.BASE44_GITHUB_ACTIONS_APP_PRIVATE_KEY }}
-          owner: base44
-
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ steps.generate-token.outputs.token }}
+
+      - name: Wix gateway proxy (mandatory)
+        uses: ./.github/actions/wix-gateway-proxy
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version-file: ".node-version"
-          registry-url: "https://registry.npmjs.org"
 
-      - name: Update npm
-        run: npm install -g npm@latest
+      # No `npm install -g npm@latest`. Trusted publishing needs npm >= 11.5.1 and
+      # every Node 24.x release bundles npm >= 11.6.2, so `.node-version` already
+      # clears the floor. Upgrading would also fetch npm through the gateway, which
+      # refuses a release until it clears the cooldown — a self-inflicted flake.
 
       - name: Setup Bun
         id: setup-bun
@@ -77,10 +80,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-bun-${{ steps.setup-bun.outputs.bun-version }}-
 
+      # The only dependency install in this workflow, and it runs gatewayed.
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
       - name: Set version
+        id: version
         working-directory: ${{ env.CLI_PACKAGE_DIR }}
         run: |
           VERSION_INPUT="${{ github.event.inputs.version }}"
@@ -89,7 +94,9 @@ jobs:
           else
             bunx json-bump package.json --replace="$VERSION_INPUT"
           fi
-          echo "NEW_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
+          NEW_VERSION=$(node -p "require('./package.json').version")
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
       - name: Build package
         run: bun run build
@@ -120,11 +127,88 @@ jobs:
           echo "NPM tag: ${{ github.event.inputs.npm_tag }}"
           echo "Dry run: ${{ github.event.inputs.dry_run }}"
 
+      # Carries the version-bumped package.json, dist/, and dist/binaries/ over to
+      # the publish job so it never has to install or build anything itself.
+      # devDependencies are still present here; publish strips them with jq.
+      - name: Upload package for publish
+        uses: actions/upload-artifact@v4
+        with:
+          name: cli-package
+          path: |
+            ${{ env.CLI_PACKAGE_DIR }}
+            !${{ env.CLI_PACKAGE_DIR }}/node_modules
+          include-hidden-files: true
+          retention-days: 1
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      # contents: write for the release commit, tag, and GitHub Release.
+      # id-token: write for npm trusted publishing (OIDC).
+      contents: write
+      id-token: write
+    env:
+      NEW_VERSION: ${{ needs.build.outputs.new_version }}
+
+    steps:
+      - name: Checkout for wix gateway proxy
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          sparse-checkout: .github
+
+      - name: Wix gateway proxy (mandatory)
+        uses: ./.github/actions/wix-gateway-proxy
+
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.BASE44_GITHUB_ACTIONS_APP_ID }}
+          private-key: ${{ secrets.BASE44_GITHUB_ACTIONS_APP_PRIVATE_KEY }}
+          owner: base44
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ steps.generate-token.outputs.token }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".node-version"
+          registry-url: "https://registry.npmjs.org"
+
+      # Overwrites the checkout's packages/cli with the built, version-bumped copy.
+      # This is the whole reason the job needs no install and no build.
+      - name: Download built package
+        uses: actions/download-artifact@v4
+        with:
+          name: cli-package
+          path: ${{ env.CLI_PACKAGE_DIR }}
+
       - name: Unpin npm registry for first-party publish
-        # The embargo would refuse the just-built version; installs above stayed gatewayed.
+        # TEMPORARY — remove once the embargo gateway handles publish itself.
+        # The gateway is *meant* to pass publish upstream, but `npm publish` sends
+        # `PUT /<package>`, which matches neither the `^~ /-/` passthrough block nor
+        # `~ \.tgz$`, so it lands in `location /` (proxy_metadata — a read path, with
+        # caching). The gateway also sets no client_max_body_size, so nginx's 1 MB
+        # default rejects a packument carrying the base64 tarball. Tracked by
+        # secplatform.
+        #
+        # Unpinning is safe here specifically because this job installs nothing:
+        # no dependency is resolved while the gateway is bypassed, and no npm
+        # credential exists in the job to be stolen.
         run: sudo sed -i '/registry\.npmjs\.org/d' /etc/hosts
 
       - name: Publish to NPM
+        # Authenticates via npm trusted publishing (OIDC) using `id-token: write`
+        # above — deliberately no NODE_AUTH_TOKEN/NPM_TOKEN, so no npm credential
+        # reaches the build. Requires a trusted publisher for `base44` registered on
+        # npmjs.com against this repo AND this workflow filename (the registry keys
+        # on the filename, so each publish workflow needs its own entry). Provenance
+        # is then generated automatically.
         working-directory: ${{ env.CLI_PACKAGE_DIR }}
         run: |
           # Remove devDependencies before publish (everything is bundled)
@@ -190,9 +274,3 @@ jobs:
               "release_url": "${{ env.RELEASE_URL }}",
               "release_name": "Release v${{ env.NEW_VERSION }}"
             }
-
-permissions:
-  contents: write
-  packages: write
-  pull-requests: read
-  id-token: write
