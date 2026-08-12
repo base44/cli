@@ -4,9 +4,21 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
 
+# This workflow deliberately does NOT run the Wix gateway proxy: the gateway
+# cannot carry `npm publish` (it rejects `PUT /<package>`), so per secplatform's
+# interim policy for OSS repos this job relies on `--frozen-lockfile` plus
+# bunfig.toml's minimumReleaseAge instead. It resolves nothing, so dropping the
+# gateway does not widen what it can pull. Exemption lives in
+# .github/scripts/check_wix_proxy_steps.py.
 jobs:
   publish-preview:
     runs-on: ubuntu-latest
+    permissions:
+      # id-token: write for npm trusted publishing (OIDC).
+      # pull-requests: write for the install-instructions comment.
+      contents: read
+      id-token: write
+      pull-requests: write
     defaults:
       run:
         working-directory: packages/cli
@@ -15,18 +27,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - name: Wix gateway proxy (mandatory)
-        uses: ./.github/actions/wix-gateway-proxy
-
+      # No `npm install -g npm@latest`: trusted publishing needs npm >= 11.5.1, and
+      # the npm bundled with .node-version's Node 24 is already newer.
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: ".node-version"
           registry-url: "https://registry.npmjs.org"
-
-      - name: Update npm
-        run: npm install -g npm@latest
-        working-directory: .
 
       - name: Setup Bun
         id: setup-bun
@@ -90,14 +97,14 @@ jobs:
             exit 1
           fi
 
-          # Update name with error handling
-          if ! bunx json-bump package.json --entry=name --replace="$PREVIEW_PACKAGE"; then
+          # `npm pkg set` replaces `bunx json-bump`, which fetched an undeclared
+          # package at run time, outside the cooldown.
+          if ! npm pkg set name="$PREVIEW_PACKAGE"; then
             echo "❌ ERROR: Failed to set package name to $PREVIEW_PACKAGE"
             exit 1
           fi
 
-          # Update version with error handling
-          if ! bunx json-bump package.json --replace="${{ steps.preview_info.outputs.version }}"; then
+          if ! npm pkg set version="${{ steps.preview_info.outputs.version }}"; then
             echo "❌ ERROR: Failed to set package version to ${{ steps.preview_info.outputs.version }}"
             exit 1
           fi
@@ -120,13 +127,12 @@ jobs:
 
           echo "✅ Safety check passed. Package name is safe to publish."
 
-      - name: Unpin npm registry for first-party publish
-        # The embargo would refuse the just-built version; installs above stayed gatewayed.
-        run: sudo sed -i '/registry\.npmjs\.org/d' /etc/hosts
-
       - name: Publish preview package
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        # Authenticates via npm trusted publishing (OIDC), so no NPM_TOKEN reaches
+        # the build. Needs a trusted publisher for `@base44-preview/cli` on
+        # npmjs.com registered against this repo and this workflow filename — the
+        # registry keys on the filename, so this needs its own entry, separate from
+        # manual-publish.yml.
         run: |
           # Remove devDependencies before publish (everything is bundled)
           jq 'del(.devDependencies)' package.json > package.json.tmp && mv package.json.tmp package.json
@@ -231,8 +237,3 @@ jobs:
                 await createOrUpdateComment(context.issue.number);
               }
             }
-
-permissions:
-  contents: read
-  pull-requests: write
-  id-token: write

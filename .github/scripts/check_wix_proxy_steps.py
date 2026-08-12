@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Fail if any GitHub Actions job skips the mandatory Wix gateway proxy action.
 
-There is no opt-out marker by design. A job that genuinely cannot run the proxy
-(a non-ubuntu runner, say) changes this script in the same PR, so the exception
-gets reviewed in the open.
+There is no per-job opt-out marker by design. A job that genuinely cannot run the
+proxy changes this script in the same PR, so the exception gets reviewed in the
+open — which is exactly how PUBLISH_WORKFLOWS below came to exist.
 """
 
 from __future__ import annotations
@@ -18,6 +18,19 @@ PROXY_ACTION = "./.github/actions/wix-gateway-proxy"
 # The action copies .github/certs/wix-embargo.pem via a path relative to itself,
 # so a sparse checkout has to materialize both directories.
 REQUIRED_PATHS = (".github/actions/wix-gateway-proxy", ".github/certs")
+
+# Publish workflows, exempt from the gateway by secplatform's interim policy for
+# OSS repos: the gateway cannot carry `npm publish`, so these rely on the
+# committed lockfile plus bunfig.toml's minimumReleaseAge instead.
+#
+# Adding a file here drops its embargo protection. That is a security decision,
+# not a formality — do not do it lightly.
+PUBLISH_WORKFLOWS = frozenset(
+    {
+        ".github/workflows/manual-publish.yml",
+        ".github/workflows/preview-publish.yml",
+    }
+)
 
 FIX_HINT = """Every job must run the Wix gateway proxy immediately after a checkout that
 puts it on disk, or that job's npm installs bypass the Wix embargo gateway.
@@ -134,8 +147,13 @@ def main(repo_root: pathlib.Path = REPO_ROOT) -> int:
     workflows = frozenset(p.relative_to(repo_root).as_posix() for p in paths)
     problems = []
     jobs = calls = 0
+    exempt_paths = set()
 
     for path in paths:
+        rel = path.relative_to(repo_root).as_posix()
+        if rel in PUBLISH_WORKFLOWS:
+            exempt_paths.add(rel)
+            continue
         text = path.read_text(encoding="utf-8")
         lines = _job_lines(text)
         for job_id, job in ((yaml.safe_load(text) or {}).get("jobs") or {}).items():
@@ -156,9 +174,11 @@ def main(repo_root: pathlib.Path = REPO_ROOT) -> int:
 
     print(
         f"Wix gateway proxy: verified {jobs - calls} of {jobs} jobs across "
-        f"{len(paths)} workflows ({calls} reusable-workflow calls delegate to "
-        f"the workflow they call)."
+        f"{len(paths) - len(exempt_paths)} workflows ({calls} reusable-workflow calls "
+        f"delegate to the workflow they call)."
     )
+    if exempt_paths:
+        print("Publish workflows exempt by policy: " + ", ".join(sorted(exempt_paths)))
     return 0
 
 

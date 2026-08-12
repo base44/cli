@@ -94,3 +94,7 @@ error-reports/
 # Deno lockfile — generated when running deno against backend-runtime/ or fixtures.
 # The repo uses Bun for dependencies; this is a local artifact.
 deno.lock
+
+# Python bytecode — from running the .github/scripts checks locally.
+__pycache__/
+*.pyc

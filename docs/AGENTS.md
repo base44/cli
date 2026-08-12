@@ -61,7 +61,7 @@ bun run lint:fix       # Biome - auto-fix
 
 These apply to every task. See topic guides below for domain-specific rules.
 
-1. **Bun for everything** - Use `bun` commands for install, test, build, run
+1. **Bun for everything** - Use `bun` commands for install, test, build, run. `bunfig.toml` sets a 14-day `minimumReleaseAge` supply-chain cooldown on `bun add`/`bun update`, so a freshly published version cannot enter `bun.lock`. Never fetch tooling with `bunx` in a release path — it ignores the cooldown ([oven-sh/bun#30748](https://github.com/oven-sh/bun/issues/30748))
 2. **Zod validation** - Required for all external data (API responses, config files)
 3. **@clack/prompts only** - For all user interaction (prompts, spinners, logs). No `console.log`. Under the global `--json` flag the lifecycle runs **silent** (prompts and spinners suppressed, logs routed to stderr) — never assume a TTY
 4. **ES Modules** - Use `.js` extensions in all imports
