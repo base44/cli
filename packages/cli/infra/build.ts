@@ -40,6 +40,19 @@ const copyBackendRuntime = () => {
   return outDir;
 };
 
+// The Deno wrappers import `npm:@base44/sdk`, which the import map redirects to
+// this bundle. Fetching it from a registry at run time fails wherever the
+// registry is proxied behind a TLS-intercepting gateway, so it ships with the
+// CLI and the SDK version is pinned to the release.
+const bundleVendoredSdk = () =>
+  runBuild({
+    entrypoints: ["./infra/vendor/base44-sdk.ts"],
+    outdir: "./dist/assets/backend-runtime/vendor",
+    // Third-party code the user never debugs through us; the map would add
+    // ~1MB to the published package for nothing.
+    sourcemap: "none",
+  });
+
 // Runtime dependencies of the local workerd function runtime. They cannot be
 // bundled (workerd and esbuild ship native binaries; @deno/loader ships WASM),
 // so they are real npm `dependencies` resolved from node_modules at runtime —
@@ -55,6 +68,7 @@ const runAllBuilds = async () => {
     external: RUNTIME_EXTERNALS,
   });
   const backendRuntimePath = copyBackendRuntime();
+  await bundleVendoredSdk();
   return {
     cli,
     backendRuntimePath,

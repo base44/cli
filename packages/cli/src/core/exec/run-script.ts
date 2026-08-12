@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { copyFileSync, writeFileSync } from "node:fs";
 import { file } from "tmp-promise";
-import { getExecWrapperPath } from "@/core/assets.js";
+import { getExecWrapperPath, getImportMapPath } from "@/core/assets.js";
 import { getAppUserToken, getSiteUrl } from "@/core/project/api.js";
 import { verifyDenoInstalled } from "@/core/utils/index.js";
 
@@ -50,11 +50,23 @@ export async function runScript(
   cleanupFns.push(tempWrapper.cleanup);
   copyFileSync(getExecWrapperPath(), tempWrapper.path);
 
+  // Redirects the wrapper's `npm:@base44/sdk` import to the SDK bundled with
+  // this release. Its entries resolve relative to the map itself, so it stays
+  // correct even though the wrapper runs from a temp directory.
+  const importMapPath = getImportMapPath();
+
   try {
     const exitCode = await new Promise<number>((resolvePromise) => {
       const child = spawn(
         "deno",
-        ["run", "--allow-all", "--node-modules-dir=auto", tempWrapper.path],
+        [
+          "run",
+          "--allow-all",
+          "--node-modules-dir=auto",
+          "--import-map",
+          importMapPath,
+          tempWrapper.path,
+        ],
         {
           env: {
             ...process.env,

@@ -1,5 +1,6 @@
 {
   "imports": {
-    "base44:runtime": "./base44-runtime.ts"
+    "base44:runtime": "./base44-runtime.ts",
+    "npm:@base44/sdk": "./vendor/base44-sdk.js"
   }
 }

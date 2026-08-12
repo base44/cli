@@ -17,6 +17,10 @@ function getBackendRuntimeDir(): string {
   return join(ASSETS_DIR, "backend-runtime");
 }
 
+export function getImportMapPath(): string {
+  return join(getBackendRuntimeDir(), "import-map.json");
+}
+
 export function getDenoWrapperPath(): string {
   return join(getBackendRuntimeDir(), "main.ts");
 }
