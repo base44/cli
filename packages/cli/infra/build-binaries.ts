@@ -56,6 +56,9 @@ for (const required of [
 	"dist/assets/backend-runtime/main.ts",
 	"dist/assets/backend-runtime/import-map.json",
 	"dist/assets/backend-runtime/base44-runtime.ts",
+	// The import map points at this bundle, so a binary built without it would
+	// only fail once a user actually runs `base44 exec`.
+	"dist/assets/backend-runtime/vendor/base44-sdk.js",
 ]) {
 	if (!existsSync(join(ROOT, required))) {
 		console.error(
