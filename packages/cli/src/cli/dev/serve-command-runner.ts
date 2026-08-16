@@ -2,7 +2,7 @@ import { createDevLogger } from "@/cli/dev/createDevLogger.js";
 import { ServeRunner } from "@/cli/dev/dev-server/serve-runner.js";
 import { theme } from "@/cli/utils/index.js";
 
-interface ServeCommandRunnerOptions {
+export interface ServeCommandRunnerOptions {
   serveCommand: string;
   projectRoot: string;
   appId: string;

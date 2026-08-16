@@ -1,0 +1,7 @@
+[install]
+# Supply-chain cooldown: Bun resolves only versions published at least this long
+# ago, so a compromised release cannot enter bun.lock inside the window. Seconds,
+# unlike npm's min-release-age (days). Applies to `bun add`/`bun update`, not to
+# `bun install --frozen-lockfile` (resolves nothing) and not to `bunx`, which
+# accepts the flag without enforcing it (oven-sh/bun#30748).
+minimumReleaseAge = 1209600 # 14 days

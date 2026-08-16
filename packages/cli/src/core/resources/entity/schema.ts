@@ -1,33 +1,54 @@
 import { z } from "zod";
 import { ResourceSourceSchema } from "@/core/resources/types.js";
 
-const FieldConditionSchema = z.union([
-  z.string(),
-  z.number(),
-  z.boolean(),
-  z.null(),
-  z.looseObject({
-    $in: z.unknown().optional(),
-    $nin: z.unknown().optional(),
-    $ne: z.unknown().optional(),
-    $all: z.unknown().optional(),
-  }),
+const fieldConditionOperators = new Set([
+  "$eq",
+  "$ne",
+  "$in",
+  "$nin",
+  "$gt",
+  "$gte",
+  "$lt",
+  "$lte",
+  "$exists",
+  "$all",
+  "$size",
+  "$elemMatch",
 ]);
 
-const userConditionAllowedKeys = new Set(["role", "email", "id"]);
+const isScalar = (value: unknown): boolean =>
+  value === null || ["string", "number", "boolean"].includes(typeof value);
+
+const isValidFieldCondition = (value: unknown): boolean => {
+  if (isScalar(value)) {
+    return true;
+  }
+  if (typeof value === "object" && !Array.isArray(value)) {
+    return Object.keys(value as object).every((k) =>
+      fieldConditionOperators.has(k),
+    );
+  }
+  return false;
+};
+
+const supportedOperators = [...fieldConditionOperators].sort().join(", ");
+
+const FieldConditionSchema = z
+  .union([z.string(), z.number(), z.boolean(), z.null(), z.looseObject({})])
+  .refine(
+    isValidFieldCondition,
+    `Field condition values must be a primitive or an operator object (${supportedOperators})`,
+  );
 
 const UserConditionSchema = z
-  .looseObject({
-    role: z.string().optional(),
-    email: z.string().optional(),
-    id: z.string().optional(),
-  })
+  .looseObject({})
   .refine(
     (val) =>
-      Object.keys(val).every(
-        (key) => userConditionAllowedKeys.has(key) || key.startsWith("data."),
+      Object.keys(val).length > 0 &&
+      Object.entries(val).every(
+        ([key, value]) => !key.startsWith("$") && isScalar(value),
       ),
-    "Keys must be role, email, id, or match data.* pattern",
+    "user_condition compares user attributes by exact equality: a non-empty object of attribute: scalar pairs, no operators",
   );
 
 const rlsConditionAllowedKeys = new Set([
@@ -63,33 +84,21 @@ const RLSConditionSchema = z.looseObject({
   },
 });
 
-const fieldConditionOperators = new Set(["$in", "$nin", "$ne", "$all"]);
-
-const isValidFieldCondition = (value: unknown): boolean => {
-  if (
-    value === null ||
-    typeof value === "string" ||
-    typeof value === "number" ||
-    typeof value === "boolean"
-  ) {
-    return true;
-  }
-  if (typeof value === "object") {
-    return Object.keys(value).every((k) => fieldConditionOperators.has(k));
-  }
-  return false;
-};
-
 const RefineRLSConditionSchema = RLSConditionSchema.refine(
   (val) =>
     Object.entries(val).every(
       ([key, value]) =>
         rlsConditionAllowedKeys.has(key) || isValidFieldCondition(value),
     ),
-  "Field condition values must be a primitive or an operator object ($in, $nin, $ne, $all)",
+  `Field condition values must be a primitive or an operator object (${supportedOperators})`,
 );
 
-const RLSRuleSchema = z.union([z.boolean(), RefineRLSConditionSchema]);
+const RLSRuleSchema = z.union([
+  z.boolean(),
+  z.null(),
+  z.literal(""),
+  RefineRLSConditionSchema,
+]);
 
 const EntityRLSSchema = z.looseObject({
   create: RLSRuleSchema.optional(),
@@ -108,7 +117,7 @@ const FieldRLSSchema = z.looseObject({
 });
 
 export const PropertyDefinitionSchema = z.looseObject({
-  type: z.string(),
+  type: z.union([z.string(), z.array(z.string())]),
   title: z.string().optional(),
   description: z.string().optional(),
   minLength: z.number().int().min(0).optional(),
@@ -138,7 +147,10 @@ export const EntitySchema = z.looseObject({
   name: z
     .string()
     .min(1)
-    .regex(/^[a-zA-Z0-9]+$/, "Entity name must be alphanumeric only"),
+    .regex(
+      /^\w+$/,
+      "Entity name must contain only letters, numbers, and underscores",
+    ),
   title: z.string().optional(),
   description: z.string().optional(),
   properties: z.record(z.string(), PropertyDefinitionSchema).default({}),

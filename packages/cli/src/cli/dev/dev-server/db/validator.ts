@@ -35,6 +35,7 @@ const fieldTypes = [
   "boolean",
   "array",
   "object",
+  "null",
 ];
 
 export class Validator {
@@ -127,6 +128,22 @@ export class Validator {
       return { hasError: false };
     }
 
+    if (Array.isArray(property.type)) {
+      const types = property.type;
+      const matched = types.some(
+        (type) =>
+          !this.validateValue(value, { ...property, type }, fieldPath).hasError,
+      );
+      return matched
+        ? { hasError: false }
+        : {
+            hasError: true,
+            error: this.createValidationError(
+              `Error in field ${fieldPath}: Input should be a valid ${types.join(" or ")}`,
+            ),
+          };
+    }
+
     const propertyType = property.type;
     if (!fieldTypes.includes(propertyType)) {
       return {
@@ -184,6 +201,16 @@ export class Validator {
               if (subResult.hasError) return subResult;
             }
           }
+        }
+        break;
+      case "null":
+        if (value !== null) {
+          return {
+            hasError: true,
+            error: this.createValidationError(
+              `Error in field ${fieldPath}: Input should be null`,
+            ),
+          };
         }
         break;
       case "integer":

@@ -17,7 +17,11 @@ import {
   type ProjectConfig,
   ProjectConfigSchema,
 } from "@/core/project/schema.js";
-import type { ProjectData, ProjectRoot } from "@/core/project/types.js";
+import type {
+  ProjectData,
+  ProjectRoot,
+  ProjectWithPaths,
+} from "@/core/project/types.js";
 import { agentResource } from "@/core/resources/agent/index.js";
 import { agentSkillResource } from "@/core/resources/agent-skill/index.js";
 import { authConfigResource } from "@/core/resources/auth-config/index.js";
@@ -36,11 +40,18 @@ type ProjectResources = Omit<ProjectData, "project">;
 class ProjectConfigReader {
   private readonly pluginSourceByNamespace = new Map<string, string>();
 
-  async readProjectConfig(projectRoot?: string): Promise<ProjectData> {
+  async readProjectSettings(projectRoot?: string): Promise<ProjectWithPaths> {
     const { root, configPath } = await this.findConfigOrThrow(projectRoot);
 
     const project = await this.readConfigFile(configPath);
     this.assertPluginProjectDoesNotLoadPlugins(project, configPath);
+
+    return { ...project, root, configPath };
+  }
+
+  async readProjectConfig(projectRoot?: string): Promise<ProjectData> {
+    const project = await this.readProjectSettings(projectRoot);
+    const { configPath } = project;
 
     const localResources = await this.readProjectResources(configPath, project);
     const pluginResources = await this.readPlugins(project.plugins, configPath);
@@ -58,7 +69,7 @@ class ProjectConfigReader {
     this.validateFunctionNames(functions, configPath);
 
     return {
-      project: { ...project, root, configPath },
+      project,
       entities,
       functions,
       agents: localResources.agents,
@@ -294,4 +305,21 @@ export async function readProjectConfig(
 ): Promise<ProjectData> {
   const reader = new ProjectConfigReader();
   return await reader.readProjectConfig(projectRoot);
+}
+
+/**
+ * Reads and validates the project config file alone — none of the project's
+ * resource files are read or validated.
+ *
+ * For a command that consumes no resources, an invalid resource file is unrelated
+ * to the work and must not fail it.
+ *
+ * @param projectRoot - Optional path to start searching from. Defaults to cwd.
+ * @returns The project config, with its root and config path.
+ */
+export async function readProjectSettings(
+  projectRoot?: string,
+): Promise<ProjectWithPaths> {
+  const reader = new ProjectConfigReader();
+  return await reader.readProjectSettings(projectRoot);
 }

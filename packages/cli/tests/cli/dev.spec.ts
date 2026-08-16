@@ -102,6 +102,59 @@ describe("dev command", () => {
     expect(output).toContain("Backend running on http://localhost:");
   });
 
+  it("--remote runs the serveCommand against the app's published URL", async () => {
+    await t.givenLoggedInWithProject(fixture("with-serve-command"));
+    t.api.mockSiteUrl({ url: "https://my-app.base44.app" });
+
+    const handle = await t.runLive("dev", "--remote");
+    await handle.waitForOutput(/SERVE_APP=/);
+    await handle.stop();
+
+    const output = handle.stdout.join("");
+    expect(output).toContain(`SERVE_APP=${t.api.appId}`);
+    expect(output).toContain("URL=https://my-app.base44.app");
+    expect(output).not.toContain("Backend running on");
+  });
+
+  it("--remote fails when the app has no published URL", async () => {
+    await t.givenLoggedInWithProject(fixture("with-serve-command"));
+    t.api.mockSiteUrlError({ status: 404, body: { detail: "App not found" } });
+
+    const result = await t.run("dev", "--remote");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("site URL");
+  });
+
+  it("--remote rejects --port", async () => {
+    await t.givenLoggedInWithProject(fixture("with-serve-command"));
+
+    const result = await t.run("dev", "--remote", "--port", "5000");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain(
+      "--port applies to the local backend, which --remote does not start",
+    );
+  });
+
+  it("--remote fails without a site.serveCommand", async () => {
+    await t.givenLoggedInWithProject(fixture("full-project"));
+
+    const result = await t.run("dev", "--remote");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("no site.serveCommand");
+  });
+
+  it("--remote exits when the frontend exits", async () => {
+    await t.givenLoggedInWithProject(fixture("with-exiting-serve-command"));
+
+    const handle = await t.runLive("dev", "--remote");
+    const result = await handle.waitForExit();
+
+    expect(result.exitCode).not.toBe(0);
+  });
+
   it("tears the dev server down when the frontend exits", async () => {
     // The fixture's serveCommand prints, then exits non-zero shortly after.
     await t.givenLoggedInWithProject(fixture("with-exiting-serve-command"));

@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { fixture, setupCLITests } from "./testkit/index.js";
@@ -151,6 +151,51 @@ describe("site deploy command (static site through the deployments API, env-gate
     expect(JSON.parse(result.stdout)).toEqual({
       deploymentId: DEPLOYMENT_ID,
       gitHash: GIT_HASH,
+    });
+  });
+
+  it("deploys past an entity file the CLI would reject", async () => {
+    // A site deploy reads no entity files, so one it can't parse is unrelated —
+    // builder-managed entity schemas failed every publish through this path.
+    await t.givenLoggedInWithProject(fixture("with-site"));
+    t.givenEnv({ BASE44_STATIC_DEPLOYMENTS: "1" });
+    const entitiesDir = join(t.getTempDir(), "project", "base44", "entities");
+    await mkdir(entitiesDir, { recursive: true });
+    await writeFile(
+      join(entitiesDir, "Broken.jsonc"),
+      JSON.stringify({ name: "Broken", rls: { create: "nonsense" } }),
+    );
+    mockStaticCreate(["/main.js", "/styles.css"]);
+    t.api.mockDeploymentFinalize({ deployment_id: DEPLOYMENT_ID });
+
+    const result = await t.run("site", "deploy", "-y", "--git-hash", GIT_HASH);
+
+    t.expectResult(result).toSucceed();
+    expect(t.api.finalizeRequests).toHaveLength(1);
+  });
+
+  it("reports the rejected status in the --json error envelope", async () => {
+    await t.givenLoggedInWithProject(fixture("with-site"));
+    t.givenEnv({ BASE44_STATIC_DEPLOYMENTS: "1" });
+    t.api.mockError("post", "/api/apps/test-app-id/deployments", {
+      status: 401,
+      body: { message: "API key is not valid" },
+    });
+
+    const result = await t.run(
+      "site",
+      "deploy",
+      "-y",
+      "--git-hash",
+      GIT_HASH,
+      "--json",
+    );
+
+    t.expectResult(result).toFail();
+    // A caller reading only `error` can't tell a rejected key from a 500.
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      code: "API_ERROR",
+      statusCode: 401,
     });
   });
 

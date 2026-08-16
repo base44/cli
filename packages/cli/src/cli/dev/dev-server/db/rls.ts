@@ -149,12 +149,13 @@ function evaluateCondition(
  * - condition object → evaluate against record and user
  */
 export function checkRLS(
-  rule: boolean | Record<string, unknown> | undefined,
+  rule: boolean | Record<string, unknown> | null | "" | undefined,
   record: Record<string, unknown>,
   user: Record<string, unknown> | undefined,
 ): boolean {
   if (user?.is_service === true) return true;
-  if (rule === undefined) return true;
+  if (rule === undefined || rule === null || rule === "") return true;
+  if (typeof rule === "object" && Object.keys(rule).length === 0) return true;
   if (typeof rule === "boolean") return rule;
   if (!user) return false;
   return evaluateCondition(rule, record, user);

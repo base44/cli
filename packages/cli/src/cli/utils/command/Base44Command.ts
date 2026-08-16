@@ -15,7 +15,7 @@ import {
   formatPlainUpgradeMessage,
   startUpgradeCheck,
 } from "@/cli/utils/upgradeNotification.js";
-import { isCLIError } from "@/core/errors.js";
+import { ApiError, isCLIError } from "@/core/errors.js";
 
 /**
  * Write a command result to stdout as a single JSON document (the `--json`
@@ -50,6 +50,17 @@ function writeJsonError(error: unknown): void {
     }
     if (error.hints.length > 0) {
       envelope.hints = error.hints;
+    }
+  }
+  // An API failure's message reads the same whether the platform rejected the
+  // key or fell over, so a caller diagnosing a run needs the status it got and
+  // the request to look up server-side.
+  if (error instanceof ApiError) {
+    if (error.statusCode !== undefined) {
+      envelope.statusCode = error.statusCode;
+    }
+    if (error.requestId !== undefined) {
+      envelope.requestId = error.requestId;
     }
   }
   process.stdout.write(`${JSON.stringify(envelope)}\n`);

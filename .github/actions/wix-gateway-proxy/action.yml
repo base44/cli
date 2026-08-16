@@ -1,0 +1,67 @@
+name: wix gateway proxy
+description: >-
+  Mandatory first step of every job: routes registry.npmjs.org through the
+  Wix npm embargo gateway by pinning the registry hostname to the gateway IP,
+  trusting the gateway CA system-wide, and pointing npm at the CA bundle.
+  Being a local action, the repository must be checked out before it runs.
+  Enforced for every job by .github/workflows/check-wix-proxy.yml.
+
+inputs:
+  proxy-ip:
+    description: IP address of the Wix npm embargo gateway
+    required: false
+    default: "23.21.39.196"
+
+runs:
+  using: composite
+  steps:
+    - name: Point registry.npmjs.org at the gateway
+      # The test matrix includes windows-latest, so each step branches on
+      # RUNNER_OS. GitHub-hosted Windows runners run elevated, so the hosts
+      # file is writable without sudo; the flushdns clears any cached lookup.
+      shell: bash
+      run: |
+        if [ "$RUNNER_OS" = "Windows" ]; then
+          printf '\r\n%s registry.npmjs.org\r\n' "${{ inputs.proxy-ip }}" >> "$(cygpath -u "$WINDIR")/System32/drivers/etc/hosts"
+          ipconfig //flushdns
+        else
+          echo "${{ inputs.proxy-ip }} registry.npmjs.org" | sudo tee -a /etc/hosts
+        fi
+        node -e "require('dns').lookup('registry.npmjs.org', (err, address) => { if (err) throw err; console.log('registry.npmjs.org ->', address); })"
+
+    - name: Trust the gateway CA
+      # The copy lives outside the workspace (/usr/local/share, RUNNER_TEMP)
+      # so it survives later checkouts and workspace cleans, unlike the
+      # in-workspace pem.
+      shell: bash
+      run: |
+        if [ "$RUNNER_OS" = "Windows" ]; then
+          cp "$GITHUB_ACTION_PATH/../../certs/wix-embargo.pem" "$RUNNER_TEMP/wix-embargo.crt"
+          certutil -addstore -f Root "$RUNNER_TEMP/wix-embargo.crt"
+        else
+          sudo cp "$GITHUB_ACTION_PATH/../../certs/wix-embargo.pem" /usr/local/share/ca-certificates/wix-embargo.crt
+          sudo update-ca-certificates
+        fi
+
+    - name: Trust the gateway CA in Node and Bun
+      # Node ignores the OS trust store; NODE_EXTRA_CA_CERTS covers npm, npx,
+      # corepack, and bun install (bun >= 1.1.34). Never use `npm config set
+      # cafile` here — it REPLACES the trust bundle and breaks other registries
+      # (npm.jsr.io, which bun.lock resolves @deno/loader from), whereas
+      # NODE_EXTRA_CA_CERTS appends.
+      shell: bash
+      run: |
+        if [ "$RUNNER_OS" = "Windows" ]; then
+          echo "NODE_EXTRA_CA_CERTS=$RUNNER_TEMP\\wix-embargo.crt" >> "$GITHUB_ENV"
+        else
+          echo "NODE_EXTRA_CA_CERTS=/usr/local/share/ca-certificates/wix-embargo.crt" >> "$GITHUB_ENV"
+        fi
+
+    - name: Trust the gateway CA in Deno
+      # Deno (rustls) reads neither the OS store nor NODE_EXTRA_CA_CERTS by
+      # default; "system" points it at the OS store where the gateway CA is
+      # installed, "mozilla" keeps public roots for every other host.
+      # NOTE: rustls still rejects the gateway until it serves a CA-signed
+      # leaf cert instead of the CA cert itself (CaUsedAsEndEntity).
+      shell: bash
+      run: echo "DENO_TLS_CA_STORE=system,mozilla" >> "$GITHUB_ENV"

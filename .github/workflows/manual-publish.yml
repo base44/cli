@@ -27,42 +27,53 @@ on:
 env:
   CLI_PACKAGE_DIR: packages/cli
 
+# This workflow deliberately does NOT run the Wix gateway proxy: the gateway
+# cannot carry `npm publish` (it rejects `PUT /<package>`), so per secplatform's
+# interim policy for OSS repos this job relies on `--frozen-lockfile` plus
+# bunfig.toml's minimumReleaseAge instead. It resolves nothing, so dropping the
+# gateway does not widen what it can pull. Exemption lives in
+# .github/scripts/check_wix_proxy_steps.py.
 jobs:
   publish:
     runs-on: ubuntu-latest
+    permissions:
+      # contents: write for the release commit, tag, and GitHub Release.
+      # id-token: write for npm trusted publishing (OIDC).
+      contents: write
+      id-token: write
 
     steps:
       - name: Generate a token
         id: generate-token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
         with:
           app-id: ${{ vars.BASE44_GITHUB_ACTIONS_APP_ID }}
           private-key: ${{ secrets.BASE44_GITHUB_ACTIONS_APP_PRIVATE_KEY }}
           owner: base44
 
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
           token: ${{ steps.generate-token.outputs.token }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: ".node-version"
           registry-url: "https://registry.npmjs.org"
 
-      - name: Update npm
-        run: npm install -g npm@latest
+      # No `npm install -g npm@latest`: trusted publishing needs npm >= 11.5.1, and
+      # the npm bundled with .node-version's Node 24 is already newer.
 
       - name: Setup Bun
         id: setup-bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: latest
 
       - name: Cache Bun dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: ~/.bun/install/cache
           key: ${{ runner.os }}-bun-${{ steps.setup-bun.outputs.bun-version }}-${{ hashFiles('**/bun.lock') }}
@@ -74,13 +85,11 @@ jobs:
 
       - name: Set version
         working-directory: ${{ env.CLI_PACKAGE_DIR }}
+        # `npm version` takes both a keyword (patch/minor/major) and an explicit
+        # version, so it replaces the old branch. It also replaces `bunx json-bump`,
+        # which fetched an undeclared package at run time, outside the cooldown.
         run: |
-          VERSION_INPUT="${{ github.event.inputs.version }}"
-          if [[ "$VERSION_INPUT" =~ ^(patch|minor|major)$ ]]; then
-            bunx json-bump package.json --$VERSION_INPUT
-          else
-            bunx json-bump package.json --replace="$VERSION_INPUT"
-          fi
+          npm version "${{ github.event.inputs.version }}" --no-git-tag-version --no-workspaces
           echo "NEW_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
 
       - name: Build package
@@ -97,7 +106,7 @@ jobs:
 
       - name: Upload sourcemaps to PostHog
         if: github.event.inputs.dry_run == 'false'
-        uses: PostHog/upload-source-maps@v0.4.6
+        uses: PostHog/upload-source-maps@e798a054427efc710af080354f8450d3c154c584 # v0.4.6
         with:
           directory: ./${{ env.CLI_PACKAGE_DIR }}/dist/cli
           env-id: ${{ vars.POSTHOG_PROJECT_ID }}
@@ -113,6 +122,10 @@ jobs:
           echo "Dry run: ${{ github.event.inputs.dry_run }}"
 
       - name: Publish to NPM
+        # Authenticates via npm trusted publishing (OIDC), so no NPM_TOKEN reaches
+        # the build. Needs a trusted publisher for `base44` on npmjs.com registered
+        # against this repo and this workflow filename — the registry keys on the
+        # filename, so each publish workflow needs its own entry.
         working-directory: ${{ env.CLI_PACKAGE_DIR }}
         run: |
           # Remove devDependencies before publish (everything is bundled)
@@ -167,7 +180,7 @@ jobs:
 
       - name: Notify skills repo
         if: github.event.inputs.dry_run == 'false' && github.event.inputs.notify_skills_repo == 'true'
-        uses: peter-evans/repository-dispatch@v4
+        uses: peter-evans/repository-dispatch@28959ce8df70de7be546dd1250a005dd32156697 # v4
         with:
           token: ${{ steps.generate-token.outputs.token }}
           repository: base44/skills
@@ -178,9 +191,3 @@ jobs:
               "release_url": "${{ env.RELEASE_URL }}",
               "release_name": "Release v${{ env.NEW_VERSION }}"
             }
-
-permissions:
-  contents: write
-  packages: write
-  pull-requests: read
-  id-token: write

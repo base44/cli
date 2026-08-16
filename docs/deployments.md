@@ -55,13 +55,17 @@ Entry = `main` from the wrangler config. With `no_bundle: true`, every file unde
 
 **`base44 site deploy [--git-hash <hash>] [--concurrency <n>] [--build|--no-build]`** — the optional build step is `maybeBuildBeforeDeploy` (`--build` forces it, `--no-build` skips it, otherwise an interactive ask). Then, if a full-stack artifact is detected it ships as a Workers deployment; otherwise the site output ships over whichever static transport applies. Progress: "Found N static assets (M new)" → "Uploaded X of Y assets" → "Deploying worker (K modules)…" → outro `Deployment <id> (commit <hash>)`. Under `--json`, stdout is a single `{deploymentId, gitHash}` document.
 
+**Config only, no resources.** `site deploy` reads the project config through `readProjectSettings()`, not `readProjectConfig()`: it ships the built output and touches none of the project's resource files, so an invalid one must not fail it. It used to — builder apps carry entity schemas the CLI's `EntitySchema` rejects, and every publish through this lane failed with `SCHEMA_INVALID` before reaching a single asset. Commands that do consume those resources keep using `readProjectConfig()`.
+
 `base44 deploy` is deliberately untouched by this: it deploys the project's resources and ships the site through `deployAll()`'s legacy tar.gz step, exactly as before, and neither `--git-hash` nor `--concurrency` exists on it. Adopting the lane there is a separate decision — it would need a commit address the unified deploy has no way to take.
 
-The primary automated consumer is the platform's build/deploy sandbox, which runs this command with a scoped `apps:deploy` workspace key and the checkout's commit — so the sandbox and a human at a terminal go through the exact same door.
+The primary automated consumer is the platform's build/deploy sandbox, which runs `base44 site deploy -y --json --git-hash <commit>` with a scoped `apps:deploy` workspace key — so the sandbox and a human at a terminal go through the exact same door.
 
 ## Static Sites through the Deployments API (experimental, env-gated)
 
 Full-stack deploys are ungated — an artifact is always shipped as a Workers deployment. The **static** lane is gated: with `BASE44_STATIC_DEPLOYMENTS=1` (or `true`; internal gate, not user-facing yet), a project with `site.outputDirectory` and **no** full-stack artifact deploys through the deployments API instead of the legacy tar.gz upload. `staticDeploymentsEnabled()` is consulted in exactly one place — `planAppDeploy()` in `core/site/deploy-app.ts` — so the gate decides a transport, never a flag's existence.
+
+The commit comes from `--git-hash` when passed, otherwise `git rev-parse HEAD`; on the lane with neither available the deploy fails asking for the flag, rather than silently falling back to the tar.gz upload — a deployment is addressed by the commit that produced it, so a build with no address could never be published.
 
 On the lane, the output directory becomes the asset manifest (index.html included — it is only ever excluded from uploads), and the create request carries **no `config`**, which the server answers with the `s3` arm. The CLI PUTs each requested file directly to its presigned URL and finalizes with the index.html bytes; today's serving keeps working because the server stores the result the way the legacy site upload does. Same commands, same `--git-hash` addressing, same `--json` output (`src/core/site/static-site.ts`).
 

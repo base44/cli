@@ -40,6 +40,21 @@ export const entityResource: Resource<Entity> = {
 };
 ```
 
+## Client-side validation must match server-side validation
+
+A resource schema validates files the server wrote and will read back, so the
+server's validation is the contract — never be stricter than it. Anything stricter
+rejects an app the server accepts, and because `readProjectConfig()` reads every
+resource up front, one such file fails *every* command (`deploy`,
+`entities push/pull`, `functions deploy`) whether or not it touches that resource.
+A hand-derived entity schema once rejected a quarter of real publishes this way.
+
+So before adding or narrowing a rule, confirm the server rejects that shape too.
+Rejecting something the server cannot evaluate — an unsupported operator, or an
+operator where only exact equality is applied — is correct; that's a real defect,
+not strictness. `base44 dev` interprets these same files locally, so a schema
+change usually needs a matching change in `src/cli/dev/dev-server/db/`.
+
 ## Adding a New Resource
 
 1. Create folder: `packages/cli/src/core/resources/<name>/`
@@ -73,6 +88,10 @@ Entry files may also import `secrets` and `waitUntil` from `base44:runtime`. Loc
 ## Agent skills
 
 Agent skills are app-scoped instruction snippets shared across the app's agents. Unlike other resources they are stored as one markdown file per skill under the agent-skills directory (`base44/agent-skills/`, or `agentSkillsDir` in `config.jsonc`): the filename (without `.md`) is the skill name, the frontmatter `description` is the summary, and the body is the instruction text. Agents reference skills by name via `selected_skill_names`; `selected_workspace_skill_ids` (org-shared workspace skills) is not managed here and is passed through pull/push/deploy untouched.
+
+## Workflow Module (Read-Only, Not a Resource)
+
+The workflow module at `packages/cli/src/core/resources/workflow/` is read-only — workflows are authored in the builder, not pulled/pushed from local files, so there is no `Resource<T>` implementation. It exposes `listWorkflows()` and `listWorkflowRuns(filters)` over `GET /api/apps/{app_id}/workflows[/runs]`, consumed by the `workflows list` / `workflows runs` commands. Apps that predate the Workflows system return 403 from these endpoints; the commands translate that into an explanation.
 
 ## Site Module (Not a Resource)
 
