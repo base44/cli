@@ -7,6 +7,8 @@ import { fixture, setupCLITests } from "./testkit/index.js";
 /** The commit the fixture "build" came from. */
 const GIT_HASH = "0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c";
 const DEPLOYMENT_ID = "test-app-git-0f1e2d3c4b5a";
+/** The upload session the server opens for one deploy attempt. */
+const SESSION_ID = "3f9a1c07b8e44d2f";
 
 /** Server-side content types differ from the CLI's own mapping on purpose —
  * the tests prove the signed value wins. */
@@ -36,6 +38,7 @@ describe("site deploy command (static site through the deployments API, env-gate
   function mockStaticCreate(uploadPaths: string[]) {
     t.api.mockDeploymentCreate({
       deployment_id: DEPLOYMENT_ID,
+      session_id: SESSION_ID,
       asset_uploads:
         uploadPaths.length === 0
           ? null
@@ -163,31 +166,30 @@ describe("site deploy command (static site through the deployments API, env-gate
     // what points finalize at this attempt's uploads rather than a sibling's.
     await t.givenLoggedInWithProject(fixture("with-site"));
     t.givenEnv({ BASE44_STATIC_DEPLOYMENTS: "1" });
-    t.api.mockDeploymentCreate({
-      deployment_id: DEPLOYMENT_ID,
-      session_id: "sess-abc123",
-      asset_uploads: null,
-    });
-    t.api.mockDeploymentFinalize({ deployment_id: DEPLOYMENT_ID });
-
-    const result = await t.run("site", "deploy", "-y", "--git-hash", GIT_HASH);
-
-    t.expectResult(result).toSucceed();
-    expect(t.api.finalizeQueries[0]).toEqual({ session_id: "sess-abc123" });
-  });
-
-  it("finalizes without a session id against a platform that issues none", async () => {
-    // The pinned CLI in a sandbox image predates the field, and a CLI newer
-    // than its platform must not send an empty one.
-    await t.givenLoggedInWithProject(fixture("with-site"));
-    t.givenEnv({ BASE44_STATIC_DEPLOYMENTS: "1" });
     mockStaticCreate([]);
     t.api.mockDeploymentFinalize({ deployment_id: DEPLOYMENT_ID });
 
     const result = await t.run("site", "deploy", "-y", "--git-hash", GIT_HASH);
 
     t.expectResult(result).toSucceed();
-    expect(t.api.finalizeQueries[0]).toEqual({});
+    expect(t.api.finalizeQueries[0]).toEqual({ session_id: SESSION_ID });
+  });
+
+  it("fails clearly when the platform opens no upload session", async () => {
+    // The static lane is env-gated and only the sandbox turns it on, so a
+    // platform without session support is a mismatched deploy, not a client to
+    // be tolerated — surface it instead of finalizing into a shared session.
+    await t.givenLoggedInWithProject(fixture("with-site"));
+    t.givenEnv({ BASE44_STATIC_DEPLOYMENTS: "1" });
+    t.api.mockDeploymentCreate({
+      deployment_id: DEPLOYMENT_ID,
+      asset_uploads: null,
+    });
+
+    const result = await t.run("site", "deploy", "-y", "--git-hash", GIT_HASH);
+
+    t.expectResult(result).toFail();
+    expect(t.api.finalizeQueries).toHaveLength(0);
   });
 
   it("emits a single JSON document with --json", async () => {

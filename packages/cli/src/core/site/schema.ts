@@ -76,9 +76,7 @@ interface S3AssetUploads {
 export const CreateDeploymentResponseSchema = z
   .object({
     deployment_id: z.string(),
-    // Added server-side after the CLI shipped: a build pinned in an older
-    // sandbox image talks to a platform that may not send it yet.
-    session_id: z.string().optional(),
+    session_id: z.string(),
     asset_uploads: z
       .object({
         type: z.literal("s3"),
@@ -99,7 +97,7 @@ export const CreateDeploymentResponseSchema = z
       data,
     ): {
       deploymentId: string;
-      sessionId: string | undefined;
+      sessionId: string;
       assetUploads: S3AssetUploads | null;
     } => ({
       deploymentId: data.deployment_id,

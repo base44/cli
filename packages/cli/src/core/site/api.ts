@@ -84,7 +84,7 @@ export async function createDeployment(
 export async function finalizeStaticDeployment(
   deploymentId: string,
   indexHtml: Uint8Array,
-  sessionId?: string,
+  sessionId: string,
 ): Promise<FinalizeDeploymentResponse> {
   const formData = new FormData();
   formData.append(
@@ -97,7 +97,7 @@ export async function finalizeStaticDeployment(
 async function postFinalize(
   deploymentId: string,
   formData: FormData,
-  sessionId?: string,
+  sessionId: string,
 ): Promise<FinalizeDeploymentResponse> {
   const appClient = getAppClient();
 
@@ -108,9 +108,9 @@ async function postFinalize(
       {
         body: formData,
         timeout: 180_000,
-        // Resolves this attempt's uploads. Omitted against a platform that
-        // doesn't issue one, which falls back to the commit-derived session.
-        ...(sessionId ? { searchParams: { session_id: sessionId } } : {}),
+        // Resolves this attempt's uploads rather than a concurrent deploy's:
+        // the deployment id is derived from the commit, so siblings share it.
+        searchParams: { session_id: sessionId },
       },
     );
   } catch (error) {
