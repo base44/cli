@@ -12,11 +12,11 @@ Deployments ship an app's built output addressed by the commit that produced it.
 
 ## API Contract (app-scoped, via `getAppClient()`)
 
-1. `POST deployments` — JSON body: `git_hash` (required) and `asset_manifest` (`{"/path": {hash, size}}`). The response is `{deployment_id, asset_uploads}` where `deployment_id` is a handle for the rest of the flow and `asset_uploads` says where the assets still owed should go, discriminated on `type`:
+1. `POST deployments` — JSON body: `git_hash` (required) and `asset_manifest` (`{"/path": {hash, size}}`). The response is `{deployment_id, session_id, asset_uploads}` where `deployment_id` is a handle for the rest of the flow, `session_id` identifies this attempt's upload session and `asset_uploads` says where the assets still owed should go, discriminated on `type`:
    - `{type: "s3", uploads: [{path, content_type, content_length, url}]}` — one presigned S3 PUT per asset still to upload, **always excluding `/index.html`** (finalize carries it).
    - `null` — nothing owed: no assets, or the build already exists (re-deploying a commit is idempotent).
 2. **Asset upload — bytes never pass through the backend.** Each upload's raw file bytes are `PUT` directly to its presigned `url` with the signed `content_type` sent verbatim (the URL also signs `content_length`, so the body must be exactly the declared bytes). The URL itself is the credential, so no auth headers and never the app client. Per file: 3 attempts with exponential backoff. Concurrency defaults to `DEFAULT_UPLOAD_CONCURRENCY` (3) and is overridable with `--concurrency <n>`, capped at `MAX_UPLOAD_CONCURRENCY` (50) because each worker holds a whole file in memory.
-3. `POST deployments/{id}/finalize` — multipart with exactly one file field named `index.html` carrying the index.html bytes (contentType `text/html`) — no other fields. index.html is the sentinel that completes the deployment, which is also why it never appears in the uploads. Returns `{deployment_id}`.
+3. `POST deployments/{id}/finalize?session_id={session_id}` — multipart with exactly one file field named `index.html` carrying the index.html bytes (contentType `text/html`) — no other fields. `session_id` is optional and echoes what create returned: the deployment id derives from the commit, so two deploys of one commit address the same upload session, and the query param is what resolves this attempt's own uploads instead of the other's. A platform that issues none is finalized without it. index.html is the sentinel that completes the deployment, which is also why it never appears in the uploads. Returns `{deployment_id}`.
 
 ## Asset Manifest & Hashing
 
@@ -40,7 +40,7 @@ On the lane, the output directory becomes the asset manifest (index.html include
 
 ## Testing
 
-`TestAPIServer` mocks: `mockDeploymentCreate` (captures the JSON body in `deploymentCreateRequests`; echoes whatever response shape you pass — `asset_uploads` is `{type: "s3", ...}` or `null`), `mockPresignedUpload(path)` (serves a presigned-style `PUT /presigned{path}` target, captures body/Content-Type/Authorization in `presignedUploadRequests`), `mockDeploymentFinalize` (captures multipart fields in `finalizeRequests`). Fixture: `tests/fixtures/with-site/` (static output dir); specs pass `--git-hash` to select the lane. Manifest and ignore-pattern unit tests live in `tests/core/site-manifest.spec.ts`.
+`TestAPIServer` mocks: `mockDeploymentCreate` (captures the JSON body in `deploymentCreateRequests`; echoes whatever response shape you pass — `asset_uploads` is `{type: "s3", ...}` or `null`), `mockPresignedUpload(path)` (serves a presigned-style `PUT /presigned{path}` target, captures body/Content-Type/Authorization in `presignedUploadRequests`), `mockDeploymentFinalize` (captures multipart fields in `finalizeRequests` and query strings in `finalizeQueries`). Fixture: `tests/fixtures/with-site/` (static output dir); specs pass `--git-hash` to select the lane. Manifest and ignore-pattern unit tests live in `tests/core/site-manifest.spec.ts`.
 
 ## Rules (Deployments-Specific)
 
