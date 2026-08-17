@@ -1,4 +1,4 @@
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { fixture, setupCLITests } from "./testkit/index.js";
 
 describe("actors deploy command", () => {
@@ -31,6 +31,21 @@ describe("actors deploy command", () => {
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Deploying ChatRoom");
     t.expectResult(result).toContain("1 deployed");
+
+    expect(t.api.actorDeployRequests).toHaveLength(1);
+    const request = t.api.actorDeployRequests[0]!;
+    expect(request.name).toBe("ChatRoom");
+    expect(request.entry).toBe("entry.ts");
+    expect(request.files.map((file) => file.path).sort()).toEqual([
+      "entry.ts",
+      "helper.ts",
+    ]);
+    expect(
+      request.files.find((file) => file.path === "entry.ts")?.content,
+    ).toContain('from "base44:runtime/actors"');
+    expect(
+      request.files.find((file) => file.path === "helper.ts")?.content,
+    ).toContain("formatMessage");
   });
 
   it("reports unchanged actor", async () => {
@@ -86,5 +101,29 @@ describe("actors deploy command", () => {
     t.expectResult(result).toFail();
     t.expectResult(result).toContain("error");
     t.expectResult(result).toContain("1 error");
+  });
+
+  it("returns structured actor failures in JSON mode", async () => {
+    await t.givenLoggedInWithProject(fixture("with-actors"));
+    t.api.mockSingleActorDeployError({
+      status: 422,
+      body: { message: "Invalid actor code" },
+    });
+
+    const result = await t.run("actors", "deploy", "--json");
+
+    t.expectResult(result).toFail();
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      error: "Failed to deploy 1 actor",
+      code: "RESOURCE_DEPLOY_FAILED",
+      failures: [
+        {
+          name: "ChatRoom",
+          code: "API_ERROR",
+          statusCode: 422,
+        },
+      ],
+    });
+    expect(result.stdout).toContain("Invalid actor code");
   });
 });

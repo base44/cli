@@ -52,6 +52,7 @@ The CLI will guide you through project setup. For step-by-step tutorials, see th
 | [`logout`](https://docs.base44.com/developers/references/cli/commands/logout) | Sign out and clear stored credentials |
 | [`whoami`](https://docs.base44.com/developers/references/cli/commands/whoami) | Display the current authenticated user |
 | `actors deploy` | Deploy local actors to Base44 |
+| `actors delete` | Delete deployed actors from Base44 |
 | [`agents pull`](https://docs.base44.com/developers/references/cli/commands/agents-pull) | Pull agents from Base44 to local files |
 | [`agents push`](https://docs.base44.com/developers/references/cli/commands/agents-push) | Push local agents to Base44 |
 | [`connectors initiate`](https://docs.base44.com/developers/references/cli/commands/connectors-initiate) | Initialize a connector on an app and start its OAuth flow |

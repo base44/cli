@@ -1,6 +1,5 @@
 import type { Logger } from "@base44-cli/logger";
 import type { Command } from "commander";
-import { CLIExitError } from "@/cli/errors.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import {
   Base44Command,
@@ -17,6 +16,7 @@ import {
   pruneRemovedFunctions,
 } from "@/core/resources/function/deploy.js";
 import type { BackendFunction } from "@/core/resources/function/schema.js";
+import { throwIfDeployFailed } from "@/core/resources/types.js";
 
 function resolveFunctionsToDeploy(
   names: string[],
@@ -95,7 +95,7 @@ async function deployFunctionsAction(
   const hasFailures = results.some((r) => r.status === "error");
   if (hasFailures) {
     log.message(buildDeploySummary(results, "functions"));
-    throw new CLIExitError(1);
+    throwIfDeployFailed(results, "function");
   }
 
   if (options.force) {

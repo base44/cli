@@ -173,7 +173,7 @@ export async function deployAction(
 export function getDeployCommand(): Command {
   return new Base44Command("deploy")
     .description(
-      "Deploy all project resources (entities, functions, agents, connectors, and site)",
+      "Deploy entities, functions, actors, agent skills, agents, auth, connectors, and site",
     )
     .option("-y, --yes", "Skip confirmation prompt")
     .option("--build", "Build the site before deploying (skips the prompt)")

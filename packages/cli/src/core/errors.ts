@@ -484,6 +484,41 @@ export class ApiError extends SystemError {
   }
 }
 
+interface ResourceDeployFailure {
+  name: string;
+  message: string;
+  cause?: Error;
+}
+
+/**
+ * Thrown when one or more items in a sequential resource deploy fail.
+ */
+export class ResourceDeployError extends SystemError {
+  readonly code = "RESOURCE_DEPLOY_FAILED";
+  readonly failures: ResourceDeployFailure[];
+
+  constructor(resource: string, failures: ResourceDeployFailure[]) {
+    const label = failures.length === 1 ? resource : `${resource}s`;
+    const hints = failures.flatMap((failure) =>
+      failure.cause instanceof CLIError ? failure.cause.hints : [],
+    );
+
+    super(`Failed to deploy ${failures.length} ${label}`, {
+      details: failures.map((failure) => `${failure.name}: ${failure.message}`),
+      hints: hints.filter(
+        (hint, index, all) =>
+          all.findIndex(
+            (candidate) =>
+              candidate.message === hint.message &&
+              candidate.command === hint.command,
+          ) === index,
+      ),
+      cause: failures.find((failure) => failure.cause)?.cause,
+    });
+    this.failures = failures;
+  }
+}
+
 /**
  * Thrown when a file is not found.
  */

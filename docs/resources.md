@@ -87,14 +87,24 @@ Entry files may also import `secrets` and `waitUntil` from `base44:runtime`. Loc
 
 ## Actors (project layout)
 
-Actors are stateful realtime handlers, read from the project's actors directory (`base44/actors/`, or `actorsDir` in `config.jsonc`). Discovery is zero-config only: a folder containing `entry.ts` (or `entry.js`) is an actor, and its name is the path from the actors root (e.g. `actors/ChatRoom/entry.ts` → name `ChatRoom`; nesting is allowed). All `**/*.{js,ts,json,jsonc}` files under that folder are included in the deploy payload, sent via `PUT /api/apps/{app_id}/actors/{name}`. The entry file must default-export the actor class — the deploy bundler imports the default export.
+Actors are stateful realtime handlers, read from the project's actors directory (`base44/actors/`, or `actorsDir` in `config.jsonc`). Discovery is zero-config only: a folder containing `entry.ts` (or `entry.js`) is an actor, and the folder name is the actor name (`actors/ChatRoom/entry.ts` → `ChatRoom`). All `**/*.{js,ts,json,jsonc}` files under that folder are included in the deploy payload, sent via `PUT /api/apps/{app_id}/actors/{name}`. The entry file must default-export the actor class — the deploy bundler imports the default export.
 
-Deliberate gaps (vs functions): no `base44/shared/` inclusion, no `--force` prune, no plugin actors, and no local `base44 dev` runtime. Authoring guidance (scaffolding, message typing, editor setup for the `base44:runtime/actors` virtual module) lives in the realtime skill, not the CLI. Type generation only emits `ActorNameRegistry` (actor names) into `types.d.ts`.
+**Naming is enforced locally, mirroring the server.** An actor name becomes a Durable Object class and the WebSocket connect handler, so it must be a plain ASCII JavaScript identifier: `[A-Za-z_][A-Za-z0-9_]*`, max 128 characters, not a JS reserved word, PascalCase by convention. Two consequences differ from functions:
+
+- **Actors cannot be nested.** `actors/games/Arena/entry.ts` is an error, not an actor named `games/Arena`. Since every `entry.{js,ts}` under the actors root is an entry file at any depth, this is also what a helper accidentally named `entry.ts` reports — the error hints at both causes.
+- **Folders with a dot in the name are skipped**, using the same `ENTRY_IGNORE_DOT_PATHS` exclusion as functions. A dotted name can never be valid, so `actors/ChatRoom.bak/` is treated as scratch rather than a deploy that would 422.
+
+Both checks run in `readAllActors` (before any upload), and `readProjectConfig` additionally rejects a name shared with a backend function — actors deploy onto the same server-side namespace.
+
+Deliberate gaps (vs functions): no `base44/shared/` inclusion, no `--force` prune, no `list`/`pull`, no plugin actors, and no local `base44 dev` runtime. Authoring guidance (scaffolding, message typing, editor setup for the `base44:runtime/actors` virtual module) lives in the realtime skill, not the CLI. Type generation only emits `ActorNameRegistry` (actor names) into `types.d.ts`.
 
 ```bash
-base44 actors deploy              # Deploy all actors
-base44 actors deploy ChatRoom     # Deploy specific actors by name
+base44 actors deploy                  # Deploy all actors
+base44 actors deploy ChatRoom         # Deploy specific actors by name
+base44 actors delete ChatRoom         # Tear down a deployed actor
 ```
+
+`actors delete` calls `DELETE /api/apps/{app_id}/actors/{name}`, which destroys the published script — it is not a local operation and does not need the actor to still exist on disk. A 404 is reported as "not found" rather than an error, so re-running it is safe.
 
 ## Agent skills
 
@@ -146,12 +156,15 @@ const { appUrl } = await deployAll(projectData);
 
 What it deploys (in order):
 1. Entities (via `entityResource.push()`)
-2. Functions (via `functionResource.push()`)
+2. Functions (via `deployFunctionsSequentially()`)
 3. Actors (via `deployActorsSequentially()`)
 4. Agent skills (via `agentSkillResource.push()`)
 5. Agents (via `agentResource.push()`)
-6. Connectors (via `pushConnectors()`) -- may return OAuth redirect URLs
-7. Site (if `site.outputDirectory` is configured) — the legacy tar.gz upload. The env-gated deployments-API lane is reachable only from `base44 site deploy`, not from here (see [deployments.md](deployments.md)).
+6. Auth config (via `authConfigResource.push()`)
+7. Connectors (via `pushConnectors()`) -- may return OAuth redirect URLs
+8. Site (if `site.outputDirectory` is configured) — the legacy tar.gz upload. The env-gated deployments-API lane is reachable only from `base44 site deploy`, not from here (see [deployments.md](deployments.md)).
+
+Functions and actors deploy sequentially within their resource batch. If any item fails, the command reports every failed item as a structured `ResourceDeployError`, exits non-zero, and does not continue to later resource types.
 
 ```bash
 base44 deploy        # With confirmation prompt

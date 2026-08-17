@@ -1,5 +1,4 @@
 import type { Command } from "commander";
-import { CLIExitError } from "@/cli/errors.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import {
   Base44Command,
@@ -12,6 +11,7 @@ import { InvalidInputError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/index.js";
 import { deployActorsSequentially } from "@/core/resources/actor/deploy.js";
 import type { Actor } from "@/core/resources/actor/schema.js";
+import { throwIfDeployFailed } from "@/core/resources/types.js";
 
 function resolveActorsToDeploy(names: string[], allActors: Actor[]): Actor[] {
   if (names.length === 0) return allActors;
@@ -29,12 +29,12 @@ async function deployActorsAction(
   { log }: CLIContext,
   names: string[],
 ): Promise<RunCommandResult> {
-  const { actors } = await readProjectConfig();
+  const { actors, project } = await readProjectConfig();
   const toDeploy = resolveActorsToDeploy(names, actors);
 
   if (toDeploy.length === 0) {
     return {
-      outroMessage: "No actors found. Create actors in the 'actors' directory.",
+      outroMessage: `No actors found. Create actors in the '${project.actorsDir}' directory.`,
     };
   }
 
@@ -62,7 +62,7 @@ async function deployActorsAction(
   const hasFailures = results.some((r) => r.status === "error");
   if (hasFailures) {
     log.message(buildDeploySummary(results, "actors"));
-    throw new CLIExitError(1);
+    throwIfDeployFailed(results, "actor");
   }
 
   return { outroMessage: buildDeploySummary(results, "actors") };

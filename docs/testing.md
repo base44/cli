@@ -215,6 +215,14 @@ t.api.mockFunctionsPushError({ status: 400, body: { error: "Invalid" } });
 ```typescript
 t.api.mockSingleActorDeploy({ status: "deployed" });
 t.api.mockSingleActorDeployError({ status: 400, body: { error: "Invalid" } });
+t.api.mockSingleActorDelete();
+t.api.mockSingleActorDeleteError({ status: 404, body: { error: "Not found" } });
+
+// Successful requests are captured for payload assertions.
+expect(t.api.actorDeployRequests[0]).toMatchObject({
+  name: "ChatRoom",
+  entry: "entry.ts",
+});
 ```
 
 ### Agent Mocks

@@ -49,6 +49,7 @@ async function deployOne(
       name: fn.name,
       status: "error",
       error: error instanceof Error ? error.message : String(error),
+      cause: error instanceof Error ? error : undefined,
     };
   }
 }

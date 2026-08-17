@@ -19,6 +19,7 @@ CLIError (abstract base class)
 │
 └── SystemError (something broke - needs investigation)
     ├── ApiError               # HTTP/network failures
+    ├── ResourceDeployError    # One or more sequential deploy items failed
     ├── FileNotFoundError      # File doesn't exist
     ├── FileReadError          # Can't read file
     └── InternalError          # Unexpected errors
@@ -110,6 +111,7 @@ See [api-patterns.md](api-patterns.md) for the full `ApiError.fromHttpError()` p
 | `SCHEMA_INVALID` | `SchemaValidationError` | Zod validation failed |
 | `INVALID_INPUT` | `InvalidInputError` | User provided invalid input |
 | `API_ERROR` | `ApiError` | API request failed |
+| `RESOURCE_DEPLOY_FAILED` | `ResourceDeployError` | One or more functions or actors failed to deploy |
 | `FILE_NOT_FOUND` | `FileNotFoundError` | File doesn't exist |
 | `FILE_READ_ERROR` | `FileReadError` | Can't read/write file |
 | `INTERNAL_ERROR` | `InternalError` | Unexpected error |

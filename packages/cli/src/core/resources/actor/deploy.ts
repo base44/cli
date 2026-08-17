@@ -39,6 +39,7 @@ async function deployOne(actor: Actor): Promise<SingleActorDeployResult> {
       name: actor.name,
       status: "error",
       error: error instanceof Error ? error.message : String(error),
+      cause: error instanceof Error ? error : undefined,
     };
   }
 }

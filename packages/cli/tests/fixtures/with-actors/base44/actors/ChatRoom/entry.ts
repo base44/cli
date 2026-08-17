@@ -1,11 +1,15 @@
-import { Actor, type Conn } from "@base44/sdk";
+import { Actor } from "base44:runtime/actors";
 import { formatMessage } from "./helper.js";
 
+interface TestConnection {
+  send(message: string): void;
+}
+
 export default class ChatRoom extends Actor {
-  handleConnect(_conn: Conn) {}
-  handleMessage(conn: Conn, msg: unknown) {
+  handleConnect(_conn: TestConnection) {}
+  handleMessage(conn: TestConnection, msg: unknown) {
     conn.send(formatMessage(msg));
   }
   handleTick() {}
-  handleClose(_conn: Conn) {}
+  handleClose(_conn: TestConnection) {}
 }

@@ -19,6 +19,7 @@ import {
   deployFunctionsSequentially,
   type SingleFunctionDeployResult,
 } from "@/core/resources/function/deploy.js";
+import { throwIfDeployFailed } from "@/core/resources/types.js";
 import { deploySite } from "@/core/site/index.js";
 
 /**
@@ -110,14 +111,17 @@ export async function deployAll(
     options?.onVisibilitySet?.(project.visibility);
   }
   await entityResource.push(entities);
-  await deployFunctionsSequentially(functions, {
+  const functionResults = await deployFunctionsSequentially(functions, {
     onStart: options?.onFunctionStart,
     onResult: options?.onFunctionResult,
   });
-  await deployActorsSequentially(actors, {
+  throwIfDeployFailed(functionResults, "function");
+
+  const actorResults = await deployActorsSequentially(actors, {
     onStart: options?.onActorStart,
     onResult: options?.onActorResult,
   });
+  throwIfDeployFailed(actorResults, "actor");
   await agentSkillResource.push(agentSkills);
   await agentResource.push(agents);
   await authConfigResource.push(authConfig);

@@ -30,3 +30,18 @@ export async function deploySingleActor(
   }
   return result.data;
 }
+
+/**
+ * Tear down a deployed actor. The server destroys the published script, so this
+ * is not reversible by a redeploy of the same instance state.
+ */
+export async function deleteSingleActor(name: string): Promise<void> {
+  const appClient = getAppClient();
+  try {
+    await appClient.delete(`actors/${encodeURIComponent(name)}`, {
+      timeout: 60_000,
+    });
+  } catch (error) {
+    throw await ApiError.fromHttpError(error, `deleting actor "${name}"`);
+  }
+}

@@ -1,8 +1,8 @@
-import { Actor, type Conn } from "@base44/sdk";
+import { Actor } from "base44:runtime/actors";
 
-export class ChatRoom extends Actor {
-  handleConnect(_conn: Conn) {}
-  handleMessage(_conn: Conn, _msg: unknown) {}
+export default class ChatRoom extends Actor {
+  handleConnect() {}
+  handleMessage() {}
   handleTick() {}
-  handleClose(_conn: Conn) {}
+  handleClose() {}
 }

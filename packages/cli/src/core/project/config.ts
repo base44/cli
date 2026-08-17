@@ -22,6 +22,7 @@ import type {
   ProjectRoot,
   ProjectWithPaths,
 } from "@/core/project/types.js";
+import type { Actor } from "@/core/resources/actor/index.js";
 import { actorResource } from "@/core/resources/actor/index.js";
 import { agentResource } from "@/core/resources/agent/index.js";
 import { agentSkillResource } from "@/core/resources/agent-skill/index.js";
@@ -68,6 +69,7 @@ class ProjectConfigReader {
       ...pluginResources.functions,
     ];
     this.validateFunctionNames(functions, configPath);
+    this.validateActorNames(localResources.actors, functions, configPath);
 
     return {
       project,
@@ -305,6 +307,36 @@ class ProjectConfigReader {
         );
       }
       functionsByName.set(fn.name, fn);
+    }
+  }
+
+  /**
+   * An actor deploys onto the same backend-function namespace server-side, so a
+   * name shared with a function is rejected there. Catch it at read time — the
+   * alternative is a mid-deploy failure after earlier resources already landed.
+   */
+  private validateActorNames(
+    actors: Actor[],
+    functions: BackendFunction[],
+    configPath: string,
+  ): void {
+    const functionNames = new Set(functions.map((fn) => fn.name));
+
+    for (const actor of actors) {
+      if (functionNames.has(actor.name)) {
+        throw new ConfigInvalidError(
+          `"${actor.name}" exists as both a backend function and an actor.`,
+          configPath,
+          {
+            hints: [
+              {
+                message:
+                  "Actors and functions share one deploy namespace — rename one of them.",
+              },
+            ],
+          },
+        );
+      }
     }
   }
 }
