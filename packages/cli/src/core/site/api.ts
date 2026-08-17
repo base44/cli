@@ -84,18 +84,20 @@ export async function createDeployment(
 export async function finalizeStaticDeployment(
   deploymentId: string,
   indexHtml: Uint8Array,
+  sessionId?: string,
 ): Promise<FinalizeDeploymentResponse> {
   const formData = new FormData();
   formData.append(
     "index.html",
     new File([indexHtml], "index.html", { type: "text/html" }),
   );
-  return await postFinalize(deploymentId, formData);
+  return await postFinalize(deploymentId, formData, sessionId);
 }
 
 async function postFinalize(
   deploymentId: string,
   formData: FormData,
+  sessionId?: string,
 ): Promise<FinalizeDeploymentResponse> {
   const appClient = getAppClient();
 
@@ -103,7 +105,13 @@ async function postFinalize(
   try {
     response = await appClient.post(
       `deployments/${encodeURIComponent(deploymentId)}/finalize`,
-      { body: formData, timeout: 180_000 },
+      {
+        body: formData,
+        timeout: 180_000,
+        // Resolves this attempt's uploads. Omitted against a platform that
+        // doesn't issue one, which falls back to the commit-derived session.
+        ...(sessionId ? { searchParams: { session_id: sessionId } } : {}),
+      },
     );
   } catch (error) {
     throw await ApiError.fromHttpError(error, "finalizing deployment");

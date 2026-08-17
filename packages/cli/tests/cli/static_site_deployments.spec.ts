@@ -158,6 +158,38 @@ describe("site deploy command (static site through the deployments API, env-gate
     ]);
   });
 
+  it("finalizes through the session the create handed back", async () => {
+    // Two deploys of one commit share a deployment id, so the session id is
+    // what points finalize at this attempt's uploads rather than a sibling's.
+    await t.givenLoggedInWithProject(fixture("with-site"));
+    t.givenEnv({ BASE44_STATIC_DEPLOYMENTS: "1" });
+    t.api.mockDeploymentCreate({
+      deployment_id: DEPLOYMENT_ID,
+      session_id: "sess-abc123",
+      asset_uploads: null,
+    });
+    t.api.mockDeploymentFinalize({ deployment_id: DEPLOYMENT_ID });
+
+    const result = await t.run("site", "deploy", "-y", "--git-hash", GIT_HASH);
+
+    t.expectResult(result).toSucceed();
+    expect(t.api.finalizeQueries[0]).toEqual({ session_id: "sess-abc123" });
+  });
+
+  it("finalizes without a session id against a platform that issues none", async () => {
+    // The pinned CLI in a sandbox image predates the field, and a CLI newer
+    // than its platform must not send an empty one.
+    await t.givenLoggedInWithProject(fixture("with-site"));
+    t.givenEnv({ BASE44_STATIC_DEPLOYMENTS: "1" });
+    mockStaticCreate([]);
+    t.api.mockDeploymentFinalize({ deployment_id: DEPLOYMENT_ID });
+
+    const result = await t.run("site", "deploy", "-y", "--git-hash", GIT_HASH);
+
+    t.expectResult(result).toSucceed();
+    expect(t.api.finalizeQueries[0]).toEqual({});
+  });
+
   it("emits a single JSON document with --json", async () => {
     await t.givenLoggedInWithProject(fixture("with-site"));
     t.givenEnv({ BASE44_STATIC_DEPLOYMENTS: "1" });
