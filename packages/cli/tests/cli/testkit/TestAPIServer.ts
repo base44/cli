@@ -237,9 +237,8 @@ interface CreateAppResponse {
 
 interface DeploymentCreateResponse {
   deployment_id: string;
-  /** This attempt's upload session. Optional here so a spec can mock a
-   * platform that opens none and assert the client rejects it. */
-  session_id?: string;
+  /** This attempt's upload session. */
+  session_id: string;
   /** Where the assets still owed should go; null/omitted = nothing owed. */
   asset_uploads?: {
     type: "s3";

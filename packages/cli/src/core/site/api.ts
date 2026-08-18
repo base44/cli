@@ -108,8 +108,6 @@ async function postFinalize(
       {
         body: formData,
         timeout: 180_000,
-        // Resolves this attempt's uploads rather than a concurrent deploy's:
-        // the deployment id is derived from the commit, so siblings share it.
         searchParams: { session_id: sessionId },
       },
     );

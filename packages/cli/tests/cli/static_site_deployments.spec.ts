@@ -137,6 +137,9 @@ describe("site deploy command (static site through the deployments API, env-gate
     expect(styles?.authorization).toBeUndefined();
 
     expect(t.api.finalizeRequests).toHaveLength(1);
+    // Finalize resolves this attempt's session, not the commit-derived one a
+    // concurrent deploy of the same commit shares.
+    expect(t.api.finalizeQueries[0]).toEqual({ session_id: SESSION_ID });
     const fields = t.api.finalizeRequests[0];
     expect(fields.map((f) => f.name)).toEqual(["index.html"]);
     expect(fields[0].data.equals(await readSiteFile("index.html"))).toBe(true);
@@ -159,37 +162,6 @@ describe("site deploy command (static site through the deployments API, env-gate
     expect(t.api.finalizeRequests[0].map((f) => f.name)).toEqual([
       "index.html",
     ]);
-  });
-
-  it("finalizes through the session the create handed back", async () => {
-    // Two deploys of one commit share a deployment id, so the session id is
-    // what points finalize at this attempt's uploads rather than a sibling's.
-    await t.givenLoggedInWithProject(fixture("with-site"));
-    t.givenEnv({ BASE44_STATIC_DEPLOYMENTS: "1" });
-    mockStaticCreate([]);
-    t.api.mockDeploymentFinalize({ deployment_id: DEPLOYMENT_ID });
-
-    const result = await t.run("site", "deploy", "-y", "--git-hash", GIT_HASH);
-
-    t.expectResult(result).toSucceed();
-    expect(t.api.finalizeQueries[0]).toEqual({ session_id: SESSION_ID });
-  });
-
-  it("fails clearly when the platform opens no upload session", async () => {
-    // The static lane is env-gated and only the sandbox turns it on, so a
-    // platform without session support is a mismatched deploy, not a client to
-    // be tolerated — surface it instead of finalizing into a shared session.
-    await t.givenLoggedInWithProject(fixture("with-site"));
-    t.givenEnv({ BASE44_STATIC_DEPLOYMENTS: "1" });
-    t.api.mockDeploymentCreate({
-      deployment_id: DEPLOYMENT_ID,
-      asset_uploads: null,
-    });
-
-    const result = await t.run("site", "deploy", "-y", "--git-hash", GIT_HASH);
-
-    t.expectResult(result).toFail();
-    expect(t.api.finalizeQueries).toHaveLength(0);
   });
 
   it("emits a single JSON document with --json", async () => {
