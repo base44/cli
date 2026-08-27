@@ -476,6 +476,24 @@ describe("logs command", () => {
     );
   });
 
+  it("preserves the logs error when loading the 404 hint fails", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+    t.api.mockFunctionLogsError("missing-function", {
+      status: 404,
+      body: { error: "Original logs error" },
+    });
+    t.api.mockFunctionsListError({
+      status: 500,
+      body: { error: "Function list error" },
+    });
+
+    const result = await t.run("logs", "--function", "missing-function");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("Original logs error");
+    t.expectResult(result).toNotContain("Function list error");
+  });
+
   it("fails when API returns error for function logs", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
     t.api.mockFunctionLogsError("my-function", {
