@@ -194,11 +194,13 @@ async function getFunctionNamesForHint(
 function createFunctionNotFoundError(
   functionName: string,
   availableFunctionNames: string[],
+  logsError: ApiError,
 ) {
   const available = availableFunctionNames.join(", ");
   return new InvalidInputError(
     `Function "${functionName}" was not found in this app`,
     {
+      cause: logsError,
       hints: [
         { message: `Available functions in this app: ${available}` },
         {
@@ -230,7 +232,7 @@ async function fetchLogsForFunctions(
         error,
       );
       if (namesForHint.length === 0) throw error;
-      throw createFunctionNotFoundError(functionName, namesForHint);
+      throw createFunctionNotFoundError(functionName, namesForHint, error);
     }
 
     // The backend does not filter by level for every runtime (per-app
