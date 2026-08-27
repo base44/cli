@@ -174,45 +174,6 @@ function normalizeLogEntry(
   };
 }
 
-async function getRemoteFunctionNames(): Promise<string[]> {
-  const { functions } = await listDeployedFunctions();
-  return functions.map((fn) => fn.name);
-}
-
-async function getFunctionNamesForHint(
-  availableFunctionNames: string[],
-  logsError: ApiError,
-): Promise<string[]> {
-  if (availableFunctionNames.length > 0) return availableFunctionNames;
-  try {
-    return await getRemoteFunctionNames();
-  } catch {
-    throw logsError;
-  }
-}
-
-function createFunctionNotFoundError(
-  functionName: string,
-  availableFunctionNames: string[],
-  logsError: ApiError,
-) {
-  const available = availableFunctionNames.join(", ");
-  return new InvalidInputError(
-    `Function "${functionName}" was not found in this app`,
-    {
-      cause: logsError,
-      hints: [
-        { message: `Available functions in this app: ${available}` },
-        {
-          message:
-            "Make sure the function has been deployed before fetching logs",
-          command: "base44 functions deploy",
-        },
-      ],
-    },
-  );
-}
-
 async function fetchLogsForFunctions(
   functionNames: string[],
   options: LogsOptions,
@@ -226,13 +187,32 @@ async function fetchLogsForFunctions(
     try {
       logs = await fetchFunctionLogs(functionName, filters);
     } catch (error) {
-      if (!(error instanceof ApiError) || error.statusCode !== 404) throw error;
-      const namesForHint = await getFunctionNamesForHint(
-        availableFunctionNames,
-        error,
-      );
-      if (namesForHint.length === 0) throw error;
-      throw createFunctionNotFoundError(functionName, namesForHint, error);
+      if (error instanceof ApiError && error.statusCode === 404) {
+        const namesForHint = await getFunctionNamesForHint(
+          availableFunctionNames,
+          error,
+        );
+        if (namesForHint.length > 0) {
+          const available = namesForHint.join(", ");
+          throw new InvalidInputError(
+            `Function "${functionName}" was not found in this app`,
+            {
+              cause: error,
+              hints: [
+                {
+                  message: `Available functions in this app: ${available}`,
+                },
+                {
+                  message:
+                    "Make sure the function has been deployed before fetching logs",
+                  command: "base44 functions deploy",
+                },
+              ],
+            },
+          );
+        }
+      }
+      throw error;
     }
 
     // The backend does not filter by level for every runtime (per-app
@@ -257,6 +237,23 @@ async function fetchLogsForFunctions(
   return allEntries;
 }
 
+async function getRemoteFunctionNames(): Promise<string[]> {
+  const { functions } = await listDeployedFunctions();
+  return functions.map((fn) => fn.name);
+}
+
+async function getFunctionNamesForHint(
+  availableFunctionNames: string[],
+  logsError: ApiError,
+): Promise<string[]> {
+  if (availableFunctionNames.length > 0) return availableFunctionNames;
+  try {
+    return await getRemoteFunctionNames();
+  } catch {
+    throw logsError;
+  }
+}
+
 function validateLimit(limit: string | undefined): void {
   if (limit === undefined) return;
   const n = Number.parseInt(limit, 10);
@@ -275,7 +272,6 @@ async function logsAction(
   const specifiedFunctions = parseFunctionNames(options.function);
   const availableFunctionNames =
     specifiedFunctions.length === 0 ? await getRemoteFunctionNames() : [];
-
   const functionNames =
     specifiedFunctions.length > 0 ? specifiedFunctions : availableFunctionNames;
 
