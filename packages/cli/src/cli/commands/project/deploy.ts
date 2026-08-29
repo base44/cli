@@ -5,11 +5,11 @@ import {
   filterPendingOAuth,
   promptOAuthFlows,
 } from "@/cli/commands/connectors/oauth-prompt.js";
-import { formatDeployResult } from "@/cli/commands/functions/formatDeployResult.js";
 import { maybeBuildBeforeDeploy } from "@/cli/commands/project/site-build.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import {
   Base44Command,
+  formatDeployResult,
   getConnectorsUrl,
   getDashboardUrl,
   theme,
@@ -48,8 +48,15 @@ export async function deployAction(
     };
   }
 
-  const { project, entities, functions, agents, connectors, authConfig } =
-    projectData;
+  const {
+    project,
+    entities,
+    functions,
+    actors,
+    agents,
+    connectors,
+    authConfig,
+  } = projectData;
 
   // Build summary of what will be deployed
   const summaryLines: string[] = [];
@@ -61,6 +68,11 @@ export async function deployAction(
   if (functions.length > 0) {
     summaryLines.push(
       `  - ${functions.length} ${functions.length === 1 ? "function" : "functions"}`,
+    );
+  }
+  if (actors.length > 0) {
+    summaryLines.push(
+      `  - ${actors.length} ${actors.length === 1 ? "actor" : "actors"}`,
     );
   }
   if (agents.length > 0) {
@@ -102,9 +114,11 @@ export async function deployAction(
 
   await maybeBuildBeforeDeploy(ctx, project, options.build);
 
-  // Deploy resources with per-function progress
+  // Deploy resources with per-function and per-actor progress
   let functionCompleted = 0;
   const functionTotal = functions.length;
+  let actorCompleted = 0;
+  const actorTotal = actors.length;
 
   const result = await deployAll(projectData, {
     onVisibilitySet: (level) => {
@@ -120,6 +134,18 @@ export async function deployAction(
     },
     onFunctionResult: (r) => {
       functionCompleted++;
+      formatDeployResult(r, log);
+    },
+    onActorStart: (names) => {
+      const label = names.length === 1 ? names[0] : `${names.length} actors`;
+      log.step(
+        theme.styles.dim(
+          `[${actorCompleted + 1}/${actorTotal}] Deploying ${label}...`,
+        ),
+      );
+    },
+    onActorResult: (r) => {
+      actorCompleted++;
       formatDeployResult(r, log);
     },
   });
@@ -147,7 +173,7 @@ export async function deployAction(
 export function getDeployCommand(): Command {
   return new Base44Command("deploy")
     .description(
-      "Deploy all project resources (entities, functions, agents, connectors, and site)",
+      "Deploy entities, functions, actors, agent skills, agents, auth, connectors, and site",
     )
     .option("-y, --yes", "Skip confirmation prompt")
     .option("--build", "Build the site before deploying (skips the prompt)")

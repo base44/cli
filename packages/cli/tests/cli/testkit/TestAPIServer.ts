@@ -115,6 +115,16 @@ interface SingleFunctionDeployResponse {
   status: "deployed" | "unchanged";
 }
 
+interface SingleActorDeployResponse {
+  status: "deployed" | "unchanged";
+}
+
+interface ActorDeployRequest {
+  name: string;
+  entry: string;
+  files: Array<{ path: string; content: string }>;
+}
+
 interface AutomationBase {
   name: string;
   description?: string | null;
@@ -381,6 +391,9 @@ export class TestAPIServer {
   private server: Server | null = null;
   private _port = 0;
 
+  /** Captured actor deploy request bodies and decoded actor names. */
+  readonly actorDeployRequests: ActorDeployRequest[] = [];
+
   constructor(readonly appId: string) {
     this.app = express();
     this.app.use(express.json());
@@ -525,6 +538,36 @@ export class TestAPIServer {
       `/api/apps/${this.appId}/backend-functions/:name`,
       response,
     );
+  }
+
+  /** Mock PUT /api/apps/{appId}/actors/{name} - Deploy single actor */
+  mockSingleActorDeploy(response: SingleActorDeployResponse): this {
+    this.pendingRoutes.push({
+      method: "PUT",
+      path: `/api/apps/${this.appId}/actors/:name`,
+      handler: (req, res) => {
+        const body = req.body as Omit<ActorDeployRequest, "name">;
+        this.actorDeployRequests.push({
+          name: String(req.params.name),
+          entry: body.entry,
+          files: body.files,
+        });
+        res.status(200).json(response);
+      },
+    });
+    return this;
+  }
+
+  /** Mock DELETE /api/apps/{appId}/actors/{name} - Delete single actor */
+  mockSingleActorDelete(): this {
+    this.pendingRoutes.push({
+      method: "DELETE",
+      path: `/api/apps/${this.appId}/actors/:name`,
+      handler: (_req, res) => {
+        res.status(200).json({ status: "deleted" });
+      },
+    });
+    return this;
   }
 
   mockSiteDeploy(response: SiteDeployResponse): this {
@@ -923,11 +966,29 @@ export class TestAPIServer {
     );
   }
 
+  /** Mock single actor deploy to return an error */
+  mockSingleActorDeployError(error: ErrorResponse): this {
+    return this.addErrorRoute(
+      "PUT",
+      `/api/apps/${this.appId}/actors/:name`,
+      error,
+    );
+  }
+
   /** Mock single function delete to return an error */
   mockSingleFunctionDeleteError(error: ErrorResponse): this {
     return this.addErrorRoute(
       "DELETE",
       `/api/apps/${this.appId}/backend-functions/:name`,
+      error,
+    );
+  }
+
+  /** Mock single actor delete to return an error */
+  mockSingleActorDeleteError(error: ErrorResponse): this {
+    return this.addErrorRoute(
+      "DELETE",
+      `/api/apps/${this.appId}/actors/:name`,
       error,
     );
   }

@@ -15,7 +15,7 @@ import {
   formatPlainUpgradeMessage,
   startUpgradeCheck,
 } from "@/cli/utils/upgradeNotification.js";
-import { ApiError, isCLIError } from "@/core/errors.js";
+import { ApiError, isCLIError, ResourceDeployError } from "@/core/errors.js";
 
 /**
  * Write a command result to stdout as a single JSON document (the `--json`
@@ -62,6 +62,26 @@ function writeJsonError(error: unknown): void {
     if (error.requestId !== undefined) {
       envelope.requestId = error.requestId;
     }
+  }
+  if (error instanceof ResourceDeployError) {
+    envelope.failures = error.failures.map((failure) => {
+      const item: Record<string, unknown> = {
+        name: failure.name,
+        error: failure.message,
+      };
+      if (isCLIError(failure.cause)) {
+        item.code = failure.cause.code;
+      }
+      if (failure.cause instanceof ApiError) {
+        if (failure.cause.statusCode !== undefined) {
+          item.statusCode = failure.cause.statusCode;
+        }
+        if (failure.cause.requestId !== undefined) {
+          item.requestId = failure.cause.requestId;
+        }
+      }
+      return item;
+    });
   }
   process.stdout.write(`${JSON.stringify(envelope)}\n`);
 }

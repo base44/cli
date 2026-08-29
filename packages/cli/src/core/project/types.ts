@@ -1,4 +1,5 @@
 import type { ProjectConfig } from "@/core/project/schema.js";
+import type { Actor } from "@/core/resources/actor/index.js";
 import type { AgentConfig } from "@/core/resources/agent/index.js";
 import type { AgentSkill } from "@/core/resources/agent-skill/index.js";
 import type { AuthConfig } from "@/core/resources/auth-config/index.js";
@@ -20,6 +21,7 @@ export interface ProjectData {
   project: ProjectWithPaths;
   entities: Entity[];
   functions: BackendFunction[];
+  actors: Actor[];
   agents: AgentConfig[];
   agentSkills: AgentSkill[];
   connectors: ConnectorResource[];

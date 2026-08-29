@@ -4,6 +4,13 @@ import { fixture, setupCLITests } from "./testkit/index.js";
 describe("deploy command (unified)", () => {
   const t = setupCLITests();
 
+  it("lists actors in deploy help", async () => {
+    const result = await t.run("deploy", "--help");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("actors");
+  });
+
   it("applies app visibility from config during deploy", async () => {
     await t.givenLoggedInWithProject(fixture("with-visibility"));
 
@@ -96,6 +103,36 @@ describe("deploy command (unified)", () => {
     t.expectResult(result).toContain("App deployed successfully");
   });
 
+  it("deploys actors with unified deploy", async () => {
+    await t.givenLoggedInWithProject(fixture("with-actors"));
+    t.api.mockSingleActorDeploy({ status: "deployed" });
+    t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
+    t.api.mockConnectorsList({ integrations: [] });
+    t.api.mockStripeStatus({ stripe_mode: null });
+
+    const result = await t.run("deploy", "-y");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("1 actor");
+    t.expectResult(result).toContain("Deploying ChatRoom");
+    t.expectResult(result).toContain("deployed");
+    t.expectResult(result).toContain("App deployed successfully");
+  });
+
+  it("fails unified deploy when an actor fails", async () => {
+    await t.givenLoggedInWithProject(fixture("with-actors"));
+    t.api.mockSingleActorDeployError({
+      status: 400,
+      body: { error: "Invalid actor code" },
+    });
+
+    const result = await t.run("deploy", "-y");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("Invalid actor code");
+    t.expectResult(result).toNotContain("App deployed successfully");
+  });
+
   it("deploys entities successfully with --yes flag", async () => {
     await t.givenLoggedInWithProject(fixture("with-entities"));
     t.api.mockEntitiesPush({
@@ -125,6 +162,21 @@ describe("deploy command (unified)", () => {
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("App deployed successfully");
+  });
+
+  it("fails unified deploy when a function fails", async () => {
+    await t.givenLoggedInWithProject(fixture("with-functions-and-entities"));
+    t.api.mockEntitiesPush({ created: ["Order"], updated: [], deleted: [] });
+    t.api.mockSingleFunctionDeployError({
+      status: 400,
+      body: { error: "Invalid function code" },
+    });
+
+    const result = await t.run("deploy", "-y");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("Invalid function code");
+    t.expectResult(result).toNotContain("App deployed successfully");
   });
 
   it("deploys zero-config functions (path-based names) with unified deploy", async () => {

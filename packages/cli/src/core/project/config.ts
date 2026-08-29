@@ -22,6 +22,8 @@ import type {
   ProjectRoot,
   ProjectWithPaths,
 } from "@/core/project/types.js";
+import type { Actor } from "@/core/resources/actor/index.js";
+import { actorResource } from "@/core/resources/actor/index.js";
 import { agentResource } from "@/core/resources/agent/index.js";
 import { agentSkillResource } from "@/core/resources/agent-skill/index.js";
 import { authConfigResource } from "@/core/resources/auth-config/index.js";
@@ -67,11 +69,13 @@ class ProjectConfigReader {
       ...pluginResources.functions,
     ];
     this.validateFunctionNames(functions, configPath);
+    this.validateActorNames(localResources.actors, functions, configPath);
 
     return {
       project,
       entities,
       functions,
+      actors: localResources.actors,
       agents: localResources.agents,
       agentSkills: localResources.agentSkills,
       connectors: localResources.connectors,
@@ -118,17 +122,33 @@ class ProjectConfigReader {
     project: ProjectConfig,
   ): Promise<ProjectResources> {
     const configDir = dirname(configPath);
-    const [entities, functions, agents, agentSkills, connectors, authConfig] =
-      await Promise.all([
-        entityResource.readAll(join(configDir, project.entitiesDir)),
-        functionResource.readAll(join(configDir, project.functionsDir)),
-        agentResource.readAll(join(configDir, project.agentsDir)),
-        agentSkillResource.readAll(join(configDir, project.agentSkillsDir)),
-        connectorResource.readAll(join(configDir, project.connectorsDir)),
-        authConfigResource.readAll(join(configDir, project.authDir)),
-      ]);
+    const [
+      entities,
+      functions,
+      actors,
+      agents,
+      agentSkills,
+      connectors,
+      authConfig,
+    ] = await Promise.all([
+      entityResource.readAll(join(configDir, project.entitiesDir)),
+      functionResource.readAll(join(configDir, project.functionsDir)),
+      actorResource.readAll(join(configDir, project.actorsDir)),
+      agentResource.readAll(join(configDir, project.agentsDir)),
+      agentSkillResource.readAll(join(configDir, project.agentSkillsDir)),
+      connectorResource.readAll(join(configDir, project.connectorsDir)),
+      authConfigResource.readAll(join(configDir, project.authDir)),
+    ]);
 
-    return { entities, functions, agents, agentSkills, connectors, authConfig };
+    return {
+      entities,
+      functions,
+      actors,
+      agents,
+      agentSkills,
+      connectors,
+      authConfig,
+    };
   }
 
   private assertPluginProjectDoesNotLoadPlugins(
@@ -198,6 +218,7 @@ class ProjectConfigReader {
     return {
       entities: markPluginEntities(resources.entities, namespace),
       functions: namespacePluginFunctions(resources.functions, namespace),
+      actors: [],
       agents: [],
       agentSkills: [],
       connectors: [],
@@ -255,6 +276,7 @@ class ProjectConfigReader {
     return {
       entities,
       functions,
+      actors: [],
       agents: [],
       agentSkills: [],
       connectors: [],
@@ -285,6 +307,36 @@ class ProjectConfigReader {
         );
       }
       functionsByName.set(fn.name, fn);
+    }
+  }
+
+  /**
+   * An actor deploys onto the same backend-function namespace server-side, so a
+   * name shared with a function is rejected there. Catch it at read time — the
+   * alternative is a mid-deploy failure after earlier resources already landed.
+   */
+  private validateActorNames(
+    actors: Actor[],
+    functions: BackendFunction[],
+    configPath: string,
+  ): void {
+    const functionNames = new Set(functions.map((fn) => fn.name));
+
+    for (const actor of actors) {
+      if (functionNames.has(actor.name)) {
+        throw new ConfigInvalidError(
+          `"${actor.name}" exists as both a backend function and an actor.`,
+          configPath,
+          {
+            hints: [
+              {
+                message:
+                  "Actors and functions share one deploy namespace — rename one of them.",
+              },
+            ],
+          },
+        );
+      }
     }
   }
 }

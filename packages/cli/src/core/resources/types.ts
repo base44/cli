@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ResourceDeployError } from "@/core/errors.js";
 
 export const ResourceSourceSchema = z.discriminatedUnion("type", [
   z.object({
@@ -9,6 +10,34 @@ export const ResourceSourceSchema = z.discriminatedUnion("type", [
     namespace: z.string().min(1, "Plugin namespace cannot be empty"),
   }),
 ]);
+
+/**
+ * Per-item outcome of a sequential deploy (functions, actors).
+ */
+export interface SingleDeployResult {
+  name: string;
+  status: "deployed" | "unchanged" | "error";
+  error?: string | null;
+  cause?: Error;
+  durationMs?: number;
+}
+
+export function throwIfDeployFailed(
+  results: SingleDeployResult[],
+  resource: "actor" | "function",
+): void {
+  const failures = results
+    .filter((result) => result.status === "error")
+    .map((result) => ({
+      name: result.name,
+      message: result.error ?? "Unknown deployment error",
+      cause: result.cause,
+    }));
+
+  if (failures.length > 0) {
+    throw new ResourceDeployError(resource, failures);
+  }
+}
 
 /**
  * Base interface for all project resources (entities, functions, etc.).

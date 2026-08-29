@@ -1,6 +1,6 @@
 import type { Command } from "commander";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
-import { Base44Command } from "@/cli/utils/index.js";
+import { Base44Command, parseNames } from "@/cli/utils/index.js";
 import { ApiError } from "@/core/errors.js";
 import { deleteSingleFunction } from "@/core/resources/function/api.js";
 
@@ -40,14 +40,6 @@ async function deleteFunctionsAction(
   if (notFound > 0) parts.push(`${notFound} not found`);
   if (errors > 0) parts.push(`${errors} error${errors !== 1 ? "s" : ""}`);
   return { outroMessage: parts.join(", ") };
-}
-
-/** Parse names from variadic CLI args, supporting comma-separated values. */
-function parseNames(args: string[]): string[] {
-  return args
-    .flatMap((arg) => arg.split(","))
-    .map((n) => n.trim())
-    .filter(Boolean);
 }
 
 function validateNames(command: Command): void {

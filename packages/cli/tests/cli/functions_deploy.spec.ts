@@ -1,4 +1,4 @@
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { fixture, setupCLITests } from "./testkit/index.js";
 
 describe("functions deploy command", () => {
@@ -113,6 +113,30 @@ describe("functions deploy command", () => {
     t.expectResult(result).toFail();
     t.expectResult(result).toContain("error");
     t.expectResult(result).toContain("1 error");
+  });
+
+  it("returns structured function failures in JSON mode", async () => {
+    await t.givenLoggedInWithProject(fixture("with-functions-and-entities"));
+    t.api.mockSingleFunctionDeployError({
+      status: 422,
+      body: { message: "Invalid function code" },
+    });
+
+    const result = await t.run("functions", "deploy", "--json");
+
+    t.expectResult(result).toFail();
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      error: "Failed to deploy 1 function",
+      code: "RESOURCE_DEPLOY_FAILED",
+      failures: [
+        {
+          name: "process-order",
+          code: "API_ERROR",
+          statusCode: 422,
+        },
+      ],
+    });
+    expect(result.stdout).toContain("Invalid function code");
   });
 
   it("reports validation error from 422 response", async () => {

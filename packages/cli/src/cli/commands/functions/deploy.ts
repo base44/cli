@@ -1,19 +1,22 @@
 import type { Logger } from "@base44-cli/logger";
 import type { Command } from "commander";
-import { formatDeployResult } from "@/cli/commands/functions/formatDeployResult.js";
-import { parseNames } from "@/cli/commands/functions/parseNames.js";
-import { CLIExitError } from "@/cli/errors.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
-import { Base44Command, theme } from "@/cli/utils/index.js";
+import {
+  Base44Command,
+  buildDeploySummary,
+  formatDeployResult,
+  parseNames,
+  theme,
+} from "@/cli/utils/index.js";
 import { InvalidInputError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/index.js";
 import {
   deployFunctionsSequentially,
   type PruneResult,
   pruneRemovedFunctions,
-  type SingleFunctionDeployResult,
 } from "@/core/resources/function/deploy.js";
 import type { BackendFunction } from "@/core/resources/function/schema.js";
+import { throwIfDeployFailed } from "@/core/resources/types.js";
 
 function resolveFunctionsToDeploy(
   names: string[],
@@ -43,18 +46,6 @@ function formatPruneSummary(pruneResults: PruneResult[], log: Logger): void {
     const pruned = pruneResults.filter((r) => r.deleted).length;
     log.info(`${pruned} deleted`);
   }
-}
-
-function buildDeploySummary(results: SingleFunctionDeployResult[]): string {
-  const deployed = results.filter((r) => r.status === "deployed").length;
-  const unchanged = results.filter((r) => r.status === "unchanged").length;
-  const failed = results.filter((r) => r.status === "error").length;
-
-  const parts: string[] = [];
-  if (deployed > 0) parts.push(`${deployed} deployed`);
-  if (unchanged > 0) parts.push(`${unchanged} unchanged`);
-  if (failed > 0) parts.push(`${failed} error${failed !== 1 ? "s" : ""}`);
-  return parts.join(", ") || "No functions deployed";
 }
 
 async function deployFunctionsAction(
@@ -103,8 +94,8 @@ async function deployFunctionsAction(
 
   const hasFailures = results.some((r) => r.status === "error");
   if (hasFailures) {
-    log.message(buildDeploySummary(results));
-    throw new CLIExitError(1);
+    log.message(buildDeploySummary(results, "functions"));
+    throwIfDeployFailed(results, "function");
   }
 
   if (options.force) {
@@ -133,7 +124,7 @@ async function deployFunctionsAction(
     formatPruneSummary(pruneResults, log);
   }
 
-  return { outroMessage: buildDeploySummary(results) };
+  return { outroMessage: buildDeploySummary(results, "functions") };
 }
 
 export function getDeployCommand(): Command {

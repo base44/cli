@@ -14,6 +14,7 @@ import {
   isCLIError,
   isSystemError,
   isUserError,
+  ResourceDeployError,
   SchemaValidationError,
 } from "../../src/core/errors.js";
 
@@ -132,6 +133,22 @@ describe("UserError subclasses", () => {
 });
 
 describe("SystemError subclasses", () => {
+  it("ResourceDeployError preserves per-resource failures", () => {
+    const cause = new ApiError("Invalid actor code", { statusCode: 422 });
+    const error = new ResourceDeployError("actor", [
+      { name: "ChatRoom", message: cause.message, cause },
+    ]);
+
+    expect(error.code).toBe("RESOURCE_DEPLOY_FAILED");
+    expect(error.message).toBe("Failed to deploy 1 actor");
+    expect(error.details).toEqual(["ChatRoom: Invalid actor code"]);
+    expect(error.failures).toEqual([
+      { name: "ChatRoom", message: cause.message, cause },
+    ]);
+    expect(error.cause).toBe(cause);
+    expect(isSystemError(error)).toBe(true);
+  });
+
   it("ApiError provides default hints based on status code", () => {
     const error401 = new ApiError("Unauthorized", { statusCode: 401 });
     expect(error401.hints.some((h) => h.command === "base44 login")).toBe(true);

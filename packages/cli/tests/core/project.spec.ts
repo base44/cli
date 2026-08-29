@@ -48,6 +48,16 @@ describe("readProjectConfig", () => {
     expect(result.agents).toEqual([]);
   });
 
+  it("rejects a name used by both a function and an actor", async () => {
+    // Actors deploy onto the backend-function namespace, so the server rejects
+    // the collision — fail at read time instead of mid-deploy.
+    await expect(
+      readProjectConfig(resolve(FIXTURES_DIR, "actor-function-name-collision")),
+    ).rejects.toThrow(
+      /"ChatRoom" exists as both a backend function and an actor/,
+    );
+  });
+
   it("reads project plugins with automatic entity merging and namespaced functions", async () => {
     const result = await readProjectConfig(
       resolve(FIXTURES_DIR, "with-config-plugins"),
