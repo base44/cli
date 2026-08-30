@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
+  countDropTowardGivingUp,
   type FollowState,
   type LogEntry,
+  printStreamUntilEnd,
   selectNewEntries,
+  shouldGiveUpStreaming,
 } from "@/cli/commands/project/logs.js";
 import {
   isWorthReconnecting,
   parseStreamEvent,
+  readStreamEvents,
 } from "@/core/resources/function/index.js";
 import { fixture, setupCLITests } from "./testkit/index.js";
 
@@ -134,6 +138,79 @@ describe("parseStreamEvent (SSE log stream)", () => {
     expect(parseStreamEvent("", "not-json")).toBeNull();
     expect(parseStreamEvent("", '{"level":"info"}')).toBeNull();
     expect(parseStreamEvent("end", '{"reason":"x"}')).toBeNull();
+  });
+});
+
+function streamOf(sse: string) {
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(sse));
+      controller.close();
+    },
+  });
+}
+
+async function collect(sse: string) {
+  const events = [];
+  for await (const event of readStreamEvents(streamOf(sse))) events.push(event);
+  return events;
+}
+
+describe("readStreamEvents (keepalive comments)", () => {
+  it("surfaces a keepalive comment as a ping", async () => {
+    expect(await collect(": ping\n\n")).toEqual([{ kind: "ping" }]);
+  });
+
+  it("keeps reading log frames that follow a ping", async () => {
+    const logFrame =
+      'data: {"time":"2026-01-01T00:00:00Z","level":"info","function":"fn","message":"hi"}\n\n';
+    const events = await collect(`: ping\n\n${logFrame}`);
+    expect(events.map((event) => event.kind)).toEqual(["ping", "log"]);
+  });
+});
+
+describe("printStreamUntilEnd (liveness)", () => {
+  async function* pings(count: number) {
+    for (let sent = 0; sent < count; sent++) yield { kind: "ping" } as const;
+  }
+
+  it("treats a ping-only connection as proven alive", async () => {
+    const ending = await printStreamUntilEnd(pings(1), undefined, false, "");
+    expect(ending.provedAlive).toBe(true);
+    expect(ending.end).toBeNull();
+  });
+
+  it("treats a connection that sent nothing as unproven", async () => {
+    const ending = await printStreamUntilEnd(pings(0), undefined, false, "");
+    expect(ending.provedAlive).toBe(false);
+  });
+});
+
+describe("stream drop budget", () => {
+  const dropsAfter = (provedAlive: boolean, laps: number) => {
+    let drops = 0;
+    for (let lap = 0; lap < laps; lap++) {
+      drops = countDropTowardGivingUp(drops, provedAlive);
+    }
+    return drops;
+  };
+
+  it("keeps reconnecting when pings proved the connection alive", () => {
+    expect(shouldGiveUpStreaming(dropsAfter(true, 2))).toBe(false);
+    expect(shouldGiveUpStreaming(dropsAfter(true, 10))).toBe(false);
+  });
+
+  it("falls back to polling after two connections die with nothing", () => {
+    expect(shouldGiveUpStreaming(dropsAfter(false, 1))).toBe(false);
+    expect(shouldGiveUpStreaming(dropsAfter(false, 2))).toBe(true);
+  });
+
+  it("counts a silent drop after a proven one toward the cap", () => {
+    expect(
+      shouldGiveUpStreaming(
+        countDropTowardGivingUp(dropsAfter(true, 1), false),
+      ),
+    ).toBe(true);
   });
 });
 

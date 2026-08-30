@@ -144,34 +144,43 @@ function streamEventToLogEntry(event: StreamLogEvent): LogEntry {
 
 interface StreamEnding {
   lastTime: string;
-  producedEvents: boolean;
+  provedAlive: boolean;
   end: StreamEndEvent | null;
 }
 
-async function printStreamUntilEnd(
+export async function printStreamUntilEnd(
   stream: AsyncGenerator<StreamEvent>,
   levelFilter: string | undefined,
   jsonMode: boolean,
   startTime: string,
 ): Promise<StreamEnding> {
   let lastTime = startTime;
-  let producedEvents = false;
+  let provedAlive = false;
   try {
     for await (const event of stream) {
-      producedEvents = true;
+      provedAlive = true;
       if (event.kind === "end")
-        return { lastTime, producedEvents, end: event.end };
+        return { lastTime, provedAlive, end: event.end };
+      if (event.kind === "ping") continue;
       if (levelFilter && event.log.level !== levelFilter) continue;
       writeFollowLine(streamEventToLogEntry(event.log), jsonMode);
       if (event.log.time > lastTime) lastTime = event.log.time;
     }
   } catch {}
-  return { lastTime, producedEvents, end: null };
+  return { lastTime, provedAlive, end: null };
 }
 
 const STREAM_RECONNECT_DELAY_MS = 1_000;
 const MAX_DROPS_SINCE_LAST_EVENT = 2;
 const CONNECT_RETRY_DELAYS_MS = [1_000, 2_000, 4_000, 8_000];
+
+export const countDropTowardGivingUp = (
+  dropsSinceLastEvent: number,
+  provedAlive: boolean,
+) => (provedAlive ? 1 : dropsSinceLastEvent + 1);
+
+export const shouldGiveUpStreaming = (dropsSinceLastEvent: number) =>
+  dropsSinceLastEvent >= MAX_DROPS_SINCE_LAST_EVENT;
 
 async function connectWhileTransientlyUnavailable(
   filters: LogStreamFilters,
@@ -216,8 +225,11 @@ async function streamUntilExhausted(
       if (!ending.end.retriable) break;
       dropsSinceLastEvent = 0;
     } else {
-      dropsSinceLastEvent = ending.producedEvents ? 1 : dropsSinceLastEvent + 1;
-      if (dropsSinceLastEvent >= MAX_DROPS_SINCE_LAST_EVENT) break;
+      dropsSinceLastEvent = countDropTowardGivingUp(
+        dropsSinceLastEvent,
+        ending.provedAlive,
+      );
+      if (shouldGiveUpStreaming(dropsSinceLastEvent)) break;
     }
     await delay(STREAM_RECONNECT_DELAY_MS);
   }

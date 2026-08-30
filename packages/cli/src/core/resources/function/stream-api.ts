@@ -34,7 +34,8 @@ export type StreamEndEvent = z.infer<typeof StreamEndEventSchema>;
 
 export type StreamEvent =
   | { kind: "log"; log: StreamLogEvent }
-  | { kind: "end"; end: StreamEndEvent };
+  | { kind: "end"; end: StreamEndEvent }
+  | { kind: "ping" };
 
 export interface LogStreamFilters {
   functions?: string[];
@@ -137,11 +138,15 @@ async function* readLines(
   }
 }
 
-async function* readStreamEvents(
+export async function* readStreamEvents(
   body: ReadableStream<Uint8Array>,
 ): AsyncGenerator<StreamEvent> {
   let eventName = "";
   for await (const line of readLines(body)) {
+    if (line.startsWith(":")) {
+      yield { kind: "ping" };
+      continue;
+    }
     if (line.startsWith("event:")) {
       eventName = line.slice(6).trim();
       continue;
