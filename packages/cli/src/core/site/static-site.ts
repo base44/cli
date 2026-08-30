@@ -70,6 +70,7 @@ export async function deployStaticSite(options: {
   const finalized = await finalizeStaticDeployment(
     created.deploymentId,
     new Uint8Array(indexHtml),
+    created.sessionId,
   );
 
   return { deploymentId: finalized.deploymentId, gitHash };

@@ -94,6 +94,7 @@ export async function deployFullStack(options: {
     created.deploymentId,
     completionJwt,
     modules,
+    created.sessionId,
   );
 
   return { deploymentId: finalized.deploymentId, gitHash };

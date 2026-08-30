@@ -7,6 +7,8 @@ import { fixture, setupCLITests } from "./testkit/index.js";
 /** The commit the fixture "build" came from. */
 const GIT_HASH = "0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c";
 const DEPLOYMENT_ID = "test-app-git-0f1e2d3c4b5a";
+/** The upload session the server opens for one deploy attempt. */
+const SESSION_ID = "3f9a1c07b8e44d2f";
 
 /** Server-side content types differ from the CLI's own mapping on purpose —
  * the tests prove the signed value wins. */
@@ -37,6 +39,7 @@ describe("site deploy command (static site through the deployments API, env-gate
   function mockStaticCreate(uploadPaths: string[]) {
     t.api.mockDeploymentCreate({
       deployment_id: DEPLOYMENT_ID,
+      session_id: SESSION_ID,
       asset_uploads:
         uploadPaths.length === 0
           ? null
@@ -108,6 +111,9 @@ describe("site deploy command (static site through the deployments API, env-gate
     expect(styles?.authorization).toBeUndefined();
 
     expect(t.api.finalizeRequests).toHaveLength(1);
+    // Finalize resolves this attempt's session, not the commit-derived one a
+    // concurrent deploy of the same commit shares.
+    expect(t.api.finalizeQueries[0]).toEqual({ session_id: SESSION_ID });
     const fields = t.api.finalizeRequests[0];
     expect(fields.map((f) => f.name)).toEqual(["index.html"]);
     expect(fields[0].data.equals(await readSiteFile("index.html"))).toBe(true);
@@ -259,6 +265,7 @@ describe("site deploy command (static site through the deployments API, env-gate
     t.givenEnv({ BASE44_STATIC_DEPLOYMENTS: "1" });
     t.api.mockDeploymentCreate({
       deployment_id: DEPLOYMENT_ID,
+      session_id: SESSION_ID,
       asset_uploads: null,
     });
     t.api.mockDeploymentFinalize({ deployment_id: DEPLOYMENT_ID });

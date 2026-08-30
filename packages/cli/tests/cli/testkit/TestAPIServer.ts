@@ -237,6 +237,8 @@ interface CreateAppResponse {
 
 interface DeploymentCreateResponse {
   deployment_id: string;
+  /** This attempt's upload session. */
+  session_id: string;
   /** Where the assets still owed should go; null/omitted = nothing owed. */
   asset_uploads?:
     | { type: "cf"; url: string; jwt: string; buckets: string[][] }
@@ -764,6 +766,9 @@ export class TestAPIServer {
   /** Captured multipart fields of finalize requests. */
   readonly finalizeRequests: MultipartField[][] = [];
 
+  /** Captured query strings of finalize requests, for the session id. */
+  readonly finalizeQueries: Record<string, unknown>[] = [];
+
   /**
    * Mock POST /api/apps/{appId}/deployments. Captures the JSON request body
    * in `deploymentCreateRequests`.
@@ -860,6 +865,7 @@ export class TestAPIServer {
         this.finalizeRequests.push(
           parseMultipart(req.body as Buffer, req.headers["content-type"] ?? ""),
         );
+        this.finalizeQueries.push({ ...req.query });
         res.status(200).json(response);
       },
     });

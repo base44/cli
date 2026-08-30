@@ -18,6 +18,7 @@ const APP_JS = 'console.log("app");\n';
 /** The fixture is not a git repo, so every deploy passes --git-hash. */
 const GIT_HASH = "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0";
 const DEPLOYMENT_ID = "test-app-git-a1b2c3d4e5f6";
+const SESSION_ID = "3f9a1c07b8e44d2f";
 
 interface CreateBody {
   git_hash: string;
@@ -38,6 +39,7 @@ describe("site deploy command (full-stack)", () => {
     const jsHash = assetHash(t.api.appId, APP_JS);
     t.api.mockDeploymentCreate({
       deployment_id: DEPLOYMENT_ID,
+      session_id: SESSION_ID,
       asset_uploads: {
         type: "cf",
         url: `${t.api.baseUrl}/cf-assets/upload`,
@@ -125,6 +127,7 @@ describe("site deploy command (full-stack)", () => {
     await t.givenLoggedInWithProject(fixture("fullstack-project"));
     t.api.mockDeploymentCreate({
       deployment_id: DEPLOYMENT_ID,
+      session_id: SESSION_ID,
       asset_uploads: null,
     });
     t.api.mockDeploymentFinalize({ deployment_id: DEPLOYMENT_ID });
@@ -210,6 +213,7 @@ describe("site deploy command (full-stack)", () => {
     const htmlHash = assetHash(t.api.appId, INDEX_HTML);
     t.api.mockDeploymentCreate({
       deployment_id: DEPLOYMENT_ID,
+      session_id: SESSION_ID,
       asset_uploads: {
         type: "cf",
         url: `${t.api.baseUrl}/cf-assets/upload`,
@@ -243,6 +247,7 @@ describe("site deploy command (full-stack)", () => {
     await t.givenLoggedInWithProject(fixture("fullstack-project"));
     t.api.mockDeploymentCreate({
       deployment_id: DEPLOYMENT_ID,
+      session_id: SESSION_ID,
       asset_uploads: {
         type: "cf",
         url: `${t.api.baseUrl}/cf-assets/upload`,

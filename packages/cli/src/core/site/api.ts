@@ -91,6 +91,7 @@ export async function finalizeDeployment(
   deploymentId: string,
   completionJwt: string | null,
   modules: WorkerModule[],
+  sessionId: string,
 ): Promise<FinalizeDeploymentResponse> {
   const formData = new FormData();
   formData.append("payload", JSON.stringify({ completion_jwt: completionJwt }));
@@ -105,7 +106,7 @@ export async function finalizeDeployment(
     );
   }
 
-  return await postFinalize(deploymentId, formData);
+  return await postFinalize(deploymentId, formData, sessionId);
 }
 
 /**
@@ -115,18 +116,20 @@ export async function finalizeDeployment(
 export async function finalizeStaticDeployment(
   deploymentId: string,
   indexHtml: Uint8Array,
+  sessionId: string,
 ): Promise<FinalizeDeploymentResponse> {
   const formData = new FormData();
   formData.append(
     "index.html",
     new File([indexHtml], "index.html", { type: "text/html" }),
   );
-  return await postFinalize(deploymentId, formData);
+  return await postFinalize(deploymentId, formData, sessionId);
 }
 
 async function postFinalize(
   deploymentId: string,
   formData: FormData,
+  sessionId: string,
 ): Promise<FinalizeDeploymentResponse> {
   const appClient = getAppClient();
 
@@ -134,7 +137,11 @@ async function postFinalize(
   try {
     response = await appClient.post(
       `deployments/${encodeURIComponent(deploymentId)}/finalize`,
-      { body: formData, timeout: 180_000 },
+      {
+        body: formData,
+        timeout: 180_000,
+        searchParams: { session_id: sessionId },
+      },
     );
   } catch (error) {
     throw await ApiError.fromHttpError(error, "finalizing deployment");
