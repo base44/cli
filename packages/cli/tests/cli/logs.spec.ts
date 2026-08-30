@@ -98,6 +98,15 @@ describe("logs command", () => {
     t.expectResult(result).toContain("Something went wrong");
   });
 
+  it("does not load local resources when --function is specified", async () => {
+    await t.givenLoggedInWithProject(fixture("invalid-entity"));
+    t.api.mockFunctionLogs("my-function", []);
+
+    const result = await t.run("logs", "--function", "my-function");
+
+    t.expectResult(result).toSucceed();
+  });
+
   it("fetches logs for multiple functions with --function comma-separated", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
     t.api.mockFunctionLogs("fn1", [
@@ -114,16 +123,31 @@ describe("logs command", () => {
     t.expectResult(result).toContain("From fn2");
   });
 
-  it("fetches logs for all project functions when no --function specified", async () => {
-    await t.givenLoggedInWithProject(fixture("full-project"));
-    t.api.mockFunctionLogs("hello", [
-      { time: "2024-01-15T10:29:00Z", level: "info", message: "Hello world" },
+  it("fetches logs for all deployed functions inside a local project", async () => {
+    await t.givenLoggedInWithProject(fixture("invalid-entity"));
+    t.api.mockFunctionsList({
+      functions: [
+        {
+          name: "remote-fn",
+          deployment_id: "d1",
+          entry: "entry.ts",
+          files: [{ path: "entry.ts", content: "" }],
+          automations: [],
+        },
+      ],
+    });
+    t.api.mockFunctionLogs("remote-fn", [
+      {
+        time: "2024-01-15T10:29:00Z",
+        level: "info",
+        message: "Remote function log",
+      },
     ]);
 
     const result = await t.run("logs");
 
     t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain("Hello world");
+    t.expectResult(result).toContain("Remote function log");
   });
 
   it("fetches logs for path-named (zero-config) function", async () => {
@@ -144,17 +168,6 @@ describe("logs command", () => {
 
   it("fetches logs for a specified function with --app-id outside a project", async () => {
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
-    t.api.mockFunctionsList({
-      functions: [
-        {
-          name: "my-function",
-          deployment_id: "d1",
-          entry: "entry.ts",
-          files: [{ path: "entry.ts", content: "" }],
-          automations: [],
-        },
-      ],
-    });
     t.api.mockFunctionLogs("my-function", [
       {
         time: "2024-01-15T10:30:00.000Z",
@@ -178,17 +191,6 @@ describe("logs command", () => {
   it("fetches logs for a specified function with BASE44_APP_ID outside a project", async () => {
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
     t.givenEnv({ BASE44_APP_ID: t.api.appId });
-    t.api.mockFunctionsList({
-      functions: [
-        {
-          name: "my-function",
-          deployment_id: "d1",
-          entry: "entry.ts",
-          files: [{ path: "entry.ts", content: "" }],
-          automations: [],
-        },
-      ],
-    });
     t.api.mockFunctionLogs("my-function", [
       {
         time: "2024-01-15T10:30:00.000Z",
@@ -230,13 +232,14 @@ describe("logs command", () => {
     t.expectResult(result).toContain("Remote function log");
   });
 
-  it("shows no functions message when project has no functions", async () => {
+  it("shows no functions message when the app has no deployed functions", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
+    t.api.mockFunctionsList({ functions: [] });
 
     const result = await t.run("logs");
 
     t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain("No functions found in this project");
+    t.expectResult(result).toContain("No functions found in this app");
   });
 
   it("shows no logs message when empty", async () => {
@@ -311,11 +314,12 @@ describe("logs command", () => {
     t.expectResult(result).toFail();
   });
 
-  it("documents --level in --help", async () => {
+  it("documents log filters in --help", async () => {
     const result = await t.run("logs", "--help");
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("--level <level>");
+    t.expectResult(result).toContain("all deployed functions");
   });
 
   it("filters function logs by --level", async () => {
@@ -444,6 +448,50 @@ describe("logs command", () => {
 
     t.expectResult(result).toFail();
     t.expectResult(result).toContain("No Base44 app ID found");
+  });
+
+  it("shows deployed function names when a specified function is missing", async () => {
+    await t.givenLoggedInWithProject(fixture("invalid-entity"));
+    t.api.mockFunctionLogsError("missing-function", {
+      status: 404,
+      body: { error: "Not found" },
+    });
+    t.api.mockFunctionsList({
+      functions: [
+        {
+          name: "available-function",
+          deployment_id: "d1",
+          entry: "entry.ts",
+          files: [{ path: "entry.ts", content: "" }],
+          automations: [],
+        },
+      ],
+    });
+
+    const result = await t.run("logs", "--function", "missing-function");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain(
+      "Available functions in this app: available-function",
+    );
+  });
+
+  it("preserves the logs error when loading the 404 hint fails", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+    t.api.mockFunctionLogsError("missing-function", {
+      status: 404,
+      body: { error: "Original logs error" },
+    });
+    t.api.mockFunctionsListError({
+      status: 500,
+      body: { error: "Function list error" },
+    });
+
+    const result = await t.run("logs", "--function", "missing-function");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("Original logs error");
+    t.expectResult(result).toNotContain("Function list error");
   });
 
   it("fails when API returns error for function logs", async () => {

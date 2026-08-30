@@ -49,7 +49,7 @@ const ScheduledSimpleSchema = AutomationBaseSchema.extend({
   schedule_mode: z.literal("recurring"),
   schedule_type: z.literal("simple"),
   repeat_unit: z.enum(["minutes", "hours", "days", "weeks", "months"]),
-  repeat_interval: z.number().int().positive().optional(),
+  repeat_interval: z.number().int().positive().nullable().optional(),
   start_time: z.string().nullable().optional(),
   repeat_on_days: z.array(z.number().int().min(0).max(6)).nullable().optional(),
   repeat_on_day_of_month: z.number().int().min(1).max(31).nullable().optional(),

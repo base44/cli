@@ -3,7 +3,6 @@ import { Option } from "commander";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, normalizeDatetime } from "@/cli/utils/index.js";
 import { ApiError, InvalidInputError } from "@/core/errors.js";
-import { readProjectConfig } from "@/core/index.js";
 import type {
   FunctionLogFilters,
   FunctionLogsResponse,
@@ -188,27 +187,30 @@ async function fetchLogsForFunctions(
     try {
       logs = await fetchFunctionLogs(functionName, filters);
     } catch (error) {
-      if (
-        error instanceof ApiError &&
-        error.statusCode === 404 &&
-        availableFunctionNames.length > 0
-      ) {
-        const available = availableFunctionNames.join(", ");
-        throw new InvalidInputError(
-          `Function "${functionName}" was not found in this app`,
-          {
-            hints: [
-              {
-                message: `Available functions in this project: ${available}`,
-              },
-              {
-                message:
-                  "Make sure the function has been deployed before fetching logs",
-                command: "base44 functions deploy",
-              },
-            ],
-          },
+      if (error instanceof ApiError && error.statusCode === 404) {
+        const namesForHint = await getFunctionNamesForHint(
+          availableFunctionNames,
+          error,
         );
+        if (namesForHint.length > 0) {
+          const available = namesForHint.join(", ");
+          throw new InvalidInputError(
+            `Function "${functionName}" was not found in this app`,
+            {
+              cause: error,
+              hints: [
+                {
+                  message: `Available functions in this app: ${available}`,
+                },
+                {
+                  message:
+                    "Make sure the function has been deployed before fetching logs",
+                  command: "base44 functions deploy",
+                },
+              ],
+            },
+          );
+        }
       }
       throw error;
     }
@@ -235,14 +237,21 @@ async function fetchLogsForFunctions(
   return allEntries;
 }
 
-async function getProjectFunctionNames(projectRoot: string): Promise<string[]> {
-  const { functions } = await readProjectConfig(projectRoot);
-  return functions.map((fn) => fn.name);
-}
-
 async function getRemoteFunctionNames(): Promise<string[]> {
   const { functions } = await listDeployedFunctions();
   return functions.map((fn) => fn.name);
+}
+
+async function getFunctionNamesForHint(
+  availableFunctionNames: string[],
+  logsError: ApiError,
+): Promise<string[]> {
+  if (availableFunctionNames.length > 0) return availableFunctionNames;
+  try {
+    return await getRemoteFunctionNames();
+  } catch {
+    throw logsError;
+  }
 }
 
 function validateLimit(limit: string | undefined): void {
@@ -261,21 +270,13 @@ async function logsAction(
 ): Promise<RunCommandResult> {
   validateLimit(options.limit);
   const specifiedFunctions = parseFunctionNames(options.function);
-  const localProjectRoot = ctx.app?.projectRoot;
-
-  const availableFunctionNames = localProjectRoot
-    ? await getProjectFunctionNames(localProjectRoot)
-    : await getRemoteFunctionNames();
-
+  const availableFunctionNames =
+    specifiedFunctions.length === 0 ? await getRemoteFunctionNames() : [];
   const functionNames =
     specifiedFunctions.length > 0 ? specifiedFunctions : availableFunctionNames;
 
   if (functionNames.length === 0) {
-    return {
-      outroMessage: localProjectRoot
-        ? "No functions found in this project."
-        : "No functions found in this app.",
-    };
+    return { outroMessage: "No functions found in this app." };
   }
 
   if (options.follow) {
@@ -327,7 +328,7 @@ export function getLogsCommand(): Command {
     .description("Fetch function logs for this app")
     .option(
       "--function <names>",
-      "Filter by function name(s), comma-separated. If omitted, fetches logs for all project functions",
+      "Filter by function name(s), comma-separated. If omitted, fetches logs for all deployed functions",
     )
     .option(
       "--since <datetime>",
