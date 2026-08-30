@@ -492,6 +492,7 @@ describe("logs command", () => {
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("--level <level>");
     t.expectResult(result).toContain("all deployed functions");
+    t.expectResult(result).toContain("the server returns at most 500");
   });
 
   it("filters function logs by --level", async () => {

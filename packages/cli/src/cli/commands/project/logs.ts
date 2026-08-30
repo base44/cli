@@ -488,7 +488,10 @@ export function getLogsCommand(): Command {
         ...LogLevelSchema.options,
       ]),
     )
-    .option("-n, --limit <n>", "Results per page (1-1000, default: 50)")
+    .option(
+      "-n, --limit <n>",
+      "Results per page (1-1000; the server returns at most 500)",
+    )
     .option("-f, --follow", "Stream new logs as they arrive")
     .addOption(
       new Option("--order <order>", "Sort order").choices(["asc", "desc"]),
