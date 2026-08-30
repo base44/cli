@@ -158,9 +158,16 @@ async function* readStreamEvents(
 
 const STREAM_CONNECT_TIMEOUT_MS = 10_000;
 
+export type LogStreamAttempt =
+  | { kind: "stream"; events: AsyncGenerator<StreamEvent> }
+  | { kind: "refused" }
+  | { kind: "transient" };
+
+export const isWorthReconnecting = (status: number) => status >= 500;
+
 export async function openLogStream(
   filters: LogStreamFilters,
-): Promise<AsyncGenerator<StreamEvent> | null> {
+): Promise<LogStreamAttempt> {
   const connectPhase = new AbortController();
   const connectTimer = setTimeout(
     () => connectPhase.abort(),
@@ -176,10 +183,15 @@ export async function openLogStream(
       signal: connectPhase.signal,
     });
   } catch {
-    return null;
+    return { kind: "transient" };
   } finally {
     clearTimeout(connectTimer);
   }
-  if (!response.ok || !response.body) return null;
-  return readStreamEvents(response.body);
+  if (!response.ok) {
+    return isWorthReconnecting(response.status)
+      ? { kind: "transient" }
+      : { kind: "refused" };
+  }
+  if (!response.body) return { kind: "transient" };
+  return { kind: "stream", events: readStreamEvents(response.body) };
 }

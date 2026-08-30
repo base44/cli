@@ -4,7 +4,10 @@ import {
   type LogEntry,
   selectNewEntries,
 } from "@/cli/commands/project/logs.js";
-import { parseStreamEvent } from "@/core/resources/function/index.js";
+import {
+  isWorthReconnecting,
+  parseStreamEvent,
+} from "@/core/resources/function/index.js";
 import { fixture, setupCLITests } from "./testkit/index.js";
 
 function entry(time: string, message: string): LogEntry {
@@ -131,6 +134,20 @@ describe("parseStreamEvent (SSE log stream)", () => {
     expect(parseStreamEvent("", "not-json")).toBeNull();
     expect(parseStreamEvent("", '{"level":"info"}')).toBeNull();
     expect(parseStreamEvent("end", '{"reason":"x"}')).toBeNull();
+  });
+});
+
+describe("isWorthReconnecting (stream connect failures)", () => {
+  it("reconnects while the backend is rolling out", () => {
+    expect(isWorthReconnecting(502)).toBe(true);
+    expect(isWorthReconnecting(503)).toBe(true);
+    expect(isWorthReconnecting(500)).toBe(true);
+  });
+
+  it("takes a deliberate refusal as the poll-fallback cue", () => {
+    expect(isWorthReconnecting(404)).toBe(false);
+    expect(isWorthReconnecting(401)).toBe(false);
+    expect(isWorthReconnecting(403)).toBe(false);
   });
 });
 

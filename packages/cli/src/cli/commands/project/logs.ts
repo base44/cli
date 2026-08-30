@@ -9,6 +9,7 @@ import type {
   FunctionLogsResponse,
   LogEnv,
   LogLevel,
+  LogStreamAttempt,
   LogStreamFilters,
   StreamEndEvent,
   StreamEvent,
@@ -170,6 +171,19 @@ async function printStreamUntilEnd(
 
 const STREAM_RECONNECT_DELAY_MS = 1_000;
 const MAX_DROPS_SINCE_LAST_EVENT = 2;
+const CONNECT_RETRY_DELAYS_MS = [1_000, 2_000, 4_000, 8_000];
+
+async function connectWhileTransientlyUnavailable(
+  filters: LogStreamFilters,
+): Promise<LogStreamAttempt> {
+  let attempt = await openLogStream(filters);
+  for (const retryDelay of CONNECT_RETRY_DELAYS_MS) {
+    if (attempt.kind !== "transient") return attempt;
+    await delay(retryDelay);
+    attempt = await openLogStream(filters);
+  }
+  return attempt;
+}
 
 interface StreamAttemptResult {
   everConnected: boolean;
@@ -188,11 +202,11 @@ async function streamUntilExhausted(
   let lastTime = "";
   let dropsSinceLastEvent = 0;
   while (true) {
-    const stream = await openLogStream(filters);
-    if (!stream) break;
+    const attempt = await connectWhileTransientlyUnavailable(filters);
+    if (attempt.kind !== "stream") break;
     everConnected = true;
     const ending = await printStreamUntilEnd(
-      stream,
+      attempt.events,
       options.level,
       jsonMode,
       lastTime,
