@@ -281,3 +281,32 @@ describe("Function connector automation schemas", () => {
     ]);
   });
 });
+
+describe("Function scheduled automation schemas", () => {
+  it("accepts null repeat intervals for weekly and monthly schedules", () => {
+    for (const repeatUnit of ["weeks", "months"]) {
+      const result = ListFunctionsResponseSchema.safeParse({
+        functions: [
+          {
+            name: "scheduled-function",
+            deployment_id: "dep_123",
+            entry: "entry.ts",
+            files: [{ path: "entry.ts", content: "" }],
+            automations: [
+              {
+                name: `${repeatUnit}-schedule`,
+                type: "scheduled",
+                schedule_mode: "recurring",
+                schedule_type: "simple",
+                repeat_unit: repeatUnit,
+                repeat_interval: null,
+              },
+            ],
+          },
+        ],
+      });
+
+      expect(result.success).toBe(true);
+    }
+  });
+});
