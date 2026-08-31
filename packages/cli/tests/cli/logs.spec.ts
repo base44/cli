@@ -14,6 +14,21 @@ import {
 } from "@/core/resources/function/index.js";
 import { fixture, setupCLITests } from "./testkit/index.js";
 
+async function waitForStderr(
+  handle: { readonly stderr: readonly string[] },
+  pattern: RegExp,
+  timeoutMs = 5000,
+) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (pattern.test(handle.stderr.join(""))) return;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error(
+    `Timed out waiting for stderr matching ${pattern}. stderr: ${handle.stderr.join("")}`,
+  );
+}
+
 function entry(time: string, message: string): LogEntry {
   return { time, level: "info", message, source: "fn" };
 }
@@ -424,10 +439,11 @@ describe("logs command", () => {
     t.expectResult(result).toContain("No production logs found");
   });
 
-  it("rejects --follow combined with --since", async () => {
+  it("polls without trying to stream when --follow is combined with --since", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
+    t.api.mockFunctionLogs("my-function", []);
 
-    const result = await t.run(
+    const handle = await t.runLive(
       "logs",
       "--function",
       "my-function",
@@ -435,9 +451,12 @@ describe("logs command", () => {
       "--since",
       "1h",
     );
+    await waitForStderr(handle, /polls instead of streaming/);
+    const result = await handle.stop();
 
-    t.expectResult(result).toFail();
-    t.expectResult(result).toContain("--since cannot be combined");
+    // The two stream-failure warnings would say "not available for this app" or
+    // "Could not reach" instead, so this line is proof the stream was skipped.
+    t.expectResult(result).toContain("--since reads the past");
   });
 
   it("rejects --follow combined with --order", async () => {
