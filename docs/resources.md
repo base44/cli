@@ -97,19 +97,18 @@ The workflow module at `packages/cli/src/core/resources/workflow/` is read-only 
 
 The site module at `packages/cli/src/core/site/` handles deploying an app's built output. It follows a different pattern than resources — there is no item list, so no `readAll`/`push`.
 
-It owns **which transport ships the build**, but not the shipping itself: `usesDeploymentsApi()` in `deployment.ts` only decides, and `base44 site deploy` calls the chosen flow.
+It owns **which transport ships the build**, but not the shipping itself: `deploymentsApiEnabled()` in `deployment.ts` only decides, and `base44 site deploy` calls the chosen flow.
 
 ```typescript
-import { usesDeploymentsApi } from "@/core/site/index.js";
+import { deploymentsApiEnabled } from "@/core/site/index.js";
 
-const viaDeployments = await usesDeploymentsApi(project.root);
+const viaDeployments = deploymentsApiEnabled();
 ```
 
-- A Workers build artifact means the deployments API — see [deployments.md](deployments.md). It carries the server too, so shipping the static output directory instead would silently drop the worker, and it brings its own assets directory, so the command may pass it a null `outputDir`.
-- Otherwise `site.outputDirectory` ships as a static site: the deployments API when the env-gated lane is enabled, else the legacy tar.gz path — tar.gz the built files and upload via `POST /api/apps/{app_id}/deploy-dist`.
-- Each flow validates what it needs, so there is no third state: the tar.gz path is the one that requires `site.outputDirectory`, and it is what raises "No site configuration found."
+- Gate on → the deployments API, see [deployments.md](deployments.md). Whether the build carries a worker changes what that flow sends, never which flow runs, and a worker brings its own assets directory — so the command may pass a null `outputDir`.
+- Gate off → the legacy tar.gz path: tar.gz `site.outputDirectory` and upload via `POST /api/apps/{app_id}/deploy-dist`. This is the flow that requires the config field, and the one that raises "No site configuration found."
 
-The answer holds for the current state of the tree, and the artifact it looks for is itself a build output — so the command asks once, after the build.
+Each flow validates its own inputs, so the decision itself is a boolean and needs nothing from the tree.
 
 `base44 deploy` does **not** go through this. It ships the site through `deployAll()`'s legacy tar.gz step, so the deployments-API transport is reachable only from `base44 site deploy` — it needs a commit address the unified deploy has no way to take.
 

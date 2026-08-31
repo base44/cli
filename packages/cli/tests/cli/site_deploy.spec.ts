@@ -53,6 +53,7 @@ describe("site deploy command", () => {
 
   it("deploys the Workers build for a full-stack project", async () => {
     await t.givenLoggedInWithProject(fixture("fullstack-project"));
+    t.givenEnv({ BASE44_DEPLOYMENTS_API: "1" });
     t.api.mockDeploymentCreate({
       deployment_id: DEPLOYMENT_ID,
       session_id: SESSION_ID,
@@ -71,6 +72,7 @@ describe("site deploy command", () => {
     // A full-stack artifact carries the server too, so uploading the static
     // output directory instead would silently drop the worker.
     await t.givenLoggedInWithProject(fixture("fullstack-project"));
+    t.givenEnv({ BASE44_DEPLOYMENTS_API: "1" });
     await writeFile(
       join(t.getTempDir(), "project", "base44", "config.jsonc"),
       JSON.stringify({

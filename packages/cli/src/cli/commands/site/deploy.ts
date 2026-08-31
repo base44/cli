@@ -10,11 +10,11 @@ import { readProjectSettings } from "@/core/project/index.js";
 import type { ProjectWithPaths } from "@/core/project/types.js";
 import {
   DEFAULT_UPLOAD_CONCURRENCY,
+  deploymentsApiEnabled,
   deploySite,
   deployToDeployments,
   MAX_UPLOAD_CONCURRENCY,
   resolveGitHash,
-  usesDeploymentsApi,
 } from "@/core/site/index.js";
 import { isGitCommitHash } from "@/core/utils/git.js";
 
@@ -53,7 +53,7 @@ async function deployAction(
     }
   }
 
-  return await usesDeploymentsApi(project.root)
+  return deploymentsApiEnabled()
     ? await deployToDeploymentsApi(ctx, project, options)
     : await deployTarball(ctx, project);
 }
@@ -157,23 +157,30 @@ function siteOutputDir(project: ProjectWithPaths): string | null {
 }
 
 export function getSiteDeployCommand(): Command {
-  return new Base44Command("deploy")
+  const command = new Base44Command("deploy")
     .description("Deploy built site files to Base44 hosting")
     .option("-y, --yes", "Skip confirmation prompt")
     .option("--build", "Build the site before deploying (skips the prompt)")
-    .option("--no-build", "Deploy without building (skips the prompt)")
-    .addOption(
+    .option("--no-build", "Deploy without building (skips the prompt)");
+
+  // Registered on the enabled lane only: with the gate off they are absent from
+  // --help and rejected as unknown options, rather than accepted by a tar.gz
+  // upload that can honor neither.
+  if (deploymentsApiEnabled()) {
+    command.addOption(
       new Option(
         "--git-hash <hash>",
         "Commit the build came from (defaults to the checkout's HEAD)",
       ).argParser(parseGitHash),
-    )
-    .addOption(
+    );
+    command.addOption(
       new Option("--concurrency <n>", "Parallel asset uploads")
         .default(DEFAULT_UPLOAD_CONCURRENCY)
         .argParser(parseConcurrency),
-    )
-    .action(deployAction);
+    );
+  }
+
+  return command.action(deployAction);
 }
 
 function parseGitHash(value: string): string {

@@ -33,28 +33,22 @@ type Completion = { modules: WorkerModule[] } | { indexHtml: Uint8Array };
 
 const NO_ASSETS: AssetManifestResult = { manifest: {}, filesByHash: new Map() };
 
-/**
- * Internal gate for the experimental static-site deployments-API lane, not
- * user-facing yet: with it off, a static output keeps taking the legacy tar.gz
- * upload. A build carrying a worker is never gated — a tarball cannot ship one.
- */
-const STATIC_DEPLOYMENTS_ENV = "BASE44_STATIC_DEPLOYMENTS";
+const DEPLOYMENTS_API_ENV = "BASE44_DEPLOYMENTS_API";
 
 /**
- * Whether the built output ships through the deployments API. A build that
- * produced a worker always does: the worker is the server, and a tar.gz of the
- * static output would silently drop it.
+ * Internal gate for the deployments-API lane — static output and full-stack
+ * builds alike, neither user-facing yet. With it off `site deploy` takes the
+ * legacy tar.gz upload and the flags that only mean something on this lane are
+ * not registered at all, so the whole lane is one env var away from existing.
  *
- * The artifact is itself a build output, so ask only once the build has run.
+ * It is the only thing that selects the transport: whether the build carries a
+ * worker changes what `deployToDeployments()` sends, never which flow runs.
  */
-export async function usesDeploymentsApi(
-  projectRoot: string,
-): Promise<boolean> {
-  if (await detectFullStackArtifact(projectRoot)) {
-    return true;
-  }
-  const gate = process.env[STATIC_DEPLOYMENTS_ENV];
-  return gate === "1" || gate === "true";
+export function deploymentsApiEnabled(
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  const value = env[DEPLOYMENTS_API_ENV];
+  return value === "1" || value === "true";
 }
 
 /**

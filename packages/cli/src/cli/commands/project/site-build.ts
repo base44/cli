@@ -49,10 +49,9 @@ export async function maybeBuildBeforeDeploy(
     return;
   }
 
-  const shouldBuild = explicitBuild ?? await maybeAskToBuild(
-    ctx.isNonInteractive,
-    project.site?.buildCommand,
-  );
+  const shouldBuild =
+    explicitBuild ??
+    (await maybeAskToBuild(ctx.isNonInteractive, project.site?.buildCommand));
   if (shouldBuild) {
     await runSiteBuild(ctx, {
       root: project.root,
