@@ -9,7 +9,6 @@ import type {
   FunctionLogsResponse,
   LogEnv,
   LogLevel,
-  LogStreamAttempt,
   LogStreamFilters,
   StreamEndEvent,
   StreamEvent,
@@ -170,28 +169,36 @@ export async function printStreamUntilEnd(
   return { lastTime, provedAlive, end: null };
 }
 
-const STREAM_RECONNECT_DELAY_MS = 1_000;
-const MAX_DROPS_SINCE_LAST_EVENT = 2;
-const CONNECT_RETRY_DELAYS_MS = [1_000, 2_000, 4_000, 8_000];
+const RECONNECT_DELAYS_MS = [1_000, 2_000, 4_000, 8_000];
+const ONE_STRIKE_FOR_A_STREAM_THAT_WORKED = 1;
 
-export const countDropTowardGivingUp = (
-  dropsSinceLastEvent: number,
-  provedAlive: boolean,
-) => (provedAlive ? 1 : dropsSinceLastEvent + 1);
+export const strikesAfter = (ending: StreamEnding, strikes: number) => {
+  if (ending.end) return 0;
+  return ending.provedAlive ? ONE_STRIKE_FOR_A_STREAM_THAT_WORKED : strikes + 1;
+};
 
-export const shouldGiveUpStreaming = (dropsSinceLastEvent: number) =>
-  dropsSinceLastEvent >= MAX_DROPS_SINCE_LAST_EVENT;
+export const hasRunOutOfStrikes = (strikes: number) =>
+  strikes >= RECONNECT_DELAYS_MS.length;
 
-async function connectWhileTransientlyUnavailable(
+type Reconnected =
+  | { kind: "stream"; events: AsyncGenerator<StreamEvent>; strikes: number }
+  | { kind: "refused" }
+  | { kind: "exhausted" };
+
+async function connectWithinStrikes(
   filters: LogStreamFilters,
-): Promise<LogStreamAttempt> {
+  strikes: number,
+): Promise<Reconnected> {
+  let spent = strikes;
   let attempt = await openLogStream(filters);
-  for (const retryDelay of CONNECT_RETRY_DELAYS_MS) {
-    if (attempt.kind !== "transient") return attempt;
-    await delay(retryDelay);
+  while (attempt.kind === "transient") {
+    spent += 1;
+    if (hasRunOutOfStrikes(spent)) return { kind: "exhausted" };
+    await delay(RECONNECT_DELAYS_MS[spent - 1]);
     attempt = await openLogStream(filters);
   }
-  return attempt;
+  if (attempt.kind === "refused") return { kind: "refused" };
+  return { kind: "stream", events: attempt.events, strikes: spent };
 }
 
 async function streamUntilExhausted(
@@ -202,7 +209,7 @@ async function streamUntilExhausted(
 ): Promise<void> {
   let events = firstStream;
   let lastTime = "";
-  let dropsSinceLastEvent = 0;
+  let strikes = 0;
   while (true) {
     const ending = await printStreamUntilEnd(
       events,
@@ -211,20 +218,16 @@ async function streamUntilExhausted(
       lastTime,
     );
     lastTime = ending.lastTime;
-    if (ending.end) {
-      if (!ending.end.retriable) return;
-      dropsSinceLastEvent = 0;
-    } else {
-      dropsSinceLastEvent = countDropTowardGivingUp(
-        dropsSinceLastEvent,
-        ending.provedAlive,
-      );
-      if (shouldGiveUpStreaming(dropsSinceLastEvent)) return;
-    }
-    await delay(STREAM_RECONNECT_DELAY_MS);
-    const reopened = await connectWhileTransientlyUnavailable(filters);
-    if (reopened.kind !== "stream") return;
-    events = reopened.events;
+    if (ending.end && !ending.end.retriable) return;
+
+    strikes = strikesAfter(ending, strikes);
+    if (hasRunOutOfStrikes(strikes)) return;
+
+    await delay(RECONNECT_DELAYS_MS[strikes]);
+    const reconnected = await connectWithinStrikes(filters, strikes);
+    if (reconnected.kind !== "stream") return;
+    events = reconnected.events;
+    strikes = reconnected.strikes;
   }
 }
 
@@ -254,7 +257,7 @@ async function followLogs(
     functions: parseFunctionNames(options.function),
     env: options.env,
   };
-  const opened = await connectWhileTransientlyUnavailable(filters);
+  const opened = await connectWithinStrikes(filters, 0);
   if (opened.kind !== "stream") {
     logger.warn(
       opened.kind === "refused"

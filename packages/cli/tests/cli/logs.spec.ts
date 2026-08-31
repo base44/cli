@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
-  countDropTowardGivingUp,
   type FollowState,
+  hasRunOutOfStrikes,
   type LogEntry,
   printStreamUntilEnd,
   selectNewEntries,
-  shouldGiveUpStreaming,
+  strikesAfter,
 } from "@/cli/commands/project/logs.js";
 import {
   isWorthReconnecting,
@@ -186,31 +186,46 @@ describe("printStreamUntilEnd (liveness)", () => {
   });
 });
 
-describe("stream drop budget", () => {
-  const dropsAfter = (provedAlive: boolean, laps: number) => {
-    let drops = 0;
+describe("stream give-up budget", () => {
+  const died = (provedAlive: boolean) => ({
+    lastTime: "",
+    provedAlive,
+    end: null,
+  });
+  const rolledOver = () => ({
+    lastTime: "",
+    provedAlive: true,
+    end: { reason: "stream_lifetime", retriable: true },
+  });
+
+  const strikesAfterRepeated = (provedAlive: boolean, laps: number) => {
+    let strikes = 0;
     for (let lap = 0; lap < laps; lap++) {
-      drops = countDropTowardGivingUp(drops, provedAlive);
+      strikes = strikesAfter(died(provedAlive), strikes);
     }
-    return drops;
+    return strikes;
   };
 
-  it("keeps reconnecting when pings proved the connection alive", () => {
-    expect(shouldGiveUpStreaming(dropsAfter(true, 2))).toBe(false);
-    expect(shouldGiveUpStreaming(dropsAfter(true, 10))).toBe(false);
+  it("keeps reconnecting when every dead stream had proved itself alive", () => {
+    expect(hasRunOutOfStrikes(strikesAfterRepeated(true, 2))).toBe(false);
+    expect(hasRunOutOfStrikes(strikesAfterRepeated(true, 10))).toBe(false);
   });
 
-  it("falls back to polling after two connections die with nothing", () => {
-    expect(shouldGiveUpStreaming(dropsAfter(false, 1))).toBe(false);
-    expect(shouldGiveUpStreaming(dropsAfter(false, 2))).toBe(true);
+  it("gives up once enough attempts in a row delivered nothing", () => {
+    expect(hasRunOutOfStrikes(strikesAfterRepeated(false, 3))).toBe(false);
+    expect(hasRunOutOfStrikes(strikesAfterRepeated(false, 4))).toBe(true);
   });
 
-  it("counts a silent drop after a proven one toward the cap", () => {
-    expect(
-      shouldGiveUpStreaming(
-        countDropTowardGivingUp(dropsAfter(true, 1), false),
-      ),
-    ).toBe(true);
+  it("spends the same budget on failed connects and on dead streams", () => {
+    const afterTwoFailedConnects = 2;
+    const strikes = strikesAfter(died(false), afterTwoFailedConnects);
+    expect(strikes).toBe(3);
+    expect(hasRunOutOfStrikes(strikes)).toBe(false);
+    expect(hasRunOutOfStrikes(strikesAfter(died(false), strikes))).toBe(true);
+  });
+
+  it("wipes the budget when the server rolls the stream over", () => {
+    expect(strikesAfter(rolledOver(), 3)).toBe(0);
   });
 });
 
