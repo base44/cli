@@ -1,9 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
+  countDropTowardGivingUp,
   type FollowState,
   type LogEntry,
+  printStreamUntilEnd,
   selectNewEntries,
+  shouldGiveUpStreaming,
 } from "@/cli/commands/project/logs.js";
+import {
+  isWorthReconnecting,
+  parseStreamEvent,
+  readStreamEvents,
+} from "@/core/resources/function/index.js";
 import { fixture, setupCLITests } from "./testkit/index.js";
 
 function entry(time: string, message: string): LogEntry {
@@ -69,6 +77,154 @@ describe("selectNewEntries (follow dedup)", () => {
 
     expect(fresh).toHaveLength(0);
     expect(nextState).toBe(first);
+  });
+});
+
+describe("parseStreamEvent (SSE log stream)", () => {
+  it("parses an unnamed data payload into a log event", () => {
+    const event = parseStreamEvent(
+      "",
+      '{"time":"2024-01-15T10:00:00Z","level":"info","function":"my-fn","message":"hello"}',
+    );
+
+    expect(event).toEqual({
+      kind: "log",
+      log: {
+        time: "2024-01-15T10:00:00Z",
+        level: "info",
+        function: "my-fn",
+        message: "hello",
+      },
+    });
+  });
+
+  it("normalizes level warn to warning", () => {
+    const event = parseStreamEvent(
+      "",
+      '{"time":"2024-01-15T10:00:00Z","level":"warn","function":"my-fn","message":"careful"}',
+    );
+
+    expect(event?.kind === "log" && event.log.level).toBe("warning");
+  });
+
+  it("keeps unattributed lines (null function)", () => {
+    const event = parseStreamEvent(
+      "",
+      '{"time":"2024-01-15T10:00:00Z","level":"error","function":null,"message":"boom"}',
+    );
+
+    expect(event?.kind === "log" && event.log.function).toBeNull();
+  });
+
+  it("parses the typed end event with reason and retriable", () => {
+    const event = parseStreamEvent(
+      "end",
+      '{"reason":"tail_unavailable","retriable":false}',
+    );
+
+    expect(event).toEqual({
+      kind: "end",
+      end: { reason: "tail_unavailable", retriable: false },
+    });
+  });
+
+  it("ignores unknown event names", () => {
+    expect(
+      parseStreamEvent("progress", '{"reason":"x","retriable":true}'),
+    ).toBeNull();
+  });
+
+  it("ignores malformed payloads", () => {
+    expect(parseStreamEvent("", "not-json")).toBeNull();
+    expect(parseStreamEvent("", '{"level":"info"}')).toBeNull();
+    expect(parseStreamEvent("end", '{"reason":"x"}')).toBeNull();
+  });
+});
+
+function streamOf(sse: string) {
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(sse));
+      controller.close();
+    },
+  });
+}
+
+async function collect(sse: string) {
+  const events = [];
+  for await (const event of readStreamEvents(streamOf(sse))) events.push(event);
+  return events;
+}
+
+describe("readStreamEvents (keepalive comments)", () => {
+  it("surfaces a keepalive comment as a ping", async () => {
+    expect(await collect(": ping\n\n")).toEqual([{ kind: "ping" }]);
+  });
+
+  it("keeps reading log frames that follow a ping", async () => {
+    const logFrame =
+      'data: {"time":"2026-01-01T00:00:00Z","level":"info","function":"fn","message":"hi"}\n\n';
+    const events = await collect(`: ping\n\n${logFrame}`);
+    expect(events.map((event) => event.kind)).toEqual(["ping", "log"]);
+  });
+});
+
+describe("printStreamUntilEnd (liveness)", () => {
+  async function* pings(count: number) {
+    for (let sent = 0; sent < count; sent++) yield { kind: "ping" } as const;
+  }
+
+  it("treats a ping-only connection as proven alive", async () => {
+    const ending = await printStreamUntilEnd(pings(1), undefined, false, "");
+    expect(ending.provedAlive).toBe(true);
+    expect(ending.end).toBeNull();
+  });
+
+  it("treats a connection that sent nothing as unproven", async () => {
+    const ending = await printStreamUntilEnd(pings(0), undefined, false, "");
+    expect(ending.provedAlive).toBe(false);
+  });
+});
+
+describe("stream drop budget", () => {
+  const dropsAfter = (provedAlive: boolean, laps: number) => {
+    let drops = 0;
+    for (let lap = 0; lap < laps; lap++) {
+      drops = countDropTowardGivingUp(drops, provedAlive);
+    }
+    return drops;
+  };
+
+  it("keeps reconnecting when pings proved the connection alive", () => {
+    expect(shouldGiveUpStreaming(dropsAfter(true, 2))).toBe(false);
+    expect(shouldGiveUpStreaming(dropsAfter(true, 10))).toBe(false);
+  });
+
+  it("falls back to polling after two connections die with nothing", () => {
+    expect(shouldGiveUpStreaming(dropsAfter(false, 1))).toBe(false);
+    expect(shouldGiveUpStreaming(dropsAfter(false, 2))).toBe(true);
+  });
+
+  it("counts a silent drop after a proven one toward the cap", () => {
+    expect(
+      shouldGiveUpStreaming(
+        countDropTowardGivingUp(dropsAfter(true, 1), false),
+      ),
+    ).toBe(true);
+  });
+});
+
+describe("isWorthReconnecting (stream connect failures)", () => {
+  it("reconnects while the backend is rolling out", () => {
+    expect(isWorthReconnecting(502)).toBe(true);
+    expect(isWorthReconnecting(503)).toBe(true);
+    expect(isWorthReconnecting(500)).toBe(true);
+  });
+
+  it("takes a deliberate refusal as the poll-fallback cue", () => {
+    expect(isWorthReconnecting(404)).toBe(false);
+    expect(isWorthReconnecting(401)).toBe(false);
+    expect(isWorthReconnecting(403)).toBe(false);
   });
 });
 
@@ -268,6 +424,22 @@ describe("logs command", () => {
     t.expectResult(result).toContain("No production logs found");
   });
 
+  it("rejects --follow combined with --since", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+
+    const result = await t.run(
+      "logs",
+      "--function",
+      "my-function",
+      "--follow",
+      "--since",
+      "1h",
+    );
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("--since cannot be combined");
+  });
+
   it("rejects --follow combined with --order", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
 
@@ -320,6 +492,7 @@ describe("logs command", () => {
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("--level <level>");
     t.expectResult(result).toContain("all deployed functions");
+    t.expectResult(result).toContain("the server returns at most 500");
   });
 
   it("filters function logs by --level", async () => {
