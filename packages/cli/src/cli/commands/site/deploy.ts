@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import { confirm, isCancel } from "@clack/prompts";
 import type { Command } from "commander";
 import { InvalidArgumentError, Option } from "commander";
@@ -6,13 +7,14 @@ import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, theme } from "@/cli/utils/index.js";
 import { ConfigNotFoundError, InvalidInputError } from "@/core/errors.js";
 import { readProjectSettings } from "@/core/project/index.js";
+import type { ProjectWithPaths } from "@/core/project/types.js";
 import {
   DEFAULT_UPLOAD_CONCURRENCY,
   deploySite,
   deployToDeployments,
   MAX_UPLOAD_CONCURRENCY,
-  planAppDeploy,
   resolveGitHash,
+  usesDeploymentsApi,
 } from "@/core/site/index.js";
 import { isGitCommitHash } from "@/core/utils/git.js";
 
@@ -37,17 +39,6 @@ async function deployAction(
   const project = await readProjectSettings();
   const outputDirectory = project.site?.outputDirectory;
 
-  if ((await planAppDeploy(project)).kind === "none") {
-    throw new ConfigNotFoundError("No site configuration found.", {
-      hints: [
-        {
-          message:
-            'Add \'site.outputDirectory\' to your config.jsonc (e.g., "site": { "outputDirectory": "dist" })',
-        },
-      ],
-    });
-  }
-
   if (!options.yes) {
     const shouldDeploy = await confirm({
       message: outputDirectory
@@ -62,23 +53,11 @@ async function deployAction(
 
   await maybeBuildBeforeDeploy(ctx, project, options.build);
 
-  // Planned again: the build may have produced the artifact that decides which
-  // transport applies.
-  const plan = await planAppDeploy(project);
-
-  switch (plan.kind) {
-    case "deployment":
-      return await deployToDeploymentsApi(
-        ctx,
-        project.root,
-        plan.outputDir,
-        options,
-      );
-    case "tarball":
-      return await deployTarball(ctx, plan.outputDir);
-    case "none":
-      return { outroMessage: "Nothing to deploy" };
-  }
+  // Asked after the build: the artifact that decides the transport is itself a
+  // build output.
+  return (await usesDeploymentsApi(project.root))
+    ? await deployToDeploymentsApi(ctx, project, options)
+    : await deployTarball(ctx, project);
 }
 
 /**
@@ -89,11 +68,11 @@ async function deployAction(
  */
 async function deployToDeploymentsApi(
   ctx: CLIContext,
-  projectRoot: string,
-  outputDir: string | null,
+  project: ProjectWithPaths,
   options: DeployOptions,
 ): Promise<RunCommandResult> {
-  const { runTask, log } = ctx;
+  const { runTask, log, jsonMode } = ctx;
+  const projectRoot = project.root;
   const gitHash = await resolveGitHash(projectRoot, options.gitHash);
   const progressLines: string[] = [];
   const warnings: string[] = [];
@@ -103,7 +82,9 @@ async function deployToDeploymentsApi(
     async (updateMessage) =>
       await deployToDeployments({
         projectRoot,
-        outputDir,
+        // Null is fine: a build carrying a worker brings its own assets
+        // directory, so it needs no site.outputDirectory.
+        outputDir: siteOutputDir(project),
         gitHash,
         concurrency: options.concurrency,
         progress: {
@@ -133,13 +114,32 @@ async function deployToDeploymentsApi(
     log.warn(warning);
   }
 
-  return deploymentResult(ctx, deploymentId, gitHash);
+  // No URL: what production serves is decided when the app is published from
+  // the builder, not by this deploy.
+  return {
+    outroMessage: `Deployment ${deploymentId} (commit ${gitHash.slice(0, 12)})`,
+    stdout: jsonMode
+      ? `${JSON.stringify({ deploymentId, gitHash }, null, 2)}\n`
+      : undefined,
+  };
 }
 
 async function deployTarball(
   { runTask }: CLIContext,
-  outputDir: string,
+  project: ProjectWithPaths,
 ): Promise<RunCommandResult> {
+  const outputDir = siteOutputDir(project);
+  if (!outputDir) {
+    throw new ConfigNotFoundError("No site configuration found.", {
+      hints: [
+        {
+          message:
+            'Add \'site.outputDirectory\' to your config.jsonc (e.g., "site": { "outputDirectory": "dist" })',
+        },
+      ],
+    });
+  }
+
   const { appUrl } = await runTask(
     "Creating archive and deploying site...",
     async () => await deploySite(outputDir),
@@ -152,19 +152,10 @@ async function deployTarball(
   return { outroMessage: `Visit your site at: ${appUrl}` };
 }
 
-function deploymentResult(
-  { jsonMode }: CLIContext,
-  deploymentId: string,
-  gitHash: string,
-): RunCommandResult {
-  // No URL: what production serves is decided when the app is published from
-  // the builder, not by this deploy.
-  return {
-    outroMessage: `Deployment ${deploymentId} (commit ${gitHash.slice(0, 12)})`,
-    stdout: jsonMode
-      ? `${JSON.stringify({ deploymentId, gitHash }, null, 2)}\n`
-      : undefined,
-  };
+/** The configured static output directory, absolute; null when unconfigured. */
+function siteOutputDir(project: ProjectWithPaths): string | null {
+  const outputDirectory = project.site?.outputDirectory;
+  return outputDirectory ? resolve(project.root, outputDirectory) : null;
 }
 
 export function getSiteDeployCommand(): Command {

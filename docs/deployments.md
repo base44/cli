@@ -16,7 +16,7 @@ Everything downstream follows from the server's answer rather than from a decisi
 
 ## Artifact Detection
 
-`base44 site deploy` picks its transport from `planAppDeploy()` in `core/site/` (see [resources.md](resources.md#site-module-not-a-resource)): `deployment` (the deployments API) whenever an artifact is detected or the static gate is on, `tarball` otherwise, `none` when neither applies. A build carrying a worker is never a `tarball` — a tar.gz cannot ship one — and needs no `site.outputDirectory`, since the worker brings its own assets directory. **This lane is reachable only from `site deploy`** — `base44 deploy` ships the site through `deployAll()`'s legacy tar.gz step and has none of these flags.
+`base44 site deploy` picks its transport from `usesDeploymentsApi()` in `deployment.ts` (see [resources.md](resources.md#site-module-not-a-resource)): the deployments API whenever an artifact is detected or the static gate is on, the legacy tar.gz upload otherwise. A build carrying a worker never takes the tarball — a tar.gz cannot ship one — and needs no `site.outputDirectory`, since the worker brings its own assets directory. **This lane is reachable only from `site deploy`** — `base44 deploy` ships the site through `deployAll()`'s legacy tar.gz step and has none of these flags.
 
 `detectFullStackArtifact(projectRoot)` looks for exactly one thing: `.wrangler/deploy/config.json`, the redirect file emitted by `@cloudflare/vite-plugin` builds. Its `configPath` points at the generated `wrangler.json`, **relative to the redirect file's directory**.
 
@@ -67,7 +67,7 @@ The primary automated consumer is the platform's build/deploy sandbox, which run
 
 ## Static Sites through the Deployments API (experimental, env-gated)
 
-A build that produced a worker is ungated — it always goes through the deployments API. The **static** lane is gated: with `BASE44_STATIC_DEPLOYMENTS=1` (or `true`; internal gate, not user-facing yet), a project with `site.outputDirectory` and **no** worker artifact deploys through the deployments API instead of the legacy tar.gz upload. `staticDeploymentsEnabled()` lives in `core/site/deploy-app.ts` and is consulted in exactly one place — `planAppDeploy()` — so the gate decides a transport, never a flag's existence.
+A build that produced a worker is ungated — it always goes through the deployments API. The **static** lane is gated: with `BASE44_STATIC_DEPLOYMENTS=1` (or `true`; internal gate, not user-facing yet), a project with `site.outputDirectory` and **no** worker artifact deploys through the deployments API instead of the legacy tar.gz upload. The gate is read in exactly one place — `usesDeploymentsApi()` in `core/site/deployment.ts` — so it decides a transport, never a flag's existence.
 
 The commit comes from `--git-hash` when passed, otherwise `git rev-parse HEAD`; on the lane with neither available the deploy fails asking for the flag, rather than silently falling back to the tar.gz upload — a deployment is addressed by the commit that produced it, so a build with no address could never be published.
 

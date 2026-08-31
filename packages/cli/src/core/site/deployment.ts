@@ -34,6 +34,30 @@ type Completion = { modules: WorkerModule[] } | { indexHtml: Uint8Array };
 const NO_ASSETS: AssetManifestResult = { manifest: {}, filesByHash: new Map() };
 
 /**
+ * Internal gate for the experimental static-site deployments-API lane, not
+ * user-facing yet: with it off, a static output keeps taking the legacy tar.gz
+ * upload. A build carrying a worker is never gated — a tarball cannot ship one.
+ */
+const STATIC_DEPLOYMENTS_ENV = "BASE44_STATIC_DEPLOYMENTS";
+
+/**
+ * Whether the built output ships through the deployments API. A build that
+ * produced a worker always does: the worker is the server, and a tar.gz of the
+ * static output would silently drop it.
+ *
+ * The artifact is itself a build output, so ask only once the build has run.
+ */
+export async function usesDeploymentsApi(
+  projectRoot: string,
+): Promise<boolean> {
+  if (await detectFullStackArtifact(projectRoot)) {
+    return true;
+  }
+  const gate = process.env[STATIC_DEPLOYMENTS_ENV];
+  return gate === "1" || gate === "true";
+}
+
+/**
  * Deploy a build for a commit through the deployments API: hash its static
  * assets into a manifest, create the deployment at the commit's address, upload
  * whichever assets the server asks for, and finalize.
