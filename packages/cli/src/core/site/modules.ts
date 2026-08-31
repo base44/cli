@@ -113,7 +113,7 @@ export async function collectModules(
 
   if (totalBytes > MAX_TOTAL_MODULE_BYTES) {
     throw new InvalidInputError(
-      `Worker modules total ${totalBytes} bytes, which exceeds the 40 MB limit for Base44 full-stack deploys.`,
+      `Worker modules total ${totalBytes} bytes, which exceeds the 40 MB limit for a Base44 deploy.`,
     );
   }
 

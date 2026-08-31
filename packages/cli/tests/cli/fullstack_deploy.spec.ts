@@ -60,7 +60,7 @@ describe("site deploy command (full-stack)", () => {
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Found 2 static assets (2 new)");
-    t.expectResult(result).toContain("Full-stack app deployed");
+    t.expectResult(result).toContain("Site deployed");
     t.expectResult(result).toContain(`Deployment ${DEPLOYMENT_ID}`);
 
     expect(t.api.deploymentCreateRequests).toHaveLength(1);

@@ -6,12 +6,10 @@ import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, theme } from "@/cli/utils/index.js";
 import { ConfigNotFoundError, InvalidInputError } from "@/core/errors.js";
 import { readProjectSettings } from "@/core/project/index.js";
-import type { DeploymentProgress } from "@/core/site/index.js";
 import {
   DEFAULT_UPLOAD_CONCURRENCY,
-  deployFullStack,
   deploySite,
-  deployStaticSite,
+  deployToDeployments,
   MAX_UPLOAD_CONCURRENCY,
   planAppDeploy,
   resolveGitHash,
@@ -37,18 +35,14 @@ async function deployAction(
   // Config only: a site deploy reads none of the project's resource files, so an
   // invalid one must not fail it.
   const project = await readProjectSettings();
-  const planned = await planAppDeploy(project);
+  const outputDirectory = project.site?.outputDirectory;
 
-  if (planned.kind === "none") {
+  if ((await planAppDeploy(project)).kind === "none") {
     throw new ConfigNotFoundError("No site configuration found.", {
       hints: [
         {
           message:
             'Add \'site.outputDirectory\' to your config.jsonc (e.g., "site": { "outputDirectory": "dist" })',
-        },
-        {
-          message:
-            "Full-stack apps ship from their build artifact — run your framework's build first",
         },
       ],
     });
@@ -56,10 +50,9 @@ async function deployAction(
 
   if (!options.yes) {
     const shouldDeploy = await confirm({
-      message:
-        planned.kind === "full-stack"
-          ? "Deploy full-stack app?"
-          : `Deploy site from ${project.site?.outputDirectory}?`,
+      message: outputDirectory
+        ? `Deploy site from ${outputDirectory}?`
+        : "Deploy site?",
     });
 
     if (isCancel(shouldDeploy) || !shouldDeploy) {
@@ -69,76 +62,76 @@ async function deployAction(
 
   await maybeBuildBeforeDeploy(ctx, project, options.build);
 
-  // Planned again: the build may have produced the full-stack artifact that
-  // decides which transport applies.
+  // Planned again: the build may have produced the artifact that decides which
+  // transport applies.
   const plan = await planAppDeploy(project);
 
   switch (plan.kind) {
-    case "full-stack":
-      return await deployFullStackApp(ctx, project.root, options);
-    case "static-deployment":
+    case "deployment":
       return await deployToDeploymentsApi(
         ctx,
         project.root,
         plan.outputDir,
         options,
       );
-    case "static":
+    case "tarball":
       return await deployTarball(ctx, plan.outputDir);
     case "none":
       return { outroMessage: "Nothing to deploy" };
   }
 }
 
-async function deployFullStackApp(
-  ctx: CLIContext,
-  projectRoot: string,
-  options: DeployOptions,
-): Promise<RunCommandResult> {
-  const gitHash = await resolveGitHash(projectRoot, options.gitHash);
-
-  const { deploymentId } = await runDeployTask(
-    ctx,
-    {
-      start: "Deploying full-stack app...",
-      success: theme.colors.base44Orange("Full-stack app deployed"),
-      error: "Full-stack deploy failed",
-    },
-    async (progress) =>
-      await deployFullStack({
-        projectRoot,
-        gitHash,
-        concurrency: options.concurrency,
-        progress,
-      }),
-  );
-
-  return deploymentResult(ctx, deploymentId, gitHash);
-}
-
+/**
+ * Run the deploy behind a spinner, streaming its stages into the spinner
+ * message. Asset counts are also kept for a summary line, since the spinner only
+ * ever shows the latest one, and warnings are held back so they land after the
+ * task instead of being overwritten by it.
+ */
 async function deployToDeploymentsApi(
   ctx: CLIContext,
   projectRoot: string,
-  outputDir: string,
+  outputDir: string | null,
   options: DeployOptions,
 ): Promise<RunCommandResult> {
+  const { runTask, log } = ctx;
   const gitHash = await resolveGitHash(projectRoot, options.gitHash);
+  const progressLines: string[] = [];
+  const warnings: string[] = [];
 
-  const { deploymentId } = await runDeployTask(
-    ctx,
-    {
-      start: "Deploying site...",
-      success: "Site deployed",
-      error: "Site deploy failed",
-    },
-    async (progress) =>
-      await deployStaticSite({
+  const { deploymentId } = await runTask(
+    "Deploying site...",
+    async (updateMessage) =>
+      await deployToDeployments({
+        projectRoot,
         outputDir,
         gitHash,
         concurrency: options.concurrency,
-        progress,
+        progress: {
+          onWarning: (message) => {
+            warnings.push(message);
+          },
+          onAssets: ({ totalAssets, newAssets }) => {
+            const line = `Found ${totalAssets} static assets (${newAssets} new)`;
+            progressLines.push(line);
+            updateMessage(line);
+          },
+          onAssetUpload: ({ uploadedFiles, totalFiles }) => {
+            updateMessage(`Uploaded ${uploadedFiles} of ${totalFiles} assets`);
+          },
+          onWorker: ({ moduleCount }) => {
+            updateMessage(`Deploying worker (${moduleCount} modules)…`);
+          },
+        },
       }),
+    { successMessage: "Site deployed", errorMessage: "Site deploy failed" },
   );
+
+  for (const line of progressLines) {
+    log.message(theme.styles.dim(line));
+  }
+  for (const warning of warnings) {
+    log.warn(warning);
+  }
 
   return deploymentResult(ctx, deploymentId, gitHash);
 }
@@ -159,54 +152,6 @@ async function deployTarball(
   return { outroMessage: `Visit your site at: ${appUrl}` };
 }
 
-/**
- * Run a deployments-API deploy behind a spinner, streaming its stages into the
- * spinner message. Asset counts are also kept for a summary line, since the
- * spinner only ever shows the latest one, and warnings are held back so they
- * land after the task instead of being overwritten by it.
- */
-async function runDeployTask(
-  { runTask, log }: CLIContext,
-  labels: { start: string; success: string; error: string },
-  deploy: (
-    progress: DeploymentProgress,
-  ) => Promise<{ deploymentId: string; gitHash: string }>,
-): Promise<{ deploymentId: string }> {
-  const progressLines: string[] = [];
-  const warnings: string[] = [];
-
-  const result = await runTask(
-    labels.start,
-    async (updateMessage) =>
-      await deploy({
-        onWarning: (message) => {
-          warnings.push(message);
-        },
-        onAssets: ({ totalAssets, newAssets }) => {
-          const line = `Found ${totalAssets} static assets (${newAssets} new)`;
-          progressLines.push(line);
-          updateMessage(line);
-        },
-        onAssetUpload: ({ uploadedFiles, totalFiles }) => {
-          updateMessage(`Uploaded ${uploadedFiles} of ${totalFiles} assets`);
-        },
-        onWorker: ({ moduleCount }) => {
-          updateMessage(`Deploying worker (${moduleCount} modules)…`);
-        },
-      }),
-    { successMessage: labels.success, errorMessage: labels.error },
-  );
-
-  for (const line of progressLines) {
-    log.message(theme.styles.dim(line));
-  }
-  for (const warning of warnings) {
-    log.warn(warning);
-  }
-
-  return result;
-}
-
 function deploymentResult(
   { jsonMode }: CLIContext,
   deploymentId: string,
@@ -224,9 +169,7 @@ function deploymentResult(
 
 export function getSiteDeployCommand(): Command {
   return new Base44Command("deploy")
-    .description(
-      "Deploy the built site to Base44 hosting (full-stack apps deploy their Workers build)",
-    )
+    .description("Deploy built site files to Base44 hosting")
     .option("-y, --yes", "Skip confirmation prompt")
     .option("--build", "Build the site before deploying (skips the prompt)")
     .option("--no-build", "Deploy without building (skips the prompt)")

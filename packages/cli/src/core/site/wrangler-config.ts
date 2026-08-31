@@ -88,7 +88,7 @@ export async function resolveWranglerConfig(
 
   if (!redirectPath) {
     throw new InvalidInputError(
-      "No full-stack build artifact found. Expected a .wrangler/deploy/config.json redirect file.",
+      "No Workers build artifact found. Expected a .wrangler/deploy/config.json redirect file.",
       {
         hints: [{ message: "Run your framework's build command first" }],
       },
@@ -110,7 +110,7 @@ export async function resolveWranglerConfig(
 
   if (config.no_bundle !== true) {
     throw new InvalidInputError(
-      "This framework's output requires bundling; not yet supported. Base44 full-stack deploys only support pre-bundled Workers output (no_bundle: true).",
+      "This framework's output requires bundling; not yet supported. Base44 only deploys pre-bundled Workers output (no_bundle: true).",
     );
   }
 

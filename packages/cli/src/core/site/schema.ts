@@ -104,7 +104,7 @@ export interface CfAssetUploads {
   buckets: string[][];
 }
 
-interface S3AssetUploads {
+export interface S3AssetUploads {
   type: "s3";
   uploads: PresignedAssetUpload[];
 }

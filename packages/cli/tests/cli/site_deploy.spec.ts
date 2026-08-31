@@ -63,7 +63,7 @@ describe("site deploy command", () => {
     const result = await t.run("site", "deploy", "-y", "--git-hash", GIT_HASH);
 
     t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain("Full-stack app deployed");
+    t.expectResult(result).toContain("Site deployed");
     t.expectResult(result).toContain(DEPLOYMENT_ID);
   });
 
@@ -89,7 +89,8 @@ describe("site deploy command", () => {
     const result = await t.run("site", "deploy", "-y", "--git-hash", GIT_HASH);
 
     t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain("Full-stack app deployed");
+    // The deployment id is the tell: only the deployments API reports one.
+    t.expectResult(result).toContain(DEPLOYMENT_ID);
     t.expectResult(result).toNotContain("https://legacy.base44.app");
   });
 

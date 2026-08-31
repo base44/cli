@@ -273,7 +273,7 @@ describe("site deploy command (static site through the deployments API, env-gate
     const result = await t.run("site", "deploy", "-y", "--git-hash", GIT_HASH);
 
     t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain("Full-stack app deployed");
+    t.expectResult(result).toContain("Site deployed");
     const body = t.api.deploymentCreateRequests[0] as CreateBody;
     expect(body.config?.main).toBe("index.js");
     expect(body.config?.compatibility_flags).toEqual(["nodejs_compat"]);

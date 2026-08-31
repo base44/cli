@@ -103,19 +103,19 @@ It owns **which transport ships the build**, but not the shipping itself: `planA
 import { planAppDeploy } from "@/core/site/index.js";
 
 const plan = await planAppDeploy(project);
-// { kind: "full-stack" } | { kind: "static-deployment", outputDir }
-// | { kind: "static", outputDir } | { kind: "none" }
+// { kind: "deployment", outputDir: string | null }
+// | { kind: "tarball", outputDir } | { kind: "none" }
 ```
 
-- A full-stack (Workers) artifact wins when one is present — see [deployments.md](deployments.md). It carries the server too, so shipping the static output directory instead would silently drop the worker.
-- Otherwise `site.outputDirectory` ships as a static site: through the deployments API when the env-gated lane is enabled, else the legacy path — tar.gz the built files and upload via `POST /api/apps/{app_id}/deploy-dist`.
+- A Workers build artifact means `deployment` — see [deployments.md](deployments.md). It carries the server too, so shipping the static output directory instead would silently drop the worker, and it brings its own assets directory, so `outputDir` may be null.
+- Otherwise `site.outputDirectory` ships as a static site: `deployment` when the env-gated lane is enabled, else `tarball` — the legacy path, tar.gz the built files and upload via `POST /api/apps/{app_id}/deploy-dist`.
 - Neither applies → `{ kind: "none" }`.
 
-The plan answers for the current state of the tree, and the full-stack artifact is itself a build output — so the command plans once before the build (for the prompt and the no-config error) and again after it, which is the answer it acts on.
+The plan answers for the current state of the tree, and the artifact is itself a build output — so the command plans once before the build (for the no-config error) and again after it, which is the answer it acts on.
 
-`base44 deploy` does **not** go through this. It ships the site through `deployAll()`'s legacy tar.gz step, so the full-stack and deployments-API transports are reachable only from `base44 site deploy` — they need a commit address the unified deploy has no way to take.
+`base44 deploy` does **not** go through this. It ships the site through `deployAll()`'s legacy tar.gz step, so the deployments-API transport is reachable only from `base44 site deploy` — it needs a commit address the unified deploy has no way to take.
 
-One flow per file: `full-stack.ts` (Workers), `static-site.ts` (deployments-API static), `deploy.ts` (legacy tar.gz). The first two share `manifest.ts`, `upload.ts`, `git-hash.ts`, and the module's `api.ts` / `schema.ts`; see [deployments.md](deployments.md).
+One flow per transport: `deployment.ts` (deployments API, worker or not) and `deploy.ts` (legacy tar.gz). The first uses `manifest.ts`, `modules.ts`, `upload.ts`, `wrangler-config.ts`, `git-hash.ts`, and the module's `api.ts` / `schema.ts`; see [deployments.md](deployments.md).
 
 ### Deploy Flow
 
@@ -145,7 +145,7 @@ What it deploys (in order):
 3. Agent skills (via `agentSkillResource.push()`)
 4. Agents (via `agentResource.push()`)
 5. Connectors (via `pushConnectors()`) -- may return OAuth redirect URLs
-6. Site (if `site.outputDirectory` is configured) — the legacy tar.gz upload. The full-stack and deployments-API transports are not reachable from here; see [deployments.md](deployments.md).
+6. Site (if `site.outputDirectory` is configured) — the legacy tar.gz upload. The deployments-API transport is not reachable from here; see [deployments.md](deployments.md).
 
 ```bash
 base44 deploy        # With confirmation prompt

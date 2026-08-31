@@ -72,7 +72,7 @@ tests/
     ├── duplicate-function-names/  # Error: duplicate function names
     ├── with-zero-config-functions/  # Full project: zero-config + path-named functions (CLI integration)
     ├── with-site/                 # Project with site config
-    ├── fullstack-project/         # Full-stack Workers artifact (.wrangler redirect + build output)
+    ├── fullstack-project/         # Workers build artifact (.wrangler redirect + build output)
     ├── full-project/              # All resources combined
     ├── no-app-config/             # Unlinked project (no .app.jsonc)
     └── invalid-*/                 # Error case fixtures

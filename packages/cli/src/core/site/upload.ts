@@ -8,7 +8,9 @@ import type {
   AssetManifestResult,
   AssetUploadProgress,
   CfAssetUploads,
+  DeploymentProgress,
   PresignedAssetUpload,
+  S3AssetUploads,
 } from "./schema.js";
 import { AssetUploadResponseSchema } from "./schema.js";
 
@@ -31,10 +33,59 @@ const UPLOAD_RETRY = {
 } as const;
 
 /**
+ * Upload the assets the create call said are still owed, to wherever it said
+ * they go, and return the completion token when that target issues one.
+ *
+ * The target is the server's answer, not our choice: it groups hashes into
+ * Cloudflare buckets for a worker deployment and presigns per-file S3 URLs for a
+ * static one. Nothing owed means the server already holds every asset in the
+ * manifest, so there is nothing to upload and no token to carry.
+ */
+export async function uploadDeploymentAssets(
+  assetUploads: CfAssetUploads | S3AssetUploads | null,
+  assets: AssetManifestResult,
+  options: {
+    concurrency?: number;
+    progress?: DeploymentProgress;
+  } = {},
+): Promise<string | null> {
+  const { concurrency, progress } = options;
+
+  progress?.onAssets?.({
+    totalAssets: Object.keys(assets.manifest).length,
+    newAssets: countOwedAssets(assetUploads),
+  });
+
+  if (!assetUploads) {
+    return null;
+  }
+
+  const uploadOptions = { concurrency, onProgress: progress?.onAssetUpload };
+  if (assetUploads.type === "cf") {
+    return await uploadAssetBuckets(
+      assetUploads,
+      assets.filesByHash,
+      uploadOptions,
+    );
+  }
+  await uploadPresignedAssets(assetUploads.uploads, assets, uploadOptions);
+  return null;
+}
+
+function countOwedAssets(
+  assetUploads: CfAssetUploads | S3AssetUploads | null,
+): number {
+  if (!assetUploads) return 0;
+  return assetUploads.type === "cf"
+    ? new Set(assetUploads.buckets.flat()).size
+    : assetUploads.uploads.length;
+}
+
+/**
  * POST the requested asset buckets directly to Cloudflare, authorized by the
  * upload-session jwt from create, and return the completion JWT finalize needs.
  */
-export async function uploadAssetBuckets(
+async function uploadAssetBuckets(
   target: CfAssetUploads,
   filesByHash: Map<string, AssetFile>,
   options: {
@@ -136,7 +187,7 @@ async function buildBucketForm(
  * carries its own authorization in the query string, so each request is a plain
  * fetch — never the app client, never an Authorization header.
  */
-export async function uploadPresignedAssets(
+async function uploadPresignedAssets(
   uploads: PresignedAssetUpload[],
   assets: AssetManifestResult,
   options: {

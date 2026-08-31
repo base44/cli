@@ -134,7 +134,7 @@ describe("wrangler config resolution", () => {
 
     expect(await detectFullStackArtifact(root)).toBeNull();
     await expect(resolveWranglerConfig(root)).rejects.toThrow(
-      /No full-stack build artifact found/,
+      /No Workers build artifact found/,
     );
   });
 });
