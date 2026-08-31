@@ -37,9 +37,11 @@ async function deployAction(
   // Config only: a site deploy reads none of the project's resource files, so an
   // invalid one must not fail it.
   const project = await readProjectSettings();
-  const outputDirectory = project.site?.outputDirectory;
+
+  await maybeBuildBeforeDeploy(ctx, project, options.build);
 
   if (!options.yes) {
+    const outputDirectory = project.site?.outputDirectory;
     const shouldDeploy = await confirm({
       message: outputDirectory
         ? `Deploy site from ${outputDirectory}?`
@@ -51,11 +53,7 @@ async function deployAction(
     }
   }
 
-  await maybeBuildBeforeDeploy(ctx, project, options.build);
-
-  // Asked after the build: the artifact that decides the transport is itself a
-  // build output.
-  return (await usesDeploymentsApi(project.root))
+  return await usesDeploymentsApi(project.root)
     ? await deployToDeploymentsApi(ctx, project, options)
     : await deployTarball(ctx, project);
 }

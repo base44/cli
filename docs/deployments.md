@@ -55,7 +55,7 @@ Entry = `main` from the wrangler config. With `no_bundle: true`, every file unde
 
 ## Command UX
 
-**`base44 site deploy [--git-hash <hash>] [--concurrency <n>] [--build|--no-build]`** — the optional build step is `maybeBuildBeforeDeploy` (`--build` forces it, `--no-build` skips it, otherwise an interactive ask). Progress: "Found N static assets (M new)" → "Uploaded X of Y assets" → "Deploying worker (K modules)…" (only when there is one) → outro `Deployment <id> (commit <hash>)`. Under `--json`, stdout is a single `{deploymentId, gitHash}` document.
+**`base44 site deploy [--git-hash <hash>] [--concurrency <n>] [--build|--no-build]`** — the optional build step is `maybeBuildBeforeDeploy` (`--build` forces it, `--no-build` skips it, otherwise an interactive ask). It runs **before** the deploy confirmation, since a full-stack build emits the artifact that decides the transport, and `site deploy` passes `shipsBuildArtifact: true` so the build is offered even with no `site.outputDirectory` — the unified `base44 deploy` offers it only for a configured output directory, the only thing it uploads. Progress: "Found N static assets (M new)" → "Uploaded X of Y assets" → "Deploying worker (K modules)…" (only when there is one) → outro `Deployment <id> (commit <hash>)`. Under `--json`, stdout is a single `{deploymentId, gitHash}` document.
 
 **"Site" is the only word for it in user-facing copy.** A site is whatever we deploy, worker or no worker, so the prompt, spinner, success line and errors say "site" and never distinguish the two — the distinction is ours, not the user's, and a deploy that reports itself differently depending on the build reads as two products. Internally the code says "worker" for the thing that may or may not be there.
 
