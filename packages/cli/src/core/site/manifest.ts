@@ -35,10 +35,8 @@ export function hashAsset(appId: string, content: Buffer): string {
 }
 
 /**
- * {@link hashAsset} over a file, read in chunks. Peak memory is one chunk
- * rather than the whole file, which is what lets an asset be arbitrarily large:
- * assets go straight to storage by presigned PUT, so the only ceiling here is
- * this process's heap.
+ * {@link hashAsset} over a file, read in chunks in order to support large files
+ * without reading them entirely to memory.
  */
 export async function hashAssetFile(
   appId: string,
