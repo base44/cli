@@ -194,46 +194,53 @@ async function connectWhileTransientlyUnavailable(
   return attempt;
 }
 
-interface StreamAttemptResult {
-  everConnected: boolean;
-  lastTime: string;
-}
-
 async function streamUntilExhausted(
+  firstStream: AsyncGenerator<StreamEvent>,
+  filters: LogStreamFilters,
   options: LogsOptions,
   jsonMode: boolean,
-): Promise<StreamAttemptResult> {
-  const filters: LogStreamFilters = {
-    functions: parseFunctionNames(options.function),
-    env: options.env,
-  };
-  let everConnected = false;
+): Promise<void> {
+  let events = firstStream;
   let lastTime = "";
   let dropsSinceLastEvent = 0;
   while (true) {
-    const attempt = await connectWhileTransientlyUnavailable(filters);
-    if (attempt.kind !== "stream") break;
-    everConnected = true;
     const ending = await printStreamUntilEnd(
-      attempt.events,
+      events,
       options.level,
       jsonMode,
       lastTime,
     );
     lastTime = ending.lastTime;
     if (ending.end) {
-      if (!ending.end.retriable) break;
+      if (!ending.end.retriable) return;
       dropsSinceLastEvent = 0;
     } else {
       dropsSinceLastEvent = countDropTowardGivingUp(
         dropsSinceLastEvent,
         ending.provedAlive,
       );
-      if (shouldGiveUpStreaming(dropsSinceLastEvent)) break;
+      if (shouldGiveUpStreaming(dropsSinceLastEvent)) return;
     }
     await delay(STREAM_RECONNECT_DELAY_MS);
+    const reopened = await connectWhileTransientlyUnavailable(filters);
+    if (reopened.kind !== "stream") return;
+    events = reopened.events;
   }
-  return { everConnected, lastTime };
+}
+
+function streamLostError(): ApiError {
+  return new ApiError(
+    "The realtime log stream stopped and could not be re-established",
+    {
+      hints: [
+        { message: "Start a new live tail", command: "base44 logs --follow" },
+        {
+          message: "Or read recent logs without streaming",
+          command: "base44 logs",
+        },
+      ],
+    },
+  );
 }
 
 async function followLogs(
@@ -243,19 +250,24 @@ async function followLogs(
   jsonMode: boolean,
   logger: Logger,
 ): Promise<never> {
-  const { everConnected, lastTime } = await streamUntilExhausted(
-    options,
-    jsonMode,
-  );
-  logger.warn(
-    everConnected
-      ? "Realtime stream disconnected — falling back to polling (lines may lag ~20-30s)."
-      : "Realtime stream unavailable — falling back to polling (lines may lag ~20-30s).",
-  );
-  return pollLogs(functionNames, options, availableFunctionNames, jsonMode, {
-    lastTime,
-    boundaryKeys: new Set(),
-  });
+  const filters: LogStreamFilters = {
+    functions: parseFunctionNames(options.function),
+    env: options.env,
+  };
+  const opened = await connectWhileTransientlyUnavailable(filters);
+  if (opened.kind !== "stream") {
+    logger.warn(
+      opened.kind === "refused"
+        ? "Realtime logs are not available for this app — falling back to polling (lines may lag ~20-30s)."
+        : "Could not reach the realtime log stream — falling back to polling (lines may lag ~20-30s).",
+    );
+    return pollLogs(functionNames, options, availableFunctionNames, jsonMode, {
+      lastTime: "",
+      boundaryKeys: new Set(),
+    });
+  }
+  await streamUntilExhausted(opened.events, filters, options, jsonMode);
+  throw streamLostError();
 }
 
 async function pollLogs(
