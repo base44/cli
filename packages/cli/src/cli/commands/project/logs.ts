@@ -1,3 +1,4 @@
+import { setTimeout as delay } from "node:timers/promises";
 import type { Logger } from "@base44-cli/logger";
 import type { Command } from "commander";
 import { Option } from "commander";
@@ -129,8 +130,6 @@ function writeFollowLine(entry: LogEntry, jsonMode: boolean): void {
   process.stdout.write(`${line}\n`);
 }
 
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
 function streamEventToLogEntry(event: StreamLogEvent): LogEntry {
   return {
     time: event.time,
@@ -254,6 +253,17 @@ async function followLogs(
     functions: parseFunctionNames(options.function),
     env: options.env,
   };
+  if (options.since) {
+    // A stream only carries what happens from now on, so a run that asked for
+    // the past polls from the start rather than opening one.
+    logger.warn(
+      "--since reads the past, so this run polls instead of streaming (lines may lag ~20-30s).",
+    );
+    return pollLogs(functionNames, options, availableFunctionNames, jsonMode, {
+      lastTime: "",
+      boundaryKeys: new Set(),
+    });
+  }
   const opened = await connectWhileTransientlyUnavailable(filters);
   if (opened.kind !== "stream") {
     logger.warn(
@@ -429,11 +439,6 @@ async function logsAction(
   }
 
   if (options.follow) {
-    if (options.since) {
-      throw new InvalidInputError(
-        "--since cannot be combined with --follow yet (the realtime stream starts from now).",
-      );
-    }
     if (options.until) {
       throw new InvalidInputError(
         "--until cannot be combined with --follow (a stream has no end).",

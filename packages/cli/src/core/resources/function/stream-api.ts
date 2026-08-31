@@ -97,7 +97,6 @@ const STREAM_SILENCE_TIMEOUT_MS = 60_000;
 interface StreamReader {
   read(): Promise<{ done: boolean; value?: Uint8Array }>;
   cancel(): Promise<unknown>;
-  releaseLock(): void;
 }
 
 async function readOrSilence(
@@ -123,10 +122,7 @@ async function* readLines(
   try {
     while (true) {
       const result = await readOrSilence(reader);
-      if (result === "silence") {
-        await reader.cancel();
-        return;
-      }
+      if (result === "silence") return;
       if (result.done || !result.value) return;
       buffered += decoder.decode(result.value, { stream: true });
       const lines = buffered.split("\n");
@@ -134,7 +130,9 @@ async function* readLines(
       yield* lines;
     }
   } finally {
-    reader.releaseLock();
+    // Cancel, don't just unlock: an unconsumed body keeps its socket alive in
+    // the fetch pool, so a long tail's reconnects pile up connections.
+    await reader.cancel().catch(() => {});
   }
 }
 
@@ -173,6 +171,13 @@ export const isWorthReconnecting = (status: number) => status >= 500;
 export async function openLogStream(
   filters: LogStreamFilters,
 ): Promise<LogStreamAttempt> {
+  // Outside the try on purpose: a missing or unrefreshable token is a real
+  // error to surface, not a transient failure to retry for 15 seconds.
+  const url = buildStreamUrl(filters);
+  const headers = {
+    Accept: "text/event-stream",
+    ...(await buildStreamAuthHeaders()),
+  };
   const connectPhase = new AbortController();
   const connectTimer = setTimeout(
     () => connectPhase.abort(),
@@ -180,13 +185,7 @@ export async function openLogStream(
   );
   let response: Response;
   try {
-    response = await fetch(buildStreamUrl(filters), {
-      headers: {
-        Accept: "text/event-stream",
-        ...(await buildStreamAuthHeaders()),
-      },
-      signal: connectPhase.signal,
-    });
+    response = await fetch(url, { headers, signal: connectPhase.signal });
   } catch {
     return { kind: "transient" };
   } finally {
