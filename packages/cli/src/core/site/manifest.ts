@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { readFile, stat } from "node:fs/promises";
+import { createReadStream } from "node:fs";
+import { stat } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { globby } from "globby";
 import { InvalidInputError } from "@/core/errors.js";
@@ -9,7 +10,6 @@ import type {
   AssetManifestResult,
 } from "./schema.js";
 
-const MAX_ASSET_SIZE_BYTES = 25 * 1024 * 1024; // 25 MiB
 const MAX_ASSET_COUNT = 100_000;
 
 const ASSETS_IGNORE_FILE = ".assetsignore";
@@ -32,6 +32,21 @@ export function hashAsset(appId: string, content: Buffer): string {
     .update(content)
     .digest("hex")
     .slice(0, 32);
+}
+
+/**
+ * {@link hashAsset} over a file, read in chunks in order to support large files
+ * without reading them entirely to memory.
+ */
+async function hashAssetFile(
+  appId: string,
+  absolutePath: string,
+): Promise<string> {
+  const hash = createHash("sha256").update(Buffer.from(appId, "utf8"));
+  for await (const chunk of createReadStream(absolutePath)) {
+    hash.update(chunk);
+  }
+  return hash.digest("hex").slice(0, 32);
 }
 
 /**
@@ -69,16 +84,8 @@ export async function buildAssetManifest(
 
   for (const relativePath of relativeFilePaths.sort()) {
     const absolutePath = join(assetsDir, ...relativePath.split("/"));
-    // Stat before read so an oversized file is never pulled into memory.
     const { size } = await stat(absolutePath);
-    if (size > MAX_ASSET_SIZE_BYTES) {
-      throw new InvalidInputError(
-        `Static asset "${relativePath}" is ${size} bytes, which exceeds the 25 MiB per-file limit.`,
-      );
-    }
-
-    const content = await readFile(absolutePath);
-    const hash = hashAsset(appId, content);
+    const hash = await hashAssetFile(appId, absolutePath);
 
     manifest[`/${relativePath}`] = { hash, size };
     if (!filesByHash.has(hash)) {
