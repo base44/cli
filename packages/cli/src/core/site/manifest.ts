@@ -38,7 +38,7 @@ export function hashAsset(appId: string, content: Buffer): string {
  * {@link hashAsset} over a file, read in chunks in order to support large files
  * without reading them entirely to memory.
  */
-export async function hashAssetFile(
+async function hashAssetFile(
   appId: string,
   absolutePath: string,
 ): Promise<string> {

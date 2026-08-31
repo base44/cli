@@ -183,7 +183,9 @@ describe("buildAssetManifest", () => {
 
     const { manifest } = await buildAssetManifest(assetsDir, "test-app-id");
 
-    expect(manifest["/chunky.bin"].hash).toBe(hashAsset("test-app-id", content));
+    expect(manifest["/chunky.bin"].hash).toBe(
+      hashAsset("test-app-id", content),
+    );
   });
 
   it("dedupes identical files by hash in filesByHash", async () => {
