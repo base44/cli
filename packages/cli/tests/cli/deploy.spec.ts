@@ -52,6 +52,24 @@ describe("deploy command (unified)", () => {
     );
   });
 
+  // The deployments lane belongs to `site deploy`. This command ships the site
+  // through the legacy tar.gz step, so it has no commit to address and none of
+  // the lane's flags.
+  it("does not take the deployments-lane flags", async () => {
+    await t.givenLoggedInWithProject(fixture("with-site"));
+
+    const gitHash = await t.run("deploy", "-y", "--git-hash", "a1b2c3d4e5f6");
+    const concurrency = await t.run("deploy", "-y", "--concurrency", "5");
+    const help = await t.run("deploy", "--help");
+
+    t.expectResult(gitHash).toFail();
+    t.expectResult(gitHash).toContain("unknown option");
+    t.expectResult(concurrency).toFail();
+    t.expectResult(concurrency).toContain("unknown option");
+    t.expectResult(help).toNotContain("--git-hash");
+    t.expectResult(help).toNotContain("--concurrency");
+  });
+
   it("reports no resources when project is empty", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
 

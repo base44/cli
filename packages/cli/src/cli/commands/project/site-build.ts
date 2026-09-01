@@ -43,41 +43,25 @@ export async function runSiteBuild(
 export async function maybeBuildBeforeDeploy(
   ctx: Pick<CLIContext, "runTask" | "isNonInteractive" | "app">,
   project: ProjectData["project"],
-  build?: boolean,
+  explicitBuild?: boolean,
 ): Promise<void> {
   if (!ctx.app) {
     return;
   }
 
-  // An explicit --build must be loud when there is nothing to build:
-  // runSiteBuild throws ConfigNotFoundError when buildCommand is missing.
-  if (build === true) {
+  const shouldBuild =
+    explicitBuild ??
+    (await maybeAskToBuild(ctx.isNonInteractive, project.site?.buildCommand));
+  if (shouldBuild) {
     await runSiteBuild(ctx, {
       root: project.root,
       buildCommand: project.site?.buildCommand,
       appId: ctx.app.id,
     });
-    return;
-  }
-
-  if (build === false || !project.site?.outputDirectory) {
-    return;
-  }
-
-  const shouldBuild = await shouldAskToBuild(
-    ctx.isNonInteractive,
-    project.site.buildCommand,
-  );
-  if (shouldBuild) {
-    await runSiteBuild(ctx, {
-      root: project.root,
-      buildCommand: project.site.buildCommand,
-      appId: ctx.app.id,
-    });
   }
 }
 
-async function shouldAskToBuild(
+async function maybeAskToBuild(
   isNonInteractive: boolean,
   buildCommand?: string,
 ): Promise<boolean> {

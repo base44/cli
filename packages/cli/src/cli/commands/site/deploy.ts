@@ -7,11 +7,14 @@ import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, theme } from "@/cli/utils/index.js";
 import { ConfigNotFoundError, InvalidInputError } from "@/core/errors.js";
 import { readProjectSettings } from "@/core/project/index.js";
+import type { ProjectWithPaths } from "@/core/project/types.js";
 import {
   DEFAULT_UPLOAD_CONCURRENCY,
+  deploymentsApiEnabled,
   deploySite,
-  deployStaticSite,
+  deployToDeployments,
   MAX_UPLOAD_CONCURRENCY,
+  resolveGitHash,
 } from "@/core/site/index.js";
 import { isGitCommitHash } from "@/core/utils/git.js";
 
@@ -35,22 +38,14 @@ async function deployAction(
   // invalid one must not fail it.
   const project = await readProjectSettings();
 
-  const outputDirectory = project.site?.outputDirectory;
-
-  if (!outputDirectory) {
-    throw new ConfigNotFoundError("No site configuration found.", {
-      hints: [
-        {
-          message:
-            'Add \'site.outputDirectory\' to your config.jsonc (e.g., "site": { "outputDirectory": "dist" })',
-        },
-      ],
-    });
-  }
+  await maybeBuildBeforeDeploy(ctx, project, options.build);
 
   if (!options.yes) {
+    const outputDirectory = project.site?.outputDirectory;
     const shouldDeploy = await confirm({
-      message: `Deploy site from ${outputDirectory}?`,
+      message: outputDirectory
+        ? `Deploy site from ${outputDirectory}?`
+        : "Deploy site?",
     });
 
     if (isCancel(shouldDeploy) || !shouldDeploy) {
@@ -58,35 +53,36 @@ async function deployAction(
     }
   }
 
-  await maybeBuildBeforeDeploy(ctx, project, options.build);
-
-  const outputDir = resolve(project.root, outputDirectory);
-
-  // A commit means a deployments-API deploy: a deployment is addressed by the
-  // commit that produced the build. Without one, ship the legacy tar.gz upload.
-  const { gitHash, concurrency } = options;
-
-  return gitHash
-    ? await deployToDeploymentsApi(ctx, outputDir, gitHash, concurrency)
-    : await deployTarball(ctx, outputDir);
+  return deploymentsApiEnabled()
+    ? await deployToDeploymentsApi(ctx, project, options)
+    : await deployTarball(ctx, project);
 }
 
 async function deployToDeploymentsApi(
-  { runTask, log, jsonMode }: CLIContext,
-  outputDir: string,
-  gitHash: string,
-  concurrency?: number,
+  ctx: CLIContext,
+  project: ProjectWithPaths,
+  options: DeployOptions,
 ): Promise<RunCommandResult> {
+  const { runTask, log, jsonMode } = ctx;
+  const projectRoot = project.root;
+  const gitHash = await resolveGitHash(projectRoot, options.gitHash);
   const progressLines: string[] = [];
+  const warnings: string[] = [];
 
   const { deploymentId } = await runTask(
     "Deploying site...",
     async (updateMessage) =>
-      await deployStaticSite({
-        outputDir,
+      await deployToDeployments({
+        projectRoot,
+        // Null is fine: a build carrying a worker brings its own assets
+        // directory, so it needs no site.outputDirectory.
+        outputDir: siteOutputDir(project),
         gitHash,
-        concurrency,
+        concurrency: options.concurrency,
         progress: {
+          onWarning: (message) => {
+            warnings.push(message);
+          },
           onAssets: ({ totalAssets, newAssets }) => {
             const line = `Found ${totalAssets} static assets (${newAssets} new)`;
             progressLines.push(line);
@@ -94,6 +90,9 @@ async function deployToDeploymentsApi(
           },
           onAssetUpload: ({ uploadedFiles, totalFiles }) => {
             updateMessage(`Uploaded ${uploadedFiles} of ${totalFiles} assets`);
+          },
+          onWorker: ({ moduleCount }) => {
+            updateMessage(`Deploying worker (${moduleCount} modules)…`);
           },
         },
       }),
@@ -103,9 +102,12 @@ async function deployToDeploymentsApi(
   for (const line of progressLines) {
     log.message(theme.styles.dim(line));
   }
+  for (const warning of warnings) {
+    log.warn(warning);
+  }
 
-  // A build has no URL of its own: what production serves is decided when the
-  // app is published from the builder, not by this deploy.
+  // No URL: what production serves is decided when the app is published from
+  // the builder, not by this deploy.
   return {
     outroMessage: `Deployment ${deploymentId} (commit ${gitHash.slice(0, 12)})`,
     stdout: jsonMode
@@ -116,8 +118,20 @@ async function deployToDeploymentsApi(
 
 async function deployTarball(
   { runTask }: CLIContext,
-  outputDir: string,
+  project: ProjectWithPaths,
 ): Promise<RunCommandResult> {
+  const outputDir = siteOutputDir(project);
+  if (!outputDir) {
+    throw new ConfigNotFoundError("No site configuration found.", {
+      hints: [
+        {
+          message:
+            'Add \'site.outputDirectory\' to your config.jsonc (e.g., "site": { "outputDirectory": "dist" })',
+        },
+      ],
+    });
+  }
+
   const { appUrl } = await runTask(
     "Creating archive and deploying site...",
     async () => await deploySite(outputDir),
@@ -130,6 +144,11 @@ async function deployTarball(
   return { outroMessage: `Visit your site at: ${appUrl}` };
 }
 
+function siteOutputDir(project: ProjectWithPaths): string | null {
+  const outputDirectory = project.site?.outputDirectory;
+  return outputDirectory ? resolve(project.root, outputDirectory) : null;
+}
+
 export function getSiteDeployCommand(): Command {
   const command = new Base44Command("deploy")
     .description("Deploy built site files to Base44 hosting")
@@ -137,21 +156,15 @@ export function getSiteDeployCommand(): Command {
     .option("--build", "Build the site before deploying (skips the prompt)")
     .option("--no-build", "Deploy without building (skips the prompt)");
 
-  // Only registered on the enabled lane, so with the gate off the flag is
-  // absent from --help and rejected as an unknown option.
-  if (staticDeploymentsEnabled()) {
+  // Registered on the enabled lane only: with the gate off they are absent from
+  // --help and rejected as unknown options, rather than accepted by a tar.gz
+  // upload that can honor neither.
+  if (deploymentsApiEnabled()) {
     command.addOption(
       new Option(
         "--git-hash <hash>",
-        "Commit the build came from — deploys through the deployments API",
-      ).argParser((value) => {
-        if (!isGitCommitHash(value)) {
-          throw new InvalidArgumentError(
-            "Expected a git commit hash (7-64 hex chars).",
-          );
-        }
-        return value;
-      }),
+        "Commit the build came from (defaults to the checkout's HEAD)",
+      ).argParser(parseGitHash),
     );
     command.addOption(
       new Option("--concurrency <n>", "Parallel asset uploads")
@@ -161,6 +174,15 @@ export function getSiteDeployCommand(): Command {
   }
 
   return command.action(deployAction);
+}
+
+function parseGitHash(value: string): string {
+  if (!isGitCommitHash(value)) {
+    throw new InvalidArgumentError(
+      "Expected a git commit hash (7-64 hex chars).",
+    );
+  }
+  return value;
 }
 
 function parseConcurrency(value: string): number {
@@ -175,11 +197,4 @@ function parseConcurrency(value: string): number {
     );
   }
   return parsed;
-}
-
-function staticDeploymentsEnabled(
-  env: NodeJS.ProcessEnv = process.env,
-): boolean {
-  const value = env.BASE44_STATIC_DEPLOYMENTS;
-  return value === "1" || value === "true";
 }

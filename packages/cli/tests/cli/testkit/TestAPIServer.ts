@@ -240,15 +240,18 @@ interface DeploymentCreateResponse {
   /** This attempt's upload session. */
   session_id: string;
   /** Where the assets still owed should go; null/omitted = nothing owed. */
-  asset_uploads?: {
-    type: "s3";
-    uploads: Array<{
-      path: string;
-      content_type: string;
-      content_length: number;
-      url: string;
-    }>;
-  } | null;
+  asset_uploads?:
+    | { type: "cf"; url: string; jwt: string; buckets: string[][] }
+    | {
+        type: "s3";
+        uploads: Array<{
+          path: string;
+          content_type: string;
+          content_length: number;
+          url: string;
+        }>;
+      }
+    | null;
 }
 
 interface DeploymentFinalizeResponse {
@@ -307,6 +310,12 @@ function parseMultipart(
   }
 
   return fields;
+}
+
+interface CapturedAssetUpload {
+  authorization?: string;
+  base64Query?: string;
+  fields: MultipartField[];
 }
 
 /** A captured presigned-style asset PUT. */
@@ -750,6 +759,8 @@ export class TestAPIServer {
 
   /** Captured JSON bodies of POST deployments requests. */
   readonly deploymentCreateRequests: unknown[] = [];
+  /** Captured asset bucket uploads (POST to the upload_url). */
+  readonly assetUploadRequests: CapturedAssetUpload[] = [];
   /** Captured presigned-style asset PUTs (see mockPresignedUpload). */
   readonly presignedUploadRequests: CapturedPresignedUpload[] = [];
   /** Captured multipart fields of finalize requests. */
@@ -769,6 +780,46 @@ export class TestAPIServer {
       handler: (req, res) => {
         this.deploymentCreateRequests.push(req.body);
         res.status(200).json(response);
+      },
+    });
+    return this;
+  }
+
+  /**
+   * Register a Cloudflare-style assets upload endpoint: serves
+   * POST /cf-assets/upload — point the cf arm's `url` at
+   * `${baseUrl}/cf-assets/upload`. Captures each request in
+   * `assetUploadRequests`.
+   */
+  mockAssetUpload(completionJwt: string): this {
+    return this.mockAssetUploadAfterFailures(0, completionJwt);
+  }
+
+  /**
+   * Same target as {@link mockAssetUpload}, but the first `failures` requests
+   * answer 503. Every attempt is still recorded, so a spec can assert what the
+   * retried request carried.
+   */
+  mockAssetUploadAfterFailures(failures: number, completionJwt: string): this {
+    let seen = 0;
+    this.pendingRoutes.push({
+      method: "POST",
+      path: "/cf-assets/upload",
+      handler: (req, res) => {
+        this.assetUploadRequests.push({
+          authorization: req.headers.authorization,
+          base64Query: String(req.query.base64 ?? ""),
+          fields: parseMultipart(
+            req.body as Buffer,
+            req.headers["content-type"] ?? "",
+          ),
+        });
+        seen++;
+        if (seen <= failures) {
+          res.status(503).json({ error: "Service Unavailable" });
+          return;
+        }
+        res.status(201).json({ result: { jwt: completionJwt } });
       },
     });
     return this;
@@ -795,6 +846,11 @@ export class TestAPIServer {
       },
     });
     return this;
+  }
+
+  /** Mock the Cloudflare assets endpoint to always fail with the given error. */
+  mockAssetUploadError(error: ErrorResponse): this {
+    return this.addErrorRoute("POST", "/cf-assets/upload", error);
   }
 
   /**

@@ -59,6 +59,11 @@ describe("buildAssetManifest", () => {
     });
     const entry = manifest["/assets/app.js"];
     expect(filesByHash.get(entry.hash)?.size).toBe(entry.size);
+    // Only the cf arm reads contentType; the s3 arm echoes the signed value.
+    expect(filesByHash.get(entry.hash)?.contentType).toBe("text/javascript");
+    expect(filesByHash.get(manifest["/index.html"].hash)?.contentType).toBe(
+      "text/html",
+    );
   });
 
   it("honors .assetsignore patterns (exact names, * globs, directory patterns)", async () => {

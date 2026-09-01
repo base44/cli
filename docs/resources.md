@@ -97,19 +97,22 @@ The workflow module at `packages/cli/src/core/resources/workflow/` is read-only 
 
 The site module at `packages/cli/src/core/site/` handles deploying an app's built output. It follows a different pattern than resources — there is no item list, so no `readAll`/`push`.
 
-It exposes **two ways to ship `site.outputDirectory`**, and the caller picks:
+It owns **which transport ships the build**, but not the shipping itself: `deploymentsApiEnabled()` in `deployment.ts` only decides, and `base44 site deploy` calls the chosen flow.
 
 ```typescript
-import { deploySite, deployStaticSite } from "@/core/site/index.js";
+import { deploymentsApiEnabled } from "@/core/site/index.js";
 
-// Legacy: tar.gz the built files, POST /api/apps/{app_id}/deploy-dist
-const { appUrl } = await deploySite(outputDir);
-
-// Deployments API (env-gated lane, see deployments.md)
-const { deploymentId } = await deployStaticSite({ outputDir, gitHash });
+const viaDeployments = deploymentsApiEnabled();
 ```
 
-`base44 site deploy` chooses between them on whether `--git-hash` was passed; `base44 deploy` always uses `deploySite()` via `deployAll()`. The lane's own files are `gate.ts`, `manifest.ts`, `static-site.ts`, and `upload.ts`; both transports share the module's `api.ts` and `schema.ts`.
+- Gate on → the deployments API, see [deployments.md](deployments.md). Whether the build carries a worker changes what that flow sends, never which flow runs, and a worker brings its own assets directory — so the command may pass a null `outputDir`.
+- Gate off → the legacy tar.gz path: tar.gz `site.outputDirectory` and upload via `POST /api/apps/{app_id}/deploy-dist`. This is the flow that requires the config field, and the one that raises "No site configuration found."
+
+Each flow validates its own inputs, so the decision itself is a boolean and needs nothing from the tree.
+
+`base44 deploy` does **not** go through this. It ships the site through `deployAll()`'s legacy tar.gz step, so the deployments-API transport is reachable only from `base44 site deploy` — it needs a commit address the unified deploy has no way to take.
+
+One flow per transport: `deployment.ts` (deployments API, worker or not) and `deploy.ts` (legacy tar.gz). The first uses `manifest.ts`, `modules.ts`, `upload.ts`, `wrangler-config.ts`, `git-hash.ts`, and the module's `api.ts` / `schema.ts`; see [deployments.md](deployments.md).
 
 ### Deploy Flow
 
@@ -139,7 +142,7 @@ What it deploys (in order):
 3. Agent skills (via `agentSkillResource.push()`)
 4. Agents (via `agentResource.push()`)
 5. Connectors (via `pushConnectors()`) -- may return OAuth redirect URLs
-6. Site (if `site.outputDirectory` is configured) — the legacy tar.gz upload. The env-gated deployments-API lane is reachable only from `base44 site deploy`, not from here (see [deployments.md](deployments.md)).
+6. Site (if `site.outputDirectory` is configured) — the legacy tar.gz upload. The deployments-API transport is not reachable from here; see [deployments.md](deployments.md).
 
 ```bash
 base44 deploy        # With confirmation prompt

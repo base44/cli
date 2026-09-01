@@ -6,6 +6,8 @@ import type {
   CreateDeploymentResponse,
   DeployResponse,
   FinalizeDeploymentResponse,
+  ModuleType,
+  WorkerModule,
 } from "@/core/site/schema.js";
 import {
   CreateDeploymentResponseSchema,
@@ -50,6 +52,14 @@ export async function uploadSite(archivePath: string): Promise<DeployResponse> {
   return result.data;
 }
 
+const MODULE_CONTENT_TYPES: Record<ModuleType, string> = {
+  esm: "application/javascript+module",
+  sourcemap: "application/source-map",
+  wasm: "application/wasm",
+  text: "text/plain",
+  data: "application/octet-stream",
+};
+
 export async function createDeployment(
   request: CreateDeploymentRequest,
 ): Promise<CreateDeploymentResponse> {
@@ -78,27 +88,43 @@ export async function createDeployment(
 }
 
 /**
- * The form carries exactly one file part — `index.html`, the sentinel that
- * completes the deployment — and nothing else.
+ * What completes a deployment — the one thing the two kinds of build send
+ * differently. A build that produced a worker completes with its modules and
+ * the asset completion token; a plain static build completes with the
+ * `index.html` sentinel, which is the whole form and carries no payload part.
  */
-export async function finalizeStaticDeployment(
+type FinalizePayload =
+  | { modules: WorkerModule[]; completionJwt: string | null }
+  | { indexHtml: Uint8Array };
+
+export async function finalizeDeployment(
   deploymentId: string,
-  indexHtml: Uint8Array,
   sessionId: string,
+  payload: FinalizePayload,
 ): Promise<FinalizeDeploymentResponse> {
   const formData = new FormData();
-  formData.append(
-    "index.html",
-    new File([indexHtml], "index.html", { type: "text/html" }),
-  );
-  return await postFinalize(deploymentId, formData, sessionId);
-}
 
-async function postFinalize(
-  deploymentId: string,
-  formData: FormData,
-  sessionId: string,
-): Promise<FinalizeDeploymentResponse> {
+  if ("indexHtml" in payload) {
+    formData.append(
+      "index.html",
+      new File([payload.indexHtml], "index.html", { type: "text/html" }),
+    );
+  } else {
+    formData.append(
+      "payload",
+      JSON.stringify({ completion_jwt: payload.completionJwt }),
+    );
+    for (const module of payload.modules) {
+      const content = await readFile(module.absolutePath);
+      formData.append(
+        module.name,
+        new File([new Uint8Array(content)], module.name, {
+          type: MODULE_CONTENT_TYPES[module.type],
+        }),
+      );
+    }
+  }
+
   const appClient = getAppClient();
 
   let response: KyResponse;
