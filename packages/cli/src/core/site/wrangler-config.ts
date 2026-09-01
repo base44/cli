@@ -59,20 +59,10 @@ export interface ResolvedWranglerConfig {
   assetsConfig: ResolvedAssetsConfig | null;
   compatibilityDate: string | null;
   compatibilityFlags: string[];
-  vars: Record<string, unknown>;
   rules: WranglerModuleRule[];
   uploadSourceMaps: boolean;
 }
 
-/**
- * Detect a full-stack (Cloudflare Workers) build artifact: the redirect file
- * emitted by @cloudflare/vite-plugin builds.
- *
- * A hand-authored root wrangler config is deliberately not an artifact. Those
- * target wrangler's own bundler, which this path never runs (see the no_bundle
- * gate below), so detecting one would hijack the deploy away from the static
- * upload it was going to do.
- */
 export async function detectFullStackArtifact(
   projectRoot: string,
 ): Promise<string | null> {
@@ -80,21 +70,9 @@ export async function detectFullStackArtifact(
   return (await pathExists(redirectPath)) ? redirectPath : null;
 }
 
-/** Throws when there is no artifact, or when the build still needs bundling. */
 export async function resolveWranglerConfig(
-  projectRoot: string,
+  redirectPath: string,
 ): Promise<ResolvedWranglerConfig> {
-  const redirectPath = await detectFullStackArtifact(projectRoot);
-
-  if (!redirectPath) {
-    throw new InvalidInputError(
-      "No Workers build artifact found. Expected a .wrangler/deploy/config.json redirect file.",
-      {
-        hints: [{ message: "Run your framework's build command first" }],
-      },
-    );
-  }
-
   const configPath = await resolveRedirectedConfigPath(redirectPath);
 
   const parsed = await readJsonFile(configPath);
@@ -127,7 +105,6 @@ export async function resolveWranglerConfig(
     assetsConfig: config.assets ? toResolvedAssetsConfig(config.assets) : null,
     compatibilityDate: config.compatibility_date ?? null,
     compatibilityFlags: config.compatibility_flags ?? [],
-    vars: config.vars ?? {},
     rules: (config.rules ?? []).map((rule) => ({
       type: rule.type,
       globs: rule.globs,
@@ -137,7 +114,7 @@ export async function resolveWranglerConfig(
 }
 
 async function resolveRedirectedConfigPath(
-  redirectPath: string,
+  redirectPath: string, 
 ): Promise<string> {
   const parsed = await readJsonFile(redirectPath);
   const result = RedirectConfigSchema.safeParse(parsed);

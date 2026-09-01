@@ -58,12 +58,6 @@ async function deployAction(
     : await deployTarball(ctx, project);
 }
 
-/**
- * Run the deploy behind a spinner, streaming its stages into the spinner
- * message. Asset counts are also kept for a summary line, since the spinner only
- * ever shows the latest one, and warnings are held back so they land after the
- * task instead of being overwritten by it.
- */
 async function deployToDeploymentsApi(
   ctx: CLIContext,
   project: ProjectWithPaths,
@@ -150,7 +144,6 @@ async function deployTarball(
   return { outroMessage: `Visit your site at: ${appUrl}` };
 }
 
-/** The configured static output directory, absolute; null when unconfigured. */
 function siteOutputDir(project: ProjectWithPaths): string | null {
   const outputDirectory = project.site?.outputDirectory;
   return outputDirectory ? resolve(project.root, outputDirectory) : null;

@@ -172,10 +172,6 @@ export type CreateDeploymentResponse = z.infer<
   typeof CreateDeploymentResponseSchema
 >;
 
-/**
- * Cloudflare's reply to a bucket upload, relayed verbatim by the backend. Only
- * the reply that completes the asset set carries a token, hence all-optional.
- */
 export const AssetUploadResponseSchema = z.looseObject({
   result: z
     .looseObject({ jwt: z.string().nullable().optional() })

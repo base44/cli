@@ -2,7 +2,6 @@ import { execa } from "execa";
 import { InvalidInputError } from "@/core/errors.js";
 import { isGitCommitHash } from "@/core/utils/git.js";
 
-/** An explicit hash (flag/automation) wins over the checkout's HEAD. */
 export async function resolveGitHash(
   projectRoot: string,
   explicit?: string,

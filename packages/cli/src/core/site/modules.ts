@@ -23,12 +23,6 @@ function toPosix(path: string): string {
   return path.split(sep).join("/");
 }
 
-/**
- * Collect the worker modules for an unbundled (no_bundle) build: the entry
- * module plus every file under the config dir matching the config's rules
- * globs, keyed by relative path. `.map` files next to collected modules (or all
- * of them when `upload_source_maps` is set) ride along as sourcemaps.
- */
 export async function collectModules(
   config: ResolvedWranglerConfig,
 ): Promise<WorkerModule[]> {

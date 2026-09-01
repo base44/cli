@@ -61,15 +61,21 @@ export async function uploadDeploymentAssets(
   }
 
   const uploadOptions = { concurrency, onProgress: progress?.onAssetUpload };
-  if (assetUploads.type === "cf") {
-    return await uploadAssetBuckets(
-      assetUploads,
-      assets.filesByHash,
-      uploadOptions,
-    );
+  switch (assetUploads.type) {
+    case "cf":
+      return await uploadAssetBuckets(
+        assetUploads,
+        assets.filesByHash,
+        uploadOptions,
+      );
+    case "s3":
+      await uploadPresignedAssets(
+        assetUploads.uploads,
+        assets,
+        uploadOptions,
+      );
+      return null;
   }
-  await uploadPresignedAssets(assetUploads.uploads, assets, uploadOptions);
-  return null;
 }
 
 function countOwedAssets(
@@ -130,15 +136,11 @@ async function uploadAssetBucket(
 
   let response: KyResponse;
   try {
-    // Straight to Cloudflare under the upload-session jwt — never the app
-    // client, and never app auth.
     response = await ky.post(target.url, {
       searchParams: { base64: "true" },
       headers: { Authorization: `Bearer ${target.jwt}` },
       body: formData,
       timeout: 120_000,
-      // POST is absent from ky's default retry methods, so naming it is what
-      // makes these uploads retry at all.
       retry: { ...UPLOAD_RETRY, methods: ["post"] },
     });
   } catch (error) {
@@ -229,7 +231,6 @@ async function uploadPresignedAsset(
       // our own value would 403 on any mapping difference.
       headers: { "Content-Type": upload.contentType },
       timeout: 120_000,
-      // PUT is already a default retry method.
       retry: UPLOAD_RETRY,
     });
   } catch (error) {

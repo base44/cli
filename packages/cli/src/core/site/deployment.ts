@@ -111,32 +111,16 @@ export async function deployToDeployments(options: {
   return { deploymentId: finalized.deploymentId, gitHash };
 }
 
-/** Null when this build produced no worker — i.e. a plain static build. */
 async function resolveWorkerBuild(
   projectRoot: string,
   progress?: DeploymentProgress,
 ): Promise<WorkerBuild | null> {
-  if (!(await detectFullStackArtifact(projectRoot))) {
+  const redirectPath = await detectFullStackArtifact(projectRoot);
+  if (!redirectPath) {
     return null;
   }
 
   const config = await resolveWranglerConfig(projectRoot);
-
-  // Warn rather than inject the flag: the config is generated, so the fix
-  // belongs in the framework's adapter settings.
-  if (!config.compatibilityFlags.includes("nodejs_compat")) {
-    progress?.onWarning?.(
-      "The wrangler config has no 'nodejs_compat' compatibility flag; Node.js built-ins will be unavailable at runtime. Enable it in your framework's Cloudflare adapter settings if your server code needs Node APIs.",
-    );
-  }
-
-  // A deploy can't introduce env of its own, so wrangler `vars` never reach
-  // the worker.
-  if (Object.keys(config.vars).length > 0) {
-    progress?.onWarning?.(
-      "wrangler 'vars' are not supported and were ignored — a worker's environment comes from the app's secrets (base44 secrets set).",
-    );
-  }
 
   const assetsDir =
     config.assetsDirectory && (await pathExists(config.assetsDirectory))
