@@ -114,7 +114,7 @@ export async function resolveWranglerConfig(
 }
 
 async function resolveRedirectedConfigPath(
-  redirectPath: string, 
+  redirectPath: string,
 ): Promise<string> {
   const parsed = await readJsonFile(redirectPath);
   const result = RedirectConfigSchema.safeParse(parsed);

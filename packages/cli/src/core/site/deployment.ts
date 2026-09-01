@@ -120,7 +120,7 @@ async function resolveWorkerBuild(
     return null;
   }
 
-  const config = await resolveWranglerConfig(projectRoot);
+  const config = await resolveWranglerConfig(redirectPath);
 
   const assetsDir =
     config.assetsDirectory && (await pathExists(config.assetsDirectory))

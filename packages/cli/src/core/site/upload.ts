@@ -69,11 +69,7 @@ export async function uploadDeploymentAssets(
         uploadOptions,
       );
     case "s3":
-      await uploadPresignedAssets(
-        assetUploads.uploads,
-        assets,
-        uploadOptions,
-      );
+      await uploadPresignedAssets(assetUploads.uploads, assets, uploadOptions);
       return null;
   }
 }

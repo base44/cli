@@ -71,6 +71,7 @@ describe("site deploy command (full-stack)", () => {
     expect(body.config.compatibility_date).toBe("2025-04-01");
     expect(body.config.compatibility_flags).toEqual(["nodejs_compat"]);
     expect(body).not.toHaveProperty("modules");
+    // The fixture's wrangler config carries vars; a deploy never sends them.
     expect(body.config).not.toHaveProperty("vars");
     expect(body.asset_manifest).toEqual({
       "/index.html": { hash: htmlHash, size: INDEX_HTML.length },
@@ -78,9 +79,6 @@ describe("site deploy command (full-stack)", () => {
     });
     expect(Object.keys(body.asset_manifest)).not.toContain("/ignored.txt");
     expect(Object.keys(body.asset_manifest)).not.toContain("/.assetsignore");
-
-    // The fixture's wrangler config carries vars — surfaced, not sent.
-    t.expectResult(result).toContain("wrangler 'vars' are not supported");
 
     expect(t.api.assetUploadRequests).toHaveLength(2);
     for (const upload of t.api.assetUploadRequests) {
@@ -190,7 +188,7 @@ describe("site deploy command (full-stack)", () => {
     });
   });
 
-  it("warns when the wrangler config lacks the nodejs_compat flag (e.g. Astro 6)", async () => {
+  it("forwards a config with no nodejs_compat flag as-is (e.g. Astro 6)", async () => {
     await t.givenLoggedInWithProject(fixture("fullstack-project"));
     t.givenEnv({ BASE44_DEPLOYMENTS_API: "1" });
     const configPath = join(
@@ -208,7 +206,6 @@ describe("site deploy command (full-stack)", () => {
     const result = await t.run("site", "deploy", "-y", "--git-hash", GIT_HASH);
 
     t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain("no 'nodejs_compat' compatibility flag");
     const body = t.api.deploymentCreateRequests[0] as CreateBody;
     expect(body.config.compatibility_flags).toEqual([]);
   });

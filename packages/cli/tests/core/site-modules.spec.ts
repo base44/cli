@@ -27,7 +27,6 @@ describe("collectModules", () => {
       assetsConfig: null,
       compatibilityDate: null,
       compatibilityFlags: [],
-      vars: {},
       rules: [{ type: "ESModule", globs: ["**/*.js", "**/*.mjs"] }],
       uploadSourceMaps: false,
       ...overrides,

@@ -9,6 +9,11 @@ import {
 
 const FIXTURES_DIR = resolve(__dirname, "../fixtures");
 
+/** What `detectFullStackArtifact()` hands `resolveWranglerConfig()`. */
+function redirectIn(projectRoot: string): string {
+  return join(projectRoot, ".wrangler", "deploy", "config.json");
+}
+
 const BASE_CONFIG = {
   name: "test-worker",
   main: "index.js",
@@ -56,20 +61,20 @@ describe("wrangler config resolution", () => {
       }),
     );
 
-    const config = await resolveWranglerConfig(root);
+    const config = await resolveWranglerConfig(redirectIn(root));
 
     expect(config.configDir).toBe(join(root, "dist", "worker"));
     expect(config.main).toBe("index.js");
     expect(config.assetsDirectory).toBe(join(root, "dist", "client"));
     expect(config.compatibilityDate).toBe("2025-04-01");
     expect(config.compatibilityFlags).toEqual(["nodejs_compat"]);
-    expect(config.vars).toEqual({ FOO: "bar" });
+    expect(config).not.toHaveProperty("vars");
     expect(config.rules).toEqual([{ type: "ESModule", globs: ["**/*.js"] }]);
   });
 
   it("resolves the fullstack-project fixture", async () => {
     const config = await resolveWranglerConfig(
-      resolve(FIXTURES_DIR, "fullstack-project"),
+      redirectIn(resolve(FIXTURES_DIR, "fullstack-project")),
     );
 
     expect(config.main).toBe("index.js");
@@ -94,7 +99,7 @@ describe("wrangler config resolution", () => {
       JSON.stringify(BASE_CONFIG),
     );
 
-    const config = await resolveWranglerConfig(root);
+    const config = await resolveWranglerConfig(redirectIn(root));
 
     expect(config.configDir).toBe(join(root, "out"));
     expect(config.main).toBe("index.js");
@@ -103,7 +108,7 @@ describe("wrangler config resolution", () => {
   it("fails clearly when the config lacks no_bundle: true", async () => {
     await writeArtifact({ ...BASE_CONFIG, no_bundle: undefined });
 
-    await expect(resolveWranglerConfig(root)).rejects.toThrow(
+    await expect(resolveWranglerConfig(redirectIn(root))).rejects.toThrow(
       /requires bundling; not yet supported/,
     );
   });
@@ -117,9 +122,9 @@ describe("wrangler config resolution", () => {
       queues: { producers: [{ binding: "Q", queue: "q" }], consumers: [] },
     });
 
-    const config = await resolveWranglerConfig(root);
+    const config = await resolveWranglerConfig(redirectIn(root));
     expect(config.main).toBe("index.js");
-    expect(config.vars).toEqual({ A: "1" });
+    expect(config).not.toHaveProperty("vars");
   });
 
   it("detects nothing in a plain project", async () => {
@@ -133,8 +138,5 @@ describe("wrangler config resolution", () => {
     await writeFile(join(root, "wrangler.toml"), 'name = "test-worker"\n');
 
     expect(await detectFullStackArtifact(root)).toBeNull();
-    await expect(resolveWranglerConfig(root)).rejects.toThrow(
-      /No Workers build artifact found/,
-    );
   });
 });
