@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { readFile, stat } from "node:fs/promises";
+import { createReadStream } from "node:fs";
+import { stat } from "node:fs/promises";
 import { basename, extname, join } from "node:path";
 import { globby } from "globby";
 import { InvalidInputError } from "@/core/errors.js";
@@ -9,7 +10,6 @@ import type {
   AssetManifestResult,
 } from "./schema.js";
 
-const MAX_ASSET_SIZE_BYTES = 25 * 1024 * 1024; // 25 MiB
 const MAX_ASSET_COUNT = 100_000;
 
 const ASSETS_IGNORE_FILE = ".assetsignore";
@@ -73,10 +73,25 @@ export function hashAsset(appId: string, content: Buffer): string {
 }
 
 /**
+ * {@link hashAsset} over a file, read in chunks in order to support large files
+ * without reading them entirely to memory.
+ */
+async function hashAssetFile(
+  appId: string,
+  absolutePath: string,
+): Promise<string> {
+  const hash = createHash("sha256").update(Buffer.from(appId, "utf8"));
+  for await (const chunk of createReadStream(absolutePath)) {
+    hash.update(chunk);
+  }
+  return hash.digest("hex").slice(0, 32);
+}
+
+/**
  * Walk the assets directory and build the deployment asset manifest. Honors
  * `.assetsignore` at the assets root with full gitignore semantics, negation
- * included. Rejects files larger than 25 MiB and caps the total file count at
- * 100,000.
+ * included. Caps the total file count at 100,000; there is no per-file size
+ * limit — files are hashed in chunks, never read whole.
  */
 export async function buildAssetManifest(
   assetsDir: string,
@@ -108,16 +123,8 @@ export async function buildAssetManifest(
 
   for (const relativePath of relativeFilePaths.sort()) {
     const absolutePath = join(assetsDir, ...relativePath.split("/"));
-    // Stat before read so an oversized file is never pulled into memory.
     const { size } = await stat(absolutePath);
-    if (size > MAX_ASSET_SIZE_BYTES) {
-      throw new InvalidInputError(
-        `Static asset "${relativePath}" is ${size} bytes, which exceeds the 25 MiB per-file limit.`,
-      );
-    }
-
-    const content = await readFile(absolutePath);
-    const hash = hashAsset(appId, content);
+    const hash = await hashAssetFile(appId, absolutePath);
 
     manifest[`/${relativePath}`] = { hash, size };
     if (!filesByHash.has(hash)) {

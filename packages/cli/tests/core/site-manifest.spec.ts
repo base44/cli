@@ -171,13 +171,25 @@ describe("buildAssetManifest", () => {
     expect(Object.keys(manifest)).toEqual(["/index.html"]);
   });
 
-  it("rejects files larger than 25 MiB with a per-file error", async () => {
+  it("has no per-file size limit — assets go straight to storage", async () => {
     const bigFile = join(assetsDir, "big.bin");
     await writeFile(bigFile, "");
     await truncate(bigFile, 25 * 1024 * 1024 + 1);
 
-    await expect(buildAssetManifest(assetsDir, "test-app-id")).rejects.toThrow(
-      /"big\.bin".*exceeds the 25 MiB per-file limit/,
+    const { manifest } = await buildAssetManifest(assetsDir, "test-app-id");
+
+    expect(manifest["/big.bin"].size).toBe(25 * 1024 * 1024 + 1);
+  });
+
+  it("hashes a file in chunks to the same digest as the whole buffer", async () => {
+    // Larger than one read-stream chunk, so a chunk-boundary bug would show.
+    const content = Buffer.alloc(200 * 1024, "ab");
+    await writeFile(join(assetsDir, "chunky.bin"), content);
+
+    const { manifest } = await buildAssetManifest(assetsDir, "test-app-id");
+
+    expect(manifest["/chunky.bin"].hash).toBe(
+      hashAsset("test-app-id", content),
     );
   });
 

@@ -1,3 +1,5 @@
+import { setTimeout as delay } from "node:timers/promises";
+import type { Logger } from "@base44-cli/logger";
 import type { Command } from "commander";
 import { Option } from "commander";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
@@ -8,12 +10,18 @@ import type {
   FunctionLogsResponse,
   LogEnv,
   LogLevel,
+  LogStreamAttempt,
+  LogStreamFilters,
+  StreamEndEvent,
+  StreamEvent,
+  StreamLogEvent,
 } from "@/core/resources/function/index.js";
 import {
   fetchFunctionLogs,
   LogEnvSchema,
   LogLevelSchema,
   listDeployedFunctions,
+  openLogStream,
 } from "@/core/resources/function/index.js";
 
 interface LogsOptions {
@@ -122,14 +130,165 @@ function writeFollowLine(entry: LogEntry, jsonMode: boolean): void {
   process.stdout.write(`${line}\n`);
 }
 
+function streamEventToLogEntry(event: StreamLogEvent): LogEntry {
+  return {
+    time: event.time,
+    level: event.level,
+    message: event.function
+      ? `[${event.function}] ${event.message}`
+      : event.message,
+    source: event.function ?? "",
+  };
+}
+
+interface StreamEnding {
+  lastTime: string;
+  provedAlive: boolean;
+  end: StreamEndEvent | null;
+}
+
+export async function printStreamUntilEnd(
+  stream: AsyncGenerator<StreamEvent>,
+  levelFilter: string | undefined,
+  jsonMode: boolean,
+  startTime: string,
+): Promise<StreamEnding> {
+  let lastTime = startTime;
+  let provedAlive = false;
+  try {
+    for await (const event of stream) {
+      provedAlive = true;
+      if (event.kind === "end")
+        return { lastTime, provedAlive, end: event.end };
+      if (event.kind === "ping") continue;
+      if (levelFilter && event.log.level !== levelFilter) continue;
+      writeFollowLine(streamEventToLogEntry(event.log), jsonMode);
+      if (event.log.time > lastTime) lastTime = event.log.time;
+    }
+  } catch {}
+  return { lastTime, provedAlive, end: null };
+}
+
+const STREAM_RECONNECT_DELAY_MS = 1_000;
+const MAX_DROPS_SINCE_LAST_EVENT = 2;
+const CONNECT_RETRY_DELAYS_MS = [1_000, 2_000, 4_000, 8_000];
+
+export const countDropTowardGivingUp = (
+  dropsSinceLastEvent: number,
+  provedAlive: boolean,
+) => (provedAlive ? 1 : dropsSinceLastEvent + 1);
+
+export const shouldGiveUpStreaming = (dropsSinceLastEvent: number) =>
+  dropsSinceLastEvent >= MAX_DROPS_SINCE_LAST_EVENT;
+
+async function connectWhileTransientlyUnavailable(
+  filters: LogStreamFilters,
+): Promise<LogStreamAttempt> {
+  let attempt = await openLogStream(filters);
+  for (const retryDelay of CONNECT_RETRY_DELAYS_MS) {
+    if (attempt.kind !== "transient") return attempt;
+    await delay(retryDelay);
+    attempt = await openLogStream(filters);
+  }
+  return attempt;
+}
+
+async function streamUntilExhausted(
+  firstStream: AsyncGenerator<StreamEvent>,
+  filters: LogStreamFilters,
+  options: LogsOptions,
+  jsonMode: boolean,
+): Promise<void> {
+  let events = firstStream;
+  let lastTime = "";
+  let dropsSinceLastEvent = 0;
+  while (true) {
+    const ending = await printStreamUntilEnd(
+      events,
+      options.level,
+      jsonMode,
+      lastTime,
+    );
+    lastTime = ending.lastTime;
+    if (ending.end) {
+      if (!ending.end.retriable) return;
+      dropsSinceLastEvent = 0;
+    } else {
+      dropsSinceLastEvent = countDropTowardGivingUp(
+        dropsSinceLastEvent,
+        ending.provedAlive,
+      );
+      if (shouldGiveUpStreaming(dropsSinceLastEvent)) return;
+    }
+    await delay(STREAM_RECONNECT_DELAY_MS);
+    const reopened = await connectWhileTransientlyUnavailable(filters);
+    if (reopened.kind !== "stream") return;
+    events = reopened.events;
+  }
+}
+
+function streamLostError(): ApiError {
+  return new ApiError(
+    "The realtime log stream stopped and could not be re-established",
+    {
+      hints: [
+        { message: "Start a new live tail", command: "base44 logs --follow" },
+        {
+          message: "Or read recent logs without streaming",
+          command: "base44 logs",
+        },
+      ],
+    },
+  );
+}
+
 async function followLogs(
   functionNames: string[],
   options: LogsOptions,
   availableFunctionNames: string[],
   jsonMode: boolean,
+  logger: Logger,
 ): Promise<never> {
-  let state: FollowState = { lastTime: "", boundaryKeys: new Set() };
-  let first = true;
+  const filters: LogStreamFilters = {
+    functions: parseFunctionNames(options.function),
+    env: options.env,
+  };
+  if (options.since) {
+    // A stream only carries what happens from now on, so a run that asked for
+    // the past polls from the start rather than opening one.
+    logger.warn(
+      "--since reads the past, so this run polls instead of streaming (lines may lag ~20-30s).",
+    );
+    return pollLogs(functionNames, options, availableFunctionNames, jsonMode, {
+      lastTime: "",
+      boundaryKeys: new Set(),
+    });
+  }
+  const opened = await connectWhileTransientlyUnavailable(filters);
+  if (opened.kind !== "stream") {
+    logger.warn(
+      opened.kind === "refused"
+        ? "Realtime logs are not available for this app — falling back to polling (lines may lag ~20-30s)."
+        : "Could not reach the realtime log stream — falling back to polling (lines may lag ~20-30s).",
+    );
+    return pollLogs(functionNames, options, availableFunctionNames, jsonMode, {
+      lastTime: "",
+      boundaryKeys: new Set(),
+    });
+  }
+  await streamUntilExhausted(opened.events, filters, options, jsonMode);
+  throw streamLostError();
+}
+
+async function pollLogs(
+  functionNames: string[],
+  options: LogsOptions,
+  availableFunctionNames: string[],
+  jsonMode: boolean,
+  initialState: FollowState,
+): Promise<never> {
+  let state = initialState;
+  let first = state.lastTime === "";
 
   while (true) {
     const pollOptions = first ? options : { ...options, since: state.lastTime };
@@ -143,7 +302,7 @@ async function followLogs(
     fresh.sort((a, b) => a.time.localeCompare(b.time));
     for (const entry of fresh) writeFollowLine(entry, jsonMode);
     first = false;
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    await delay(2000);
   }
 }
 
@@ -296,6 +455,7 @@ async function logsAction(
       options,
       availableFunctionNames,
       ctx.jsonMode,
+      ctx.log,
     );
   }
 
@@ -345,7 +505,10 @@ export function getLogsCommand(): Command {
         ...LogLevelSchema.options,
       ]),
     )
-    .option("-n, --limit <n>", "Results per page (1-1000, default: 50)")
+    .option(
+      "-n, --limit <n>",
+      "Results per page (1-1000; the server returns at most 500)",
+    )
     .option("-f, --follow", "Stream new logs as they arrive")
     .addOption(
       new Option("--order <order>", "Sort order").choices(["asc", "desc"]),
