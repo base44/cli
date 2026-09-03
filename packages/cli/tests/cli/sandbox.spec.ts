@@ -1,3 +1,5 @@
+import { writeFile as writeLocalFile } from "node:fs/promises";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { setupCLITests } from "./testkit/index.js";
 
@@ -131,6 +133,82 @@ describe("sandbox commands", () => {
     // Then — 6 bytes ("  hi  "), proving stdin is not trimmed
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain('"bytesWritten": 6');
+  });
+
+  it("write reads content from a local file with --file", async () => {
+    // Given
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    const localPath = join(t.getTempDir(), "local-notes.txt");
+    await writeLocalFile(localPath, "from a file");
+    t.api.mockRoute("POST", `${base}/write_file`, (req, res) => {
+      res.status(200).json({
+        path: req.body.path,
+        bytes_written: (req.body.content ?? "").length,
+        created: true,
+        overwritten: false,
+      });
+    });
+
+    // When
+    const result = await t.run(
+      "sandbox",
+      "write",
+      "notes.txt",
+      "--file",
+      localPath,
+      "--app-id",
+      APP_ID,
+    );
+
+    // Then — 11 bytes ("from a file"), read from disk rather than stdin
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain('"bytesWritten": 11');
+  });
+
+  it("write rejects --content and --file together", async () => {
+    // Given
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    const localPath = join(t.getTempDir(), "local-notes.txt");
+    await writeLocalFile(localPath, "from a file");
+
+    // When
+    const result = await t.run(
+      "sandbox",
+      "write",
+      "notes.txt",
+      "--content",
+      "inline",
+      "--file",
+      localPath,
+      "--app-id",
+      APP_ID,
+    );
+
+    // Then
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain(
+      "Pass either --content or --file, not both.",
+    );
+  });
+
+  it("write reports a missing --file path", async () => {
+    // Given
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+
+    // When
+    const result = await t.run(
+      "sandbox",
+      "write",
+      "notes.txt",
+      "--file",
+      join(t.getTempDir(), "nope.txt"),
+      "--app-id",
+      APP_ID,
+    );
+
+    // Then
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("File not found");
   });
 
   it("run surfaces the remote exit code without failing the CLI", async () => {

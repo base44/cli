@@ -8,6 +8,8 @@
 - `base44 build` runs the site's `buildCommand` with `VITE_BASE44_APP_ID` injected, so built bundles always carry the linked app's id.
 - `base44 deploy` (and `base44 site deploy`) can now build first: interactive runs ask, and `--build` / `--no-build` pre-answer the prompt.
 - `base44 dev --remote` serves the frontend against the production backend: it runs `site.serveCommand` with `VITE_BASE44_APP_ID` and `VITE_BASE44_APP_BASE_URL` pointing at the app's own published URL, without starting the local backend. Fails if the app has no published URL.
+- `base44 sandbox push-skills <dir>` copies local agent skills — the whole skill directory, bundled files included — into `.agents/skills/` in an app's remote sandbox. A directory holding a `SKILL.md` is one skill; otherwise its immediate subdirectories are scanned and you pick from them, with `--all` / `--name` skipping the picker. Binary files cannot cross the sandbox bridge and are reported as unsupported rather than copied.
+- `base44 sandbox write --file <path>` reads the content from a local file, as an alternative to `--content` or piped stdin.
 
 ### Changed
 
