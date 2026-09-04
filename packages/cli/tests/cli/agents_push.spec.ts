@@ -1,17 +1,46 @@
-import { describe, it } from "vitest";
+import { mkdir } from "node:fs/promises";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
 import { fixture, setupCLITests } from "./testkit/index.js";
 
 describe("agents push command", () => {
   const t = setupCLITests();
 
-  it("warns when no agents found in project", async () => {
+  // A missing agents directory reads the same as an empty one, but it almost
+  // always means the command is pointed at the wrong project — so refuse
+  // rather than delete every remote agent.
+  it("refuses to delete all remote agents when there is no agents directory", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
     t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
 
     const result = await t.run("agents", "push", "--yes");
 
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("No agents directory found");
+    expect(t.api.agentsPushRequests).toEqual([]);
+  });
+
+  // The case the "this will delete all remote agents" warning exists for: an
+  // agents directory that is deliberately empty really does clear the app.
+  it("deletes all remote agents when the agents directory exists but is empty", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+    await mkdir(join(t.getTempDir(), "project", "base44", "agents"), {
+      recursive: true,
+    });
+    t.api.mockAgentsPush({
+      created: [],
+      updated: [],
+      deleted: ["oncall_assistant"],
+    });
+
+    const result = await t.run("agents", "push", "--yes");
+
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("No local agents found");
+    // The destructive sync actually reached the server...
+    expect(t.api.agentsPushRequests).toEqual([[]]);
+    // ...and the CLI reports what it removed.
+    t.expectResult(result).toContain("Deleted: oncall_assistant");
   });
 
   it("fails when not in a project directory", async () => {

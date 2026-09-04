@@ -493,12 +493,23 @@ export class TestAPIServer {
 
   // ─── APP-SCOPED ENDPOINTS ────────────────────────────────
 
+  /** Captured JSON bodies of PUT entity-schemas requests. */
+  readonly entitiesPushRequests: unknown[] = [];
+
+  /**
+   * Mock PUT /api/apps/{appId}/entity-schemas. Captures the JSON request body
+   * in `entitiesPushRequests`.
+   */
   mockEntitiesPush(response: EntitiesPushResponse): this {
-    return this.addRoute(
-      "PUT",
-      `/api/apps/${this.appId}/entity-schemas`,
-      response,
-    );
+    this.pendingRoutes.push({
+      method: "PUT",
+      path: `/api/apps/${this.appId}/entity-schemas`,
+      handler: (req, res) => {
+        this.entitiesPushRequests.push(req.body);
+        res.status(200).json(response);
+      },
+    });
+    return this;
   }
 
   mockFunctionsPush(response: FunctionsPushResponse): this {
@@ -554,12 +565,23 @@ export class TestAPIServer {
     );
   }
 
+  /** Captured JSON bodies of PUT agent-configs requests. */
+  readonly agentsPushRequests: unknown[] = [];
+
+  /**
+   * Mock PUT /api/apps/{appId}/agent-configs. Captures the JSON request body
+   * in `agentsPushRequests`.
+   */
   mockAgentsPush(response: AgentsPushResponse): this {
-    return this.addRoute(
-      "PUT",
-      `/api/apps/${this.appId}/agent-configs`,
-      response,
-    );
+    this.pendingRoutes.push({
+      method: "PUT",
+      path: `/api/apps/${this.appId}/agent-configs`,
+      handler: (req, res) => {
+        this.agentsPushRequests.push(req.body);
+        res.status(200).json(response);
+      },
+    });
+    return this;
   }
 
   mockAgentsFetch(response: AgentsFetchResponse): this {

@@ -15,6 +15,9 @@
 
 ### Fixed
 
+- `base44 agents push` with no local agents no longer reports success without doing anything. It warned "this will delete all remote agents" but short-circuited before the HTTP request, leaving remote agents in place. The empty list is now sent, so the delete-all the warning describes actually happens and the removed agents are listed back.
+- `base44 agents push` now refuses to run when the agents directory does not exist, instead of treating a missing directory as a request to delete every remote agent. Create an empty agents directory to confirm that intent.
+- `base44 deploy` now names the entities, agents and agent skills the server removed during its full sync, and warns beforehand that resources absent locally will be deleted. Previously it silently deleted them and reported only what it pushed.
 - `base44 link` now lists editor-created apps; previously only apps created by the CLI could be linked.
 
 ## [0.0.51] - 2026-04-28
