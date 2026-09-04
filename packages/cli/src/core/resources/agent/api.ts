@@ -11,13 +11,19 @@ import {
   SyncAgentsResponseSchema,
 } from "./schema.js";
 
+/**
+ * Replaces the app's agent configs with `agents`, deleting any remote agent
+ * that is not in the list.
+ *
+ * An empty list is a meaningful request — it deletes every remote agent — so it
+ * is sent to the server like any other. Callers that must not delete everything
+ * when a project simply defines no agents are responsible for not calling this
+ * with an empty list (see `deployAll`), because a short-circuit here cannot
+ * tell that case apart from a deliberate "remove them all".
+ */
 export async function pushAgents(
   agents: AgentConfig[],
 ): Promise<SyncAgentsResponse> {
-  if (agents.length === 0) {
-    return { created: [], updated: [], deleted: [] };
-  }
-
   const appClient = getAppClient();
 
   let response: KyResponse;

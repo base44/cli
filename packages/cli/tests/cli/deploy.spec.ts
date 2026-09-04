@@ -271,4 +271,70 @@ describe("deploy command (unified)", () => {
     t.expectResult(result).toContain("connect.stripe.com/setup/claim/xxx");
     t.expectResult(result).toContain("Connectors dashboard");
   });
+  // Deploy is a destructive full sync: entities the app holds that are absent
+  // locally get removed. It used to delete them without ever saying so.
+  it("names the entities the server deleted during the full sync", async () => {
+    await t.givenLoggedInWithProject(fixture("with-entities"));
+    t.api.mockConnectorsList({ integrations: [] });
+    t.api.mockStripeStatus({ stripe_mode: null });
+    t.api.mockEntitiesPush({
+      created: [],
+      updated: ["Task"],
+      deleted: ["OncallShift", "Incident", "Runbook"],
+    });
+
+    const result = await t.run("deploy", "-y");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain(
+      "Entities deleted: OncallShift, Incident, Runbook",
+    );
+    t.expectResult(result).toContain("Entities updated: Task");
+  });
+
+  it("warns that a full sync deletes what is not present locally", async () => {
+    await t.givenLoggedInWithProject(fixture("with-entities"));
+    t.api.mockConnectorsList({ integrations: [] });
+    t.api.mockStripeStatus({ stripe_mode: null });
+    t.api.mockEntitiesPush({ created: [], updated: ["Task"], deleted: [] });
+
+    const result = await t.run("deploy", "-y");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("This is a full sync");
+    t.expectResult(result).toContain("will be DELETED");
+  });
+
+  it("carries the deletion set in --json output", async () => {
+    await t.givenLoggedInWithProject(fixture("with-entities"));
+    t.api.mockConnectorsList({ integrations: [] });
+    t.api.mockStripeStatus({ stripe_mode: null });
+    t.api.mockEntitiesPush({
+      created: [],
+      updated: [],
+      deleted: ["OncallShift"],
+    });
+
+    const result = await t.run("deploy", "-y", "--json");
+
+    t.expectResult(result).toSucceed();
+    const payload = JSON.parse(result.stdout);
+    expect(payload.sync.entities.deleted).toEqual(["OncallShift"]);
+  });
+
+  // A project that defines no agents is not asking deploy to wipe the app's
+  // agents — that is what `agents push` is for.
+  it("does not touch agents when the project defines none", async () => {
+    await t.givenLoggedInWithProject(fixture("with-entities"));
+    t.api.mockConnectorsList({ integrations: [] });
+    t.api.mockStripeStatus({ stripe_mode: null });
+    t.api.mockEntitiesPush({ created: [], updated: ["Task"], deleted: [] });
+    t.api.mockAgentsPush({ created: [], updated: [], deleted: ["kept_agent"] });
+
+    const result = await t.run("deploy", "-y");
+
+    t.expectResult(result).toSucceed();
+    expect(t.api.agentsPushRequests).toEqual([]);
+    t.expectResult(result).toNotContain("kept_agent");
+  });
 });

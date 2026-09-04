@@ -34,11 +34,21 @@ describe("pushAgents", () => {
     vi.clearAllMocks();
   });
 
-  it("returns empty result without API call when no agents provided", async () => {
+  // An empty list means "delete every remote agent". It must reach the server:
+  // short-circuiting it made the CLI report success for a sync it never sent.
+  it("sends empty array when no agents provided (deletes all remote)", async () => {
+    mockPut.mockResolvedValue({
+      json: () =>
+        Promise.resolve({ created: [], updated: [], deleted: ["old_agent"] }),
+    });
+
     const result = await pushAgents([]);
 
-    expect(mockPut).not.toHaveBeenCalled();
-    expect(result).toEqual({ created: [], updated: [], deleted: [] });
+    expect(mockPut).toHaveBeenCalledWith("agent-configs", {
+      json: [],
+      timeout: 60_000,
+    });
+    expect(result.deleted).toEqual(["old_agent"]);
   });
 
   it("sends list of configs when agents are provided", async () => {

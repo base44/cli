@@ -13,9 +13,11 @@ import {
   getConnectorsUrl,
   getDashboardUrl,
   theme,
+  toJsonStdout,
 } from "@/cli/utils/index.js";
 import { InvalidInputError } from "@/core/errors.js";
 import {
+  type DeploySyncResults,
   deployAll,
   hasResourcesToDeploy,
   readProjectConfig,
@@ -48,8 +50,15 @@ export async function deployAction(
     };
   }
 
-  const { project, entities, functions, agents, connectors, authConfig } =
-    projectData;
+  const {
+    project,
+    entities,
+    functions,
+    agents,
+    agentSkills,
+    connectors,
+    authConfig,
+  } = projectData;
 
   // Build summary of what will be deployed
   const summaryLines: string[] = [];
@@ -83,11 +92,28 @@ export async function deployAction(
     summaryLines.push(`  - Site from ${project.site.outputDirectory}`);
   }
 
+  // Deploy replaces entities, agents and agent skills wholesale, so anything
+  // the app holds that is missing locally is removed. The CLI cannot list the
+  // names up front (there is no endpoint to read the app's current entities),
+  // so warn that removals will happen and report the actual names afterwards.
+  const fullSyncLabels = [
+    entities.length > 0 && "entities",
+    agents.length > 0 && "agents",
+    agentSkills.length > 0 && "agent skills",
+  ].filter((label): label is string => typeof label === "string");
+  const destructiveWarning =
+    fullSyncLabels.length > 0
+      ? `This is a full sync: ${formatList(fullSyncLabels)} that exist in your app but not locally will be DELETED.`
+      : undefined;
+
   // Confirmation prompt
   if (!options.yes) {
     log.warn(
       `This will update your Base44 app with:\n${summaryLines.join("\n")}`,
     );
+    if (destructiveWarning) {
+      log.warn(destructiveWarning);
+    }
 
     const shouldDeploy = await confirm({
       message: "Are you sure you want to continue?",
@@ -98,6 +124,9 @@ export async function deployAction(
     }
   } else {
     log.info(`Deploying:\n${summaryLines.join("\n")}`);
+    if (destructiveWarning) {
+      log.warn(destructiveWarning);
+    }
   }
 
   await maybeBuildBeforeDeploy(ctx, project, options.build);
@@ -124,6 +153,10 @@ export async function deployAction(
     },
   });
 
+  // Report what the full sync actually did on the server — especially the
+  // deletions, which are otherwise invisible to the user.
+  reportSyncResults(result.syncResults, log);
+
   // Handle connector-specific post-deploy flows
   const connectorResults = result.connectorResults ?? [];
   await handleOAuthConnectors(connectorResults, isNonInteractive, options, log);
@@ -141,7 +174,51 @@ export async function deployAction(
     );
   }
 
+  if (ctx.jsonMode) {
+    return {
+      outroMessage: "App deployed successfully",
+      stdout: toJsonStdout({
+        appUrl: result.appUrl,
+        sync: result.syncResults,
+      }),
+    };
+  }
+
   return { outroMessage: "App deployed successfully" };
+}
+
+function formatList(items: string[]): string {
+  if (items.length <= 1) {
+    return items.join("");
+  }
+  return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+}
+
+const SYNC_RESULT_LABELS: Record<keyof DeploySyncResults, string> = {
+  entities: "Entities",
+  agentSkills: "Agent skills",
+  agents: "Agents",
+};
+
+function reportSyncResults(syncResults: DeploySyncResults, log: Logger): void {
+  for (const [key, label] of Object.entries(SYNC_RESULT_LABELS) as [
+    keyof DeploySyncResults,
+    string,
+  ][]) {
+    const outcome = syncResults[key];
+    if (!outcome) {
+      continue;
+    }
+    if (outcome.created.length > 0) {
+      log.success(`${label} created: ${outcome.created.join(", ")}`);
+    }
+    if (outcome.updated.length > 0) {
+      log.success(`${label} updated: ${outcome.updated.join(", ")}`);
+    }
+    if (outcome.deleted.length > 0) {
+      log.warn(`${label} deleted: ${outcome.deleted.join(", ")}`);
+    }
+  }
 }
 
 export function getDeployCommand(): Command {

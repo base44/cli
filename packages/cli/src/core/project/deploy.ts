@@ -3,14 +3,14 @@ import { hasWorkspaceApiKeyAuth } from "@/core/auth/config.js";
 import { setAppVisibility } from "@/core/project/api.js";
 import type { Visibility } from "@/core/project/schema.js";
 import type { ProjectData } from "@/core/project/types.js";
-import { agentResource } from "@/core/resources/agent/index.js";
-import { agentSkillResource } from "@/core/resources/agent-skill/index.js";
+import { pushAgents } from "@/core/resources/agent/index.js";
+import { pushAgentSkills } from "@/core/resources/agent-skill/index.js";
 import { authConfigResource } from "@/core/resources/auth-config/index.js";
 import {
   type ConnectorSyncResult,
   pushConnectors,
 } from "@/core/resources/connector/index.js";
-import { entityResource } from "@/core/resources/entity/index.js";
+import { pushEntities } from "@/core/resources/entity/index.js";
 import {
   deployFunctionsSequentially,
   type SingleFunctionDeployResult,
@@ -55,6 +55,28 @@ export function hasResourcesToDeploy(projectData: ProjectData): boolean {
 }
 
 /**
+ * Outcome of one resource's full sync: the names the server reported as
+ * created, updated and — crucially — deleted because they were absent locally.
+ */
+export interface ResourceSyncOutcome {
+  created: string[];
+  updated: string[];
+  deleted: string[];
+}
+
+/**
+ * Full-sync outcomes for the resources `deploy` replaces wholesale, keyed by
+ * the label shown to the user. Deploy is a destructive sync: anything the
+ * server holds that is missing locally is removed, so these results — the only
+ * record of what was removed — must reach the caller instead of being dropped.
+ */
+export interface DeploySyncResults {
+  entities?: ResourceSyncOutcome;
+  agentSkills?: ResourceSyncOutcome;
+  agents?: ResourceSyncOutcome;
+}
+
+/**
  * Result of deploying all project resources.
  */
 interface DeployAllResult {
@@ -66,6 +88,10 @@ interface DeployAllResult {
    * Results of connector push, including any that need OAuth.
    */
   connectorResults?: ConnectorSyncResult[];
+  /**
+   * What each full-synced resource actually created, updated and deleted.
+   */
+  syncResults: DeploySyncResults;
 }
 
 interface DeployAllOptions {
@@ -99,13 +125,21 @@ export async function deployAll(
   if (project.visibility) {
     options?.onVisibilitySet?.(project.visibility);
   }
-  await entityResource.push(entities);
+  const syncResults: DeploySyncResults = {};
+
+  syncResults.entities = await pushEntities(entities);
   await deployFunctionsSequentially(functions, {
     onStart: options?.onFunctionStart,
     onResult: options?.onFunctionResult,
   });
-  await agentSkillResource.push(agentSkills);
-  await agentResource.push(agents);
+  syncResults.agentSkills = await pushAgentSkills(agentSkills);
+  // A project that defines no agents is not asking `deploy` to delete the
+  // app's agents — deploy covers the whole project, so an absent resource
+  // means "nothing to say about agents", not "remove them all". The explicit
+  // delete-all path is `base44 agents push`, which warns and confirms first.
+  if (agents.length > 0) {
+    syncResults.agents = await pushAgents(agents);
+  }
   await authConfigResource.push(authConfig);
   // pushConnectors also reconciles: with an empty list it removes remote
   // connectors that are no longer configured locally. Only skip that when a
@@ -119,8 +153,8 @@ export async function deployAll(
   if (project.site?.outputDirectory) {
     const outputDir = resolve(project.root, project.site.outputDirectory);
     const { appUrl } = await deploySite(outputDir);
-    return { appUrl, connectorResults };
+    return { appUrl, connectorResults, syncResults };
   }
 
-  return { connectorResults };
+  return { connectorResults, syncResults };
 }
