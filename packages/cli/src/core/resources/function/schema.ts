@@ -198,6 +198,14 @@ export const LogEnvSchema = z.enum(["preview", "prod"]);
 
 export type LogEnv = z.infer<typeof LogEnvSchema>;
 
+/**
+ * Which user-app runtime produced a log line: a backend function, or a
+ * full-stack app's own server (`server/api/*` routes and SSR).
+ */
+export const LogSourceSchema = z.enum(["function", "server"]);
+
+export type LogSource = z.infer<typeof LogSourceSchema>;
+
 const FunctionLogEntrySchema = z.object({
   time: z.string(),
   level: z.preprocess(
@@ -205,6 +213,12 @@ const FunctionLogEntrySchema = z.object({
     LogLevelSchema,
   ),
   message: z.string(),
+  // Absent from backends that predate the shared log-row contract; this route
+  // only ever served function logs, so that is what a missing value means.
+  source: LogSourceSchema.default("function"),
+  // The unit inside the runtime — function name, or route path / `ssr`. Null
+  // when the runtime does not stamp its output.
+  name: z.string().nullable().default(null),
 });
 
 export const FunctionLogsResponseSchema = z.array(FunctionLogEntrySchema);

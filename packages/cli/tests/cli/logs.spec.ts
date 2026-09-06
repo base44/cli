@@ -30,7 +30,7 @@ async function waitForStderr(
 }
 
 function entry(time: string, message: string): LogEntry {
-  return { time, level: "info", message, source: "fn" };
+  return { time, level: "info", message, source: "function", name: "fn" };
 }
 
 describe("selectNewEntries (follow dedup)", () => {
@@ -109,7 +109,23 @@ describe("parseStreamEvent (SSE log stream)", () => {
         level: "info",
         function: "my-fn",
         message: "hello",
+        // Defaults for a backend that predates the log-row contract: a
+        // function read, named by the deprecated `function` alias.
+        source: "function",
+        name: "my-fn",
       },
+    });
+  });
+
+  it("parses a server-runtime line from a contract-aware backend", () => {
+    const event = parseStreamEvent(
+      "",
+      '{"time":"2024-01-15T10:00:00Z","level":"error","source":"server","name":"/api/orders","function":null,"message":"boom"}',
+    );
+
+    expect(event?.kind === "log" && event.log).toMatchObject({
+      source: "server",
+      name: "/api/orders",
     });
   });
 

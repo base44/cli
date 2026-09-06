@@ -11,17 +11,25 @@ import { getAppContext } from "@/core/project/index.js";
 import {
   type LogEnv,
   LogLevelSchema,
+  LogSourceSchema,
 } from "@/core/resources/function/schema.js";
 
-export const StreamLogEventSchema = z.object({
-  time: z.string(),
-  level: z.preprocess(
-    (value) => (value === "warn" ? "warning" : value),
-    LogLevelSchema,
-  ),
-  function: z.string().nullable(),
-  message: z.string(),
-});
+export const StreamLogEventSchema = z
+  .object({
+    time: z.string(),
+    level: z.preprocess(
+      (value) => (value === "warn" ? "warning" : value),
+      LogLevelSchema,
+    ),
+    message: z.string(),
+    source: LogSourceSchema.default("function"),
+    name: z.string().nullable().default(null),
+    /** @deprecated the pre-contract alias of `name`; read `name` instead. */
+    function: z.string().nullable(),
+  })
+  // A backend that predates the contract sends only `function`. Without this
+  // fallback its lines would render unattributed against a new CLI.
+  .transform((event) => ({ ...event, name: event.name ?? event.function }));
 
 export type StreamLogEvent = z.infer<typeof StreamLogEventSchema>;
 

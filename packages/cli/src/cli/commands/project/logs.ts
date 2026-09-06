@@ -10,6 +10,7 @@ import type {
   FunctionLogsResponse,
   LogEnv,
   LogLevel,
+  LogSource,
   LogStreamAttempt,
   LogStreamFilters,
   StreamEndEvent,
@@ -36,13 +37,15 @@ interface LogsOptions {
 }
 
 /**
- * Unified log entry for display.
+ * Unified log entry for display, mirroring the shared log-row contract:
+ * `source` is the runtime, `name` the unit inside it.
  */
 export interface LogEntry {
   time: string;
   level: string;
   message: string;
-  source: string; // function name
+  source: LogSource;
+  name: string;
 }
 
 function parseFunctionFilters(options: LogsOptions): FunctionLogFilters {
@@ -134,10 +137,9 @@ function streamEventToLogEntry(event: StreamLogEvent): LogEntry {
   return {
     time: event.time,
     level: event.level,
-    message: event.function
-      ? `[${event.function}] ${event.message}`
-      : event.message,
-    source: event.function ?? "",
+    message: event.name ? `[${event.name}] ${event.message}` : event.message,
+    source: event.source,
+    name: event.name ?? "",
   };
 }
 
@@ -322,14 +324,15 @@ function formatLogs(entries: LogEntry[], env: LogEnv): string {
 }
 
 function normalizeLogEntry(
-  entry: { time: string; level: string; message: string },
+  entry: FunctionLogsResponse[number],
   functionName: string,
 ): LogEntry {
   return {
     time: entry.time,
     level: entry.level,
     message: `[${functionName}] ${entry.message}`,
-    source: functionName,
+    source: entry.source,
+    name: entry.name ?? functionName,
   };
 }
 
