@@ -1,3 +1,5 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { fixture, setupCLITests } from "./testkit/index.js";
 
@@ -143,6 +145,92 @@ describe("deploy command (unified)", () => {
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("App deployed successfully");
+  });
+
+  it("exits with code 1 when a function deployment fails", async () => {
+    await t.givenLoggedInWithProject(fixture("with-functions-and-entities"));
+    t.api.mockEntitiesPush({ created: ["Order"], updated: [], deleted: [] });
+    t.api.mockSingleFunctionDeployError({
+      status: 400,
+      body: { error: "Invalid function code" },
+    });
+    t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
+    t.api.mockConnectorsList({ integrations: [] });
+    t.api.mockStripeStatus({ stripe_mode: null });
+
+    const result = await t.run("deploy", "-y");
+
+    expect(result.exitCode).toBe(1);
+    t.expectResult(result).toContain("Invalid function code");
+    t.expectResult(result).toContain("1 function failed to deploy");
+    t.expectResult(result).toNotContain("App deployed successfully");
+  });
+
+  it("attempts remaining functions after one fails and exits with code 1", async () => {
+    await t.givenLoggedInWithProject(fixture("with-zero-config-functions"));
+    t.api.mockEntitiesPush({ created: [], updated: [], deleted: [] });
+    const attemptedFunctions: string[] = [];
+    t.api.mockRoute(
+      "PUT",
+      `/api/apps/${t.api.appId}/backend-functions/:name`,
+      (req, res) => {
+        attemptedFunctions.push(String(req.params.name));
+        if (attemptedFunctions.length === 1) {
+          res.status(400).json({ error: "Invalid function code" });
+          return;
+        }
+        res.status(200).json({ status: "deployed" });
+      },
+    );
+    t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
+    t.api.mockConnectorsList({ integrations: [] });
+
+    const result = await t.run("deploy", "-y");
+
+    expect(result.exitCode).toBe(1);
+    expect(attemptedFunctions).toHaveLength(4);
+    expect(new Set(attemptedFunctions).size).toBe(4);
+    t.expectResult(result).toContain("[4/4]");
+    t.expectResult(result).toContain("1 function failed to deploy");
+  });
+
+  it("handles pending connectors before exiting for a function failure", async () => {
+    await t.givenLoggedInWithProject(fixture("with-connectors"));
+    const functionDir = join(
+      t.getTempDir(),
+      "project",
+      "functions",
+      "invalid-function",
+    );
+    await mkdir(functionDir, { recursive: true });
+    await writeFile(
+      join(functionDir, "entry.ts"),
+      'Deno.serve(() => new Response("ok"));\n',
+    );
+    t.api.mockEntitiesPush({ created: [], updated: [], deleted: [] });
+    t.api.mockSingleFunctionDeployError({
+      status: 400,
+      body: { error: "Invalid function code" },
+    });
+    t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
+    t.api.mockConnectorsList({ integrations: [] });
+    t.api.mockStripeStatus({ stripe_mode: null });
+    t.api.mockConnectorSet({
+      redirect_url: "https://accounts.example.com/oauth",
+      connection_id: "conn_123",
+      already_authorized: false,
+    });
+
+    const result = await t.run("deploy", "-y");
+
+    expect(result.exitCode).toBe(1);
+    t.expectResult(result).toContain("3 connector(s) require authorization");
+    t.expectResult(result).toContain(
+      "Some connectors still require authorization",
+    );
+    t.expectResult(result).toContain("Dashboard");
+    t.expectResult(result).toContain("1 function failed to deploy");
+    t.expectResult(result).toNotContain("App deployed successfully");
   });
 
   it("deploys zero-config functions (path-based names) with unified deploy", async () => {
