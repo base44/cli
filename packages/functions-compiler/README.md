@@ -78,3 +78,8 @@ bun run test         # vitest (builds the shims first)
 bun run typecheck    # tsc --noEmit over src/, test/, scripts/
 bun run build        # shims + tsc -> lib/ + assets; what gets published
 ```
+
+`exports` points only at `lib/`, so anything consuming this package — including
+a sibling workspace — needs `bun run build` here first. There is deliberately
+no source-resolving export condition: the tarball ships `lib/` alone, and a
+second resolution path would mean two answers to "which code ran".

@@ -9,7 +9,7 @@
 
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -60,16 +60,16 @@ try {
   const tarball = path.join(work, packed.split("\n").at(-1)!);
 
   const consumer = path.join(work, "consumer");
-  await writeFile(
-    path.join(work, ".npmrc"),
-    "registry=https://registry.npmjs.org/\n@jsr:registry=https://npm.jsr.io\n",
-  );
-  run("mkdir", ["-p", consumer], work);
+  await mkdir(consumer, { recursive: true });
   await writeFile(
     path.join(consumer, "package.json"),
     JSON.stringify({ name: "compiler-package-probe", private: true, type: "module" }),
   );
-  await writeFile(path.join(consumer, ".npmrc"), "registry=https://registry.npmjs.org/\n@jsr:registry=https://npm.jsr.io\n");
+  // @deno/loader is published to JSR, mirrored under the @jsr scope.
+  await writeFile(
+    path.join(consumer, ".npmrc"),
+    "registry=https://registry.npmjs.org/\n@jsr:registry=https://npm.jsr.io\n",
+  );
   run("npm", ["install", "--silent", "--no-audit", "--no-fund", tarball], consumer);
 
   await writeFile(path.join(consumer, "probe.mjs"), PROBE);
