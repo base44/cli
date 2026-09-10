@@ -256,6 +256,8 @@ interface DeploymentCreateResponse {
 
 interface DeploymentFinalizeResponse {
   deployment_id: string;
+  /** Only a publishing finalize answers with one. */
+  app_url?: string;
 }
 
 /** A parsed part of a multipart/form-data request body. */

@@ -1,5 +1,21 @@
+import { join } from "node:path";
+import { execa } from "execa";
 import { describe, expect, it } from "vitest";
 import { fixture, setupCLITests } from "./testkit/index.js";
+
+const DEPLOYMENT_ID = "test-app-git-0f1e2d3c4b5a";
+const SESSION_ID = "3f9a1c07b8e44d2f";
+
+/** A real commit, since the unified deploy has no --git-hash to stand in for one. */
+async function commitTheProject(projectDir: string): Promise<string> {
+  const git = (...args: string[]) => execa("git", args, { cwd: projectDir });
+  await git("init");
+  await git("config", "user.email", "test@example.com");
+  await git("config", "user.name", "Test User");
+  await git("add", "-A");
+  await git("commit", "-m", "build");
+  return (await git("rev-parse", "HEAD")).stdout.trim();
+}
 
 describe("deploy command (unified)", () => {
   const t = setupCLITests();
@@ -172,6 +188,61 @@ describe("deploy command (unified)", () => {
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("App deployed successfully");
     t.expectResult(result).toContain("https://full-project.base44.app");
+  });
+
+  it("ships the site through the deployments API and publishes it when the lane is on", async () => {
+    // The unified deploy has always made the site live, so on the lane it
+    // publishes — the transport is all that changes, and with it the tar.gz
+    // upload's size cap.
+    await t.givenLoggedInWithProject(fixture("full-project"));
+    t.givenEnv({ BASE44_DEPLOYMENTS_API: "1" });
+    const gitHash = await commitTheProject(join(t.getTempDir(), "project"));
+    t.api.mockEntitiesPush({ created: ["Task"], updated: [], deleted: [] });
+    t.api.mockSingleFunctionDeploy({ status: "deployed" });
+    t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
+    t.api.mockConnectorsList({ integrations: [] });
+    t.api.mockStripeStatus({ stripe_mode: null });
+    t.api.mockDeploymentCreate({
+      deployment_id: DEPLOYMENT_ID,
+      session_id: SESSION_ID,
+      asset_uploads: null,
+    });
+    t.api.mockDeploymentFinalize({
+      deployment_id: DEPLOYMENT_ID,
+      app_url: "https://full-project.base44.app",
+    });
+
+    const result = await t.run("deploy", "-y");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("https://full-project.base44.app");
+    expect(t.api.deploymentCreateRequests).toHaveLength(1);
+    expect(
+      (t.api.deploymentCreateRequests[0] as { git_hash: string }).git_hash,
+    ).toBe(gitHash);
+    expect(t.api.finalizeQueries[0]).toEqual({
+      session_id: SESSION_ID,
+      publish: "true",
+    });
+  });
+
+  it("asks for a commit rather than falling back to the tar.gz upload", async () => {
+    // A deployment is addressed by the commit that produced it, so a build with
+    // no address could never be published — and a silent fallback would hide
+    // that the deploy took the other transport.
+    await t.givenLoggedInWithProject(fixture("full-project"));
+    t.givenEnv({ BASE44_DEPLOYMENTS_API: "1" });
+    t.api.mockEntitiesPush({ created: ["Task"], updated: [], deleted: [] });
+    t.api.mockSingleFunctionDeploy({ status: "deployed" });
+    t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
+    t.api.mockConnectorsList({ integrations: [] });
+    t.api.mockStripeStatus({ stripe_mode: null });
+
+    const result = await t.run("deploy", "-y");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("no git commit was found");
+    expect(t.api.deploymentCreateRequests).toHaveLength(0);
   });
 
   it("deploys agents successfully with -y flag", async () => {

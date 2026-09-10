@@ -101,6 +101,8 @@ export async function finalizeDeployment(
   deploymentId: string,
   sessionId: string,
   payload: FinalizePayload,
+  /** Ask the server to make this build the app's live site. */
+  publish = false,
 ): Promise<FinalizeDeploymentResponse> {
   const formData = new FormData();
 
@@ -134,7 +136,9 @@ export async function finalizeDeployment(
       {
         body: formData,
         timeout: 180_000,
-        searchParams: { session_id: sessionId },
+        searchParams: publish
+          ? { session_id: sessionId, publish: true }
+          : { session_id: sessionId },
       },
     );
   } catch (error) {

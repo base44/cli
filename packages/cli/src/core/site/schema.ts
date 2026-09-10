@@ -179,12 +179,19 @@ export const AssetUploadResponseSchema = z.looseObject({
     .optional(),
 });
 
+/**
+ * `app_url` comes back only when the finalize was asked to publish — a
+ * Backend-Platform app's deploy is its publish, and that is the URL it went
+ * live at.
+ */
 export const FinalizeDeploymentResponseSchema = z
   .object({
     deployment_id: z.string(),
+    app_url: z.string().nullable().optional(),
   })
   .transform((data) => ({
     deploymentId: data.deployment_id,
+    appUrl: data.app_url ?? undefined,
   }));
 
 export type FinalizeDeploymentResponse = z.infer<

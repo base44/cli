@@ -85,14 +85,18 @@ describe("site deploy command (static site through the deployments API, env-gate
       "--concurrency",
       "5",
     );
+    const publish = await t.run("site", "deploy", "-y", "--publish");
     const help = await t.run("site", "deploy", "--help");
 
     t.expectResult(gitHash).toFail();
     t.expectResult(gitHash).toContain("unknown option");
     t.expectResult(concurrency).toFail();
     t.expectResult(concurrency).toContain("unknown option");
+    t.expectResult(publish).toFail();
+    t.expectResult(publish).toContain("unknown option");
     t.expectResult(help).toNotContain("--git-hash");
     t.expectResult(help).toNotContain("--concurrency");
+    t.expectResult(help).toNotContain("--publish");
   });
 
   it("deploys the site output through the deployments API when gated on", async () => {
@@ -140,6 +144,74 @@ describe("site deploy command (static site through the deployments API, env-gate
     expect(fields[0].data.equals(await readSiteFile("index.html"))).toBe(true);
     // Bun's compiled binary normalizes Blob types to include the charset.
     expect(fields[0].contentType).toMatch(/^text\/html(;\s*charset=utf-8)?$/i);
+  });
+
+  it("publishes the finalized build when asked, and says where it went live", async () => {
+    // A Backend Platform app has no builder publish flow: the deploy is the
+    // publish, exactly as the tar.gz upload this replaces was.
+    await t.givenLoggedInWithProject(fixture("with-site"));
+    t.givenEnv({ BASE44_DEPLOYMENTS_API: "1" });
+    mockStaticCreate([]);
+    t.api.mockDeploymentFinalize({
+      deployment_id: DEPLOYMENT_ID,
+      app_url: "https://my-app.base44.app",
+    });
+
+    const result = await t.run(
+      "site",
+      "deploy",
+      "-y",
+      "--git-hash",
+      GIT_HASH,
+      "--publish",
+    );
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("https://my-app.base44.app");
+    expect(t.api.finalizeQueries[0]).toEqual({
+      session_id: SESSION_ID,
+      publish: "true",
+    });
+  });
+
+  it("carries the published URL in the --json document", async () => {
+    await t.givenLoggedInWithProject(fixture("with-site"));
+    t.givenEnv({ BASE44_DEPLOYMENTS_API: "1" });
+    mockStaticCreate([]);
+    t.api.mockDeploymentFinalize({
+      deployment_id: DEPLOYMENT_ID,
+      app_url: "https://my-app.base44.app",
+    });
+
+    const result = await t.run(
+      "site",
+      "deploy",
+      "-y",
+      "--json",
+      "--git-hash",
+      GIT_HASH,
+      "--publish",
+    );
+
+    t.expectResult(result).toSucceed();
+    expect(JSON.parse(result.stdout)).toEqual({
+      deploymentId: DEPLOYMENT_ID,
+      gitHash: GIT_HASH,
+      appUrl: "https://my-app.base44.app",
+    });
+  });
+
+  it("does not publish unless asked — the platform's own build must not", async () => {
+    await t.givenLoggedInWithProject(fixture("with-site"));
+    t.givenEnv({ BASE44_DEPLOYMENTS_API: "1" });
+    mockStaticCreate([]);
+    t.api.mockDeploymentFinalize({ deployment_id: DEPLOYMENT_ID });
+
+    const result = await t.run("site", "deploy", "-y", "--git-hash", GIT_HASH);
+
+    t.expectResult(result).toSucceed();
+    expect(t.api.finalizeQueries[0]).toEqual({ session_id: SESSION_ID });
+    t.expectResult(result).toNotContain("visit your site at");
   });
 
   it("sends no PUTs and still finalizes when every asset is already stored", async () => {

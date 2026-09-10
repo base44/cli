@@ -62,8 +62,9 @@ export function deploymentsApiEnabled(
  * deployment at finalize; with no worker, create carries no config and the
  * index.html sentinel completes it.
  *
- * Builds only — nothing here publishes. What production serves is decided by
- * the platform publish flow.
+ * Builds, and publishes only when asked to. What production serves is decided
+ * by the platform publish flow — except for an app the platform does not build,
+ * whose deploy has always been its publish (see `publish`).
  */
 export async function deployToDeployments(options: {
   projectRoot: string;
@@ -71,9 +72,16 @@ export async function deployToDeployments(options: {
   outputDir: string | null;
   gitHash: string;
   concurrency?: number;
+  /**
+   * Make the build the app's live site, the way the tar.gz upload this replaces
+   * always did. The server refuses it for a build carrying a worker, whose
+   * production pointer is the platform's to write.
+   */
+  publish?: boolean;
   progress?: DeploymentProgress;
-}): Promise<{ deploymentId: string; gitHash: string }> {
-  const { projectRoot, outputDir, gitHash, concurrency, progress } = options;
+}): Promise<{ deploymentId: string; gitHash: string; appUrl?: string }> {
+  const { projectRoot, outputDir, gitHash, concurrency, publish, progress } =
+    options;
 
   const worker = await resolveWorkerBuild(projectRoot, progress);
   const assetsDir = worker ? worker.assetsDir : outputDir;
@@ -106,9 +114,14 @@ export async function deployToDeployments(options: {
     created.deploymentId,
     created.sessionId,
     "modules" in completion ? { ...completion, completionJwt } : completion,
+    publish,
   );
 
-  return { deploymentId: finalized.deploymentId, gitHash };
+  return {
+    deploymentId: finalized.deploymentId,
+    gitHash,
+    appUrl: finalized.appUrl,
+  };
 }
 
 async function resolveWorkerBuild(

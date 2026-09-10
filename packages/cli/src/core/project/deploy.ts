@@ -15,7 +15,12 @@ import {
   deployFunctionsSequentially,
   type SingleFunctionDeployResult,
 } from "@/core/resources/function/deploy.js";
-import { deploySite } from "@/core/site/index.js";
+import {
+  deploymentsApiEnabled,
+  deploySite,
+  deployToDeployments,
+  resolveGitHash,
+} from "@/core/site/index.js";
 
 /**
  * Checks if there are any resources to deploy in the project.
@@ -118,6 +123,17 @@ export async function deployAll(
 
   if (project.site?.outputDirectory) {
     const outputDir = resolve(project.root, project.site.outputDirectory);
+    if (deploymentsApiEnabled()) {
+      // This command's site step publishes — the act the tar.gz upload it
+      // replaces always performed, minus that upload's size cap.
+      const { appUrl } = await deployToDeployments({
+        projectRoot: project.root,
+        outputDir,
+        gitHash: await resolveGitHash(project.root),
+        publish: true,
+      });
+      return { appUrl, connectorResults };
+    }
     const { appUrl } = await deploySite(outputDir);
     return { appUrl, connectorResults };
   }

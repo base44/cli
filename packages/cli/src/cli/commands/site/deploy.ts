@@ -23,6 +23,7 @@ interface DeployOptions {
   build?: boolean;
   gitHash?: string;
   concurrency?: number;
+  publish?: boolean;
 }
 
 async function deployAction(
@@ -69,7 +70,7 @@ async function deployToDeploymentsApi(
   const progressLines: string[] = [];
   const warnings: string[] = [];
 
-  const { deploymentId } = await runTask(
+  const { deploymentId, appUrl } = await runTask(
     "Deploying site...",
     async (updateMessage) =>
       await deployToDeployments({
@@ -79,6 +80,7 @@ async function deployToDeploymentsApi(
         outputDir: siteOutputDir(project),
         gitHash,
         concurrency: options.concurrency,
+        publish: options.publish,
         progress: {
           onWarning: (message) => {
             warnings.push(message);
@@ -106,12 +108,15 @@ async function deployToDeploymentsApi(
     log.warn(warning);
   }
 
-  // No URL: what production serves is decided when the app is published from
-  // the builder, not by this deploy.
+  // A URL only when the deploy published: otherwise what production serves is
+  // decided when the app is published from the builder, not by this deploy.
+  const deployed = `Deployment ${deploymentId} (commit ${gitHash.slice(0, 12)})`;
   return {
-    outroMessage: `Deployment ${deploymentId} (commit ${gitHash.slice(0, 12)})`,
+    outroMessage: appUrl
+      ? `${deployed} — visit your site at: ${appUrl}`
+      : deployed,
     stdout: jsonMode
-      ? `${JSON.stringify({ deploymentId, gitHash }, null, 2)}\n`
+      ? `${JSON.stringify({ deploymentId, gitHash, ...(appUrl ? { appUrl } : {}) }, null, 2)}\n`
       : undefined,
   };
 }
@@ -170,6 +175,14 @@ export function getSiteDeployCommand(): Command {
       new Option("--concurrency <n>", "Parallel asset uploads")
         .default(DEFAULT_UPLOAD_CONCURRENCY)
         .argParser(parseConcurrency),
+    );
+    // Off by default: the platform's own build sandbox drives this command to
+    // build a commit it is not publishing yet, and its publish flow owns that
+    // decision. A Backend Platform app has no such flow — its deploy is its
+    // publish — so it asks for one here.
+    command.option(
+      "--publish",
+      "Make this build the app's live site (Backend Platform apps)",
     );
   }
 
