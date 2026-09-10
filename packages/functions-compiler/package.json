@@ -1,0 +1,41 @@
+{
+  "name": "@base44/functions-compiler",
+  "version": "0.1.0",
+  "description": "Production compiler for Base44 backend functions — turns function sources into a single Cloudflare Workers module.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "bun": "./src/index.ts",
+      "types": "./lib/src/index.d.ts",
+      "default": "./lib/src/index.js"
+    }
+  },
+  "files": [
+    "lib",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "bun run clean && bun run build:shim && tsc -p tsconfig.build.json && bun run scripts/copy-assets.ts",
+    "build:shim": "bun run scripts/build-shim.ts",
+    "clean": "rm -rf dist lib",
+    "typecheck": "tsc --noEmit",
+    "test": "bun run build:shim && vitest run"
+  },
+  "dependencies": {
+    "@deno/loader": "npm:@jsr/deno__loader@0.5.0",
+    "esbuild": "0.28.0",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@deno/shim-deno": "0.19.2",
+    "@types/node": "^22.10.0",
+    "miniflare": "^4.20260529.0",
+    "partyserver": "0.0.56",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.16"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  }
+}

@@ -1,15 +1,51 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
-  "include": ["classMembers"],
+  "include": [
+    "classMembers"
+  ],
   "workspaces": {
     "packages/cli": {
-      "entry": ["src/cli/index.ts", "bin/binary-entry.ts", "tests/**/testkit/index.ts"],
-      "project": ["src/**/*.ts", "tests/**/*.ts"],
-      "ignore": ["tests/fixtures/**"],
-      "ignoreDependencies": ["@types/deno"]
+      "entry": [
+        "src/cli/index.ts",
+        "bin/binary-entry.ts",
+        "tests/**/testkit/index.ts"
+      ],
+      "project": [
+        "src/**/*.ts",
+        "tests/**/*.ts"
+      ],
+      "ignore": [
+        "tests/fixtures/**"
+      ],
+      "ignoreDependencies": [
+        "@types/deno"
+      ]
+    },
+    "packages/functions-compiler": {
+      "entry": [
+        "scripts/*.ts",
+        "test/**/*.test.ts"
+      ],
+      "project": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "scripts/**/*.ts"
+      ],
+      "ignore": [
+        "src/shim/**",
+        "src/runtime/**",
+        "src/runtime-context.ts",
+        "src/static-egress.ts",
+        "src/private-data-sources/**"
+      ],
+      "ignoreDependencies": [
+        "@deno/shim-deno"
+      ]
     },
     "packages/logger": {
-      "project": ["src/**/*.ts"]
+      "project": [
+        "src/**/*.ts"
+      ]
     }
   }
 }
