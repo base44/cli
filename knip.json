@@ -23,6 +23,7 @@
     },
     "packages/functions-compiler": {
       "entry": [
+        "src/index.ts",
         "scripts/*.ts",
         "test/**/*.test.ts"
       ],
