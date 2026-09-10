@@ -1,7 +1,5 @@
 import { readFileSync } from "node:fs";
-
 import type { Plugin } from "esbuild";
-
 import { PRIVATE_DATA_SOURCES_NAMESPACE } from "./private-data-sources-virtual.js";
 import { USER_NAMESPACE } from "./user-files.js";
 

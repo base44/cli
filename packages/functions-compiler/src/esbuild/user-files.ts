@@ -12,7 +12,6 @@
  */
 
 import path from "node:path";
-
 import type { Loader, Plugin } from "esbuild";
 
 export const USER_NAMESPACE = "user";

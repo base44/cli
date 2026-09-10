@@ -5,9 +5,7 @@
 
 export interface CompilerTracer {
   withSpan<T>(name: string, fn: () => Promise<T>): Promise<T>;
-  setSpanTags(
-    tags: Record<string, string | number | undefined>,
-  ): Promise<void>;
+  setSpanTags(tags: Record<string, string | number | undefined>): Promise<void>;
 }
 
 const noopTracer: CompilerTracer = {

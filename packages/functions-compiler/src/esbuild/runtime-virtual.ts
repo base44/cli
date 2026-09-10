@@ -1,5 +1,4 @@
 import { existsSync, readFileSync } from "node:fs";
-
 import type { Plugin } from "esbuild";
 
 // Keep this allowlist in sync with
@@ -45,7 +44,10 @@ export function runtimeVirtualPlugin(): Plugin {
               ],
             };
           }
-          return { contents: readFileSync(ACTOR_SHIM_URL, "utf8"), loader: "js" };
+          return {
+            contents: readFileSync(ACTOR_SHIM_URL, "utf8"),
+            loader: "js",
+          };
         }
         return { contents: readFileSync(MODULE_URL, "utf8"), loader: "ts" };
       });

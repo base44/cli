@@ -1,7 +1,7 @@
+import { type ActorCompat, applyActorCompat } from "./actor-compat.js";
 import type { BundleAppRequest, BundleRequest } from "./contracts.js";
 import { bundleToModule, type NodeModulesMode } from "./deno-bundle.js";
-import { DenoCompatError, type BundleErrorItem } from "./errors.js";
-import { applyActorCompat, type ActorCompat } from "./actor-compat.js";
+import { type BundleErrorItem, DenoCompatError } from "./errors.js";
 import { setSpanTags, withSpan } from "./tracing.js";
 import {
   type AppFunctionEntry,
@@ -142,7 +142,8 @@ export async function bundleApp(
   try {
     combined = await compileApp(entries, telemetry, runtimeSecrets);
   } catch (e) {
-    if (e instanceof DenoCompatError) return bundleAppPerFunction(entries, telemetry, runtimeSecrets);
+    if (e instanceof DenoCompatError)
+      return bundleAppPerFunction(entries, telemetry, runtimeSecrets);
     throw e;
   }
   if (combined.ok) {
@@ -170,7 +171,8 @@ export async function bundleApp(
   try {
     rebuilt = await compileApp(survivors, telemetry, runtimeSecrets);
   } catch (e) {
-    if (e instanceof DenoCompatError) return bundleAppPerFunction(entries, telemetry, runtimeSecrets);
+    if (e instanceof DenoCompatError)
+      return bundleAppPerFunction(entries, telemetry, runtimeSecrets);
     throw e;
   }
   if (rebuilt.ok) return appResponse(rebuilt.module, functions);
@@ -187,7 +189,9 @@ async function compileApp(
   telemetry = false,
   runtimeSecrets = false,
 ): Promise<CombinedOutcome> {
-  const outcome = await installAndCompile(prepareApp(entries, telemetry, runtimeSecrets));
+  const outcome = await installAndCompile(
+    prepareApp(entries, telemetry, runtimeSecrets),
+  );
   return outcome.ok
     ? { ok: true, module: outcome.module }
     : { ok: false, errors: outcome.errors };
@@ -263,7 +267,13 @@ async function bundleAppPerFunction(
   // shared npm package onto a version some importer can't use. Deterministic
   // user-dep breakage — a 500 here gets retried by the platform and surfaced
   // as an infrastructure error, hiding the diagnostics the agent needs.
-  return assembleWithoutConflicting(survivors, functions, combined.errors, telemetry, runtimeSecrets);
+  return assembleWithoutConflicting(
+    survivors,
+    functions,
+    combined.errors,
+    telemetry,
+    runtimeSecrets,
+  );
 }
 
 /** Assembly failed on errors originating inside shared npm deps. Blame the
@@ -327,7 +337,9 @@ export function importsConflictingPackage(
   const culprits = new Map<string, Set<string>>();
   for (const err of errors) {
     for (const m of err.message.matchAll(IMPORTED_FROM_PACKAGE)) {
-      (culprits.get(m[1]) ?? culprits.set(m[1], new Set()).get(m[1])!).add(m[2]);
+      (culprits.get(m[1]) ?? culprits.set(m[1], new Set()).get(m[1])!).add(
+        m[2],
+      );
     }
   }
   const sources = Object.values(entry.fn.files);

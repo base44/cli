@@ -6,14 +6,31 @@
         "organizeImports": {
           "level": "on",
           "options": {
-            "groups": [":NODE:", ":PACKAGE:", ":ALIAS:", ":PATH:"]
+            "groups": [
+              ":NODE:",
+              ":PACKAGE:",
+              ":ALIAS:",
+              ":PATH:"
+            ]
           }
         }
       }
     }
   },
   "files": {
-    "includes": ["**", "!**/dist", "!**/node_modules", "!**/tests/fixtures", "!**/*.d.ts"]
+    "includes": [
+      "**",
+      "!**/dist",
+      "!**/node_modules",
+      "!**/tests/fixtures",
+      "!**/*.d.ts",
+      "!packages/functions-compiler/src/shim/**",
+      "!packages/functions-compiler/src/private-data-sources/**",
+      "!packages/functions-compiler/src/runtime/**",
+      "!packages/functions-compiler/src/runtime-context.ts",
+      "!packages/functions-compiler/src/static-egress.ts",
+      "!packages/functions-compiler/src/static-egress-marker.ts"
+    ]
   },
   "formatter": {
     "enabled": true,
@@ -46,12 +63,24 @@
         "useNodejsImportProtocol": "error",
         "noNonNullAssertion": "off",
         "useArrayLiterals": "error",
-        "useConsistentArrayType": { "level": "error", "options": { "syntax": "shorthand" } }
+        "useConsistentArrayType": {
+          "level": "error",
+          "options": {
+            "syntax": "shorthand"
+          }
+        }
       },
       "suspicious": {
         "noExplicitAny": "warn",
         "noVar": "error",
-        "noConsole": { "level": "off", "options": { "allow": ["log"] } },
+        "noConsole": {
+          "level": "off",
+          "options": {
+            "allow": [
+              "log"
+            ]
+          }
+        },
         "noIrregularWhitespace": "error"
       },
       "nursery": {}

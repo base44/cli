@@ -1,7 +1,5 @@
 import { isBuiltin } from "node:module";
-
 import type { OnResolveArgs, Plugin } from "esbuild";
-
 import { USER_NAMESPACE } from "./user-files.js";
 
 const REEXPORT_NAMESPACE = "node-builtin-reexport";

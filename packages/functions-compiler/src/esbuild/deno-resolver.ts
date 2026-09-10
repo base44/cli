@@ -22,13 +22,12 @@ import { isBuiltin } from "node:module";
 import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-
 import {
   MediaType,
   RequestedModuleType,
   ResolutionMode,
-  Workspace,
   ResolveError,
+  Workspace,
 } from "@deno/loader";
 import type {
   Loader,
@@ -38,7 +37,6 @@ import type {
   OnResolveResult,
   Plugin,
 } from "esbuild";
-
 import { logEvent } from "../log.js";
 import { USER_NAMESPACE } from "./user-files.js";
 
@@ -105,10 +103,14 @@ export function denoResolverPlugin(options: DenoResolverOptions = {}): Plugin {
         loader = await workspace.createLoader();
       } catch (err) {
         dispose();
-        logEvent("error", "base44.bundler.workspace_disposed_on_setup_failure", {
-          phase: "create_loader",
-          wasm_trap: errMessage(err) === "unreachable",
-        });
+        logEvent(
+          "error",
+          "base44.bundler.workspace_disposed_on_setup_failure",
+          {
+            phase: "create_loader",
+            wasm_trap: errMessage(err) === "unreachable",
+          },
+        );
         throw err;
       }
       build.onDispose(() => dispose(loader));
@@ -386,7 +388,9 @@ function errMessage(err: unknown): string {
 
 // Same wording as the user-files plugin so the message is consistent.
 function fileOutsideCacheError(spec: string): { text: string } {
-  return { text: `Cannot import "${spec}": filesystem imports are not allowed` };
+  return {
+    text: `Cannot import "${spec}": filesystem imports are not allowed`,
+  };
 }
 
 // Where the loader caches npm; prod sets DENO_DIR, else Deno's per-OS default.
@@ -498,7 +502,7 @@ function resolveEntryFromPackageJson(
   // `pkg/index.js` (or `./index.js`) import that resolves to this same path was
   // a deliberate request for that file — redirecting it to main/module would
   // silently load a different entry, so let the missing-file error stand.
-  if (specifier.endsWith("/" + base)) return null;
+  if (specifier.endsWith(`/${base}`)) return null;
 
   const pkgDir = path.dirname(attempted);
   // Fail closed: never touch a package.json (or its entries) outside the cache.

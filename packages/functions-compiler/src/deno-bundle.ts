@@ -14,9 +14,7 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-
-import { build, type BuildFailure } from "esbuild";
-
+import { type BuildFailure, build } from "esbuild";
 import type { BundleErrorItem } from "./errors.js";
 import { denoResolverPlugin } from "./esbuild/deno-resolver.js";
 import { nodeBuiltinRequirePlugin } from "./esbuild/node-builtin-require.js";
@@ -53,7 +51,7 @@ export async function bundleToModule(
       JSON.stringify({ nodeModulesDir }),
     );
 
-    let result;
+    let result: Awaited<ReturnType<typeof build>>;
     try {
       result = await build({
         entryPoints: [prepared.entry],
@@ -118,10 +116,7 @@ export async function bundleToModule(
 /** Flatten an esbuild `BuildFailure` into compile diagnostics, rewriting the
  *  temp-dir-absolute file paths back to the paths the user typed. Returns null
  *  if `e` is not an esbuild failure (so the caller rethrows it). */
-function buildFailureErrors(
-  e: unknown,
-  dir: string,
-): BundleErrorItem[] | null {
+function buildFailureErrors(e: unknown, dir: string): BundleErrorItem[] | null {
   if (typeof e !== "object" || e === null || !("errors" in e)) return null;
   const raw = (e as BuildFailure).errors;
   if (!Array.isArray(raw)) return null;

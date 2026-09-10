@@ -1,14 +1,11 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-
 import type { Plugin } from "esbuild";
-
 import { ACTIVATION_FILENAME } from "../worker-entry.js";
 import { USER_NAMESPACE } from "./user-files.js";
 
 const PREFIX = "base44:private-data-sources";
-export const PRIVATE_DATA_SOURCES_NAMESPACE =
-  "base44-private-data-sources";
+export const PRIVATE_DATA_SOURCES_NAMESPACE = "base44-private-data-sources";
 const MODULE_DIR = new URL("../private-data-sources/", import.meta.url);
 const PUBLIC_MODULES = new Set([
   "elasticsearch",
@@ -47,15 +44,30 @@ function publicModulePath(specifier: string): string | null {
 // instance in the final bundle.
 const INTERNAL_STORE_SPECIFIER = `${PREFIX}/runtime-manifest-store`;
 
-function isActivationShimImporter(namespace: string, importer: string): boolean {
+function isActivationShimImporter(
+  namespace: string,
+  importer: string,
+): boolean {
   return namespace === USER_NAMESPACE && importer === ACTIVATION_FILENAME;
 }
 
-function relativeModulePath(importer: string, specifier: string): string | null {
+function relativeModulePath(
+  importer: string,
+  specifier: string,
+): string | null {
   if (!specifier.startsWith("./") && !specifier.startsWith("../")) return null;
-  const importerDir = importer.includes("/") ? importer.slice(0, importer.lastIndexOf("/")) : "";
-  const resolved = path.posix.normalize(path.posix.join(importerDir, specifier));
-  if (resolved.startsWith("../") || resolved === ".." || path.posix.isAbsolute(resolved)) return null;
+  const importerDir = importer.includes("/")
+    ? importer.slice(0, importer.lastIndexOf("/"))
+    : "";
+  const resolved = path.posix.normalize(
+    path.posix.join(importerDir, specifier),
+  );
+  if (
+    resolved.startsWith("../") ||
+    resolved === ".." ||
+    path.posix.isAbsolute(resolved)
+  )
+    return null;
   return resolved.endsWith(".ts") ? resolved : `${resolved}.ts`;
 }
 
@@ -67,36 +79,44 @@ export function privateDataSourcesVirtualPlugin(): Plugin {
   return {
     name: "base44-private-data-sources-virtual",
     setup(build) {
-      build.onResolve({ filter: /^base44:private-data-sources(?:\/.*)?$/ }, (args) => {
-        if (args.path === INTERNAL_STORE_SPECIFIER) {
-          if (!isActivationShimImporter(args.namespace, args.importer)) {
+      build.onResolve(
+        { filter: /^base44:private-data-sources(?:\/.*)?$/ },
+        (args) => {
+          if (args.path === INTERNAL_STORE_SPECIFIER) {
+            if (!isActivationShimImporter(args.namespace, args.importer)) {
+              return {
+                errors: [
+                  {
+                    text:
+                      `"${args.path}" is internal to the Base44 runtime and cannot be imported ` +
+                      "by backend function code.",
+                  },
+                ],
+              };
+            }
             return {
-              errors: [{
-                text:
-                  `"${args.path}" is internal to the Base44 runtime and cannot be imported ` +
-                  "by backend function code.",
-              }],
+              path: "runtime-manifest-store.ts",
+              namespace: PRIVATE_DATA_SOURCES_NAMESPACE,
             };
           }
-          return { path: "runtime-manifest-store.ts", namespace: PRIVATE_DATA_SOURCES_NAMESPACE };
-        }
-        const modulePath = publicModulePath(args.path);
-        if (!modulePath) {
+          const modulePath = publicModulePath(args.path);
+          if (!modulePath) {
+            return {
+              errors: [
+                {
+                  text:
+                    `Unsupported import "${args.path}". Use a type-specific private data source import, ` +
+                    'for example "base44:private-data-sources/postgres".',
+                },
+              ],
+            };
+          }
           return {
-            errors: [
-              {
-                text:
-                  `Unsupported import "${args.path}". Use a type-specific private data source import, ` +
-                  'for example "base44:private-data-sources/postgres".',
-              },
-            ],
+            path: modulePath,
+            namespace: PRIVATE_DATA_SOURCES_NAMESPACE,
           };
-        }
-        return {
-          path: modulePath,
-          namespace: PRIVATE_DATA_SOURCES_NAMESPACE,
-        };
-      });
+        },
+      );
 
       build.onResolve(
         {
