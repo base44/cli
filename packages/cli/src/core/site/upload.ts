@@ -14,10 +14,28 @@ import type {
 } from "./schema.js";
 import { AssetUploadResponseSchema } from "./schema.js";
 
-export const DEFAULT_UPLOAD_CONCURRENCY = 3;
+/**
+ * These uploads are latency-bound, not bandwidth-bound: a real 25.5k-asset site
+ * averaged 23KiB per file and ~109ms per PUT, so 3 in flight sustained only
+ * ~27 assets/s (0.65MB/s) and a large publish ran for ~930s — long enough to
+ * outlive the CI/sandbox that launched it. 8 is what Base44's own sandbox
+ * publish driver has long used against the same buckets; 16 was tried there and
+ * failed a degraded network, so this stays below it.
+ */
+export const DEFAULT_UPLOAD_CONCURRENCY = 8;
 
 /** Each worker holds a whole file in memory, so the ceiling is a memory bound. */
 export const MAX_UPLOAD_CONCURRENCY = 50;
+
+/**
+ * The cf arm's ceiling, applied on top of whatever concurrency the caller asks
+ * for. A worker bucket is already a batch of up to 5000 files that
+ * buildBucketForm holds in memory base64-encoded, so parallelism buys little
+ * there and costs a bucket's full size per worker — unlike the s3 arm, where a
+ * worker holds one ~23KiB file. Keeps a raised default (or an explicit
+ * --concurrency meant for the s3 arm) from multiplying peak memory here.
+ */
+export const MAX_BUCKET_CONCURRENCY = 3;
 
 const MAX_UPLOAD_ATTEMPTS = 3;
 const RETRY_BASE_DELAY_MS = 500;
@@ -96,6 +114,7 @@ async function uploadAssetBuckets(
   } = {},
 ): Promise<string | null> {
   const { concurrency = DEFAULT_UPLOAD_CONCURRENCY, onProgress } = options;
+  const bucketConcurrency = Math.min(concurrency, MAX_BUCKET_CONCURRENCY);
   const { buckets } = target;
   const totalFiles = buckets.reduce((sum, bucket) => sum + bucket.length, 0);
   let uploadedFiles = 0;
@@ -111,7 +130,7 @@ async function uploadAssetBuckets(
       uploadedFiles += bucket.length;
       onProgress?.({ uploadedFiles, totalFiles });
     },
-    { concurrency },
+    { concurrency: bucketConcurrency },
   );
 
   if (!completionJwt) {
