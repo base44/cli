@@ -40,6 +40,10 @@ export function createProgram(context: CLIContext): Command {
     )
     .version(packageJson.version)
     .option("--branch-id <id>", "Target an app branch (sandbox commands only)")
+    .option(
+      "--branch <name>",
+      "Target an app branch by exact name (sandbox commands only)",
+    )
     .addOption(
       new Option("--app-id <id>", "Base44 app ID to use").env(
         BASE44_APP_ID_ENV_VAR,

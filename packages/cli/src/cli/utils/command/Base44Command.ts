@@ -16,6 +16,7 @@ import {
   startUpgradeCheck,
 } from "@/cli/utils/upgradeNotification.js";
 import { ApiError, InvalidInputError, isCLIError } from "@/core/errors.js";
+import { resolveBranchName } from "@/core/resources/branch/api.js";
 
 /**
  * Write a command result to stdout as a single JSON document (the `--json`
@@ -174,11 +175,25 @@ export class Base44Command extends Command {
       const upgradeCheckPromise = startUpgradeCheck();
 
       try {
-        const { branchId } = this.optsWithGlobals<{ branchId?: string }>();
-        if (branchId !== undefined && !this._commandOptions.supportsBranch) {
+        const { branch, branchId } = this.optsWithGlobals<{
+          branch?: string;
+          branchId?: string;
+        }>();
+        if (branch !== undefined && branchId !== undefined) {
           throw new InvalidInputError(
-            `--branch-id is not supported by this command. Use sandbox commands to read or edit branch files; no app changes were made.`,
+            "Use either --branch or --branch-id, not both.",
           );
+        }
+        if (
+          (branch !== undefined || branchId !== undefined) &&
+          !this._commandOptions.supportsBranch
+        ) {
+          throw new InvalidInputError(
+            `${branch !== undefined ? "--branch" : "--branch-id"} is not supported by this command. Use sandbox commands to read or edit branch files; no app changes were made.`,
+          );
+        }
+        if (branch !== undefined && !branch.trim()) {
+          throw new InvalidInputError("--branch must not be empty.");
         }
         if (branchId !== undefined && !branchId.trim()) {
           throw new InvalidInputError("--branch-id must not be empty.");
@@ -191,8 +206,12 @@ export class Base44Command extends Command {
           await ensureAppContext(this.context, { appId });
         }
 
-        const result = ((await fn({ ...this.context, branchId }, ...args)) ??
-          {}) as RunCommandResult;
+        const resolvedBranchId =
+          branch !== undefined ? await resolveBranchName(branch) : branchId;
+        const result = ((await fn(
+          { ...this.context, branchId: resolvedBranchId },
+          ...args,
+        )) ?? {}) as RunCommandResult;
 
         if (!quiet) {
           await showCommandEnd(
