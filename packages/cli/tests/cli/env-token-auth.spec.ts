@@ -128,15 +128,15 @@ describe("env credential seeding", () => {
     t.expectResult(result).toNotContain("base44 login");
   });
 
-  it("skips the connectors-list call on deploy when no connectors are configured", async () => {
-    // Workspace keys are forbidden from the connectors-list endpoint, so with
-    // no connectors configured the reconcile pass must be skipped entirely. The
-    // 403 mock proves the call never happens — deploy still succeeds.
+  it("reconciles connectors through the deployment endpoint with a workspace API key", async () => {
+    // The connectors-list endpoint rejects workspace keys, so deploy must go
+    // through the deployment sync route instead. With no local connectors it
+    // still sends an empty list so stale remote connectors are removed, the
+    // same as an OAuth deploy.
     await t.givenProject(fixture("with-entities"));
-    t.givenEnv({
-      BASE44_API_KEY:
-        "b44k_dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
-    });
+    const workspaceApiKey =
+      "b44k_dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd";
+    t.givenEnv({ BASE44_API_KEY: workspaceApiKey });
     t.api.mockEntitiesPush({
       created: ["Customer", "Product"],
       updated: [],
@@ -148,10 +148,101 @@ describe("env credential seeding", () => {
       body: { error: "Forbidden", detail: "Workspace keys cannot list" },
     });
 
+    let syncBody: unknown;
+    let syncApiKeyHeader: string | undefined;
+    t.api.mockRoute(
+      "PUT",
+      `/api/apps/${APP_ID}/deployment/connectors`,
+      (req, res) => {
+        syncBody = req.body;
+        syncApiKeyHeader = req.headers.api_key as string | undefined;
+        res.status(200).json({ connectors: [] });
+      },
+    );
+
     const result = await t.run("deploy", "-y");
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("App deployed successfully");
+    expect(syncApiKeyHeader).toBe(workspaceApiKey);
+    expect(syncBody).toEqual({ connectors: [] });
+  });
+
+  it("deploys local connectors through the deployment endpoint with a workspace API key", async () => {
+    await t.givenProject(fixture("with-connectors"));
+    t.givenEnv({
+      BASE44_API_KEY:
+        "b44k_ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    });
+    t.api.mockEntitiesPush({ created: [], updated: [], deleted: [] });
+    t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
+    t.api.mockConnectorsListError({
+      status: 403,
+      body: { error: "Forbidden", detail: "Workspace keys cannot list" },
+    });
+    t.api.mockConnectorSetError({
+      status: 403,
+      body: { error: "Forbidden", detail: "Workspace keys cannot set" },
+    });
+
+    let syncBody: unknown;
+    t.api.mockRoute(
+      "PUT",
+      `/api/apps/${APP_ID}/deployment/connectors`,
+      (req, res) => {
+        syncBody = req.body;
+        res.status(200).json(req.body);
+      },
+    );
+
+    const result = await t.run("deploy", "-y");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("3 connectors");
+    expect(syncBody).toEqual({
+      connectors: expect.arrayContaining([
+        {
+          integration_type: "googlecalendar",
+          scopes: [
+            "https://www.googleapis.com/auth/calendar.readonly",
+            "https://www.googleapis.com/auth/calendar.events",
+          ],
+        },
+        { integration_type: "notion", scopes: [] },
+        { integration_type: "slack", scopes: ["chat:write", "channels:read"] },
+      ]),
+    });
+  });
+
+  it("reports the Stripe connector as unsupported with a workspace API key", async () => {
+    // Stripe routes only accept platform-user auth. Rather than surfacing the
+    // status call's auth failure, name the limitation and sync the rest.
+    await t.givenProject(fixture("with-stripe-connector"));
+    t.givenEnv({
+      BASE44_API_KEY:
+        "b44k_gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg",
+    });
+    let stripeStatusCalled = false;
+    t.api.mockRoute(
+      "GET",
+      `/api/apps/${APP_ID}/payments/stripe/status`,
+      (_req, res) => {
+        stripeStatusCalled = true;
+        res.status(401).json({ error: "Unauthorized" });
+      },
+    );
+    t.api.mockDeploymentConnectorsSync({
+      connectors: [{ integration_type: "slack", scopes: ["chat:write"] }],
+    });
+
+    const result = await t.run("connectors", "push", "--yes");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Synced: slack");
+    t.expectResult(result).toContain(
+      "Stripe connector sync is not supported with a workspace API key",
+    );
+    expect(stripeStatusCalled).toBe(false);
   });
 
   it("pushes auth config through the deployment endpoint with a workspace API key", async () => {
@@ -183,6 +274,7 @@ describe("env credential seeding", () => {
       deleted: [],
     });
     t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
+    t.api.mockDeploymentConnectorsSync({ connectors: [] });
 
     let deploymentAuthConfigBody: unknown;
     let deploymentApiKeyHeader: string | undefined;

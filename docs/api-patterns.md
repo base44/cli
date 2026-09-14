@@ -61,6 +61,13 @@ BASE44_API_KEY=b44k_... BASE44_APP_ID=<app-id> base44 deploy --yes
 Use this for CI or other non-interactive deployers that should act as a
 workspace-owned machine principal rather than a human user.
 
+Some builder routes require a platform user and reject workspace keys with a
+403 (`external-auth/*`, `payments/stripe/*`). Resources that must work in CI
+have a key-capable `deployment/*` route instead, selected at call time with
+`hasWorkspaceApiKeyAuth()` (see `auth-config/api.ts` and
+`connector/push.ts`). When adding a resource to `deploy`, use or add such a
+route rather than calling the user-bound one.
+
 ### OAuth access/refresh tokens
 
 For non-interactive flows (CI, agents, provisioning tools) that hand off an

@@ -210,6 +210,26 @@ export type RemoveConnectorResponse = z.infer<
   typeof RemoveConnectorResponseSchema
 >;
 
+export const SyncDeploymentConnectorsResponseSchema = z
+  .object({
+    connectors: z.array(
+      z.object({
+        integration_type: IntegrationTypeSchema,
+        scopes: z.array(z.string()),
+      }),
+    ),
+  })
+  .transform((data) => ({
+    connectors: data.connectors.map((c) => ({
+      integrationType: c.integration_type,
+      scopes: c.scopes,
+    })),
+  }));
+
+export type SyncDeploymentConnectorsResponse = z.infer<
+  typeof SyncDeploymentConnectorsResponseSchema
+>;
+
 // ─── STRIPE-SPECIFIC SCHEMAS ─────────────────────────────────
 
 export const STRIPE_CONNECTOR_TYPE = "stripe" as const;

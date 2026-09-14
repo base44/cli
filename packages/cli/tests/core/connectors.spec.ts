@@ -1,7 +1,7 @@
 import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { InvalidInputError } from "../../src/core/errors.js";
 import * as api from "../../src/core/resources/connector/api.js";
 import {
@@ -294,6 +294,7 @@ const mockRemoveConnector = vi.mocked(api.removeConnector);
 const mockGetStripeStatus = vi.mocked(api.getStripeStatus);
 const mockInstallStripe = vi.mocked(api.installStripe);
 const mockRemoveStripe = vi.mocked(api.removeStripe);
+const mockSyncDeploymentConnectors = vi.mocked(api.syncDeploymentConnectors);
 
 describe("pushConnectors", () => {
   beforeEach(() => {
@@ -838,5 +839,86 @@ describe("pullAllConnectors", () => {
     });
 
     await expect(pullAllConnectors()).rejects.toThrow("List API error");
+  });
+});
+
+describe("pushConnectors with a workspace API key", () => {
+  const previousApiKey = process.env.BASE44_API_KEY;
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    process.env.BASE44_API_KEY =
+      "b44k_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+  });
+
+  afterEach(() => {
+    if (previousApiKey === undefined) {
+      delete process.env.BASE44_API_KEY;
+    } else {
+      process.env.BASE44_API_KEY = previousApiKey;
+    }
+  });
+
+  it("syncs OAuth connectors through the deployment endpoint only", async () => {
+    const local: ConnectorResource[] = [
+      { type: "gmail", scopes: ["https://mail.google.com/"] },
+      { type: "notion", scopes: [] },
+    ];
+    mockSyncDeploymentConnectors.mockResolvedValue({
+      connectors: [
+        { integrationType: "gmail", scopes: ["https://mail.google.com/"] },
+        { integrationType: "notion", scopes: [] },
+      ],
+    });
+
+    const result = await pushConnectors(local);
+
+    expect(mockSyncDeploymentConnectors).toHaveBeenCalledWith([
+      { integrationType: "gmail", scopes: ["https://mail.google.com/"] },
+      { integrationType: "notion", scopes: [] },
+    ]);
+    expect(result.results).toEqual([
+      { type: "gmail", action: "synced" },
+      { type: "notion", action: "synced" },
+    ]);
+    expect(mockListConnectors).not.toHaveBeenCalled();
+    expect(mockSetConnector).not.toHaveBeenCalled();
+    expect(mockRemoveConnector).not.toHaveBeenCalled();
+    expect(mockGetStripeStatus).not.toHaveBeenCalled();
+  });
+
+  it("sends an empty list so remote connectors are reconciled", async () => {
+    mockSyncDeploymentConnectors.mockResolvedValue({ connectors: [] });
+
+    const result = await pushConnectors([]);
+
+    expect(mockSyncDeploymentConnectors).toHaveBeenCalledWith([]);
+    expect(result.results).toEqual([]);
+  });
+
+  it("reports a local Stripe connector as an error without calling Stripe routes", async () => {
+    const local: ConnectorResource[] = [
+      { type: "stripe", scopes: [] },
+      { type: "slack", scopes: ["chat:write"] },
+    ];
+    mockSyncDeploymentConnectors.mockResolvedValue({
+      connectors: [{ integrationType: "slack", scopes: ["chat:write"] }],
+    });
+
+    const result = await pushConnectors(local);
+
+    expect(result.results).toEqual([
+      { type: "slack", action: "synced" },
+      {
+        type: "stripe",
+        action: "error",
+        error: expect.stringContaining(
+          "not supported with a workspace API key",
+        ),
+      },
+    ]);
+    expect(mockGetStripeStatus).not.toHaveBeenCalled();
+    expect(mockInstallStripe).not.toHaveBeenCalled();
+    expect(mockRemoveStripe).not.toHaveBeenCalled();
   });
 });

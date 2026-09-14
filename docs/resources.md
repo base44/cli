@@ -141,7 +141,7 @@ What it deploys (in order):
 2. Functions (via `functionResource.push()`)
 3. Agent skills (via `agentSkillResource.push()`)
 4. Agents (via `agentResource.push()`)
-5. Connectors (via `pushConnectors()`) -- may return OAuth redirect URLs
+5. Connectors (via `pushConnectors()`) -- may return OAuth redirect URLs. With a workspace API key this syncs through `PUT /api/apps/{id}/deployment/connectors` instead (the per-connector `external-auth` and Stripe routes need a platform user); new connectors are created disconnected and must be authorized from the dashboard, and a local Stripe connector is reported as an error
 6. Site (if `site.outputDirectory` is configured) — the legacy tar.gz upload. The deployments-API transport is not reachable from here; see [deployments.md](deployments.md).
 
 ```bash

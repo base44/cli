@@ -192,6 +192,10 @@ interface ConnectorSetResponse {
   other_user_email?: string;
 }
 
+interface DeploymentConnectorsSyncResponse {
+  connectors: Array<{ integration_type: string; scopes: string[] }>;
+}
+
 interface ConnectorRemoveResponse {
   status: "removed";
   integration_type: string;
@@ -645,6 +649,16 @@ export class TestAPIServer {
     return this.addRoute(
       "DELETE",
       `/api/apps/${this.appId}/external-auth/integrations/:type/remove`,
+      response,
+    );
+  }
+
+  mockDeploymentConnectorsSync(
+    response: DeploymentConnectorsSyncResponse,
+  ): this {
+    return this.addRoute(
+      "PUT",
+      `/api/apps/${this.appId}/deployment/connectors`,
       response,
     );
   }

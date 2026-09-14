@@ -1,4 +1,10 @@
-import { listConnectors, removeConnector, setConnector } from "./api.js";
+import { hasWorkspaceApiKeyAuth } from "@/core/auth/config.js";
+import {
+  listConnectors,
+  removeConnector,
+  setConnector,
+  syncDeploymentConnectors,
+} from "./api.js";
 import type {
   ConnectorResource,
   IntegrationType,
@@ -44,6 +50,15 @@ export async function pushConnectors(
     (c) => c.type !== STRIPE_CONNECTOR_TYPE,
   );
 
+  if (hasWorkspaceApiKeyAuth()) {
+    return {
+      results: await syncConnectorsWithWorkspaceApiKey(
+        oauthConnectors,
+        stripeConnector,
+      ),
+    };
+  }
+
   const oauthResults = await syncOAuthConnectors(oauthConnectors);
   const stripeResult = await syncStripeConnector(stripeConnector);
 
@@ -53,6 +68,34 @@ export async function pushConnectors(
   }
 
   return { results };
+}
+
+// Workspace API keys are rejected by the per-connector external-auth and
+// Stripe routes (they need a platform user), so sync through the deployment
+// endpoint, which also reconciles removals server-side.
+async function syncConnectorsWithWorkspaceApiKey(
+  oauthConnectors: ConnectorResource[],
+  stripeConnector: ConnectorResource | undefined,
+): Promise<ConnectorSyncResult[]> {
+  const { connectors } = await syncDeploymentConnectors(
+    oauthConnectors.map((c) => ({
+      integrationType: c.type,
+      scopes: c.scopes ?? [],
+    })),
+  );
+  const results: ConnectorSyncResult[] = connectors.map((c) => ({
+    type: c.integrationType,
+    action: "synced",
+  }));
+  if (stripeConnector) {
+    results.push({
+      type: STRIPE_CONNECTOR_TYPE,
+      action: "error",
+      error:
+        "Stripe connector sync is not supported with a workspace API key. Run 'base44 connectors push' as a logged-in user.",
+    });
+  }
+  return results;
 }
 
 async function syncOAuthConnectors(

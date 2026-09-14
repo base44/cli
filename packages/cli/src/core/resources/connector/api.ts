@@ -11,6 +11,7 @@ import type {
   RemoveStripeResponse,
   SetConnectorResponse,
   StripeStatusResponse,
+  SyncDeploymentConnectorsResponse,
 } from "./schema.js";
 import {
   InstallStripeResponseSchema,
@@ -21,6 +22,7 @@ import {
   RemoveStripeResponseSchema,
   SetConnectorResponseSchema,
   StripeStatusResponseSchema,
+  SyncDeploymentConnectorsResponseSchema,
 } from "./schema.js";
 
 export async function listConnectors(): Promise<ListConnectorsResponse> {
@@ -34,6 +36,45 @@ export async function listConnectors(): Promise<ListConnectorsResponse> {
   }
 
   const result = ListConnectorsResponseSchema.safeParse(await response.json());
+
+  if (!result.success) {
+    throw new SchemaValidationError(
+      "Invalid response from server",
+      result.error,
+    );
+  }
+
+  return result.data;
+}
+
+/**
+ * Declaratively syncs the app's shared OAuth connectors through the deployment
+ * endpoint. Unlike the per-connector external-auth routes this one accepts a
+ * workspace API key and reconciles removals server-side; connectors it creates
+ * stay disconnected until someone authorizes them from the dashboard.
+ */
+export async function syncDeploymentConnectors(
+  connectors: { integrationType: IntegrationType; scopes: string[] }[],
+): Promise<SyncDeploymentConnectorsResponse> {
+  const appClient = getAppClient();
+
+  let response: KyResponse;
+  try {
+    response = await appClient.put("deployment/connectors", {
+      json: {
+        connectors: connectors.map((c) => ({
+          integration_type: c.integrationType,
+          scopes: c.scopes,
+        })),
+      },
+    });
+  } catch (error) {
+    throw await ApiError.fromHttpError(error, "syncing connectors");
+  }
+
+  const result = SyncDeploymentConnectorsResponseSchema.safeParse(
+    await response.json(),
+  );
 
   if (!result.success) {
     throw new SchemaValidationError(
