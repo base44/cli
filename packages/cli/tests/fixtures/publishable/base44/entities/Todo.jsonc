@@ -1,0 +1,8 @@
+{
+  // Deliberately not what the CLI's own entity schema accepts: the platform's
+  // extractor is authoritative, and a strict parse here blocks real Builder apps.
+  "name": "Todo",
+  "type": "object",
+  "properties": { "title": { "type": "string" } },
+  "unknown_builder_field": true
+}

@@ -848,6 +848,84 @@ export class TestAPIServer {
     return this;
   }
 
+  // ─── VERSION ENDPOINTS ────────────────────────────────────
+
+  /** Captured JSON bodies of POST versions (declare) requests. */
+  readonly versionDeclareRequests: unknown[] = [];
+  /** Captured JSON bodies of POST versions/{id}/deployments requests. */
+  readonly versionDeployRequests: unknown[] = [];
+  /** Captured version ids the deploy call addressed. */
+  readonly versionDeployIds: string[] = [];
+
+  /**
+   * Mock POST /api/apps/{appId}/versions. `uploads` is built from the declared
+   * files, pointed at this server's own presigned-style PUT targets, so a test
+   * exercises the real declare -> upload -> finalize order.
+   */
+  mockVersionDeclare(sessionId: string): this {
+    this.pendingRoutes.push({
+      method: "POST",
+      path: `/api/apps/${this.appId}/versions`,
+      handler: (req, res) => {
+        const body = req.body as {
+          static_bundle: Array<{ path: string; size: number; digest: string }>;
+        };
+        this.versionDeclareRequests.push(body);
+        res.status(200).json({
+          session_id: sessionId,
+          uploads: body.static_bundle.map((file) => ({
+            path: file.path,
+            url: `${this.baseUrl}/presigned/${file.path}`,
+            content_type: "application/octet-stream",
+            content_length: file.size,
+            checksum_sha256: Buffer.from(
+              file.digest.replace("sha256:", ""),
+              "hex",
+            ).toString("base64"),
+          })),
+        });
+      },
+    });
+    return this;
+  }
+
+  mockVersionFinalize(response: {
+    version_id: string;
+    manifest_hash: string;
+    deduplicated: boolean;
+  }): this {
+    return this.addRoute(
+      "POST",
+      `/api/apps/${this.appId}/versions/:sessionId/finalize`,
+      response,
+    );
+  }
+
+  mockVersionDeploy(response: {
+    deployment_id: string;
+    manifest_hash: string;
+    revision: number;
+  }): this {
+    this.pendingRoutes.push({
+      method: "POST",
+      path: `/api/apps/${this.appId}/versions/:versionId/deployments`,
+      handler: (req, res) => {
+        this.versionDeployRequests.push(req.body);
+        this.versionDeployIds.push(String(req.params.versionId));
+        res.status(200).json(response);
+      },
+    });
+    return this;
+  }
+
+  mockVersionDeclareError(error: ErrorResponse): this {
+    return this.addErrorRoute(
+      "POST",
+      `/api/apps/${this.appId}/versions`,
+      error,
+    );
+  }
+
   /** Mock the Cloudflare assets endpoint to always fail with the given error. */
   mockAssetUploadError(error: ErrorResponse): this {
     return this.addErrorRoute("POST", "/cf-assets/upload", error);
