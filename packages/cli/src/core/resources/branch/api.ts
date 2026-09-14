@@ -38,7 +38,7 @@ export async function resolveBranchName(
   }
   if (matches.length > 1) {
     throw new InvalidInputError(
-      `Branch name "${name}" is ambiguous. Use --branch-id.`,
+      `Branch name "${name}" is ambiguous. Give the branches unique names before retrying.`,
     );
   }
   return matches[0].id;

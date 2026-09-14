@@ -8,16 +8,19 @@ const base = `/api/apps/${APP_ID}/sandbox-bridge`;
 describe("sandbox commands", () => {
   const t = setupCLITests();
 
-  it("accepts --branch-id before the subcommand", async () => {
+  it("accepts --branch before the subcommand", async () => {
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    t.api.mockRoute("GET", `/api/apps/${APP_ID}/branches`, (_req, res) => {
+      res.json([{ id: BRANCH_ID, branch_name: "checkout" }]);
+    });
     t.api.mockRoute("POST", `${base}/list_directory`, (req, res) => {
       expect(req.body.branch_id).toBe(BRANCH_ID);
       res.json({ entries: [], truncated: false });
     });
 
     const result = await t.run(
-      "--branch-id",
-      BRANCH_ID,
+      "--branch",
+      "checkout",
       "sandbox",
       "ls",
       "--app-id",
@@ -33,19 +36,17 @@ describe("sandbox commands", () => {
     ["deploy"],
     ["login"],
   ])("rejects branch scope for %s %s before authentication", async (...command) => {
-    const result = await t.run(...command, "--branch-id", BRANCH_ID, "--json");
+    const result = await t.run(...command, "--branch", "checkout", "--json");
     t.expectResult(result).toFail();
     expect(JSON.parse(result.stdout).error).toContain(
-      "--branch-id is not supported by this command",
+      "--branch is not supported by this command",
     );
   });
 
   it("rejects an empty branch instead of falling back to main", async () => {
-    const result = await t.run("sandbox", "ls", "--branch-id", " ", "--json");
+    const result = await t.run("sandbox", "ls", "--branch", " ", "--json");
     t.expectResult(result).toFail();
-    expect(JSON.parse(result.stdout).error).toBe(
-      "--branch-id must not be empty.",
-    );
+    expect(JSON.parse(result.stdout).error).toBe("--branch must not be empty.");
   });
 
   it("ls prints the JSON result", async () => {
@@ -123,12 +124,15 @@ describe("sandbox commands", () => {
         git_commit_hash: "abc123",
       },
     },
-  ])("$command.0 forwards --branch-id", async ({
+  ])("$command.0 forwards the resolved branch ID", async ({
     command,
     endpoint,
     response,
   }) => {
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    t.api.mockRoute("GET", `/api/apps/${APP_ID}/branches`, (_req, res) => {
+      res.json([{ id: BRANCH_ID, branch_name: "checkout" }]);
+    });
     t.api.mockRoute("POST", `${base}/${endpoint}`, (req, res) => {
       expect(req.body.branch_id).toBe(BRANCH_ID);
       res.status(200).json(response);
@@ -137,8 +141,8 @@ describe("sandbox commands", () => {
     const result = await t.run(
       "sandbox",
       ...command,
-      "--branch-id",
-      BRANCH_ID,
+      "--branch",
+      "checkout",
       "--app-id",
       APP_ID,
     );

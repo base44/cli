@@ -77,10 +77,6 @@ describe("branch name targeting", () => {
   });
 
   it.each([
-    {
-      args: ["sandbox", "ls", "--branch", "main", "--branch-id", "id"],
-      error: "not both",
-    },
     { args: ["sandbox", "ls", "--branch", ""], error: "must not be empty" },
     { args: ["functions", "pull", "--branch", "main"], error: "not supported" },
   ])("validates flags before authentication: $error", async ({

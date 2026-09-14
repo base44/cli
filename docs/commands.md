@@ -6,11 +6,11 @@ Commands live in `src/cli/commands/<domain>/`. They use a **factory pattern** â€
 
 ## Branch targeting
 
-`--branch <name>` and `--branch-id <id>` are global, but currently supported only by sandbox commands.
-Use one per command: `--branch feature/checkout` resolves an exact name within the
-selected app; `--branch-id` uses the ID directly without a lookup. Missing or ambiguous
-names fail. `--branch main` explicitly targets main. No checkout state is saved.
-For example: `base44 --branch-id <id> sandbox read <path> --app-id <app-id>`.
+`--branch <name>` is global, but currently supported only by sandbox commands.
+`--branch feature/checkout` resolves an exact name within the selected app.
+Missing or ambiguous names fail. `--branch main` explicitly targets main.
+No checkout state is saved. IDs are internal; the CLI accepts branch names only.
+For example: `base44 --branch feature/checkout sandbox read <path> --app-id <app-id>`.
 Other commands (including `functions pull`, `functions list`, and `entities push`)
 reject it before authentication or command execution, rather than silently targeting main.
 There is no `entities pull` command; branch source files can be read through `sandbox read`.

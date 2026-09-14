@@ -39,7 +39,6 @@ export function createProgram(context: CLIContext): Command {
       "Base44 CLI - Unified interface for managing Base44 applications",
     )
     .version(packageJson.version)
-    .option("--branch-id <id>", "Target an app branch (sandbox commands only)")
     .option(
       "--branch <name>",
       "Target an app branch by exact name (sandbox commands only)",

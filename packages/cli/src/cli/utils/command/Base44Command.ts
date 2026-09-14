@@ -175,28 +175,16 @@ export class Base44Command extends Command {
       const upgradeCheckPromise = startUpgradeCheck();
 
       try {
-        const { branch, branchId } = this.optsWithGlobals<{
+        const { branch } = this.optsWithGlobals<{
           branch?: string;
-          branchId?: string;
         }>();
-        if (branch !== undefined && branchId !== undefined) {
+        if (branch !== undefined && !this._commandOptions.supportsBranch) {
           throw new InvalidInputError(
-            "Use either --branch or --branch-id, not both.",
-          );
-        }
-        if (
-          (branch !== undefined || branchId !== undefined) &&
-          !this._commandOptions.supportsBranch
-        ) {
-          throw new InvalidInputError(
-            `${branch !== undefined ? "--branch" : "--branch-id"} is not supported by this command. Use sandbox commands to read or edit branch files; no app changes were made.`,
+            "--branch is not supported by this command. Use sandbox commands to read or edit branch files; no app changes were made.",
           );
         }
         if (branch !== undefined && !branch.trim()) {
           throw new InvalidInputError("--branch must not be empty.");
-        }
-        if (branchId !== undefined && !branchId.trim()) {
-          throw new InvalidInputError("--branch-id must not be empty.");
         }
         if (this._commandOptions.requireAuth) {
           await ensureAuth(this.context);
@@ -207,7 +195,7 @@ export class Base44Command extends Command {
         }
 
         const resolvedBranchId =
-          branch !== undefined ? await resolveBranchName(branch) : branchId;
+          branch !== undefined ? await resolveBranchName(branch) : undefined;
         const result = ((await fn(
           { ...this.context, branchId: resolvedBranchId },
           ...args,
