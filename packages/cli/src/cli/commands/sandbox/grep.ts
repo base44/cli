@@ -14,7 +14,7 @@ interface GrepOptions {
 }
 
 async function grepAction(
-  { runTask }: CLIContext,
+  { runTask, branchId }: CLIContext,
   pattern: string,
   options: GrepOptions,
 ): Promise<RunCommandResult> {
@@ -29,6 +29,7 @@ async function grepAction(
       case_sensitive: options.caseSensitive,
       glob: options.glob,
       max_results: maxResults,
+      branch_id: branchId,
     }),
   );
 
@@ -36,7 +37,7 @@ async function grepAction(
 }
 
 export function getSandboxGrepCommand(): Command {
-  return new Base44Command("grep")
+  return new Base44Command("grep", { supportsBranch: true })
     .description("Search files for a pattern in an app's remote sandbox")
     .argument("<pattern>", "Search pattern")
     .option("--path <path>", "Subtree to search, relative to the app root")

@@ -11,7 +11,7 @@ interface ReadFileOptions {
 }
 
 async function readFileAction(
-  { runTask }: CLIContext,
+  { runTask, branchId }: CLIContext,
   paths: string[],
   options: ReadFileOptions,
 ): Promise<RunCommandResult> {
@@ -20,14 +20,14 @@ async function readFileAction(
   const limit = parsePositiveInt(options.limit, "--limit");
 
   const result = await runTask("Reading file", () =>
-    readFile(appId, { paths, offset, limit }),
+    readFile(appId, { paths, offset, limit, branch_id: branchId }),
   );
 
   return { outroMessage: "Read file", stdout: toJsonStdout(result) };
 }
 
 export function getSandboxReadFileCommand(): Command {
-  return new Base44Command("read")
+  return new Base44Command("read", { supportsBranch: true })
     .description("Read file contents from an app's remote sandbox")
     .argument("<paths...>", "One or more file paths relative to the app root")
     .option("--offset <n>", "1-based start line")

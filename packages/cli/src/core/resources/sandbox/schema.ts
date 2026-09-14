@@ -4,20 +4,24 @@ import { z } from "zod";
 // Sent to the backend as-is (snake_case). The `app_id` is carried in the URL
 // path by getSandboxClient(), so it is never part of these payloads.
 
-export interface ListDirectoryParams {
+interface SandboxScopeParams {
+  branch_id?: string;
+}
+
+export interface ListDirectoryParams extends SandboxScopeParams {
   path?: string;
   recursive?: boolean;
   max_depth?: number;
   include_hidden?: boolean;
 }
 
-export interface ReadFileParams {
+export interface ReadFileParams extends SandboxScopeParams {
   paths: string[];
   offset?: number;
   limit?: number;
 }
 
-export interface WriteFileParams {
+export interface WriteFileParams extends SandboxScopeParams {
   path: string;
   content: string;
   overwrite?: boolean;
@@ -29,13 +33,13 @@ export interface EditSpec {
   replace_all?: boolean;
 }
 
-export interface EditFileParams {
+export interface EditFileParams extends SandboxScopeParams {
   path: string;
   edits: EditSpec[];
   dry_run?: boolean;
 }
 
-export interface GrepParams {
+export interface GrepParams extends SandboxScopeParams {
   pattern: string;
   path?: string;
   is_regex?: boolean;
@@ -44,13 +48,13 @@ export interface GrepParams {
   max_results?: number;
 }
 
-export interface RunCommandParams {
+export interface RunCommandParams extends SandboxScopeParams {
   command: string;
   cwd?: string;
   timeout_ms?: number;
 }
 
-export interface CreateCheckpointParams {
+export interface CreateCheckpointParams extends SandboxScopeParams {
   name?: string;
 }
 

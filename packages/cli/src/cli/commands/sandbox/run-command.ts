@@ -11,7 +11,7 @@ interface RunCommandOptions {
 }
 
 async function runCommandAction(
-  { runTask }: CLIContext,
+  { runTask, branchId }: CLIContext,
   commandParts: string[],
   options: RunCommandOptions,
 ): Promise<RunCommandResult> {
@@ -20,7 +20,12 @@ async function runCommandAction(
   const command = commandParts.join(" ");
 
   const result = await runTask("Running command", () =>
-    runCommand(appId, { command, cwd: options.cwd, timeout_ms: timeoutMs }),
+    runCommand(appId, {
+      command,
+      cwd: options.cwd,
+      timeout_ms: timeoutMs,
+      branch_id: branchId,
+    }),
   );
 
   // The HTTP call succeeded, so the CLI exits 0 regardless of the remote
@@ -29,7 +34,7 @@ async function runCommandAction(
 }
 
 export function getSandboxRunCommandCommand(): Command {
-  return new Base44Command("run")
+  return new Base44Command("run", { supportsBranch: true })
     .description("Run a shell command in an app's remote sandbox")
     .argument("<command...>", "Shell command to execute (quote to keep as one)")
     .option("--cwd <path>", "Working directory relative to the app root")

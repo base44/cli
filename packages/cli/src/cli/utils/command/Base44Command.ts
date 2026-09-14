@@ -15,7 +15,8 @@ import {
   formatPlainUpgradeMessage,
   startUpgradeCheck,
 } from "@/cli/utils/upgradeNotification.js";
-import { ApiError, isCLIError } from "@/core/errors.js";
+import { ApiError, InvalidInputError, isCLIError } from "@/core/errors.js";
+import { resolveBranchName } from "@/core/resources/branch/api.js";
 
 /**
  * Write a command result to stdout as a single JSON document (the `--json`
@@ -67,6 +68,7 @@ function writeJsonError(error: unknown): void {
 }
 
 interface Base44CommandOptions {
+  supportsBranch?: boolean;
   /**
    * Require user authentication before running this command.
    * If the user is not logged in, they will be prompted to login.
@@ -130,6 +132,7 @@ export class Base44Command extends Command {
       requireAuth: options?.requireAuth ?? true,
       requireAppContext: options?.requireAppContext ?? true,
       fullBanner: options?.fullBanner ?? false,
+      supportsBranch: options?.supportsBranch ?? false,
     };
   }
 
@@ -172,6 +175,17 @@ export class Base44Command extends Command {
       const upgradeCheckPromise = startUpgradeCheck();
 
       try {
+        const { branch } = this.optsWithGlobals<{
+          branch?: string;
+        }>();
+        if (branch !== undefined && !this._commandOptions.supportsBranch) {
+          throw new InvalidInputError(
+            "--branch is not supported by this command. Use sandbox commands to read or edit branch files; no app changes were made.",
+          );
+        }
+        if (branch !== undefined && !branch.trim()) {
+          throw new InvalidInputError("--branch must not be empty.");
+        }
         if (this._commandOptions.requireAuth) {
           await ensureAuth(this.context);
         }
@@ -180,8 +194,12 @@ export class Base44Command extends Command {
           await ensureAppContext(this.context, { appId });
         }
 
-        const result = ((await fn(this.context, ...args)) ??
-          {}) as RunCommandResult;
+        const resolvedBranchId =
+          branch !== undefined ? await resolveBranchName(branch) : undefined;
+        const result = ((await fn(
+          { ...this.context, branchId: resolvedBranchId },
+          ...args,
+        )) ?? {}) as RunCommandResult;
 
         if (!quiet) {
           await showCommandEnd(

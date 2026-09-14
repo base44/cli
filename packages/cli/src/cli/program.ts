@@ -5,6 +5,7 @@ import { getAuthCommand } from "@/cli/commands/auth/index.js";
 import { getLoginCommand } from "@/cli/commands/auth/login.js";
 import { getLogoutCommand } from "@/cli/commands/auth/logout.js";
 import { getWhoamiCommand } from "@/cli/commands/auth/whoami.js";
+import { getBranchesCommand } from "@/cli/commands/branches/index.js";
 import { getConnectorsCommand } from "@/cli/commands/connectors/index.js";
 import { getDashboardCommand } from "@/cli/commands/dashboard/index.js";
 import { getEntitiesPushCommand } from "@/cli/commands/entities/push.js";
@@ -39,6 +40,10 @@ export function createProgram(context: CLIContext): Command {
       "Base44 CLI - Unified interface for managing Base44 applications",
     )
     .version(packageJson.version)
+    .option(
+      "--branch <name>",
+      "Target an app branch by exact name (sandbox commands only)",
+    )
     .addOption(
       new Option("--app-id <id>", "Base44 app ID to use").env(
         BASE44_APP_ID_ENV_VAR,
@@ -103,6 +108,7 @@ export function createProgram(context: CLIContext): Command {
 
   // Register sandbox (remote development) commands
   program.addCommand(getSandboxCommand());
+  program.addCommand(getBranchesCommand());
 
   // Register auth config commands
   program.addCommand(getAuthCommand());

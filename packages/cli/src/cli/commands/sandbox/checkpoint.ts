@@ -10,20 +10,23 @@ interface CheckpointOptions {
 }
 
 async function checkpointAction(
-  { runTask }: CLIContext,
+  { runTask, branchId }: CLIContext,
   options: CheckpointOptions,
 ): Promise<RunCommandResult> {
   const { id: appId } = getAppContext();
 
   const result = await runTask("Creating checkpoint", () =>
-    createCheckpoint(appId, { name: options.name }),
+    createCheckpoint(appId, {
+      name: options.name,
+      branch_id: branchId,
+    }),
   );
 
   return { outroMessage: "Created checkpoint", stdout: toJsonStdout(result) };
 }
 
 export function getSandboxCheckpointCommand(): Command {
-  return new Base44Command("checkpoint")
+  return new Base44Command("checkpoint", { supportsBranch: true })
     .description("Create a restore-point checkpoint of an app's remote sandbox")
     .option(
       "--name <name>",

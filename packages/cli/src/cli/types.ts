@@ -6,6 +6,7 @@ import type { RunTaskFn } from "./utils/runTask.js";
 export type Distribution = "npm" | "binary";
 
 export interface CLIContext {
+  branchId?: string;
   errorReporter: ErrorReporter;
   isNonInteractive: boolean;
   /**

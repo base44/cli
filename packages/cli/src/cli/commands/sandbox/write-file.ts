@@ -11,7 +11,7 @@ interface WriteFileOptions {
 }
 
 async function writeFileAction(
-  { runTask }: CLIContext,
+  { runTask, branchId }: CLIContext,
   path: string,
   options: WriteFileOptions,
 ): Promise<RunCommandResult> {
@@ -19,14 +19,19 @@ async function writeFileAction(
   const content = await resolveFlagOrStdin(options.content, "--content");
 
   const result = await runTask("Writing file", () =>
-    writeFile(appId, { path, content, overwrite: options.overwrite }),
+    writeFile(appId, {
+      path,
+      content,
+      overwrite: options.overwrite,
+      branch_id: branchId,
+    }),
   );
 
   return { outroMessage: "Wrote file", stdout: toJsonStdout(result) };
 }
 
 export function getSandboxWriteFileCommand(): Command {
-  return new Base44Command("write")
+  return new Base44Command("write", { supportsBranch: true })
     .description("Create or overwrite a file in an app's remote sandbox")
     .argument("<path>", "File path relative to the app root")
     .option("--content <content>", "File content (if omitted, read from stdin)")

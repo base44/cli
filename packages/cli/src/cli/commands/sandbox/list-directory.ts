@@ -12,7 +12,7 @@ interface ListDirectoryOptions {
 }
 
 async function listDirectoryAction(
-  { runTask }: CLIContext,
+  { runTask, branchId }: CLIContext,
   path: string | undefined,
   options: ListDirectoryOptions,
 ): Promise<RunCommandResult> {
@@ -22,6 +22,7 @@ async function listDirectoryAction(
   const result = await runTask("Listing directory", () =>
     listDirectory(appId, {
       path,
+      branch_id: branchId,
       recursive: options.recursive,
       max_depth: maxDepth,
       include_hidden: options.includeHidden,
@@ -32,7 +33,7 @@ async function listDirectoryAction(
 }
 
 export function getSandboxListDirectoryCommand(): Command {
-  return new Base44Command("ls")
+  return new Base44Command("ls", { supportsBranch: true })
     .description("List directory entries in an app's remote sandbox")
     .argument(
       "[path]",

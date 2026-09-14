@@ -4,6 +4,26 @@
 
 Commands live in `src/cli/commands/<domain>/`. They use a **factory pattern** — each file exports a function that returns a `Base44Command`.
 
+## Branch targeting
+
+Discover names with `base44 branches list --app-id <app-id> --json`.
+The result contains `branches` with `name` and `status`, including main and active
+feature branches. Choose the branch matching the user's request before editing.
+
+`--branch <name>` is global, but currently supported only by sandbox commands.
+`--branch feature/checkout` resolves an exact name within the selected app.
+Missing or ambiguous names fail. `--branch main` explicitly targets main.
+No checkout state is saved. IDs are internal; the CLI accepts branch names only.
+For example: `base44 --branch feature/checkout sandbox read <path> --app-id <app-id>`.
+Other commands (including `functions pull`, `functions list`, and `entities push`)
+reject it before authentication or command execution, rather than silently targeting main.
+There is no `entities pull` command; branch source files can be read through `sandbox read`.
+
+To add support, set `supportsBranch: true` on the command and consume
+`ctx.branchId`. First verify that every backend operation honors that scope;
+accepting the query parameter alone is not proof of branch isolation.
+Omitting the flag preserves existing main-app behavior.
+
 ## Command File Template
 
 ```typescript

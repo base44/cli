@@ -42,7 +42,7 @@ function parseEdits(raw: string): EditSpec[] {
 }
 
 async function editFileAction(
-  { runTask }: CLIContext,
+  { runTask, branchId }: CLIContext,
   path: string,
   options: EditFileOptions,
 ): Promise<RunCommandResult> {
@@ -52,7 +52,13 @@ async function editFileAction(
 
   const result = await runTask(
     options.dryRun ? "Previewing edit" : "Editing file",
-    () => editFile(appId, { path, edits, dry_run: options.dryRun }),
+    () =>
+      editFile(appId, {
+        path,
+        edits,
+        dry_run: options.dryRun,
+        branch_id: branchId,
+      }),
   );
 
   return {
@@ -62,7 +68,7 @@ async function editFileAction(
 }
 
 export function getSandboxEditFileCommand(): Command {
-  return new Base44Command("edit")
+  return new Base44Command("edit", { supportsBranch: true })
     .description("Apply exact old→new string edits to a file in the sandbox")
     .argument("<path>", "File path relative to the app root")
     .option(
