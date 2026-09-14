@@ -1,0 +1,3 @@
+# Generated shims (`bun run build:shim`) and the published build output.
+dist/
+lib/

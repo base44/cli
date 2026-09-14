@@ -1,0 +1,25 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "sourceMap": true,
+    "rootDir": ".",
+    "outDir": "lib"
+  },
+  "include": [
+    "src/index.ts",
+    "src/bundler.ts",
+    "src/contracts.ts",
+    "src/errors.ts",
+    "src/deno-bundle.ts",
+    "src/actor-compat.ts",
+    "src/worker-entry.ts",
+    "src/telemetry.ts",
+    "src/tracing.ts",
+    "src/log.ts",
+    "src/fetch-guard.ts",
+    "src/static-egress-marker.ts",
+    "src/esbuild/*.ts"
+  ]
+}

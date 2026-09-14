@@ -22,6 +22,7 @@ The codebase has two layers with a clear separation of concerns:
 - **`packages/cli/bin/`** - Entry points: `run.js` (production, Node.js) and `dev.ts` (development, Bun runs TypeScript directly).
 - **`packages/cli/templates/`** - Project scaffolding templates for `base44 create`.
 - **`packages/cli/tests/`** - CLI integration tests (`cli/`), core unit tests (`core/`), and test fixtures (`fixtures/`).
+- **`packages/functions-compiler/`** - `@base44/functions-compiler`: the production compiler that turns backend-function sources into a single Cloudflare Workers module. Extracted from apper's `base44-userapp-bundler` so the CLI and that HTTP service run one engine. Owns its own `bun run test` / `typecheck` / `build`; see its README before editing — several files under `src/` are compile-time **assets** read as text, not modules.
 
 ```
 packages/cli/src/
