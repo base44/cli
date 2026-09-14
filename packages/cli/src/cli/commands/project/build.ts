@@ -24,7 +24,12 @@ async function buildAction(ctx: CLIContext): Promise<RunCommandResult> {
 }
 
 export function getBuildCommand(): Command {
-  return new Base44Command("build")
+  // No credential: the build runs a local command and reads local files, and it
+  // is the step a publish sandbox runs BEFORE minting its publish key — so
+  // requiring auth here would either fail that exec or put the key beside the
+  // repo-controlled code the build runs. The app id is still required: it is
+  // injected into the build as VITE_BASE44_APP_ID.
+  return new Base44Command("build", { requireAuth: false })
     .description("Build the site with the Base44 app id injected")
     .action(buildAction);
 }
