@@ -149,7 +149,7 @@ describe("publish command", () => {
   });
 });
 
-describe("version deploy command", () => {
+describe("versions deploy command", () => {
   const t = setupCLITests();
 
   it("serves an existing version with no build and no upload", async () => {
@@ -161,7 +161,7 @@ describe("version deploy command", () => {
       revision: 12,
     });
 
-    const result = await t.run("version", "deploy", "ver-old", "--json");
+    const result = await t.run("versions", "deploy", "ver-old", "--json");
 
     t.expectResult(result).toSucceed();
     expect(t.api.versionDeployIds).toEqual(["ver-old"]);

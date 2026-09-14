@@ -22,7 +22,7 @@ import { getSandboxCommand } from "@/cli/commands/sandbox/index.js";
 import { getSecretsCommand } from "@/cli/commands/secrets/index.js";
 import { getSiteCommand } from "@/cli/commands/site/index.js";
 import { getTypesCommand } from "@/cli/commands/types/index.js";
-import { getVersionCommand } from "@/cli/commands/version/index.js";
+import { getVersionsCommand } from "@/cli/commands/versions/index.js";
 import { getWorkflowsCommand } from "@/cli/commands/workflows/index.js";
 import { getWorkspaceCommand } from "@/cli/commands/workspace/index.js";
 import { Base44Command } from "@/cli/utils/index.js";
@@ -118,7 +118,7 @@ export function createProgram(context: CLIContext): Command {
   // Register site commands
   program.addCommand(getSiteCommand());
   program.addCommand(getPublishCommand());
-  program.addCommand(getVersionCommand());
+  program.addCommand(getVersionsCommand());
 
   // Register types command
   program.addCommand(getTypesCommand());
