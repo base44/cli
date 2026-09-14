@@ -3,10 +3,15 @@
  *
  * The loop is: plan the partition, compile each shard, measure it, and halve any
  * shard whose module is over a ceiling before anything is uploaded. Ported from
- * `_build_shard_with_split` in apper's `cloudflare_wfp_runtime.py`, minus its
- * transport: the service splits on both a 413 from the bundler and the measured
- * verdict, and locally there is no request to be rejected, so the measurement is
- * the only trigger.
+ * `_build_shard_with_split` in apper's `cloudflare_wfp_runtime.py`.
+ *
+ * That function also splits on two exceptions, and neither is a trigger here.
+ * The bundler's 413 is its HTTP request-body cap — a property of the shard's
+ * packed SOURCE going over the wire, not of the module coming out, and there is
+ * no request to reject locally. Cloudflare's 10027 is a real Worker limit, but
+ * it is the same 64 MiB `workerRawSizeBreach` already computes from the bytes in
+ * hand, so reaching it from a rejected upload is a failsafe, not the design.
+ * Measuring is the design, and it happens here.
  *
  * Unlike the compiler's own `bundleApp`, this refuses a partial result. A module
  * missing a handler is not a smaller success, it is a broken app.
