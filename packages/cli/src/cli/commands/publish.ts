@@ -1,15 +1,17 @@
 import type { Command } from "commander";
-import { InvalidArgumentError, Option } from "commander";
 import { runSiteBuild } from "@/cli/commands/project/site-build.js";
+import {
+  concurrencyOption,
+  gitHashOption,
+  outputDirOption,
+  targetOption,
+} from "@/cli/commands/versions/options.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, theme } from "@/cli/utils/index.js";
 import { resolveProvenanceCommit } from "@/core/site/index.js";
-import { isGitCommitHash } from "@/core/utils/git.js";
 import {
   collectBuildOutput,
   collectResources,
-  DEFAULT_VERSION_UPLOAD_CONCURRENCY,
-  MAX_VERSION_UPLOAD_CONCURRENCY,
   publishVersion,
   requireOutputDir,
   resolvePublishTarget,
@@ -98,44 +100,9 @@ export function getPublishCommand(): Command {
       "--no-build",
       "Publish the existing build output without rebuilding",
     )
-    .option(
-      "--output-dir <dir>",
-      "Build output directory (defaults to the project's, else dist)",
-    )
-    .option("--target <name>", "Environment to serve the version at")
-    .addOption(
-      new Option(
-        "--git-hash <hash>",
-        "Commit the build came from (defaults to the checkout's HEAD)",
-      ).argParser(parseGitHash),
-    )
-    .addOption(
-      new Option("--concurrency <n>", "Parallel file uploads")
-        .default(DEFAULT_VERSION_UPLOAD_CONCURRENCY)
-        .argParser(parseConcurrency),
-    )
+    .addOption(outputDirOption())
+    .addOption(targetOption())
+    .addOption(gitHashOption())
+    .addOption(concurrencyOption())
     .action(publishAction);
-}
-
-function parseGitHash(value: string): string {
-  if (!isGitCommitHash(value)) {
-    throw new InvalidArgumentError(
-      "Expected a git commit hash (7-64 hex chars).",
-    );
-  }
-  return value;
-}
-
-function parseConcurrency(value: string): number {
-  const parsed = Number(value);
-  if (
-    !Number.isInteger(parsed) ||
-    parsed < 1 ||
-    parsed > MAX_VERSION_UPLOAD_CONCURRENCY
-  ) {
-    throw new InvalidArgumentError(
-      `Expected a whole number between 1 and ${MAX_VERSION_UPLOAD_CONCURRENCY}.`,
-    );
-  }
-  return parsed;
 }

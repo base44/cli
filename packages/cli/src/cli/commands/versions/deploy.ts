@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Command } from "commander";
+import { targetOption } from "@/cli/commands/versions/options.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
 import { deployVersion } from "@/core/version/index.js";
@@ -39,6 +40,6 @@ export function getVersionDeployCommand(): Command {
       "Serve an already-recorded version (also how a rollback is done)",
     )
     .argument("<version-id>", "The version to serve")
-    .option("--target <name>", "Environment to serve the version at")
+    .addOption(targetOption())
     .action(deployAction);
 }
