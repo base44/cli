@@ -126,6 +126,19 @@ describe("published surface", () => {
       "installFetchGuard",
       "setCompilerTracer",
       "setLogSink",
+      "cfwBundleInput",
+      "collectReachableFiles",
+      "compileFunctionShards",
+      "ShardCapacityError",
+      "assertWithinCapacity",
+      "planFreshShards",
+      "targetShardCount",
+      "BUNDLE_GZIP_LEVEL",
+      "WORKER_RAW_SIZE_CEILING_BYTES",
+      "judgeBundleSize",
+      "measureBundleBytes",
+      "workerGzipCapBreach",
+      "workerRawSizeBreach",
     ].sort());
   });
 
