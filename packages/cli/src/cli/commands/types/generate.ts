@@ -9,7 +9,7 @@ const TYPES_FILE_PATH = "base44/.types/types.d.ts";
 async function generateTypesAction({
   runTask,
 }: CLIContext): Promise<RunCommandResult> {
-  const { entities, functions, agents, connectors, project } =
+  const { entities, functions, actors, agents, connectors, project } =
     await readProjectConfig();
 
   await runTask("Generating types", async () => {
@@ -17,6 +17,7 @@ async function generateTypesAction({
       projectRoot: project.root,
       entities,
       functions,
+      actors,
       agents,
       connectors,
     });

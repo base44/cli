@@ -4,6 +4,14 @@
 
 Commands live in `src/cli/commands/<domain>/`. They use a **factory pattern** — each file exports a function that returns a `Base44Command`.
 
+## Actor command wiring
+
+`src/cli/commands/actors/` registers deploy and delete through the same lifecycle as
+functions. Keep name validation inside the action so failures use the global
+JSON error envelope. Successful results use `RunCommandResult.stdout`; progress
+and server warnings use the context logger. Deployment reads project resources;
+deletion only needs the selected app context.
+
 ## Branch targeting
 
 Discover names with `base44 branches list --app-id <app-id> --json`.
