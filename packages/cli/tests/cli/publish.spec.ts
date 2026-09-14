@@ -31,6 +31,7 @@ describe("publish command", () => {
   };
 
   it("declares every built file by a full sha256 over its bytes", async () => {
+    t.givenEnv({ BASE44_VERSIONS_API: "1" });
     await t.givenLoggedInWithProject(fixture("publishable"));
     mockPublishApi();
 
@@ -46,6 +47,7 @@ describe("publish command", () => {
   });
 
   it("sends the app's resources raw, keyed the way the platform names them", async () => {
+    t.givenEnv({ BASE44_VERSIONS_API: "1" });
     await t.givenLoggedInWithProject(fixture("publishable"));
     mockPublishApi();
 
@@ -68,6 +70,7 @@ describe("publish command", () => {
   });
 
   it("uploads every declared file with the checksum the server signed in", async () => {
+    t.givenEnv({ BASE44_VERSIONS_API: "1" });
     await t.givenLoggedInWithProject(fixture("publishable"));
     mockPublishApi();
 
@@ -87,6 +90,7 @@ describe("publish command", () => {
   it("carries only a target name and a retry key into the deploy", async () => {
     // Everything else — the app, the principal, env vars, the revision — is the
     // platform's to resolve, and there is deliberately no field for any of them.
+    t.givenEnv({ BASE44_VERSIONS_API: "1" });
     await t.givenLoggedInWithProject(fixture("publishable"));
     mockPublishApi();
 
@@ -103,6 +107,7 @@ describe("publish command", () => {
     // Its own field names: `site deploy`'s `deploymentId` means a Cloudflare
     // script on the legacy lane, and a caller that could not tell the two apart
     // would publish by accident.
+    t.givenEnv({ BASE44_VERSIONS_API: "1" });
     await t.givenLoggedInWithProject(fixture("publishable"));
     mockPublishApi();
 
@@ -121,6 +126,7 @@ describe("publish command", () => {
   it("names the step that failed", async () => {
     // A user's build failing, a rejected artifact set and a lost publication
     // race are three incidents with three responses.
+    t.givenEnv({ BASE44_VERSIONS_API: "1" });
     await t.givenLoggedInWithProject(fixture("publishable"));
     t.api.mockVersionDeclareError({
       status: 409,
@@ -137,6 +143,7 @@ describe("publish command", () => {
   });
 
   it("builds first unless told not to", async () => {
+    t.givenEnv({ BASE44_VERSIONS_API: "1" });
     await t.givenLoggedInWithProject(fixture("publishable"));
     mockPublishApi();
 
@@ -154,6 +161,7 @@ describe("versions deploy command", () => {
 
   it("serves an existing version with no build and no upload", async () => {
     // Which is also what a rollback is: the same call with an older version id.
+    t.givenEnv({ BASE44_VERSIONS_API: "1" });
     await t.givenLoggedInWithProject(fixture("publishable"));
     t.api.mockVersionDeploy({
       deployment_id: "dep-9",
@@ -171,5 +179,42 @@ describe("versions deploy command", () => {
       manifestHash: "sha256:old",
       revision: 12,
     });
+  });
+});
+
+describe("the versions lane is gated", () => {
+  const t = setupCLITests();
+
+  it("does not exist with the gate off", async () => {
+    // Not hidden — absent. A command that runs but is unlisted is discoverable
+    // by anyone who reads the source, and cannot be un-shipped once someone
+    // scripts against it.
+    await t.givenLoggedInWithProject(fixture("publishable"));
+
+    for (const argv of [["publish"], ["versions", "deploy", "ver-1"]]) {
+      const result = await t.run(...argv);
+
+      t.expectResult(result).toFail();
+      t.expectResult(result).toContain("unknown command");
+    }
+  });
+
+  it("is absent from --help with the gate off", async () => {
+    await t.givenLoggedInWithProject(fixture("publishable"));
+
+    const result = await t.run("--help");
+
+    expect(result.stdout).not.toContain("publish");
+    expect(result.stdout).not.toContain("versions");
+  });
+
+  it("appears once the gate is on", async () => {
+    t.givenEnv({ BASE44_VERSIONS_API: "1" });
+    await t.givenLoggedInWithProject(fixture("publishable"));
+
+    const result = await t.run("--help");
+
+    expect(result.stdout).toContain("publish");
+    expect(result.stdout).toContain("versions");
   });
 });
