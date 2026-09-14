@@ -58,6 +58,7 @@ const work = await mkdtemp(path.join(tmpdir(), "b44-compiler-pack-"));
 try {
   const packed = run("npm", ["pack", "--silent", "--pack-destination", work], packageRoot).trim();
   const tarball = path.join(work, packed.split("\n").at(-1)!);
+  assertShipsOnlyBuildOutput(tarball);
 
   const consumer = path.join(work, "consumer");
   await mkdir(consumer, { recursive: true });
@@ -77,4 +78,22 @@ try {
   console.log(`packaged compiler works from ${tarball}`);
 } finally {
   await rm(work, { recursive: true, force: true });
+}
+
+/** The tarball must carry the build output and nothing else. Widening `files`,
+ *  or adding a path that sweeps the working tree in, is how a test fixture, a
+ *  local .npmrc or a scratch file reaches the registry. */
+function assertShipsOnlyBuildOutput(tarball: string): void {
+  const entries = run("tar", ["tzf", tarball], path.dirname(tarball))
+    .split("\n")
+    .map((line) => line.trim().replace(/^package\//, ""))
+    .filter((line) => line.length > 0 && !line.endsWith("/"));
+
+  const unexpected = entries.filter(
+    (entry) => entry !== "package.json" && entry !== "README.md" && !entry.startsWith("lib/"),
+  );
+  if (unexpected.length > 0) {
+    throw new Error(`tarball ships unexpected files: ${unexpected.join(", ")}`);
+  }
+  console.log(`tarball carries ${entries.length} files, all under lib/`);
 }

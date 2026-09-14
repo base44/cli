@@ -12,6 +12,18 @@ Two consumers share this one engine:
 - apper's **`base44-userapp-bundler`** HTTP service, which keeps its own
   endpoints, auth, worker pool and telemetry around it.
 
+## Status and scope
+
+Internal to Base44 — published **restricted**, and the CLI bundles it at build
+time so end users never install it. It compiles functions and nothing else:
+shard planning, size splitting, artifact writing, version creation and deploy
+all live above it.
+
+The package carries no credentials and reads no configuration of its own. It
+names the environment variables and headers the generated worker will use at
+runtime (`BASE44_*`, `X-Base44-*`) but holds none of their values, and the code
+it ships is the same code already compiled into every deployed user worker.
+
 ## Using it
 
 ```ts
