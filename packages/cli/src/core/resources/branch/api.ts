@@ -11,19 +11,16 @@ const BranchesSchema = z.array(
   z.object({
     id: z.string().min(1),
     branch_name: z.string(),
+    status: z.enum(["active", "merged", "deleted"]),
   }),
 );
 
-export async function resolveBranchName(
-  name: string,
-): Promise<string | undefined> {
-  if (name === "main") return undefined;
-
+export async function listBranches() {
   let response: KyResponse;
   try {
     response = await getAppClient().get("branches", { timeout: 30_000 });
   } catch (error) {
-    throw await ApiError.fromHttpError(error, "resolving branch name");
+    throw await ApiError.fromHttpError(error, "listing branches");
   }
   const result = BranchesSchema.safeParse(await response.json());
   if (!result.success) {
@@ -32,7 +29,15 @@ export async function resolveBranchName(
       result.error,
     );
   }
-  const matches = result.data.filter((branch) => branch.branch_name === name);
+  return result.data.filter((branch) => branch.status === "active");
+}
+
+export async function resolveBranchName(
+  name: string,
+): Promise<string | undefined> {
+  if (name === "main") return undefined;
+  const branches = await listBranches();
+  const matches = branches.filter((branch) => branch.branch_name === name);
   if (matches.length === 0) {
     throw new InvalidInputError(`Branch "${name}" was not found in this app.`);
   }

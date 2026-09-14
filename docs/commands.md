@@ -6,6 +6,10 @@ Commands live in `src/cli/commands/<domain>/`. They use a **factory pattern** â€
 
 ## Branch targeting
 
+Discover names with `base44 branches list --app-id <app-id> --json`.
+The result contains `branches` with `name` and `status`, including main and active
+feature branches. Choose the branch matching the user's request before editing.
+
 `--branch <name>` is global, but currently supported only by sandbox commands.
 `--branch feature/checkout` resolves an exact name within the selected app.
 Missing or ambiguous names fail. `--branch main` explicitly targets main.

@@ -11,7 +11,7 @@ describe("sandbox commands", () => {
   it("accepts --branch before the subcommand", async () => {
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
     t.api.mockRoute("GET", `/api/apps/${APP_ID}/branches`, (_req, res) => {
-      res.json([{ id: BRANCH_ID, branch_name: "checkout" }]);
+      res.json([{ id: BRANCH_ID, branch_name: "checkout", status: "active" }]);
     });
     t.api.mockRoute("POST", `${base}/list_directory`, (req, res) => {
       expect(req.body.branch_id).toBe(BRANCH_ID);
@@ -131,7 +131,7 @@ describe("sandbox commands", () => {
   }) => {
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
     t.api.mockRoute("GET", `/api/apps/${APP_ID}/branches`, (_req, res) => {
-      res.json([{ id: BRANCH_ID, branch_name: "checkout" }]);
+      res.json([{ id: BRANCH_ID, branch_name: "checkout", status: "active" }]);
     });
     t.api.mockRoute("POST", `${base}/${endpoint}`, (req, res) => {
       expect(req.body.branch_id).toBe(BRANCH_ID);

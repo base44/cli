@@ -4,7 +4,7 @@ import { z } from "zod";
 // Sent to the backend as-is (snake_case). The `app_id` is carried in the URL
 // path by getSandboxClient(), so it is never part of these payloads.
 
-export interface SandboxScopeParams {
+interface SandboxScopeParams {
   branch_id?: string;
 }
 

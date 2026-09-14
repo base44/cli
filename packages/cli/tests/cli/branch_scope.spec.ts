@@ -4,7 +4,11 @@ import { setupCLITests } from "./testkit/index.js";
 describe("branch name targeting", () => {
   const t = setupCLITests();
   const appId = "test-app-id";
-  const branch = { id: "branch-123", branch_name: "feature/checkout" };
+  const branch = {
+    id: "branch-123",
+    branch_name: "feature/checkout",
+    status: "active",
+  };
 
   it.each([
     "feature/checkout",
