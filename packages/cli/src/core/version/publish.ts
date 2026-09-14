@@ -14,7 +14,7 @@ import type {
  * being diagnostic, so the step travels with the failure and out through the
  * `--json` envelope.
  */
-export type PublishStep = "build" | "create_version" | "deploy";
+type PublishStep = "build" | "create_version" | "deploy";
 
 const STEP = Symbol.for("base44.publishStep");
 
@@ -42,7 +42,7 @@ export function stepOf(error: unknown): PublishStep | undefined {
     : undefined;
 }
 
-export interface PublishResult {
+interface PublishResult {
   versionId: string;
   manifestHash: string;
   deduplicated: boolean;

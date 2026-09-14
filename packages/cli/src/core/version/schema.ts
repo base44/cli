@@ -56,10 +56,6 @@ export const DeclareVersionResponseSchema = z
     })),
   }));
 
-export type DeclareVersionResponse = z.infer<
-  typeof DeclareVersionResponseSchema
->;
-
 export const CreateVersionResponseSchema = z
   .object({
     version_id: z.string(),
