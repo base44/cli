@@ -226,39 +226,32 @@ function SessionView({ engine, footer, subscribe }: ViewProps) {
  * TTY only — callers gate on interactivity.
  */
 const BRAND_ORANGE = "#E86B3C";
-const BRAND_ORANGE_BRIGHT = "#FFAA6E";
 
-// The Base44 mark: a solid circle with three thin horizontal slats cut from
-// the lower half (sunset). Rasterized with half-blocks for double the vertical
-// resolution.
+// The Base44 mark: a rounded dome (the sun) above three horizontal bars that
+// shorten toward the bottom. Half-blocks give the dome its curve; the bars are
+// full blocks, blank rows between them are the gaps.
 const LOGO_ROWS = [
   "     ▄▄▄▄▄▄▄▄",
-  "  ▄▄██████████▄▄",
+  "  ▄████████████▄",
   " ▄██████████████▄",
+  "▄████████████████▄",
+  "██████████████████",
+  "",
   " ████████████████",
-  "▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀",
-  " ████████████████",
-  "  ▄▄▄▄▄▄▄▄▄▄▄▄▄▄",
-  "  ▀▀▀▀▀▀▀▀▀▀▀▀▀▀",
-  "     ▀▀▀▀▀▀▀▀",
+  "",
+  "   ████████████",
+  "",
+  "      ██████",
 ];
 
-/** Logo rows in brand orange. `highlight` (a row index, or null) brightens one
- * row — sweep it down across frames for the shimmer animation. */
-function logoRows(highlight: number | null = null): string[] {
-  const normal = chalk.hex(BRAND_ORANGE);
-  const bright = chalk.hex(BRAND_ORANGE_BRIGHT);
-  return LOGO_ROWS.map((row, i) =>
-    i === highlight ? bright(row) : normal(row),
-  );
+/** Logo rows in brand orange. */
+function logoRows(): string[] {
+  const orange = chalk.hex(BRAND_ORANGE);
+  return LOGO_ROWS.map((row) => (row ? orange(row) : ""));
 }
 
-/** Render the welcome box synchronously. `logoHighlight` brightens one logo
- * row (sweep it for the boot-screen shimmer); null = static (scrollback). */
-function renderHeader(
-  who: string,
-  logoHighlight: number | null = null,
-): string {
+/** Render the welcome box synchronously. */
+function renderHeader(who: string): string {
   const orange = chalk.hex(BRAND_ORANGE);
   const cwd = process.cwd().replace(process.env.HOME ?? "", "~");
   const inner = Math.min((process.stdout.columns || 80) - 2, 64);
@@ -275,7 +268,7 @@ function renderHeader(
     center(""),
     center(chalk.bold(who ? `Welcome back, ${who}!` : "Welcome!")),
     center(""),
-    ...logoRows(logoHighlight).map(center),
+    ...logoRows().map(center),
     center(""),
     center(chalk.dim(getBase44ApiUrl().replace(/^https:\/\//, ""))),
     center(chalk.dim(cwd)),
@@ -309,9 +302,8 @@ export async function withBootScreen<T>(
   const who = await currentUserName();
   enterAltScreen();
   const rows = process.stdout.rows || 24;
-  const headerLines = renderHeader(who).split("\n").length;
-  // Which logo row the shimmer highlight sits on, sweeping down the circle.
-  const logoRowCount = LOGO_ROWS.length;
+  const header = renderHeader(who);
+  const headerLines = header.split("\n").length;
   const BootScreen = () => {
     const [, tick] = useReducer((x: number) => x + 1, 0);
     useEffect(() => {
@@ -319,11 +311,9 @@ export async function withBootScreen<T>(
       return () => clearInterval(timer);
     }, []);
     const frame = FRAMES[Math.floor(Date.now() / 120) % FRAMES.length];
-    // ~5 fps sweep so the shimmer is legible, not frantic.
-    const highlight = Math.floor(Date.now() / 200) % logoRowCount;
     return (
       <Box flexDirection="column">
-        <Text>{renderHeader(who, highlight)}</Text>
+        <Text>{header}</Text>
         <Box height={Math.max(0, rows - headerLines - 2)} />
         <Text>{chalk.dim(`${frame} ${label}`)}</Text>
       </Box>
