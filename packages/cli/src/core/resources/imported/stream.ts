@@ -140,15 +140,23 @@ export function diffConversation(
 }
 
 /**
- * Whether the newest user message's turn has finished: the backend stamps
- * `outcome` onto the turn's user message at end-of-loop, on success and error
- * alike. Authoritative, unlike the app's status field, which flaps mid-turn.
+ * Whether the newest user message's turn has finished. The backend stamps
+ * `outcome` onto the turn's user message with backend_status "pending" at turn
+ * START and flips it to a terminal value (success_build, error_build,
+ * error_backend, stopped, success_no_generation) at end-of-loop — through
+ * auto-fix, whose activity we keep streaming meanwhile. Authoritative, unlike
+ * the app's status field, which flaps mid-turn.
  */
 export function turnSettled(messages: ConversationMessage[]): boolean {
   for (let i = messages.length - 1; i >= 0; i--) {
     const message = messages[i];
     if (message.role === "user" && !message.hidden) {
-      return message.outcome != null;
+      const outcome = message.outcome as { backend_status?: string } | null;
+      return (
+        outcome != null &&
+        typeof outcome === "object" &&
+        outcome.backend_status !== "pending"
+      );
     }
   }
   return false;

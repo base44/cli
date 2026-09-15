@@ -170,11 +170,17 @@ describe("turnSettled", () => {
     outcome,
   });
 
-  it("keys off the NEWEST user message's outcome stamp", () => {
-    const done = user("u1", { backend_status: "pending" });
+  it("keys off the NEWEST user message's TERMINAL outcome", () => {
+    const done = user("u1", { backend_status: "success_build" });
     const open = user("u2", null);
+    // outcome is stamped "pending" at turn START — that must not read as done.
+    const started = user("u3", { backend_status: "pending" });
     expect(turnSettled([done, assistant({ id: "m1" }), open])).toBe(false);
+    expect(turnSettled([done, assistant({ id: "m1" }), started])).toBe(false);
     expect(turnSettled([open, assistant({ id: "m1" }), done])).toBe(true);
+    expect(turnSettled([user("u4", { backend_status: "error_build" })])).toBe(
+      true,
+    );
     expect(turnSettled([assistant({ id: "m1" })])).toBe(false);
   });
 });
