@@ -58,6 +58,35 @@ export function eventLine(event: StreamEvent): string | null {
 
 const FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
+// Idle-gap gerunds, one at a time, rotating every few seconds.
+const MUSINGS = [
+  "Shmoozing",
+  "Shmoogling",
+  "Percolating",
+  "Noodling",
+  "Marinating",
+  "Brewing",
+  "Simmering",
+  "Conjuring",
+  "Tinkering",
+  "Scheming",
+  "Pondering",
+  "Mulling",
+  "Whirring",
+  "Crunching",
+  "Weaving",
+  "Sketching",
+  "Hatching",
+  "Riffing",
+  "Cooking",
+  "Composting ideas",
+  "Rummaging",
+  "Vibing responsibly",
+  "Untangling",
+  "Squinting at the repo",
+];
+const MUSING_ROTATE_MS = 6_000;
+
 interface RunningTool {
   alias: string;
   summary: string;
@@ -82,9 +111,15 @@ export function createTurnStream(
   const running = new Map<string, RunningTool>();
   let frame = 0;
   let stopped = false;
+  const musingSeed = Math.floor(Math.random() * MUSINGS.length);
 
   const statusLabel = (): string => {
-    if (running.size === 0) return "waiting for the agent…";
+    if (running.size === 0) {
+      const index =
+        (musingSeed + Math.floor(Date.now() / MUSING_ROTATE_MS)) %
+        MUSINGS.length;
+      return `${MUSINGS[index]}…`;
+    }
     const newest = [...running.values()].at(-1) as RunningTool;
     const elapsed = Math.round((Date.now() - newest.startedAt) / 1000);
     const others = running.size > 1 ? ` (+${running.size - 1} more)` : "";
