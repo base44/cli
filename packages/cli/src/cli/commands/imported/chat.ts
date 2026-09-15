@@ -1,7 +1,11 @@
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
 import type { ImportedChatTurn } from "@/core/resources/imported/api.js";
-import { sendImportedChatMessage } from "@/core/resources/imported/api.js";
+import {
+  sendImportedChatMessage,
+  soleActiveBranchId,
+} from "@/core/resources/imported/api.js";
+import { streamConversationDuring } from "@/core/resources/imported/stream.js";
 
 function lastAssistantReply(turn: ImportedChatTurn): string | undefined {
   const messages = turn.conversation?.messages ?? [];
@@ -15,46 +19,61 @@ function lastAssistantReply(turn: ImportedChatTurn): string | undefined {
   return undefined;
 }
 
+function turnOutro(turn: ImportedChatTurn): string {
+  const state = turn.status?.state ?? "ready";
+  if (state === "error") {
+    return `Turn failed (${turn.status?.error_source ?? "unknown"}) — see the editor for details.`;
+  }
+  return "Turn finished.";
+}
+
 async function chatAction(
-  { log, runTask, jsonMode }: CLIContext,
+  { log, runTask, jsonMode, branchId: explicitBranchId }: CLIContext,
   message: string,
 ): Promise<RunCommandResult> {
-  const turn = await runTask("Agent working (a turn can take minutes)", () =>
-    sendImportedChatMessage(message),
-  );
+  // Messages must land on the app's working branch: an unscoped send goes to
+  // the main line, whose sandbox is separate and never pushed.
+  const branchId =
+    explicitBranchId ?? (await soleActiveBranchId().catch(() => undefined));
 
-  if (turn.queued) {
-    const note =
-      "The agent is busy with an earlier message — yours was queued and will run next.";
-    if (jsonMode) return { stdout: `${JSON.stringify({ queued: true })}\n` };
-    return { outroMessage: note };
+  let turn: ImportedChatTurn;
+  if (jsonMode) {
+    turn = await runTask("Agent working (a turn can take minutes)", () =>
+      sendImportedChatMessage(message, branchId),
+    );
+  } else {
+    log.message("Agent working — live from the sandbox:");
+    turn = await streamConversationDuring(
+      () => sendImportedChatMessage(message, branchId),
+      (line) => log.message(line),
+      { branchId },
+    );
   }
 
-  const state = turn.status?.state ?? "ready";
-  const reply = lastAssistantReply(turn);
+  if (turn.queued) {
+    if (jsonMode) return { stdout: `${JSON.stringify({ queued: true })}\n` };
+    return {
+      outroMessage:
+        "The agent is busy with an earlier message — yours was queued and will run next.",
+    };
+  }
+
   if (jsonMode) {
     return {
       stdout: `${JSON.stringify({
-        status: state,
+        status: turn.status?.state ?? "ready",
         error_source: turn.status?.error_source ?? null,
-        reply: reply ?? null,
+        reply: lastAssistantReply(turn) ?? null,
       })}\n`,
     };
   }
-
-  if (reply) log.message(reply);
-  if (state === "error") {
-    return {
-      outroMessage: `Turn failed (${turn.status?.error_source ?? "unknown"}) — see the editor for details.`,
-    };
-  }
-  return { outroMessage: "Turn finished." };
+  return { outroMessage: turnOutro(turn) };
 }
 
 export function getImportedChatCommand(): Base44Command {
-  const command = new Base44Command("chat");
+  const command = new Base44Command("chat", { supportsBranch: true });
   command
-    .description("Send a message to the app's agent and wait for the turn")
+    .description("Send a message to the app's agent and watch the turn live")
     .argument("<message>", "What you want the agent to do")
     .action(chatAction);
   return command;

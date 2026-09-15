@@ -2,6 +2,7 @@ import type { KyResponse } from "ky";
 import { z } from "zod";
 import { base44Client, getAppClient } from "@/core/clients/index.js";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";
+import { listBranches } from "@/core/resources/branch/api.js";
 
 const GitStatusSchema = z.object({
   current_branch: z.string(),
@@ -68,6 +69,30 @@ type ImportedPullRequest = z.infer<typeof PullRequestSchema>;
 
 const PreviewUrlSchema = z.object({
   preview_url: z.string().min(1),
+});
+
+const ConversationMessageSchema = z.object({
+  id: z.string(),
+  role: z.string(),
+  hidden: z.boolean().nullish(),
+  content: z.unknown().nullish(),
+  reasoning: z.object({ content: z.string().nullish() }).nullish(),
+  tool_calls: z
+    .array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        arguments_string: z.string().nullish(),
+        status: z.string().nullish(),
+        results: z.unknown().nullish(),
+      }),
+    )
+    .nullish(),
+});
+export type ConversationMessage = z.infer<typeof ConversationMessageSchema>;
+
+const FullConversationSchema = z.object({
+  messages: z.array(ConversationMessageSchema).default([]),
 });
 
 function parseOrThrow<T>(
@@ -143,19 +168,53 @@ export async function getImportedAppState(
 
 export async function sendImportedChatMessage(
   content: string,
+  branchId?: string,
 ): Promise<ImportedChatTurn> {
   let response: KyResponse;
   try {
     // The request stays open for the whole agent turn (minutes on big changes).
     response = await getAppClient().post("chat/message", {
       timeout: false,
-      searchParams: { conversation_messages: "current_turn" },
+      searchParams: {
+        conversation_messages: "current_turn",
+        ...branchScope(branchId),
+      },
       json: { content },
     });
   } catch (error) {
     throw await ApiError.fromHttpError(error, "sending chat message");
   }
   return parseOrThrow(ChatTurnSchema, await response.json(), "chat turn");
+}
+
+export async function getFullConversation(
+  limit: number,
+  branchId?: string,
+): Promise<ConversationMessage[]> {
+  let response: KyResponse;
+  try {
+    response = await getAppClient().get("chat/full-conversation", {
+      timeout: 30_000,
+      searchParams: { limit: String(limit), ...branchScope(branchId) },
+    });
+  } catch (error) {
+    throw await ApiError.fromHttpError(error, "reading the conversation");
+  }
+  return parseOrThrow(
+    FullConversationSchema,
+    await response.json(),
+    "conversation",
+  ).messages;
+}
+
+/**
+ * The branch the app's work is actually happening on, when unambiguous — a
+ * fresh import works on its single setup branch, and messages sent without a
+ * scope would land on the (unpushable) main line instead.
+ */
+export async function soleActiveBranchId(): Promise<string | undefined> {
+  const branches = await listBranches();
+  return branches.length === 1 ? branches[0].id : undefined;
 }
 
 export async function getImportedGitStatus(

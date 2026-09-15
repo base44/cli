@@ -105,20 +105,31 @@ describe("imported", () => {
     });
   });
 
-  it("chat sends the message and surfaces the assistant reply", async () => {
+  it("chat scopes to the sole active branch and surfaces the reply", async () => {
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
-    t.api.mockRoute("POST", "/api/apps/test-app-id/chat/message", (_req, res) =>
-      res.json({
-        id: "test-app-id",
-        status: { state: "ready" },
-        conversation: {
-          id: "conv-1",
-          messages: [
-            { role: "user", content: "add login" },
-            { role: "assistant", content: "Added session-based login." },
-          ],
-        },
-      }),
+    t.api.mockRoute("GET", "/api/apps/test-app-id/branches", (_req, res) =>
+      res.json([
+        { id: "b1", branch_name: "base44/setup-abc", status: "active" },
+      ]),
+    );
+    let sentBranchId: unknown;
+    t.api.mockRoute(
+      "POST",
+      "/api/apps/test-app-id/chat/message",
+      (req, res) => {
+        sentBranchId = req.query.branch_id;
+        return res.json({
+          id: "test-app-id",
+          status: { state: "ready" },
+          conversation: {
+            id: "conv-1",
+            messages: [
+              { role: "user", content: "add login" },
+              { role: "assistant", content: "Added session-based login." },
+            ],
+          },
+        });
+      },
     );
     const result = await t.run(
       "imported",
@@ -129,6 +140,7 @@ describe("imported", () => {
       "--json",
     );
     t.expectResult(result).toSucceed();
+    expect(sentBranchId).toBe("b1");
     expect(JSON.parse(result.stdout)).toEqual({
       status: "ready",
       error_source: null,
@@ -138,6 +150,9 @@ describe("imported", () => {
 
   it("chat reports a queued turn instead of inventing a reply", async () => {
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    t.api.mockRoute("GET", "/api/apps/test-app-id/branches", (_req, res) =>
+      res.json([]),
+    );
     t.api.mockRoute("POST", "/api/apps/test-app-id/chat/message", (_req, res) =>
       res.json({ queued: true }),
     );

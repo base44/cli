@@ -10,7 +10,9 @@ import {
   createImportedApp,
   getImportedAppState,
   getImportedPreviewUrl,
+  soleActiveBranchId,
 } from "@/core/resources/imported/api.js";
+import { streamConversationDuring } from "@/core/resources/imported/stream.js";
 
 const POLL_INTERVAL_MS = 5_000;
 const POLL_TIMEOUT_MS = 20 * 60_000;
@@ -96,10 +98,20 @@ async function createImportedAction(
   let finalState: string | undefined;
   let previewUrl: string | undefined;
   if (options.prompt) {
-    finalState = await runTask(
-      "Agent is building (several minutes; safe to Ctrl+C — the build continues)",
-      () => waitForInitialTurn(created.id),
-    );
+    if (jsonMode) {
+      finalState = await waitForInitialTurn(created.id);
+    } else {
+      // The kickoff turn runs on the app's setup branch conversation.
+      const branchId = await soleActiveBranchId().catch(() => undefined);
+      log.message(
+        "Agent is building — live (several minutes; safe to Ctrl+C, the build continues):",
+      );
+      finalState = await streamConversationDuring(
+        () => waitForInitialTurn(created.id),
+        (line) => log.message(line),
+        { branchId },
+      );
+    }
     if (finalState === "ready") {
       try {
         previewUrl = await runTask("Fetching preview URL", () =>
