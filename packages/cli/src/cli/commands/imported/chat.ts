@@ -42,7 +42,7 @@ function turnOutro(turn: ImportedChatTurn): string {
 }
 
 async function chatAction(
-  { log, runTask, jsonMode, branchId: explicitBranchId }: CLIContext,
+  { runTask, jsonMode, branchId: explicitBranchId }: CLIContext,
   message: string,
 ): Promise<RunCommandResult> {
   // Messages must land on the app's working branch: an unscoped send goes to
