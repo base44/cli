@@ -7,7 +7,7 @@ interface PromptExpansion {
   text: string;
 }
 
-export const PROMPT_EXPANSIONS: Record<string, PromptExpansion> = {
+const PROMPT_EXPANSIONS: Record<string, PromptExpansion> = {
   headless: {
     description: "Build with the Wix Headless Fast skill",
     // Deliberately no shell syntax (`curl -fsSL …`): the platform edge WAF
@@ -16,7 +16,7 @@ export const PROMPT_EXPANSIONS: Record<string, PromptExpansion> = {
   },
 };
 
-export interface ExpandedPrompt {
+interface ExpandedPrompt {
   text: string;
   /** Names of the expansions that were applied, in order. */
   applied: string[];

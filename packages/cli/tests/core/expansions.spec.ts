@@ -11,7 +11,9 @@ describe("expandPrompt", () => {
     expect(text).toContain(
       "https://www.wix.com/skills/headless-fast/entry/skill.md",
     );
-    expect(text).not.toContain("/headless");
+    // The token must be gone — but the skill URL legitimately contains the
+    // substring "/headless" (headless-fast), so match the bare token only.
+    expect(text).not.toMatch(/\/headless(?![\w-])/);
     // The expansion must stay WAF-safe: no shell syntax in the request body.
     expect(text).not.toContain("curl");
   });
