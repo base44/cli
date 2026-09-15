@@ -4,6 +4,7 @@ import chalk from "chalk";
 import {
   createTurnStream,
   formatDuration,
+  terminalLink,
 } from "@/cli/commands/imported/render.js";
 import {
   runInteractiveSession,
@@ -173,14 +174,20 @@ async function createImportedAction(
   // front instead.
   const editorUrl = `${getBase44ApiUrl()}/apps/${created.id}/editor/preview`;
   const interactive = !jsonMode && process.stdout.isTTY === true;
+  // Interactive footers are short OSC-8 hyperlinks (no wrapping, whole-link
+  // clicks); non-interactive output prints the full URLs instead.
   const footer = [
     ...(created.imported_repo_url
-      ? [chalk.dim(`repo    ${created.imported_repo_url}`)]
+      ? [terminalLink("repo", created.imported_repo_url)]
       : []),
-    chalk.dim(`editor  ${editorUrl}`),
+    terminalLink("editor", editorUrl),
   ];
   if (!jsonMode) {
-    if (!interactive) for (const line of footer) log.message(line);
+    if (!interactive) {
+      if (created.imported_repo_url)
+        log.message(chalk.dim(`repo    ${created.imported_repo_url}`));
+      log.message(chalk.dim(`editor  ${editorUrl}`));
+    }
     log.message(
       chalk.dim(dirName ? `linked  ./${dirName}` : `linked  ${configPath}`),
     );
@@ -207,7 +214,7 @@ async function createImportedAction(
           if (turnIndex === 0 && ok && !previewUrl) {
             try {
               previewUrl = await getImportedPreviewUrl();
-              footer.push(chalk.dim(`preview ${previewUrl}`));
+              footer.push(terminalLink("preview", previewUrl));
             } catch {
               // Preview may still be booting; the editor shows it when up.
             }
@@ -378,9 +385,9 @@ export async function bootstrapBlankApp(
 
   const editorUrl = `${getBase44ApiUrl()}/apps/${created.id}/editor/preview`;
   if (created.imported_repo_url) {
-    footer.push(chalk.dim(`repo    ${created.imported_repo_url}`));
+    footer.push(terminalLink("repo", created.imported_repo_url));
   }
-  footer.push(chalk.dim(`editor  ${editorUrl}`));
+  footer.push(terminalLink("editor", editorUrl));
   emit(chalk.dim(`linked  ./${repoName}  (cd ${repoName} after the session)`));
 
   const branchId = await soleActiveBranchId().catch(() => undefined);
@@ -393,7 +400,7 @@ export async function bootstrapBlankApp(
         try {
           const previewUrl = await getImportedPreviewUrl();
           previewPushed = true;
-          footer.push(chalk.dim(`preview ${previewUrl}`));
+          footer.push(terminalLink("preview", previewUrl));
         } catch {
           // Preview may still be booting; the editor shows it when up.
         }

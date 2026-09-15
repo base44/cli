@@ -97,7 +97,9 @@ function SessionView({ engine, footer, subscribe }: ViewProps) {
   const [musingSeed] = useState(() => Math.floor(Math.random() * 97));
 
   useEffect(
-    () => subscribe((line) => setHistory((h) => [...h, line])),
+    // The trailing newline gives every stream item a blank line after it —
+    // and the wrap-aware line counter sees it, keeping the spacer honest.
+    () => subscribe((line) => setHistory((h) => [...h, `${line}\n`])),
     [subscribe],
   );
   useEffect(() => {
@@ -126,9 +128,7 @@ function SessionView({ engine, footer, subscribe }: ViewProps) {
       </Static>
       {exiting ? (
         <Box flexDirection="column">
-          {footer.map((line) => (
-            <Text key={line}>{line}</Text>
-          ))}
+          {footer.length > 0 && <Text>{footer.join(chalk.dim("  ·  "))}</Text>}
         </Box>
       ) : (
         <Box flexDirection="column">
@@ -149,7 +149,7 @@ function SessionView({ engine, footer, subscribe }: ViewProps) {
               1,
               Math.ceil((input.length + 2) / innerWidth),
             );
-            const widgetHeight = 4 + inputRows + footer.length; // status + border + hint
+            const widgetHeight = 4 + inputRows + (footer.length ? 1 : 0); // status + border + hint + links
             const spacer = Math.max(0, rows - used - widgetHeight - 1);
             return spacer > 0 ? <Box height={spacer} /> : null;
           })()}
@@ -170,9 +170,9 @@ function SessionView({ engine, footer, subscribe }: ViewProps) {
               }}
             />
           </Box>
-          {footer.map((line) => (
-            <Text key={line}>{`  ${line}`}</Text>
-          ))}
+          {footer.length > 0 && (
+            <Text>{`  ${footer.join(chalk.dim("  ·  "))}`}</Text>
+          )}
           <Text dimColor>
             {"  Enter to send · Ctrl+C to exit (turns keep running)"}
           </Text>

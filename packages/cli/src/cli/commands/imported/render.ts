@@ -27,6 +27,12 @@ export function toolAlias(name: string): string {
   return TOOL_ALIASES[name] ?? name;
 }
 
+/** OSC 8 terminal hyperlink: a short clickable label instead of a wrapping
+ * URL — the whole link opens regardless of line width. */
+export function terminalLink(label: string, url: string): string {
+  return `\u001B]8;;${url}\u0007${chalk.dim.underline(label)}\u001B]8;;\u0007`;
+}
+
 export function formatDuration(ms: number): string {
   const seconds = Math.round(ms / 1000);
   if (seconds < 90) return `${seconds}s`;
@@ -54,18 +60,19 @@ export function eventLine(
       const alias = toolAlias(event.name);
       const mark = event.ok ? chalk.green("✓") : chalk.red("✗");
       const title = chalk.bold(event.label || alias);
-      const detail = event.label
-        ? event.summary
-          ? `  ${chalk.dim(`${alias}: ${event.summary}`)}`
-          : `  ${chalk.dim(alias)}`
-        : event.summary
-          ? ` ${chalk.dim(event.summary)}`
-          : "";
       const took =
         elapsedMs != null && elapsedMs >= 3000
           ? ` ${chalk.dim(`· ${formatDuration(elapsedMs)}`)}`
           : "";
-      const head = `${mark} ${title}${detail}${took}`;
+      // With a human title, the raw params move to their own dim line; a bare
+      // alias keeps a short param (a path) inline.
+      const inlineDetail =
+        !event.label && event.summary ? ` ${chalk.dim(event.summary)}` : "";
+      const paramsLine =
+        event.label && event.summary
+          ? `\n  ${chalk.dim(`${alias}: ${event.summary}`)}`
+          : "";
+      const head = `${mark} ${title}${inlineDetail}${took}${paramsLine}`;
       if (event.ok && (QUIET_OK_RESULTS.has(alias) || !event.result)) {
         return head;
       }

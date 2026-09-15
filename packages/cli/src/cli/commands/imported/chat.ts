@@ -1,5 +1,8 @@
 import chalk from "chalk";
-import { createTurnStream } from "@/cli/commands/imported/render.js";
+import {
+  createTurnStream,
+  terminalLink,
+} from "@/cli/commands/imported/render.js";
 import { runInteractiveSession } from "@/cli/commands/imported/session.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
@@ -27,7 +30,7 @@ function lastAssistantReply(turn: ImportedChatTurn): string | undefined {
 function chatFooter(): string[] {
   try {
     const editorUrl = `${getBase44ApiUrl()}/apps/${getAppContext().id}/editor/preview`;
-    return [chalk.dim(`editor  ${editorUrl}`)];
+    return [terminalLink("editor", editorUrl)];
   } catch {
     return [];
   }

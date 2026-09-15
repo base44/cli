@@ -203,7 +203,7 @@ describe("toolMeta", () => {
 });
 
 describe("render", () => {
-  it("title-first line: label leads, alias+arg is the dim detail, duration shown", () => {
+  it("title-first line: label leads, params on their own dim line, duration shown", () => {
     expect(
       stripAnsi(
         eventLine(
@@ -220,7 +220,7 @@ describe("render", () => {
         ) ?? "",
       ),
     ).toBe(
-      '✓ Confirmed Wix login  bash: cd /tmp && node bootstrap.mjs · 4s\n  {"event":"logged_in"}',
+      '✓ Confirmed Wix login · 4s\n  bash: cd /tmp && node bootstrap.mjs\n  {"event":"logged_in"}',
     );
   });
 
