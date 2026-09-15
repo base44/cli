@@ -64,7 +64,7 @@ interface RunningTool {
   startedAt: number;
 }
 
-export interface TurnStream {
+interface TurnStream {
   onEvent: (event: StreamEvent) => void;
   stop: () => void;
 }
