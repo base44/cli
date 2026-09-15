@@ -32,13 +32,12 @@ function statusText(status: SessionStatus, musingSeed: number): string {
   switch (status.phase) {
     case "awaiting":
       return chalk.dim(
-        `${frame} ${status.awaitingLabel} · ${formatDuration(Date.now() - status.awaitingSince)}`,
+        `${frame} ${status.awaitingLabel} (${formatDuration(Date.now() - status.awaitingSince)})`,
       );
     case "running": {
       const turnFor = formatDuration(
         Date.now() - (status.turnStartedAt ?? Date.now()),
       );
-      let activity: string;
       const tool = status.runningTool;
       if (tool) {
         const toolFor = Math.round((Date.now() - tool.startedAt) / 1000);
@@ -46,20 +45,20 @@ function statusText(status: SessionStatus, musingSeed: number): string {
         const what =
           tool.label ||
           `${tool.alias}${tool.summary ? ` ${tool.summary}` : ""}`;
-        activity = `${what}${others} · ${toolFor}s`;
-      } else {
-        activity = idleMusing(musingSeed);
+        return chalk.dim(
+          `${frame} ${what}${others} · ${toolFor}s (turn ${turnFor})`,
+        );
       }
-      return chalk.dim(`${frame} ${activity} — turn ${turnFor}`);
+      return `${chalk.magenta("✻")} ${chalk.dim(`${idleMusing(musingSeed)} (${turnFor})`)}`;
     }
     case "sending":
       return chalk.dim(`${frame} sending…`);
     case "idle": {
       const last =
         status.lastTurnMs != null
-          ? ` — last turn ${formatDuration(status.lastTurnMs)}${status.lastTurnOk ? "" : " (failed)"}`
+          ? ` · last turn ${formatDuration(status.lastTurnMs)}${status.lastTurnOk ? "" : " (failed)"}`
           : "";
-      return chalk.dim(`· ready${last}`);
+      return chalk.dim(`ready${last}`);
     }
   }
 }
@@ -113,13 +112,14 @@ function SessionView({ engine, footer, subscribe }: ViewProps) {
           ))}
         </Box>
       ) : (
-        <Box flexDirection="column">
-          <Text dimColor>{"─".repeat(width)}</Text>
-          {footer.map((line) => (
-            <Text key={line}>{line}</Text>
-          ))}
+        <Box flexDirection="column" marginTop={1}>
           <Text>{statusText(engine.status(), musingSeed)}</Text>
-          <Box>
+          <Box
+            borderStyle="round"
+            borderColor="gray"
+            paddingX={1}
+            width={width}
+          >
             <Text color="cyan">{"❯ "}</Text>
             <TextInput
               value={input}
@@ -130,6 +130,9 @@ function SessionView({ engine, footer, subscribe }: ViewProps) {
               }}
             />
           </Box>
+          {footer.map((line) => (
+            <Text key={line}>{`  ${line}`}</Text>
+          ))}
           <Text dimColor>
             {"  Enter to send · Ctrl+C to exit (turns keep running)"}
           </Text>
