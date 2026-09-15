@@ -5,6 +5,7 @@ import {
   formatDuration,
   toolAlias,
 } from "@/cli/commands/imported/render.js";
+import { ApiError } from "@/core/errors.js";
 import {
   getFullConversation,
   sendImportedChatMessage,
@@ -104,6 +105,7 @@ export function createSessionEngine(options: EngineOptions): SessionEngine {
       );
     }
     pendingSubmitAt = Date.now();
+    const submitTurnId = activeTurnId;
     sendsInFlight++;
     sendImportedChatMessage(text, options.branchId)
       .then((turn) => {
@@ -112,6 +114,22 @@ export function createSessionEngine(options: EngineOptions): SessionEngine {
         }
       })
       .catch((error: unknown) => {
+        // The chat request stays open for the whole turn, so a long turn trips
+        // the edge's request timeout (Cloudflare ~100s) with a 5xx even though
+        // the message reached the backend and the turn is running. If the
+        // poller has since picked up a new turn (activeTurnId advanced, or the
+        // submit marker was consumed), the send was delivered — not a failure.
+        const delivered =
+          activeTurnId !== submitTurnId ||
+          turnStartedAt != null ||
+          pendingSubmitAt == null;
+        const status = error instanceof ApiError ? error.statusCode : undefined;
+        const edgeDrop =
+          status === 502 ||
+          status === 503 ||
+          status === 504 ||
+          /timeout|gateway/i.test(error instanceof Error ? error.message : "");
+        if (edgeDrop && delivered) return; // Running — the stream shows it.
         pendingSubmitAt = null;
         const message = error instanceof Error ? error.message : String(error);
         options.onLine(chalk.red(`✗ send failed: ${message}`));
