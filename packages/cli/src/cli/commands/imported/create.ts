@@ -1,5 +1,6 @@
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
+import chalk from "chalk";
 import { runIterationLoop } from "@/cli/commands/imported/iterate.js";
 import { createTurnStream } from "@/cli/commands/imported/render.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
@@ -95,6 +96,18 @@ async function createImportedAction(
   const configPath = await writeAppConfig(targetDir, created.id);
   setAppContext({ id: created.id });
 
+  // Identity up front, dimmed — the editor is usable while the build runs, and
+  // the end of the turn stays with the agent's closing message.
+  const editorUrl = `${getBase44ApiUrl()}/apps/${created.id}/editor/preview`;
+  if (!jsonMode) {
+    if (created.imported_repo_url)
+      log.message(chalk.dim(`repo    ${created.imported_repo_url}`));
+    log.message(chalk.dim(`editor  ${editorUrl}`));
+    log.message(
+      chalk.dim(name ? `linked  ./${name}` : `linked  ${configPath}`),
+    );
+  }
+
   let finalState: string | undefined;
   let previewUrl: string | undefined;
   let workBranchId: string | undefined;
@@ -104,11 +117,6 @@ async function createImportedAction(
     // flaps mid-turn and cannot be trusted.
     const branchId = await soleActiveBranchId().catch(() => undefined);
     workBranchId = branchId;
-    if (!jsonMode) {
-      log.message(
-        "Agent is building — live (several minutes; safe to Ctrl+C, the build continues):",
-      );
-    }
     const stream = createTurnStream(!jsonMode && process.stdout.isTTY === true);
     let settled: "settled" | "timeout";
     try {
@@ -136,7 +144,6 @@ async function createImportedAction(
     }
   }
 
-  const editorUrl = `${getBase44ApiUrl()}/apps/${created.id}/editor/preview`;
   if (jsonMode) {
     return {
       stdout: `${JSON.stringify({
@@ -149,16 +156,7 @@ async function createImportedAction(
     };
   }
 
-  log.message(`App:      ${created.id}`);
-  if (created.imported_repo_url)
-    log.message(`Repo:     ${created.imported_repo_url}`);
-  log.message(`Editor:   ${editorUrl}`);
-  if (previewUrl) log.message(`Preview:  ${previewUrl}`);
-  log.message(
-    name
-      ? `Linked ./${name} (${configPath})`
-      : `Linked this directory (${configPath})`,
-  );
+  if (previewUrl) log.message(`preview ${previewUrl}`);
 
   // Stay in the session: keep taking prompts on the same working branch.
   if (options.prompt && process.stdout.isTTY === true) {
