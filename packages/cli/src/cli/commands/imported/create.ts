@@ -1,3 +1,4 @@
+import { renderStreamEvent } from "@/cli/commands/imported/render.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, getDashboardUrl } from "@/cli/utils/index.js";
 import { InvalidInputError } from "@/core/errors.js";
@@ -12,15 +13,9 @@ import {
   getImportedPreviewUrl,
   soleActiveBranchId,
 } from "@/core/resources/imported/api.js";
-import { streamConversationDuring } from "@/core/resources/imported/stream.js";
+import { streamConversationUntilSettled } from "@/core/resources/imported/stream.js";
 
-const POLL_INTERVAL_MS = 5_000;
 const POLL_TIMEOUT_MS = 20 * 60_000;
-// The initial turn is scheduled in the background, so "ready" in the first
-// moments just means it hasn't started yet.
-const MIN_BUILD_MS = 20_000;
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 interface CreateImportedOptions {
   blank?: boolean;
@@ -30,18 +25,6 @@ interface CreateImportedOptions {
   appName?: string;
   fromBranch?: string;
   prompt?: string;
-}
-
-async function waitForInitialTurn(appId: string): Promise<string> {
-  const startedAt = Date.now();
-  await sleep(MIN_BUILD_MS);
-  while (Date.now() - startedAt < POLL_TIMEOUT_MS) {
-    const { status } = await getImportedAppState(appId);
-    const state = status?.state ?? "ready";
-    if (state !== "processing") return state;
-    await sleep(POLL_INTERVAL_MS);
-  }
-  return "processing";
 }
 
 async function createImportedAction(
@@ -98,20 +81,25 @@ async function createImportedAction(
   let finalState: string | undefined;
   let previewUrl: string | undefined;
   if (options.prompt) {
-    if (jsonMode) {
-      finalState = await waitForInitialTurn(created.id);
-    } else {
-      // The kickoff turn runs on the app's setup branch conversation.
-      const branchId = await soleActiveBranchId().catch(() => undefined);
+    // The kickoff turn runs on the app's setup branch conversation. Completion
+    // is the outcome stamp on the turn's user message — the app status field
+    // flaps mid-turn and cannot be trusted.
+    const branchId = await soleActiveBranchId().catch(() => undefined);
+    if (!jsonMode) {
       log.message(
         "Agent is building — live (several minutes; safe to Ctrl+C, the build continues):",
       );
-      finalState = await streamConversationDuring(
-        () => waitForInitialTurn(created.id),
-        (line) => log.message(line),
-        { branchId },
-      );
     }
+    const settled = await streamConversationUntilSettled(
+      (event) => {
+        if (!jsonMode) log.message(renderStreamEvent(event));
+      },
+      { branchId, timeoutMs: POLL_TIMEOUT_MS },
+    );
+    finalState =
+      settled === "timeout"
+        ? "processing"
+        : ((await getImportedAppState(created.id)).status?.state ?? "ready");
     if (finalState === "ready") {
       try {
         previewUrl = await runTask("Fetching preview URL", () =>

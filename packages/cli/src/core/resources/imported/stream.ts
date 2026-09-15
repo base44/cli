@@ -1,6 +1,12 @@
 import type { ConversationMessage } from "@/core/resources/imported/api.js";
 import { getFullConversation } from "@/core/resources/imported/api.js";
 
+export type StreamEvent =
+  | { kind: "thinking"; text: string }
+  | { kind: "text"; text: string }
+  | { kind: "tool_start"; name: string; summary: string }
+  | { kind: "tool_end"; name: string; ok: boolean; result: string };
+
 interface MessageProgress {
   contentLength: number;
   reasoningLength: number;
@@ -29,6 +35,42 @@ function oneLine(value: unknown, max: number): string {
   return flat.length > max ? `${flat.slice(0, max)}…` : flat;
 }
 
+/** The one argument a human wants to see for each tool, not the JSON blob. */
+export function toolSummary(
+  name: string,
+  argumentsString: string | null | undefined,
+): string {
+  let args: Record<string, unknown> = {};
+  try {
+    const parsed: unknown = JSON.parse(argumentsString ?? "");
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      args = parsed as Record<string, unknown>;
+    }
+  } catch {
+    return oneLine(argumentsString ?? "", 90);
+  }
+  const pick = (key: string): string | undefined =>
+    typeof args[key] === "string" && (args[key] as string).trim()
+      ? (args[key] as string)
+      : undefined;
+  const salient: Record<string, string | undefined> = {
+    run_shell_command: pick("command"),
+    read_repo_file: pick("path") ?? pick("file_path"),
+    write_repo_file: pick("path") ?? pick("file_path"),
+    edit_repo_file: pick("path") ?? pick("file_path"),
+    create_pull_request: pick("title"),
+    reload_preview: "",
+  };
+  const summary =
+    salient[name] ??
+    pick("summary") ??
+    Object.values(args).find(
+      (v): v is string => typeof v === "string" && v.trim().length > 0,
+    ) ??
+    "";
+  return oneLine(summary, 90);
+}
+
 function progressFor(state: StreamState, id: string): MessageProgress {
   let progress = state.perMessage.get(id);
   if (!progress) {
@@ -44,15 +86,15 @@ function progressFor(state: StreamState, id: string): MessageProgress {
 }
 
 /**
- * Diff a fresh conversation snapshot against what was already shown and return
- * the new lines to print. Mutates `state`. Pure aside from that — no I/O — so
- * the rendering rules are unit-testable.
+ * Diff a fresh conversation snapshot against what was already emitted and
+ * return the new events. Mutates `state`; otherwise pure — no I/O — so the
+ * streaming rules are unit-testable.
  */
-export function renderConversationDelta(
+export function diffConversation(
   state: StreamState,
   messages: ConversationMessage[],
-): string[] {
-  const lines: string[] = [];
+): StreamEvent[] {
+  const events: StreamEvent[] = [];
   for (const message of messages) {
     if (message.role !== "assistant" || message.hidden) continue;
     const progress = progressFor(state, message.id);
@@ -60,7 +102,7 @@ export function renderConversationDelta(
     const reasoning = message.reasoning?.content ?? "";
     if (reasoning.length > progress.reasoningLength) {
       const delta = reasoning.slice(progress.reasoningLength).trim();
-      if (delta) lines.push(`✻ ${oneLine(delta, 300)}`);
+      if (delta) events.push({ kind: "thinking", text: oneLine(delta, 300) });
       progress.reasoningLength = reasoning.length;
     }
 
@@ -69,57 +111,87 @@ export function renderConversationDelta(
       message.content.length > progress.contentLength
     ) {
       const delta = message.content.slice(progress.contentLength).trim();
-      if (delta) lines.push(delta);
+      if (delta) events.push({ kind: "text", text: delta });
       progress.contentLength = message.content.length;
     }
 
     for (const tool of message.tool_calls ?? []) {
       if (!progress.announcedTools.has(tool.id)) {
         progress.announcedTools.add(tool.id);
-        const args = oneLine(tool.arguments_string ?? "", 110);
-        lines.push(`→ ${tool.name}${args ? `  ${args}` : ""}`);
+        events.push({
+          kind: "tool_start",
+          name: tool.name,
+          summary: toolSummary(tool.name, tool.arguments_string),
+        });
       }
       const status = tool.status ?? "running";
       if (TOOL_SETTLED.has(status) && !progress.settledTools.has(tool.id)) {
         progress.settledTools.add(tool.id);
-        const mark = status === "success" ? "✓" : "✗";
-        const result = oneLine(tool.results, 140);
-        lines.push(`${mark} ${tool.name}${result ? ` — ${result}` : ""}`);
+        events.push({
+          kind: "tool_end",
+          name: tool.name,
+          ok: status === "success",
+          result: oneLine(tool.results, 110),
+        });
       }
     }
   }
-  return lines;
+  return events;
+}
+
+/**
+ * Whether the newest user message's turn has finished: the backend stamps
+ * `outcome` onto the turn's user message at end-of-loop, on success and error
+ * alike. Authoritative, unlike the app's status field, which flaps mid-turn.
+ */
+export function turnSettled(messages: ConversationMessage[]): boolean {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (message.role === "user" && !message.hidden) {
+      return message.outcome != null;
+    }
+  }
+  return false;
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+interface StreamOptions {
+  branchId?: string;
+  intervalMs?: number;
+}
+
+function makePoller(
+  onEvent: (event: StreamEvent) => void,
+  options: StreamOptions,
+) {
+  const state = newStreamState();
+  return async (prime = false): Promise<ConversationMessage[]> => {
+    try {
+      const messages = await getFullConversation(30, options.branchId);
+      const events = diffConversation(state, messages);
+      if (!prime) for (const event of events) onEvent(event);
+      return messages;
+    } catch {
+      return []; // Transient read failure — the next tick retries.
+    }
+  };
+}
+
 /**
- * Run `start` while live-printing the conversation it drives.
- *
- * The current snapshot is consumed FIRST (so earlier turns are never
- * replayed), then `start` fires, and the conversation is polled until its
- * promise settles — with one final read so nothing between the last tick and
- * settlement is lost. Poll failures are skipped (transient); `start`'s result
- * or rejection passes through untouched.
+ * Run `start` while live-emitting the conversation it drives. The current
+ * snapshot is consumed FIRST (earlier turns are never replayed), then `start`
+ * fires, and the conversation is polled until its promise settles — with one
+ * final read so nothing between the last tick and settlement is lost.
+ * `start`'s result or rejection passes through untouched.
  */
 export async function streamConversationDuring<T>(
   start: () => Promise<T>,
-  print: (line: string) => void,
-  options: { branchId?: string; intervalMs?: number } = {},
+  onEvent: (event: StreamEvent) => void,
+  options: StreamOptions = {},
 ): Promise<T> {
   const intervalMs = options.intervalMs ?? 2_000;
-  const state = newStreamState();
-
-  const poll = async (prime = false) => {
-    try {
-      const messages = await getFullConversation(30, options.branchId);
-      const lines = renderConversationDelta(state, messages);
-      if (!prime) for (const line of lines) print(line);
-    } catch {
-      // Transient read failure — the next tick retries.
-    }
-  };
-
+  const poll = makePoller(onEvent, options);
   await poll(true);
   const work = start();
   let pending = true;
@@ -138,4 +210,23 @@ export async function streamConversationDuring<T>(
   }
   await poll();
   return work;
+}
+
+/**
+ * Live-emit a turn that is already running server-side (the create kickoff),
+ * until its user message carries an outcome — or the deadline passes.
+ */
+export async function streamConversationUntilSettled(
+  onEvent: (event: StreamEvent) => void,
+  options: StreamOptions & { timeoutMs?: number } = {},
+): Promise<"settled" | "timeout"> {
+  const intervalMs = options.intervalMs ?? 2_000;
+  const deadline = Date.now() + (options.timeoutMs ?? 20 * 60_000);
+  const poll = makePoller(onEvent, options);
+  while (Date.now() < deadline) {
+    const messages = await poll();
+    if (messages.length > 0 && turnSettled(messages)) return "settled";
+    await sleep(intervalMs);
+  }
+  return "timeout";
 }

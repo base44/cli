@@ -75,6 +75,7 @@ const ConversationMessageSchema = z.object({
   id: z.string(),
   role: z.string(),
   hidden: z.boolean().nullish(),
+  outcome: z.unknown().nullish(),
   content: z.unknown().nullish(),
   reasoning: z.object({ content: z.string().nullish() }).nullish(),
   tool_calls: z

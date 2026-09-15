@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { ConversationMessage } from "@/core/resources/imported/api.js";
 import {
+  diffConversation,
   newStreamState,
-  renderConversationDelta,
+  toolSummary,
+  turnSettled,
 } from "@/core/resources/imported/stream.js";
 
 const assistant = (
@@ -13,8 +15,8 @@ const assistant = (
   ...overrides,
 });
 
-describe("renderConversationDelta", () => {
-  it("prints each item once across polls: announce, then settle, then nothing", () => {
+describe("diffConversation", () => {
+  it("emits each item once across polls: announce, then settle, then nothing", () => {
     const state = newStreamState();
     const running = assistant({
       id: "m1",
@@ -30,10 +32,13 @@ describe("renderConversationDelta", () => {
       ],
     });
 
-    const first = renderConversationDelta(state, [running]);
-    expect(first).toEqual([
-      "✻ Choosing FastAPI.",
-      '→ run_shell_command  {"command": "docker compose up -d"}',
+    expect(diffConversation(state, [running])).toEqual([
+      { kind: "thinking", text: "Choosing FastAPI." },
+      {
+        kind: "tool_start",
+        name: "run_shell_command",
+        summary: "docker compose up -d",
+      },
     ]);
 
     const settled = assistant({
@@ -47,68 +52,129 @@ describe("renderConversationDelta", () => {
         },
       ],
     } as ConversationMessage);
-    const second = renderConversationDelta(state, [settled]);
-    expect(second).toEqual([
-      "The stack is up.",
-      "✓ run_shell_command — 3 containers started",
+    expect(diffConversation(state, [settled])).toEqual([
+      { kind: "text", text: "The stack is up." },
+      {
+        kind: "tool_end",
+        name: "run_shell_command",
+        ok: true,
+        result: "3 containers started",
+      },
     ]);
 
-    expect(renderConversationDelta(state, [settled])).toEqual([]);
+    expect(diffConversation(state, [settled])).toEqual([]);
   });
 
-  it("prints only the newly appended part of growing text", () => {
+  it("emits only the newly appended part of growing text", () => {
     const state = newStreamState();
-    renderConversationDelta(state, [
+    diffConversation(state, [
       assistant({ id: "m1", content: "Scaffolding the backend." }),
     ]);
-    const delta = renderConversationDelta(state, [
-      assistant({
-        id: "m1",
-        content: "Scaffolding the backend. Now the frontend.",
-      }),
-    ]);
-    expect(delta).toEqual(["Now the frontend."]);
+    expect(
+      diffConversation(state, [
+        assistant({
+          id: "m1",
+          content: "Scaffolding the backend. Now the frontend.",
+        }),
+      ]),
+    ).toEqual([{ kind: "text", text: "Now the frontend." }]);
   });
 
-  it("marks a failed tool distinctly and flattens structured results", () => {
+  it("marks a failed tool and flattens structured results", () => {
     const state = newStreamState();
-    const lines = renderConversationDelta(state, [
-      assistant({
-        id: "m1",
-        tool_calls: [
-          {
-            id: "t1",
-            name: "edit_repo_file",
-            arguments_string: null,
-            status: "error",
-            results: { error: "File not found" },
-          },
-        ],
-      }),
-    ]);
-    expect(lines).toEqual([
-      "→ edit_repo_file",
-      '✗ edit_repo_file — {"error":"File not found"}',
+    expect(
+      diffConversation(state, [
+        assistant({
+          id: "m1",
+          tool_calls: [
+            {
+              id: "t1",
+              name: "edit_repo_file",
+              arguments_string: '{"path": "backend/app/db.py"}',
+              status: "error",
+              results: { error: "File not found" },
+            },
+          ],
+        }),
+      ]),
+    ).toEqual([
+      {
+        kind: "tool_start",
+        name: "edit_repo_file",
+        summary: "backend/app/db.py",
+      },
+      {
+        kind: "tool_end",
+        name: "edit_repo_file",
+        ok: false,
+        result: '{"error":"File not found"}',
+      },
     ]);
   });
 
   it("ignores user and hidden messages", () => {
     const state = newStreamState();
-    const lines = renderConversationDelta(state, [
-      { id: "u1", role: "user", content: "add login" },
-      assistant({ id: "h1", hidden: true, content: "internal" }),
-    ]);
-    expect(lines).toEqual([]);
+    expect(
+      diffConversation(state, [
+        { id: "u1", role: "user", content: "add login" },
+        assistant({ id: "h1", hidden: true, content: "internal" }),
+      ]),
+    ).toEqual([]);
   });
 
   it("a primed state suppresses history but streams what comes after", () => {
     const state = newStreamState();
     const history = assistant({ id: "m0", content: "Earlier turn summary." });
-    renderConversationDelta(state, [history]); // prime
-    const lines = renderConversationDelta(state, [
-      history,
-      assistant({ id: "m1", content: "New turn begins." }),
-    ]);
-    expect(lines).toEqual(["New turn begins."]);
+    diffConversation(state, [history]); // prime
+    expect(
+      diffConversation(state, [
+        history,
+        assistant({ id: "m1", content: "New turn begins." }),
+      ]),
+    ).toEqual([{ kind: "text", text: "New turn begins." }]);
+  });
+});
+
+describe("toolSummary", () => {
+  it("extracts the salient argument per tool", () => {
+    expect(
+      toolSummary("run_shell_command", '{"command":"ls -la","summary":"list"}'),
+    ).toBe("ls -la");
+    expect(
+      toolSummary("write_repo_file", '{"path":"a.py","content":"…"}'),
+    ).toBe("a.py");
+    expect(
+      toolSummary("create_pull_request", '{"title":"Add auth","body":"x"}'),
+    ).toBe("Add auth");
+  });
+
+  it("falls back to summary, then the first string, and survives non-JSON", () => {
+    expect(toolSummary("set_secrets", '{"summary":"3 secrets declared"}')).toBe(
+      "3 secrets declared",
+    );
+    expect(toolSummary("unknown_tool", '{"n":1,"target":"web"}')).toBe("web");
+    expect(toolSummary("unknown_tool", "not json")).toBe("not json");
+  });
+
+  it("truncates long values to one line", () => {
+    const long = `{"command":"${"x".repeat(200)}"}`;
+    expect(toolSummary("run_shell_command", long)).toHaveLength(91); // 90 + ellipsis
+  });
+});
+
+describe("turnSettled", () => {
+  const user = (id: string, outcome: unknown): ConversationMessage => ({
+    id,
+    role: "user",
+    content: "do it",
+    outcome,
+  });
+
+  it("keys off the NEWEST user message's outcome stamp", () => {
+    const done = user("u1", { backend_status: "pending" });
+    const open = user("u2", null);
+    expect(turnSettled([done, assistant({ id: "m1" }), open])).toBe(false);
+    expect(turnSettled([open, assistant({ id: "m1" }), done])).toBe(true);
+    expect(turnSettled([assistant({ id: "m1" })])).toBe(false);
   });
 });
