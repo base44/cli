@@ -6,20 +6,16 @@ import type {
 } from "@/core/version/schema.js";
 
 /**
- * Which of the three steps a publish broke in.
- *
- * A user's build failing, an artifact set the platform refused and a lost
- * publication race are three different incidents with three different
- * responses. Collapsing them into one exit code is how a sandbox log stops
- * being diagnostic, so the step travels with the failure and out through the
- * `--json` envelope.
+ * Which of the three steps a publish broke in. A failed build, a rejected
+ * artifact set and a lost publication race need three different responses, so
+ * the step travels with the failure and out through the `--json` envelope.
  */
 type PublishStep = "build" | "create_version" | "deploy";
 
 const STEP = Symbol.for("base44.publishStep");
 
-/** Tag an error with the step it broke in, without wrapping it — the original
- * type, message, status and request id all still reach the envelope. */
+/** Tag an error with its step without wrapping it, so the original type,
+ * status and request id still reach the envelope. */
 export async function tagStep<T>(
   step: PublishStep,
   run: () => Promise<T>,
@@ -51,11 +47,8 @@ interface PublishResult {
 }
 
 /**
- * Record the artifact set as a version and serve it.
- *
- * The deploy carries a key generated once here, so a lost response is resolved
- * by reading back the deployment this call already made rather than preparing a
- * second candidate.
+ * Record the artifact set as a version and serve it. The deploy key is generated
+ * once here, so a lost response reads back the deployment this call already made.
  */
 export async function publishVersion(
   artifacts: ArtifactSet,

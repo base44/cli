@@ -21,10 +21,7 @@ interface CreateOptions {
   concurrency?: number;
 }
 
-/**
- * Record a build that already exists. No build of its own and no deploy —
- * a version is a blueprint, and one can sit unpublished for as long as it likes.
- */
+/** Record a build that already exists. No build of its own, and no deploy. */
 async function createAction(
   { runTask, jsonMode, app }: CLIContext,
   options: CreateOptions,

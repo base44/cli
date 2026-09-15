@@ -27,13 +27,11 @@ interface PublishOptions {
 }
 
 /**
- * Build, record a version, and serve it — the three steps in order.
+ * Build, record a version, and serve it.
  *
- * NOT `site deploy`. That command drives the legacy full-stack hosting lane,
- * whose own source says nothing there publishes; its envelope names a
- * `deploymentId` that means a Cloudflare script, not a deployment on this plane.
- * A caller that could not tell the two apart would publish by accident, so this
- * is a separate command with separate envelope field names.
+ * Not `site deploy`: that drives the legacy hosting lane, where `deploymentId`
+ * means a Cloudflare script rather than a deployment on this plane. Separate
+ * command and separate envelope names, so the two cannot be confused.
  */
 async function publishAction(
   ctx: CLIContext,

@@ -16,10 +16,8 @@ import {
 } from "@/core/version/schema.js";
 
 /**
- * Measured on the sandbox's pipe: a 25.5k-asset app moved 27 assets/s at 3,
- * needing ~930s of the ~450s a build leaves — SIGKILLed mid-upload every time.
- * 8 is the rate the python driver it replaced already sustained to the same
- * bucket, and 16 failed a degraded pipe on 2026-07-02.
+ * Measured on the sandbox's pipe: at 3, a 25.5k-asset app needed ~930s of the
+ * ~450s a build leaves. 16 failed a degraded pipe on 2026-07-02.
  */
 export const DEFAULT_VERSION_UPLOAD_CONCURRENCY = 8;
 export const MAX_VERSION_UPLOAD_CONCURRENCY = 16;
@@ -48,11 +46,9 @@ function parse<T>(schema: ZodType<T>, body: unknown, what: string): T {
 }
 
 /**
- * Declare the artifact set, upload what it names, and commit the version.
- *
- * Three calls, in that order and no other: nothing is recorded until the bytes
- * are in place, so an interrupted run leaves staged objects that expire rather
- * than a version naming files that are not there.
+ * Declare the artifact set, upload what it names, and commit the version. In
+ * that order: an interrupted run leaves staged objects that expire, never a
+ * version naming files that are not there.
  */
 export async function createVersion(
   artifacts: ArtifactSet,
@@ -105,8 +101,7 @@ export async function createVersion(
             absolutePath: file.absolutePath,
             hash: file.digest,
             size: file.size,
-            // Signed into the URL by the server and echoed back on the upload,
-            // so this value is never the one the PUT sends.
+            // The PUT echoes the server's signed value, never this one.
             contentType: "application/octet-stream",
           },
         ]),
@@ -131,10 +126,8 @@ export async function createVersion(
   );
 }
 
-/**
- * Serve a recorded version. One POST, and the body carries a target name and a
- * retry key — everything else is the platform's to resolve.
- */
+/** Serve a recorded version. The body carries a target name and a retry key;
+ * everything else is the platform's to resolve. */
 export async function deployVersion(
   versionId: string,
   options: { target?: string; idempotencyKey?: string } = {},

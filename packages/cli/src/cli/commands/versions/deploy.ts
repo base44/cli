@@ -9,10 +9,8 @@ interface DeployOptions {
   target?: string;
 }
 
-/**
- * Serve a version that already exists. No checkout, no build and no upload —
- * which is also what a rollback is: the same call with an older version id.
- */
+/** Serve an existing version: no checkout, no build, no upload. A rollback is
+ * the same call with an older id. */
 async function deployAction(
   { runTask, jsonMode }: CLIContext,
   versionId: string,

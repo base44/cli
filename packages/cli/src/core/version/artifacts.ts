@@ -20,16 +20,12 @@ const ALWAYS_IGNORED = new Set([
   ".dev.vars",
 ]);
 
-/** Every request for an extensionless path is served this, so a set without it
- * is a frontend nothing can enter. The platform refuses one; saying so here
- * costs the user an upload rather than a round trip. */
+/** The platform refuses a set without it; failing here saves the upload. */
 const ENTRY = "index.html";
 
 /**
- * Full sha256 over a file's bytes — artifact identity.
- *
- * Streamed, so a large file is never read whole into memory. Deliberately NOT
- * `hashAsset`: see the note on {@link ArtifactFile.digest}.
+ * Full sha256 over a file's bytes, streamed. Deliberately not `hashAsset` — see
+ * {@link ArtifactFile.digest}.
  */
 async function digestFile(absolutePath: string): Promise<string> {
   const hash = createHash("sha256");
@@ -40,11 +36,9 @@ async function digestFile(absolutePath: string): Promise<string> {
 }
 
 /**
- * Walk a build's output directory and describe every file in it.
- *
- * Honors `.assetsignore` at the output root with full gitignore semantics,
- * negation included — the same rules the site collector walks by, so the two
- * lanes cannot disagree about what a build produced.
+ * Walk a build's output directory and describe every file in it. Honors
+ * `.assetsignore` by the same rules the site collector uses, so the two lanes
+ * cannot disagree about what a build produced.
  */
 export async function collectBuildOutput(
   outputDir: string,
@@ -100,16 +94,14 @@ export async function collectBuildOutput(
 }
 
 /**
- * The app's declared entities and agents, RAW.
+ * The app's declared entities and agents, raw.
  *
- * Deliberately not the validated resource readers: the platform's own extractor
- * and validation are authoritative, and the CLI's stricter entity schema would
- * refuse real Builder apps. That is exactly why `site deploy` reads no resources
- * at all — re-introducing the strict parse here would reproduce the block.
+ * Not the validated resource readers: the platform's extractor is authoritative,
+ * and this CLI's stricter entity schema refuses real Builder apps — which is why
+ * `site deploy` reads no resources at all.
  *
- * The key is the file's path under its directory with the schema extension
- * stripped, which is the name the platform derives from the same file. A nested
- * agent keeps its subpath, so `agents/support/triage.jsonc` is `support/triage`.
+ * Keyed by path with the schema extension stripped, the name the platform
+ * derives from the same file, so `agents/support/triage.jsonc` is `support/triage`.
  */
 async function readRawResources(dir: string): Promise<Record<string, unknown>> {
   if (!(await pathExists(dir))) {

@@ -4,10 +4,7 @@ import { ConfigNotFoundError } from "@/core/errors.js";
 import { readProjectSettings } from "@/core/project/index.js";
 import type { ProjectWithPaths } from "@/core/project/types.js";
 
-/**
- * What a Builder repo builds like when nobody wrote a CLI config for it. Both
- * come from the app template every Builder app is seeded from.
- */
+/** From the app template every Builder app is seeded from. */
 const DEFAULT_BUILD_COMMAND = "npm run build";
 const DEFAULT_OUTPUT_DIRECTORY = "dist";
 
@@ -15,12 +12,11 @@ interface PublishTarget {
   root: string;
   /** Where `entitiesDir` and `agentsDir` are resolved from. */
   configDir: string;
-  /** `undefined` when a config is present and declares none — `runSiteBuild`
+  /** `undefined` when a config is present and declares none; `runSiteBuild`
    * reports that, as it always has. */
   buildCommand?: string;
-  /** `null` for the same reason, resolved by {@link requireOutputDir} at the
-   * point of collection — so a project missing both is told about its build
-   * command first, which is the one it hits first. */
+  /** `null` for the same reason. {@link requireOutputDir} raises at collection,
+   * so a project missing both hears about its build command first. */
   outputDir: string | null;
   entitiesDir: string;
   agentsDir: string;
@@ -28,17 +24,11 @@ interface PublishTarget {
 
 /**
  * Resolve where to build and what to publish, filling in what a Builder repo
- * does not carry.
+ * does not carry — without writing a file. The sandbox used to overwrite
+ * `base44/config.jsonc` with a minimal one, destroying checked-in configuration.
  *
- * Builder repos have NO CLI project config, which is why the sandbox used to
- * overwrite `base44/config.jsonc` with a minimal one — destroying any
- * checked-in configuration, and for a full-stack app destroying its build
- * command. Nothing here writes a file.
- *
- * The defaults apply only when there is no config AT ALL. A config that is
- * present and omits a field said so deliberately, and answering that with a
- * guessed `npm run build` would silently change what `base44 build` does for
- * every project that already relies on the error.
+ * Defaults apply only when there is no config at all: one that omits a field
+ * said so deliberately, and still gets today's error.
  */
 export async function resolvePublishTarget(
   projectRoot: string | undefined,
@@ -88,11 +78,9 @@ export function requireOutputDir(target: PublishTarget): string {
 }
 
 /**
- * The project's own settings, or `null` when it has none.
- *
- * Only a MISSING config is answered with `null`: a config that is present and
- * invalid still throws, because publishing past a broken one is how a typo
- * becomes a version built the wrong way.
+ * The project's settings, or `null` when it has none. A config that is present
+ * and invalid still throws — publishing past a broken one is how a typo becomes
+ * a version built the wrong way.
  */
 async function readSettingsIfPresent(
   projectRoot?: string,

@@ -1,15 +1,12 @@
 import { z } from "zod";
 
 /**
- * A file the build produced, as the version plane names it.
+ * A file the build produced.
  *
- * `digest` is a FULL sha256 over the file's bytes — artifact identity, and what
- * the platform signs into the upload URL so S3 refuses any other body. It is not
- * {@link import("@/core/site/manifest.js").hashAsset}, which is a 32-hex
- * truncation of sha256(app id ‖ bytes) and exists to key a provider's asset
- * cache. Different purpose, different moment, different value: conflating them
- * produces a file that uploads fine and never dedupes, or a digest check that
- * fails on a correct file.
+ * `digest` is a full sha256 over the bytes — artifact identity, signed into the
+ * upload URL so S3 refuses any other body. Not `hashAsset`, which truncates
+ * sha256(app id ‖ bytes) to key a provider's asset cache; conflating the two
+ * gives a file that uploads fine and never dedupes.
  */
 export interface ArtifactFile {
   /** Build-relative, forward slashes, no leading "/". */

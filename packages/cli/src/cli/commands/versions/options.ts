@@ -6,11 +6,8 @@ import {
 } from "@/core/version/index.js";
 
 /**
- * The options the versions lane's commands share.
- *
- * Built here rather than repeated per command so `publish --help` and
- * `versions create --help` cannot describe the same flag differently, and so a
- * change to what is accepted lands in one place.
+ * The options the versions lane's commands share, built here so two `--help`
+ * screens cannot describe the same flag differently.
  */
 
 export function outputDirOption(): Option {
