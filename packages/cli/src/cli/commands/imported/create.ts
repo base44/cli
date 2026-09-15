@@ -1,11 +1,11 @@
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import chalk from "chalk";
-import { runIterationLoop } from "@/cli/commands/imported/iterate.js";
 import {
   createTurnStream,
   formatDuration,
 } from "@/cli/commands/imported/render.js";
+import { runInteractiveSession } from "@/cli/commands/imported/session.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
 import { getBase44ApiUrl } from "@/core/config.js";
@@ -119,16 +119,34 @@ async function createImportedAction(
 
   let finalState: string | undefined;
   let previewUrl: string | undefined;
-  let workBranchId: string | undefined;
   let buildStartedAt: number | undefined;
   if (options.prompt) {
     // The kickoff turn runs on the app's setup branch conversation. Completion
     // is the outcome stamp on the turn's user message — the app status field
     // flaps mid-turn and cannot be trusted.
     const branchId = await soleActiveBranchId().catch(() => undefined);
-    workBranchId = branchId;
     buildStartedAt = Date.now();
-    const stream = createTurnStream(interactive, undefined, { footer });
+    if (interactive) {
+      // Full session: the kickoff streams, then the input stays open for
+      // follow-up turns. Per-turn outcomes and times print inline.
+      await runInteractiveSession({
+        branchId,
+        footer,
+        primeFirstPoll: false,
+        onTurnSettled: async ({ turnIndex, ok }) => {
+          if (turnIndex === 0 && ok && !previewUrl) {
+            try {
+              previewUrl = await getImportedPreviewUrl();
+              footer.push(chalk.dim(`preview ${previewUrl}`));
+            } catch {
+              // Preview may still be booting; the editor shows it when up.
+            }
+          }
+        },
+      });
+      return { outroMessage: name ? `Next: cd ${name}` : "Done." };
+    }
+    const stream = createTurnStream(false);
     try {
       const settled = await streamConversationUntilSettled(
         (event) => {
@@ -142,10 +160,7 @@ async function createImportedAction(
           : ((await getImportedAppState(created.id)).status?.state ?? "ready");
       if (finalState === "ready") {
         try {
-          // Fetched while the stream still ticks; the footer array is live, so
-          // the link joins the pinned block and persists with it on stop.
           previewUrl = await getImportedPreviewUrl();
-          footer.push(chalk.dim(`preview ${previewUrl}`));
         } catch {
           // Preview may still be booting; the editor shows it when it's up.
         }
@@ -168,13 +183,7 @@ async function createImportedAction(
   }
 
   // Non-interactive runs never draw the pinned block — print the link plainly.
-  if (previewUrl && !interactive) log.message(`preview ${previewUrl}`);
-
-  // Stay in the session: keep taking prompts on the same working branch. The
-  // footer already carries the preview link pushed above.
-  if (options.prompt && process.stdout.isTTY === true) {
-    await runIterationLoop(log, workBranchId, footer);
-  }
+  if (previewUrl && !jsonMode) log.message(`preview ${previewUrl}`);
   const cdHint = name ? ` Next: cd ${name}` : "";
   if (finalState === "error") {
     return {

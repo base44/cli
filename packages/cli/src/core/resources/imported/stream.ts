@@ -202,18 +202,35 @@ export function diffConversation(
  * the app's status field, which flaps mid-turn.
  */
 export function turnSettled(messages: ConversationMessage[]): boolean {
+  return newestUserTurn(messages)?.settled ?? false;
+}
+
+interface UserTurn {
+  id: string;
+  settled: boolean;
+  backendStatus?: string;
+}
+
+/** The newest user message and whether its turn reached a terminal outcome. */
+export function newestUserTurn(
+  messages: ConversationMessage[],
+): UserTurn | null {
   for (let i = messages.length - 1; i >= 0; i--) {
     const message = messages[i];
     if (message.role === "user" && !message.hidden) {
       const outcome = message.outcome as { backend_status?: string } | null;
-      return (
-        outcome != null &&
-        typeof outcome === "object" &&
-        outcome.backend_status !== "pending"
-      );
+      const backendStatus =
+        outcome && typeof outcome === "object"
+          ? outcome.backend_status
+          : undefined;
+      return {
+        id: message.id,
+        settled: outcome != null && backendStatus !== "pending",
+        backendStatus,
+      };
     }
   }
-  return false;
+  return null;
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));

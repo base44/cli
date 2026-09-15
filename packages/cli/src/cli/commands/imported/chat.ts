@@ -1,9 +1,6 @@
 import chalk from "chalk";
-import { runIterationLoop } from "@/cli/commands/imported/iterate.js";
-import {
-  createTurnStream,
-  formatDuration,
-} from "@/cli/commands/imported/render.js";
+import { createTurnStream } from "@/cli/commands/imported/render.js";
+import { runInteractiveSession } from "@/cli/commands/imported/session.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
 import { getBase44ApiUrl } from "@/core/config.js";
@@ -53,37 +50,11 @@ async function chatAction(
   const branchId =
     explicitBranchId ?? (await soleActiveBranchId().catch(() => undefined));
 
-  let turn: ImportedChatTurn;
-  let turnStartedAt: number | undefined;
   if (jsonMode) {
-    turn = await runTask("Agent working (a turn can take minutes)", () =>
+    const turn = await runTask("Agent working (a turn can take minutes)", () =>
       sendImportedChatMessage(message, branchId),
     );
-  } else {
-    turnStartedAt = Date.now();
-    const stream = createTurnStream(process.stdout.isTTY === true, undefined, {
-      footer: chatFooter(),
-    });
-    try {
-      turn = await streamConversationDuring(
-        () => sendImportedChatMessage(message, branchId),
-        stream.onEvent,
-        { branchId },
-      );
-    } finally {
-      stream.stop();
-    }
-  }
-
-  if (turn.queued) {
-    if (jsonMode) return { stdout: `${JSON.stringify({ queued: true })}\n` };
-    return {
-      outroMessage:
-        "The agent is busy with an earlier message — yours was queued and will run next.",
-    };
-  }
-
-  if (jsonMode) {
+    if (turn.queued) return { stdout: `${JSON.stringify({ queued: true })}\n` };
     return {
       stdout: `${JSON.stringify({
         status: turn.status?.state ?? "ready",
@@ -93,22 +64,42 @@ async function chatAction(
     };
   }
 
-  const took =
-    turnStartedAt != null
-      ? ` ${chalk.dim(`· ${formatDuration(Date.now() - turnStartedAt)}`)}`
-      : "";
-  log.message(`${turnOutro(turn)}${took}`);
-  // Stay in the session: keep taking prompts on the same working branch.
-  if (process.stdout.isTTY === true) {
-    await runIterationLoop(log, branchId, chatFooter());
+  if (process.stdout.isTTY !== true) {
+    const stream = createTurnStream(false);
+    let turn: ImportedChatTurn;
+    try {
+      turn = await streamConversationDuring(
+        () => sendImportedChatMessage(message, branchId),
+        stream.onEvent,
+        { branchId },
+      );
+    } finally {
+      stream.stop();
+    }
+    if (turn.queued) {
+      return {
+        outroMessage:
+          "The agent is busy with an earlier message — yours was queued and will run next.",
+      };
+    }
+    return { outroMessage: turnOutro(turn) };
   }
-  return { outroMessage: "Session ended." };
+
+  await runInteractiveSession({
+    branchId,
+    footer: chatFooter(),
+    primeFirstPoll: true,
+    initialMessage: message,
+  });
+  return { outroMessage: "Done." };
 }
 
 export function getImportedChatCommand(): Base44Command {
   const command = new Base44Command("chat", { supportsBranch: true });
   command
-    .description("Send a message to the app's agent and watch the turn live")
+    .description(
+      "Open an interactive agent session on the app, starting with this message",
+    )
     .argument("<message>", "What you want the agent to do")
     .action(chatAction);
   return command;

@@ -23,7 +23,7 @@ const TOOL_ALIASES: Record<string, string> = {
 // Verbose result text adds nothing for these; the path in the summary does.
 const QUIET_OK_RESULTS = new Set(["read", "write", "edit", "reload"]);
 
-function toolAlias(name: string): string {
+export function toolAlias(name: string): string {
   return TOOL_ALIASES[name] ?? name;
 }
 
@@ -107,6 +107,11 @@ const MUSINGS = [
   "Squinting at the repo",
 ];
 const MUSING_ROTATE_MS = 6_000;
+
+/** The rotating idle gerund for a given session seed. */
+export function idleMusing(seed: number): string {
+  return `${MUSINGS[(seed + Math.floor(Date.now() / MUSING_ROTATE_MS)) % MUSINGS.length]}…`;
+}
 
 interface RunningTool {
   alias: string;
