@@ -2,6 +2,7 @@ import chalk from "chalk";
 import { Box, render, Static, Text, useApp, useInput } from "ink";
 import TextInput from "ink-text-input";
 import { useEffect, useReducer, useState } from "react";
+import stripAnsi from "strip-ansi";
 import { formatDuration, idleMusing } from "@/cli/commands/imported/render.js";
 import type {
   SessionEngine,
@@ -9,6 +10,9 @@ import type {
   TurnSettleInfo,
 } from "@/cli/commands/imported/session-engine.js";
 import { createSessionEngine } from "@/cli/commands/imported/session-engine.js";
+import { readAuth } from "@/core/auth/config.js";
+import { getBase44ApiUrl } from "@/core/config.js";
+import packageJson from "../../../../package.json";
 
 const FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
@@ -150,6 +154,45 @@ function SessionView({ engine, footer, subscribe }: ViewProps) {
  * clears the input, then exits; turns keep running server-side after exit.
  * TTY only — callers gate on interactivity.
  */
+const BRAND_ORANGE = "#E86B3C";
+
+/** The Base44 Code welcome box — the session's first history item, so it
+ * scrolls away naturally like Claude Code's header does. */
+async function buildHeader(): Promise<string> {
+  const orange = chalk.hex(BRAND_ORANGE);
+  let who = "";
+  try {
+    const auth = await readAuth();
+    who = auth.name || auth.email || "";
+  } catch {
+    // Not logged in yet — the welcome stays generic.
+  }
+  const cwd = process.cwd().replace(process.env.HOME ?? "", "~");
+  const inner = Math.min((process.stdout.columns || 80) - 2, 64);
+  const stripLength = (s: string) => stripAnsi(s).length;
+  const center = (s: string) => {
+    const pad = Math.max(0, inner - stripLength(s));
+    const left = Math.floor(pad / 2);
+    return `│${" ".repeat(left)}${s}${" ".repeat(pad - left)}│`;
+  };
+  const title = ` ${orange.bold("Base44 Code")} ${chalk.dim(`v${packageJson.version}`)} `;
+  const top = `╭─${title}${"─".repeat(Math.max(0, inner - stripLength(title) - 1))}╮`;
+  const rowsOut = [
+    top,
+    center(""),
+    center(chalk.bold(who ? `Welcome back, ${who}!` : "Welcome!")),
+    center(""),
+    center(orange("▄▄██████▄▄")),
+    center(orange("████████████")),
+    center(""),
+    center(chalk.dim(getBase44ApiUrl().replace(/^https:\/\//, ""))),
+    center(chalk.dim(cwd)),
+    center(""),
+    `╰${"─".repeat(inner)}╯`,
+  ];
+  return rowsOut.join("\n");
+}
+
 export async function runInteractiveSession(
   options: SessionOptions,
 ): Promise<void> {
@@ -184,6 +227,7 @@ export async function runInteractiveSession(
   // conversation fills the empty space above it as it streams.
   const rows = process.stdout.rows || 24;
   process.stdout.write(`\x1b[2J\x1b[${rows};1H`);
+  onLine(await buildHeader());
 
   const app = render(
     <SessionView
