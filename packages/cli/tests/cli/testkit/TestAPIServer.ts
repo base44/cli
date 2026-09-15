@@ -892,7 +892,6 @@ export class TestAPIServer {
   mockVersionFinalize(response: {
     version_id: string;
     manifest_hash: string;
-    deduplicated: boolean;
   }): this {
     return this.addRoute(
       "POST",
@@ -904,7 +903,6 @@ export class TestAPIServer {
   mockVersionDeploy(response: {
     deployment_id: string;
     manifest_hash: string;
-    revision: number;
   }): this {
     this.pendingRoutes.push({
       method: "POST",

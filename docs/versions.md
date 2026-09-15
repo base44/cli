@@ -20,7 +20,9 @@ It is **not** `src/core/site/` — see [Deployments](deployments.md). That lane 
 
 1. **Declare.** `POST versions` with `static_bundle` (path, size, digest per file), the raw `entities` and `agents` payloads, and `source_commit`. The response carries a `session_id` and one presigned PUT per file.
 2. **Upload.** `uploadPresignedAssets` — the same function the static deployments lane uses, same `pMap` concurrency and same ky retry policy. Each PUT sends the server's `Content-Type` **and** its `x-amz-checksum-sha256` verbatim; deriving either locally would 403 on any mapping difference.
-3. **Finalize.** `POST versions/{session_id}/finalize`, no body. The set was fixed at declare, so there is nothing left for the caller to change. The response says whether the content deduplicated to a version that already existed.
+3. **Finalize.** `POST versions/{session_id}/finalize`, no body. The set was fixed at declare, so there is nothing left for the caller to change.
+
+The response carries `version_id` and `manifest_hash`, and no flag for "this content already existed" — the hash **is** the identity, so a caller asking whether a rebuild changed anything compares it against the last one. An existing version is not necessarily the one being served, so such a flag would be misleading anyway.
 
 Each of the three responses is parsed through its Zod schema and a mismatch raises `SchemaValidationError` — the house pattern from [Making API calls](api-patterns.md), and the only thing keeping this client aligned with the server. There is no generated type and no shared contract fixture here, the same as every other CLI↔platform surface: a server that renames or retypes a response field fails the publish with an error naming the field, rather than propagating `undefined`. In the other direction the server's request models forbid unknown fields, so a field this client sends that the server no longer accepts is a 422.
 
@@ -60,7 +62,7 @@ A callback that throws synchronously is tagged too; `run().catch(...)` would let
 
 ## Commands
 
-**`base44 publish [--no-build] [--output-dir <dir>] [--target <name>] [--git-hash <hash>] [--concurrency <n>]`** — build, record a version, serve it. Under `--json`, stdout is a single `{versionId, manifestHash, deduplicated, deploymentId, revision}` document.
+**`base44 publish [--no-build] [--output-dir <dir>] [--target <name>] [--git-hash <hash>] [--concurrency <n>]`** — build, record a version, serve it. Under `--json`, stdout is a single `{versionId, manifestHash, deploymentId}` document.
 
 **`base44 versions create`** — record built output without serving it. A version can sit unpublished for as long as it likes.
 

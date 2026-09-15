@@ -41,9 +41,7 @@ export function stepOf(error: unknown): PublishStep | undefined {
 interface PublishResult {
   versionId: string;
   manifestHash: string;
-  deduplicated: boolean;
   deploymentId: string;
-  revision: number;
 }
 
 /**

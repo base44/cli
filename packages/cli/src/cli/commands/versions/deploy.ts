@@ -27,7 +27,7 @@ async function deployAction(
   );
 
   return {
-    outroMessage: `Deployment ${deployment.deploymentId} at revision ${deployment.revision}`,
+    outroMessage: `Deployment ${deployment.deploymentId}`,
     stdout: jsonMode ? `${JSON.stringify(deployment, null, 2)}\n` : undefined,
   };
 }

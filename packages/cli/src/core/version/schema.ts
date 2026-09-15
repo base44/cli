@@ -56,13 +56,12 @@ export const DeclareVersionResponseSchema = z
 export const CreateVersionResponseSchema = z
   .object({
     version_id: z.string(),
+    /** The identity: unchanged across two builds means unchanged content. */
     manifest_hash: z.string(),
-    deduplicated: z.boolean(),
   })
   .transform((data) => ({
     versionId: data.version_id,
     manifestHash: data.manifest_hash,
-    deduplicated: data.deduplicated,
   }));
 
 export type CreateVersionResponse = z.infer<typeof CreateVersionResponseSchema>;
@@ -71,12 +70,10 @@ export const DeployVersionResponseSchema = z
   .object({
     deployment_id: z.string(),
     manifest_hash: z.string(),
-    revision: z.number(),
   })
   .transform((data) => ({
     deploymentId: data.deployment_id,
     manifestHash: data.manifest_hash,
-    revision: data.revision,
   }));
 
 export type DeployVersionResponse = z.infer<typeof DeployVersionResponseSchema>;

@@ -77,14 +77,10 @@ async function publishAction(
   );
 
   if (!jsonMode) {
-    log.message(
-      theme.styles.dim(
-        `version ${result.versionId}${result.deduplicated ? " (existing content)" : ""}`,
-      ),
-    );
+    log.message(theme.styles.dim(`version ${result.versionId}`));
   }
   return {
-    outroMessage: `Deployment ${result.deploymentId} at revision ${result.revision}`,
+    outroMessage: `Deployment ${result.deploymentId}`,
     stdout: jsonMode ? `${JSON.stringify(result, null, 2)}\n` : undefined,
   };
 }

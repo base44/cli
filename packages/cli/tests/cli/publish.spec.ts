@@ -18,15 +18,10 @@ describe("publish command", () => {
       .mockVersionDeclare(SESSION)
       .mockPresignedUpload("/index.html")
       .mockPresignedUpload("/assets/app.js")
-      .mockVersionFinalize({
-        version_id: "ver-1",
-        manifest_hash: "sha256:abc",
-        deduplicated: false,
-      })
+      .mockVersionFinalize({ version_id: "ver-1", manifest_hash: "sha256:abc" })
       .mockVersionDeploy({
         deployment_id: "dep-1",
         manifest_hash: "sha256:abc",
-        revision: 4,
       });
   };
 
@@ -88,8 +83,8 @@ describe("publish command", () => {
   });
 
   it("carries only a target name and a retry key into the deploy", async () => {
-    // Everything else — the app, the principal, env vars, the revision — is the
-    // platform's to resolve, and there is deliberately no field for any of them.
+    // Everything else — the app, the principal, env vars — is the platform's to
+    // resolve, and there is deliberately no field for any of them.
     t.givenEnv({ BASE44_VERSIONS_API: "1" });
     await t.givenLoggedInWithProject(fixture("publishable"));
     mockPublishApi();
@@ -117,9 +112,7 @@ describe("publish command", () => {
     expect(JSON.parse(result.stdout)).toEqual({
       versionId: "ver-1",
       manifestHash: "sha256:abc",
-      deduplicated: false,
       deploymentId: "dep-1",
-      revision: 4,
     });
   });
 
@@ -166,7 +159,6 @@ describe("versions deploy command", () => {
     t.api.mockVersionDeploy({
       deployment_id: "dep-9",
       manifest_hash: "sha256:old",
-      revision: 12,
     });
 
     const result = await t.run("versions", "deploy", "ver-old", "--json");
@@ -177,7 +169,6 @@ describe("versions deploy command", () => {
     expect(JSON.parse(result.stdout)).toEqual({
       deploymentId: "dep-9",
       manifestHash: "sha256:old",
-      revision: 12,
     });
   });
 });
