@@ -199,6 +199,22 @@ async function createImportedAction(
   };
 }
 
+/** Top-level sugar: `base44 new <name> ["<prompt>"]` — blank mode with the
+ * prompt as a positional, no flags to remember. */
+export function getNewCommand(): Base44Command {
+  const command = new Base44Command("new", { requireAppContext: false });
+  command
+    .description(
+      "Start a blank app: makes ./<name>, a fresh private GitHub repo named <name>, and builds from your prompt",
+    )
+    .argument("<name>", "One name for the directory, GitHub repo, and app")
+    .argument("[prompt]", "First message for the agent; the build streams live")
+    .action((ctx: CLIContext, name: string, prompt: string | undefined) =>
+      createImportedAction(ctx, name, { prompt }),
+    );
+  return command;
+}
+
 export function getImportedCreateCommand(): Base44Command {
   const command = new Base44Command("create", { requireAppContext: false });
   command

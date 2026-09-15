@@ -14,7 +14,7 @@ import {
   readAuth,
   refreshAndSaveTokens,
 } from "@/core/auth/config.js";
-import { getBase44ApiUrl } from "@/core/config.js";
+import { getBase44ApiUrl, getFfOverride } from "@/core/config.js";
 import { getAppContext } from "@/core/project/index.js";
 
 // Track requests that have already been retried to prevent infinite loops
@@ -102,8 +102,9 @@ export const base44Client = ky.create({
       (request) => {
         request.headers.set("X-Request-ID", randomUUID());
         // Staging/preview only: lets a dev flip PostHog flags per request
-        // (e.g. BASE44_FF_OVERRIDE="imported-apps:true"); prod ignores it.
-        const ffOverride = process.env.BASE44_FF_OVERRIDE;
+        // (BASE44_FF_OVERRIDE env, or the persisted `base44 target --ff`);
+        // prod ignores the header.
+        const ffOverride = getFfOverride();
         if (ffOverride) request.headers.set("X-FF-Override", ffOverride);
       },
       captureRequestBody,

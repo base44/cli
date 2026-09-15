@@ -11,6 +11,7 @@ import { getConnectorsCommand } from "@/cli/commands/connectors/index.js";
 import { getDashboardCommand } from "@/cli/commands/dashboard/index.js";
 import { getEntitiesPushCommand } from "@/cli/commands/entities/push.js";
 import { getFunctionsCommand } from "@/cli/commands/functions/index.js";
+import { getNewCommand } from "@/cli/commands/imported/create.js";
 import { getImportedCommand } from "@/cli/commands/imported/index.js";
 import { getBuildCommand } from "@/cli/commands/project/build.js";
 import { getCreateCommand } from "@/cli/commands/project/create.js";
@@ -22,6 +23,7 @@ import { getVisibilityCommand } from "@/cli/commands/project/visibility.js";
 import { getSandboxCommand } from "@/cli/commands/sandbox/index.js";
 import { getSecretsCommand } from "@/cli/commands/secrets/index.js";
 import { getSiteCommand } from "@/cli/commands/site/index.js";
+import { getTargetCommand } from "@/cli/commands/target.js";
 import { getTypesCommand } from "@/cli/commands/types/index.js";
 import { getWorkflowsCommand } from "@/cli/commands/workflows/index.js";
 import { getWorkspaceCommand } from "@/cli/commands/workspace/index.js";
@@ -115,6 +117,10 @@ export function createProgram(context: CLIContext): Command {
 
   // Register imported-app commands
   program.addCommand(getImportedCommand());
+  program.addCommand(getNewCommand());
+
+  // Register the target command (staging/preview host selection)
+  program.addCommand(getTargetCommand());
 
   // Register auth config commands
   program.addCommand(getAuthCommand());

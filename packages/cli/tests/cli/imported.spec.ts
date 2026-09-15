@@ -193,6 +193,57 @@ describe("imported", () => {
     t.expectResult(badName).toFail();
   });
 
+  it("top-level new <name> <prompt> creates blank, waits for the settled turn, returns the preview", async () => {
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    let sentBody: Record<string, unknown> | undefined;
+    t.api.mockRoute("POST", "/api/apps", (req, res) => {
+      sentBody = req.body as Record<string, unknown>;
+      return res.json({ id: "new-app-3", name: "tmnt-2" });
+    });
+    t.api.mockRoute("GET", "/api/apps/new-app-3/branches", (_req, res) =>
+      res.json([{ id: "b1", branch_name: "base44/setup-x", status: "active" }]),
+    );
+    // The turn's user message already carries a terminal outcome → settles on
+    // the first poll.
+    t.api.mockRoute(
+      "GET",
+      "/api/apps/new-app-3/chat/full-conversation",
+      (_req, res) =>
+        res.json({
+          messages: [
+            {
+              id: "u1",
+              role: "user",
+              content: "sell tmnt figures",
+              outcome: { backend_status: "success_build" },
+            },
+          ],
+        }),
+    );
+    t.api.mockRoute("GET", "/api/apps/new-app-3", (_req, res) =>
+      res.json({ id: "new-app-3", status: { state: "ready" } }),
+    );
+    t.api.mockRoute(
+      "GET",
+      "/api/apps/new-app-3/sandbox/preview-url",
+      (_req, res) => res.json({ preview_url: "3000-x.e2b.app" }),
+    );
+
+    const result = await t.run("new", "tmnt-2", "sell tmnt figures", "--json");
+    t.expectResult(result).toSucceed();
+    expect(sentBody).toMatchObject({
+      app_type: "imported_app",
+      imported_source_mode: "blank",
+      imported_new_repo_name: "tmnt-2",
+      initial_message: { content: "sell tmnt figures" },
+    });
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      id: "new-app-3",
+      status: "ready",
+      preview_url: "https://3000-x.e2b.app",
+    });
+  });
+
   it("create --blank requires a repo name and sends the blank payload", async () => {
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
 
