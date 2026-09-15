@@ -112,32 +112,40 @@ export async function runInteractiveSession(
     const start = Math.max(0, cursor - width + 6);
     const visible = buffer.slice(start, start + width);
     const cursorCol = cursor - start;
-    const body =
-      buffer.length === 0
-        ? chalk.dim("type · Enter sends · Ctrl+C exits")
-        : visible;
-    return { text: `${chalk.cyan("❯")} ${body}`, cursorCol: cursorCol + 2 };
+    return { text: `${chalk.cyan("❯")} ${visible}`, cursorCol: cursorCol + 2 };
   };
+
+  // The cursor parks on the input line, one line above the hint at the bottom
+  // of the block — clearing must step back down first.
+  let parkedUp = 0;
 
   const clearBlock = () => {
     if (!drawnLines) return;
+    if (parkedUp > 0) write(`\x1b[${parkedUp}B`);
+    parkedUp = 0;
     write("\r\x1b[2K");
     for (let i = 1; i < drawnLines; i++) write("\x1b[1A\r\x1b[2K");
     drawnLines = 0;
   };
 
+  const rule = () => chalk.dim("─".repeat(Math.min(columns(), 100)));
+
   const drawBlock = () => {
     const input = inputLine();
-    const lines = ["", ...footer, statusLine(), input.text];
+    const lines = [
+      rule(),
+      ...footer,
+      statusLine(),
+      input.text,
+      chalk.dim("  Enter to send · Ctrl+C to exit (turns keep running)"),
+    ];
     write(lines.join("\n"));
     drawnLines = lines.length;
-    // Park the terminal cursor where the logical cursor sits in the input.
-    if (buffer.length > 0) {
-      const lineLength =
-        2 + Math.min(buffer.length, Math.max(20, columns() - 4));
-      const back = lineLength - input.cursorCol;
-      if (back > 0) write(`\x1b[${back}D`);
-    }
+    // Park the terminal cursor where the logical cursor sits in the input line
+    // (one line above the hint).
+    write(`\x1b[1A\r`);
+    if (input.cursorCol > 0) write(`\x1b[${input.cursorCol}C`);
+    parkedUp = 1;
   };
 
   const redraw = () => {
@@ -329,6 +337,9 @@ export async function runInteractiveSession(
   drawTimer.unref?.();
 
   try {
+    // Fresh viewport, Claude-Code style: the visible screen clears (shell
+    // history stays in scrollback) and the session owns what you see.
+    write("\x1b[2J\x1b[H");
     await poll(options.primeFirstPoll);
     if (options.initialMessage) submit(options.initialMessage);
     redraw();
