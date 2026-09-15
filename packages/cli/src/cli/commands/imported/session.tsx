@@ -3,6 +3,7 @@ import { Box, render, Static, Text, useApp, useInput } from "ink";
 import TextInput from "ink-text-input";
 import { useEffect, useReducer, useRef, useState } from "react";
 import stripAnsi from "strip-ansi";
+import { expandPrompt } from "@/cli/commands/imported/expansions.js";
 import { createPasteFriendlyStdin } from "@/cli/commands/imported/paste.js";
 import {
   formatDuration,
@@ -463,9 +464,17 @@ export async function runGenesisSession(
       }
       creating = true;
       creatingSince = Date.now();
+      const expanded = expandPrompt(text);
       onLine(`${chalk.cyan("❯")} ${chalk.bold(text)}`);
+      if (expanded.applied.length) {
+        onLine(
+          chalk.dim(
+            `  ⤷ expanded ${expanded.applied.map((n) => `/${n}`).join(", ")}`,
+          ),
+        );
+      }
       options
-        .createApp(text, onLine)
+        .createApp(expanded.text, onLine)
         .then(async (config) => {
           const engine = createSessionEngine({
             branchId: config.branchId,

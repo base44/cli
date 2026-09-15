@@ -1,4 +1,5 @@
 import chalk from "chalk";
+import { expandPrompt } from "@/cli/commands/imported/expansions.js";
 import {
   eventLine,
   formatDuration,
@@ -93,9 +94,15 @@ export function createSessionEngine(options: EngineOptions): SessionEngine {
   let lastEventAt = Date.now();
 
   const submit = (raw: string) => {
-    const text = raw.trim();
-    if (!text) return;
-    options.onLine(`${chalk.cyan("❯")} ${chalk.bold(text)}`);
+    const typed = raw.trim();
+    if (!typed) return;
+    const { text, applied } = expandPrompt(typed);
+    options.onLine(`${chalk.cyan("❯")} ${chalk.bold(typed)}`);
+    if (applied.length) {
+      options.onLine(
+        chalk.dim(`  ⤷ expanded ${applied.map((n) => `/${n}`).join(", ")}`),
+      );
+    }
     pendingSubmitAt = Date.now();
     sendsInFlight++;
     sendImportedChatMessage(text, options.branchId)

@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import chalk from "chalk";
+import { expandPrompt } from "@/cli/commands/imported/expansions.js";
 import {
   createTurnStream,
   formatDuration,
@@ -90,6 +91,7 @@ async function createImportedAction(
   name: string | undefined,
   options: CreateImportedOptions,
 ): Promise<RunCommandResult> {
+  if (options.prompt) options.prompt = expandPrompt(options.prompt).text;
   // The positional name is the whole identity: directory, GitHub repo, app.
   let repoName = options.repoName ?? name;
   // A bare name means "from scratch" — --blank stays for explicitness.

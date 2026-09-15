@@ -1,4 +1,5 @@
 import chalk from "chalk";
+import { expandPrompt } from "@/cli/commands/imported/expansions.js";
 import {
   createTurnStream,
   terminalLink,
@@ -48,6 +49,7 @@ async function chatAction(
   { runTask, jsonMode, branchId: explicitBranchId }: CLIContext,
   message: string,
 ): Promise<RunCommandResult> {
+  message = expandPrompt(message).text;
   // Messages must land on the app's working branch: an unscoped send goes to
   // the main line, whose sandbox is separate and never pushed.
   const branchId =
