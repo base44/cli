@@ -43,6 +43,9 @@ interface SessionOptions {
   primeFirstPoll: boolean;
   /** Sent as the first turn right after priming (the `chat` argument). */
   initialMessage?: string;
+  /** A turn is already starting server-side (the create kickoff): show this
+   * as the busy label until its user message appears, instead of "ready". */
+  awaitingTurnLabel?: string;
   onTurnSettled?: (info: TurnSettleInfo) => void | Promise<void>;
 }
 
@@ -77,6 +80,8 @@ export async function runInteractiveSession(
   let lastTurnMs: number | null = null;
   let lastTurnOk = true;
   let settledCount = 0;
+  let awaitingTurn = options.awaitingTurnLabel ?? null;
+  const awaitingSince = Date.now();
 
   const columns = () => process.stdout.columns || 80;
 
@@ -96,6 +101,11 @@ export async function runInteractiveSession(
         activity = idleMusing(musingSeed);
       }
       return chalk.dim(`${FRAMES[frame]} ${activity} — turn ${turnFor}`);
+    }
+    if (awaitingTurn != null) {
+      return chalk.dim(
+        `${FRAMES[frame]} ${awaitingTurn} · ${formatDuration(Date.now() - awaitingSince)}`,
+      );
     }
     if (sendsInFlight > 0 || pendingSubmitAt != null) {
       return chalk.dim(`${FRAMES[frame]} sending…`);
@@ -286,10 +296,15 @@ export async function runInteractiveSession(
 
     const turn = newestUserTurn(messages);
     if (!turn) return;
+    const kickoffDetection = awaitingTurn != null && activeTurnId === null;
+    awaitingTurn = null;
     if (turn.id !== activeTurnId) {
       activeTurnId = turn.id;
       if (!turn.settled) {
-        turnStartedAt = pendingSubmitAt ?? Date.now();
+        // A kickoff was already running before this session opened — count its
+        // time from session start. Later turns count from their own submit.
+        turnStartedAt =
+          pendingSubmitAt ?? (kickoffDetection ? awaitingSince : Date.now());
         pendingSubmitAt = null;
         running.clear();
       } else if (prime) {

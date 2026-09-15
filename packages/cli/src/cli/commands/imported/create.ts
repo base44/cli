@@ -1,4 +1,4 @@
-import { mkdir } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import chalk from "chalk";
 import {
@@ -97,7 +97,20 @@ async function createImportedAction(
   );
 
   const configPath = await writeAppConfig(targetDir, created.id);
-  setAppContext({ id: created.id });
+  // Root discovery (findProjectRoot) keys on a PROJECT config, not .app.jsonc —
+  // without this, every later command run from the directory fails to find it.
+  const projectConfigPath = join(targetDir, "base44", "config.jsonc");
+  await mkdir(join(targetDir, "base44"), { recursive: true });
+  try {
+    await writeFile(
+      projectConfigPath,
+      `// Base44 project configuration.\n{\n  "name": ${JSON.stringify(appName)}\n}\n`,
+      { flag: "wx" }, // Never clobber an existing project config.
+    );
+  } catch {
+    // Already present — fine.
+  }
+  setAppContext({ id: created.id, projectRoot: targetDir });
 
   // The links ride as a sticky footer under the stream (always clickable) and
   // are printed permanently when it ends; non-interactive output gets them up
@@ -133,6 +146,7 @@ async function createImportedAction(
         branchId,
         footer,
         primeFirstPoll: false,
+        awaitingTurnLabel: "provisioning the sandbox and starting the build",
         onTurnSettled: async ({ turnIndex, ok }) => {
           if (turnIndex === 0 && ok && !previewUrl) {
             try {
