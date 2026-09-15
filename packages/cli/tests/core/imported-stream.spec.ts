@@ -77,6 +77,39 @@ describe("diffConversation", () => {
     expect(diffConversation(state, [settled])).toEqual([]);
   });
 
+  it("splits two-tense labels: present while running, past when done", () => {
+    const state = newStreamState();
+    const running = assistant({
+      id: "m1",
+      tool_calls: [
+        {
+          id: "t1",
+          name: "run_shell_command",
+          arguments_string:
+            '{"command":"astro dev --help","summary":"Checking astro dev CLI flags | Checked astro dev CLI flags"}',
+          status: "running",
+          results: null,
+        },
+      ],
+    });
+    const [start] = diffConversation(state, [running]);
+    expect(start).toMatchObject({
+      kind: "tool_start",
+      label: "Checking astro dev CLI flags",
+    });
+    const done = assistant({
+      ...running,
+      tool_calls: [
+        { ...running.tool_calls?.[0], status: "success", results: "ok" },
+      ],
+    } as ConversationMessage);
+    const [end] = diffConversation(state, [done]);
+    expect(end).toMatchObject({
+      kind: "tool_end",
+      label: "Checked astro dev CLI flags",
+    });
+  });
+
   it("emits only the newly appended part of growing text", () => {
     const state = newStreamState();
     diffConversation(state, [

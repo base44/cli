@@ -115,6 +115,14 @@ export function toolMeta(
   };
 }
 
+/** The tool `summary` argument carries two tenses: "Checking X | Checked X".
+ * Pick the one matching the moment; a single-form label serves both. */
+function labelTense(label: string, tense: "running" | "done"): string {
+  const parts = label.split(/\s*\|\s*/);
+  if (parts.length < 2) return label;
+  return tense === "running" ? parts[0] : parts[1];
+}
+
 function progressFor(state: StreamState, id: string): MessageProgress {
   let progress = state.perMessage.get(id);
   if (!progress) {
@@ -170,7 +178,7 @@ export function diffConversation(
           kind: "tool_start",
           id: tool.id,
           name: tool.name,
-          label: meta.label,
+          label: labelTense(meta.label, "running"),
           summary: meta.summary,
         });
       }
@@ -182,7 +190,7 @@ export function diffConversation(
           kind: "tool_end",
           id: tool.id,
           name: tool.name,
-          label: meta.label,
+          label: labelTense(meta.label, "done"),
           summary: meta.summary,
           ok: status === "success",
           result: oneLine(tool.results, 110),
