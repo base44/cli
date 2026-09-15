@@ -84,6 +84,13 @@ export interface PresignedAssetUpload {
   contentLength: number;
   /** Presigned S3 URL — the URL itself is the credential. */
   url: string;
+  /**
+   * Base64 sha256 the server signed in, when it signed one. Sent as
+   * `x-amz-checksum-sha256`, which is what makes S3 itself reject a body that
+   * is not the declared one. Absent on the legacy static lane, whose URLs pin
+   * only type and length.
+   */
+  checksumSha256?: string;
 }
 
 /**
