@@ -135,14 +135,21 @@ function SessionView({ engine, footer, subscribe }: ViewProps) {
           {(() => {
             // A shrinking spacer keeps the widget on the terminal's bottom row
             // until the conversation fills the screen; from then on only the
-            // conversation scrolls and the widget stays put.
+            // conversation scrolls and the widget stays put. The input's own
+            // wrapped height is part of the widget, or typing a long prompt
+            // would bounce the whole layout.
             const columns = process.stdout.columns || 80;
             const rows = process.stdout.rows || 24;
             const used = history.reduce(
               (sum, item) => sum + lineCount(item, columns),
               0,
             );
-            const widgetHeight = 5 + footer.length; // status + bordered input + hint
+            const innerWidth = Math.max(10, width - 4); // border + padding
+            const inputRows = Math.max(
+              1,
+              Math.ceil((input.length + 2) / innerWidth),
+            );
+            const widgetHeight = 4 + inputRows + footer.length; // status + border + hint
             const spacer = Math.max(0, rows - used - widgetHeight - 1);
             return spacer > 0 ? <Box height={spacer} /> : null;
           })()}
