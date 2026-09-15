@@ -12,7 +12,14 @@ const PROMPT_EXPANSIONS: Record<string, PromptExpansion> = {
     description: "Build with the Wix Headless Fast skill",
     // Deliberately no shell syntax (`curl -fsSL …`): the platform edge WAF
     // rejects command-shaped request bodies; the agent fetches URLs itself.
-    text: "Fetch and follow this skill: https://www.wix.com/skills/headless-fast/entry/skill.md\nFollow it exactly.",
+    // The nested-git note prevents the scaffold from committing as a gitlink.
+    text: [
+      "Fetch and follow this skill: https://www.wix.com/skills/headless-fast/entry/skill.md",
+      "Follow it exactly.",
+      "",
+      "One repository — this is important. The skill's `fast-path.mjs` scaffolds the site into a subfolder named after the business, and that scaffolder initializes its own git repository (a `.git`) inside that subfolder. But this Base44 app is already a single git repository, and it commits and pushes your work automatically at the end of the turn. A nested `.git` breaks that: git records the whole scaffolded subfolder as a submodule pointer (an empty gitlink) instead of its files, so none of your code reaches the repository.",
+      "So once the scaffold exists, collapse it into this one repository before you finish: delete the scaffolded subfolder's `.git` directory (e.g. `rm -rf <folder>/.git`) so its files are tracked here — or move the project up to the repository root. Then confirm with `git status` that the subfolder's individual files are staged, not the folder appearing as a single submodule entry. Keep the dev server and everything else working after the move.",
+    ].join("\n"),
   },
 };
 
