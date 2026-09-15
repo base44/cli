@@ -129,29 +129,29 @@ async function createImportedAction(
     workBranchId = branchId;
     buildStartedAt = Date.now();
     const stream = createTurnStream(interactive, undefined, { footer });
-    let settled: "settled" | "timeout";
     try {
-      settled = await streamConversationUntilSettled(
+      const settled = await streamConversationUntilSettled(
         (event) => {
           if (!jsonMode) stream.onEvent(event);
         },
         { branchId, timeoutMs: POLL_TIMEOUT_MS },
       );
+      finalState =
+        settled === "timeout"
+          ? "processing"
+          : ((await getImportedAppState(created.id)).status?.state ?? "ready");
+      if (finalState === "ready") {
+        try {
+          // Fetched while the stream still ticks; the footer array is live, so
+          // the link joins the pinned block and persists with it on stop.
+          previewUrl = await getImportedPreviewUrl();
+          footer.push(chalk.dim(`preview ${previewUrl}`));
+        } catch {
+          // Preview may still be booting; the editor shows it when it's up.
+        }
+      }
     } finally {
       stream.stop();
-    }
-    finalState =
-      settled === "timeout"
-        ? "processing"
-        : ((await getImportedAppState(created.id)).status?.state ?? "ready");
-    if (finalState === "ready") {
-      try {
-        previewUrl = await runTask("Fetching preview URL", () =>
-          getImportedPreviewUrl(),
-        );
-      } catch {
-        // Preview may still be booting; the editor shows it when it's up.
-      }
     }
   }
 
@@ -167,15 +167,13 @@ async function createImportedAction(
     };
   }
 
-  if (previewUrl) log.message(`preview ${previewUrl}`);
+  // Non-interactive runs never draw the pinned block — print the link plainly.
+  if (previewUrl && !interactive) log.message(`preview ${previewUrl}`);
 
-  // Stay in the session: keep taking prompts on the same working branch.
+  // Stay in the session: keep taking prompts on the same working branch. The
+  // footer already carries the preview link pushed above.
   if (options.prompt && process.stdout.isTTY === true) {
-    const sessionFooter = [
-      ...footer,
-      ...(previewUrl ? [chalk.dim(`preview ${previewUrl}`)] : []),
-    ];
-    await runIterationLoop(log, workBranchId, sessionFooter);
+    await runIterationLoop(log, workBranchId, footer);
   }
   const cdHint = name ? ` Next: cd ${name}` : "";
   if (finalState === "error") {

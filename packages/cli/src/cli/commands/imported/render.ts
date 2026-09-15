@@ -122,9 +122,10 @@ interface TurnStream {
 
 interface TurnStreamOptions {
   /** Lines pinned under the stream (repo/editor/preview links) — always the
-   * bottom of the terminal while streaming, printed permanently on stop. Keep
-   * each line under a typical terminal width: a soft-wrapped footer line
-   * breaks the redraw arithmetic. */
+   * bottom of the terminal while streaming, printed permanently on stop. The
+   * array is read LIVE: pushing a line (e.g. the preview URL once fetched)
+   * makes it appear on the next tick. Keep each line under a typical terminal
+   * width: a soft-wrapped footer line breaks the redraw arithmetic. */
   footer?: string[];
 }
 
@@ -171,7 +172,11 @@ export function createTurnStream(
 
   const drawBlock = () => {
     if (!interactive || stopped) return;
-    const lines = [...footer, chalk.dim(`${FRAMES[frame]} ${statusLabel()}`)];
+    // Leading blank line keeps the pinned links visually apart from the stream.
+    const lines = [
+      ...(footer.length ? ["", ...footer] : []),
+      chalk.dim(`${FRAMES[frame]} ${statusLabel()}`),
+    ];
     write(lines.join("\n"));
     drawnLines = lines.length;
   };
@@ -220,8 +225,9 @@ export function createTurnStream(
     stop() {
       if (interactive) {
         clearBlock();
-        // The links outlive the stream — leave them printed for clicking.
-        if (footer.length) write(`${footer.join("\n")}\n`);
+        // The links outlive the stream — leave them printed for clicking, set
+        // apart from the prose above.
+        if (footer.length) write(`\n${footer.join("\n")}\n`);
       }
       stopped = true;
       if (timer) clearInterval(timer);
