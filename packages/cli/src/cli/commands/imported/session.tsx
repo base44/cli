@@ -207,12 +207,15 @@ async function buildHeader(): Promise<string> {
     center(""),
     center(chalk.bold(who ? `Welcome back, ${who}!` : "Welcome!")),
     center(""),
-    // The Base44 mark: a full circle with one slice missing near the bottom.
-    center(orange("▄▄██████▄▄")),
-    center(orange("████████████")),
-    center(orange("████████████")),
+    // The Base44 mark: a rasterized circle (half-blocks double the vertical
+    // resolution) with the slice above the bottom cap missing.
+    center(orange("   ▄▄████▄▄   ")),
+    center(orange(" ▄██████████▄ ")),
+    center(orange("▄████████████▄")),
+    center(orange("██████████████")),
+    center(orange("▀████████████▀")),
     center(""),
-    center(orange("▀▀████████▀▀")),
+    center(orange("   ▀▀████▀▀   ")),
     center(""),
     center(chalk.dim(getBase44ApiUrl().replace(/^https:\/\//, ""))),
     center(chalk.dim(cwd)),
