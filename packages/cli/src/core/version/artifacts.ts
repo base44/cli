@@ -3,6 +3,7 @@ import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { globby } from "globby";
+import pMap from "p-map";
 import { CONFIG_FILE_EXTENSION_GLOB } from "@/core/consts.js";
 import { InvalidInputError } from "@/core/errors.js";
 import { pathExists, readJsonFile } from "@/core/utils/fs.js";
@@ -10,6 +11,9 @@ import type { ArtifactFile, ArtifactSet } from "@/core/version/schema.js";
 
 /** The same ceiling the site collector applies; one build, one limit. */
 const MAX_FILE_COUNT = 100_000;
+
+/** Open descriptors while hashing. Well under the 256 a production Node keeps. */
+const HASH_CONCURRENCY = 32;
 
 const ASSETS_IGNORE_FILE = ".assetsignore";
 
@@ -79,8 +83,12 @@ export async function collectBuildOutput(
     );
   }
 
-  return await Promise.all(
-    relativePaths.map(async (path) => {
+  // Bounded: one open descriptor per file, and the advertised ceiling is 100k.
+  // An unbounded Promise.all hits EMFILE at ~1.5k on a default descriptor limit,
+  // long before any of the declared limits.
+  return await pMap(
+    relativePaths,
+    async (path) => {
       const absolutePath = join(outputDir, ...path.split("/"));
       const { size } = await stat(absolutePath);
       return {
@@ -89,7 +97,8 @@ export async function collectBuildOutput(
         size,
         digest: await digestFile(absolutePath),
       };
-    }),
+    },
+    { concurrency: HASH_CONCURRENCY },
   );
 }
 

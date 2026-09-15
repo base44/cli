@@ -70,6 +70,26 @@ describe("collectBuildOutput", () => {
     expect(paths).toEqual(["index.html"]);
   });
 
+  it("hashes a large set without exhausting file descriptors", async () => {
+    // An unbounded Promise.all opens one descriptor per file and dies with
+    // EMFILE around 1.5k on a default limit — well under the 100k this
+    // advertises. 1200 is enough to fail the unbounded version reliably.
+    // Written sequentially: the point under test is the COLLECTOR's fan-out,
+    // so the fixture must not be what runs out of descriptors.
+    await mkdir(join(outputDir, "many"));
+    for (let i = 0; i < 1200; i++) {
+      await writeFile(
+        join(outputDir, "many", `f${i}.js`),
+        `export const x = ${i};`,
+      );
+    }
+
+    const files = await collectBuildOutput(outputDir);
+
+    expect(files).toHaveLength(1201);
+    expect(new Set(files.map((f) => f.digest)).size).toBe(1201);
+  }, 30_000);
+
   it("refuses a set with no entry point", async () => {
     await rm(join(outputDir, "index.html"));
     await writeFile(join(outputDir, "app.js"), "console.log(1);");

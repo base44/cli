@@ -52,15 +52,17 @@ async function publishAction(
     );
   }
 
-  const outputDir = requireOutputDir(target);
   const gitHash = await resolveProvenanceCommit(target.root, options.gitHash);
   const result = await runTask(
     "Publishing...",
     async (updateMessage) => {
-      const artifacts = {
-        files: await collectBuildOutput(outputDir),
+      // Inside the tag: resolving the output directory and reading it are part
+      // of producing the version, so a missing directory is a create_version
+      // failure rather than an envelope with no step at all.
+      const artifacts = await tagStep("create_version", async () => ({
+        files: await collectBuildOutput(requireOutputDir(target)),
         ...(await collectResources(target.configDir, target)),
-      };
+      }));
       return await publishVersion(artifacts, {
         sourceCommit: gitHash,
         target: options.target,

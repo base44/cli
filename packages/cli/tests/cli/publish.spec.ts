@@ -135,6 +135,25 @@ describe("publish command", () => {
     });
   });
 
+  it("names create_version when the output directory is missing", async () => {
+    // Local validation is part of producing the version. Before, this emitted an
+    // envelope with no `step`, so a sandbox could not tell a rejected build
+    // output from a transport failure.
+    t.givenEnv({ BASE44_VERSIONS_API: "1" });
+    await t.givenLoggedInWithProject(fixture("publishable"));
+
+    const result = await t.run(
+      "publish",
+      "--no-build",
+      "--output-dir",
+      "does-not-exist",
+      "--json",
+    );
+
+    t.expectResult(result).toFail();
+    expect(JSON.parse(result.stdout).step).toBe("create_version");
+  });
+
   it("builds first unless told not to", async () => {
     t.givenEnv({ BASE44_VERSIONS_API: "1" });
     await t.givenLoggedInWithProject(fixture("publishable"));
