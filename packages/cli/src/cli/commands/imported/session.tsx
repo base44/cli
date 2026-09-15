@@ -3,6 +3,7 @@ import { Box, render, Static, Text, useApp, useInput } from "ink";
 import TextInput from "ink-text-input";
 import { useEffect, useReducer, useState } from "react";
 import stripAnsi from "strip-ansi";
+import { createPasteFriendlyStdin } from "@/cli/commands/imported/paste.js";
 import { formatDuration, idleMusing } from "@/cli/commands/imported/render.js";
 import type {
   SessionEngine,
@@ -298,13 +299,17 @@ export async function runInteractiveSession(
   process.stdout.write("\x1b[2J\x1b[H");
   onLine(await buildHeader());
 
+  // Bracketed paste: the terminal wraps pastes in markers (and drops its
+  // multi-line paste warning); the stdin proxy flattens them to one line.
+  process.stdout.write("\x1b[?2004h");
+  const stdinProxy = createPasteFriendlyStdin(process.stdin);
   const app = render(
     <SessionView
       engine={engine}
       footer={options.footer}
       subscribe={subscribe}
     />,
-    { exitOnCtrlC: false },
+    { exitOnCtrlC: false, stdin: stdinProxy },
   );
 
   try {
@@ -312,6 +317,8 @@ export async function runInteractiveSession(
     if (options.initialMessage) engine.submit(options.initialMessage);
     await app.waitUntilExit();
   } finally {
+    process.stdout.write("\x1b[?2004l");
+    stdinProxy.cleanup();
     engine.stop();
     const note = engine.turnRunning()
       ? " — the running turn continues server-side (watch it in the editor)"
@@ -438,18 +445,22 @@ export async function runGenesisSession(
   process.stdout.write("\x1b[2J\x1b[H");
   onLine(await buildHeader());
 
+  process.stdout.write("\x1b[?2004h");
+  const stdinProxy = createPasteFriendlyStdin(process.stdin);
   const app = render(
     <SessionView
       engine={genesis}
       footer={options.footer}
       subscribe={subscribe}
     />,
-    { exitOnCtrlC: false },
+    { exitOnCtrlC: false, stdin: stdinProxy },
   );
 
   try {
     await app.waitUntilExit();
   } finally {
+    process.stdout.write("\x1b[?2004l");
+    stdinProxy.cleanup();
     genesis.stop();
     const note = genesis.turnRunning()
       ? " — the running turn continues server-side (watch it in the editor)"

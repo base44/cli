@@ -280,6 +280,32 @@ describe("render", () => {
   });
 });
 
+describe("makePasteSanitizer", () => {
+  it("strips paste markers and flattens newlines to one line", async () => {
+    const { makePasteSanitizer } = await import(
+      "@/cli/commands/imported/paste.js"
+    );
+    const sanitize = makePasteSanitizer();
+    expect(sanitize("\x1b[200~line one\nline two\r\nline three\x1b[201~")).toBe(
+      "line one line two line three",
+    );
+    // Outside a paste, everything passes through untouched (Enter stays Enter).
+    expect(sanitize("abc\r")).toBe("abc\r");
+  });
+
+  it("handles markers split across chunks", async () => {
+    const { makePasteSanitizer } = await import(
+      "@/cli/commands/imported/paste.js"
+    );
+    const sanitize = makePasteSanitizer();
+    const out =
+      sanitize("\x1b[20") +
+      sanitize("0~hello\nworld\x1b[2") +
+      sanitize("01~tail");
+    expect(out).toBe("hello worldtail");
+  });
+});
+
 describe("turnSettled", () => {
   const user = (id: string, outcome: unknown): ConversationMessage => ({
     id,
