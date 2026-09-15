@@ -7,6 +7,7 @@ import { getLoginCommand } from "@/cli/commands/auth/login.js";
 import { getLogoutCommand } from "@/cli/commands/auth/logout.js";
 import { getWhoamiCommand } from "@/cli/commands/auth/whoami.js";
 import { getBranchesCommand } from "@/cli/commands/branches/index.js";
+import { getCodeCommand } from "@/cli/commands/code.js";
 import { getConnectorsCommand } from "@/cli/commands/connectors/index.js";
 import { getDashboardCommand } from "@/cli/commands/dashboard/index.js";
 import { getEntitiesPushCommand } from "@/cli/commands/entities/push.js";
@@ -118,6 +119,7 @@ export function createProgram(context: CLIContext): Command {
   // Register imported-app commands
   program.addCommand(getImportedCommand());
   program.addCommand(getNewCommand());
+  program.addCommand(getCodeCommand());
 
   // Register the target command (staging/preview host selection)
   program.addCommand(getTargetCommand());

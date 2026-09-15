@@ -342,3 +342,62 @@ export function getImportedCreateCommand(): Base44Command {
     .action(createImportedAction);
   return command;
 }
+
+/** Genesis bootstrap for `base44 code`: turn the session's first prompt into
+ * a blank app — invented name, fresh repo, linked directory — and hand back
+ * the engine wiring. Emits progress lines into the session scrollback. */
+export async function bootstrapBlankApp(
+  prompt: string,
+  footer: string[],
+  emit: (line: string) => void,
+): Promise<{
+  branchId?: string;
+  awaitingTurnLabel: string;
+  onTurnSettled: (info: { turnIndex: number; ok: boolean }) => Promise<void>;
+}> {
+  const repoName = inventRepoName(prompt);
+  const created = await createImportedApp({
+    appName: repoName,
+    sourceMode: "blank",
+    newRepoName: repoName,
+    prompt,
+  });
+  const targetDir = join(process.cwd(), repoName);
+  await mkdir(join(targetDir, "base44"), { recursive: true });
+  await writeAppConfig(targetDir, created.id);
+  try {
+    await writeFile(
+      join(targetDir, "base44", "config.jsonc"),
+      `// Base44 project configuration.\n{\n  "name": ${JSON.stringify(repoName)}\n}\n`,
+      { flag: "wx" },
+    );
+  } catch {
+    // Already present — fine.
+  }
+  setAppContext({ id: created.id, projectRoot: targetDir });
+
+  const editorUrl = `${getBase44ApiUrl()}/apps/${created.id}/editor/preview`;
+  if (created.imported_repo_url) {
+    footer.push(chalk.dim(`repo    ${created.imported_repo_url}`));
+  }
+  footer.push(chalk.dim(`editor  ${editorUrl}`));
+  emit(chalk.dim(`linked  ./${repoName}  (cd ${repoName} after the session)`));
+
+  const branchId = await soleActiveBranchId().catch(() => undefined);
+  let previewPushed = false;
+  return {
+    branchId,
+    awaitingTurnLabel: "provisioning the sandbox and starting the build",
+    onTurnSettled: async ({ turnIndex, ok }) => {
+      if (turnIndex === 0 && ok && !previewPushed) {
+        try {
+          const previewUrl = await getImportedPreviewUrl();
+          previewPushed = true;
+          footer.push(chalk.dim(`preview ${previewUrl}`));
+        } catch {
+          // Preview may still be booting; the editor shows it when up.
+        }
+      }
+    },
+  };
+}

@@ -244,6 +244,13 @@ describe("imported", () => {
     });
   });
 
+  it("code refuses to run without a terminal", async () => {
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    const result = await t.run("code", "--json");
+    t.expectResult(result).toFail();
+    expect(JSON.parse(result.stdout).error).toContain("terminal");
+  });
+
   it("create --blank with no name invents a base44-* one", async () => {
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
     let sentBody: Record<string, unknown> | undefined;

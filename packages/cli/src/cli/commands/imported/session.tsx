@@ -28,6 +28,8 @@ interface SessionOptions {
   /** A turn is already starting server-side (the create kickoff): show this
    * as the busy label until its user message appears, instead of "ready". */
   awaitingTurnLabel?: string;
+  /** Shown next to "ready" when nothing is running. */
+  idleHint?: string;
   onTurnSettled?: (info: TurnSettleInfo) => void | Promise<void>;
 }
 
@@ -58,11 +60,12 @@ function statusText(status: SessionStatus, musingSeed: number): string {
     case "sending":
       return chalk.dim(`${frame} sending…`);
     case "idle": {
+      const hint = status.idleHint ? ` — ${status.idleHint}` : "";
       const last =
         status.lastTurnMs != null
           ? ` · last turn ${formatDuration(status.lastTurnMs)}${status.lastTurnOk ? "" : " (failed)"}`
           : "";
-      return chalk.dim(`ready${last}`);
+      return chalk.dim(`ready${hint}${last}`);
     }
   }
 }
@@ -283,6 +286,7 @@ export async function runInteractiveSession(
   const engine = createSessionEngine({
     branchId: options.branchId,
     awaitingTurnLabel: options.awaitingTurnLabel,
+    idleHint: options.idleHint,
     onLine,
     onTurnSettled: options.onTurnSettled,
   });
@@ -310,6 +314,144 @@ export async function runInteractiveSession(
   } finally {
     engine.stop();
     const note = engine.turnRunning()
+      ? " — the running turn continues server-side (watch it in the editor)"
+      : "";
+    process.stdout.write(
+      `${chalk.dim(`session ended · ${formatDuration(Date.now() - sessionStartedAt)}${note}`)}\n`,
+    );
+  }
+}
+
+interface GenesisAppConfig {
+  branchId?: string;
+  awaitingTurnLabel?: string;
+  onTurnSettled?: (info: TurnSettleInfo) => void | Promise<void>;
+}
+
+interface GenesisOptions {
+  /** Shown next to "ready" before the first prompt. */
+  idleHint: string;
+  /** Busy label while `createApp` runs. */
+  creatingLabel: string;
+  /** Live footer array — `createApp` pushes the links as they exist. */
+  footer: string[];
+  /** Turn the first prompt into an app; returns the wiring for the real
+   * engine, which takes over every later prompt. */
+  createApp: (
+    prompt: string,
+    emit: (line: string) => void,
+  ) => Promise<GenesisAppConfig>;
+}
+
+/**
+ * A session that starts BEFORE any app exists: the Base44 Code page opens
+ * with just the header and the input, and the first prompt creates the app
+ * (repo, directory, kickoff build) — then a real engine takes over, exactly
+ * as if the session had been opened on it.
+ */
+export async function runGenesisSession(
+  options: GenesisOptions,
+): Promise<void> {
+  const sessionStartedAt = Date.now();
+  const listeners = new Set<(line: string) => void>();
+  const buffered: string[] = [];
+  const onLine = (line: string) => {
+    if (listeners.size === 0) {
+      buffered.push(line);
+      return;
+    }
+    for (const listener of listeners) listener(line);
+  };
+  const subscribe = (listener: (line: string) => void) => {
+    listeners.add(listener);
+    if (buffered.length) {
+      for (const line of buffered.splice(0)) listener(line);
+    }
+    return () => listeners.delete(listener);
+  };
+
+  let inner: SessionEngine | null = null;
+  let creating = false;
+  let creatingSince = 0;
+  const IDLE_STATUS: SessionStatus = {
+    phase: "idle",
+    idleHint: options.idleHint,
+    awaitingSince: 0,
+    turnStartedAt: null,
+    runningTool: null,
+    lastTurnMs: null,
+    lastTurnOk: true,
+  };
+  const genesis: SessionEngine = {
+    async start() {},
+    stop() {
+      inner?.stop();
+    },
+    submit(text: string) {
+      if (inner) {
+        inner.submit(text);
+        return;
+      }
+      if (creating) {
+        onLine(chalk.dim("· hold on — still creating the app"));
+        return;
+      }
+      creating = true;
+      creatingSince = Date.now();
+      onLine(`${chalk.cyan("❯")} ${chalk.bold(text)}`);
+      options
+        .createApp(text, onLine)
+        .then(async (config) => {
+          const engine = createSessionEngine({
+            branchId: config.branchId,
+            awaitingTurnLabel: config.awaitingTurnLabel,
+            onLine,
+            onTurnSettled: config.onTurnSettled,
+          });
+          await engine.start(false);
+          inner = engine;
+        })
+        .catch((error: unknown) => {
+          creating = false;
+          const message =
+            error instanceof Error ? error.message : String(error);
+          onLine(chalk.red(`✗ create failed: ${message}`));
+        });
+    },
+    status(): SessionStatus {
+      if (inner) return inner.status();
+      if (creating) {
+        return {
+          ...IDLE_STATUS,
+          phase: "awaiting",
+          awaitingLabel: options.creatingLabel,
+          awaitingSince: creatingSince,
+        };
+      }
+      return IDLE_STATUS;
+    },
+    turnRunning() {
+      return inner?.turnRunning() ?? creating;
+    },
+  };
+
+  process.stdout.write("\x1b[2J\x1b[H");
+  onLine(await buildHeader());
+
+  const app = render(
+    <SessionView
+      engine={genesis}
+      footer={options.footer}
+      subscribe={subscribe}
+    />,
+    { exitOnCtrlC: false },
+  );
+
+  try {
+    await app.waitUntilExit();
+  } finally {
+    genesis.stop();
+    const note = genesis.turnRunning()
       ? " — the running turn continues server-side (watch it in the editor)"
       : "";
     process.stdout.write(

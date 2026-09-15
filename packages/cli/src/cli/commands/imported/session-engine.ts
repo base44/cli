@@ -35,6 +35,7 @@ type SessionPhase = "awaiting" | "running" | "sending" | "idle";
 export interface SessionStatus {
   phase: SessionPhase;
   awaitingLabel?: string;
+  idleHint?: string;
   awaitingSince: number;
   turnStartedAt: number | null;
   runningTool: {
@@ -51,6 +52,7 @@ export interface SessionStatus {
 interface EngineOptions {
   branchId?: string;
   awaitingTurnLabel?: string;
+  idleHint?: string;
   onLine: (line: string) => void;
   onTurnSettled?: (info: TurnSettleInfo) => void | Promise<void>;
 }
@@ -217,6 +219,7 @@ export function createSessionEngine(options: EngineOptions): SessionEngine {
       return {
         phase,
         awaitingLabel: awaitingTurn ?? undefined,
+        idleHint: options.idleHint,
         awaitingSince,
         turnStartedAt,
         runningTool,
