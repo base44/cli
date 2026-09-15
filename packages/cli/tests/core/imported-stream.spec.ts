@@ -164,6 +164,23 @@ describe("toolSummary", () => {
     expect(toolSummary("unknown_tool", "not json")).toBe("not json");
   });
 
+  it("salvages the salient key from truncated arguments JSON", () => {
+    // Big payloads arrive cut mid-string on the wire — JSON.parse fails, but
+    // the path key survived and must render instead of the raw blob.
+    expect(
+      toolSummary(
+        "write_repo_file",
+        '{"file_path": "the-sewer-vault/src/pages/shop.astro", "content": "<html>… trunc',
+      ),
+    ).toBe("the-sewer-vault/src/pages/shop.astro");
+    expect(
+      toolSummary(
+        "run_shell_command",
+        '{"command": "docker compose up -d", "summary": "boot the st',
+      ),
+    ).toBe("docker compose up -d");
+  });
+
   it("truncates long values to one line", () => {
     const long = `{"command":"${"x".repeat(200)}"}`;
     expect(toolSummary("run_shell_command", long)).toHaveLength(91); // 90 + ellipsis

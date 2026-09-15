@@ -1,7 +1,10 @@
+import chalk from "chalk";
 import { runIterationLoop } from "@/cli/commands/imported/iterate.js";
 import { createTurnStream } from "@/cli/commands/imported/render.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
+import { getBase44ApiUrl } from "@/core/config.js";
+import { getAppContext } from "@/core/project/app-config.js";
 import type { ImportedChatTurn } from "@/core/resources/imported/api.js";
 import {
   sendImportedChatMessage,
@@ -19,6 +22,15 @@ function lastAssistantReply(turn: ImportedChatTurn): string | undefined {
     }
   }
   return undefined;
+}
+
+function chatFooter(): string[] {
+  try {
+    const editorUrl = `${getBase44ApiUrl()}/apps/${getAppContext().id}/editor/preview`;
+    return [chalk.dim(`editor  ${editorUrl}`)];
+  } catch {
+    return [];
+  }
 }
 
 function turnOutro(turn: ImportedChatTurn): string {
@@ -44,8 +56,9 @@ async function chatAction(
       sendImportedChatMessage(message, branchId),
     );
   } else {
-    log.message("Agent working — live from the sandbox:");
-    const stream = createTurnStream(process.stdout.isTTY === true);
+    const stream = createTurnStream(process.stdout.isTTY === true, undefined, {
+      footer: chatFooter(),
+    });
     try {
       turn = await streamConversationDuring(
         () => sendImportedChatMessage(message, branchId),
@@ -78,7 +91,7 @@ async function chatAction(
   log.message(turnOutro(turn));
   // Stay in the session: keep taking prompts on the same working branch.
   if (process.stdout.isTTY === true) {
-    await runIterationLoop(log, branchId);
+    await runIterationLoop(log, branchId, chatFooter());
   }
   return { outroMessage: "Session ended." };
 }

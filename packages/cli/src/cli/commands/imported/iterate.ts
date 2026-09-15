@@ -12,6 +12,7 @@ import { streamConversationDuring } from "@/core/resources/imported/stream.js";
 export async function runIterationLoop(
   log: CLIContext["log"],
   branchId: string | undefined,
+  footer?: string[],
 ): Promise<void> {
   for (;;) {
     const reply = await text({
@@ -21,7 +22,9 @@ export async function runIterationLoop(
     });
     if (isCancel(reply) || !String(reply ?? "").trim()) return;
 
-    const stream = createTurnStream(process.stdout.isTTY === true);
+    const stream = createTurnStream(process.stdout.isTTY === true, undefined, {
+      footer,
+    });
     let turn: Awaited<ReturnType<typeof sendImportedChatMessage>>;
     try {
       turn = await streamConversationDuring(

@@ -98,19 +98,30 @@ interface TurnStream {
   stop: () => void;
 }
 
+interface TurnStreamOptions {
+  /** Lines pinned under the stream (repo/editor/preview links) — always the
+   * bottom of the terminal while streaming, printed permanently on stop. Keep
+   * each line under a typical terminal width: a soft-wrapped footer line
+   * breaks the redraw arithmetic. */
+  footer?: string[];
+}
+
 /**
  * Claude-Code-style turn view: completed items print as compact lines while a
- * single live status line at the bottom shows the spinner and whatever is
- * running right now (with elapsed seconds). Non-interactive mode skips the
- * status line and just prints settled lines.
+ * live block at the bottom shows the pinned footer links and a spinner status
+ * line (running tool + elapsed seconds). Non-interactive mode skips the live
+ * block and just prints settled lines.
  */
 export function createTurnStream(
   interactive: boolean,
   write: (text: string) => void = (text) => process.stdout.write(text),
+  options: TurnStreamOptions = {},
 ): TurnStream {
   const running = new Map<string, RunningTool>();
+  const footer = options.footer ?? [];
   let frame = 0;
   let stopped = false;
+  let drawnLines = 0;
   const musingSeed = Math.floor(Math.random() * MUSINGS.length);
 
   const statusLabel = (): string => {
@@ -127,13 +138,28 @@ export function createTurnStream(
     return `${newest.alias}${summary}${others} · ${elapsed}s`;
   };
 
-  const drawStatus = () => {
-    if (!interactive || stopped) return;
-    frame = (frame + 1) % FRAMES.length;
-    write(`\r\x1b[2K${chalk.dim(`${FRAMES[frame]} ${statusLabel()}`)}`);
+  const clearBlock = () => {
+    if (!drawnLines) return;
+    write("\r\x1b[2K");
+    for (let i = 1; i < drawnLines; i++) write("\x1b[1A\r\x1b[2K");
+    drawnLines = 0;
   };
 
-  const timer = interactive ? setInterval(drawStatus, 120) : null;
+  const drawBlock = () => {
+    if (!interactive || stopped) return;
+    const lines = [...footer, chalk.dim(`${FRAMES[frame]} ${statusLabel()}`)];
+    write(lines.join("\n"));
+    drawnLines = lines.length;
+  };
+
+  const tick = () => {
+    if (!interactive || stopped) return;
+    frame = (frame + 1) % FRAMES.length;
+    clearBlock();
+    drawBlock();
+  };
+
+  const timer = interactive ? setInterval(tick, 120) : null;
   if (timer) timer.unref?.();
 
   return {
@@ -144,23 +170,31 @@ export function createTurnStream(
           summary: event.summary,
           startedAt: Date.now(),
         });
-        drawStatus();
+        if (interactive) {
+          clearBlock();
+          drawBlock();
+        }
         return;
       }
       if (event.kind === "tool_end") running.delete(event.id);
       const line = eventLine(event);
       if (line == null) return;
       if (interactive) {
-        write(`\r\x1b[2K${line}\n`);
-        drawStatus();
+        clearBlock();
+        write(`${line}\n`);
+        drawBlock();
       } else {
         write(`${line}\n`);
       }
     },
     stop() {
+      if (interactive) {
+        clearBlock();
+        // The links outlive the stream — leave them printed for clicking.
+        if (footer.length) write(`${footer.join("\n")}\n`);
+      }
       stopped = true;
       if (timer) clearInterval(timer);
-      if (interactive) write("\r\x1b[2K");
     },
   };
 }

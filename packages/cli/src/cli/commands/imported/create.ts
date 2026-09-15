@@ -96,13 +96,19 @@ async function createImportedAction(
   const configPath = await writeAppConfig(targetDir, created.id);
   setAppContext({ id: created.id });
 
-  // Identity up front, dimmed — the editor is usable while the build runs, and
-  // the end of the turn stays with the agent's closing message.
+  // The links ride as a sticky footer under the stream (always clickable) and
+  // are printed permanently when it ends; non-interactive output gets them up
+  // front instead.
   const editorUrl = `${getBase44ApiUrl()}/apps/${created.id}/editor/preview`;
+  const interactive = !jsonMode && process.stdout.isTTY === true;
+  const footer = [
+    ...(created.imported_repo_url
+      ? [chalk.dim(`repo    ${created.imported_repo_url}`)]
+      : []),
+    chalk.dim(`editor  ${editorUrl}`),
+  ];
   if (!jsonMode) {
-    if (created.imported_repo_url)
-      log.message(chalk.dim(`repo    ${created.imported_repo_url}`));
-    log.message(chalk.dim(`editor  ${editorUrl}`));
+    if (!interactive) for (const line of footer) log.message(line);
     log.message(
       chalk.dim(name ? `linked  ./${name}` : `linked  ${configPath}`),
     );
@@ -117,7 +123,7 @@ async function createImportedAction(
     // flaps mid-turn and cannot be trusted.
     const branchId = await soleActiveBranchId().catch(() => undefined);
     workBranchId = branchId;
-    const stream = createTurnStream(!jsonMode && process.stdout.isTTY === true);
+    const stream = createTurnStream(interactive, undefined, { footer });
     let settled: "settled" | "timeout";
     try {
       settled = await streamConversationUntilSettled(
@@ -160,7 +166,11 @@ async function createImportedAction(
 
   // Stay in the session: keep taking prompts on the same working branch.
   if (options.prompt && process.stdout.isTTY === true) {
-    await runIterationLoop(log, workBranchId);
+    const sessionFooter = [
+      ...footer,
+      ...(previewUrl ? [chalk.dim(`preview ${previewUrl}`)] : []),
+    ];
+    await runIterationLoop(log, workBranchId, sessionFooter);
   }
   const cdHint = name ? ` Next: cd ${name}` : "";
   if (finalState === "error") {

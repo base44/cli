@@ -42,6 +42,20 @@ function oneLine(value: unknown, max: number): string {
   return flat.length > max ? `${flat.slice(0, max)}…` : flat;
 }
 
+const SALIENT_KEYS = ["command", "path", "file_path", "title", "summary"];
+
+/** Pull a salient value out of TRUNCATED arguments JSON (the wire cuts big
+ * payloads mid-string, so JSON.parse fails while the key we want survived). */
+function salvageFromTruncated(raw: string): string | undefined {
+  for (const key of SALIENT_KEYS) {
+    const match = raw.match(
+      new RegExp(`"${key}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"`),
+    );
+    if (match?.[1]) return match[1].replace(/\\(.)/g, "$1");
+  }
+  return undefined;
+}
+
 /** The one argument a human wants to see for each tool, not the JSON blob. */
 export function toolSummary(
   name: string,
@@ -54,7 +68,8 @@ export function toolSummary(
       args = parsed as Record<string, unknown>;
     }
   } catch {
-    return oneLine(argumentsString ?? "", 90);
+    const salvaged = salvageFromTruncated(argumentsString ?? "");
+    return oneLine(salvaged ?? argumentsString ?? "", 90);
   }
   const pick = (key: string): string | undefined =>
     typeof args[key] === "string" && (args[key] as string).trim()
