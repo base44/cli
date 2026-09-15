@@ -22,6 +22,10 @@ It is **not** `src/core/site/` — see [Deployments](deployments.md). That lane 
 2. **Upload.** `uploadPresignedAssets` — the same function the static deployments lane uses, same `pMap` concurrency and same ky retry policy. Each PUT sends the server's `Content-Type` **and** its `x-amz-checksum-sha256` verbatim; deriving either locally would 403 on any mapping difference.
 3. **Finalize.** `POST versions/{session_id}/finalize`, no body. The set was fixed at declare, so there is nothing left for the caller to change. The response says whether the content deduplicated to a version that already existed.
 
+Each of the three responses is parsed through its Zod schema and a mismatch raises `SchemaValidationError` — the house pattern from [Making API calls](api-patterns.md), and the only thing keeping this client aligned with the server. There is no generated type and no shared contract fixture here, the same as every other CLI↔platform surface: a server that renames or retypes a response field fails the publish with an error naming the field, rather than propagating `undefined`. In the other direction the server's request models forbid unknown fields, so a field this client sends that the server no longer accepts is a 422.
+
+What that does **not** catch is a change of meaning behind an unchanged shape. Nothing here does; the lane is small enough that both sides are reviewed together.
+
 `deployVersion(versionId, options)` is one POST carrying a target name and an idempotency key. Nothing else is the caller's to say: the app comes from the credential, and so do the acting principal, the runtime environment variables, every artifact key, the manifest hash and the publication revision. The request models on the server forbid unknown fields, so sending one is an error rather than a silent drop.
 
 ## Why the digest is signed into the URL
