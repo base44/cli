@@ -56,7 +56,14 @@ function statusText(status: SessionStatus, musingSeed: number): string {
           `${frame} ${what}${others} · ${toolFor}s (turn ${turnFor})`,
         );
       }
-      return `${chalk.magenta("✻")} ${chalk.dim(`${idleMusing(musingSeed)} (${turnFor})`)}`;
+      // Long silent stretch: some arms (plan/design) run minutes-long model
+      // calls whose UI renders only in the editor — say so instead of
+      // looking frozen.
+      const quiet =
+        status.quietForMs > 60_000
+          ? " · a long private step — details render in the editor"
+          : "";
+      return `${chalk.magenta("✻")} ${chalk.dim(`${idleMusing(musingSeed)} (${turnFor})${quiet}`)}`;
     }
     case "sending":
       return chalk.dim(`${frame} sending…`);
@@ -395,6 +402,7 @@ export async function runGenesisSession(
     runningTool: null,
     lastTurnMs: null,
     lastTurnOk: true,
+    quietForMs: 0,
   };
   const genesis: SessionEngine = {
     async start() {},

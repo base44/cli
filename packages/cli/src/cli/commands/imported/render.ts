@@ -56,6 +56,12 @@ export function eventLine(
       return event.text;
     case "tool_start":
       return null;
+    case "waiting": {
+      const what = event.label || toolAlias(event.name);
+      return chalk.yellow(
+        `⏸ ${what} — needs your input (answer in the editor)`,
+      );
+    }
     case "tool_end": {
       const alias = toolAlias(event.name);
       const mark = event.ok ? chalk.green("✓") : chalk.red("✗");

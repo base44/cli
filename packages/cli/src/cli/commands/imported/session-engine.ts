@@ -47,6 +47,8 @@ export interface SessionStatus {
   } | null;
   lastTurnMs: number | null;
   lastTurnOk: boolean;
+  /** ms since the running turn last produced a visible event. */
+  quietForMs: number;
 }
 
 interface EngineOptions {
@@ -88,6 +90,7 @@ export function createSessionEngine(options: EngineOptions): SessionEngine {
   let settledCount = 0;
   let awaitingTurn = options.awaitingTurnLabel ?? null;
   const awaitingSince = Date.now();
+  let lastEventAt = Date.now();
 
   const submit = (raw: string) => {
     const text = raw.trim();
@@ -140,7 +143,10 @@ export function createSessionEngine(options: EngineOptions): SessionEngine {
             running.delete(event.id);
           }
           const line = eventLine(event, elapsedMs);
-          if (line != null) options.onLine(line);
+          if (line != null) {
+            lastEventAt = Date.now();
+            options.onLine(line);
+          }
         }
       }
 
@@ -220,6 +226,7 @@ export function createSessionEngine(options: EngineOptions): SessionEngine {
         phase,
         awaitingLabel: awaitingTurn ?? undefined,
         idleHint: options.idleHint,
+        quietForMs: Date.now() - lastEventAt,
         awaitingSince,
         turnStartedAt,
         runningTool,

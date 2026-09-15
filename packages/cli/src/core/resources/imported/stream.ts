@@ -4,6 +4,7 @@ import { getFullConversation } from "@/core/resources/imported/api.js";
 export type StreamEvent =
   | { kind: "thinking"; text: string }
   | { kind: "text"; text: string }
+  | { kind: "waiting"; id: string; name: string; label: string }
   | {
       kind: "tool_start";
       id: string;
@@ -33,6 +34,7 @@ interface MessageProgress {
   reasoningLength: number;
   announcedTools: Map<string, AnnouncedTool>;
   settledTools: Set<string>;
+  waitingNotified: Set<string>;
 }
 
 interface StreamState {
@@ -131,6 +133,7 @@ function progressFor(state: StreamState, id: string): MessageProgress {
       reasoningLength: 0,
       announcedTools: new Map(),
       settledTools: new Set(),
+      waitingNotified: new Set(),
     };
     state.perMessage.set(id, progress);
   }
@@ -183,6 +186,19 @@ export function diffConversation(
         });
       }
       const status = tool.status ?? "running";
+      if (
+        status === "waiting_for_user_input" &&
+        !progress.waitingNotified.has(tool.id)
+      ) {
+        progress.waitingNotified.add(tool.id);
+        const meta = progress.announcedTools.get(tool.id) as AnnouncedTool;
+        events.push({
+          kind: "waiting",
+          id: tool.id,
+          name: tool.name,
+          label: labelTense(meta.label, "running"),
+        });
+      }
       if (TOOL_SETTLED.has(status) && !progress.settledTools.has(tool.id)) {
         progress.settledTools.add(tool.id);
         const meta = progress.announcedTools.get(tool.id) as AnnouncedTool;
