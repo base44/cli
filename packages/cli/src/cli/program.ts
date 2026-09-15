@@ -11,6 +11,7 @@ import { getConnectorsCommand } from "@/cli/commands/connectors/index.js";
 import { getDashboardCommand } from "@/cli/commands/dashboard/index.js";
 import { getEntitiesPushCommand } from "@/cli/commands/entities/push.js";
 import { getFunctionsCommand } from "@/cli/commands/functions/index.js";
+import { getImportedCommand } from "@/cli/commands/imported/index.js";
 import { getBuildCommand } from "@/cli/commands/project/build.js";
 import { getCreateCommand } from "@/cli/commands/project/create.js";
 import { getDeployCommand } from "@/cli/commands/project/deploy.js";
@@ -111,6 +112,9 @@ export function createProgram(context: CLIContext): Command {
   // Register sandbox (remote development) commands
   program.addCommand(getSandboxCommand());
   program.addCommand(getBranchesCommand());
+
+  // Register imported-app commands
+  program.addCommand(getImportedCommand());
 
   // Register auth config commands
   program.addCommand(getAuthCommand());

@@ -101,6 +101,10 @@ export const base44Client = ky.create({
     beforeRequest: [
       (request) => {
         request.headers.set("X-Request-ID", randomUUID());
+        // Staging/preview only: lets a dev flip PostHog flags per request
+        // (e.g. BASE44_FF_OVERRIDE="imported-apps:true"); prod ignores it.
+        const ffOverride = process.env.BASE44_FF_OVERRIDE;
+        if (ffOverride) request.headers.set("X-FF-Override", ffOverride);
       },
       captureRequestBody,
       async (request) => {
