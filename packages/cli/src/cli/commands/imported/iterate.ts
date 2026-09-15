@@ -1,0 +1,46 @@
+import { isCancel, text } from "@clack/prompts";
+import { createTurnStream } from "@/cli/commands/imported/render.js";
+import type { CLIContext } from "@/cli/types.js";
+import { sendImportedChatMessage } from "@/core/resources/imported/api.js";
+import { streamConversationDuring } from "@/core/resources/imported/stream.js";
+
+/**
+ * Post-run iteration mode: keep taking prompts and running streamed turns on
+ * the same branch until the user submits nothing (or cancels). TTY only —
+ * callers gate on interactivity.
+ */
+export async function runIterationLoop(
+  log: CLIContext["log"],
+  branchId: string | undefined,
+): Promise<void> {
+  for (;;) {
+    const reply = await text({
+      message: "What next? (Enter with no text to finish)",
+      placeholder: "e.g. add user login with sessions",
+      defaultValue: "",
+    });
+    if (isCancel(reply) || !String(reply ?? "").trim()) return;
+
+    const stream = createTurnStream(process.stdout.isTTY === true);
+    let turn: Awaited<ReturnType<typeof sendImportedChatMessage>>;
+    try {
+      turn = await streamConversationDuring(
+        () => sendImportedChatMessage(String(reply).trim(), branchId),
+        stream.onEvent,
+        { branchId },
+      );
+    } finally {
+      stream.stop();
+    }
+    if (turn.queued) {
+      log.message("Queued behind an earlier message — it will run next.");
+      continue;
+    }
+    const state = turn.status?.state ?? "ready";
+    log.message(
+      state === "error"
+        ? `Turn failed (${turn.status?.error_source ?? "unknown"}) — see the editor for details.`
+        : "Turn finished.",
+    );
+  }
+}

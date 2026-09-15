@@ -1,3 +1,4 @@
+import { runIterationLoop } from "@/cli/commands/imported/iterate.js";
 import { createTurnStream } from "@/cli/commands/imported/render.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
@@ -73,7 +74,13 @@ async function chatAction(
       })}\n`,
     };
   }
-  return { outroMessage: turnOutro(turn) };
+
+  log.message(turnOutro(turn));
+  // Stay in the session: keep taking prompts on the same working branch.
+  if (process.stdout.isTTY === true) {
+    await runIterationLoop(log, branchId);
+  }
+  return { outroMessage: "Session ended." };
 }
 
 export function getImportedChatCommand(): Base44Command {

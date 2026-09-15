@@ -1,8 +1,10 @@
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
+import { runIterationLoop } from "@/cli/commands/imported/iterate.js";
 import { createTurnStream } from "@/cli/commands/imported/render.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
-import { Base44Command, getDashboardUrl } from "@/cli/utils/index.js";
+import { Base44Command } from "@/cli/utils/index.js";
+import { getBase44ApiUrl } from "@/core/config.js";
 import { InvalidInputError } from "@/core/errors.js";
 import {
   appConfigExists,
@@ -95,11 +97,13 @@ async function createImportedAction(
 
   let finalState: string | undefined;
   let previewUrl: string | undefined;
+  let workBranchId: string | undefined;
   if (options.prompt) {
     // The kickoff turn runs on the app's setup branch conversation. Completion
     // is the outcome stamp on the turn's user message — the app status field
     // flaps mid-turn and cannot be trusted.
     const branchId = await soleActiveBranchId().catch(() => undefined);
+    workBranchId = branchId;
     if (!jsonMode) {
       log.message(
         "Agent is building — live (several minutes; safe to Ctrl+C, the build continues):",
@@ -132,7 +136,7 @@ async function createImportedAction(
     }
   }
 
-  const editorUrl = getDashboardUrl(created.id);
+  const editorUrl = `${getBase44ApiUrl()}/apps/${created.id}/editor/preview`;
   if (jsonMode) {
     return {
       stdout: `${JSON.stringify({
@@ -155,6 +159,11 @@ async function createImportedAction(
       ? `Linked ./${name} (${configPath})`
       : `Linked this directory (${configPath})`,
   );
+
+  // Stay in the session: keep taking prompts on the same working branch.
+  if (options.prompt && process.stdout.isTTY === true) {
+    await runIterationLoop(log, workBranchId);
+  }
   const cdHint = name ? ` Next: cd ${name}` : "";
   if (finalState === "error") {
     return {

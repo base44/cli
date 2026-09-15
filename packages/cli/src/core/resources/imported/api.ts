@@ -295,6 +295,11 @@ export async function getImportedPreviewUrl(): Promise<string> {
   } catch (error) {
     throw await ApiError.fromHttpError(error, "fetching preview URL");
   }
-  return parseOrThrow(PreviewUrlSchema, await response.json(), "preview URL")
-    .preview_url;
+  const url = parseOrThrow(
+    PreviewUrlSchema,
+    await response.json(),
+    "preview URL",
+  ).preview_url;
+  // Imported apps get a bare proxied host back — make it clickable.
+  return /^https?:\/\//.test(url) ? url : `https://${url}`;
 }
