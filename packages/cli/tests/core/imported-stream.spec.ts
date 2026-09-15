@@ -1,11 +1,15 @@
 import stripAnsi from "strip-ansi";
 import { describe, expect, it } from "vitest";
-import { createTurnStream, eventLine } from "@/cli/commands/imported/render.js";
+import {
+  createTurnStream,
+  eventLine,
+  formatDuration,
+} from "@/cli/commands/imported/render.js";
 import type { ConversationMessage } from "@/core/resources/imported/api.js";
 import {
   diffConversation,
   newStreamState,
-  toolSummary,
+  toolMeta,
   turnSettled,
 } from "@/core/resources/imported/stream.js";
 
@@ -27,7 +31,8 @@ describe("diffConversation", () => {
         {
           id: "t1",
           name: "run_shell_command",
-          arguments_string: '{"command": "docker compose up -d"}',
+          arguments_string:
+            '{"command": "docker compose up -d", "summary": "Boot the stack"}',
           status: "running",
           results: null,
         },
@@ -40,6 +45,7 @@ describe("diffConversation", () => {
         kind: "tool_start",
         id: "t1",
         name: "run_shell_command",
+        label: "Boot the stack",
         summary: "docker compose up -d",
       },
     ]);
@@ -61,6 +67,7 @@ describe("diffConversation", () => {
         kind: "tool_end",
         id: "t1",
         name: "run_shell_command",
+        label: "Boot the stack",
         summary: "docker compose up -d",
         ok: true,
         result: "3 containers started",
@@ -107,12 +114,14 @@ describe("diffConversation", () => {
         kind: "tool_start",
         id: "t1",
         name: "edit_repo_file",
+        label: "",
         summary: "backend/app/db.py",
       },
       {
         kind: "tool_end",
         id: "t1",
         name: "edit_repo_file",
+        label: "",
         summary: "backend/app/db.py",
         ok: false,
         result: '{"error":"File not found"}',
@@ -143,51 +152,78 @@ describe("diffConversation", () => {
   });
 });
 
-describe("toolSummary", () => {
-  it("extracts the salient argument per tool", () => {
+describe("toolMeta", () => {
+  it("separates the human title (summary arg) from the salient argument", () => {
     expect(
-      toolSummary("run_shell_command", '{"command":"ls -la","summary":"list"}'),
-    ).toBe("ls -la");
+      toolMeta(
+        "run_shell_command",
+        '{"command":"ls -la","summary":"List the tree"}',
+      ),
+    ).toEqual({ label: "List the tree", summary: "ls -la" });
     expect(
-      toolSummary("write_repo_file", '{"path":"a.py","content":"…"}'),
-    ).toBe("a.py");
+      toolMeta("write_repo_file", '{"path":"a.py","content":"…"}'),
+    ).toEqual({ label: "", summary: "a.py" });
     expect(
-      toolSummary("create_pull_request", '{"title":"Add auth","body":"x"}'),
-    ).toBe("Add auth");
+      toolMeta("create_pull_request", '{"title":"Add auth","body":"x"}'),
+    ).toEqual({ label: "", summary: "Add auth" });
   });
 
-  it("falls back to summary, then the first string, and survives non-JSON", () => {
-    expect(toolSummary("set_secrets", '{"summary":"3 secrets declared"}')).toBe(
-      "3 secrets declared",
+  it("falls back to the first non-summary string and survives non-JSON", () => {
+    expect(toolMeta("set_secrets", '{"summary":"3 secrets declared"}')).toEqual(
+      { label: "3 secrets declared", summary: "" },
     );
-    expect(toolSummary("unknown_tool", '{"n":1,"target":"web"}')).toBe("web");
-    expect(toolSummary("unknown_tool", "not json")).toBe("not json");
+    expect(toolMeta("unknown_tool", '{"n":1,"target":"web"}')).toEqual({
+      label: "",
+      summary: "web",
+    });
+    expect(toolMeta("unknown_tool", "not json").summary).toBe("not json");
   });
 
-  it("salvages the salient key from truncated arguments JSON", () => {
+  it("salvages keys from truncated arguments JSON", () => {
     // Big payloads arrive cut mid-string on the wire — JSON.parse fails, but
-    // the path key survived and must render instead of the raw blob.
+    // keys that survived must render instead of the raw blob.
     expect(
-      toolSummary(
+      toolMeta(
         "write_repo_file",
         '{"file_path": "the-sewer-vault/src/pages/shop.astro", "content": "<html>… trunc',
       ),
-    ).toBe("the-sewer-vault/src/pages/shop.astro");
+    ).toEqual({ label: "", summary: "the-sewer-vault/src/pages/shop.astro" });
     expect(
-      toolSummary(
+      toolMeta(
         "run_shell_command",
-        '{"command": "docker compose up -d", "summary": "boot the st',
+        '{"summary": "Boot the stack", "command": "docker compose up -d", "timeout": 60',
       ),
-    ).toBe("docker compose up -d");
+    ).toEqual({ label: "Boot the stack", summary: "docker compose up -d" });
   });
 
   it("truncates long values to one line", () => {
     const long = `{"command":"${"x".repeat(200)}"}`;
-    expect(toolSummary("run_shell_command", long)).toHaveLength(91); // 90 + ellipsis
+    expect(toolMeta("run_shell_command", long).summary).toHaveLength(91); // 90 + ellipsis
   });
 });
 
 describe("render", () => {
+  it("title-first line: label leads, alias+arg is the dim detail, duration shown", () => {
+    expect(
+      stripAnsi(
+        eventLine(
+          {
+            kind: "tool_end",
+            id: "t1",
+            name: "run_shell_command",
+            label: "Confirmed Wix login",
+            summary: "cd /tmp && node bootstrap.mjs",
+            ok: true,
+            result: '{"event":"logged_in"}',
+          },
+          4000,
+        ) ?? "",
+      ),
+    ).toBe(
+      '✓ Confirmed Wix login  bash: cd /tmp && node bootstrap.mjs · 4s\n  {"event":"logged_in"}',
+    );
+  });
+
   it("aliases tool names and keeps quiet on boring ok results", () => {
     expect(
       stripAnsi(
@@ -195,6 +231,7 @@ describe("render", () => {
           kind: "tool_end",
           id: "t1",
           name: "write_repo_file",
+          label: "",
           summary: "frontend/src/App.jsx",
           ok: true,
           result: "Wrote frontend/src/App.jsx",
@@ -202,25 +239,19 @@ describe("render", () => {
       ),
     ).toBe("✓ write frontend/src/App.jsx");
     expect(
-      stripAnsi(
-        eventLine({
-          kind: "tool_end",
-          id: "t2",
-          name: "run_shell_command",
-          summary: "docker compose ps",
-          ok: true,
-          result: "3 containers running",
-        }) ?? "",
-      ),
-    ).toBe("✓ bash docker compose ps\n  3 containers running");
-    expect(
       eventLine({
         kind: "tool_start",
         id: "t3",
         name: "run_shell_command",
+        label: "",
         summary: "ls",
       }),
     ).toBeNull();
+  });
+
+  it("formats durations for humans", () => {
+    expect(formatDuration(4_000)).toBe("4s");
+    expect(formatDuration(272_000)).toBe("4m 32s");
   });
 
   it("non-interactive stream prints settled lines only, no ANSI cursor codes", () => {
@@ -230,12 +261,14 @@ describe("render", () => {
       kind: "tool_start",
       id: "t1",
       name: "write_repo_file",
+      label: "",
       summary: "a.py",
     });
     stream.onEvent({
       kind: "tool_end",
       id: "t1",
       name: "write_repo_file",
+      label: "",
       summary: "a.py",
       ok: true,
       result: "Wrote a.py",

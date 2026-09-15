@@ -1,5 +1,9 @@
 import { isCancel, text } from "@clack/prompts";
-import { createTurnStream } from "@/cli/commands/imported/render.js";
+import chalk from "chalk";
+import {
+  createTurnStream,
+  formatDuration,
+} from "@/cli/commands/imported/render.js";
 import type { CLIContext } from "@/cli/types.js";
 import { sendImportedChatMessage } from "@/core/resources/imported/api.js";
 import { streamConversationDuring } from "@/core/resources/imported/stream.js";
@@ -22,6 +26,7 @@ export async function runIterationLoop(
     });
     if (isCancel(reply) || !String(reply ?? "").trim()) return;
 
+    const turnStartedAt = Date.now();
     const stream = createTurnStream(process.stdout.isTTY === true, undefined, {
       footer,
     });
@@ -40,10 +45,11 @@ export async function runIterationLoop(
       continue;
     }
     const state = turn.status?.state ?? "ready";
+    const took = chalk.dim(`· ${formatDuration(Date.now() - turnStartedAt)}`);
     log.message(
       state === "error"
-        ? `Turn failed (${turn.status?.error_source ?? "unknown"}) — see the editor for details.`
-        : "Turn finished.",
+        ? `Turn failed (${turn.status?.error_source ?? "unknown"}) — see the editor for details. ${took}`
+        : `Turn finished ${took}`,
     );
   }
 }

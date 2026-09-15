@@ -4,20 +4,34 @@ import { getFullConversation } from "@/core/resources/imported/api.js";
 export type StreamEvent =
   | { kind: "thinking"; text: string }
   | { kind: "text"; text: string }
-  | { kind: "tool_start"; id: string; name: string; summary: string }
+  | {
+      kind: "tool_start";
+      id: string;
+      name: string;
+      /** The tool's human title (its `summary` argument), "" when absent. */
+      label: string;
+      /** The salient argument: the command, the path, the PR title. */
+      summary: string;
+    }
   | {
       kind: "tool_end";
       id: string;
       name: string;
+      label: string;
       summary: string;
       ok: boolean;
       result: string;
     };
 
+interface AnnouncedTool {
+  label: string;
+  summary: string;
+}
+
 interface MessageProgress {
   contentLength: number;
   reasoningLength: number;
-  announcedTools: Map<string, string>; // tool id -> summary
+  announcedTools: Map<string, AnnouncedTool>;
   settledTools: Set<string>;
 }
 
@@ -42,12 +56,12 @@ function oneLine(value: unknown, max: number): string {
   return flat.length > max ? `${flat.slice(0, max)}…` : flat;
 }
 
-const SALIENT_KEYS = ["command", "path", "file_path", "title", "summary"];
+const SALIENT_KEYS = ["command", "path", "file_path", "title"];
 
-/** Pull a salient value out of TRUNCATED arguments JSON (the wire cuts big
+/** Pull one key's value out of TRUNCATED arguments JSON (the wire cuts big
  * payloads mid-string, so JSON.parse fails while the key we want survived). */
-function salvageFromTruncated(raw: string): string | undefined {
-  for (const key of SALIENT_KEYS) {
+function salvageKey(raw: string, keys: string[]): string | undefined {
+  for (const key of keys) {
     const match = raw.match(
       new RegExp(`"${key}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"`),
     );
@@ -56,20 +70,25 @@ function salvageFromTruncated(raw: string): string | undefined {
   return undefined;
 }
 
-/** The one argument a human wants to see for each tool, not the JSON blob. */
-export function toolSummary(
+/** Both faces of a tool call: the human title the model wrote (`summary`
+ * argument — what the editor shows) and the salient raw argument (the
+ * command, the path, the PR title). */
+export function toolMeta(
   name: string,
   argumentsString: string | null | undefined,
-): string {
+): AnnouncedTool {
+  const raw = argumentsString ?? "";
   let args: Record<string, unknown> = {};
   try {
-    const parsed: unknown = JSON.parse(argumentsString ?? "");
+    const parsed: unknown = JSON.parse(raw);
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
       args = parsed as Record<string, unknown>;
     }
   } catch {
-    const salvaged = salvageFromTruncated(argumentsString ?? "");
-    return oneLine(salvaged ?? argumentsString ?? "", 90);
+    return {
+      label: oneLine(salvageKey(raw, ["summary"]) ?? "", 90),
+      summary: oneLine(salvageKey(raw, SALIENT_KEYS) ?? raw, 90),
+    };
   }
   const pick = (key: string): string | undefined =>
     typeof args[key] === "string" && (args[key] as string).trim()
@@ -85,12 +104,15 @@ export function toolSummary(
   };
   const summary =
     salient[name] ??
-    pick("summary") ??
-    Object.values(args).find(
-      (v): v is string => typeof v === "string" && v.trim().length > 0,
-    ) ??
+    Object.entries(args).find(
+      ([key, v]) =>
+        key !== "summary" && typeof v === "string" && v.trim().length > 0,
+    )?.[1] ??
     "";
-  return oneLine(summary, 90);
+  return {
+    label: oneLine(pick("summary") ?? "", 90),
+    summary: oneLine(summary as string, 90),
+  };
 }
 
 function progressFor(state: StreamState, id: string): MessageProgress {
@@ -141,23 +163,27 @@ export function diffConversation(
       if (!progress.announcedTools.has(tool.id)) {
         progress.announcedTools.set(
           tool.id,
-          toolSummary(tool.name, tool.arguments_string),
+          toolMeta(tool.name, tool.arguments_string),
         );
+        const meta = progress.announcedTools.get(tool.id) as AnnouncedTool;
         events.push({
           kind: "tool_start",
           id: tool.id,
           name: tool.name,
-          summary: progress.announcedTools.get(tool.id) ?? "",
+          label: meta.label,
+          summary: meta.summary,
         });
       }
       const status = tool.status ?? "running";
       if (TOOL_SETTLED.has(status) && !progress.settledTools.has(tool.id)) {
         progress.settledTools.add(tool.id);
+        const meta = progress.announcedTools.get(tool.id) as AnnouncedTool;
         events.push({
           kind: "tool_end",
           id: tool.id,
           name: tool.name,
-          summary: progress.announcedTools.get(tool.id) ?? "",
+          label: meta.label,
+          summary: meta.summary,
           ok: status === "success",
           result: oneLine(tool.results, 110),
         });

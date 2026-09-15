@@ -27,11 +27,22 @@ function toolAlias(name: string): string {
   return TOOL_ALIASES[name] ?? name;
 }
 
+export function formatDuration(ms: number): string {
+  const seconds = Math.round(ms / 1000);
+  if (seconds < 90) return `${seconds}s`;
+  return `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, "0")}s`;
+}
+
 /**
  * The finished line for an event, or null when it only affects the live
- * status (a tool starting). Plain string + chalk; no layout gutter.
+ * status (a tool starting). The tool's own human title (its `summary`
+ * argument, same as the editor shows) leads; the raw salient argument is the
+ * dim detail. Plain string + chalk; no layout gutter.
  */
-export function eventLine(event: StreamEvent): string | null {
+export function eventLine(
+  event: StreamEvent,
+  elapsedMs?: number,
+): string | null {
   switch (event.kind) {
     case "thinking":
       return chalk.dim(`✻ ${event.text}`);
@@ -41,17 +52,27 @@ export function eventLine(event: StreamEvent): string | null {
       return null;
     case "tool_end": {
       const alias = toolAlias(event.name);
-      const head = event.ok
-        ? `${chalk.green("✓")} ${chalk.bold(alias)}`
-        : `${chalk.red("✗")} ${chalk.bold(alias)}`;
-      const summary = event.summary ? ` ${chalk.dim(event.summary)}` : "";
+      const mark = event.ok ? chalk.green("✓") : chalk.red("✗");
+      const title = chalk.bold(event.label || alias);
+      const detail = event.label
+        ? event.summary
+          ? `  ${chalk.dim(`${alias}: ${event.summary}`)}`
+          : `  ${chalk.dim(alias)}`
+        : event.summary
+          ? ` ${chalk.dim(event.summary)}`
+          : "";
+      const took =
+        elapsedMs != null && elapsedMs >= 3000
+          ? ` ${chalk.dim(`· ${formatDuration(elapsedMs)}`)}`
+          : "";
+      const head = `${mark} ${title}${detail}${took}`;
       if (event.ok && (QUIET_OK_RESULTS.has(alias) || !event.result)) {
-        return `${head}${summary}`;
+        return head;
       }
       const result = event.ok
         ? chalk.dim(event.result)
         : chalk.red(event.result);
-      return `${head}${summary}${event.result ? `\n  ${result}` : ""}`;
+      return `${head}${event.result ? `\n  ${result}` : ""}`;
     }
   }
 }
@@ -89,6 +110,7 @@ const MUSING_ROTATE_MS = 6_000;
 
 interface RunningTool {
   alias: string;
+  label: string;
   summary: string;
   startedAt: number;
 }
@@ -134,8 +156,10 @@ export function createTurnStream(
     const newest = [...running.values()].at(-1) as RunningTool;
     const elapsed = Math.round((Date.now() - newest.startedAt) / 1000);
     const others = running.size > 1 ? ` (+${running.size - 1} more)` : "";
-    const summary = newest.summary ? ` ${newest.summary}` : "";
-    return `${newest.alias}${summary}${others} · ${elapsed}s`;
+    const what =
+      newest.label ||
+      `${newest.alias}${newest.summary ? ` ${newest.summary}` : ""}`;
+    return `${what}${others} · ${elapsed}s`;
   };
 
   const clearBlock = () => {
@@ -167,6 +191,7 @@ export function createTurnStream(
       if (event.kind === "tool_start") {
         running.set(event.id, {
           alias: toolAlias(event.name),
+          label: event.label,
           summary: event.summary,
           startedAt: Date.now(),
         });
@@ -176,8 +201,13 @@ export function createTurnStream(
         }
         return;
       }
-      if (event.kind === "tool_end") running.delete(event.id);
-      const line = eventLine(event);
+      let elapsedMs: number | undefined;
+      if (event.kind === "tool_end") {
+        const started = running.get(event.id)?.startedAt;
+        if (started != null) elapsedMs = Date.now() - started;
+        running.delete(event.id);
+      }
+      const line = eventLine(event, elapsedMs);
       if (line == null) return;
       if (interactive) {
         clearBlock();

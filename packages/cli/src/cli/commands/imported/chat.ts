@@ -1,6 +1,9 @@
 import chalk from "chalk";
 import { runIterationLoop } from "@/cli/commands/imported/iterate.js";
-import { createTurnStream } from "@/cli/commands/imported/render.js";
+import {
+  createTurnStream,
+  formatDuration,
+} from "@/cli/commands/imported/render.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
 import { getBase44ApiUrl } from "@/core/config.js";
@@ -51,11 +54,13 @@ async function chatAction(
     explicitBranchId ?? (await soleActiveBranchId().catch(() => undefined));
 
   let turn: ImportedChatTurn;
+  let turnStartedAt: number | undefined;
   if (jsonMode) {
     turn = await runTask("Agent working (a turn can take minutes)", () =>
       sendImportedChatMessage(message, branchId),
     );
   } else {
+    turnStartedAt = Date.now();
     const stream = createTurnStream(process.stdout.isTTY === true, undefined, {
       footer: chatFooter(),
     });
@@ -88,7 +93,11 @@ async function chatAction(
     };
   }
 
-  log.message(turnOutro(turn));
+  const took =
+    turnStartedAt != null
+      ? ` ${chalk.dim(`· ${formatDuration(Date.now() - turnStartedAt)}`)}`
+      : "";
+  log.message(`${turnOutro(turn)}${took}`);
   // Stay in the session: keep taking prompts on the same working branch.
   if (process.stdout.isTTY === true) {
     await runIterationLoop(log, branchId, chatFooter());

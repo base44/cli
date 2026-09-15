@@ -2,7 +2,10 @@ import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import chalk from "chalk";
 import { runIterationLoop } from "@/cli/commands/imported/iterate.js";
-import { createTurnStream } from "@/cli/commands/imported/render.js";
+import {
+  createTurnStream,
+  formatDuration,
+} from "@/cli/commands/imported/render.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
 import { getBase44ApiUrl } from "@/core/config.js";
@@ -117,12 +120,14 @@ async function createImportedAction(
   let finalState: string | undefined;
   let previewUrl: string | undefined;
   let workBranchId: string | undefined;
+  let buildStartedAt: number | undefined;
   if (options.prompt) {
     // The kickoff turn runs on the app's setup branch conversation. Completion
     // is the outcome stamp on the turn's user message — the app status field
     // flaps mid-turn and cannot be trusted.
     const branchId = await soleActiveBranchId().catch(() => undefined);
     workBranchId = branchId;
+    buildStartedAt = Date.now();
     const stream = createTurnStream(interactive, undefined, { footer });
     let settled: "settled" | "timeout";
     try {
@@ -183,9 +188,13 @@ async function createImportedAction(
       outroMessage: `Still building — check progress in the editor or with \`base44 imported status\`.${cdHint}`,
     };
   }
+  const buildTook =
+    buildStartedAt != null
+      ? ` · ${formatDuration(Date.now() - buildStartedAt)}`
+      : "";
   return {
     outroMessage: options.prompt
-      ? `First build finished.${cdHint}`
+      ? `First build finished${buildTook}.${cdHint}`
       : `Imported app created.${cdHint}`,
   };
 }
