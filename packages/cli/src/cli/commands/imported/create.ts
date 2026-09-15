@@ -35,13 +35,59 @@ interface CreateImportedOptions {
   prompt?: string;
 }
 
+const REPO_NAME_RE = /^[A-Za-z0-9._-]+$/;
+
+const NAME_STOPWORDS = new Set([
+  "a",
+  "an",
+  "the",
+  "and",
+  "or",
+  "of",
+  "for",
+  "with",
+  "to",
+  "in",
+  "on",
+  "that",
+  "this",
+  "its",
+  "it",
+  "my",
+  "our",
+  "your",
+  "me",
+]);
+const FALLBACK_WORDS = [
+  "swift-otter",
+  "sunny-comet",
+  "tidy-maple",
+  "brisk-panda",
+];
+
+/** A recognizable repo name nobody had to think up: base44-<words from the
+ * prompt>-<3 chars> — renameable later, unique enough not to collide. */
+function inventRepoName(prompt?: string): string {
+  const suffix = Math.random().toString(36).slice(2, 5);
+  const words =
+    (prompt ?? "")
+      .toLowerCase()
+      .match(/[a-z0-9]+/g)
+      ?.filter((w) => w.length > 2 && !NAME_STOPWORDS.has(w))
+      .slice(0, 3) ?? [];
+  const core = words.length
+    ? words.join("-")
+    : FALLBACK_WORDS[Math.floor(Math.random() * FALLBACK_WORDS.length)];
+  return `base44-${core}-${suffix}`.slice(0, 60);
+}
+
 async function createImportedAction(
   { log, runTask, jsonMode }: CLIContext,
   name: string | undefined,
   options: CreateImportedOptions,
 ): Promise<RunCommandResult> {
   // The positional name is the whole identity: directory, GitHub repo, app.
-  const repoName = options.repoName ?? name;
+  let repoName = options.repoName ?? name;
   // A bare name means "from scratch" — --blank stays for explicitness.
   const blank = options.blank || (Boolean(name) && !options.repo);
   if (blank && options.repo) {
@@ -49,28 +95,26 @@ async function createImportedAction(
       "A from-scratch create takes no --repo; drop it, or drop --blank to import that repository.",
     );
   }
-  if (blank && !repoName) {
-    throw new InvalidInputError(
-      "Starting from scratch needs a name: `imported create <name>` (or --repo-name <name>).",
-    );
-  }
   if (!blank && !options.repo) {
     throw new InvalidInputError(
       "Pass a <name> to start from scratch, or --repo <github-url> to import a repository.",
     );
   }
-  if (name && !/^[A-Za-z0-9._-]+$/.test(name)) {
+  if (name && !REPO_NAME_RE.test(name)) {
     throw new InvalidInputError(
       "The name becomes a directory and a GitHub repository — letters, digits, dots, dashes and underscores only.",
     );
   }
+  if (blank && !repoName) repoName = inventRepoName(options.prompt);
 
-  const targetDir = name ? join(process.cwd(), name) : process.cwd();
-  if (name) await mkdir(targetDir, { recursive: true });
+  // The directory carries the same name — explicit or invented.
+  const dirName = name ?? (blank ? repoName : undefined);
+  const targetDir = dirName ? join(process.cwd(), dirName) : process.cwd();
+  if (dirName) await mkdir(targetDir, { recursive: true });
   if (await appConfigExists(targetDir)) {
     throw new InvalidInputError(
-      name
-        ? `./${name} is already linked to a Base44 app. Pick another name.`
+      dirName
+        ? `./${dirName} is already linked to a Base44 app. Pick another name.`
         : "This directory is already linked to a Base44 app. Run the command from a fresh directory.",
     );
   }
@@ -126,7 +170,7 @@ async function createImportedAction(
   if (!jsonMode) {
     if (!interactive) for (const line of footer) log.message(line);
     log.message(
-      chalk.dim(name ? `linked  ./${name}` : `linked  ${configPath}`),
+      chalk.dim(dirName ? `linked  ./${dirName}` : `linked  ${configPath}`),
     );
   }
 
@@ -158,7 +202,7 @@ async function createImportedAction(
           }
         },
       });
-      return { outroMessage: name ? `Next: cd ${name}` : "Done." };
+      return { outroMessage: dirName ? `Next: cd ${dirName}` : "Done." };
     }
     const stream = createTurnStream(false);
     try {
@@ -198,7 +242,7 @@ async function createImportedAction(
 
   // Non-interactive runs never draw the pinned block — print the link plainly.
   if (previewUrl && !jsonMode) log.message(`preview ${previewUrl}`);
-  const cdHint = name ? ` Next: cd ${name}` : "";
+  const cdHint = dirName ? ` Next: cd ${dirName}` : "";
   if (finalState === "error") {
     return {
       outroMessage: `The first build reported an error — open the editor to see what the agent hit.${cdHint}`,
@@ -220,18 +264,36 @@ async function createImportedAction(
   };
 }
 
-/** Top-level sugar: `base44 new <name> ["<prompt>"]` — blank mode with the
- * prompt as a positional, no flags to remember. */
+/** Top-level sugar: `base44 new ["<prompt>"]` or `base44 new <name> ["<prompt>"]`
+ * — blank mode with no flags to remember. A lone argument that reads like a
+ * sentence is the prompt, and the repo/directory name is invented from it. */
 export function getNewCommand(): Base44Command {
   const command = new Base44Command("new", { requireAppContext: false });
   command
     .description(
-      "Start a blank app: makes ./<name>, a fresh private GitHub repo named <name>, and builds from your prompt",
+      "Start a blank app from a prompt — the GitHub repo, directory, and app get an invented base44-* name unless you give one",
     )
-    .argument("<name>", "One name for the directory, GitHub repo, and app")
+    .argument(
+      "[nameOrPrompt]",
+      "A name for everything, or just the prompt (a name is invented)",
+    )
     .argument("[prompt]", "First message for the agent; the build streams live")
-    .action((ctx: CLIContext, name: string, prompt: string | undefined) =>
-      createImportedAction(ctx, name, { prompt }),
+    .action(
+      (
+        ctx: CLIContext,
+        nameOrPrompt: string | undefined,
+        prompt: string | undefined,
+      ) => {
+        // One argument that can't be a repo name is the prompt.
+        const isName =
+          nameOrPrompt !== undefined && REPO_NAME_RE.test(nameOrPrompt);
+        const name = isName ? nameOrPrompt : undefined;
+        const effectivePrompt = isName ? prompt : (nameOrPrompt ?? prompt);
+        return createImportedAction(ctx, name, {
+          blank: true,
+          prompt: effectivePrompt,
+        });
+      },
     );
   return command;
 }

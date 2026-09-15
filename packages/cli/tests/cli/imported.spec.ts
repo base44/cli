@@ -244,13 +244,66 @@ describe("imported", () => {
     });
   });
 
-  it("create --blank requires a repo name and sends the blank payload", async () => {
+  it("create --blank with no name invents a base44-* one", async () => {
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    let sentBody: Record<string, unknown> | undefined;
+    t.api.mockRoute("POST", "/api/apps", (req, res) => {
+      sentBody = req.body as Record<string, unknown>;
+      return res.json({ id: "inv-1", name: "whatever" });
+    });
+    const result = await t.run("imported", "create", "--blank", "--json");
+    t.expectResult(result).toSucceed();
+    expect(sentBody?.imported_new_repo_name).toMatch(/^base44-[a-z0-9-]+$/);
+    expect(sentBody?.name).toBe(sentBody?.imported_new_repo_name);
+  });
 
-    const missingName = await t.run("imported", "create", "--blank", "--json");
-    t.expectResult(missingName).toFail();
-    expect(JSON.parse(missingName.stdout).error).toContain("--repo-name");
+  it("new with only a prompt invents a name from its words", async () => {
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    let sentBody: Record<string, unknown> | undefined;
+    t.api.mockRoute("POST", "/api/apps", (req, res) => {
+      sentBody = req.body as Record<string, unknown>;
+      return res.json({ id: "inv-2", name: "whatever" });
+    });
+    t.api.mockRoute("GET", "/api/apps/inv-2/branches", (_req, res) =>
+      res.json([{ id: "b1", branch_name: "base44/setup-z", status: "active" }]),
+    );
+    t.api.mockRoute(
+      "GET",
+      "/api/apps/inv-2/chat/full-conversation",
+      (_req, res) =>
+        res.json({
+          messages: [
+            {
+              id: "u1",
+              role: "user",
+              content: "x",
+              outcome: { backend_status: "success_build" },
+            },
+          ],
+        }),
+    );
+    t.api.mockRoute("GET", "/api/apps/inv-2", (_req, res) =>
+      res.json({ id: "inv-2", status: { state: "ready" } }),
+    );
+    t.api.mockRoute("GET", "/api/apps/inv-2/sandbox/preview-url", (_req, res) =>
+      res.json({ preview_url: "3000-z.e2b.app" }),
+    );
+    const result = await t.run(
+      "new",
+      "online store selling tmnt figures",
+      "--json",
+    );
+    t.expectResult(result).toSucceed();
+    expect(sentBody?.imported_new_repo_name).toMatch(
+      /^base44-online-store-selling-[a-z0-9]+$/,
+    );
+    expect(sentBody?.initial_message).toEqual({
+      content: "online store selling tmnt figures",
+    });
+  });
 
+  it("create --blank with an explicit repo name sends the blank payload", async () => {
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
     let sentBody: Record<string, unknown> | undefined;
     t.api.mockRoute("POST", "/api/apps", (req, res) => {
       sentBody = req.body as Record<string, unknown>;
