@@ -27,7 +27,7 @@ export function getTypesOutputPath(projectRoot: string): string {
   return join(projectRoot, PROJECT_SUBDIR, TYPES_OUTPUT_SUBDIR, TYPES_FILENAME);
 }
 
-export interface StoredTarget {
+interface StoredTarget {
   apiUrl?: string;
   ffOverride?: string;
 }
