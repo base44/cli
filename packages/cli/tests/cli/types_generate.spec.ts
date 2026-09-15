@@ -103,7 +103,7 @@ describe("types generate command", () => {
     const typesContent = await t.readProjectFile("base44/.types/types.d.ts");
     expect(typesContent).not.toBeNull();
     expect(typesContent).toContain(
-      "No entities, functions, agents, or connectors found",
+      "No entities, functions, actors, agents, or connectors found",
     );
   });
 

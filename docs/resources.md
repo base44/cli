@@ -1,8 +1,8 @@
 # Working with Resources
 
-**Keywords:** resource, entity, function, agent, agent skill, connector, push, readAll, deploy, site, tar.gz, deployAll, ProjectData
+**Keywords:** resource, entity, function, actor, agent, agent skill, connector, push, readAll, deploy, site, tar.gz, deployAll, ProjectData
 
-Resources are project-specific collections (entities, functions, agents, agent skills, connectors) that can be read from the filesystem and pushed to the Base44 API.
+Resources are project-specific collections (entities, functions, actors, agents, agent skills, connectors) that can be read from the filesystem and pushed to the Base44 API.
 
 ## Resource Interface
 
@@ -85,6 +85,22 @@ Deploy ships file contents verbatim — the source is never parsed or linted —
 
 Entry files may also import `secrets` and `waitUntil` from `base44:runtime`. Locally, `base44 dev` runs functions on workerd via Miniflare by default — each function is bundled with esbuild + `@deno/loader` (`src/cli/dev/dev-server/function-bundler.ts`), with `base44:runtime` served as a virtual module, secrets as real Worker env bindings and `waitUntil` riding `ctx.waitUntil`. A fallback runtime covers installations where workerd is unavailable (compiled binaries, `B44_DEV_FUNCTIONS_RUNTIME=deno`) and supplies `base44:runtime` via an import map. A project-level `deno.json` import map is not applied to functions — locally or deployed — since only files under `base44/` are uploaded. See [`packages/cli/backend-runtime/README.md`](../packages/cli/backend-runtime/README.md) for the local implementation and its intentional differences from production.
 
+## Actor integration
+
+The resource implementation is in `src/core/resources/actor/`. The upload adapter
+reads discovered files with the existing file utilities and strips local paths
+and source metadata. Actor payloads never use function shared-file assembly.
+The platform validates the source and handles publication.
+
+`ProjectConfigReader` loads project actors, skips actor discovery for imported
+plugins, and checks actor names against the final merged function names.
+`src/core/types/generator.ts` augments the SDK with a top-level import so registry-only
+output preserves SDK exports. Message declarations remain user-owned.
+
+The dev server registers its actor handler before the production proxy. Keep
+that registration unconditional; it also covers requests for actors absent from
+the local checkout.
+
 ## Agent skills
 
 Agent skills are app-scoped instruction snippets shared across the app's agents. Unlike other resources they are stored as one markdown file per skill under the agent-skills directory (`base44/agent-skills/`, or `agentSkillsDir` in `config.jsonc`): the filename (without `.md`) is the skill name, the frontmatter `description` is the summary, and the body is the instruction text. Agents reference skills by name via `selected_skill_names`; `selected_workspace_skill_ids` (org-shared workspace skills) is not managed here and is passed through pull/push/deploy untouched.
@@ -137,12 +153,20 @@ const { appUrl } = await deployAll(projectData);
 ```
 
 What it deploys (in order):
-1. Entities (via `entityResource.push()`)
-2. Functions (via `functionResource.push()`)
-3. Agent skills (via `agentSkillResource.push()`)
-4. Agents (via `agentResource.push()`)
-5. Connectors (via `pushConnectors()`) -- may return OAuth redirect URLs
-6. Site (if `site.outputDirectory` is configured) — the legacy tar.gz upload. The deployments-API transport is not reachable from here; see [deployments.md](deployments.md).
+1. App visibility, when configured
+2. Entities (via `entityResource.push()`)
+3. Functions (via `deployFunctionsSequentially()`)
+4. Actors (via `deployActorsSequentially()`)
+5. Agent skills (via `agentSkillResource.push()`)
+6. Agents (via `agentResource.push()`)
+7. Auth config (via `authConfigResource.push()`)
+8. Connectors (via `pushConnectors()`) -- may return OAuth redirect URLs
+9. Site (if `site.outputDirectory` is configured) — the legacy tar.gz upload. The deployments-API transport is not reachable from here; see [deployments.md](deployments.md).
+
+Function and actor batches collect each item's result. `deployAll()` must inspect
+those results: any failure raises `ResourceDeploymentError` before the next stage.
+Its details retain completed work and per-item outcomes for human and JSON error
+output. Earlier successful deployments are not rolled back.
 
 ```bash
 base44 deploy        # With confirmation prompt

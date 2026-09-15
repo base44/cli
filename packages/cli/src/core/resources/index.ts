@@ -1,3 +1,4 @@
+export * from "./actor/index.js";
 export * from "./agent/index.js";
 export * from "./auth-config/index.js";
 export * from "./connector/index.js";

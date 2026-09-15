@@ -372,6 +372,13 @@ function getTestOverride(): MyType | undefined {
 }
 ```
 
+## Actor Tests
+
+Actor coverage lives in `core/actor-config.spec.ts`, `core/actor-types.spec.ts`,
+`cli/actors.spec.ts`, `cli/actors_deploy_all.spec.ts`, and `cli/dev-actors.spec.ts`.
+The command tests capture requests with `mockRoute` to verify payload boundaries,
+partial outcomes, and stage ordering.
+
 ## Testing Rules
 
 1. **Build first** -- Always `bun run build` before testing; add `bun run build:binaries` for binary mode
