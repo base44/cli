@@ -226,18 +226,40 @@ function SessionView({ engine, footer, subscribe }: ViewProps) {
  * TTY only — callers gate on interactivity.
  */
 const BRAND_ORANGE = "#E86B3C";
+const BRAND_ORANGE_BRIGHT = "#FFAA6E";
 
-/** The Base44 Code welcome box — the session's first history item, so it
- * scrolls away naturally like Claude Code's header does. */
-async function buildHeader(): Promise<string> {
+// The Base44 mark: a solid circle with three thin horizontal slats cut from
+// the lower half (sunset). Rasterized with half-blocks for double the vertical
+// resolution.
+const LOGO_ROWS = [
+  "     ▄▄▄▄▄▄▄▄",
+  "  ▄▄██████████▄▄",
+  " ▄██████████████▄",
+  " ████████████████",
+  "▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀",
+  " ████████████████",
+  "  ▄▄▄▄▄▄▄▄▄▄▄▄▄▄",
+  "  ▀▀▀▀▀▀▀▀▀▀▀▀▀▀",
+  "     ▀▀▀▀▀▀▀▀",
+];
+
+/** Logo rows in brand orange. `highlight` (a row index, or null) brightens one
+ * row — sweep it down across frames for the shimmer animation. */
+function logoRows(highlight: number | null = null): string[] {
+  const normal = chalk.hex(BRAND_ORANGE);
+  const bright = chalk.hex(BRAND_ORANGE_BRIGHT);
+  return LOGO_ROWS.map((row, i) =>
+    i === highlight ? bright(row) : normal(row),
+  );
+}
+
+/** Render the welcome box synchronously. `logoHighlight` brightens one logo
+ * row (sweep it for the boot-screen shimmer); null = static (scrollback). */
+function renderHeader(
+  who: string,
+  logoHighlight: number | null = null,
+): string {
   const orange = chalk.hex(BRAND_ORANGE);
-  let who = "";
-  try {
-    const auth = await readAuth();
-    who = auth.name || auth.email || "";
-  } catch {
-    // Not logged in yet — the welcome stays generic.
-  }
   const cwd = process.cwd().replace(process.env.HOME ?? "", "~");
   const inner = Math.min((process.stdout.columns || 80) - 2, 64);
   const stripLength = (s: string) => stripAnsi(s).length;
@@ -248,27 +270,33 @@ async function buildHeader(): Promise<string> {
   };
   const title = ` ${orange.bold("Base44 Code")} ${chalk.dim(`v${packageJson.version}`)} `;
   const top = `╭─${title}${"─".repeat(Math.max(0, inner - stripLength(title) - 1))}╮`;
-  const rowsOut = [
+  return [
     top,
     center(""),
     center(chalk.bold(who ? `Welcome back, ${who}!` : "Welcome!")),
     center(""),
-    // The Base44 mark: a rasterized circle (half-blocks double the vertical
-    // resolution) with the slice above the bottom cap missing.
-    center(orange("   ▄▄██████▄▄   ")),
-    center(orange(" ▄████████████▄ ")),
-    center(orange("▄██████████████▄")),
-    center(orange("████████████████")),
-    center(orange("▀██████████████▀")),
-    center(""),
-    center(orange("   ▀▀██████▀▀   ")),
+    ...logoRows(logoHighlight).map(center),
     center(""),
     center(chalk.dim(getBase44ApiUrl().replace(/^https:\/\//, ""))),
     center(chalk.dim(cwd)),
     center(""),
     `╰${"─".repeat(inner)}╯`,
-  ];
-  return rowsOut.join("\n");
+  ].join("\n");
+}
+
+async function currentUserName(): Promise<string> {
+  try {
+    const auth = await readAuth();
+    return auth.name || auth.email || "";
+  } catch {
+    return ""; // Not logged in yet — the welcome stays generic.
+  }
+}
+
+/** The Base44 Code welcome box — the session's first history item, so it
+ * scrolls away naturally like Claude Code's header does. */
+async function buildHeader(): Promise<string> {
+  return renderHeader(await currentUserName());
 }
 
 /** Run `work` (e.g. the create call) inside the full-page frame: header at
@@ -278,10 +306,12 @@ export async function withBootScreen<T>(
   label: string,
   work: () => Promise<T>,
 ): Promise<T> {
-  const header = await buildHeader();
+  const who = await currentUserName();
   enterAltScreen();
   const rows = process.stdout.rows || 24;
-  const headerLines = header.split("\n").length;
+  const headerLines = renderHeader(who).split("\n").length;
+  // Which logo row the shimmer highlight sits on, sweeping down the circle.
+  const logoRowCount = LOGO_ROWS.length;
   const BootScreen = () => {
     const [, tick] = useReducer((x: number) => x + 1, 0);
     useEffect(() => {
@@ -289,9 +319,11 @@ export async function withBootScreen<T>(
       return () => clearInterval(timer);
     }, []);
     const frame = FRAMES[Math.floor(Date.now() / 120) % FRAMES.length];
+    // ~5 fps sweep so the shimmer is legible, not frantic.
+    const highlight = Math.floor(Date.now() / 200) % logoRowCount;
     return (
       <Box flexDirection="column">
-        <Text>{header}</Text>
+        <Text>{renderHeader(who, highlight)}</Text>
         <Box height={Math.max(0, rows - headerLines - 2)} />
         <Text>{chalk.dim(`${frame} ${label}`)}</Text>
       </Box>
