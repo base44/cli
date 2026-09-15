@@ -4,13 +4,20 @@ import { getFullConversation } from "@/core/resources/imported/api.js";
 export type StreamEvent =
   | { kind: "thinking"; text: string }
   | { kind: "text"; text: string }
-  | { kind: "tool_start"; name: string; summary: string }
-  | { kind: "tool_end"; name: string; ok: boolean; result: string };
+  | { kind: "tool_start"; id: string; name: string; summary: string }
+  | {
+      kind: "tool_end";
+      id: string;
+      name: string;
+      summary: string;
+      ok: boolean;
+      result: string;
+    };
 
 interface MessageProgress {
   contentLength: number;
   reasoningLength: number;
-  announcedTools: Set<string>;
+  announcedTools: Map<string, string>; // tool id -> summary
   settledTools: Set<string>;
 }
 
@@ -77,7 +84,7 @@ function progressFor(state: StreamState, id: string): MessageProgress {
     progress = {
       contentLength: 0,
       reasoningLength: 0,
-      announcedTools: new Set(),
+      announcedTools: new Map(),
       settledTools: new Set(),
     };
     state.perMessage.set(id, progress);
@@ -117,11 +124,15 @@ export function diffConversation(
 
     for (const tool of message.tool_calls ?? []) {
       if (!progress.announcedTools.has(tool.id)) {
-        progress.announcedTools.add(tool.id);
+        progress.announcedTools.set(
+          tool.id,
+          toolSummary(tool.name, tool.arguments_string),
+        );
         events.push({
           kind: "tool_start",
+          id: tool.id,
           name: tool.name,
-          summary: toolSummary(tool.name, tool.arguments_string),
+          summary: progress.announcedTools.get(tool.id) ?? "",
         });
       }
       const status = tool.status ?? "running";
@@ -129,7 +140,9 @@ export function diffConversation(
         progress.settledTools.add(tool.id);
         events.push({
           kind: "tool_end",
+          id: tool.id,
           name: tool.name,
+          summary: progress.announcedTools.get(tool.id) ?? "",
           ok: status === "success",
           result: oneLine(tool.results, 110),
         });
@@ -198,7 +211,7 @@ export async function streamConversationDuring<T>(
   onEvent: (event: StreamEvent) => void,
   options: StreamOptions = {},
 ): Promise<T> {
-  const intervalMs = options.intervalMs ?? 2_000;
+  const intervalMs = options.intervalMs ?? 1_000;
   const poll = makePoller(onEvent, options);
   await poll(true);
   const work = start();
@@ -228,7 +241,7 @@ export async function streamConversationUntilSettled(
   onEvent: (event: StreamEvent) => void,
   options: StreamOptions & { timeoutMs?: number } = {},
 ): Promise<"settled" | "timeout"> {
-  const intervalMs = options.intervalMs ?? 2_000;
+  const intervalMs = options.intervalMs ?? 1_000;
   const deadline = Date.now() + (options.timeoutMs ?? 20 * 60_000);
   const poll = makePoller(onEvent, options);
   while (Date.now() < deadline) {

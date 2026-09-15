@@ -1,4 +1,6 @@
+import stripAnsi from "strip-ansi";
 import { describe, expect, it } from "vitest";
+import { createTurnStream, eventLine } from "@/cli/commands/imported/render.js";
 import type { ConversationMessage } from "@/core/resources/imported/api.js";
 import {
   diffConversation,
@@ -36,6 +38,7 @@ describe("diffConversation", () => {
       { kind: "thinking", text: "Choosing FastAPI." },
       {
         kind: "tool_start",
+        id: "t1",
         name: "run_shell_command",
         summary: "docker compose up -d",
       },
@@ -56,7 +59,9 @@ describe("diffConversation", () => {
       { kind: "text", text: "The stack is up." },
       {
         kind: "tool_end",
+        id: "t1",
         name: "run_shell_command",
+        summary: "docker compose up -d",
         ok: true,
         result: "3 containers started",
       },
@@ -100,12 +105,15 @@ describe("diffConversation", () => {
     ).toEqual([
       {
         kind: "tool_start",
+        id: "t1",
         name: "edit_repo_file",
         summary: "backend/app/db.py",
       },
       {
         kind: "tool_end",
+        id: "t1",
         name: "edit_repo_file",
+        summary: "backend/app/db.py",
         ok: false,
         result: '{"error":"File not found"}',
       },
@@ -159,6 +167,66 @@ describe("toolSummary", () => {
   it("truncates long values to one line", () => {
     const long = `{"command":"${"x".repeat(200)}"}`;
     expect(toolSummary("run_shell_command", long)).toHaveLength(91); // 90 + ellipsis
+  });
+});
+
+describe("render", () => {
+  it("aliases tool names and keeps quiet on boring ok results", () => {
+    expect(
+      stripAnsi(
+        eventLine({
+          kind: "tool_end",
+          id: "t1",
+          name: "write_repo_file",
+          summary: "frontend/src/App.jsx",
+          ok: true,
+          result: "Wrote frontend/src/App.jsx",
+        }) ?? "",
+      ),
+    ).toBe("✓ write frontend/src/App.jsx");
+    expect(
+      stripAnsi(
+        eventLine({
+          kind: "tool_end",
+          id: "t2",
+          name: "run_shell_command",
+          summary: "docker compose ps",
+          ok: true,
+          result: "3 containers running",
+        }) ?? "",
+      ),
+    ).toBe("✓ bash docker compose ps\n  3 containers running");
+    expect(
+      eventLine({
+        kind: "tool_start",
+        id: "t3",
+        name: "run_shell_command",
+        summary: "ls",
+      }),
+    ).toBeNull();
+  });
+
+  it("non-interactive stream prints settled lines only, no ANSI cursor codes", () => {
+    const out: string[] = [];
+    const stream = createTurnStream(false, (text) => out.push(text));
+    stream.onEvent({
+      kind: "tool_start",
+      id: "t1",
+      name: "write_repo_file",
+      summary: "a.py",
+    });
+    stream.onEvent({
+      kind: "tool_end",
+      id: "t1",
+      name: "write_repo_file",
+      summary: "a.py",
+      ok: true,
+      result: "Wrote a.py",
+    });
+    stream.stop();
+    const joined = stripAnsi(out.join(""));
+    expect(joined).toBe("✓ write a.py\n");
+    expect(out.join("")).not.toContain("\r");
   });
 });
 

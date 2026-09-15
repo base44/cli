@@ -1,6 +1,6 @@
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import { renderStreamEvent } from "@/cli/commands/imported/render.js";
+import { createTurnStream } from "@/cli/commands/imported/render.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, getDashboardUrl } from "@/cli/utils/index.js";
 import { InvalidInputError } from "@/core/errors.js";
@@ -105,12 +105,18 @@ async function createImportedAction(
         "Agent is building — live (several minutes; safe to Ctrl+C, the build continues):",
       );
     }
-    const settled = await streamConversationUntilSettled(
-      (event) => {
-        if (!jsonMode) log.message(renderStreamEvent(event));
-      },
-      { branchId, timeoutMs: POLL_TIMEOUT_MS },
-    );
+    const stream = createTurnStream(!jsonMode && process.stdout.isTTY === true);
+    let settled: "settled" | "timeout";
+    try {
+      settled = await streamConversationUntilSettled(
+        (event) => {
+          if (!jsonMode) stream.onEvent(event);
+        },
+        { branchId, timeoutMs: POLL_TIMEOUT_MS },
+      );
+    } finally {
+      stream.stop();
+    }
     finalState =
       settled === "timeout"
         ? "processing"

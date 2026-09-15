@@ -1,4 +1,4 @@
-import { renderStreamEvent } from "@/cli/commands/imported/render.js";
+import { createTurnStream } from "@/cli/commands/imported/render.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
 import type { ImportedChatTurn } from "@/core/resources/imported/api.js";
@@ -44,11 +44,16 @@ async function chatAction(
     );
   } else {
     log.message("Agent working — live from the sandbox:");
-    turn = await streamConversationDuring(
-      () => sendImportedChatMessage(message, branchId),
-      (event) => log.message(renderStreamEvent(event)),
-      { branchId },
-    );
+    const stream = createTurnStream(process.stdout.isTTY === true);
+    try {
+      turn = await streamConversationDuring(
+        () => sendImportedChatMessage(message, branchId),
+        stream.onEvent,
+        { branchId },
+      );
+    } finally {
+      stream.stop();
+    }
   }
 
   if (turn.queued) {
