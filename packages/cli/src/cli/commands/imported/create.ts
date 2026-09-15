@@ -5,7 +5,10 @@ import {
   createTurnStream,
   formatDuration,
 } from "@/cli/commands/imported/render.js";
-import { runInteractiveSession } from "@/cli/commands/imported/session.js";
+import {
+  runInteractiveSession,
+  withBootScreen,
+} from "@/cli/commands/imported/session.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
 import { getBase44ApiUrl } from "@/core/config.js";
@@ -127,18 +130,27 @@ async function createImportedAction(
       : ((options.repo as string).replace(/\/+$/, "").split("/").pop() ??
         "Imported app"));
 
-  const created = await runTask(
-    blank ? "Creating your repository and app" : "Importing the repository",
-    () =>
-      createImportedApp({
-        appName,
-        sourceMode,
-        repoUrl: options.repo,
-        newRepoName: repoName,
-        branch: options.fromBranch,
-        prompt: options.prompt,
-      }),
-  );
+  const interactiveEarly = !jsonMode && process.stdout.isTTY === true;
+  const createCall = () =>
+    createImportedApp({
+      appName,
+      sourceMode,
+      repoUrl: options.repo,
+      newRepoName: repoName,
+      branch: options.fromBranch,
+      prompt: options.prompt,
+    });
+  const bootLabel = blank
+    ? "creating your repository and app"
+    : "importing the repository";
+  // Interactive runs start the full-page frame immediately — the create call
+  // spins inside it rather than in a clack task outside the page.
+  const created = interactiveEarly
+    ? await withBootScreen(bootLabel, createCall)
+    : await runTask(
+        blank ? "Creating your repository and app" : "Importing the repository",
+        createCall,
+      );
 
   const configPath = await writeAppConfig(targetDir, created.id);
   // Root discovery (findProjectRoot) keys on a PROJECT config, not .app.jsonc —

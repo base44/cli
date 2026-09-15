@@ -71,13 +71,20 @@ interface ViewProps {
   engine: SessionEngine;
   footer: string[];
   subscribe: (listener: (line: string) => void) => () => void;
-  /** Fixed height of the dynamic region: the widget bottom-justifies inside
-   * it, so on a fresh screen the input sits at the terminal's bottom while
-   * the header stays at the top. */
-  bottomHeight: number;
 }
 
-function SessionView({ engine, footer, subscribe, bottomHeight }: ViewProps) {
+/** Terminal lines a history item occupies, wrap-aware (estimate). */
+function lineCount(item: string, columns: number): number {
+  return item
+    .split("\n")
+    .reduce(
+      (sum, line) =>
+        sum + Math.max(1, Math.ceil(stripAnsi(line).length / columns)),
+      0,
+    );
+}
+
+function SessionView({ engine, footer, subscribe }: ViewProps) {
   const { exit } = useApp();
   const [history, setHistory] = useState<string[]>([]);
   const [input, setInput] = useState("");
@@ -120,11 +127,21 @@ function SessionView({ engine, footer, subscribe, bottomHeight }: ViewProps) {
           ))}
         </Box>
       ) : (
-        <Box
-          flexDirection="column"
-          justifyContent="flex-end"
-          height={bottomHeight}
-        >
+        <Box flexDirection="column">
+          {(() => {
+            // A shrinking spacer keeps the widget on the terminal's bottom row
+            // until the conversation fills the screen; from then on only the
+            // conversation scrolls and the widget stays put.
+            const columns = process.stdout.columns || 80;
+            const rows = process.stdout.rows || 24;
+            const used = history.reduce(
+              (sum, item) => sum + lineCount(item, columns),
+              0,
+            );
+            const widgetHeight = 5 + footer.length; // status + bordered input + hint
+            const spacer = Math.max(0, rows - used - widgetHeight - 1);
+            return spacer > 0 ? <Box height={spacer} /> : null;
+          })()}
           <Text>{statusText(engine.status(), musingSeed)}</Text>
           <Box
             borderStyle="round"
@@ -190,11 +207,12 @@ async function buildHeader(): Promise<string> {
     center(""),
     center(chalk.bold(who ? `Welcome back, ${who}!` : "Welcome!")),
     center(""),
-    // The Base44 mark: a full circle with its bottom slice cut flat.
+    // The Base44 mark: a full circle with one slice missing near the bottom.
     center(orange("▄▄██████▄▄")),
     center(orange("████████████")),
     center(orange("████████████")),
-    center(orange("▀██████████▀")),
+    center(""),
+    center(orange("▀▀████████▀▀")),
     center(""),
     center(chalk.dim(getBase44ApiUrl().replace(/^https:\/\//, ""))),
     center(chalk.dim(cwd)),
@@ -202,6 +220,40 @@ async function buildHeader(): Promise<string> {
     `╰${"─".repeat(inner)}╯`,
   ];
   return rowsOut.join("\n");
+}
+
+/** Run `work` (e.g. the create call) inside the full-page frame: header at
+ * the top, a spinner on the bottom row — so the session look starts before
+ * the app even exists. */
+export async function withBootScreen<T>(
+  label: string,
+  work: () => Promise<T>,
+): Promise<T> {
+  const header = await buildHeader();
+  process.stdout.write("\x1b[2J\x1b[H");
+  const rows = process.stdout.rows || 24;
+  const headerLines = header.split("\n").length;
+  const BootScreen = () => {
+    const [, tick] = useReducer((x: number) => x + 1, 0);
+    useEffect(() => {
+      const timer = setInterval(tick, 120);
+      return () => clearInterval(timer);
+    }, []);
+    const frame = FRAMES[Math.floor(Date.now() / 120) % FRAMES.length];
+    return (
+      <Box flexDirection="column">
+        <Text>{header}</Text>
+        <Box height={Math.max(0, rows - headerLines - 2)} />
+        <Text>{chalk.dim(`${frame} ${label}`)}</Text>
+      </Box>
+    );
+  };
+  const app = render(<BootScreen />, { exitOnCtrlC: false });
+  try {
+    return await work();
+  } finally {
+    app.unmount();
+  }
 }
 
 export async function runInteractiveSession(
@@ -236,19 +288,14 @@ export async function runInteractiveSession(
   // stays in scrollback) and start at the TOP — the header renders first, and
   // the dynamic region's fixed height bottom-justifies the input widget at the
   // terminal's bottom, with the conversation filling the space between.
-  const rows = process.stdout.rows || 24;
   process.stdout.write("\x1b[2J\x1b[H");
-  const header = await buildHeader();
-  onLine(header);
-  const headerLines = header.split("\n").length;
-  const bottomHeight = Math.max(10, rows - headerLines - 1);
+  onLine(await buildHeader());
 
   const app = render(
     <SessionView
       engine={engine}
       footer={options.footer}
       subscribe={subscribe}
-      bottomHeight={bottomHeight}
     />,
     { exitOnCtrlC: false },
   );
