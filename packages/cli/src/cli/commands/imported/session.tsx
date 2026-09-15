@@ -71,9 +71,13 @@ interface ViewProps {
   engine: SessionEngine;
   footer: string[];
   subscribe: (listener: (line: string) => void) => () => void;
+  /** Fixed height of the dynamic region: the widget bottom-justifies inside
+   * it, so on a fresh screen the input sits at the terminal's bottom while
+   * the header stays at the top. */
+  bottomHeight: number;
 }
 
-function SessionView({ engine, footer, subscribe }: ViewProps) {
+function SessionView({ engine, footer, subscribe, bottomHeight }: ViewProps) {
   const { exit } = useApp();
   const [history, setHistory] = useState<string[]>([]);
   const [input, setInput] = useState("");
@@ -116,7 +120,11 @@ function SessionView({ engine, footer, subscribe }: ViewProps) {
           ))}
         </Box>
       ) : (
-        <Box flexDirection="column" marginTop={1}>
+        <Box
+          flexDirection="column"
+          justifyContent="flex-end"
+          height={bottomHeight}
+        >
           <Text>{statusText(engine.status(), musingSeed)}</Text>
           <Box
             borderStyle="round"
@@ -182,8 +190,11 @@ async function buildHeader(): Promise<string> {
     center(""),
     center(chalk.bold(who ? `Welcome back, ${who}!` : "Welcome!")),
     center(""),
+    // The Base44 mark: a full circle with its bottom slice cut flat.
     center(orange("▄▄██████▄▄")),
     center(orange("████████████")),
+    center(orange("████████████")),
+    center(orange("▀██████████▀")),
     center(""),
     center(chalk.dim(getBase44ApiUrl().replace(/^https:\/\//, ""))),
     center(chalk.dim(cwd)),
@@ -222,18 +233,22 @@ export async function runInteractiveSession(
   });
 
   // Fresh viewport, Claude-Code style: clear the visible screen (shell history
-  // stays in scrollback) and park the cursor on the BOTTOM row — the widget
-  // then owns the bottom of the terminal from the first frame, and the
-  // conversation fills the empty space above it as it streams.
+  // stays in scrollback) and start at the TOP — the header renders first, and
+  // the dynamic region's fixed height bottom-justifies the input widget at the
+  // terminal's bottom, with the conversation filling the space between.
   const rows = process.stdout.rows || 24;
-  process.stdout.write(`\x1b[2J\x1b[${rows};1H`);
-  onLine(await buildHeader());
+  process.stdout.write("\x1b[2J\x1b[H");
+  const header = await buildHeader();
+  onLine(header);
+  const headerLines = header.split("\n").length;
+  const bottomHeight = Math.max(10, rows - headerLines - 1);
 
   const app = render(
     <SessionView
       engine={engine}
       footer={options.footer}
       subscribe={subscribe}
+      bottomHeight={bottomHeight}
     />,
     { exitOnCtrlC: false },
   );
