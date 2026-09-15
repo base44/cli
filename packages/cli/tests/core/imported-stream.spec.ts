@@ -313,6 +313,22 @@ describe("render", () => {
   });
 });
 
+describe("hardWrapAnsi", () => {
+  it("wraps at visible width and keeps style continuity across breaks", async () => {
+    const { hardWrapAnsi } = await import("@/cli/commands/imported/render.js");
+    // Raw codes, not chalk — chalk is color-disabled under a non-TTY test run.
+    const dim = "\u001b[2m";
+    const reset = "\u001b[0m";
+    const wrapped = hardWrapAnsi(`${dim}${"x".repeat(10)}${reset}`, 4);
+    expect(wrapped.map((l) => stripAnsi(l))).toEqual(["xxxx", "xxxx", "xx"]);
+    // Continuation lines reopen the dim code so the style survives the break.
+    expect(wrapped[1].startsWith(dim)).toBe(true);
+    expect(wrapped[0].endsWith(reset)).toBe(true);
+    // Plain text with explicit newlines splits on them.
+    expect(hardWrapAnsi("ab\ncd", 10)).toEqual(["ab", "cd"]);
+  });
+});
+
 describe("makePasteSanitizer", () => {
   it("strips paste markers and flattens newlines to one line", async () => {
     const { makePasteSanitizer } = await import(

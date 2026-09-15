@@ -33,6 +33,41 @@ export function terminalLink(label: string, url: string): string {
   return `\u001B]8;;${url}\u0007${chalk.dim.underline(label)}\u001B]8;;\u0007`;
 }
 
+/** Hard-wrap ANSI-styled text at `width` visible columns, keeping style
+ * continuity across breaks (reset at the break, reopen the active SGR codes).
+ * Narrow but dependency-free — all input here is our own chalk output. */
+export function hardWrapAnsi(text: string, width: number): string[] {
+  const ESC = /^(?:\u001b\[[0-9;]*m|\u001b\]8;;[^\u0007]*\u0007)/;
+  const out: string[] = [];
+  for (const logical of text.split("\n")) {
+    let line = "";
+    let visible = 0;
+    let active: string[] = [];
+    let i = 0;
+    while (i < logical.length) {
+      const esc = ESC.exec(logical.slice(i));
+      if (esc) {
+        const seq = esc[0];
+        line += seq;
+        if (seq === "\u001b[0m") active = [];
+        else if (seq.endsWith("m")) active.push(seq);
+        i += seq.length;
+        continue;
+      }
+      if (visible >= width) {
+        out.push(`${line}\u001b[0m`);
+        line = active.join("");
+        visible = 0;
+      }
+      line += logical[i];
+      visible++;
+      i++;
+    }
+    out.push(line);
+  }
+  return out;
+}
+
 export function formatDuration(ms: number): string {
   const seconds = Math.round(ms / 1000);
   if (seconds < 90) return `${seconds}s`;

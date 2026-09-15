@@ -1,10 +1,14 @@
 import chalk from "chalk";
 import { Box, render, Static, Text, useApp, useInput } from "ink";
 import TextInput from "ink-text-input";
-import { useEffect, useReducer, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import stripAnsi from "strip-ansi";
 import { createPasteFriendlyStdin } from "@/cli/commands/imported/paste.js";
-import { formatDuration, idleMusing } from "@/cli/commands/imported/render.js";
+import {
+  formatDuration,
+  hardWrapAnsi,
+  idleMusing,
+} from "@/cli/commands/imported/render.js";
 import type {
   SessionEngine,
   SessionStatus,
@@ -16,6 +20,27 @@ import { getBase44ApiUrl } from "@/core/config.js";
 import packageJson from "../../../../package.json";
 
 const FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+
+// Alternate screen (Claude Code model): the session owns the viewport with
+// its own internal scroll; the shell screen is restored untouched on exit.
+// Mode 1007 makes the mouse wheel send arrow keys, which drive the scroll.
+let altScreenActive = false;
+let altExitHooked = false;
+function enterAltScreen(): void {
+  process.stdout.write("\x1b[?1049h\x1b[?1007h\x1b[2J\x1b[H");
+  altScreenActive = true;
+  if (!altExitHooked) {
+    altExitHooked = true;
+    process.on("exit", () => {
+      if (altScreenActive) process.stdout.write("\x1b[?1007l\x1b[?1049l");
+    });
+  }
+}
+function exitAltScreen(): void {
+  if (!altScreenActive) return;
+  altScreenActive = false;
+  process.stdout.write("\x1b[?1007l\x1b[?1049l");
+}
 
 interface SessionOptions {
   branchId?: string;
@@ -97,16 +122,16 @@ function lineCount(item: string, columns: number): number {
 
 function SessionView({ engine, footer, subscribe }: ViewProps) {
   const { exit } = useApp();
-  const [history, setHistory] = useState<string[]>([]);
+  const [items, setItems] = useState<string[]>([]);
   const [input, setInput] = useState("");
-  const [exiting, setExiting] = useState(false);
+  const [scroll, setScroll] = useState(0); // lines up from the live bottom
   const [, tick] = useReducer((x: number) => x + 1, 0);
   const [musingSeed] = useState(() => Math.floor(Math.random() * 97));
+  const maxScrollRef = useRef(0);
 
   useEffect(
-    // The trailing newline gives every stream item a blank line after it —
-    // and the wrap-aware line counter sees it, keeping the spacer honest.
-    () => subscribe((line) => setHistory((h) => [...h, `${line}\n`])),
+    // The trailing newline gives every stream item a blank line after it.
+    () => subscribe((line) => setItems((h) => [...h, `${line}\n`])),
     [subscribe],
   );
   useEffect(() => {
@@ -117,75 +142,86 @@ function SessionView({ engine, footer, subscribe }: ViewProps) {
   useInput((char, key) => {
     if (key.ctrl && char === "c") {
       if (input) setInput("");
-      else {
-        setExiting(true);
-        exit();
-      }
-    } else if (key.ctrl && char === "d") {
-      setExiting(true);
-      exit();
+      else exit();
+      return;
     }
+    if (key.ctrl && char === "d") {
+      exit();
+      return;
+    }
+    // Wheel scrolling: alternate-scroll mode turns it into arrow keys.
+    if (key.upArrow) {
+      setScroll((s) => Math.min(s + 3, maxScrollRef.current));
+      return;
+    }
+    if (key.downArrow) {
+      setScroll((s) => Math.max(0, s - 3));
+      return;
+    }
+    if (key.pageUp) {
+      setScroll((s) => Math.min(s + 20, maxScrollRef.current));
+      return;
+    }
+    if (key.pageDown) {
+      setScroll((s) => Math.max(0, s - 20));
+      return;
+    }
+    if (key.escape) setScroll(0);
   });
 
-  const width = Math.min(process.stdout.columns || 80, 100);
+  const columns = process.stdout.columns || 80;
+  const rows = process.stdout.rows || 24;
+  const width = Math.min(columns, 100);
+  const innerWidth = Math.max(10, width - 4); // input border + padding
+  const inputRows = Math.max(1, Math.ceil((input.length + 2) / innerWidth));
+  const widgetHeight = 4 + inputRows + (footer.length ? 1 : 0); // status + border + hint + links
+  const viewHeight = Math.max(3, rows - widgetHeight - 1);
+
+  // Hard-wrapped physical lines of the whole transcript; the view is a
+  // window over them, pinned to the bottom unless the user scrolled.
+  const lines = items.flatMap((item) => hardWrapAnsi(item, columns));
+  const maxScroll = Math.max(0, lines.length - viewHeight);
+  maxScrollRef.current = maxScroll;
+  const clamped = Math.min(scroll, maxScroll);
+  const end = lines.length - clamped;
+  const visible = lines.slice(Math.max(0, end - viewHeight), end);
+
+  const scrollNote =
+    clamped > 0
+      ? chalk.yellow(
+          ` ↑ scrolled ${clamped} lines — Esc or scroll down for live`,
+        )
+      : "";
+
   return (
-    <>
-      <Static items={history}>
-        {(line, index) => <Text key={`${index}`}>{line}</Text>}
-      </Static>
-      {exiting ? (
-        <Box flexDirection="column">
-          {footer.length > 0 && <Text>{footer.join(chalk.dim("  ·  "))}</Text>}
-        </Box>
-      ) : (
-        <Box flexDirection="column">
-          {(() => {
-            // A shrinking spacer keeps the widget on the terminal's bottom row
-            // until the conversation fills the screen; from then on only the
-            // conversation scrolls and the widget stays put. The input's own
-            // wrapped height is part of the widget, or typing a long prompt
-            // would bounce the whole layout.
-            const columns = process.stdout.columns || 80;
-            const rows = process.stdout.rows || 24;
-            const used = history.reduce(
-              (sum, item) => sum + lineCount(item, columns),
-              0,
-            );
-            const innerWidth = Math.max(10, width - 4); // border + padding
-            const inputRows = Math.max(
-              1,
-              Math.ceil((input.length + 2) / innerWidth),
-            );
-            const widgetHeight = 4 + inputRows + (footer.length ? 1 : 0); // status + border + hint + links
-            const spacer = Math.max(0, rows - used - widgetHeight - 1);
-            return spacer > 0 ? <Box height={spacer} /> : null;
-          })()}
-          <Text>{statusText(engine.status(), musingSeed)}</Text>
-          <Box
-            borderStyle="round"
-            borderColor="gray"
-            paddingX={1}
-            width={width}
-          >
-            <Text color="cyan">{"❯ "}</Text>
-            <TextInput
-              value={input}
-              onChange={setInput}
-              onSubmit={(value) => {
-                if (value.trim()) engine.submit(value);
-                setInput("");
-              }}
-            />
-          </Box>
-          {footer.length > 0 && (
-            <Text>{`  ${footer.join(chalk.dim("  ·  "))}`}</Text>
-          )}
-          <Text dimColor>
-            {"  Enter to send · Ctrl+C to exit (turns keep running)"}
-          </Text>
-        </Box>
+    <Box flexDirection="column">
+      <Box flexDirection="column" height={viewHeight}>
+        {visible.map((line, index) => (
+          <Text key={`${index}-${line.length}`}>{line || " "}</Text>
+        ))}
+      </Box>
+      <Text>
+        {statusText(engine.status(), musingSeed)}
+        {scrollNote}
+      </Text>
+      <Box borderStyle="round" borderColor="gray" paddingX={1} width={width}>
+        <Text color="cyan">{"❯ "}</Text>
+        <TextInput
+          value={input}
+          onChange={setInput}
+          onSubmit={(value) => {
+            if (value.trim()) engine.submit(value);
+            setInput("");
+          }}
+        />
+      </Box>
+      {footer.length > 0 && (
+        <Text>{`  ${footer.join(chalk.dim("  ·  "))}`}</Text>
       )}
-    </>
+      <Text dimColor>
+        {"  Enter to send · scroll or Esc for live · Ctrl+C to exit"}
+      </Text>
+    </Box>
   );
 }
 
@@ -251,7 +287,7 @@ export async function withBootScreen<T>(
   work: () => Promise<T>,
 ): Promise<T> {
   const header = await buildHeader();
-  process.stdout.write("\x1b[2J\x1b[H");
+  enterAltScreen();
   const rows = process.stdout.rows || 24;
   const headerLines = header.split("\n").length;
   const BootScreen = () => {
@@ -272,6 +308,9 @@ export async function withBootScreen<T>(
   const app = render(<BootScreen />, { exitOnCtrlC: false });
   try {
     return await work();
+  } catch (error) {
+    exitAltScreen(); // The error must land on the normal screen.
+    throw error;
   } finally {
     app.unmount();
   }
@@ -310,7 +349,7 @@ export async function runInteractiveSession(
   // stays in scrollback) and start at the TOP — the header renders first, and
   // the dynamic region's fixed height bottom-justifies the input widget at the
   // terminal's bottom, with the conversation filling the space between.
-  process.stdout.write("\x1b[2J\x1b[H");
+  enterAltScreen();
   onLine(await buildHeader());
 
   // Bracketed paste: the terminal wraps pastes in markers (and drops its
@@ -334,6 +373,10 @@ export async function runInteractiveSession(
     process.stdout.write("\x1b[?2004l");
     stdinProxy.cleanup();
     engine.stop();
+    exitAltScreen();
+    if (options.footer.length) {
+      process.stdout.write(`${options.footer.join(chalk.dim("  ·  "))}\n`);
+    }
     const note = engine.turnRunning()
       ? " — the running turn continues server-side (watch it in the editor)"
       : "";
@@ -457,7 +500,7 @@ export async function runGenesisSession(
     },
   };
 
-  process.stdout.write("\x1b[2J\x1b[H");
+  enterAltScreen();
   onLine(await buildHeader());
 
   process.stdout.write("\x1b[?2004h");
@@ -477,6 +520,10 @@ export async function runGenesisSession(
     process.stdout.write("\x1b[?2004l");
     stdinProxy.cleanup();
     genesis.stop();
+    exitAltScreen();
+    if (options.footer.length) {
+      process.stdout.write(`${options.footer.join(chalk.dim("  ·  "))}\n`);
+    }
     const note = genesis.turnRunning()
       ? " — the running turn continues server-side (watch it in the editor)"
       : "";
