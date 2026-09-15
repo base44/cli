@@ -168,6 +168,31 @@ describe("imported", () => {
     expect(JSON.parse(result.stdout)).toEqual({ queued: true });
   });
 
+  it("create <name> is blank mode: one name for repo, app, and directory", async () => {
+    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    let sentBody: Record<string, unknown> | undefined;
+    t.api.mockRoute("POST", "/api/apps", (req, res) => {
+      sentBody = req.body as Record<string, unknown>;
+      return res.json({
+        id: "new-app-2",
+        name: "recipe-box-4",
+        imported_repo_url: "https://github.com/tester/recipe-box-4",
+      });
+    });
+    const result = await t.run("imported", "create", "recipe-box-4", "--json");
+    t.expectResult(result).toSucceed();
+    expect(sentBody).toMatchObject({
+      app_type: "imported_app",
+      imported_source_mode: "blank",
+      imported_new_repo_name: "recipe-box-4",
+      name: "recipe-box-4",
+    });
+    expect(JSON.parse(result.stdout)).toMatchObject({ id: "new-app-2" });
+
+    const badName = await t.run("imported", "create", "no/slashes", "--json");
+    t.expectResult(badName).toFail();
+  });
+
   it("create --blank requires a repo name and sends the blank payload", async () => {
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
 

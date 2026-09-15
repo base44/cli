@@ -1,3 +1,5 @@
+import { mkdir } from "node:fs/promises";
+import { join } from "node:path";
 import { renderStreamEvent } from "@/cli/commands/imported/render.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, getDashboardUrl } from "@/cli/utils/index.js";
@@ -29,53 +31,66 @@ interface CreateImportedOptions {
 
 async function createImportedAction(
   { log, runTask, jsonMode }: CLIContext,
+  name: string | undefined,
   options: CreateImportedOptions,
 ): Promise<RunCommandResult> {
-  if (options.blank && options.repo) {
+  // The positional name is the whole identity: directory, GitHub repo, app.
+  const repoName = options.repoName ?? name;
+  // A bare name means "from scratch" — --blank stays for explicitness.
+  const blank = options.blank || (Boolean(name) && !options.repo);
+  if (blank && options.repo) {
     throw new InvalidInputError(
-      "--blank starts from scratch; drop --repo, or drop --blank to import that repository.",
+      "A from-scratch create takes no --repo; drop it, or drop --blank to import that repository.",
     );
   }
-  if (options.blank && !options.repoName) {
+  if (blank && !repoName) {
     throw new InvalidInputError(
-      "--blank needs --repo-name <name> for the fresh GitHub repository.",
+      "Starting from scratch needs a name: `imported create <name>` (or --repo-name <name>).",
     );
   }
-  if (!options.blank && !options.repo) {
+  if (!blank && !options.repo) {
     throw new InvalidInputError(
-      "Pass --repo <github-url> to import a repository, or --blank --repo-name <name> to start from scratch.",
+      "Pass a <name> to start from scratch, or --repo <github-url> to import a repository.",
     );
   }
-  if (await appConfigExists(process.cwd())) {
+  if (name && !/^[A-Za-z0-9._-]+$/.test(name)) {
     throw new InvalidInputError(
-      "This directory is already linked to a Base44 app. Run the command from a fresh directory.",
+      "The name becomes a directory and a GitHub repository — letters, digits, dots, dashes and underscores only.",
     );
   }
 
-  const sourceMode = options.blank ? "blank" : (options.mode ?? "direct");
+  const targetDir = name ? join(process.cwd(), name) : process.cwd();
+  if (name) await mkdir(targetDir, { recursive: true });
+  if (await appConfigExists(targetDir)) {
+    throw new InvalidInputError(
+      name
+        ? `./${name} is already linked to a Base44 app. Pick another name.`
+        : "This directory is already linked to a Base44 app. Run the command from a fresh directory.",
+    );
+  }
+
+  const sourceMode = blank ? "blank" : (options.mode ?? "direct");
   const appName =
     options.appName ??
-    (options.blank
-      ? (options.repoName as string)
+    (blank
+      ? (repoName as string)
       : ((options.repo as string).replace(/\/+$/, "").split("/").pop() ??
         "Imported app"));
 
   const created = await runTask(
-    options.blank
-      ? "Creating your repository and app"
-      : "Importing the repository",
+    blank ? "Creating your repository and app" : "Importing the repository",
     () =>
       createImportedApp({
         appName,
         sourceMode,
         repoUrl: options.repo,
-        newRepoName: options.repoName,
+        newRepoName: repoName,
         branch: options.fromBranch,
         prompt: options.prompt,
       }),
   );
 
-  const configPath = await writeAppConfig(process.cwd(), created.id);
+  const configPath = await writeAppConfig(targetDir, created.id);
   setAppContext({ id: created.id });
 
   let finalState: string | undefined;
@@ -129,30 +144,39 @@ async function createImportedAction(
     log.message(`Repo:     ${created.imported_repo_url}`);
   log.message(`Editor:   ${editorUrl}`);
   if (previewUrl) log.message(`Preview:  ${previewUrl}`);
-  log.message(`Linked this directory (${configPath})`);
+  log.message(
+    name
+      ? `Linked ./${name} (${configPath})`
+      : `Linked this directory (${configPath})`,
+  );
+  const cdHint = name ? ` Next: cd ${name}` : "";
   if (finalState === "error") {
     return {
-      outroMessage:
-        "The first build reported an error — open the editor to see what the agent hit.",
+      outroMessage: `The first build reported an error — open the editor to see what the agent hit.${cdHint}`,
     };
   }
   if (finalState === "processing") {
     return {
-      outroMessage:
-        "Still building — check progress in the editor or with `base44 imported status`.",
+      outroMessage: `Still building — check progress in the editor or with \`base44 imported status\`.${cdHint}`,
     };
   }
   return {
     outroMessage: options.prompt
-      ? "First build finished."
-      : "Imported app created.",
+      ? `First build finished.${cdHint}`
+      : `Imported app created.${cdHint}`,
   };
 }
 
 export function getImportedCreateCommand(): Base44Command {
   const command = new Base44Command("create", { requireAppContext: false });
   command
-    .description("Create an imported app from a GitHub repo, or from scratch")
+    .description(
+      "Create an imported app: `create <name>` starts from scratch in ./<name>, or import with --repo",
+    )
+    .argument(
+      "[name]",
+      "One name for everything: the directory (created for you), the fresh GitHub repo, and the app",
+    )
     .option(
       "--blank",
       "Start from scratch in a fresh private GitHub repository",
