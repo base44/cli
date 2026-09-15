@@ -6,7 +6,7 @@ import {
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
 import { InvalidInputError } from "@/core/errors.js";
-import { appConfigExists, initAppContext } from "@/core/project/app-config.js";
+import { initAppContext } from "@/core/project/app-config.js";
 import { soleActiveBranchId } from "@/core/resources/imported/api.js";
 
 async function codeAction(_ctx: CLIContext): Promise<RunCommandResult> {
@@ -16,10 +16,18 @@ async function codeAction(_ctx: CLIContext): Promise<RunCommandResult> {
     );
   }
 
-  // Inside a linked app directory, open the session on that app; anywhere
-  // else, the first prompt creates one from scratch.
-  if (await appConfigExists(process.cwd())) {
+  // Inside a linked app project, open the session on that app; anywhere
+  // else, the first prompt creates one from scratch. Resolution must be the
+  // real app-context lookup — an existence glob is recursive and would match
+  // apps in SUBdirectories of an unlinked cwd.
+  let linked = false;
+  try {
     await initAppContext();
+    linked = true;
+  } catch {
+    // Not a linked project — genesis mode below.
+  }
+  if (linked) {
     const branchId = await soleActiveBranchId().catch(() => undefined);
     await runInteractiveSession({
       branchId,
