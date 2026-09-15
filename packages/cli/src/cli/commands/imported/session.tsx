@@ -1,5 +1,5 @@
 import chalk from "chalk";
-import { Box, render, Static, Text, useApp, useInput } from "ink";
+import { Box, render, Text, useApp, useInput } from "ink";
 import TextInput from "ink-text-input";
 import { useEffect, useReducer, useRef, useState } from "react";
 import stripAnsi from "strip-ansi";
@@ -110,17 +110,6 @@ interface ViewProps {
   subscribe: (listener: (line: string) => void) => () => void;
 }
 
-/** Terminal lines a history item occupies, wrap-aware (estimate). */
-function lineCount(item: string, columns: number): number {
-  return item
-    .split("\n")
-    .reduce(
-      (sum, line) =>
-        sum + Math.max(1, Math.ceil(stripAnsi(line).length / columns)),
-      0,
-    );
-}
-
 function SessionView({ engine, footer, subscribe }: ViewProps) {
   const { exit } = useApp();
   const [items, setItems] = useState<string[]>([]);
@@ -174,7 +163,7 @@ function SessionView({ engine, footer, subscribe }: ViewProps) {
   const rows = process.stdout.rows || 24;
   const width = Math.min(columns, 100);
   const innerWidth = Math.max(10, width - 4); // input border + padding
-  const inputRows = Math.max(1, Math.ceil((input.length + 2) / innerWidth));
+  const inputRows = Math.max(1, Math.ceil((input.length + 3) / innerWidth)); // +cursor cell
   const widgetHeight = 4 + inputRows + (footer.length ? 1 : 0); // status + border + hint + links
   const viewHeight = Math.max(3, rows - widgetHeight - 1);
 
@@ -188,23 +177,25 @@ function SessionView({ engine, footer, subscribe }: ViewProps) {
   const visible = lines.slice(Math.max(0, end - viewHeight), end);
 
   const scrollNote =
-    clamped > 0
-      ? chalk.yellow(
-          ` ↑ scrolled ${clamped} lines — Esc or scroll down for live`,
-        )
-      : "";
+    clamped > 0 ? chalk.yellow(` ↑ ${clamped} lines — Esc for live`) : "";
+  // The status row must stay EXACTLY one row or the whole widget bounces —
+  // truncate it (and every transcript row) instead of letting them wrap.
+  const statusLine = hardWrapAnsi(
+    `${statusText(engine.status(), musingSeed)}${scrollNote}`,
+    Math.max(10, columns - 1),
+  )[0];
 
   return (
     <Box flexDirection="column">
       <Box flexDirection="column" height={viewHeight}>
         {visible.map((line, index) => (
-          <Text key={`${index}-${line.length}`}>{line || " "}</Text>
+          // biome-ignore lint/suspicious/noArrayIndexKey: windowed slice re-renders wholesale each frame; position is the identity
+          <Text key={`${index}-${line.length}`} wrap="truncate-end">
+            {line || " "}
+          </Text>
         ))}
       </Box>
-      <Text>
-        {statusText(engine.status(), musingSeed)}
-        {scrollNote}
-      </Text>
+      <Text wrap="truncate-end">{statusLine}</Text>
       <Box borderStyle="round" borderColor="gray" paddingX={1} width={width}>
         <Text color="cyan">{"❯ "}</Text>
         <TextInput
@@ -217,9 +208,9 @@ function SessionView({ engine, footer, subscribe }: ViewProps) {
         />
       </Box>
       {footer.length > 0 && (
-        <Text>{`  ${footer.join(chalk.dim("  ·  "))}`}</Text>
+        <Text wrap="truncate-end">{`  ${footer.join(chalk.dim("  ·  "))}`}</Text>
       )}
-      <Text dimColor>
+      <Text dimColor wrap="truncate-end">
         {"  Enter to send · scroll or Esc for live · Ctrl+C to exit"}
       </Text>
     </Box>
