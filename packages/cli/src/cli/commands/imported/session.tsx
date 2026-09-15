@@ -178,9 +178,12 @@ export async function runInteractiveSession(
     onTurnSettled: options.onTurnSettled,
   });
 
-  // Fresh viewport, Claude-Code style: the visible screen clears (shell
-  // history stays in scrollback) and the session owns what you see.
-  process.stdout.write("\x1b[2J\x1b[H");
+  // Fresh viewport, Claude-Code style: clear the visible screen (shell history
+  // stays in scrollback) and park the cursor on the BOTTOM row — the widget
+  // then owns the bottom of the terminal from the first frame, and the
+  // conversation fills the empty space above it as it streams.
+  const rows = process.stdout.rows || 24;
+  process.stdout.write(`\x1b[2J\x1b[${rows};1H`);
 
   const app = render(
     <SessionView
