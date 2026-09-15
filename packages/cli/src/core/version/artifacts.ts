@@ -9,8 +9,13 @@ import { InvalidInputError } from "@/core/errors.js";
 import { pathExists, readJsonFile } from "@/core/utils/fs.js";
 import type { ArtifactFile, ArtifactSet } from "@/core/version/schema.js";
 
-/** The same ceiling the site collector applies; one build, one limit. */
-const MAX_FILE_COUNT = 100_000;
+/**
+ * What one declaration may cost the platform: a presigned URL per file, and the
+ * whole set held in Redis until it finalizes. ~2x the largest frontend ever
+ * measured through the build sandbox (25.5k assets). Must match the server's
+ * ceiling — declaring more only earns a rejection after the walk.
+ */
+const MAX_FILE_COUNT = 50_000;
 
 /** Open descriptors while hashing. Well under the 256 a production Node keeps. */
 const HASH_CONCURRENCY = 32;

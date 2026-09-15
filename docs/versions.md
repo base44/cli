@@ -76,6 +76,19 @@ The group is plural to match `agents`, `entities`, `functions`, `secrets` and `w
 
 `DEFAULT_VERSION_UPLOAD_CONCURRENCY` is 8, `MAX_VERSION_UPLOAD_CONCURRENCY` is 16. Measured on the build sandbox's pipe: at 3, a 25 500-asset app moved 27 assets/s (~109 ms per PUT, 23 KiB mean — latency-bound) and needed ~930 s of the ~450 s a build leaves, so it was SIGKILLed mid-upload every time. 8 is the rate the python driver it replaced already sustained to the same bucket; 16 failed a degraded pipe on 2026-07-02.
 
+## What one declaration may cost
+
+`MAX_FILE_COUNT` is 50 000, matching the server. It is a cost bound, not a guess
+about app size: the platform signs one presigned URL per declared file — measured
+at ~108 µs of blocking crypto each — and holds the whole declared set in Redis
+until the version finalizes. At the ceiling that is ~5.4 s and ~7 MB for a single
+request, which is why declaring is rate-limited far more tightly than finalizing
+or deploying.
+
+The largest frontend ever measured through the build sandbox is 25 500 assets, so
+the ceiling is roughly 2x a real worst case. Raising it on one side alone only
+earns a rejection after the walk.
+
 ## The env gate
 
 The whole lane is one env var. With `BASE44_VERSIONS_API=1` (or `true`; internal gate, not user-facing yet) `base44 publish` and the `versions` group are registered; without it they are **not registered at all**, so they are absent from `--help` and typing one is an unknown command. `versionsApiEnabled()` in `core/version/gate.ts` is read in exactly one place: the registration in `program.ts`.
