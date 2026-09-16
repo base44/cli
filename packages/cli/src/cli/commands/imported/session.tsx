@@ -115,15 +115,9 @@ interface ViewProps {
   engine: SessionEngine;
   footer: string[];
   subscribe: (listener: (line: string) => void) => () => void;
-  sessionStartedAt: number;
 }
 
-function SessionView({
-  engine,
-  footer,
-  subscribe,
-  sessionStartedAt,
-}: ViewProps) {
+function SessionView({ engine, footer, subscribe }: ViewProps) {
   const { exit } = useApp();
   const [items, setItems] = useState<string[]>([]);
   const [input, setInput] = useState("");
@@ -349,7 +343,7 @@ function SessionView({
         <Text wrap="truncate-end">{`  ${footer.join(chalk.dim("  ·  "))}`}</Text>
       )}
       <Text wrap="truncate-end">
-        {`  ${chalk.dim("model")} ${chalk.hex(BRAND_ORANGE)(displayName(currentModel))}${chalk.dim("  ·  session ")}${formatDuration(Date.now() - sessionStartedAt)}`}
+        {`  ${chalk.dim("model")} ${chalk.hex(BRAND_ORANGE)(displayName(currentModel))}`}
       </Text>
       <Text dimColor wrap="truncate-end">
         {pickerOpen
@@ -523,7 +517,6 @@ export async function runInteractiveSession(
       engine={engine}
       footer={options.footer}
       subscribe={subscribe}
-      sessionStartedAt={sessionStartedAt}
     />,
     { exitOnCtrlC: false, stdin: stdinProxy },
   );
@@ -685,7 +678,6 @@ export async function runGenesisSession(
       engine={genesis}
       footer={options.footer}
       subscribe={subscribe}
-      sessionStartedAt={sessionStartedAt}
     />,
     { exitOnCtrlC: false, stdin: stdinProxy },
   );
