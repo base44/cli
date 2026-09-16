@@ -85,6 +85,7 @@ export function createSessionEngine(options: EngineOptions): SessionEngine {
 
   let stopped = false;
   let polling = false;
+  let pollStartedAt = 0;
   let timer: ReturnType<typeof setInterval> | null = null;
   let sendsInFlight = 0;
   let activeTurnId: string | null = null;
@@ -143,8 +144,15 @@ export function createSessionEngine(options: EngineOptions): SessionEngine {
   };
 
   const poll = async (prime: boolean) => {
-    if (polling) return;
+    // Re-entrancy guard, but time-bounded: if a previous poll's request wedged
+    // (a hung fetch that never resolves or rejects), a plain boolean would block
+    // every future poll forever — the turn settles server-side but the UI stays
+    // stuck on "running" with the timer ticking. After STUCK_POLL_MS, let a new
+    // poll through so settle is still detected.
+    const STUCK_POLL_MS = 45_000;
+    if (polling && Date.now() - pollStartedAt < STUCK_POLL_MS) return;
     polling = true;
+    pollStartedAt = Date.now();
     try {
       let messages: Awaited<ReturnType<typeof getFullConversation>>;
       try {
