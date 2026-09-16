@@ -2,7 +2,6 @@ import chalk from "chalk";
 import { Box, render, Text, useApp, useInput } from "ink";
 import TextInput from "ink-text-input";
 import { useEffect, useReducer, useRef, useState } from "react";
-import stripAnsi from "strip-ansi";
 import { expandPrompt } from "@/cli/commands/imported/expansions.js";
 import { createPasteFriendlyStdin } from "@/cli/commands/imported/paste.js";
 import {
@@ -369,8 +368,8 @@ function SessionView({
 // a tall oval; half-blocks make each text row two ~square pixels, so the disc
 // comes out round. One blanked pixel-row (LOGO_GAP) is the stripe. Rows are
 // trimmed so renderHeader's center() aligns them.
-const LOGO_RADIUS = 9;
-const LOGO_GAP = 9; // the single blank stripe: this pixel-row is cleared
+const LOGO_RADIUS = 5;
+const LOGO_GAP = 7; // the single blank stripe, low in the circle: this pixel-row is cleared
 function buildLogoRows(): string[] {
   const n = LOGO_RADIUS * 2;
   const c = (n - 1) / 2;
@@ -390,37 +389,33 @@ function buildLogoRows(): string[] {
   return rows.map((row) => row.trim());
 }
 
-/** Logo rows in brand orange. */
-function logoRows(): string[] {
-  const orange = chalk.hex(BRAND_ORANGE);
-  return buildLogoRows().map((row) => (row ? orange(row) : ""));
-}
-
-/** Render the welcome box synchronously. */
+/** The welcome header, Claude-Code style: the sun mark on the left, the title /
+ * account / cwd lines stacked to its right. No box. */
 function renderHeader(who: string): string {
   const orange = chalk.hex(BRAND_ORANGE);
   const cwd = process.cwd().replace(process.env.HOME ?? "", "~");
-  const inner = Math.min((process.stdout.columns || 80) - 2, 64);
-  const stripLength = (s: string) => stripAnsi(s).length;
+  const logo = buildLogoRows();
+  const logoW = Math.max(...logo.map((r) => r.length));
   const center = (s: string) => {
-    const pad = Math.max(0, inner - stripLength(s));
-    const left = Math.floor(pad / 2);
-    return `│${" ".repeat(left)}${s}${" ".repeat(pad - left)}│`;
+    const total = Math.max(0, logoW - s.length);
+    const left = Math.floor(total / 2);
+    return " ".repeat(left) + s + " ".repeat(total - left);
   };
-  const title = ` ${orange.bold("Base44 Code")} ${chalk.dim(`v${packageJson.version}`)} `;
-  const top = `╭─${title}${"─".repeat(Math.max(0, inner - stripLength(title) - 1))}╮`;
-  return [
-    top,
-    center(""),
-    center(chalk.bold(who ? `Welcome back, ${who}!` : "Welcome!")),
-    center(""),
-    ...logoRows().map(center),
-    center(""),
-    center(chalk.dim(getBase44ApiUrl().replace(/^https:\/\//, ""))),
-    center(chalk.dim(cwd)),
-    center(""),
-    `╰${"─".repeat(inner)}╯`,
-  ].join("\n");
+  const text = [
+    `${orange.bold("Base44 Code")} ${chalk.dim(`v${packageJson.version}`)}`,
+    chalk.bold(who ? `Welcome back, ${who}!` : "Welcome!"),
+    chalk.dim(getBase44ApiUrl().replace(/^https:\/\//, "")),
+    chalk.dim(cwd),
+  ];
+  const height = Math.max(logo.length, text.length);
+  const textTop = Math.max(0, Math.floor((logo.length - text.length) / 2));
+  const out: string[] = [];
+  for (let i = 0; i < height; i++) {
+    const left = i < logo.length ? orange(center(logo[i])) : " ".repeat(logoW);
+    const right = text[i - textTop] ?? "";
+    out.push(`  ${left}   ${right}`.trimEnd());
+  }
+  return out.join("\n");
 }
 
 async function currentUserName(): Promise<string> {
