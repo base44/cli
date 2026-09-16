@@ -364,32 +364,26 @@ function SessionView({
  * clears the input, then exits; turns keep running server-side after exit.
  * TTY only — callers gate on interactivity.
  */
-// The Base44 mark, rendered rather than hand-drawn: a setting sun — a solid disc
-// on top, then thin horizontal slits cut through the lower half so it reads as
-// bars that shorten with the circle's curve (the real logo, Logo_v5.png).
-// Terminal cells are ~2:1, so a naive block grid is a tall oval; half-blocks
-// make each text row two ~square pixels, so the disc comes out round. Below the
-// split, each row is drawn on its TOP pixel only (▀), leaving a gap beneath it —
-// that is the slit. Rows are trimmed so renderHeader's center() aligns them.
-const LOGO_RADIUS = 6;
-const LOGO_SPLIT = 6; // split at the centre: solid top half, 3 slit-bars below
+// The Base44 mark, rendered rather than hand-drawn: a round sun with a single
+// thin blank stripe across it. Terminal cells are ~2:1, so a naive block grid is
+// a tall oval; half-blocks make each text row two ~square pixels, so the disc
+// comes out round. One blanked pixel-row (LOGO_GAP) is the stripe. Rows are
+// trimmed so renderHeader's center() aligns them.
+const LOGO_RADIUS = 9;
+const LOGO_GAP = 9; // the single blank stripe: this pixel-row is cleared
 function buildLogoRows(): string[] {
   const n = LOGO_RADIUS * 2;
   const c = (n - 1) / 2;
   const rad = LOGO_RADIUS - 0.5;
   const inside = (px: number, py: number) =>
-    (px - c) ** 2 + (py - c) ** 2 <= rad * rad + 0.5;
+    py !== LOGO_GAP && (px - c) ** 2 + (py - c) ** 2 <= rad * rad + 0.5;
   const rows: string[] = [];
   for (let ty = 0; ty < n; ty += 2) {
     let row = "";
     for (let px = 0; px < n; px++) {
-      if (ty < LOGO_SPLIT) {
-        const top = inside(px, ty);
-        const bot = inside(px, ty + 1);
-        row += top && bot ? "█" : top ? "▀" : bot ? "▄" : " ";
-      } else {
-        row += inside(px, ty) ? "▀" : " ";
-      }
+      const top = inside(px, ty);
+      const bot = inside(px, ty + 1);
+      row += top && bot ? "█" : top ? "▀" : bot ? "▄" : " ";
     }
     rows.push(row.trim());
   }
