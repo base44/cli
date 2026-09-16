@@ -82,7 +82,7 @@ async function publishAction(
     log.message(theme.styles.dim(`version ${result.versionId}`));
   }
   return {
-    outroMessage: `Deployment ${result.deploymentId}`,
+    outroMessage: `${result.environment} now serves ${result.versionId}`,
     stdout: jsonMode ? `${JSON.stringify(result, null, 2)}\n` : undefined,
   };
 }

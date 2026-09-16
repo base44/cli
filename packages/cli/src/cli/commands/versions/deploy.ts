@@ -1,43 +1,44 @@
 import { randomUUID } from "node:crypto";
 import type { Command } from "commander";
-import { targetOption } from "@/cli/commands/versions/options.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
-import { deployVersion } from "@/core/version/index.js";
+import {
+  DEFAULT_ENVIRONMENT,
+  setEnvironmentVersion,
+} from "@/core/version/index.js";
 
-interface DeployOptions {
-  target?: string;
-}
-
-/** Serve an existing version: no checkout, no build, no upload. A rollback is
- * the same call with an older id. */
+/** Point an environment at an existing version: no checkout, no build, no
+ * upload. Pointing it at an older one is the rollback. */
 async function deployAction(
   { runTask, jsonMode }: CLIContext,
   versionId: string,
-  options: DeployOptions,
+  options: { target?: string },
 ): Promise<RunCommandResult> {
-  const deployment = await runTask(
-    `Deploying version ${versionId}...`,
+  const environment = options.target ?? DEFAULT_ENVIRONMENT;
+  const result = await runTask(
+    `Pointing ${environment} at ${versionId}...`,
     async () =>
-      await deployVersion(versionId, {
-        target: options.target,
+      await setEnvironmentVersion(environment, versionId, {
         idempotencyKey: randomUUID(),
       }),
-    { successMessage: "Version deployed", errorMessage: "Deploy failed" },
+    {
+      successMessage: "Environment updated",
+      errorMessage: "Could not update the environment",
+    },
   );
 
   return {
-    outroMessage: `Deployment ${deployment.deploymentId}`,
-    stdout: jsonMode ? `${JSON.stringify(deployment, null, 2)}\n` : undefined,
+    outroMessage: `${result.name} now serves ${result.versionId}`,
+    stdout: jsonMode ? `${JSON.stringify(result, null, 2)}\n` : undefined,
   };
 }
 
 export function getVersionDeployCommand(): Command {
   return new Base44Command("deploy")
     .description(
-      "Serve an already-recorded version (also how a rollback is done)",
+      "Point an environment at an already-recorded version (also the rollback)",
     )
     .argument("<version-id>", "The version to serve")
-    .addOption(targetOption())
+    .option("--target <name>", "Environment to point at it")
     .action(deployAction);
 }

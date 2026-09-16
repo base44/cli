@@ -28,7 +28,9 @@ Each of the three responses is parsed through its Zod schema and a mismatch rais
 
 What that does **not** catch is a change of meaning behind an unchanged shape. Nothing here does; the lane is small enough that both sides are reviewed together.
 
-`deployVersion(versionId, options)` is one POST carrying a target name and an idempotency key. Nothing else is the caller's to say: the app comes from the credential, and so do the acting principal, the runtime environment variables, every artifact key, the manifest hash and the publication revision. The request models on the server forbid unknown fields, so sending one is an error rather than a silent drop.
+`setEnvironmentVersion(environment, versionId, options)` is one `PATCH /environments/{name}` carrying the version id and an idempotency key. **An environment serves one version, so making a version live is editing that pointer — there is no deployment to create.** The `Deployment` record the switch leaves behind is how the plane remembers what it prepared, returned so a caller can correlate a log line.
+
+Nothing else is the caller's to say: the app comes from the credential, and so do the acting principal, the runtime environment variables, every artifact key, the manifest hash and the publication revision. The request models on the server forbid unknown fields, so sending one is an error rather than a silent drop.
 
 ## Why the digest is signed into the URL
 
@@ -42,11 +44,13 @@ The practical consequence for this CLI: **send the checksum the server gave you,
 
 Deliberately **not** `entityResource.readAll` / `agentResource.readAll`. The platform's own extractor and validation are authoritative, and this CLI's stricter entity schema refuses real Builder apps — which is exactly why `site deploy` reads no resources at all. Re-introducing the strict parse here would reproduce that block.
 
-## The commit is provenance, not identity
+## One commit, and it is provenance rather than identity
 
 `resolveProvenanceCommit(projectRoot, explicit?)` in `core/site/git-hash.ts` returns `undefined` rather than failing when there is no checkout. A version is identified by its **content**; the commit is recorded beside it and never hashed, so a build outside a git checkout is still a complete version.
 
 That is the whole difference from `resolveGitHash`, whose caller addresses a deployment *by* the hash and therefore cannot go without one.
+
+One commit, not two: an app's frontend and backend are the same app at the same source, so a version records a single `source_commit`.
 
 ## A Builder repo carries no CLI config
 
@@ -66,7 +70,7 @@ A callback that throws synchronously is tagged too; `run().catch(...)` would let
 
 **`base44 versions create`** — record built output without serving it. A version can sit unpublished for as long as it likes.
 
-**`base44 versions deploy <version-id> [--target <name>]`** — serve a recorded version: no checkout, no build, no upload. Passing an older id is how a rollback is done.
+**`base44 versions deploy <version-id> [--target <name>]`** — point an environment at a recorded version: no checkout, no build, no upload. Passing an older id is how a rollback is done.
 
 `base44 build` is not part of this group and is not gated, but the lane depends on two things about it: it needs **no credential** (the publish sandbox builds before minting a key that can deploy), and it resolves its config through `resolvePublishTarget` (a Builder repo has none). What it builds and what it prints are unchanged.
 

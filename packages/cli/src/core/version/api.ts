@@ -7,12 +7,12 @@ import type {
   ArtifactSet,
   CreateVersionProgress,
   CreateVersionResponse,
-  DeployVersionResponse,
+  EnvironmentResponse,
 } from "@/core/version/schema.js";
 import {
   CreateVersionResponseSchema,
   DeclareVersionResponseSchema,
-  DeployVersionResponseSchema,
+  EnvironmentResponseSchema,
 } from "@/core/version/schema.js";
 
 /**
@@ -29,6 +29,18 @@ async function post(
 ): Promise<KyResponse> {
   try {
     return await getAppClient().post(path, { json, timeout: 180_000 });
+  } catch (error) {
+    throw await ApiError.fromHttpError(error, doing);
+  }
+}
+
+async function patch(
+  path: string,
+  json: unknown,
+  doing: string,
+): Promise<KyResponse> {
+  try {
+    return await getAppClient().patch(path, { json, timeout: 180_000 });
   } catch (error) {
     throw await ApiError.fromHttpError(error, doing);
   }
@@ -71,8 +83,9 @@ export async function createVersion(
           })),
           entities: artifacts.entities,
           agents: artifacts.agents,
+          // One commit: an app's frontend and backend are the same app at the
+          // same source.
           source_commit: options.sourceCommit,
-          frontend_commit: options.sourceCommit,
         },
         "declaring a version",
       )
@@ -126,26 +139,32 @@ export async function createVersion(
   );
 }
 
-/** Serve a recorded version. The body carries a target name and a retry key;
- * everything else is the platform's to resolve. */
-export async function deployVersion(
+/**
+ * Point an environment at a recorded version.
+ *
+ * An environment serves one version, so making a version live is editing that
+ * pointer — there is no deployment to create. Pointing it at an older version is
+ * the rollback.
+ */
+export async function setEnvironmentVersion(
+  environment: string,
   versionId: string,
-  options: { target?: string; idempotencyKey?: string } = {},
-): Promise<DeployVersionResponse> {
+  options: { idempotencyKey?: string } = {},
+): Promise<EnvironmentResponse> {
   return parse(
-    DeployVersionResponseSchema,
+    EnvironmentResponseSchema,
     await (
-      await post(
-        `versions/${encodeURIComponent(versionId)}/deployments`,
+      await patch(
+        `environments/${encodeURIComponent(environment)}`,
         {
-          ...(options.target ? { target: options.target } : {}),
+          version_id: versionId,
           ...(options.idempotencyKey
             ? { idempotency_key: options.idempotencyKey }
             : {}),
         },
-        "deploying a version",
+        "setting the environment's version",
       )
     ).json(),
-    "deploy",
+    "environment",
   );
 }

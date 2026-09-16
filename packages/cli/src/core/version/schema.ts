@@ -66,14 +66,18 @@ export const CreateVersionResponseSchema = z
 
 export type CreateVersionResponse = z.infer<typeof CreateVersionResponseSchema>;
 
-export const DeployVersionResponseSchema = z
+export const EnvironmentResponseSchema = z
   .object({
-    deployment_id: z.string(),
+    name: z.string(),
+    version_id: z.string(),
     manifest_hash: z.string(),
+    deployment_id: z.string(),
   })
   .transform((data) => ({
-    deploymentId: data.deployment_id,
+    name: data.name,
+    versionId: data.version_id,
     manifestHash: data.manifest_hash,
+    deploymentId: data.deployment_id,
   }));
 
-export type DeployVersionResponse = z.infer<typeof DeployVersionResponseSchema>;
+export type EnvironmentResponse = z.infer<typeof EnvironmentResponseSchema>;

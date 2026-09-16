@@ -19,9 +19,11 @@ describe("publish command", () => {
       .mockPresignedUpload("/index.html")
       .mockPresignedUpload("/assets/app.js")
       .mockVersionFinalize({ version_id: "ver-1", manifest_hash: "sha256:abc" })
-      .mockVersionDeploy({
-        deployment_id: "dep-1",
+      .mockEnvironmentSet({
+        name: "production",
+        version_id: "ver-1",
         manifest_hash: "sha256:abc",
+        deployment_id: "dep-1",
       });
   };
 
@@ -82,7 +84,7 @@ describe("publish command", () => {
     ).toBe(INDEX);
   });
 
-  it("carries only a target name and a retry key into the deploy", async () => {
+  it("names the environment in the path and the version in the body", async () => {
     // Everything else — the app, the principal, env vars — is the platform's to
     // resolve, and there is deliberately no field for any of them.
     t.givenEnv({ BASE44_VERSIONS_API: "1" });
@@ -92,10 +94,10 @@ describe("publish command", () => {
     const result = await t.run("publish", "--no-build");
 
     t.expectResult(result).toSucceed();
-    expect(t.api.versionDeployIds).toEqual(["ver-1"]);
-    expect(Object.keys(t.api.versionDeployRequests[0] as object)).toEqual([
-      "idempotency_key",
-    ]);
+    expect(t.api.environmentNames).toEqual(["production"]);
+    expect(
+      Object.keys(t.api.versionDeployRequests[0] as object).sort(),
+    ).toEqual(["idempotency_key", "version_id"]);
   });
 
   it("emits both references in the --json envelope", async () => {
@@ -110,6 +112,7 @@ describe("publish command", () => {
 
     t.expectResult(result).toSucceed();
     expect(JSON.parse(result.stdout)).toEqual({
+      environment: "production",
       versionId: "ver-1",
       manifestHash: "sha256:abc",
       deploymentId: "dep-1",
@@ -168,26 +171,30 @@ describe("publish command", () => {
   });
 });
 
-describe("versions deploy command", () => {
+describe("versions deploy points an environment", () => {
   const t = setupCLITests();
 
   it("serves an existing version with no build and no upload", async () => {
     // Which is also what a rollback is: the same call with an older version id.
     t.givenEnv({ BASE44_VERSIONS_API: "1" });
     await t.givenLoggedInWithProject(fixture("publishable"));
-    t.api.mockVersionDeploy({
-      deployment_id: "dep-9",
+    t.api.mockEnvironmentSet({
+      name: "production",
+      version_id: "ver-old",
       manifest_hash: "sha256:old",
+      deployment_id: "dep-9",
     });
 
     const result = await t.run("versions", "deploy", "ver-old", "--json");
 
     t.expectResult(result).toSucceed();
-    expect(t.api.versionDeployIds).toEqual(["ver-old"]);
+    expect(t.api.environmentNames).toEqual(["production"]);
     expect(t.api.presignedUploadRequests).toEqual([]);
     expect(JSON.parse(result.stdout)).toEqual({
-      deploymentId: "dep-9",
+      name: "production",
+      versionId: "ver-old",
       manifestHash: "sha256:old",
+      deploymentId: "dep-9",
     });
   });
 });

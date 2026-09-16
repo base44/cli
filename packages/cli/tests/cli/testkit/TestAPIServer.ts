@@ -355,7 +355,7 @@ interface ErrorResponse {
 
 // ─── ROUTE HANDLER TYPES ─────────────────────────────────────
 
-type Method = "GET" | "POST" | "PUT" | "DELETE";
+type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 interface RouteEntry {
   method: Method;
@@ -433,6 +433,7 @@ export class TestAPIServer {
         | "get"
         | "post"
         | "put"
+        | "patch"
         | "delete";
       this.app[method](entry.path, entry.handler);
     }
@@ -854,8 +855,8 @@ export class TestAPIServer {
   readonly versionDeclareRequests: unknown[] = [];
   /** Captured JSON bodies of POST versions/{id}/deployments requests. */
   readonly versionDeployRequests: unknown[] = [];
-  /** Captured version ids the deploy call addressed. */
-  readonly versionDeployIds: string[] = [];
+  /** Captured environment names the PATCH addressed. */
+  readonly environmentNames: string[] = [];
 
   /**
    * Mock POST /api/apps/{appId}/versions. `uploads` is built from the declared
@@ -900,16 +901,18 @@ export class TestAPIServer {
     );
   }
 
-  mockVersionDeploy(response: {
-    deployment_id: string;
+  mockEnvironmentSet(response: {
+    name: string;
+    version_id: string;
     manifest_hash: string;
+    deployment_id: string;
   }): this {
     this.pendingRoutes.push({
-      method: "POST",
-      path: `/api/apps/${this.appId}/versions/:versionId/deployments`,
+      method: "PATCH",
+      path: `/api/apps/${this.appId}/environments/:name`,
       handler: (req, res) => {
         this.versionDeployRequests.push(req.body);
-        this.versionDeployIds.push(String(req.params.versionId));
+        this.environmentNames.push(String(req.params.name));
         res.status(200).json(response);
       },
     });

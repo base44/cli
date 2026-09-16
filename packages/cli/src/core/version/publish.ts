@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { createVersion, deployVersion } from "@/core/version/api.js";
+import { createVersion, setEnvironmentVersion } from "@/core/version/api.js";
 import type {
   ArtifactSet,
   CreateVersionProgress,
@@ -13,6 +13,9 @@ import type {
 type PublishStep = "build" | "create_version" | "deploy";
 
 const STEP = Symbol.for("base44.publishStep");
+
+/** The environment a publish points at unless told otherwise. */
+export const DEFAULT_ENVIRONMENT = "production";
 
 /** Tag an error with its step without wrapping it, so the original type,
  * status and request id still reach the envelope. */
@@ -39,6 +42,7 @@ export function stepOf(error: unknown): PublishStep | undefined {
 }
 
 interface PublishResult {
+  environment: string;
   versionId: string;
   manifestHash: string;
   deploymentId: string;
@@ -64,11 +68,19 @@ export async function publishVersion(
       progress: options.progress,
     }),
   );
-  const deployment = await tagStep("deploy", () =>
-    deployVersion(version.versionId, {
-      target: options.target,
-      idempotencyKey: randomUUID(),
-    }),
+  const environment = await tagStep("deploy", () =>
+    setEnvironmentVersion(
+      options.target ?? DEFAULT_ENVIRONMENT,
+      version.versionId,
+      {
+        idempotencyKey: randomUUID(),
+      },
+    ),
   );
-  return { ...version, ...deployment };
+  return {
+    environment: environment.name,
+    versionId: environment.versionId,
+    manifestHash: environment.manifestHash,
+    deploymentId: environment.deploymentId,
+  };
 }
