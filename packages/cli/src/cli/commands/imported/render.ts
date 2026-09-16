@@ -27,36 +27,68 @@ export function toolAlias(name: string): string {
   return TOOL_ALIASES[name] ?? name;
 }
 
+// Terminal control bytes, built from char codes so this source carries no raw
+// ESC/BEL and no ambiguous escape literals.
+const ESC_CHAR = String.fromCharCode(27);
+const BEL = String.fromCharCode(7);
+const OSC8_CLOSE = `${ESC_CHAR}]8;;${BEL}`;
+
 /** OSC 8 terminal hyperlink: a short clickable label instead of a wrapping
- * URL — the whole link opens regardless of line width. */
+ * URL - the whole link opens regardless of line width. */
 export function terminalLink(label: string, url: string): string {
-  return `\u001B]8;;${url}\u0007${chalk.dim.underline(label)}\u001B]8;;\u0007`;
+  return `${ESC_CHAR}]8;;${url}${BEL}${chalk.dim.underline(label)}${OSC8_CLOSE}`;
+}
+
+/** Wrap bare http(s) URLs in a plain-text string as OSC 8 hyperlinks, so a URL
+ * a hard wrap would split still opens in full on ctrl/cmd-click. Each link gets
+ * an `id=` so terminals join its segments across wrapped rows (paired with
+ * hardWrapAnsi, which reopens the active link on every continuation row). The
+ * visible text stays the URL. Input must be plain text (no existing OSC 8), so
+ * only call it on raw backend text, never on already-linked output. */
+export function linkifyUrls(text: string): string {
+  let n = 0;
+  return text.replace(/https?:\/\/[^\s]+/g, (raw) => {
+    // Trailing sentence punctuation is not part of the URL.
+    const trailing = raw.match(/[.,;:!?)\]}'"]+$/)?.[0] ?? "";
+    const url = trailing ? raw.slice(0, -trailing.length) : raw;
+    const id = `b44-${n++}`;
+    return `${ESC_CHAR}]8;id=${id};${url}${BEL}${url}${OSC8_CLOSE}${trailing}`;
+  });
 }
 
 /** Hard-wrap ANSI-styled text at `width` visible columns, keeping style
- * continuity across breaks (reset at the break, reopen the active SGR codes).
- * Narrow but dependency-free — all input here is our own chalk output. */
+ * continuity across breaks (reset at the break, reopen the active SGR codes and
+ * any active OSC 8 hyperlink so a wrapped link stays whole). Narrow but
+ * dependency-free - all input here is our own chalk / linkifyUrls output. */
 export function hardWrapAnsi(text: string, width: number): string[] {
-  const ESC = /^(?:\u001b\[[0-9;]*m|\u001b\]8;;[^\u0007]*\u0007)/;
+  const ESC = new RegExp(
+    `^(?:${ESC_CHAR}\\[[0-9;]*m|${ESC_CHAR}\\]8;[^${BEL}]*${BEL})`,
+  );
+  const RESET = `${ESC_CHAR}[0m`;
   const out: string[] = [];
   for (const logical of text.split("\n")) {
     let line = "";
     let visible = 0;
     let active: string[] = [];
+    let link = ""; // the active OSC 8 open sequence, or "" when none is open
     let i = 0;
     while (i < logical.length) {
       const esc = ESC.exec(logical.slice(i));
       if (esc) {
         const seq = esc[0];
         line += seq;
-        if (seq === "\u001b[0m") active = [];
+        if (seq === RESET) active = [];
         else if (seq.endsWith("m")) active.push(seq);
+        else if (seq === OSC8_CLOSE) link = "";
+        else link = seq; // an OSC 8 open (carries id + url)
         i += seq.length;
         continue;
       }
       if (visible >= width) {
-        out.push(`${line}\u001b[0m`);
-        line = active.join("");
+        // Close the link before the break, then reopen it (same id) on the next
+        // row so the terminal treats both halves as one hyperlink.
+        out.push(`${line}${link ? OSC8_CLOSE : ""}${RESET}`);
+        line = active.join("") + link;
         visible = 0;
       }
       line += logical[i];
@@ -88,7 +120,7 @@ export function eventLine(
     case "thinking":
       return chalk.dim(`✻ ${event.text}`);
     case "text":
-      return event.text;
+      return linkifyUrls(event.text);
     case "tool_start":
       return null;
     case "waiting": {
@@ -118,8 +150,8 @@ export function eventLine(
         return head;
       }
       const result = event.ok
-        ? chalk.dim(event.result)
-        : chalk.red(event.result);
+        ? chalk.dim(linkifyUrls(event.result))
+        : chalk.red(linkifyUrls(event.result));
       return `${head}${event.result ? `\n  ${result}` : ""}`;
     }
   }
