@@ -373,7 +373,7 @@ function SessionView({ engine, footer, subscribe }: ViewProps) {
 // text rows; LOGO_GAP_SUBROW = the cleared sub-row (0..2*LOGO_ROWS-1), low in the
 // disc. Rows are trimmed so renderHeader's center() aligns them.
 const LOGO_ROWS = 7;
-const LOGO_GAP_SUBROW = 8;
+const LOGO_GAP_SUBROW = 10;
 // Index by tl | tr<<1 | bl<<2 | br<<3 (the four 2x2 sub-pixels of one cell).
 const QUAD = " ▘▝▀▖▌▞▛▗▚▐▜▄▙▟█";
 function buildLogoRows(): string[] {
