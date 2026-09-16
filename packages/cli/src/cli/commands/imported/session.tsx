@@ -364,12 +364,15 @@ function SessionView({
  * clears the input, then exits; turns keep running server-side after exit.
  * TTY only — callers gate on interactivity.
  */
-// The Base44 mark, rendered rather than hand-drawn: a round sun over shortening
-// bars. Terminal cells are ~2:1, so a naive block grid reads as a tall oval;
-// half-blocks make each text row two ~square pixels, so a mathematical disc
-// comes out round. An even grid centred between pixels keeps the top and bottom
-// caps symmetric. Every row is trimmed so renderHeader's center() aligns them.
-const LOGO_RADIUS = 7;
+// The Base44 mark, rendered rather than hand-drawn: a setting sun — a solid disc
+// on top, then thin horizontal slits cut through the lower half so it reads as
+// bars that shorten with the circle's curve (the real logo, Logo_v5.png).
+// Terminal cells are ~2:1, so a naive block grid is a tall oval; half-blocks
+// make each text row two ~square pixels, so the disc comes out round. Below the
+// split, each row is drawn on its TOP pixel only (▀), leaving a gap beneath it —
+// that is the slit. Rows are trimmed so renderHeader's center() aligns them.
+const LOGO_RADIUS = 8;
+const LOGO_SPLIT = 10; // pixel-row where the solid sun gives way to slit bars
 function buildLogoRows(): string[] {
   const n = LOGO_RADIUS * 2;
   const c = (n - 1) / 2;
@@ -380,14 +383,16 @@ function buildLogoRows(): string[] {
   for (let ty = 0; ty < n; ty += 2) {
     let row = "";
     for (let px = 0; px < n; px++) {
-      const top = inside(px, ty);
-      const bot = inside(px, ty + 1);
-      row += top && bot ? "█" : top ? "▀" : bot ? "▄" : " ";
+      if (ty < LOGO_SPLIT) {
+        const top = inside(px, ty);
+        const bot = inside(px, ty + 1);
+        row += top && bot ? "█" : top ? "▀" : bot ? "▄" : " ";
+      } else {
+        row += inside(px, ty) ? "▀" : " ";
+      }
     }
     rows.push(row.trim());
   }
-  const bar = (w: number) => "█".repeat(w);
-  rows.push("", bar(n), bar(Math.round(n * 0.6)), bar(Math.round(n * 0.28)));
   return rows.map((row) => row.trim());
 }
 
