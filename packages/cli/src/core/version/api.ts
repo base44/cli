@@ -97,12 +97,12 @@ export async function createVersion(
       filesByHash: new Map(
         artifacts.files.map((file) => [
           file.digest,
+          // No contentType: the PUT echoes the one the server signed into the
+          // URL, and deriving a second opinion here is how they diverge.
           {
             absolutePath: file.absolutePath,
             hash: file.digest,
             size: file.size,
-            // The PUT echoes the server's signed value, never this one.
-            contentType: "application/octet-stream",
           },
         ]),
       ),
