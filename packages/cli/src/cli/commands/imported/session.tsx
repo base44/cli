@@ -372,8 +372,8 @@ function SessionView({ engine, footer, subscribe }: ViewProps) {
 // the aspect and keep the disc round instead of a tall oval. LOGO_ROWS = height in
 // text rows; LOGO_GAP_SUBROW = the cleared sub-row (0..2*LOGO_ROWS-1), low in the
 // disc. Rows are trimmed so renderHeader's center() aligns them.
-const LOGO_ROWS = 6;
-const LOGO_GAP_SUBROW = 9;
+const LOGO_ROWS = 7;
+const LOGO_GAP_SUBROW = 11;
 // Index by tl | tr<<1 | bl<<2 | br<<3 (the four 2x2 sub-pixels of one cell).
 const QUAD = " ▘▝▀▖▌▞▛▗▚▐▜▄▙▟█";
 function buildLogoRows(): string[] {
@@ -386,7 +386,9 @@ function buildLogoRows(): string[] {
     if (py === LOGO_GAP_SUBROW) return false;
     const dx = (px - cx) * 0.5;
     const dy = py - cy;
-    return dx * dx + dy * dy <= rad * rad + 0.3;
+    // No tolerance: a positive fudge over-fills the poles (nearly-flat there) and
+    // makes the top/bottom bulge instead of reading as a smooth arc.
+    return dx * dx + dy * dy <= rad * rad;
   };
   const rows: string[] = [];
   for (let ty = 0; ty < sy; ty += 2) {
