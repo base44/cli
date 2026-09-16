@@ -28,11 +28,9 @@ interface PublishOptions {
 }
 
 /**
- * Build, record a version, and serve it.
- *
- * Not `site deploy`: that drives the legacy hosting lane, where `deploymentId`
- * means a Cloudflare script rather than a deployment on this plane. Separate
- * command and separate envelope names, so the two cannot be confused.
+ * Build, record a version, and serve it. Not `site deploy`, whose `deploymentId`
+ * means a Cloudflare script rather than a deployment on this plane — separate
+ * envelope names so the two cannot be confused.
  */
 async function publishAction(
   ctx: CLIContext,
@@ -58,13 +56,11 @@ async function publishAction(
   const result = await runTask(
     "Publishing...",
     async (updateMessage) => {
-      // Inside the tag: resolving the output directory and reading it are part
-      // of producing the version, so a missing directory is a create_version
-      // failure rather than an envelope with no step at all.
+      // Inside the tag, so a missing output directory reports as a
+      // create_version failure rather than an envelope with no step.
       const artifacts = await tagStep("create_version", async () => {
-        // One frontend, and who serves it. A Worker carries its own files, so
-        // there is no static bundle to declare beside it — naming them there
-        // would ask the platform to serve them from S3 instead.
+        // A Worker carries its own files; a static bundle beside it would ask
+        // the platform to serve them from S3 instead.
         const siteWorker = await collectSiteWorker(target.root);
         return {
           files: siteWorker

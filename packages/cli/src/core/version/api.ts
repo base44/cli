@@ -22,8 +22,8 @@ import {
 } from "@/core/version/schema.js";
 
 /**
- * Measured on the sandbox's pipe: at 3, a 25.5k-asset app needed ~930s of the
- * ~450s a build leaves. 16 failed a degraded pipe on 2026-07-02.
+ * Measured on the sandbox's pipe: 3 needed ~930s of the ~450s a build leaves for
+ * a 25.5k-asset app; 16 failed a degraded pipe on 2026-07-02.
  */
 export const DEFAULT_VERSION_UPLOAD_CONCURRENCY = 8;
 export const MAX_VERSION_UPLOAD_CONCURRENCY = 16;
@@ -68,9 +68,8 @@ function parse<T>(schema: ZodType<T>, body: unknown, what: string): T {
 }
 
 /**
- * Declare the artifact set, upload what it names, and commit the version. In
- * that order: an interrupted run leaves staged objects that expire, never a
- * version naming files that are not there.
+ * Declare, upload, then commit — in that order, so an interrupted run leaves
+ * staged objects that expire rather than a version naming files that are gone.
  */
 export async function createVersion(
   artifacts: ArtifactSet,
@@ -100,8 +99,6 @@ export async function createVersion(
             : {}),
           entities: artifacts.entities,
           agents: artifacts.agents,
-          // One commit: an app's frontend and backend are the same app at the
-          // same source.
           source_commit: options.sourceCommit,
         },
         "declaring a version",
@@ -110,10 +107,8 @@ export async function createVersion(
     "declare",
   );
 
-  // Flat, in declared order — the static frontend, then the Worker's modules,
-  // then what it serves — because that is the order the server signed them in.
-  // Paired by POSITION and not by path: the sets have separate namespaces, so a
-  // module and an asset may share a name and still be different files.
+  // Paired by POSITION, in the order the server signed them: the three sets have
+  // separate namespaces, so a module and an asset may share a path.
   const declaredFiles = [
     ...artifacts.files,
     ...(artifacts.siteWorker?.modules ?? []),
@@ -159,11 +154,9 @@ export async function createVersion(
 }
 
 /**
- * Point an environment at a recorded version.
- *
- * An environment serves one version, so making a version live is editing that
- * pointer — there is no deployment to create. Pointing it at an older version is
- * the rollback.
+ * Point an environment at a recorded version. An environment serves one version,
+ * so this is a pointer edit, not a deployment — and an older version is the
+ * rollback.
  */
 export async function setEnvironmentVersion(
   environment: string,

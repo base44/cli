@@ -13,38 +13,22 @@ import type {
   SiteWorkerArtifact,
 } from "@/core/version/schema.js";
 
-/**
- * What one declaration may cost the platform: a presigned URL per file, and the
- * whole set held in Redis until it finalizes. ~2x the largest frontend ever
- * measured through the build sandbox (25.5k assets). Must match the server's
- * ceiling — declaring more only earns a rejection after the walk.
- */
+/** Must match the server's ceiling: declaring more only earns a late rejection. */
 const MAX_FILE_COUNT = 50_000;
 
 /** Open descriptors while hashing. Well under the 256 a production Node keeps. */
 const HASH_CONCURRENCY = 32;
 
-/**
- * The entry file the platform serves for any unmatched path — but only when the
- * platform is what serves. A Worker's own asset settings decide that instead,
- * so a full-stack build is not required to have one.
- */
+/** Served for any unmatched path — but only when the platform is what serves. */
 const ENTRY = "index.html";
 
-/**
- * Full sha256 over a file's bytes, streamed. Deliberately not `hashAsset` — see
- * {@link ArtifactFile.digest}.
- */
+/** Deliberately not `hashAsset` — see {@link ArtifactFile.digest}. */
 async function digestFile(absolutePath: string): Promise<string> {
   const hash = await hashFileInto(createHash("sha256"), absolutePath);
   return `sha256:${hash.digest("hex")}`;
 }
 
-/**
- * Walk a build's output directory and describe every file in it. Honors
- * `.assetsignore` by the same rules the site collector uses, so the two lanes
- * cannot disagree about what a build produced.
- */
+/** Every file a build emitted, addressed and hashed. */
 export async function collectBuildOutput(
   outputDir: string,
   options: { requireEntry?: boolean } = {},
@@ -72,9 +56,7 @@ export async function collectBuildOutput(
     );
   }
 
-  // Bounded: one open descriptor per file, and the advertised ceiling is 50k.
-  // An unbounded Promise.all hits EMFILE at ~1.5k on a default descriptor limit,
-  // long before any of the declared limits.
+  // Bounded: an unbounded Promise.all hits EMFILE at ~1.5k open descriptors.
   return await pMap(
     found,
     async (file) => ({ ...file, digest: await digestFile(file.absolutePath) }),
@@ -83,12 +65,8 @@ export async function collectBuildOutput(
 }
 
 /**
- * The app's own server, when the framework built one — otherwise `null`.
- *
- * Reads through {@link resolveFullStackBuild}, the same call the deploy lane
- * makes, and only then differs: this lane hashes the modules into artifacts
- * where that one shapes them into a Cloudflare config. What the framework built
- * is one answer, given once.
+ * The app's own server, when the framework built one — otherwise `null`. Reads
+ * through {@link resolveFullStackBuild}, the same call the deploy lane makes.
  */
 export async function collectSiteWorker(
   projectRoot: string,
@@ -121,9 +99,7 @@ export async function collectSiteWorker(
       }),
       { concurrency: HASH_CONCURRENCY },
     ),
-    // Collected here, not by the caller: what a Worker serves is part of what
-    // the Worker IS, and the entry rule does not apply — its own asset settings
-    // decide what an unmatched path gets.
+    // No entry rule: the Worker's own asset settings answer an unmatched path.
     assets: assetsDir
       ? await collectBuildOutput(assetsDir, { requireEntry: false })
       : [],
@@ -133,14 +109,11 @@ export async function collectSiteWorker(
 }
 
 /**
- * The app's declared entities and agents, raw.
+ * The app's declared entities and agents, raw — deliberately not the validated
+ * resource readers, whose stricter entity schema refuses real Builder apps.
  *
- * Not the validated resource readers: the platform's extractor is authoritative,
- * and this CLI's stricter entity schema refuses real Builder apps — which is why
- * `site deploy` reads no resources at all.
- *
- * Keyed by path with the schema extension stripped, the name the platform
- * derives from the same file, so `agents/support/triage.jsonc` is `support/triage`.
+ * Keyed the way the platform names the same file: `agents/support/triage.jsonc`
+ * is `support/triage`.
  */
 async function readRawResources(dir: string): Promise<Record<string, unknown>> {
   if (!(await pathExists(dir))) {

@@ -11,20 +11,16 @@ interface FullStackBuild {
   config: ResolvedWranglerConfig;
   modules: WorkerModule[];
   /**
-   * The directory the Worker serves its assets from, confirmed to exist.
-   * `null` when the config declares none, or when this build produced none —
-   * a Worker that answers every path itself is a complete app.
+   * Where the Worker serves assets from, confirmed to exist. `null` is a Worker
+   * that answers every path itself — a complete app, not a broken build.
    */
   assetsDir: string | null;
 }
 
 /**
- * The full-stack artifact this project's build left behind, or `null` when it
- * built a plain static site.
- *
- * ONE reader, for both lanes. "What did the framework build" has a single
- * answer; two readers of the same directory would eventually give two, and the
- * lane that publishes would disagree with the lane that deploys.
+ * The full-stack artifact this build left behind, or `null` for a plain static
+ * site. ONE reader for both lanes — two would eventually disagree about the
+ * same directory.
  */
 export async function resolveFullStackBuild(
   projectRoot: string,

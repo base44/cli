@@ -56,16 +56,13 @@ export async function ensureAppContext(
 }
 
 /**
- * The app this command resolved, narrowed.
+ * The app this command resolved. Optional on `CLIContext` only for the few
+ * commands declaring `requireAppContext: false`; everywhere else
+ * {@link ensureAppContext} has already returned one or thrown.
  *
- * `CLIContext.app` is optional only because a handful of commands declare
- * `requireAppContext: false`. Every other command has already been through
- * {@link ensureAppContext}, which returns an app or throws — so for them the
- * absent case is unreachable, and the optional type is what is inaccurate.
- *
- * Use this rather than defaulting at the call site. An app id substituted with
- * `""` is not a missing value the build reports: Vite inlines it, so the build
- * and the publish both succeed and the served app addresses no app at all.
+ * Narrow here rather than defaulting at the call site: an app id defaulted to
+ * `""` is inlined by Vite, so the build and the publish both succeed and the
+ * served app addresses no app.
  */
 export function requireApp(ctx: Pick<CLIContext, "app">): AppContext {
   if (!ctx.app) {

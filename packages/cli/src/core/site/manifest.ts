@@ -67,11 +67,8 @@ function getAssetContentType(filePath: string): string {
  * cannot poison another app's asset cache.
  */
 /**
- * Every file a build emitted, as sorted forward-slash relative paths.
- *
- * What counts as "a file this build produced" is one rule — `.assetsignore`
- * with full gitignore semantics, plus the names no build ever ships. Reached
- * through {@link describeBuildOutput}, which is what both lanes call.
+ * Every file a build emitted, sorted. One rule for both lanes: `.assetsignore`
+ * with full gitignore semantics, plus the names no build ever ships.
  */
 async function walkBuildOutput(outputDir: string): Promise<string[]> {
   // globby returns forward-slash paths on every platform. Never pass `ignore`
@@ -99,11 +96,8 @@ interface BuildFile {
 const STAT_CONCURRENCY = 32;
 
 /**
- * Every file {@link walkBuildOutput} found, with its location and size.
- *
- * Both lanes need this and neither needs the other's hash, so the hash is not
- * here: a deployment keys assets by a salted, truncated cache key, a version
- * addresses artifacts by a full sha256, and the two must never be one value.
+ * Every file {@link walkBuildOutput} found, located and sized. No hash: the two
+ * lanes' hashes are different values and must never become one.
  */
 export async function describeBuildOutput(
   outputDir: string,
@@ -119,11 +113,7 @@ export async function describeBuildOutput(
   );
 }
 
-/**
- * Feed a file's bytes through a hash in chunks, so a large file never lands in
- * memory whole. What the caller seeds and how it renders the result is what
- * makes one of these a cache key and the other an identity.
- */
+/** Stream a file through a hash, so a large one never lands in memory whole. */
 export async function hashFileInto(
   hash: Hash,
   absolutePath: string,

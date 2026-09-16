@@ -1,12 +1,10 @@
 import { z } from "zod";
 
 /**
- * A file the build produced.
- *
- * `digest` is a full sha256 over the bytes — artifact identity, signed into the
- * upload URL so S3 refuses any other body. Not `hashAsset`, which truncates
- * sha256(app id ‖ bytes) to key a provider's asset cache; conflating the two
- * gives a file that uploads fine and never dedupes.
+ * A file the build produced. `digest` is a full sha256, signed into the upload
+ * URL so S3 refuses any other body — NOT `hashAsset`, which truncates
+ * sha256(app id ‖ bytes) to key a provider cache. Conflating them gives a file
+ * that uploads fine and never dedupes.
  */
 export interface ArtifactFile {
   /** Build-relative, forward slashes, no leading "/". */
@@ -17,19 +15,16 @@ export interface ArtifactFile {
 }
 
 /**
- * The app's own server, when the framework built one.
- *
- * Its modules are files exactly like the frontend's, in their own namespace —
- * `index.js` here is not `index.js` there — plus the settings they were built
- * to run under, which the platform treats as part of the Worker's identity.
+ * The app's own server. Each file set is its own namespace — `index.js` as a
+ * module is not `index.js` as an asset — and the settings are part of the
+ * Worker's identity, not metadata.
  */
 export interface SiteWorkerArtifact {
   main: string;
   modules: ArtifactFile[];
   /**
-   * The files this Worker serves. Not `ArtifactSet.files`: that one is served
-   * from S3, and naming these there would serve them past every route the
-   * Worker owns. Empty for a Worker that answers every path itself.
+   * The files this Worker serves. Not `ArtifactSet.files`, which the platform
+   * serves from S3 — past every route the Worker owns.
    */
   assets: ArtifactFile[];
   compatibilityDate: string | null;
