@@ -6,6 +6,8 @@ import {
   readAuth,
   seedAuthFromEnv,
 } from "@/core/auth/index.js";
+import { InternalError } from "@/core/errors.js";
+import type { AppContext } from "@/core/project/index.js";
 import { initAppContext } from "@/core/project/index.js";
 
 /**
@@ -51,4 +53,25 @@ export async function ensureAppContext(
   const appContext = await initAppContext(options);
   ctx.app = appContext;
   ctx.errorReporter.setContext({ appId: appContext.id });
+}
+
+/**
+ * The app this command resolved, narrowed.
+ *
+ * `CLIContext.app` is optional only because a handful of commands declare
+ * `requireAppContext: false`. Every other command has already been through
+ * {@link ensureAppContext}, which returns an app or throws — so for them the
+ * absent case is unreachable, and the optional type is what is inaccurate.
+ *
+ * Use this rather than defaulting at the call site. An app id substituted with
+ * `""` is not a missing value the build reports: Vite inlines it, so the build
+ * and the publish both succeed and the served app addresses no app at all.
+ */
+export function requireApp(ctx: Pick<CLIContext, "app">): AppContext {
+  if (!ctx.app) {
+    throw new InternalError(
+      "This command read an app context it never resolved — it is declared with requireAppContext: false.",
+    );
+  }
+  return ctx.app;
 }

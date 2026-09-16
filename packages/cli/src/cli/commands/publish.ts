@@ -7,7 +7,7 @@ import {
   targetOption,
 } from "@/cli/commands/versions/options.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
-import { Base44Command, theme } from "@/cli/utils/index.js";
+import { Base44Command, requireApp, theme } from "@/cli/utils/index.js";
 import { resolveProvenanceCommit } from "@/core/site/index.js";
 import {
   collectBuildOutput,
@@ -38,8 +38,9 @@ async function publishAction(
   ctx: CLIContext,
   options: PublishOptions,
 ): Promise<RunCommandResult> {
-  const { runTask, log, jsonMode, app } = ctx;
-  const target = await resolvePublishTarget(app?.projectRoot, {
+  const { runTask, log, jsonMode } = ctx;
+  const app = requireApp(ctx);
+  const target = await resolvePublishTarget(app.projectRoot, {
     outputDir: options.outputDir,
   });
 
@@ -48,7 +49,7 @@ async function publishAction(
       runSiteBuild(ctx, {
         root: target.root,
         buildCommand: target.buildCommand,
-        appId: app?.id ?? "",
+        appId: app.id,
       }),
     );
   }
