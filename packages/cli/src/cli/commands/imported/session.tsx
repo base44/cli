@@ -371,8 +371,8 @@ function SessionView({
 // make each text row two ~square pixels, so the disc comes out round. Below the
 // split, each row is drawn on its TOP pixel only (▀), leaving a gap beneath it —
 // that is the slit. Rows are trimmed so renderHeader's center() aligns them.
-const LOGO_RADIUS = 10;
-const LOGO_SPLIT = 14; // pixel-row where the solid sun gives way to slit bars
+const LOGO_RADIUS = 6;
+const LOGO_SPLIT = 6; // split at the centre: solid top half, 3 slit-bars below
 function buildLogoRows(): string[] {
   const n = LOGO_RADIUS * 2;
   const c = (n - 1) / 2;
