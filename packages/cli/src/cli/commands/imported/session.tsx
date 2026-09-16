@@ -18,9 +18,17 @@ import type {
 import { createSessionEngine } from "@/cli/commands/imported/session-engine.js";
 import { readAuth } from "@/core/auth/config.js";
 import { getBase44ApiUrl } from "@/core/config.js";
+import {
+  displayName,
+  getMe,
+  MODELS,
+  resolvePick,
+  saveBuilderModel,
+} from "@/core/model.js";
 import packageJson from "../../../../package.json";
 
 const FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+const BRAND_ORANGE = "#E86B3C";
 
 // Alternate screen (Claude Code model): the session owns the viewport with
 // its own internal scroll; the shell screen is restored untouched on exit.
@@ -108,16 +116,29 @@ interface ViewProps {
   engine: SessionEngine;
   footer: string[];
   subscribe: (listener: (line: string) => void) => () => void;
+  sessionStartedAt: number;
 }
 
-function SessionView({ engine, footer, subscribe }: ViewProps) {
+function SessionView({
+  engine,
+  footer,
+  subscribe,
+  sessionStartedAt,
+}: ViewProps) {
   const { exit } = useApp();
   const [items, setItems] = useState<string[]>([]);
   const [input, setInput] = useState("");
   const [scroll, setScroll] = useState(0); // lines up from the live bottom
   const [, tick] = useReducer((x: number) => x + 1, 0);
   const [musingSeed] = useState(() => Math.floor(Math.random() * 97));
+  const [currentModel, setCurrentModel] = useState<string | null>(null);
+  const [pickerIndex, setPickerIndex] = useState<number | null>(null); // null = closed
   const maxScrollRef = useRef(0);
+  const meIdRef = useRef<string | null>(null);
+
+  // Append a line straight into the transcript (for /command output that isn't
+  // an engine event).
+  const emit = (line: string) => setItems((h) => [...h, `${line}\n`]);
 
   useEffect(
     // The trailing newline gives every stream item a blank line after it.
@@ -128,8 +149,82 @@ function SessionView({ engine, footer, subscribe }: ViewProps) {
     const timer = setInterval(tick, 120);
     return () => clearInterval(timer);
   }, []);
+  // Load the account's current builder-model pick for the footer (non-blocking).
+  useEffect(() => {
+    getMe()
+      .then((me) => {
+        meIdRef.current = me.id;
+        setCurrentModel(me.builder_model ?? null);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Persist a pick and reflect it in the footer.
+  const applyModel = async (pick: (typeof MODELS)[number]) => {
+    const orange = chalk.hex(BRAND_ORANGE);
+    try {
+      if ((pick.id ?? null) === currentModel) {
+        emit(chalk.dim(`  already on ${pick.name}`));
+        return;
+      }
+      let id = meIdRef.current;
+      if (!id) {
+        id = (await getMe()).id;
+        meIdRef.current = id;
+      }
+      await saveBuilderModel(id, pick.id);
+      setCurrentModel(pick.id);
+      emit(
+        pick.id === null
+          ? chalk.dim("  model reset — Base44 chooses per app")
+          : `  ${orange("●")} model set to ${chalk.bold(pick.name)}`,
+      );
+    } catch (error) {
+      emit(
+        chalk.red(
+          `  /model: ${error instanceof Error ? error.message : String(error)}`,
+        ),
+      );
+    }
+  };
+
+  // `/model` alone opens the arrow-navigable picker; `/model <name>` switches
+  // straight away.
+  const runModelSlash = (arg: string) => {
+    if (!arg) {
+      const cur = MODELS.findIndex((m) => (m.id ?? null) === currentModel);
+      setPickerIndex(cur >= 0 ? cur : 0);
+      return;
+    }
+    try {
+      void applyModel(resolvePick(arg));
+    } catch (error) {
+      emit(
+        chalk.red(
+          `  /model: ${error instanceof Error ? error.message : String(error)}`,
+        ),
+      );
+    }
+  };
 
   useInput((char, key) => {
+    // Model picker owns the keyboard while open: arrows move the selection,
+    // Enter commits, Esc/Ctrl-C cancels. Swallow everything else so it doesn't
+    // scroll the transcript or type into the (hidden) input.
+    if (pickerIndex !== null) {
+      if (key.upArrow)
+        setPickerIndex((i) => ((i ?? 0) - 1 + MODELS.length) % MODELS.length);
+      else if (key.downArrow)
+        setPickerIndex((i) => ((i ?? 0) + 1) % MODELS.length);
+      else if (key.return) {
+        const pick = MODELS[pickerIndex];
+        setPickerIndex(null);
+        void applyModel(pick);
+      } else if (key.escape || (key.ctrl && char === "c")) {
+        setPickerIndex(null);
+      }
+      return;
+    }
     if (key.ctrl && char === "c") {
       if (input) setInput("");
       else exit();
@@ -164,7 +259,12 @@ function SessionView({ engine, footer, subscribe }: ViewProps) {
   const width = Math.min(columns, 100);
   const innerWidth = Math.max(10, width - 4); // input border + padding
   const inputRows = Math.max(1, Math.ceil((input.length + 3) / innerWidth)); // +cursor cell
-  const widgetHeight = 4 + inputRows + (footer.length ? 1 : 0); // status + border + hint + links
+  const pickerOpen = pickerIndex !== null;
+  // The bottom block is either the input box (inputRows + 2 border) or the model
+  // picker (title + one row per model + 2 border). +3 = status + model/timer +
+  // hint; +1 more for the footer links when present.
+  const inputBlockHeight = pickerOpen ? MODELS.length + 3 : inputRows + 2;
+  const widgetHeight = inputBlockHeight + 3 + (footer.length ? 1 : 0);
   const viewHeight = Math.max(3, rows - widgetHeight - 1);
 
   // Hard-wrapped physical lines of the whole transcript; the view is a
@@ -196,22 +296,61 @@ function SessionView({ engine, footer, subscribe }: ViewProps) {
         ))}
       </Box>
       <Text wrap="truncate-end">{statusLine}</Text>
-      <Box borderStyle="round" borderColor="gray" paddingX={1} width={width}>
-        <Text color="cyan">{"❯ "}</Text>
-        <TextInput
-          value={input}
-          onChange={setInput}
-          onSubmit={(value) => {
-            if (value.trim()) engine.submit(value);
-            setInput("");
-          }}
-        />
-      </Box>
+      {pickerOpen ? (
+        <Box
+          flexDirection="column"
+          borderStyle="round"
+          borderColor="cyan"
+          paddingX={1}
+          width={width}
+        >
+          <Text>
+            {chalk.bold("Pick a model")}
+            {chalk.dim("   ↑↓ move · Enter select · Esc cancel")}
+          </Text>
+          {MODELS.map((m, i) => {
+            const selected = i === pickerIndex;
+            const isCurrent = (m.id ?? null) === currentModel;
+            const label = `${selected ? "▸" : " "} ${isCurrent ? "●" : "○"} ${m.name}${m.note ? `  (${m.note})` : ""}`;
+            return (
+              <Text
+                key={m.name}
+                color={selected ? "cyan" : undefined}
+                wrap="truncate-end"
+              >
+                {selected ? label : chalk.dim(label)}
+              </Text>
+            );
+          })}
+        </Box>
+      ) : (
+        <Box borderStyle="round" borderColor="gray" paddingX={1} width={width}>
+          <Text color="cyan">{"❯ "}</Text>
+          <TextInput
+            value={input}
+            onChange={setInput}
+            onSubmit={(value) => {
+              const trimmed = value.trim();
+              if (trimmed === "/model" || trimmed.startsWith("/model ")) {
+                runModelSlash(trimmed.slice("/model".length).trim());
+              } else if (trimmed) {
+                engine.submit(value);
+              }
+              setInput("");
+            }}
+          />
+        </Box>
+      )}
       {footer.length > 0 && (
         <Text wrap="truncate-end">{`  ${footer.join(chalk.dim("  ·  "))}`}</Text>
       )}
+      <Text wrap="truncate-end">
+        {`  ${chalk.dim("model")} ${chalk.hex(BRAND_ORANGE)(displayName(currentModel))}${chalk.dim("  ·  session ")}${formatDuration(Date.now() - sessionStartedAt)}`}
+      </Text>
       <Text dimColor wrap="truncate-end">
-        {"  Enter to send · scroll or Esc for live · Ctrl+C to exit"}
+        {pickerOpen
+          ? "  ↑↓ to move · Enter to select · Esc to cancel"
+          : "  Enter to send · /model to switch model · scroll or Esc for live · Ctrl+C to exit"}
       </Text>
     </Box>
   );
@@ -225,29 +364,37 @@ function SessionView({ engine, footer, subscribe }: ViewProps) {
  * clears the input, then exits; turns keep running server-side after exit.
  * TTY only — callers gate on interactivity.
  */
-const BRAND_ORANGE = "#E86B3C";
-
-// The Base44 mark: a rounded dome (the sun) above three horizontal bars that
-// shorten toward the bottom. Half-blocks give the dome its curve; the bars are
-// full blocks, blank rows between them are the gaps.
-const LOGO_ROWS = [
-  "     ▄▄▄▄▄▄▄▄",
-  "  ▄████████████▄",
-  " ▄██████████████▄",
-  "▄████████████████▄",
-  "██████████████████",
-  "",
-  " ████████████████",
-  "",
-  "   ████████████",
-  "",
-  "      ██████",
-];
+// The Base44 mark, rendered rather than hand-drawn: a round sun over shortening
+// bars. Terminal cells are ~2:1, so a naive block grid reads as a tall oval;
+// half-blocks make each text row two ~square pixels, so a mathematical disc
+// comes out round. An even grid centred between pixels keeps the top and bottom
+// caps symmetric. Every row is trimmed so renderHeader's center() aligns them.
+const LOGO_RADIUS = 7;
+function buildLogoRows(): string[] {
+  const n = LOGO_RADIUS * 2;
+  const c = (n - 1) / 2;
+  const rad = LOGO_RADIUS - 0.5;
+  const inside = (px: number, py: number) =>
+    (px - c) ** 2 + (py - c) ** 2 <= rad * rad + 0.5;
+  const rows: string[] = [];
+  for (let ty = 0; ty < n; ty += 2) {
+    let row = "";
+    for (let px = 0; px < n; px++) {
+      const top = inside(px, ty);
+      const bot = inside(px, ty + 1);
+      row += top && bot ? "█" : top ? "▀" : bot ? "▄" : " ";
+    }
+    rows.push(row.trim());
+  }
+  const bar = (w: number) => "█".repeat(w);
+  rows.push("", bar(n), bar(Math.round(n * 0.6)), bar(Math.round(n * 0.28)));
+  return rows.map((row) => row.trim());
+}
 
 /** Logo rows in brand orange. */
 function logoRows(): string[] {
   const orange = chalk.hex(BRAND_ORANGE);
-  return LOGO_ROWS.map((row) => (row ? orange(row) : ""));
+  return buildLogoRows().map((row) => (row ? orange(row) : ""));
 }
 
 /** Render the welcome box synchronously. */
@@ -375,6 +522,7 @@ export async function runInteractiveSession(
       engine={engine}
       footer={options.footer}
       subscribe={subscribe}
+      sessionStartedAt={sessionStartedAt}
     />,
     { exitOnCtrlC: false, stdin: stdinProxy },
   );
@@ -532,6 +680,7 @@ export async function runGenesisSession(
       engine={genesis}
       footer={options.footer}
       subscribe={subscribe}
+      sessionStartedAt={sessionStartedAt}
     />,
     { exitOnCtrlC: false, stdin: stdinProxy },
   );

@@ -14,6 +14,7 @@ import { getEntitiesPushCommand } from "@/cli/commands/entities/push.js";
 import { getFunctionsCommand } from "@/cli/commands/functions/index.js";
 import { getNewCommand } from "@/cli/commands/imported/create.js";
 import { getImportedCommand } from "@/cli/commands/imported/index.js";
+import { getModelCommand } from "@/cli/commands/model.js";
 import { getBuildCommand } from "@/cli/commands/project/build.js";
 import { getCreateCommand } from "@/cli/commands/project/create.js";
 import { getDeployCommand } from "@/cli/commands/project/deploy.js";
@@ -120,6 +121,7 @@ export function createProgram(context: CLIContext): Command {
   program.addCommand(getImportedCommand());
   program.addCommand(getNewCommand());
   program.addCommand(getCodeCommand());
+  program.addCommand(getModelCommand());
 
   // Register the target command (staging/preview host selection)
   program.addCommand(getTargetCommand());
