@@ -92,6 +92,7 @@ export async function createVersion(
                 site_worker: {
                   main: artifacts.siteWorker.main,
                   modules: artifacts.siteWorker.modules.map(declaredFile),
+                  assets: artifacts.siteWorker.assets.map(declaredFile),
                   compatibility_date: artifacts.siteWorker.compatibilityDate,
                   compatibility_flags: artifacts.siteWorker.compatibilityFlags,
                 },
@@ -109,13 +110,14 @@ export async function createVersion(
     "declare",
   );
 
-  // Flat, in declared order — the frontend then the Worker's modules — because
-  // that is the order the server signed them in. Paired by POSITION and not by
-  // path: the two sets have separate namespaces, so a module and an asset may
-  // share a name and still be different files.
+  // Flat, in declared order — the static frontend, then the Worker's modules,
+  // then what it serves — because that is the order the server signed them in.
+  // Paired by POSITION and not by path: the sets have separate namespaces, so a
+  // module and an asset may share a name and still be different files.
   const declaredFiles = [
     ...artifacts.files,
     ...(artifacts.siteWorker?.modules ?? []),
+    ...(artifacts.siteWorker?.assets ?? []),
   ];
 
   options.progress?.onDeclared?.({

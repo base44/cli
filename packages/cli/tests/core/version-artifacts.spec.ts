@@ -200,15 +200,15 @@ describe("collectSiteWorker", () => {
     await rm(projectRoot, { recursive: true, force: true });
   });
 
-  it("reports a Worker with no assets directory rather than falling back", async () => {
-    // The fallback that used to live in `publish` sent a full-stack app to the
-    // project's own `site.outputDirectory`, which is not where its frontend is.
+  it("serves nothing static when the build declared no assets", async () => {
+    // A Worker that answers every path itself is a complete app, not a build
+    // to refuse — and there is no static bundle to declare beside it.
     await writeFullStackBuild({ assets: undefined });
 
     const worker = await collectSiteWorker(projectRoot);
 
     expect(worker).not.toBeNull();
-    expect(worker?.assetsDir).toBeNull();
+    expect(worker?.assets).toEqual([]);
   });
 
   it("reports no worker for an app that has no server of its own", async () => {
@@ -253,16 +253,16 @@ describe("collectSiteWorker", () => {
     expect(worker?.compatibilityFlags).toEqual(["nodejs_compat"]);
   });
 
-  it("points the frontend at the worker's own assets directory", async () => {
-    // Not the project's `site.outputDirectory`: a full-stack build puts the
-    // frontend where the Worker serves it from.
+  it("carries the files it serves, from its own assets directory", async () => {
+    // Not the project's `site.outputDirectory`, and not a static bundle beside
+    // it: these files are the Worker's to serve.
     await writeFullStackBuild();
 
     const worker = await collectSiteWorker(projectRoot);
 
-    expect(worker?.assetsDir).toBe(join(distDir, "client"));
-    expect(await collectBuildOutput(worker?.assetsDir as string)).toHaveLength(
-      1,
+    expect(worker?.assets.map((f) => f.path)).toEqual(["index.html"]);
+    expect(worker?.assets[0].absolutePath).toBe(
+      join(distDir, "client", "index.html"),
     );
   });
 

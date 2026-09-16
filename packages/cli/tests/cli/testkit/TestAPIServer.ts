@@ -872,14 +872,17 @@ export class TestAPIServer {
           static_bundle: Array<{ path: string; size: number; digest: string }>;
           site_worker?: {
             modules: Array<{ path: string; size: number; digest: string }>;
+            assets: Array<{ path: string; size: number; digest: string }>;
           };
         };
         this.versionDeclareRequests.push(body);
-        // Frontend first, then the Worker's modules — the slot order the server
-        // signs them in, which is what the client pairs uploads against.
+        // The static frontend, then the Worker's modules, then what it serves —
+        // the slot order the server signs them in, which is what the client
+        // pairs uploads against.
         const declared = [
           ...body.static_bundle,
           ...(body.site_worker?.modules ?? []),
+          ...(body.site_worker?.assets ?? []),
         ];
         res.status(200).json({
           session_id: sessionId,

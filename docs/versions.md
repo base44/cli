@@ -18,7 +18,7 @@ It is **not** `src/core/site/` — see [Deployments](deployments.md). That lane 
 
 `createVersion(artifacts, options)` in `api.ts` — three calls, in this order and no other, so nothing is recorded until the bytes are in place:
 
-1. **Declare.** `POST versions` with `static_bundle` (path, size, digest per file), `site_worker` when the app has a server of its own, the raw `entities` and `agents` payloads, and `source_commit`. The response carries a `session_id` and one presigned PUT per declared file, in declared order.
+1. **Declare.** `POST versions` with **either** `static_bundle` (path, size, digest per file) **or** `site_worker`, plus the raw `entities` and `agents` payloads and `source_commit`. The response carries a `session_id` and one presigned PUT per declared file, in declared order.
 2. **Upload.** `putPresigned` per file — the same PUT the static deployments lane uses, same `pMap` concurrency and same ky retry policy. Each PUT sends the server's `Content-Type` **and** its `x-amz-checksum-sha256` verbatim; deriving either locally would 403 on any mapping difference. Uploads are paired with declared files **by position**, not by path: the frontend and the Worker's modules are separate namespaces, so the same name can appear in both and mean two different files.
 3. **Finalize.** `POST versions/{session_id}/finalize`, no body. The set was fixed at declare, so there is nothing left for the caller to change.
 
@@ -36,10 +36,14 @@ Nothing else is the caller's to say: the app comes from the credential, and so d
 
 `collectSiteWorker(projectRoot)` looks for `.wrangler/deploy/config.json` — the redirect file a `@cloudflare/vite-plugin` build leaves behind — and, when it is there, reuses the full-stack deploy lane whole: `detectFullStackArtifact`, `resolveWranglerConfig`, `collectModules`. No second reader, because a second reader is a second opinion about what the framework built.
 
-Two things follow from a Worker being present:
+A commit is a static app **or** a full-stack one, never both, and backend functions ride on either. So the two are mutually exclusive on the wire and declaring both is refused:
 
-- The frontend comes from the Worker's own `assets.directory`, not from the project's `site.outputDirectory`. That is where a full-stack build puts the files the Worker serves.
-- `main` is sent as the module set names it, not as the config wrote it. The platform matches the entry against the names it was sent, so a surviving `./` would name a module nothing in the set provides.
+- **Static** — `static_bundle` is the frontend, and the platform serves it from S3. It must contain `index.html`, because any unmatched path is answered with that one file.
+- **Full-stack** — `site_worker.assets` is the frontend, taken from the Worker's own `assets.directory`, and the Worker serves it. No entry file is required: its own `not_found_handling` decides. A Worker that answers every path itself declares no assets at all, which is a complete app.
+
+`static_bundle` is not a description — the platform reads it as *serve this from S3* and hands the prefix straight to the dist service. Naming a Worker's files there would serve them raw, past every route the Worker owns. That is why they live under `site_worker` instead.
+
+`main` is sent as the module set names it, not as the config wrote it. The platform matches the entry against the names it was sent, so a surviving `./` would name a module nothing in the set provides.
 
 `compatibility_date` and `compatibility_flags` ride along. They are part of the Worker's **identity** on the platform, not metadata: the same modules under a different compatibility date are a different Worker.
 

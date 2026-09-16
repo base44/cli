@@ -26,15 +26,19 @@ export interface ArtifactFile {
 export interface SiteWorkerArtifact {
   main: string;
   modules: ArtifactFile[];
+  /**
+   * The files this Worker serves. Not `ArtifactSet.files`: that one is served
+   * from S3, and naming these there would serve them past every route the
+   * Worker owns. Empty for a Worker that answers every path itself.
+   */
+  assets: ArtifactFile[];
   compatibilityDate: string | null;
   compatibilityFlags: string[];
-  /** Where the frontend is, for a full-stack build: the Worker's own assets
-   * directory, never the project's `site.outputDirectory`. */
-  assetsDir: string | null;
 }
 
 /** Everything one build produced, as the create-version call describes it. */
 export interface ArtifactSet {
+  /** The frontend, to be served from S3. Empty when a Worker serves. */
   files: ArtifactFile[];
   /** Absent for an app with no server of its own — almost every app. */
   siteWorker?: SiteWorkerArtifact;

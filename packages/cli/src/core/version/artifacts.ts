@@ -121,9 +121,14 @@ export async function collectSiteWorker(
       }),
       { concurrency: HASH_CONCURRENCY },
     ),
+    // Collected here, not by the caller: what a Worker serves is part of what
+    // the Worker IS, and the entry rule does not apply — its own asset settings
+    // decide what an unmatched path gets.
+    assets: assetsDir
+      ? await collectBuildOutput(assetsDir, { requireEntry: false })
+      : [],
     compatibilityDate: config.compatibilityDate,
     compatibilityFlags: config.compatibilityFlags,
-    assetsDir,
   };
 }
 

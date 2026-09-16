@@ -282,15 +282,21 @@ describe("publish command, for an app with a server of its own", () => {
     });
   });
 
-  it("takes the frontend from where the Worker serves it, not from the project's output directory", async () => {
+  it("declares no static bundle — the files it serves are the Worker's", async () => {
+    // Naming them as a static bundle would ask the platform to serve them from
+    // S3, past every route the Worker owns.
     const result = await publish();
 
     t.expectResult(result).toSucceed();
     const declared = t.api.versionDeclareRequests[0] as {
       static_bundle: Array<{ path: string }>;
-      site_worker: { modules: Array<{ path: string }> };
+      site_worker: {
+        modules: Array<{ path: string }>;
+        assets: Array<{ path: string }>;
+      };
     };
-    expect(declared.static_bundle.map((f) => f.path)).toEqual([
+    expect(declared.static_bundle).toEqual([]);
+    expect(declared.site_worker.assets.map((f) => f.path)).toEqual([
       "assets/app-123.js",
       "index.html",
     ]);
