@@ -50,3 +50,16 @@ describe("which step a publish broke in", () => {
     expect(stepOf(new Error("unrelated"))).toBeUndefined();
   });
 });
+
+describe("an error the step cannot be attached to", () => {
+  it("survives a frozen error rather than replacing it", async () => {
+    // A library that freezes its errors would otherwise turn the tag into a
+    // TypeError, losing the message, status and request id entirely.
+    const frozen = Object.freeze(new ApiError("frozen", { statusCode: 418 }));
+
+    await expect(tagStep("deploy", () => Promise.reject(frozen))).rejects.toBe(
+      frozen,
+    );
+    expect(stepOf(frozen)).toBeUndefined();
+  });
+});

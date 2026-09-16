@@ -115,14 +115,21 @@ export async function createVersion(
     ...(artifacts.siteWorker?.assets ?? []),
   ];
 
-  options.progress?.onDeclared?.({
-    fileCount: declaredFiles.length,
-    owedFiles: declared.uploads.length,
-  });
+  options.progress?.onDeclared?.({ fileCount: declaredFiles.length });
 
   if (declared.uploads.length !== declaredFiles.length) {
     throw new InternalError(
       `Declared ${declaredFiles.length} files but the server signed ${declared.uploads.length} upload URLs.`,
+    );
+  }
+  // Necessary, not sufficient — but it catches an order drift here rather than
+  // as an S3 checksum rejection part way through the uploads.
+  const drifted = declared.uploads.findIndex(
+    (upload, index) => upload.path !== declaredFiles[index].path,
+  );
+  if (drifted !== -1) {
+    throw new InternalError(
+      `Upload ${drifted} is signed for ${declared.uploads[drifted].path}, but that slot declared ${declaredFiles[drifted].path}.`,
     );
   }
 

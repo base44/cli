@@ -26,7 +26,7 @@ export async function resolveGitHash(
 }
 
 /**
- * The commit this build came from, or `null` when there is none.
+ * The commit this build came from, or `undefined` when there is none.
  *
  * For a version the commit is PROVENANCE — recorded, never hashed, and not part
  * of what the version is — so a build outside a checkout is still a complete

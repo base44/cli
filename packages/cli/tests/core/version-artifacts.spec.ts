@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { InvalidInputError } from "@/core/errors.js";
 import { hashAsset } from "@/core/site/manifest.js";
 import {
+  collectArtifacts,
   collectBuildOutput,
   collectResources,
   collectSiteWorker,
@@ -304,5 +305,75 @@ describe("who serves the frontend decides what it must contain", () => {
     const files = await collectBuildOutput(outputDir, { requireEntry: false });
 
     expect(files.map((f) => f.path)).toEqual(["app.js"]);
+  });
+});
+
+describe("collectArtifacts", () => {
+  let projectRoot: string;
+
+  async function fullStackProject(): Promise<void> {
+    const dist = join(projectRoot, "dist");
+    await mkdir(join(dist, "client"), { recursive: true });
+    await writeFile(join(dist, "client", "index.html"), "<h1>Hi</h1>\n");
+    await writeFile(join(dist, "index.js"), "export default {};");
+    await writeFile(
+      join(dist, "wrangler.json"),
+      JSON.stringify({
+        main: "index.js",
+        no_bundle: true,
+        rules: [{ type: "ESModule", globs: ["**/*.js"] }],
+        assets: { directory: "./client" },
+      }),
+    );
+    await mkdir(join(projectRoot, ".wrangler", "deploy"), { recursive: true });
+    await writeFile(
+      join(projectRoot, ".wrangler", "deploy", "config.json"),
+      JSON.stringify({ configPath: "../../dist/wrangler.json" }),
+    );
+  }
+
+  function target() {
+    return {
+      root: projectRoot,
+      configDir: join(projectRoot, "base44"),
+      outputDir: join(projectRoot, "dist", "client"),
+      entitiesDir: "entities",
+      agentsDir: "agents",
+    };
+  }
+
+  beforeEach(async () => {
+    projectRoot = await mkdtemp(join(tmpdir(), "b44-collect-"));
+  });
+
+  afterEach(async () => {
+    await rm(projectRoot, { recursive: true, force: true });
+  });
+
+  it("never declares a Worker's own files as a static bundle", async () => {
+    // Every command collects through here for this reason: a second collector
+    // would eventually name them in `files`, which the platform reads as
+    // "serve from S3" — past every route the Worker owns.
+    await fullStackProject();
+
+    const artifacts = await collectArtifacts(target());
+
+    expect(artifacts.files).toEqual([]);
+    expect(artifacts.siteWorker?.assets.map((f) => f.path)).toEqual([
+      "index.html",
+    ]);
+  });
+
+  it("declares a static bundle when no Worker built", async () => {
+    await mkdir(join(projectRoot, "dist", "client"), { recursive: true });
+    await writeFile(
+      join(projectRoot, "dist", "client", "index.html"),
+      "<h1>Hi</h1>\n",
+    );
+
+    const artifacts = await collectArtifacts(target());
+
+    expect(artifacts.files.map((f) => f.path)).toEqual(["index.html"]);
+    expect(artifacts.siteWorker).toBeUndefined();
   });
 });

@@ -43,7 +43,7 @@ export interface ArtifactSet {
 }
 
 export interface CreateVersionProgress {
-  onDeclared?: (info: { fileCount: number; owedFiles: number }) => void;
+  onDeclared?: (info: { fileCount: number }) => void;
   onUpload?: (progress: { uploadedFiles: number; totalFiles: number }) => void;
 }
 

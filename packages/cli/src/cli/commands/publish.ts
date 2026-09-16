@@ -10,11 +10,8 @@ import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, requireApp, theme } from "@/cli/utils/index.js";
 import { resolveProvenanceCommit } from "@/core/site/index.js";
 import {
-  collectBuildOutput,
-  collectResources,
-  collectSiteWorker,
+  collectArtifacts,
   publishVersion,
-  requireOutputDir,
   resolvePublishTarget,
   tagStep,
 } from "@/core/version/index.js";
@@ -38,9 +35,11 @@ async function publishAction(
 ): Promise<RunCommandResult> {
   const { runTask, log, jsonMode } = ctx;
   const app = requireApp(ctx);
-  const target = await resolvePublishTarget(app.projectRoot, {
-    outputDir: options.outputDir,
-  });
+  // Tagged: a config this command cannot read is a version it cannot produce,
+  // the same reason `collectArtifacts` is tagged below.
+  const target = await tagStep("create_version", () =>
+    resolvePublishTarget(app.projectRoot, { outputDir: options.outputDir }),
+  );
 
   if (options.build !== false) {
     await tagStep("build", () =>
@@ -58,25 +57,16 @@ async function publishAction(
     async (updateMessage) => {
       // Inside the tag, so a missing output directory reports as a
       // create_version failure rather than an envelope with no step.
-      const artifacts = await tagStep("create_version", async () => {
-        // A Worker carries its own files; a static bundle beside it would ask
-        // the platform to serve them from S3 instead.
-        const siteWorker = await collectSiteWorker(target.root);
-        return {
-          files: siteWorker
-            ? []
-            : await collectBuildOutput(requireOutputDir(target)),
-          ...(siteWorker ? { siteWorker } : {}),
-          ...(await collectResources(target.configDir, target)),
-        };
-      });
+      const artifacts = await tagStep("create_version", () =>
+        collectArtifacts(target),
+      );
       return await publishVersion(artifacts, {
         sourceCommit: gitHash,
         target: options.target,
         concurrency: options.concurrency,
         progress: {
-          onDeclared: ({ fileCount, owedFiles }) =>
-            updateMessage(`Uploading ${owedFiles} of ${fileCount} files`),
+          onDeclared: ({ fileCount }) =>
+            updateMessage(`Uploading ${fileCount} files`),
           onUpload: ({ uploadedFiles, totalFiles }) =>
             updateMessage(`Uploaded ${uploadedFiles} of ${totalFiles} files`),
         },

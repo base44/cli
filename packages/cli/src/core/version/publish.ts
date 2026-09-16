@@ -28,7 +28,14 @@ export async function tagStep<T>(
     // too — `run().catch(...)` would let that one escape untagged.
     return await run();
   } catch (error) {
-    if (error !== null && typeof error === "object" && !(STEP in error)) {
+    // `isExtensible` too: a library that freezes its errors would turn the
+    // tag into a TypeError and lose the original entirely.
+    if (
+      error !== null &&
+      typeof error === "object" &&
+      !(STEP in error) &&
+      Object.isExtensible(error)
+    ) {
       Object.defineProperty(error, STEP, { value: step, enumerable: false });
     }
     throw error;

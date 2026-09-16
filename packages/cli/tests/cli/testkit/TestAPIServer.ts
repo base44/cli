@@ -853,7 +853,7 @@ export class TestAPIServer {
 
   /** Captured JSON bodies of POST versions (declare) requests. */
   readonly versionDeclareRequests: unknown[] = [];
-  /** Captured JSON bodies of POST versions/{id}/deployments requests. */
+  /** Captured JSON bodies of PATCH environments/{name} requests. */
   readonly versionDeployRequests: unknown[] = [];
   /** Captured environment names the PATCH addressed. */
   readonly environmentNames: string[] = [];

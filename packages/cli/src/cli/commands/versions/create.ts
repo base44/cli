@@ -5,13 +5,11 @@ import {
   outputDirOption,
 } from "@/cli/commands/versions/options.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
-import { Base44Command } from "@/cli/utils/index.js";
+import { Base44Command, requireApp } from "@/cli/utils/index.js";
 import { resolveProvenanceCommit } from "@/core/site/index.js";
 import {
-  collectBuildOutput,
-  collectResources,
+  collectArtifacts,
   createVersion,
-  requireOutputDir,
   resolvePublishTarget,
 } from "@/core/version/index.js";
 
@@ -23,10 +21,11 @@ interface CreateOptions {
 
 /** Record a build that already exists. No build of its own, and no deploy. */
 async function createAction(
-  { runTask, jsonMode, app }: CLIContext,
+  ctx: CLIContext,
   options: CreateOptions,
 ): Promise<RunCommandResult> {
-  const target = await resolvePublishTarget(app?.projectRoot, {
+  const { runTask, jsonMode } = ctx;
+  const target = await resolvePublishTarget(requireApp(ctx).projectRoot, {
     outputDir: options.outputDir,
   });
   const gitHash = await resolveProvenanceCommit(target.root, options.gitHash);
@@ -34,22 +33,16 @@ async function createAction(
   const version = await runTask(
     "Creating version...",
     async (updateMessage) =>
-      await createVersion(
-        {
-          files: await collectBuildOutput(requireOutputDir(target)),
-          ...(await collectResources(target.configDir, target)),
+      await createVersion(await collectArtifacts(target), {
+        sourceCommit: gitHash,
+        concurrency: options.concurrency,
+        progress: {
+          onDeclared: ({ fileCount }) =>
+            updateMessage(`Uploading ${fileCount} files`),
+          onUpload: ({ uploadedFiles, totalFiles }) =>
+            updateMessage(`Uploaded ${uploadedFiles} of ${totalFiles} files`),
         },
-        {
-          sourceCommit: gitHash,
-          concurrency: options.concurrency,
-          progress: {
-            onDeclared: ({ fileCount, owedFiles }) =>
-              updateMessage(`Uploading ${owedFiles} of ${fileCount} files`),
-            onUpload: ({ uploadedFiles, totalFiles }) =>
-              updateMessage(`Uploaded ${uploadedFiles} of ${totalFiles} files`),
-          },
-        },
-      ),
+      }),
     {
       successMessage: "Version created",
       errorMessage: "Create version failed",

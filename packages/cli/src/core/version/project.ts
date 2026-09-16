@@ -8,7 +8,7 @@ import type { ProjectWithPaths } from "@/core/project/types.js";
 const DEFAULT_BUILD_COMMAND = "npm run build";
 const DEFAULT_OUTPUT_DIRECTORY = "dist";
 
-interface PublishTarget {
+export interface PublishTarget {
   root: string;
   /** Where `entitiesDir` and `agentsDir` are resolved from. */
   configDir: string;

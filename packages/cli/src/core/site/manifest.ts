@@ -62,11 +62,6 @@ function getAssetContentType(filePath: string): string {
 }
 
 /**
- * First 32 hex chars of sha256(utf8(app_id) || raw file bytes). The app-id salt
- * means a tenant can only collide with their own files, so a malicious upload
- * cannot poison another app's asset cache.
- */
-/**
  * Every file a build emitted, sorted. One rule for both lanes: `.assetsignore`
  * with full gitignore semantics, plus the names no build ever ships.
  */
@@ -92,7 +87,7 @@ interface BuildFile {
   size: number;
 }
 
-/** Open descriptors while walking. Well under the 256 a production Node keeps. */
+/** Bounded so a large build cannot flood the libuv thread pool. */
 const STAT_CONCURRENCY = 32;
 
 /**
@@ -124,6 +119,11 @@ export async function hashFileInto(
   return hash;
 }
 
+/**
+ * First 32 hex chars of sha256(utf8(app_id) || raw file bytes). The app-id salt
+ * means a tenant can only collide with their own files, so a malicious upload
+ * cannot poison another app's asset cache.
+ */
 export function hashAsset(appId: string, content: Buffer): string {
   return createHash("sha256")
     .update(Buffer.from(appId, "utf8"))

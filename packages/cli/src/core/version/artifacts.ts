@@ -7,6 +7,8 @@ import { InvalidInputError } from "@/core/errors.js";
 import { resolveFullStackBuild } from "@/core/site/full-stack.js";
 import { describeBuildOutput, hashFileInto } from "@/core/site/manifest.js";
 import { pathExists, readJsonFile } from "@/core/utils/fs.js";
+import type { PublishTarget } from "@/core/version/project.js";
+import { requireOutputDir } from "@/core/version/project.js";
 import type {
   ArtifactFile,
   ArtifactSet,
@@ -16,7 +18,7 @@ import type {
 /** Must match the server's ceiling: declaring more only earns a late rejection. */
 const MAX_FILE_COUNT = 50_000;
 
-/** Open descriptors while hashing. Well under the 256 a production Node keeps. */
+/** One open descriptor per file in flight; an unbounded fan-out hits EMFILE. */
 const HASH_CONCURRENCY = 32;
 
 /** Served for any unmatched path — but only when the platform is what serves. */
@@ -141,4 +143,22 @@ export async function collectResources(
     readRawResources(join(configDir, dirs.agentsDir)),
   ]);
   return { entities, agents };
+}
+
+/**
+ * Everything one build produced, ready to declare.
+ *
+ * One reader, so `publish` and `versions create` cannot disagree about what a
+ * build left behind — a second would eventually declare a Worker's own files as
+ * a static bundle, which is the one thing the platform reads as "serve from S3".
+ */
+export async function collectArtifacts(
+  target: PublishTarget,
+): Promise<ArtifactSet> {
+  const siteWorker = await collectSiteWorker(target.root);
+  return {
+    files: siteWorker ? [] : await collectBuildOutput(requireOutputDir(target)),
+    ...(siteWorker ? { siteWorker } : {}),
+    ...(await collectResources(target.configDir, target)),
+  };
 }
