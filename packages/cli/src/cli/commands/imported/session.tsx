@@ -364,26 +364,40 @@ function SessionView({ engine, footer, subscribe }: ViewProps) {
  * clears the input, then exits; turns keep running server-side after exit.
  * TTY only — callers gate on interactivity.
  */
-// The Base44 mark, rendered rather than hand-drawn: a round sun with a single
-// thin blank stripe across it. Terminal cells are ~2:1, so a naive block grid is
-// a tall oval; half-blocks make each text row two ~square pixels, so the disc
-// comes out round. One blanked pixel-row (LOGO_GAP) is the stripe. Rows are
-// trimmed so renderHeader's center() aligns them.
-const LOGO_RADIUS = 5;
-const LOGO_GAP = 7; // the single blank stripe, low in the circle: this pixel-row is cleared
+// The Base44 mark, rendered rather than hand-drawn: a round sun with one thin
+// blank stripe (the setting-sun slit). Built from QUADRANT blocks — 2x2 sub-pixels
+// per character — for smooth curved edges (half-blocks only round top/bottom, so
+// the sides came out jagged). Terminal cells are ~2:1, and a quadrant sub-cell is
+// ~1:2, so we use 2x as many sub-columns as sub-rows (`sx = 2 * sy`) to correct
+// the aspect and keep the disc round instead of a tall oval. LOGO_ROWS = height in
+// text rows; LOGO_GAP_SUBROW = the cleared sub-row (0..2*LOGO_ROWS-1), low in the
+// disc. Rows are trimmed so renderHeader's center() aligns them.
+const LOGO_ROWS = 6;
+const LOGO_GAP_SUBROW = 9;
+// Index by tl | tr<<1 | bl<<2 | br<<3 (the four 2x2 sub-pixels of one cell).
+const QUAD = " ▘▝▀▖▌▞▛▗▚▐▜▄▙▟█";
 function buildLogoRows(): string[] {
-  const n = LOGO_RADIUS * 2;
-  const c = (n - 1) / 2;
-  const rad = LOGO_RADIUS - 0.5;
-  const inside = (px: number, py: number) =>
-    py !== LOGO_GAP && (px - c) ** 2 + (py - c) ** 2 <= rad * rad + 0.5;
+  const sy = 2 * LOGO_ROWS;
+  const sx = 2 * sy;
+  const cx = (sx - 1) / 2;
+  const cy = (sy - 1) / 2;
+  const rad = sy / 2 - 0.5;
+  const on = (px: number, py: number): boolean => {
+    if (py === LOGO_GAP_SUBROW) return false;
+    const dx = (px - cx) * 0.5;
+    const dy = py - cy;
+    return dx * dx + dy * dy <= rad * rad + 0.3;
+  };
   const rows: string[] = [];
-  for (let ty = 0; ty < n; ty += 2) {
+  for (let ty = 0; ty < sy; ty += 2) {
     let row = "";
-    for (let px = 0; px < n; px++) {
-      const top = inside(px, ty);
-      const bot = inside(px, ty + 1);
-      row += top && bot ? "█" : top ? "▀" : bot ? "▄" : " ";
+    for (let tx = 0; tx < sx; tx += 2) {
+      const bits =
+        (on(tx, ty) ? 1 : 0) |
+        (on(tx + 1, ty) ? 2 : 0) |
+        (on(tx, ty + 1) ? 4 : 0) |
+        (on(tx + 1, ty + 1) ? 8 : 0);
+      row += QUAD[bits];
     }
     rows.push(row.trim());
   }
