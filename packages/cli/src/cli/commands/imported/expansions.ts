@@ -14,7 +14,7 @@ const PROMPT_EXPANSIONS: Record<string, PromptExpansion> = {
     // rejects command-shaped request bodies; the agent fetches URLs itself.
     // The nested-git note prevents the scaffold from committing as a gitlink.
     text: [
-      "Fetch and follow this skill: https://www.wix.com/skills/headless-fast/entry/skill.md",
+      "Retrieve this skill file with curl (a raw fetch to a file), NOT a web-page/markdown reader tool — a reader re-escapes the content and you must have the exact bytes: https://www.wix.com/skills/headless-fast/entry/skill.md",
       "Follow it exactly.",
       "",
       "One repository — this is important. The scaffolder can initialize its OWN git repo inside the new subfolder. This Base44 app is already a single git repository (it commits and pushes your work at the end of the turn), so a nested `.git` breaks it: git records the whole subfolder as an empty submodule pointer (a gitlink) instead of its files, and none of your code reaches the repository. The skill's fast-path now scaffolds with git skipped, so usually there is nothing to do — but if a nested `.git` did get created, delete it so git tracks the real files.",
