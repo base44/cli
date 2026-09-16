@@ -250,7 +250,12 @@ function SessionView({
       setScroll((s) => Math.max(0, s - 20));
       return;
     }
-    if (key.escape) setScroll(0);
+    // Esc stops the running turn (like the editor's stop button); when nothing
+    // is running it snaps the transcript back to live.
+    if (key.escape) {
+      if (engine.turnRunning()) engine.stopTurn();
+      else setScroll(0);
+    }
   });
 
   const columns = process.stdout.columns || 80;
@@ -349,7 +354,9 @@ function SessionView({
       <Text dimColor wrap="truncate-end">
         {pickerOpen
           ? "  ↑↓ to move · Enter to select · Esc to cancel"
-          : "  Enter to send · /model to switch model · scroll or Esc for live · Ctrl+C to exit"}
+          : engine.turnRunning()
+            ? "  Esc to stop · type to queue · scroll to read · Ctrl+C to exit"
+            : "  Enter to send · /model to switch model · Esc for live · Ctrl+C to exit"}
       </Text>
     </Box>
   );
@@ -607,6 +614,10 @@ export async function runGenesisSession(
     async start() {},
     stop() {
       inner?.stop();
+    },
+    stopTurn() {
+      // Only a real engine can stop a server turn; app creation isn't stoppable.
+      inner?.stopTurn();
     },
     submit(text: string) {
       if (inner) {

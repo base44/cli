@@ -9,6 +9,7 @@ import { ApiError } from "@/core/errors.js";
 import {
   getFullConversation,
   sendImportedChatMessage,
+  stopImportedChat,
 } from "@/core/resources/imported/api.js";
 import {
   diffConversation,
@@ -65,6 +66,8 @@ export interface SessionEngine {
   start(primeFirstPoll: boolean): Promise<void>;
   stop(): void;
   submit(text: string): void;
+  /** Stop the running turn server-side (like the editor's stop button). */
+  stopTurn(): void;
   status(): SessionStatus;
   turnRunning(): boolean;
 }
@@ -235,6 +238,26 @@ export function createSessionEngine(options: EngineOptions): SessionEngine {
     stop() {
       stopped = true;
       if (timer) clearInterval(timer);
+    },
+    stopTurn() {
+      // Nothing running (or already sending nothing) — no-op so Esc stays free
+      // for scroll-to-live when idle.
+      if (
+        turnStartedAt == null &&
+        sendsInFlight === 0 &&
+        pendingSubmitAt == null
+      )
+        return;
+      options.onLine(chalk.dim("· stopping…"));
+      // Fire-and-forget: the backend persists the stopped status, and the poller
+      // settles the turn from the transcript — same path as a natural finish.
+      stopImportedChat(options.branchId).catch((error: unknown) => {
+        options.onLine(
+          chalk.red(
+            `  stop failed: ${error instanceof Error ? error.message : String(error)}`,
+          ),
+        );
+      });
     },
     submit,
     status(): SessionStatus {

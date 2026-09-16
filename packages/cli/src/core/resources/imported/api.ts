@@ -188,6 +188,18 @@ export async function sendImportedChatMessage(
   return parseOrThrow(ChatTurnSchema, await response.json(), "chat turn");
 }
 
+/** User-authoritative stop: unlocks the builder and marks the running turn
+ *  stopped. Branch-scoped — it stops the turn on the line you're looking at. */
+export async function stopImportedChat(branchId?: string): Promise<void> {
+  try {
+    await getAppClient().post("chat/stop", {
+      searchParams: branchScope(branchId),
+    });
+  } catch (error) {
+    throw await ApiError.fromHttpError(error, "stopping the turn");
+  }
+}
+
 export async function getFullConversation(
   limit: number,
   branchId?: string,
