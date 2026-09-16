@@ -12,6 +12,7 @@ import { resolveProvenanceCommit } from "@/core/site/index.js";
 import {
   collectBuildOutput,
   collectResources,
+  collectSiteWorker,
   publishVersion,
   requireOutputDir,
   resolvePublishTarget,
@@ -59,10 +60,17 @@ async function publishAction(
       // Inside the tag: resolving the output directory and reading it are part
       // of producing the version, so a missing directory is a create_version
       // failure rather than an envelope with no step at all.
-      const artifacts = await tagStep("create_version", async () => ({
-        files: await collectBuildOutput(requireOutputDir(target)),
-        ...(await collectResources(target.configDir, target)),
-      }));
+      const artifacts = await tagStep("create_version", async () => {
+        // A full-stack build puts the frontend where the Worker serves it from,
+        // which is not the project's own output directory.
+        const siteWorker = await collectSiteWorker(target.root);
+        const outputDir = siteWorker?.assetsDir ?? requireOutputDir(target);
+        return {
+          files: await collectBuildOutput(outputDir),
+          ...(siteWorker ? { siteWorker } : {}),
+          ...(await collectResources(target.configDir, target)),
+        };
+      });
       return await publishVersion(artifacts, {
         sourceCommit: gitHash,
         target: options.target,

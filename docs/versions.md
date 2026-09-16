@@ -18,8 +18,8 @@ It is **not** `src/core/site/` — see [Deployments](deployments.md). That lane 
 
 `createVersion(artifacts, options)` in `api.ts` — three calls, in this order and no other, so nothing is recorded until the bytes are in place:
 
-1. **Declare.** `POST versions` with `static_bundle` (path, size, digest per file), the raw `entities` and `agents` payloads, and `source_commit`. The response carries a `session_id` and one presigned PUT per file.
-2. **Upload.** `uploadPresignedAssets` — the same function the static deployments lane uses, same `pMap` concurrency and same ky retry policy. Each PUT sends the server's `Content-Type` **and** its `x-amz-checksum-sha256` verbatim; deriving either locally would 403 on any mapping difference.
+1. **Declare.** `POST versions` with `static_bundle` (path, size, digest per file), `site_worker` when the app has a server of its own, the raw `entities` and `agents` payloads, and `source_commit`. The response carries a `session_id` and one presigned PUT per declared file, in declared order.
+2. **Upload.** `putPresigned` per file — the same PUT the static deployments lane uses, same `pMap` concurrency and same ky retry policy. Each PUT sends the server's `Content-Type` **and** its `x-amz-checksum-sha256` verbatim; deriving either locally would 403 on any mapping difference. Uploads are paired with declared files **by position**, not by path: the frontend and the Worker's modules are separate namespaces, so the same name can appear in both and mean two different files.
 3. **Finalize.** `POST versions/{session_id}/finalize`, no body. The set was fixed at declare, so there is nothing left for the caller to change.
 
 The response carries `version_id` and `manifest_hash`, and no flag for "this content already existed" — the hash **is** the identity, so a caller asking whether a rebuild changed anything compares it against the last one. An existing version is not necessarily the one being served, so such a flag would be misleading anyway.
@@ -31,6 +31,19 @@ What that does **not** catch is a change of meaning behind an unchanged shape. N
 `setEnvironmentVersion(environment, versionId, options)` is one `PATCH /environments/{name}` carrying the version id and an idempotency key. **An environment serves one version, so making a version live is editing that pointer — there is no deployment to create.** The `Deployment` record the switch leaves behind is how the plane remembers what it prepared, returned so a caller can correlate a log line.
 
 Nothing else is the caller's to say: the app comes from the credential, and so do the acting principal, the runtime environment variables, every artifact key, the manifest hash and the publication revision. The request models on the server forbid unknown fields, so sending one is an error rather than a silent drop.
+
+## An app with a server of its own
+
+`collectSiteWorker(projectRoot)` looks for `.wrangler/deploy/config.json` — the redirect file a `@cloudflare/vite-plugin` build leaves behind — and, when it is there, reuses the full-stack deploy lane whole: `detectFullStackArtifact`, `resolveWranglerConfig`, `collectModules`. No second reader, because a second reader is a second opinion about what the framework built.
+
+Two things follow from a Worker being present:
+
+- The frontend comes from the Worker's own `assets.directory`, not from the project's `site.outputDirectory`. That is where a full-stack build puts the files the Worker serves.
+- `main` is sent as the module set names it, not as the config wrote it. The platform matches the entry against the names it was sent, so a surviving `./` would name a module nothing in the set provides.
+
+`compatibility_date` and `compatibility_flags` ride along. They are part of the Worker's **identity** on the platform, not metadata: the same modules under a different compatibility date are a different Worker.
+
+**Nothing deploys this yet.** The platform records the Worker on the version and stores its modules, and refuses a full-stack app at admission — so today this proves the transport, not a publish.
 
 ## Why the digest is signed into the URL
 

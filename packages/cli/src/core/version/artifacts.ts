@@ -1,14 +1,23 @@
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { globby } from "globby";
 import pMap from "p-map";
 import { CONFIG_FILE_EXTENSION_GLOB } from "@/core/consts.js";
 import { InvalidInputError } from "@/core/errors.js";
 import { walkBuildOutput } from "@/core/site/manifest.js";
+import { collectModules } from "@/core/site/modules.js";
+import {
+  detectFullStackArtifact,
+  resolveWranglerConfig,
+} from "@/core/site/wrangler-config.js";
 import { pathExists, readJsonFile } from "@/core/utils/fs.js";
-import type { ArtifactFile, ArtifactSet } from "@/core/version/schema.js";
+import type {
+  ArtifactFile,
+  ArtifactSet,
+  SiteWorkerArtifact,
+} from "@/core/version/schema.js";
 
 /**
  * What one declaration may cost the platform: a presigned URL per file, and the
@@ -84,6 +93,55 @@ export async function collectBuildOutput(
     },
     { concurrency: HASH_CONCURRENCY },
   );
+}
+
+/**
+ * The app's own server, when the framework built one — otherwise `null`.
+ *
+ * Reuses the full-stack lane's collectors whole: the same redirect file, the
+ * same wrangler config, the same module set the legacy deploy sends to
+ * Cloudflare. A second reader here would be a second opinion about what the
+ * framework built.
+ */
+export async function collectSiteWorker(
+  projectRoot: string,
+): Promise<SiteWorkerArtifact | null> {
+  const redirectPath = await detectFullStackArtifact(projectRoot);
+  if (!redirectPath) {
+    return null;
+  }
+
+  const config = await resolveWranglerConfig(redirectPath);
+  const modules = await collectModules(config);
+  // By identity, not by position: the platform matches the entry against the
+  // module NAMES it was sent, and `main` in the config may still carry a "./".
+  const entry = resolve(config.configDir, config.main);
+  const main = modules.find((m) => m.absolutePath === entry)?.name;
+  if (!main) {
+    throw new InvalidInputError(
+      `The Worker's entry module ${config.main} is not among the ${modules.length} modules collected from ${config.configDir}.`,
+    );
+  }
+
+  return {
+    main,
+    modules: await pMap(
+      modules,
+      async ({ name, absolutePath, size }) => ({
+        path: name,
+        absolutePath,
+        size,
+        digest: await digestFile(absolutePath),
+      }),
+      { concurrency: HASH_CONCURRENCY },
+    ),
+    compatibilityDate: config.compatibilityDate,
+    compatibilityFlags: config.compatibilityFlags,
+    assetsDir:
+      config.assetsDirectory && (await pathExists(config.assetsDirectory))
+        ? config.assetsDirectory
+        : null,
+  };
 }
 
 /**

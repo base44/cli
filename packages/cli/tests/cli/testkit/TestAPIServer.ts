@@ -870,11 +870,20 @@ export class TestAPIServer {
       handler: (req, res) => {
         const body = req.body as {
           static_bundle: Array<{ path: string; size: number; digest: string }>;
+          site_worker?: {
+            modules: Array<{ path: string; size: number; digest: string }>;
+          };
         };
         this.versionDeclareRequests.push(body);
+        // Frontend first, then the Worker's modules — the slot order the server
+        // signs them in, which is what the client pairs uploads against.
+        const declared = [
+          ...body.static_bundle,
+          ...(body.site_worker?.modules ?? []),
+        ];
         res.status(200).json({
           session_id: sessionId,
-          uploads: body.static_bundle.map((file) => ({
+          uploads: declared.map((file) => ({
             path: file.path,
             url: `${this.baseUrl}/presigned/${file.path}`,
             content_type: "application/octet-stream",

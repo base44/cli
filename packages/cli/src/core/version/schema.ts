@@ -16,9 +16,28 @@ export interface ArtifactFile {
   digest: string;
 }
 
+/**
+ * The app's own server, when the framework built one.
+ *
+ * Its modules are files exactly like the frontend's, in their own namespace —
+ * `index.js` here is not `index.js` there — plus the settings they were built
+ * to run under, which the platform treats as part of the Worker's identity.
+ */
+export interface SiteWorkerArtifact {
+  main: string;
+  modules: ArtifactFile[];
+  compatibilityDate: string | null;
+  compatibilityFlags: string[];
+  /** Where the frontend is, for a full-stack build: the Worker's own assets
+   * directory, never the project's `site.outputDirectory`. */
+  assetsDir: string | null;
+}
+
 /** Everything one build produced, as the create-version call describes it. */
 export interface ArtifactSet {
   files: ArtifactFile[];
+  /** Absent for an app with no server of its own — almost every app. */
+  siteWorker?: SiteWorkerArtifact;
   /** Raw payloads by name. The server normalizes and hashes them. */
   entities: Record<string, unknown>;
   agents: Record<string, unknown>;

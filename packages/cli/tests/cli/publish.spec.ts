@@ -235,3 +235,83 @@ describe("the versions lane is gated", () => {
     expect(result.stdout).toContain("versions");
   });
 });
+
+describe("publish command, for an app with a server of its own", () => {
+  const t = setupCLITests();
+
+  // The Worker's own build directory, and the assets directory it serves from.
+  const SERVER_INDEX =
+    'import handler from "./assets/chunk-abc.js";\nexport default { fetch: handler };\n';
+  const CLIENT_INDEX = "<h1>Hello</h1>\n";
+
+  const mockFullStackApi = () =>
+    t.api
+      .mockVersionDeclare(SESSION)
+      .mockPresignedUpload("/index.html")
+      .mockPresignedUpload("/assets/app-123.js")
+      .mockPresignedUpload("/index.js")
+      .mockPresignedUpload("/index.js.map")
+      .mockPresignedUpload("/assets/chunk-abc.js")
+      .mockVersionFinalize({ version_id: "ver-1", manifest_hash: "sha256:abc" })
+      .mockEnvironmentSet({
+        name: "production",
+        version_id: "ver-1",
+        manifest_hash: "sha256:abc",
+        deployment_id: "dep-1",
+      });
+
+  async function publish() {
+    t.givenEnv({ BASE44_VERSIONS_API: "1" });
+    await t.givenLoggedInWithProject(fixture("fullstack-project"));
+    mockFullStackApi();
+    return await t.run("publish", "--no-build");
+  }
+
+  it("declares the Worker alongside the frontend, in one version", async () => {
+    // One build, one source commit, one version — the app's assets and the
+    // app's server are the same app.
+    const result = await publish();
+
+    t.expectResult(result).toSucceed();
+    expect(t.api.versionDeclareRequests[0]).toMatchObject({
+      site_worker: {
+        main: "index.js",
+        compatibility_date: "2025-04-01",
+        compatibility_flags: ["nodejs_compat"],
+      },
+    });
+  });
+
+  it("takes the frontend from where the Worker serves it, not from the project's output directory", async () => {
+    const result = await publish();
+
+    t.expectResult(result).toSucceed();
+    const declared = t.api.versionDeclareRequests[0] as {
+      static_bundle: Array<{ path: string }>;
+      site_worker: { modules: Array<{ path: string }> };
+    };
+    expect(declared.static_bundle.map((f) => f.path)).toEqual([
+      "assets/app-123.js",
+      "index.html",
+    ]);
+    expect(declared.site_worker.modules.map((m) => m.path).sort()).toEqual([
+      "assets/chunk-abc.js",
+      "index.js",
+      "index.js.map",
+    ]);
+  });
+
+  it("puts each declared file's own bytes at the URL signed for it", async () => {
+    // Paired by position, not by path: `index.js` names a module here and an
+    // asset in other builds, and swapping the two would upload each under the
+    // other's checksum.
+    const result = await publish();
+
+    t.expectResult(result).toSucceed();
+    const uploaded = new Map(
+      t.api.presignedUploadRequests.map((u) => [u.path, u.data.toString()]),
+    );
+    expect(uploaded.get("/index.js")).toBe(SERVER_INDEX);
+    expect(uploaded.get("/index.html")).toBe(CLIENT_INDEX);
+  });
+});

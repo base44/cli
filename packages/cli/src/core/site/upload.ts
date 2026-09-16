@@ -185,7 +185,7 @@ async function buildBucketForm(
  * carries its own authorization in the query string, so each request is a plain
  * fetch — never the app client, never an Authorization header.
  */
-export async function uploadPresignedAssets(
+async function uploadPresignedAssets(
   uploads: PresignedAssetUpload[],
   assets: AssetManifestResult,
   options: {
@@ -218,7 +218,20 @@ async function uploadPresignedAsset(
       `Server requested upload of unknown asset path: ${upload.path}`,
     );
   }
-  const content = await readFile(file.absolutePath);
+  await putPresigned(upload, file.absolutePath);
+}
+
+/**
+ * PUT one file to the URL the server signed for it. Which file that is, is the
+ * caller's to decide: the site lane resolves it by path, the version lane by
+ * the order it declared, because a version can declare two sets whose paths
+ * overlap.
+ */
+export async function putPresigned(
+  upload: PresignedAssetUpload,
+  absolutePath: string,
+): Promise<void> {
+  const content = await readFile(absolutePath);
 
   try {
     await ky.put(upload.url, {

@@ -8,6 +8,7 @@ import { hashAsset } from "@/core/site/manifest.js";
 import {
   collectBuildOutput,
   collectResources,
+  collectSiteWorker,
 } from "@/core/version/artifacts.js";
 
 function sha256(content: string): string {
@@ -160,5 +161,108 @@ describe("collectResources", () => {
       entities: {},
       agents: {},
     });
+  });
+});
+
+describe("collectSiteWorker", () => {
+  let projectRoot: string;
+  let distDir: string;
+
+  async function writeFullStackBuild(
+    config: Record<string, unknown> = {},
+  ): Promise<void> {
+    await mkdir(join(distDir, "client"), { recursive: true });
+    await writeFile(join(distDir, "client", "index.html"), "<h1>Hi</h1>\n");
+    await writeFile(join(distDir, "index.js"), "export default {};");
+    await writeFile(
+      join(distDir, "wrangler.json"),
+      JSON.stringify({
+        main: "index.js",
+        no_bundle: true,
+        rules: [{ type: "ESModule", globs: ["**/*.js"] }],
+        assets: { directory: "./client" },
+        ...config,
+      }),
+    );
+    await mkdir(join(projectRoot, ".wrangler", "deploy"), { recursive: true });
+    await writeFile(
+      join(projectRoot, ".wrangler", "deploy", "config.json"),
+      JSON.stringify({ configPath: "../../dist/wrangler.json" }),
+    );
+  }
+
+  beforeEach(async () => {
+    projectRoot = await mkdtemp(join(tmpdir(), "b44-fullstack-"));
+    distDir = join(projectRoot, "dist");
+  });
+
+  afterEach(async () => {
+    await rm(projectRoot, { recursive: true, force: true });
+  });
+
+  it("reports no worker for an app that has no server of its own", async () => {
+    // Almost every app: there is no redirect file, so there is nothing to read.
+    expect(await collectSiteWorker(projectRoot)).toBeNull();
+  });
+
+  it("describes each module the same way it describes a frontend file", async () => {
+    await writeFullStackBuild();
+
+    const worker = await collectSiteWorker(projectRoot);
+
+    expect(worker?.modules).toEqual([
+      {
+        path: "index.js",
+        absolutePath: join(distDir, "index.js"),
+        size: 18,
+        digest: sha256("export default {};"),
+      },
+    ]);
+  });
+
+  it("names the entry as the module set names it, not as the config wrote it", async () => {
+    // The platform matches `main` against the module names it was sent, so a
+    // "./" that survived would name a module nothing in the set provides.
+    await writeFullStackBuild({ main: "./index.js" });
+
+    const worker = await collectSiteWorker(projectRoot);
+
+    expect(worker?.main).toBe("index.js");
+  });
+
+  it("carries the settings the modules were built for", async () => {
+    await writeFullStackBuild({
+      compatibility_date: "2026-01-01",
+      compatibility_flags: ["nodejs_compat"],
+    });
+
+    const worker = await collectSiteWorker(projectRoot);
+
+    expect(worker?.compatibilityDate).toBe("2026-01-01");
+    expect(worker?.compatibilityFlags).toEqual(["nodejs_compat"]);
+  });
+
+  it("points the frontend at the worker's own assets directory", async () => {
+    // Not the project's `site.outputDirectory`: a full-stack build puts the
+    // frontend where the Worker serves it from.
+    await writeFullStackBuild();
+
+    const worker = await collectSiteWorker(projectRoot);
+
+    expect(worker?.assetsDir).toBe(join(distDir, "client"));
+    expect(await collectBuildOutput(worker?.assetsDir as string)).toHaveLength(
+      1,
+    );
+  });
+
+  it("leaves the assets out of the module set", async () => {
+    // They are declared as the frontend. Declared twice, they would upload
+    // twice and land in two different prefixes.
+    await writeFullStackBuild();
+    await writeFile(join(distDir, "client", "app.js"), "console.log(1);");
+
+    const worker = await collectSiteWorker(projectRoot);
+
+    expect(worker?.modules.map((m) => m.path)).toEqual(["index.js"]);
   });
 });

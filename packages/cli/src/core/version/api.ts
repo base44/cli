@@ -1,9 +1,15 @@
 import type { KyResponse } from "ky";
+import pMap from "p-map";
 import type { ZodType } from "zod";
 import { getAppClient } from "@/core/clients/index.js";
-import { ApiError, SchemaValidationError } from "@/core/errors.js";
-import { uploadPresignedAssets } from "@/core/site/upload.js";
+import {
+  ApiError,
+  InternalError,
+  SchemaValidationError,
+} from "@/core/errors.js";
+import { putPresigned } from "@/core/site/upload.js";
 import type {
+  ArtifactFile,
   ArtifactSet,
   CreateVersionProgress,
   CreateVersionResponse,
@@ -21,6 +27,10 @@ import {
  */
 export const DEFAULT_VERSION_UPLOAD_CONCURRENCY = 8;
 export const MAX_VERSION_UPLOAD_CONCURRENCY = 16;
+
+function declaredFile({ path, size, digest }: ArtifactFile) {
+  return { path, size, digest };
+}
 
 async function post(
   path: string,
@@ -76,11 +86,17 @@ export async function createVersion(
       await post(
         "versions",
         {
-          static_bundle: artifacts.files.map(({ path, size, digest }) => ({
-            path,
-            size,
-            digest,
-          })),
+          static_bundle: artifacts.files.map(declaredFile),
+          ...(artifacts.siteWorker
+            ? {
+                site_worker: {
+                  main: artifacts.siteWorker.main,
+                  modules: artifacts.siteWorker.modules.map(declaredFile),
+                  compatibility_date: artifacts.siteWorker.compatibilityDate,
+                  compatibility_flags: artifacts.siteWorker.compatibilityFlags,
+                },
+              }
+            : {}),
           entities: artifacts.entities,
           agents: artifacts.agents,
           // One commit: an app's frontend and backend are the same app at the
@@ -93,37 +109,38 @@ export async function createVersion(
     "declare",
   );
 
+  // Flat, in declared order — the frontend then the Worker's modules — because
+  // that is the order the server signed them in. Paired by POSITION and not by
+  // path: the two sets have separate namespaces, so a module and an asset may
+  // share a name and still be different files.
+  const declaredFiles = [
+    ...artifacts.files,
+    ...(artifacts.siteWorker?.modules ?? []),
+  ];
+
   options.progress?.onDeclared?.({
-    fileCount: artifacts.files.length,
+    fileCount: declaredFiles.length,
     owedFiles: declared.uploads.length,
   });
 
-  await uploadPresignedAssets(
+  if (declared.uploads.length !== declaredFiles.length) {
+    throw new InternalError(
+      `Declared ${declaredFiles.length} files but the server signed ${declared.uploads.length} upload URLs.`,
+    );
+  }
+
+  let uploadedFiles = 0;
+  await pMap(
     declared.uploads,
-    {
-      manifest: Object.fromEntries(
-        artifacts.files.map((file) => [
-          file.path,
-          { hash: file.digest, size: file.size },
-        ]),
-      ),
-      filesByHash: new Map(
-        artifacts.files.map((file) => [
-          file.digest,
-          // No contentType: the PUT echoes the one the server signed into the
-          // URL, and deriving a second opinion here is how they diverge.
-          {
-            absolutePath: file.absolutePath,
-            hash: file.digest,
-            size: file.size,
-          },
-        ]),
-      ),
+    async (upload, index) => {
+      await putPresigned(upload, declaredFiles[index].absolutePath);
+      uploadedFiles++;
+      options.progress?.onUpload?.({
+        uploadedFiles,
+        totalFiles: declared.uploads.length,
+      });
     },
-    {
-      concurrency: options.concurrency ?? DEFAULT_VERSION_UPLOAD_CONCURRENCY,
-      onProgress: options.progress?.onUpload,
-    },
+    { concurrency: options.concurrency ?? DEFAULT_VERSION_UPLOAD_CONCURRENCY },
   );
 
   return parse(
