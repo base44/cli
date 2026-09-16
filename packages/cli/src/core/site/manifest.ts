@@ -64,6 +64,29 @@ function getAssetContentType(filePath: string): string {
  * means a tenant can only collide with their own files, so a malicious upload
  * cannot poison another app's asset cache.
  */
+/**
+ * Every file a build emitted, as sorted forward-slash relative paths.
+ *
+ * Shared with the versions lane: what counts as "a file this build produced" is
+ * one rule — `.assetsignore` with full gitignore semantics, plus the names no
+ * build ever ships — and two collectors disagreeing about it would mean the two
+ * lanes publish different sets from the same directory. What each does with a
+ * path afterwards is its own business.
+ */
+export async function walkBuildOutput(outputDir: string): Promise<string[]> {
+  // globby returns forward-slash paths on every platform. Never pass `ignore`
+  // alongside `ignoreFiles`: globby globs for ignore files using that option, so
+  // it would find none and silently apply no patterns — hence the filter below.
+  const found = await globby("**/*", {
+    cwd: outputDir,
+    dot: true,
+    onlyFiles: true,
+    followSymbolicLinks: false,
+    ignoreFiles: [ASSETS_IGNORE_FILE],
+  });
+  return found.filter((path) => !ALWAYS_IGNORED.has(basename(path))).sort();
+}
+
 export function hashAsset(appId: string, content: Buffer): string {
   return createHash("sha256")
     .update(Buffer.from(appId, "utf8"))
@@ -100,20 +123,7 @@ export async function buildAssetManifest(
   const manifest: Record<string, AssetManifestEntry> = {};
   const filesByHash = new Map<string, AssetFile>();
 
-  // globby returns forward-slash paths on every platform, which is how the
-  // manifest keys them. Never pass `ignore` alongside `ignoreFiles`: globby
-  // globs for ignore files using that option, so it would find none and
-  // silently apply no patterns — hence the filter below.
-  const found = await globby("**/*", {
-    cwd: assetsDir,
-    dot: true,
-    onlyFiles: true,
-    followSymbolicLinks: false,
-    ignoreFiles: [ASSETS_IGNORE_FILE],
-  });
-  const relativeFilePaths = found.filter(
-    (path) => !ALWAYS_IGNORED.has(basename(path)),
-  );
+  const relativeFilePaths = await walkBuildOutput(assetsDir);
 
   if (relativeFilePaths.length > MAX_ASSET_COUNT) {
     throw new InvalidInputError(
@@ -121,7 +131,7 @@ export async function buildAssetManifest(
     );
   }
 
-  for (const relativePath of relativeFilePaths.sort()) {
+  for (const relativePath of relativeFilePaths) {
     const absolutePath = join(assetsDir, ...relativePath.split("/"));
     const { size } = await stat(absolutePath);
     const hash = await hashAssetFile(appId, absolutePath);

@@ -1,11 +1,12 @@
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
-import { basename, join } from "node:path";
+import { join } from "node:path";
 import { globby } from "globby";
 import pMap from "p-map";
 import { CONFIG_FILE_EXTENSION_GLOB } from "@/core/consts.js";
 import { InvalidInputError } from "@/core/errors.js";
+import { walkBuildOutput } from "@/core/site/manifest.js";
 import { pathExists, readJsonFile } from "@/core/utils/fs.js";
 import type { ArtifactFile, ArtifactSet } from "@/core/version/schema.js";
 
@@ -19,15 +20,6 @@ const MAX_FILE_COUNT = 50_000;
 
 /** Open descriptors while hashing. Well under the 256 a production Node keeps. */
 const HASH_CONCURRENCY = 32;
-
-const ASSETS_IGNORE_FILE = ".assetsignore";
-
-/** Never part of a frontend, whatever `.assetsignore` says. */
-const ALWAYS_IGNORED = new Set([
-  ASSETS_IGNORE_FILE,
-  "wrangler.json",
-  ".dev.vars",
-]);
 
 /** The platform refuses a set without it; failing here saves the upload. */
 const ENTRY = "index.html";
@@ -52,20 +44,7 @@ async function digestFile(absolutePath: string): Promise<string> {
 export async function collectBuildOutput(
   outputDir: string,
 ): Promise<ArtifactFile[]> {
-  // globby returns forward-slash paths on every platform, which is how the
-  // version keys them. Never pass `ignore` alongside `ignoreFiles`: globby globs
-  // for ignore files using that option, so it would find none and silently apply
-  // no patterns — hence the filter below.
-  const found = await globby("**/*", {
-    cwd: outputDir,
-    dot: true,
-    onlyFiles: true,
-    followSymbolicLinks: false,
-    ignoreFiles: [ASSETS_IGNORE_FILE],
-  });
-  const relativePaths = found
-    .filter((path) => !ALWAYS_IGNORED.has(basename(path)))
-    .sort();
+  const relativePaths = await walkBuildOutput(outputDir);
 
   if (relativePaths.length === 0) {
     throw new InvalidInputError(
