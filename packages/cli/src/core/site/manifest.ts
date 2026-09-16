@@ -1,8 +1,10 @@
+import type { Hash } from "node:crypto";
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { basename, extname, join } from "node:path";
 import { globby } from "globby";
+import pMap from "p-map";
 import { InvalidInputError } from "@/core/errors.js";
 import type {
   AssetFile,
@@ -67,13 +69,11 @@ function getAssetContentType(filePath: string): string {
 /**
  * Every file a build emitted, as sorted forward-slash relative paths.
  *
- * Shared with the versions lane: what counts as "a file this build produced" is
- * one rule — `.assetsignore` with full gitignore semantics, plus the names no
- * build ever ships — and two collectors disagreeing about it would mean the two
- * lanes publish different sets from the same directory. What each does with a
- * path afterwards is its own business.
+ * What counts as "a file this build produced" is one rule — `.assetsignore`
+ * with full gitignore semantics, plus the names no build ever ships. Reached
+ * through {@link describeBuildOutput}, which is what both lanes call.
  */
-export async function walkBuildOutput(outputDir: string): Promise<string[]> {
+async function walkBuildOutput(outputDir: string): Promise<string[]> {
   // globby returns forward-slash paths on every platform. Never pass `ignore`
   // alongside `ignoreFiles`: globby globs for ignore files using that option, so
   // it would find none and silently apply no patterns — hence the filter below.
@@ -85,6 +85,53 @@ export async function walkBuildOutput(outputDir: string): Promise<string[]> {
     ignoreFiles: [ASSETS_IGNORE_FILE],
   });
   return found.filter((path) => !ALWAYS_IGNORED.has(basename(path))).sort();
+}
+
+/** One file a build emitted, located and sized. What names it is the caller's. */
+interface BuildFile {
+  /** Build-relative, forward slashes, no leading "/". */
+  path: string;
+  absolutePath: string;
+  size: number;
+}
+
+/** Open descriptors while walking. Well under the 256 a production Node keeps. */
+const STAT_CONCURRENCY = 32;
+
+/**
+ * Every file {@link walkBuildOutput} found, with its location and size.
+ *
+ * Both lanes need this and neither needs the other's hash, so the hash is not
+ * here: a deployment keys assets by a salted, truncated cache key, a version
+ * addresses artifacts by a full sha256, and the two must never be one value.
+ */
+export async function describeBuildOutput(
+  outputDir: string,
+): Promise<BuildFile[]> {
+  const relativePaths = await walkBuildOutput(outputDir);
+  return await pMap(
+    relativePaths,
+    async (path) => {
+      const absolutePath = join(outputDir, ...path.split("/"));
+      return { path, absolutePath, size: (await stat(absolutePath)).size };
+    },
+    { concurrency: STAT_CONCURRENCY },
+  );
+}
+
+/**
+ * Feed a file's bytes through a hash in chunks, so a large file never lands in
+ * memory whole. What the caller seeds and how it renders the result is what
+ * makes one of these a cache key and the other an identity.
+ */
+export async function hashFileInto(
+  hash: Hash,
+  absolutePath: string,
+): Promise<Hash> {
+  for await (const chunk of createReadStream(absolutePath)) {
+    hash.update(chunk);
+  }
+  return hash;
 }
 
 export function hashAsset(appId: string, content: Buffer): string {
@@ -103,10 +150,10 @@ async function hashAssetFile(
   appId: string,
   absolutePath: string,
 ): Promise<string> {
-  const hash = createHash("sha256").update(Buffer.from(appId, "utf8"));
-  for await (const chunk of createReadStream(absolutePath)) {
-    hash.update(chunk);
-  }
+  const hash = await hashFileInto(
+    createHash("sha256").update(Buffer.from(appId, "utf8")),
+    absolutePath,
+  );
   return hash.digest("hex").slice(0, 32);
 }
 
@@ -123,17 +170,15 @@ export async function buildAssetManifest(
   const manifest: Record<string, AssetManifestEntry> = {};
   const filesByHash = new Map<string, AssetFile>();
 
-  const relativeFilePaths = await walkBuildOutput(assetsDir);
+  const files = await describeBuildOutput(assetsDir);
 
-  if (relativeFilePaths.length > MAX_ASSET_COUNT) {
+  if (files.length > MAX_ASSET_COUNT) {
     throw new InvalidInputError(
-      `Too many static assets: found ${relativeFilePaths.length}, the limit is ${MAX_ASSET_COUNT} files.`,
+      `Too many static assets: found ${files.length}, the limit is ${MAX_ASSET_COUNT} files.`,
     );
   }
 
-  for (const relativePath of relativeFilePaths) {
-    const absolutePath = join(assetsDir, ...relativePath.split("/"));
-    const { size } = await stat(absolutePath);
+  for (const { path: relativePath, absolutePath, size } of files) {
     const hash = await hashAssetFile(appId, absolutePath);
 
     manifest[`/${relativePath}`] = { hash, size };

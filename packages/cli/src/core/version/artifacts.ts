@@ -1,17 +1,11 @@
 import { createHash } from "node:crypto";
-import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { globby } from "globby";
 import pMap from "p-map";
 import { CONFIG_FILE_EXTENSION_GLOB } from "@/core/consts.js";
 import { InvalidInputError } from "@/core/errors.js";
-import { walkBuildOutput } from "@/core/site/manifest.js";
-import { collectModules } from "@/core/site/modules.js";
-import {
-  detectFullStackArtifact,
-  resolveWranglerConfig,
-} from "@/core/site/wrangler-config.js";
+import { resolveFullStackBuild } from "@/core/site/full-stack.js";
+import { describeBuildOutput, hashFileInto } from "@/core/site/manifest.js";
 import { pathExists, readJsonFile } from "@/core/utils/fs.js";
 import type {
   ArtifactFile,
@@ -42,10 +36,7 @@ const ENTRY = "index.html";
  * {@link ArtifactFile.digest}.
  */
 async function digestFile(absolutePath: string): Promise<string> {
-  const hash = createHash("sha256");
-  for await (const chunk of createReadStream(absolutePath)) {
-    hash.update(chunk);
-  }
+  const hash = await hashFileInto(createHash("sha256"), absolutePath);
   return `sha256:${hash.digest("hex")}`;
 }
 
@@ -58,9 +49,9 @@ export async function collectBuildOutput(
   outputDir: string,
   options: { requireEntry?: boolean } = {},
 ): Promise<ArtifactFile[]> {
-  const relativePaths = await walkBuildOutput(outputDir);
+  const found = await describeBuildOutput(outputDir);
 
-  if (relativePaths.length === 0) {
+  if (found.length === 0) {
     throw new InvalidInputError(
       `No files found in ${outputDir}. Build the site before creating a version.`,
       {
@@ -70,32 +61,23 @@ export async function collectBuildOutput(
       },
     );
   }
-  if (relativePaths.length > MAX_FILE_COUNT) {
+  if (found.length > MAX_FILE_COUNT) {
     throw new InvalidInputError(
-      `Too many files: found ${relativePaths.length}, the limit is ${MAX_FILE_COUNT}.`,
+      `Too many files: found ${found.length}, the limit is ${MAX_FILE_COUNT}.`,
     );
   }
-  if (options.requireEntry !== false && !relativePaths.includes(ENTRY)) {
+  if (options.requireEntry !== false && !found.some((f) => f.path === ENTRY)) {
     throw new InvalidInputError(
       `${outputDir} has no ${ENTRY}, so nothing could enter the site.`,
     );
   }
 
-  // Bounded: one open descriptor per file, and the advertised ceiling is 100k.
+  // Bounded: one open descriptor per file, and the advertised ceiling is 50k.
   // An unbounded Promise.all hits EMFILE at ~1.5k on a default descriptor limit,
   // long before any of the declared limits.
   return await pMap(
-    relativePaths,
-    async (path) => {
-      const absolutePath = join(outputDir, ...path.split("/"));
-      const { size } = await stat(absolutePath);
-      return {
-        path,
-        absolutePath,
-        size,
-        digest: await digestFile(absolutePath),
-      };
-    },
+    found,
+    async (file) => ({ ...file, digest: await digestFile(file.absolutePath) }),
     { concurrency: HASH_CONCURRENCY },
   );
 }
@@ -103,21 +85,20 @@ export async function collectBuildOutput(
 /**
  * The app's own server, when the framework built one — otherwise `null`.
  *
- * Reuses the full-stack lane's collectors whole: the same redirect file, the
- * same wrangler config, the same module set the legacy deploy sends to
- * Cloudflare. A second reader here would be a second opinion about what the
- * framework built.
+ * Reads through {@link resolveFullStackBuild}, the same call the deploy lane
+ * makes, and only then differs: this lane hashes the modules into artifacts
+ * where that one shapes them into a Cloudflare config. What the framework built
+ * is one answer, given once.
  */
 export async function collectSiteWorker(
   projectRoot: string,
 ): Promise<SiteWorkerArtifact | null> {
-  const redirectPath = await detectFullStackArtifact(projectRoot);
-  if (!redirectPath) {
+  const built = await resolveFullStackBuild(projectRoot);
+  if (!built) {
     return null;
   }
 
-  const config = await resolveWranglerConfig(redirectPath);
-  const modules = await collectModules(config);
+  const { config, modules, assetsDir } = built;
   // By identity, not by position: the platform matches the entry against the
   // module NAMES it was sent, and `main` in the config may still carry a "./".
   const entry = resolve(config.configDir, config.main);
@@ -142,10 +123,7 @@ export async function collectSiteWorker(
     ),
     compatibilityDate: config.compatibilityDate,
     compatibilityFlags: config.compatibilityFlags,
-    assetsDir:
-      config.assetsDirectory && (await pathExists(config.assetsDirectory))
-        ? config.assetsDirectory
-        : null,
+    assetsDir,
   };
 }
 
