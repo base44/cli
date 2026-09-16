@@ -4,7 +4,7 @@
   "description": "Production compiler for Base44 backend functions — turns function sources into a single Cloudflare Workers module.",
   "license": "MIT",
   "publishConfig": {
-    "access": "restricted"
+    "access": "public"
   },
   "type": "module",
   "exports": {
