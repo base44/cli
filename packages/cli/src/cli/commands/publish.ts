@@ -61,12 +61,20 @@ async function publishAction(
       // of producing the version, so a missing directory is a create_version
       // failure rather than an envelope with no step at all.
       const artifacts = await tagStep("create_version", async () => {
-        // A full-stack build puts the frontend where the Worker serves it from,
-        // which is not the project's own output directory.
+        // Who serves the frontend decides where it is and what it must contain.
+        // With a Worker it is the Worker's own assets directory — which a
+        // server-rendered app may not have at all — never the project's
+        // `site.outputDirectory`.
         const siteWorker = await collectSiteWorker(target.root);
-        const outputDir = siteWorker?.assetsDir ?? requireOutputDir(target);
+        const assetsDir = siteWorker
+          ? siteWorker.assetsDir
+          : requireOutputDir(target);
         return {
-          files: await collectBuildOutput(outputDir),
+          files: assetsDir
+            ? await collectBuildOutput(assetsDir, {
+                requireEntry: siteWorker === null,
+              })
+            : [],
           ...(siteWorker ? { siteWorker } : {}),
           ...(await collectResources(target.configDir, target)),
         };

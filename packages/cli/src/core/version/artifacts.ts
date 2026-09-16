@@ -30,7 +30,11 @@ const MAX_FILE_COUNT = 50_000;
 /** Open descriptors while hashing. Well under the 256 a production Node keeps. */
 const HASH_CONCURRENCY = 32;
 
-/** The platform refuses a set without it; failing here saves the upload. */
+/**
+ * The entry file the platform serves for any unmatched path — but only when the
+ * platform is what serves. A Worker's own asset settings decide that instead,
+ * so a full-stack build is not required to have one.
+ */
 const ENTRY = "index.html";
 
 /**
@@ -52,6 +56,7 @@ async function digestFile(absolutePath: string): Promise<string> {
  */
 export async function collectBuildOutput(
   outputDir: string,
+  options: { requireEntry?: boolean } = {},
 ): Promise<ArtifactFile[]> {
   const relativePaths = await walkBuildOutput(outputDir);
 
@@ -70,7 +75,7 @@ export async function collectBuildOutput(
       `Too many files: found ${relativePaths.length}, the limit is ${MAX_FILE_COUNT}.`,
     );
   }
-  if (!relativePaths.includes(ENTRY)) {
+  if (options.requireEntry !== false && !relativePaths.includes(ENTRY)) {
     throw new InvalidInputError(
       `${outputDir} has no ${ENTRY}, so nothing could enter the site.`,
     );

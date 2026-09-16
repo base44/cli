@@ -200,6 +200,17 @@ describe("collectSiteWorker", () => {
     await rm(projectRoot, { recursive: true, force: true });
   });
 
+  it("reports a Worker with no assets directory rather than falling back", async () => {
+    // The fallback that used to live in `publish` sent a full-stack app to the
+    // project's own `site.outputDirectory`, which is not where its frontend is.
+    await writeFullStackBuild({ assets: undefined });
+
+    const worker = await collectSiteWorker(projectRoot);
+
+    expect(worker).not.toBeNull();
+    expect(worker?.assetsDir).toBeNull();
+  });
+
   it("reports no worker for an app that has no server of its own", async () => {
     // Almost every app: there is no redirect file, so there is nothing to read.
     expect(await collectSiteWorker(projectRoot)).toBeNull();
@@ -264,5 +275,34 @@ describe("collectSiteWorker", () => {
     const worker = await collectSiteWorker(projectRoot);
 
     expect(worker?.modules.map((m) => m.path)).toEqual(["index.js"]);
+  });
+});
+
+describe("who serves the frontend decides what it must contain", () => {
+  let outputDir: string;
+
+  beforeEach(async () => {
+    outputDir = await mkdtemp(join(tmpdir(), "b44-serves-"));
+    await writeFile(join(outputDir, "app.js"), "console.log(1);");
+  });
+
+  afterEach(async () => {
+    await rm(outputDir, { recursive: true, force: true });
+  });
+
+  it("refuses a set with no entry when the platform is what serves", async () => {
+    // Any unmatched path is answered with that one file, so without it there is
+    // nothing to enter.
+    await expect(collectBuildOutput(outputDir)).rejects.toThrow(
+      InvalidInputError,
+    );
+  });
+
+  it("accepts a set with no entry when a Worker serves", async () => {
+    // A server-rendered app renders its own HTML, and the Worker's asset
+    // settings decide what an unmatched path gets.
+    const files = await collectBuildOutput(outputDir, { requireEntry: false });
+
+    expect(files.map((f) => f.path)).toEqual(["app.js"]);
   });
 });
