@@ -90,6 +90,12 @@ export async function createDevServer(
 
   const devLogger = createDevLogger("backend", theme.styles.info);
 
+  app.use("/api/apps/:appId/actors", (_req, res) => {
+    const message = "Actors are not available in local development";
+    devLogger.error(message);
+    res.status(500).json({ error: message });
+  });
+
   const functionManager = await createFunctionRuntime(
     functions,
     devLogger,

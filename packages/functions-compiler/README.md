@@ -14,10 +14,12 @@ Two consumers share this one engine:
 
 ## Status and scope
 
-Internal to Base44 — published **restricted**, and the CLI bundles it at build
-time so end users never install it. Compilation is the whole of its job, and
-that now includes source assembly, shard planning, size measurement and
-splitting. Artifact writing, version creation, upload and deploy live above it.
+Internal to Base44 — published **public** so apper's bundler service can install
+it, but it is not a supported public API: the CLI bundles it at build time so
+end users never install it, and it carries no compatibility promise to anyone
+outside this repo. Compilation is the whole of its job, and that now includes
+source assembly, shard planning, size measurement and splitting. Artifact
+writing, version creation, upload and deploy live above it.
 
 The package carries no credentials and reads no configuration of its own. It
 names the environment variables and headers the generated worker will use at

@@ -22,6 +22,7 @@ import type {
   ProjectRoot,
   ProjectWithPaths,
 } from "@/core/project/types.js";
+import { actorResource } from "@/core/resources/actor/index.js";
 import { agentResource } from "@/core/resources/agent/index.js";
 import { agentSkillResource } from "@/core/resources/agent-skill/index.js";
 import { authConfigResource } from "@/core/resources/auth-config/index.js";
@@ -67,11 +68,21 @@ class ProjectConfigReader {
       ...pluginResources.functions,
     ];
     this.validateFunctionNames(functions, configPath);
+    const functionNames = new Set(functions.map((fn) => fn.name));
+    for (const actor of localResources.actors) {
+      if (functionNames.has(actor.name)) {
+        throw new ConfigInvalidError(
+          `'${actor.name}' exists as both a backend function and an actor`,
+          configPath,
+        );
+      }
+    }
 
     return {
       project,
       entities,
       functions,
+      actors: localResources.actors,
       agents: localResources.agents,
       agentSkills: localResources.agentSkills,
       connectors: localResources.connectors,
@@ -116,19 +127,38 @@ class ProjectConfigReader {
   private async readProjectResources(
     configPath: string,
     project: ProjectConfig,
+    includeActors = true,
   ): Promise<ProjectResources> {
     const configDir = dirname(configPath);
-    const [entities, functions, agents, agentSkills, connectors, authConfig] =
-      await Promise.all([
-        entityResource.readAll(join(configDir, project.entitiesDir)),
-        functionResource.readAll(join(configDir, project.functionsDir)),
-        agentResource.readAll(join(configDir, project.agentsDir)),
-        agentSkillResource.readAll(join(configDir, project.agentSkillsDir)),
-        connectorResource.readAll(join(configDir, project.connectorsDir)),
-        authConfigResource.readAll(join(configDir, project.authDir)),
-      ]);
+    const [
+      entities,
+      functions,
+      actors,
+      agents,
+      agentSkills,
+      connectors,
+      authConfig,
+    ] = await Promise.all([
+      entityResource.readAll(join(configDir, project.entitiesDir)),
+      functionResource.readAll(join(configDir, project.functionsDir)),
+      includeActors
+        ? actorResource.readAll(join(configDir, project.actorsDir))
+        : Promise.resolve([]),
+      agentResource.readAll(join(configDir, project.agentsDir)),
+      agentSkillResource.readAll(join(configDir, project.agentSkillsDir)),
+      connectorResource.readAll(join(configDir, project.connectorsDir)),
+      authConfigResource.readAll(join(configDir, project.authDir)),
+    ]);
 
-    return { entities, functions, agents, agentSkills, connectors, authConfig };
+    return {
+      entities,
+      functions,
+      actors,
+      agents,
+      agentSkills,
+      connectors,
+      authConfig,
+    };
   }
 
   private assertPluginProjectDoesNotLoadPlugins(
@@ -193,11 +223,16 @@ class ProjectConfigReader {
     configPath: string,
     namespace: string,
   ): Promise<ProjectResources> {
-    const resources = await this.readProjectResources(configPath, project);
+    const resources = await this.readProjectResources(
+      configPath,
+      project,
+      false,
+    );
 
     return {
       entities: markPluginEntities(resources.entities, namespace),
       functions: namespacePluginFunctions(resources.functions, namespace),
+      actors: [],
       agents: [],
       agentSkills: [],
       connectors: [],
@@ -255,6 +290,7 @@ class ProjectConfigReader {
     return {
       entities,
       functions,
+      actors: [],
       agents: [],
       agentSkills: [],
       connectors: [],

@@ -83,6 +83,11 @@ describe("branch name targeting", () => {
   it.each([
     { args: ["sandbox", "ls", "--branch", ""], error: "must not be empty" },
     { args: ["functions", "pull", "--branch", "main"], error: "not supported" },
+    { args: ["actors", "deploy", "--branch", "main"], error: "not supported" },
+    {
+      args: ["actors", "delete", "ChatRoom", "--branch", "feature"],
+      error: "not supported",
+    },
   ])("validates flags before authentication: $error", async ({
     args,
     error,
