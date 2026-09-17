@@ -8,6 +8,7 @@ import {
   formatDuration,
   hardWrapAnsi,
   idleMusing,
+  terminalLink,
 } from "@/cli/commands/imported/render.js";
 import type {
   SessionEngine,
@@ -24,6 +25,10 @@ import {
   resolvePick,
   saveBuilderModel,
 } from "@/core/model.js";
+import {
+  isGithubUserTokenError,
+  startGithubReauth,
+} from "@/core/resources/imported/api.js";
 import packageJson from "../../../../package.json";
 
 const FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
@@ -408,7 +413,7 @@ function buildLogoRows(): string[] {
 
 /** The welcome header, Claude-Code style: the sun mark on the left, the title /
  * account / cwd lines stacked to its right. No box. */
-function renderHeader(who: string): string {
+function renderHeader(who: string, mode?: string): string {
   const orange = chalk.hex(BRAND_ORANGE);
   const cwd = process.cwd().replace(process.env.HOME ?? "", "~");
   const logo = buildLogoRows();
@@ -423,6 +428,7 @@ function renderHeader(who: string): string {
     chalk.bold(who ? `Welcome back, ${who}!` : "Welcome!"),
     chalk.dim(getBase44ApiUrl().replace(/^https:\/\//, "")),
     chalk.dim(cwd),
+    ...(mode ? [`${orange("●")} ${chalk.dim(mode)}`] : []),
   ];
   const height = Math.max(logo.length, text.length);
   const textTop = Math.max(0, Math.floor((logo.length - text.length) / 2));
@@ -446,8 +452,8 @@ async function currentUserName(): Promise<string> {
 
 /** The Base44 Code welcome box — the session's first history item, so it
  * scrolls away naturally like Claude Code's header does. */
-async function buildHeader(): Promise<string> {
-  return renderHeader(await currentUserName());
+async function buildHeader(mode?: string): Promise<string> {
+  return renderHeader(await currentUserName(), mode);
 }
 
 /** Run `work` (e.g. the create call) inside the full-page frame: header at
@@ -571,6 +577,8 @@ interface GenesisOptions {
   creatingLabel: string;
   /** Live footer array — `createApp` pushes the links as they exist. */
   footer: string[];
+  /** Short mode label rendered in the header (e.g. "Builder" / "Import"). */
+  modeLabel?: string;
   /** Turn the first prompt into an app; returns the wiring for the real
    * engine, which takes over every later prompt. */
   createApp: (
@@ -660,11 +668,26 @@ export async function runGenesisSession(
           await engine.start(false);
           inner = engine;
         })
-        .catch((error: unknown) => {
+        .catch(async (error: unknown) => {
           creating = false;
           const message =
             error instanceof Error ? error.message : String(error);
           onLine(chalk.red(`✗ create failed: ${message}`));
+          // A stale GitHub connection 401s while the create verifies repo
+          // access. Hand back a reconnect link — a plain retry just 401s again.
+          if (isGithubUserTokenError(error)) {
+            const link = await startGithubReauth().catch(() => null);
+            onLine(
+              chalk.yellow(
+                "GitHub authorization expired — reconnect, then try again:",
+              ),
+            );
+            onLine(
+              link
+                ? terminalLink("Reconnect GitHub", link)
+                : "Open Base44 → GitHub settings to reconnect your account.",
+            );
+          }
         });
     },
     status(): SessionStatus {
@@ -685,7 +708,7 @@ export async function runGenesisSession(
   };
 
   enterAltScreen();
-  onLine(await buildHeader());
+  onLine(await buildHeader(options.modeLabel));
 
   process.stdout.write("\x1b[?2004h");
   const stdinProxy = createPasteFriendlyStdin(process.stdin);

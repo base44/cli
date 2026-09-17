@@ -153,6 +153,75 @@ export async function createImportedApp(
   return parseOrThrow(CreatedAppSchema, await response.json(), "imported app");
 }
 
+interface CreateBuilderAppOptions {
+  appName?: string;
+  prompt?: string;
+  organizationId?: string;
+}
+
+/**
+ * Create a NORMAL Base44 app (the standard builder-agent + React template
+ * flow). No app_type is sent — the backend defaults to "user_app" — and none
+ * of the imported repo fields apply. A non-empty prompt auto-starts the
+ * builder's first turn in the background; the scaffold sandbox provisions
+ * async, so the caller polls the conversation and the preview URL afterward.
+ */
+export async function createBuilderApp(
+  options: CreateBuilderAppOptions,
+): Promise<CreatedImportedApp> {
+  let response: KyResponse;
+  try {
+    // The first builder turn kicks off server-side; the create itself returns
+    // fast, but keep ky patient in case the platform is slow to insert.
+    response = await base44Client.post("api/apps", {
+      timeout: false,
+      json: {
+        ...(options.appName ? { name: options.appName } : {}),
+        ...(options.organizationId
+          ? { organization_id: options.organizationId }
+          : {}),
+        ...(options.prompt
+          ? { initial_message: { content: options.prompt } }
+          : {}),
+      },
+    });
+  } catch (error) {
+    throw await ApiError.fromHttpError(error, "creating app");
+  }
+  return parseOrThrow(CreatedAppSchema, await response.json(), "app");
+}
+
+const OAuthInitiateSchema = z.object({ authorization_url: z.string().min(1) });
+
+/**
+ * Start a fresh GitHub OAuth (account-only, no re-install) and return the URL
+ * to open. Recovers from a stale connection: create/import verifies the
+ * caller's GitHub access with their OAuth token, and GitHub 401s an expired
+ * one — the fix is re-authorizing, not retrying.
+ */
+export async function startGithubReauth(): Promise<string> {
+  const response = await base44Client.post(
+    "api/github/oauth/initiate?skip_installation=true",
+  );
+  return parseOrThrow(
+    OAuthInitiateSchema,
+    await response.json(),
+    "github oauth initiate",
+  ).authorization_url;
+}
+
+/**
+ * True when a create/import failure is GitHub rejecting the caller's OAuth
+ * token (expired/revoked connection) — a 401 against api.github.com. Retrying
+ * without reconnecting just 401s again.
+ */
+export function isGithubUserTokenError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    /api\.github\.com/i.test(message) && /\b401\b|unauthorized/i.test(message)
+  );
+}
+
 export async function getImportedAppState(
   appId: string,
 ): Promise<ImportedAppState> {

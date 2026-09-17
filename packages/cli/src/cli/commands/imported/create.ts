@@ -21,10 +21,13 @@ import {
   writeAppConfig,
 } from "@/core/project/app-config.js";
 import {
+  createBuilderApp,
   createImportedApp,
   getImportedAppState,
   getImportedPreviewUrl,
+  isGithubUserTokenError,
   soleActiveBranchId,
+  startGithubReauth,
 } from "@/core/resources/imported/api.js";
 import { streamConversationUntilSettled } from "@/core/resources/imported/stream.js";
 
@@ -148,12 +151,33 @@ async function createImportedAction(
     : "importing the repository";
   // Interactive runs start the full-page frame immediately — the create call
   // spins inside it rather than in a clack task outside the page.
-  const created = interactiveEarly
-    ? await withBootScreen(bootLabel, createCall)
-    : await runTask(
-        blank ? "Creating your repository and app" : "Importing the repository",
-        createCall,
+  let created: Awaited<ReturnType<typeof createCall>>;
+  try {
+    created = interactiveEarly
+      ? await withBootScreen(bootLabel, createCall)
+      : await runTask(
+          blank
+            ? "Creating your repository and app"
+            : "Importing the repository",
+          createCall,
+        );
+  } catch (error) {
+    // A stale GitHub connection surfaces as a 401 from api.github.com while the
+    // create verifies the caller's repo access. Point them at re-auth — a plain
+    // retry just 401s again.
+    if (isGithubUserTokenError(error)) {
+      const link = await startGithubReauth().catch(() => null);
+      log.message(
+        `${chalk.yellow("Your GitHub authorization expired.")} Reconnect, then run this again:`,
       );
+      log.message(
+        link
+          ? terminalLink("Reconnect GitHub", link)
+          : "Open Base44 → GitHub settings to reconnect your account.",
+      );
+    }
+    throw error;
+  }
 
   const configPath = await writeAppConfig(targetDir, created.id);
   // Root discovery (findProjectRoot) keys on a PROJECT config, not .app.jsonc —
@@ -391,6 +415,59 @@ export async function bootstrapBlankApp(
   }
   footer.push(terminalLink("editor", editorUrl));
   emit(chalk.dim(`linked  ./${repoName}  (cd ${repoName} after the session)`));
+
+  const branchId = await soleActiveBranchId().catch(() => undefined);
+  let previewPushed = false;
+  return {
+    branchId,
+    awaitingTurnLabel: "provisioning the sandbox and starting the build",
+    onTurnSettled: async ({ turnIndex, ok }) => {
+      if (turnIndex === 0 && ok && !previewPushed) {
+        try {
+          const previewUrl = await getImportedPreviewUrl();
+          previewPushed = true;
+          footer.push(terminalLink("preview", previewUrl));
+        } catch {
+          // Preview may still be booting; the editor shows it when up.
+        }
+      }
+    },
+  };
+}
+
+/** Genesis bootstrap for the NORMAL Base44 flow: the session's first prompt
+ * creates a standard user_app (builder agent + React template — no GitHub
+ * repo), links a local directory, and hands back the engine wiring. Mirrors
+ * bootstrapBlankApp, minus the repo. Preview + chat run on the same app-scoped
+ * endpoints, so the session/stream are identical. */
+export async function bootstrapBuilderApp(
+  prompt: string,
+  footer: string[],
+  emit: (line: string) => void,
+): Promise<{
+  branchId?: string;
+  awaitingTurnLabel: string;
+  onTurnSettled: (info: { turnIndex: number; ok: boolean }) => Promise<void>;
+}> {
+  const appName = inventRepoName(prompt);
+  const created = await createBuilderApp({ appName, prompt });
+  const targetDir = join(process.cwd(), appName);
+  await mkdir(join(targetDir, "base44"), { recursive: true });
+  await writeAppConfig(targetDir, created.id);
+  try {
+    await writeFile(
+      join(targetDir, "base44", "config.jsonc"),
+      `// Base44 project configuration.\n{\n  "name": ${JSON.stringify(appName)}\n}\n`,
+      { flag: "wx" },
+    );
+  } catch {
+    // Already present — fine.
+  }
+  setAppContext({ id: created.id, projectRoot: targetDir });
+
+  const editorUrl = `${getBase44ApiUrl()}/apps/${created.id}/editor/preview`;
+  footer.push(terminalLink("editor", editorUrl));
+  emit(chalk.dim(`linked  ./${appName}  (cd ${appName} after the session)`));
 
   const branchId = await soleActiveBranchId().catch(() => undefined);
   let previewPushed = false;
