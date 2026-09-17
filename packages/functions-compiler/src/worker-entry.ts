@@ -10,6 +10,7 @@ import type { AppFunctionInput } from "./contracts.js";
 import { DenoCompatError } from "./errors.js";
 import { RUNTIME_CONTEXT_SPECIFIER } from "./esbuild/runtime-context-virtual.js";
 import { TELEMETRY_PATCH, TELEMETRY_STORE_FIELDS } from "./telemetry.js";
+import { COMPILER_VERSION } from "./version.js";
 
 // Pre-built by scripts/build-shim.ts; regenerate it after changing the shim.
 // Read LAZILY, not at module load: build-shim.ts transitively imports this
@@ -135,31 +136,6 @@ export async function prepareFunction(
 /** One app function paired with the stable key its files and diagnostics are
  *  namespaced under (`fn_<index>`). The index is the function's original
  *  position so attribution stays correct across an exclude-and-rebuild. */
-/** This package's own version, for the bundle banner. Two candidates because
- *  the published layout puts this module at `lib/src/` while the repo has it at
- *  `src/`. A host that bundles this file somewhere else finds neither, and gets
- *  "unknown" rather than a throw — a metadata field must not fail a compile. */
-let _compilerVersion: string | undefined;
-function readPackageVersion(relative: string): string | undefined {
-  try {
-    const parsed = JSON.parse(
-      readFileSync(new URL(relative, import.meta.url), "utf8"),
-    );
-    return parsed.name === "@base44/functions-compiler"
-      ? parsed.version
-      : undefined;
-  } catch {
-    return undefined;
-  }
-}
-function compilerVersion(): string {
-  _compilerVersion ??=
-    readPackageVersion("../package.json") ??
-    readPackageVersion("../../package.json") ??
-    "unknown";
-  return _compilerVersion;
-}
-
 /** Bumped only when the payload's shape changes, never for a new field. */
 const BANNER_FORMAT = 1;
 
@@ -183,7 +159,7 @@ function buildBanner(
     functions: entries.map(({ fn }) => fn.name).sort(),
     telemetry,
     runtimeSecrets,
-    compiler: compilerVersion(),
+    compiler: COMPILER_VERSION,
   })}`;
 }
 
