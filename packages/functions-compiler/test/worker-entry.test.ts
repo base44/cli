@@ -95,6 +95,39 @@ describe("prepareFunction", () => {
 });
 
 describe("prepareApp", () => {
+  it("returns the invocation's own logs on every reply of the per-app router when asked", () => {
+    const result = prepareApp([
+      { index: 0, fn: { name: "alpha", entry: "main.ts", files: { "main.ts": serve("a") } } },
+    ]);
+    const entry = result.files["__base44_entry.mjs"];
+
+    expect(entry).toContain("..._b44CaptureStore(request)");
+    expect(entry).toContain("_b44Capture(_c, lvl, _m)");
+    expect(entry).toContain("_b44AttachInvocationLogs(await handler(request, info))");
+    // The 404 / init-500 / 503 early returns and the crash path answer through
+    // the same attach: an import error is the test tool's most common failure.
+    expect(entry.match(/_b44AttachInvocationLogs\(/g)).toHaveLength(5);
+    expect(entry).toContain("const crash = _b44CrashResponse(e);");
+  });
+
+  it("keeps telemetry as the inner wrap so its own header survives the outer one", () => {
+    const result = prepareApp(
+      [{ index: 0, fn: { name: "alpha", entry: "main.ts", files: { "main.ts": serve("a") } } }],
+      true,
+    );
+
+    expect(result.files["__base44_entry.mjs"]).toContain(
+      "_b44AttachInvocationLogs(_b44AttachTelemetry(await handler(request, info)))",
+    );
+  });
+
+  it("leaves per-function entries without the response channel (per-app scope only)", async () => {
+    const result = await prepareFunction("main.ts", { "main.ts": serve("ok") });
+
+    expect(result.files[result.entry]).not.toContain("_b44AttachInvocationLogs");
+    expect(result.files[result.entry]).not.toContain("_b44CaptureStore");
+  });
+
   it("namespaces each function under fn_<index>/, with one shim and a router that imports every wrapper", () => {
     const result = prepareApp([
       {
