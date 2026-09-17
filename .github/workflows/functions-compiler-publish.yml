@@ -1,0 +1,143 @@
+name: Manual Functions Compiler Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish (e.g., 1.0.0, patch, minor, major)"
+        required: true
+        default: "patch"
+        type: string
+      npm_tag:
+        description: "NPM tag to publish with (e.g., latest, beta, alpha)"
+        required: true
+        default: "latest"
+        type: string
+      dry_run:
+        description: "Run in dry-run mode (no actual publish)"
+        required: false
+        default: false
+        type: boolean
+
+env:
+  COMPILER_PACKAGE_DIR: packages/functions-compiler
+
+# This workflow deliberately does NOT run the Wix gateway proxy: the gateway
+# cannot carry `npm publish` (it rejects `PUT /<package>`), so per secplatform's
+# interim policy for OSS repos this job relies on `--frozen-lockfile` plus
+# bunfig.toml's minimumReleaseAge instead. It resolves nothing — the build is
+# local (tsc plus two asset copies) and the packaging proof that does hit the
+# registry (`scripts/verify-package.ts`) stays in functions-compiler.yml, behind
+# the gateway, where it runs on every push to main. Exemption lives in
+# .github/scripts/check_wix_proxy_steps.py.
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      # contents: write for the release commit and tag.
+      # id-token: write for npm trusted publishing (OIDC).
+      contents: write
+      id-token: write
+
+    steps:
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+        with:
+          app-id: ${{ vars.BASE44_GITHUB_ACTIONS_APP_ID }}
+          private-key: ${{ secrets.BASE44_GITHUB_ACTIONS_APP_PRIVATE_KEY }}
+          owner: base44
+
+      - name: Checkout code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          token: ${{ steps.generate-token.outputs.token }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: ".node-version"
+          registry-url: "https://registry.npmjs.org"
+
+      # No `npm install -g npm@latest`: trusted publishing needs npm >= 11.5.1, and
+      # the npm bundled with .node-version's Node 24 is already newer.
+
+      - name: Setup Bun
+        id: setup-bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          # Unpinned, matching functions-compiler.yml. The pin in manual-publish.yml
+          # exists for the CLI's `build:binaries` cross-compile; this package builds
+          # with tsc and compiles nothing.
+          bun-version: latest
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ steps.setup-bun.outputs.bun-version }}-${{ hashFiles('**/bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-${{ steps.setup-bun.outputs.bun-version }}-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Set version
+        working-directory: ${{ env.COMPILER_PACKAGE_DIR }}
+        # `--no-workspaces` keeps npm from bumping the CLI alongside this package.
+        # bun.lock records workspace versions but `--frozen-lockfile` tolerates the
+        # drift, so the bump needs no lockfile update.
+        run: |
+          npm version "${{ github.event.inputs.version }}" --no-git-tag-version --no-workspaces
+          echo "NEW_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
+
+      # The version is also a literal in src/version.ts, because it goes into every
+      # compiled shard's banner and a host that bundles this module ships no
+      # package.json to read it from. `npm version` does not know about that file;
+      # without this step the release would publish a banner claiming the previous
+      # version, and leave main red on version.test.ts.
+      - name: Sync COMPILER_VERSION
+        run: bun run scripts/sync-version.ts
+        working-directory: ${{ env.COMPILER_PACKAGE_DIR }}
+
+      - name: Build package
+        run: bun run build
+        working-directory: ${{ env.COMPILER_PACKAGE_DIR }}
+
+      - name: Show package info
+        working-directory: ${{ env.COMPILER_PACKAGE_DIR }}
+        run: |
+          echo "Package name: $(node -p "require('./package.json').name")"
+          echo "Version: ${{ env.NEW_VERSION }}"
+          echo "NPM tag: ${{ github.event.inputs.npm_tag }}"
+          echo "Dry run: ${{ github.event.inputs.dry_run }}"
+
+      - name: Publish to NPM
+        # Authenticates via npm trusted publishing (OIDC), so no NPM_TOKEN reaches
+        # the build. Needs a trusted publisher for `@base44/functions-compiler` on
+        # npmjs.com registered against this repo and THIS workflow filename — the
+        # registry keys on the filename, so this entry is separate from the ones
+        # for manual-publish.yml and preview-publish.yml.
+        #
+        # Unlike the CLI, this package is not bundled: esbuild, @deno/loader and zod
+        # are real runtime dependencies that consumers install. Nothing is stripped
+        # from package.json before publish.
+        working-directory: ${{ env.COMPILER_PACKAGE_DIR }}
+        run: npm publish --tag ${{ github.event.inputs.npm_tag }} ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
+
+      - name: Create Git tag
+        if: github.event.inputs.dry_run == 'false'
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+        # Tagged `functions-compiler-v*`, not `v*`: the bare `v*` series belongs to
+        # the CLI and the two release trains move independently.
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+          git add ${{ env.COMPILER_PACKAGE_DIR }}/package.json ${{ env.COMPILER_PACKAGE_DIR }}/src/version.ts
+          git commit -m "chore(functions-compiler): release v${{ env.NEW_VERSION }}"
+          git tag functions-compiler-v${{ env.NEW_VERSION }}
+          git push origin HEAD:${{ github.ref }}
+          git push origin functions-compiler-v${{ env.NEW_VERSION }}

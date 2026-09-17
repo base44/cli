@@ -3,6 +3,11 @@
   "version": "0.1.1",
   "description": "Production compiler for Base44 backend functions — turns function sources into a single Cloudflare Workers module.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/base44/cli",
+    "directory": "packages/functions-compiler"
+  },
   "publishConfig": {
     "access": "public"
   },

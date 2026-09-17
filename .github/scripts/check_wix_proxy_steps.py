@@ -27,6 +27,7 @@ REQUIRED_PATHS = (".github/actions/wix-gateway-proxy", ".github/certs")
 # not a formality — do not do it lightly.
 PUBLISH_WORKFLOWS = frozenset(
     {
+        ".github/workflows/functions-compiler-publish.yml",
         ".github/workflows/manual-publish.yml",
         ".github/workflows/preview-publish.yml",
     }
