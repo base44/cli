@@ -61,9 +61,17 @@ async function walkInputs(
     write: false,
     metafile: true,
     logLevel: "silent",
-    // Relative to nothing on disk: every path here is a project path served
-    // from memory, and nothing resolves to the filesystem.
-    absWorkingDir: path.sep,
+    // Only the metafile is read, never the output, so neither of these can
+    // change what the compiler emits. They decide what the walk ACCEPTS: the
+    // default iife format rejects top-level await, which a Deno function may
+    // legitimately use, and the walk would then reject a file the compiler
+    // itself compiles fine.
+    format: "esm",
+    platform: "neutral",
+    // Every path here is a project path served from memory and nothing resolves
+    // to the filesystem, so this only has to be a valid absolute path — and
+    // `path.sep` is not one on Windows, where esbuild refuses "\\".
+    absWorkingDir: process.cwd(),
     // TypeScript drops an import whose bindings go unused, which would hide a
     // file the function really does pull in. Keep every import as written.
     tsconfigRaw: { compilerOptions: { verbatimModuleSyntax: true } },
@@ -100,6 +108,21 @@ async function walkInputs(
   return result.metafile.inputs;
 }
 
+/** Did this build fail on the user's code, rather than on how the walk was
+ *  set up? Every message esbuild raises about a source it loaded carries a
+ *  location in this plugin's namespace; a configuration fault carries no
+ *  location at all (verified against both shapes). */
+function isUserSourceFailure(error: unknown): boolean {
+  const errors = (
+    error as { errors?: { location?: { file?: string } | null }[] }
+  ).errors;
+  return (
+    Array.isArray(errors) &&
+    errors.length > 0 &&
+    errors.every((e) => e.location?.file?.startsWith(`${NAMESPACE}:`) === true)
+  );
+}
+
 /**
  * Every backend file reachable from `entryPath` through `./` and `../` imports,
  * including the entry. A specifier with no target in `backendFiles` — a typo, or
@@ -122,7 +145,7 @@ export async function collectReachableFiles(
   let inputs: Record<string, unknown>;
   try {
     inputs = await walkInputs(entryPath, backendFiles);
-  } catch {
+  } catch (e) {
     // apper's walk cannot fail this way: it reads each file on its own, so a
     // file it cannot parse contributes no edges and the rest of the set still
     // assembles. esbuild's walk is all-or-nothing — one unparseable source
@@ -130,6 +153,12 @@ export async function collectReachableFiles(
     // the flat submission a single-file function has always had, and the compile
     // then fails with the compiler's own diagnostic, which the builder agent can
     // act on. An exception out of assembly has nowhere to be reported at all.
+    //
+    // Only for the user's own sources, though. A fault in how this walk is
+    // configured also arrives here, and degrading it to a flat submission
+    // reports OUR bug as the user's unresolved import — which is how the format
+    // and working-directory defects above stayed invisible.
+    if (!isUserSourceFailure(e)) throw e;
     return { [entryPath]: backendFiles[entryPath] };
   }
 

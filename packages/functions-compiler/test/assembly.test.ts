@@ -194,3 +194,25 @@ describe("a source the walk cannot parse", () => {
     ).toEqual([ENTRY]);
   });
 });
+
+describe("code the compiler accepts, the walk must accept", () => {
+  it("follows imports in a function that uses top-level await", async () => {
+    // The walk compiled as iife, which rejects top-level await — so a legal
+    // Deno function using it failed the walk, fell back to the flat
+    // submission, and reported its shared import as unreachable.
+    const source = [
+      'import { greet } from "../../shared/greeting.ts";',
+      "const cfg = await Promise.resolve(\"x\");",
+      "Deno.serve(() => new Response(greet(cfg)));",
+    ].join("\n");
+    const shared = { "base44/shared/greeting.ts": "export const greet = (n: string) => `hi ${n}`;" };
+
+    expect(await reached(ENTRY, { ...shared, [ENTRY]: source })).toEqual([
+      ENTRY,
+      "base44/shared/greeting.ts",
+    ]);
+
+    const result = await bundle(await cfwBundleInput(ENTRY, source, shared));
+    expect(result.ok).toBe(true);
+  });
+});
