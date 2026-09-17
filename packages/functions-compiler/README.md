@@ -179,8 +179,14 @@ second resolution path would mean two answers to "which code ran".
 
 Run the **Manual Functions Compiler Publish** workflow
 (`.github/workflows/functions-compiler-publish.yml`) from the Actions tab. It
-bumps the version, builds `lib/`, publishes to npm, and pushes a
-`functions-compiler-v<version>` tag plus the release commit. The CLI's own
+bumps the version, syncs the `COMPILER_VERSION` literal, builds `lib/`,
+publishes to npm, and pushes a `functions-compiler-v<version>` tag plus the
+release commit.
+
+A version lives in two files — `package.json` and the literal in
+`src/version.ts` that goes into every compiled shard's banner. Bumping by hand
+means running `bun run scripts/sync-version.ts` after editing `package.json`;
+`version.test.ts` fails the build if the two drift apart. The CLI's own
 release train is a separate workflow with its own `v<version>` tags; the two
 never move together.
 
