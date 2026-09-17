@@ -29,6 +29,20 @@ export class ShardCapacityError extends Error {
   }
 }
 
+/** The three counts have to be whole numbers of at least one. A zero or
+ *  negative `shardSize` made the chunking loop below never advance — it hung
+ *  rather than refusing, where the Python raises on the same input. */
+function assertUsablePolicy(policy: ShardPolicy): void {
+  for (const field of ["shardSize", "globalShardSize", "maxShards"] as const) {
+    const value = policy[field];
+    if (!Number.isInteger(value) || value < 1) {
+      throw new Error(
+        `ShardPolicy.${field} must be an integer of at least 1, got ${value}`,
+      );
+    }
+  }
+}
+
 function ceilDiv(a: number, b: number): number {
   return Math.ceil(a / b);
 }
@@ -86,6 +100,7 @@ export function planFreshShards(
   names: string[],
   policy: ShardPolicy,
 ): string[][] {
+  assertUsablePolicy(policy);
   assertWithinCapacity(names.length, policy);
 
   const target = targetShardCount(
