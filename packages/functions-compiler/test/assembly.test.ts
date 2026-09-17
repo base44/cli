@@ -162,3 +162,35 @@ describe("the assembled input compiles", () => {
     );
   });
 });
+
+describe("a source the walk cannot parse", () => {
+  // apper cannot reach this state: its walk reads each file on its own, so a
+  // file it cannot parse contributes no edges while the rest of the set still
+  // assembles. esbuild's walk is one build over the whole graph, so anything
+  // unparseable in it rejects. These two pin what happens instead of an
+  // exception leaving assembly with nowhere to be reported.
+  const BROKEN = "export const oops = (";
+
+  it("falls back to the entry alone, so the compiler reports the error", async () => {
+    const input = await cfwBundleInput(ENTRY, BROKEN, {
+      "base44/shared/greeting.ts": "export const greet = () => 1;",
+    });
+    expect(input).toEqual({ entry: "main.ts", files: { "main.ts": BROKEN } });
+
+    const result = await bundle(input);
+    expect(result.ok).toBe(false);
+  });
+
+  it("falls back for a broken shared module too, unlike apper", async () => {
+    // The divergence worth knowing: apper would submit the broken shared file
+    // and the compiler would name it. Here the function is submitted flat, so
+    // the error it reports is the unresolved import instead. Both refuse the
+    // deploy; only the message differs.
+    expect(
+      await reached(ENTRY, {
+        [ENTRY]: 'import { greet } from "../../shared/greeting.ts";\nDeno.serve(() => new Response(greet()));',
+        "base44/shared/greeting.ts": BROKEN,
+      }),
+    ).toEqual([ENTRY]);
+  });
+});

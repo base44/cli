@@ -48,21 +48,13 @@ function resolveRelative(
   return resolved in files ? resolved : null;
 }
 
-/**
- * Every backend file reachable from `entryPath` through `./` and `../` imports,
- * including the entry. A specifier with no target in `backendFiles` — a typo, or
- * a frontend file the caller deliberately excluded — is left out, so it stays
- * forbidden by the compiler rather than being resolved here. `npm:`, `jsr:`,
- * `node:` and bare specifiers are not edges into the project and are ignored.
- */
-export async function collectReachableFiles(
+/** esbuild's own account of what the entry reaches: the metafile inputs, keyed
+ *  by the paths the plugin resolved. Its own function so a failure can be
+ *  handled by the caller. */
+async function walkInputs(
   entryPath: string,
   backendFiles: Record<string, string>,
-): Promise<Record<string, string>> {
-  if (!(entryPath in backendFiles)) {
-    throw new Error(`entry "${entryPath}" is not among the backend files`);
-  }
-
+): Promise<Record<string, unknown>> {
   const result = await build({
     entryPoints: [entryPath],
     bundle: true,
@@ -105,9 +97,44 @@ export async function collectReachableFiles(
       },
     ],
   });
+  return result.metafile.inputs;
+}
+
+/**
+ * Every backend file reachable from `entryPath` through `./` and `../` imports,
+ * including the entry. A specifier with no target in `backendFiles` — a typo, or
+ * a frontend file the caller deliberately excluded — is left out, so it stays
+ * forbidden by the compiler rather than being resolved here. `npm:`, `jsr:`,
+ * `node:` and bare specifiers are not edges into the project and are ignored.
+ *
+ * A source the walk cannot parse yields the entry alone, so the function
+ * compiles as the flat single-file submission and the compiler reports the
+ * error itself.
+ */
+export async function collectReachableFiles(
+  entryPath: string,
+  backendFiles: Record<string, string>,
+): Promise<Record<string, string>> {
+  if (!(entryPath in backendFiles)) {
+    throw new Error(`entry "${entryPath}" is not among the backend files`);
+  }
+
+  let inputs: Record<string, unknown>;
+  try {
+    inputs = await walkInputs(entryPath, backendFiles);
+  } catch {
+    // apper's walk cannot fail this way: it reads each file on its own, so a
+    // file it cannot parse contributes no edges and the rest of the set still
+    // assembles. esbuild's walk is all-or-nothing — one unparseable source
+    // anywhere in the graph rejects here. Falling back to the entry alone keeps
+    // the flat submission a single-file function has always had, and the compile
+    // then fails with the compiler's own diagnostic, which the builder agent can
+    // act on. An exception out of assembly has nowhere to be reported at all.
+    return { [entryPath]: backendFiles[entryPath] };
+  }
 
   const reached: Record<string, string> = {};
-  for (const input of Object.keys(result.metafile.inputs)) {
+  for (const input of Object.keys(inputs)) {
     const filePath = input.startsWith(`${NAMESPACE}:`)
       ? input.slice(NAMESPACE.length + 1)
       : input;
