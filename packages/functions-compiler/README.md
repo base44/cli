@@ -174,3 +174,24 @@ bun run build        # shims + tsc -> lib/ + assets; what gets published
 a sibling workspace — needs `bun run build` here first. There is deliberately
 no source-resolving export condition: the tarball ships `lib/` alone, and a
 second resolution path would mean two answers to "which code ran".
+
+## Releasing
+
+Run the **Manual Functions Compiler Publish** workflow
+(`.github/workflows/functions-compiler-publish.yml`) from the Actions tab. It
+bumps the version, builds `lib/`, publishes to npm, and pushes a
+`functions-compiler-v<version>` tag plus the release commit. The CLI's own
+release train is a separate workflow with its own `v<version>` tags; the two
+never move together.
+
+Authentication is npm **trusted publishing** (OIDC) — no token in the repo. The
+registry keys a trusted publisher on the repo *and the workflow filename*, so
+`@base44/functions-compiler` needs its own entry on npmjs.com pointing at
+`functions-compiler-publish.yml`; the entries for `manual-publish.yml` do not
+cover it.
+
+The workflow only builds and publishes. What proves the tarball actually works —
+`scripts/verify-package.ts`, which packs, installs the tarball into a throwaway
+directory and compiles a real function there — runs in `functions-compiler.yml`
+on every push to `main`, behind the Wix embargo gateway. Publish from a commit
+that went green there.
