@@ -5,12 +5,11 @@
  */
 
 import { describe, expect, it } from "vitest";
-
 import {
-  ShardCapacityError,
-  type ShardPolicy,
   assertWithinCapacity,
   planFreshShards,
+  ShardCapacityError,
+  type ShardPolicy,
   targetShardCount,
 } from "../src/shards/plan";
 
@@ -40,7 +39,9 @@ describe("targetShardCount", () => {
 
 describe("capacity", () => {
   it("refuses a set over the product ceiling", () => {
-    expect(() => assertWithinCapacity(21, policy())).toThrow(ShardCapacityError);
+    expect(() => assertWithinCapacity(21, policy())).toThrow(
+      ShardCapacityError,
+    );
     expect(() => assertWithinCapacity(21, policy())).toThrow(/capacity of 20/);
   });
 
@@ -68,7 +69,9 @@ describe("planFreshShards", () => {
   });
 
   it("sorts by name before chunking a multi-shard plan", () => {
-    expect(planFreshShards(["d", "b", "a", "c"], policy({ shardSize: 2 }))).toEqual([
+    expect(
+      planFreshShards(["d", "b", "a", "c"], policy({ shardSize: 2 })),
+    ).toEqual([
       ["a", "b"],
       ["c", "d"],
     ]);
@@ -98,9 +101,12 @@ describe("planFreshShards", () => {
   });
 
   it("refuses before planning when the set is over capacity", () => {
-    expect(() => planFreshShards(new Array(21).fill(0).map((_, i) => `f${i}`), policy())).toThrow(
-      ShardCapacityError,
-    );
+    expect(() =>
+      planFreshShards(
+        new Array(21).fill(0).map((_, i) => `f${i}`),
+        policy(),
+      ),
+    ).toThrow(ShardCapacityError);
   });
 });
 
@@ -109,24 +115,24 @@ describe("an unusable policy is refused, not survived", () => {
   // passed at the global size and planning then hung. Python raises on the
   // same input.
   it("refuses a shard size that cannot advance", () => {
-    expect(() => planFreshShards(["a", "b", "c"], policy({ shardSize: 0 }))).toThrow(
-      /shardSize must be an integer of at least 1/,
-    );
+    expect(() =>
+      planFreshShards(["a", "b", "c"], policy({ shardSize: 0 })),
+    ).toThrow(/shardSize must be an integer of at least 1/);
     expect(() => planFreshShards(["a"], policy({ shardSize: -1 }))).toThrow(
       /at least 1/,
     );
   });
 
   it("refuses a fractional count", () => {
-    expect(() => planFreshShards(["a", "b"], policy({ shardSize: 2.5 }))).toThrow(
-      /at least 1/,
-    );
+    expect(() =>
+      planFreshShards(["a", "b"], policy({ shardSize: 2.5 })),
+    ).toThrow(/at least 1/);
   });
 
   it("refuses the other two counts as well", () => {
-    expect(() => planFreshShards(["a"], policy({ globalShardSize: 0 }))).toThrow(
-      /globalShardSize/,
-    );
+    expect(() =>
+      planFreshShards(["a"], policy({ globalShardSize: 0 })),
+    ).toThrow(/globalShardSize/);
     expect(() => planFreshShards(["a"], policy({ maxShards: 0 }))).toThrow(
       /maxShards/,
     );

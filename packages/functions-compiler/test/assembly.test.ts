@@ -8,7 +8,6 @@
  */
 
 import { describe, expect, it } from "vitest";
-
 import { cfwBundleInput, collectReachableFiles } from "../src/assembly";
 import { bundle } from "../src/bundler";
 
@@ -23,9 +22,11 @@ describe("collectReachableFiles", () => {
       await reached(ENTRY, {
         [ENTRY]:
           'import { greet } from "../../shared/greeting.ts";\nDeno.serve(() => new Response(greet("x")));',
-        "base44/shared/greeting.ts": "export const greet = (n: string) => `hi ${n}`;",
+        "base44/shared/greeting.ts":
+          "export const greet = (n: string) => `hi ${n}`;",
         // Another function's subtree must not be pulled in.
-        "base44/functions/other/entry.ts": 'import { z } from "../../shared/other.ts";',
+        "base44/functions/other/entry.ts":
+          'import { z } from "../../shared/other.ts";',
         "base44/shared/other.ts": "export const z = 1;",
       }),
     ).toEqual([ENTRY, "base44/shared/greeting.ts"]);
@@ -35,8 +36,10 @@ describe("collectReachableFiles", () => {
     const entry = "base44/functions/withinshared/entry.ts";
     expect(
       await reached(entry, {
-        [entry]: 'import { greet } from "./greeting.ts";\nconsole.log(greet());',
-        "base44/functions/withinshared/greeting.ts": "export const greet = () => 1;",
+        [entry]:
+          'import { greet } from "./greeting.ts";\nconsole.log(greet());',
+        "base44/functions/withinshared/greeting.ts":
+          "export const greet = () => 1;",
       }),
     ).toEqual([entry, "base44/functions/withinshared/greeting.ts"]);
   });
@@ -45,7 +48,8 @@ describe("collectReachableFiles", () => {
     expect(
       await reached(ENTRY, {
         [ENTRY]: 'import { a } from "../../shared/a.ts";',
-        "base44/shared/a.ts": 'import { b } from "./b.ts";\nexport const a = b;',
+        "base44/shared/a.ts":
+          'import { b } from "./b.ts";\nexport const a = b;',
         "base44/shared/b.ts": "export const b = 1;",
         "base44/shared/unused.ts": "export const u = 2;",
       }),
@@ -66,7 +70,9 @@ describe("collectReachableFiles", () => {
 
   it("leaves a relative import with no target unresolved", async () => {
     expect(
-      await reached(ENTRY, { [ENTRY]: 'import { greet } from "../../shared/missing.ts";' }),
+      await reached(ENTRY, {
+        [ENTRY]: 'import { greet } from "../../shared/missing.ts";',
+      }),
     ).toEqual([ENTRY]);
   });
 
@@ -87,7 +93,8 @@ describe("collectReachableFiles", () => {
     // file the function genuinely ships, so the walk must not inherit it.
     expect(
       await reached(ENTRY, {
-        [ENTRY]: 'import { unusedButPresent } from "../../shared/side-effect.ts";',
+        [ENTRY]:
+          'import { unusedButPresent } from "../../shared/side-effect.ts";',
         "base44/shared/side-effect.ts": "export const unusedButPresent = 1;",
       }),
     ).toEqual([ENTRY, "base44/shared/side-effect.ts"]);
@@ -98,7 +105,8 @@ describe("cfwBundleInput", () => {
   it("stays flat for a single-file function", async () => {
     // No relative imports: byte-identical to how it is submitted today, so the
     // function's compiled output does not move.
-    const content = 'import Stripe from "npm:stripe";\nDeno.serve(() => new Response("x"));';
+    const content =
+      'import Stripe from "npm:stripe";\nDeno.serve(() => new Response("x"));';
     expect(await cfwBundleInput(ENTRY, content, {})).toEqual({
       entry: "main.ts",
       files: { "main.ts": content },
@@ -112,11 +120,15 @@ describe("cfwBundleInput", () => {
       "base44/shared/greeting.ts": "export const greet = (n: string) => n;",
     });
     expect(input.entry).toBe(ENTRY);
-    expect(Object.keys(input.files).sort()).toEqual([ENTRY, "base44/shared/greeting.ts"]);
+    expect(Object.keys(input.files).sort()).toEqual([
+      ENTRY,
+      "base44/shared/greeting.ts",
+    ]);
   });
 
   it("stays flat when the escape target is absent, keeping the specifier intact", async () => {
-    const content = 'import { x } from "../../../src/lib/x.ts";\nDeno.serve(() => new Response(x));';
+    const content =
+      'import { x } from "../../../src/lib/x.ts";\nDeno.serve(() => new Response(x));';
     const input = await cfwBundleInput(ENTRY, content, {});
     expect(input).toEqual({ entry: "main.ts", files: { "main.ts": content } });
     // Preserved verbatim, so the compiler refuses it rather than the deploy
@@ -142,7 +154,10 @@ describe("the assembled input compiles", () => {
     const input = await cfwBundleInput(
       ENTRY,
       'import { greet } from "../../shared/greeting.ts";\nDeno.serve(() => new Response(greet("x")));',
-      { "base44/shared/greeting.ts": "export const greet = (n: string) => `hi ${n}`;" },
+      {
+        "base44/shared/greeting.ts":
+          "export const greet = (n: string) => `hi ${n}`;",
+      },
     );
     const result = await bundle(input);
     expect(result.ok).toBe(true);
@@ -188,7 +203,8 @@ describe("a source the walk cannot parse", () => {
     // deploy; only the message differs.
     expect(
       await reached(ENTRY, {
-        [ENTRY]: 'import { greet } from "../../shared/greeting.ts";\nDeno.serve(() => new Response(greet()));',
+        [ENTRY]:
+          'import { greet } from "../../shared/greeting.ts";\nDeno.serve(() => new Response(greet()));',
         "base44/shared/greeting.ts": BROKEN,
       }),
     ).toEqual([ENTRY]);
@@ -202,10 +218,13 @@ describe("code the compiler accepts, the walk must accept", () => {
     // submission, and reported its shared import as unreachable.
     const source = [
       'import { greet } from "../../shared/greeting.ts";',
-      "const cfg = await Promise.resolve(\"x\");",
+      'const cfg = await Promise.resolve("x");',
       "Deno.serve(() => new Response(greet(cfg)));",
     ].join("\n");
-    const shared = { "base44/shared/greeting.ts": "export const greet = (n: string) => `hi ${n}`;" };
+    const shared = {
+      "base44/shared/greeting.ts":
+        "export const greet = (n: string) => `hi ${n}`;",
+    };
 
     expect(await reached(ENTRY, { ...shared, [ENTRY]: source })).toEqual([
       ENTRY,

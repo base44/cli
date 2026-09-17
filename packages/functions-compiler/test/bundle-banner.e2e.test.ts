@@ -5,7 +5,6 @@
  */
 
 import { describe, expect, it } from "vitest";
-
 import { bundle } from "../src/bundler";
 import { compileFunctionShards } from "../src/shards/build";
 import type { ShardPolicy } from "../src/shards/plan";

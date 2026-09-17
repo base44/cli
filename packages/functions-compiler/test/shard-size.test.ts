@@ -7,14 +7,12 @@
 
 import { randomBytes } from "node:crypto";
 import { gzipSync } from "node:zlib";
-
 import { describe, expect, it } from "vitest";
-
 import {
   BUNDLE_GZIP_LEVEL,
-  WORKER_RAW_SIZE_CEILING_BYTES,
   judgeBundleSize,
   measureBundleBytes,
+  WORKER_RAW_SIZE_CEILING_BYTES,
   workerGzipCapBreach,
   workerRawSizeBreach,
 } from "../src/shards/size";
@@ -27,7 +25,8 @@ describe("measurement", () => {
     expect(rawBytes).toBe(Buffer.byteLength(module, "utf8"));
     expect(rawBytes).toBeGreaterThan(module.length); // the non-ASCII identifier
     expect(gzipBytes).toBe(
-      gzipSync(Buffer.from(module, "utf8"), { level: BUNDLE_GZIP_LEVEL }).byteLength,
+      gzipSync(Buffer.from(module, "utf8"), { level: BUNDLE_GZIP_LEVEL })
+        .byteLength,
     );
     expect(gzipBytes).toBeLessThan(rawBytes);
   });
@@ -64,7 +63,10 @@ describe("ceilings", () => {
 
   it("reports the uncompressed breach when both are over", async () => {
     // The exact one wins: it is the verdict Cloudflare would give.
-    const verdict = await judgeBundleSize("x".repeat(WORKER_RAW_SIZE_CEILING_BYTES + 1), 1);
+    const verdict = await judgeBundleSize(
+      "x".repeat(WORKER_RAW_SIZE_CEILING_BYTES + 1),
+      1,
+    );
     expect(verdict.breach).toContain("uncompressed");
   });
 
