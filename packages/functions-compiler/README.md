@@ -55,6 +55,28 @@ upload, binding resolution, secret delivery, and incremental shard reuse — eve
 version is built from scratch, so nothing here remembers a previous deploy. The
 engine keeps its actor support for the legacy service that still uses it.
 
+### What a bundle says about itself
+
+The first line of a compiled shard is its own manifest:
+
+```js
+//!b44:1 {"functions":["cleanupForgottenDepartures","health","sendReminder"],"telemetry":false,"runtimeSecrets":false,"compiler":"0.1.0"}
+```
+
+`//!b44:<format>` is a fixed sentinel, so `head -1` on a script pulled from
+Cloudflare answers "what is in this?" without executing or parsing anything, and
+the payload is JSON so a tool parses it in one call. Only the app path emits it;
+the legacy single-function `bundle()` stays bannerless, which keeps that lane
+byte-comparable with the engine apper still runs.
+
+`functions` is sorted whatever order the shard was built in. `telemetry` and
+`runtimeSecrets` are there because they change the emitted bytes and a deploy has
+to pair its secrets delivery with them. `compiler` is this package's version.
+
+Nothing volatile may be added: a timestamp or build id would re-mint a version
+for unchanged code, the app id would make the same functions compile differently
+per app, and the shard's position would make two identical shards differ.
+
 ### Reproducibility is a contract, not a nicety
 
 A version's identity is the hash of the **compiled artifacts**, never of the

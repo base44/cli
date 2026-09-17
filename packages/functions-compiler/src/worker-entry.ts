@@ -44,6 +44,8 @@ const ACTOR_ENTRY_FILENAME = "__base44_actor_entry.mjs";
 export interface PreparedWorker {
   entry: string;
   files: Record<string, string>;
+  /** Prepended verbatim to the compiled module. Only the app path sets it. */
+  banner?: string;
 }
 
 export function workerRuntimeFiles(): Record<string, string> {
@@ -133,6 +135,58 @@ export async function prepareFunction(
 /** One app function paired with the stable key its files and diagnostics are
  *  namespaced under (`fn_<index>`). The index is the function's original
  *  position so attribution stays correct across an exclude-and-rebuild. */
+/** This package's own version, for the bundle banner. Two candidates because
+ *  the published layout puts this module at `lib/src/` while the repo has it at
+ *  `src/`. A host that bundles this file somewhere else finds neither, and gets
+ *  "unknown" rather than a throw — a metadata field must not fail a compile. */
+let _compilerVersion: string | undefined;
+function readPackageVersion(relative: string): string | undefined {
+  try {
+    const parsed = JSON.parse(
+      readFileSync(new URL(relative, import.meta.url), "utf8"),
+    );
+    return parsed.name === "@base44/functions-compiler"
+      ? parsed.version
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+function compilerVersion(): string {
+  _compilerVersion ??=
+    readPackageVersion("../package.json") ??
+    readPackageVersion("../../package.json") ??
+    "unknown";
+  return _compilerVersion;
+}
+
+/** Bumped only when the payload's shape changes, never for a new field. */
+const BANNER_FORMAT = 1;
+
+/** The bundle's self-description, as its first line: `//!b44:<format> <json>`.
+ *  A fixed sentinel so `head -1` finds it and a reader can version the format,
+ *  and JSON so it parses in one call. Before this, a compiled module named its
+ *  functions only as scattered `registerLazy` literals in minified output.
+ *
+ *  Nothing volatile belongs in here. A version's identity is the hash of these
+ *  bytes, so a timestamp, a build id or anything else that moves on its own
+ *  would re-mint a version for code that did not change; the app id would make
+ *  the same functions compile differently per app; the shard's position would
+ *  make two identical shards differ. Names are sorted for the same reason — the
+ *  module below is assembled in caller order, this line is not. */
+function buildBanner(
+  entries: AppFunctionEntry[],
+  telemetry: boolean,
+  runtimeSecrets: boolean,
+): string {
+  return `//!b44:${BANNER_FORMAT} ${JSON.stringify({
+    functions: entries.map(({ fn }) => fn.name).sort(),
+    telemetry,
+    runtimeSecrets,
+    compiler: compilerVersion(),
+  })}`;
+}
+
 export interface AppFunctionEntry {
   index: number;
   fn: AppFunctionInput;
@@ -172,7 +226,11 @@ export function prepareApp(
     postResponseTelemetry,
     runtimeSecrets,
   );
-  return { entry: ENTRY_FILENAME, files };
+  return {
+    entry: ENTRY_FILENAME,
+    files,
+    banner: buildBanner(entries, postResponseTelemetry, runtimeSecrets),
+  };
 }
 
 // Activation prelude for runtime-secrets bundles: gate on the encrypted

@@ -73,6 +73,9 @@ export async function bundleToModule(
         // (npm/Emscripten glue), leaving loader-bound CJS locals intact.
         define: { __dirname: '"/"', __filename: '"/index.js"' },
         minify: true,
+        // Prepended verbatim and not minified away, which is the point: it is
+        // the one place a compiled module says what is inside it.
+        ...(prepared.banner ? { banner: { js: prepared.banner } } : {}),
         sourcemap: false,
         // Errors are surfaced structurally (return value / BuildFailure); keep
         // esbuild from dumping diagnostics to the service's stderr.
