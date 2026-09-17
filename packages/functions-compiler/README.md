@@ -17,52 +17,91 @@ Two consumers share this one engine:
 Internal to Base44 — published **public** so apper's bundler service can install
 it, but it is not a supported public API: the CLI bundles it at build time so
 end users never install it, and it carries no compatibility promise to anyone
-outside this repo. It compiles functions and nothing else: shard planning, size
-splitting, artifact writing, version creation and deploy all live above it.
+outside this repo. Compilation is the whole of its job, and that now includes
+source assembly, shard planning, size measurement and splitting. Artifact
+writing, version creation, upload and deploy live above it.
 
 The package carries no credentials and reads no configuration of its own. It
 names the environment variables and headers the generated worker will use at
 runtime (`BASE44_*`, `X-Base44-*`) but holds none of their values, and the code
 it ships is the same code already compiled into every deployed user worker.
 
-## What is missing: shards, and whole-app CFW bundles
+## Shards and whole-app builds
 
-Today this package compiles **one module per call**. It does not decide which
-functions belong in which module, how large the result may be, or what to do
-when it is too large. That work is still Python in apper's
-`backend/app/cloudflare_functions/` and moves here next — it is what turns
-"compile this set of sources" into "produce the deployable Cloudflare Workers
-bundles for this app".
+This package turns an app's whole backend function set into deployable Cloudflare
+Workers: it assembles each function's sources, groups them into shards, compiles
+each shard, measures it against Cloudflare's ceilings, and halves any shard whose
+module is over one. `compileFunctionShards` is the entry point, and unlike
+`bundleApp` it refuses a partial result — a module missing a handler is a broken
+app, not a smaller success.
 
-| Missing piece | Where it lives today | What it has to do |
+Each piece came from apper, and the provenance is worth keeping:
+
+| Piece | Where it came from | Here |
 |---|---|---|
-| Source assembly | `function_bundle.py` — `cfw_bundle_input`, `collect_reachable_backend_files` | Turn a function's directory plus the shared files it reaches into the `entry` + `files` this package takes, keeping the flat single-file case and the refusal to escape into the frontend tree |
-| Fresh shard planning | `shard_planning.py` — `full_repartition`, `target_shard_count` | Group an app's functions into shards deterministically, and refuse a set that exceeds the supplied product capacity |
-| Size measurement | `cloudflare_wfp_runtime.py` — `measure_bundle_bytes`, `judge_bundle_size` | Raw UTF-8 bytes and level-6 gzip, against Cloudflare's 64 MiB uncompressed limit and our compressed cap |
-| Split on overflow | `cloudflare_wfp_runtime.py` — `_build_shard_with_split` | Halve an oversized multi-function shard deterministically and recompile; fail the build when one function alone is too big |
-| Whole-build validation | apper PR #23460 | Reject a partial result: every declared function in exactly one successful shard, or no build at all |
+| Source assembly | `function_bundle.py` — `cfw_bundle_input`, `collect_reachable_backend_files` | `src/assembly.ts` |
+| Fresh shard planning | `shard_planning.py` — `full_repartition`, `target_shard_count` | `src/shards/plan.ts` |
+| Size measurement | `cloudflare_wfp_runtime.py` — `measure_bundle_bytes`, `judge_bundle_size` | `src/shards/size.ts` |
+| Split on overflow | `cloudflare_wfp_runtime.py` — `_build_shard_with_split` | `src/shards/build.ts` |
+| Whole-build validation | apper PR #23460 | `src/shards/build.ts` |
 
-Only the **fresh-build** slice comes across. Everything that remembers a
-previous deploy stays in apper: incremental shard reuse (it needs the previous
-deployment map), the per-app `shard_size_override` ratchet, entitlement and
-settings reads, provider upload, binding resolution and secret delivery. Policy
-numbers — shard size, shard count, the gzip cap, whether the gate is enforced —
-arrive as inputs; the package never reads them itself.
+Policy numbers — shard size, shard count, the compressed cap — arrive as inputs.
+The package reads no settings and no feature flags, and the two wrapper flags
+(`postResponseTelemetry`, `runtimeSecrets`) are handed to it, because both change
+the emitted bytes and only the platform knows their value for an app.
 
-Two details from the Python that must survive the port, both verified against
-the current code:
+Deliberately not here: Deno deployment targets, existing-Worker reuse, provider
+upload, binding resolution, secret delivery, and incremental shard reuse — every
+version is built from scratch, so nothing here remembers a previous deploy. The
+engine keeps its actor support for the legacy service that still uses it.
 
-- The single-shard path builds in caller order while the multi-shard path sorts
-  by name. Function order changes the emitted bytes, so both branches carry
-  over as they are — normalising them is a byte change dressed as a cleanup.
-- Capacity is judged at the *global* shard size while packing may use a smaller
-  ratcheted one, so a legal plan can hold more shards than `max_shards`. A
-  final "shard count ≤ max_shards" assertion would lock out apps that deploy
-  fine today.
+### What a bundle says about itself
 
-Also deliberately out of scope for the new lane: Deno deployment targets,
-existing-Worker reuse, incremental deploy state, and actors — though the engine
-keeps its actor support for the legacy service that still uses it.
+The first line of a compiled shard is its own manifest:
+
+```js
+//!b44:1 {"functions":["cleanupForgottenDepartures","health","sendReminder"],"telemetry":false,"runtimeSecrets":false,"compiler":"0.1.0"}
+```
+
+`//!b44:<format>` is a fixed sentinel, so `head -1` on a script pulled from
+Cloudflare answers "what is in this?" without executing or parsing anything, and
+the payload is JSON so a tool parses it in one call. Only the app path emits it;
+the legacy single-function `bundle()` stays bannerless, which keeps that lane
+byte-comparable with the engine apper still runs.
+
+`functions` is sorted whatever order the shard was built in. `telemetry` and
+`runtimeSecrets` are there because they change the emitted bytes and a deploy has
+to pair its secrets delivery with them. `compiler` is this package's version.
+
+Nothing volatile may be added: a timestamp or build id would re-mint a version
+for unchanged code, the app id would make the same functions compile differently
+per app, and the shard's position would make two identical shards differ.
+
+### Reproducibility is a contract, not a nicety
+
+A version's identity is the hash of the **compiled artifacts**, never of the
+sources. Anything that shifts the emitted bytes therefore mints a new version of
+code that did not change, and all of these do:
+
+- the version of this package, and the depth of the `node_modules` it was built
+  against — esbuild writes each vendored chunk's relative path into the minified
+  output, so building one directory shallower changes every user Worker's bytes;
+- the order the caller hands functions over in, for a single shard: that path
+  builds in caller order, while a multi-shard plan sorts by name. Both branches
+  are as apper has them, and `shard-build.e2e.test.ts` pins the difference;
+- either wrapper flag.
+
+Two behaviours differ from apper's Python on purpose, and both are tested:
+
+- **An unparseable source.** apper reads each file on its own, so a file it
+  cannot parse contributes no edges while the rest of the set still assembles.
+  esbuild's walk is one build over the whole graph, so anything unparseable in it
+  rejects — the fallback is the flat single-file submission, and the compiler then
+  reports the error itself.
+- **Compressed size.** Node's gzip reads about 0.7% heavier than Python's on
+  identical input: 43,057 bytes against 42,765 on a real 122,324-byte module. The
+  direction is the safe one, since this lane refuses slightly earlier than the
+  service would.
 
 ## Using it
 

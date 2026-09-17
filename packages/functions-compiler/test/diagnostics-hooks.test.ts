@@ -7,13 +7,15 @@
  */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-
 import { bundle } from "../src/bundler";
 import * as publicSurface from "../src/index";
 import { type Field, type Level, logEvent, setLogSink } from "../src/log";
 import { type CompilerTracer, setCompilerTracer } from "../src/tracing";
 
-const HELLO = { entry: "main.ts", files: { "main.ts": 'Deno.serve(() => new Response("ok"));' } };
+const HELLO = {
+  entry: "main.ts",
+  files: { "main.ts": 'Deno.serve(() => new Response("ok"));' },
+};
 
 afterEach(() => {
   setLogSink(null);
@@ -112,21 +114,36 @@ describe("published surface", () => {
   it("exports what the two consumers import", () => {
     // A rename here silently breaks apper's service at its next upgrade, and
     // nothing else in the suite imports through the package entry point.
-    expect(Object.keys(publicSurface).sort()).toEqual([
-      "DenoCompatError",
-      "STATIC_EGRESS_ARTIFACT_MARKER",
-      "appFunctionSchema",
-      "bundle",
-      "bundleAppRequestSchema",
-      "bundleApp",
-      "bundleRequestSchema",
-      "classifyAppErrors",
-      "createGuardedFetch",
-      "importsConflictingPackage",
-      "installFetchGuard",
-      "setCompilerTracer",
-      "setLogSink",
-    ].sort());
+    expect(Object.keys(publicSurface).sort()).toEqual(
+      [
+        "DenoCompatError",
+        "STATIC_EGRESS_ARTIFACT_MARKER",
+        "appFunctionSchema",
+        "bundle",
+        "bundleAppRequestSchema",
+        "bundleApp",
+        "bundleRequestSchema",
+        "classifyAppErrors",
+        "createGuardedFetch",
+        "importsConflictingPackage",
+        "installFetchGuard",
+        "setCompilerTracer",
+        "setLogSink",
+        "cfwBundleInput",
+        "collectReachableFiles",
+        "compileFunctionShards",
+        "ShardCapacityError",
+        "assertWithinCapacity",
+        "planFreshShards",
+        "targetShardCount",
+        "BUNDLE_GZIP_LEVEL",
+        "WORKER_RAW_SIZE_CEILING_BYTES",
+        "judgeBundleSize",
+        "measureBundleBytes",
+        "workerGzipCapBreach",
+        "workerRawSizeBreach",
+      ].sort(),
+    );
   });
 
   it("keeps the static-egress marker in step with the Python constant", () => {

@@ -15,6 +15,7 @@ import {
   INVOCATION_LOGS_PATCH,
 } from "./invocation-logs.js";
 import { TELEMETRY_PATCH, TELEMETRY_STORE_FIELDS } from "./telemetry.js";
+import { COMPILER_VERSION } from "./version.js";
 
 // Pre-built by scripts/build-shim.ts; regenerate it after changing the shim.
 // Read LAZILY, not at module load: build-shim.ts transitively imports this
@@ -49,6 +50,8 @@ const ACTOR_ENTRY_FILENAME = "__base44_actor_entry.mjs";
 export interface PreparedWorker {
   entry: string;
   files: Record<string, string>;
+  /** Prepended verbatim to the compiled module. Only the app path sets it. */
+  banner?: string;
 }
 
 export function workerRuntimeFiles(): Record<string, string> {
@@ -140,6 +143,33 @@ export async function prepareFunction(
 /** One app function paired with the stable key its files and diagnostics are
  *  namespaced under (`fn_<index>`). The index is the function's original
  *  position so attribution stays correct across an exclude-and-rebuild. */
+/** Bumped only when the payload's shape changes, never for a new field. */
+const BANNER_FORMAT = 1;
+
+/** The bundle's self-description, as its first line: `//!b44:<format> <json>`.
+ *  A fixed sentinel so `head -1` finds it and a reader can version the format,
+ *  and JSON so it parses in one call. Before this, a compiled module named its
+ *  functions only as scattered `registerLazy` literals in minified output.
+ *
+ *  Nothing volatile belongs in here. A version's identity is the hash of these
+ *  bytes, so a timestamp, a build id or anything else that moves on its own
+ *  would re-mint a version for code that did not change; the app id would make
+ *  the same functions compile differently per app; the shard's position would
+ *  make two identical shards differ. Names are sorted for the same reason — the
+ *  module below is assembled in caller order, this line is not. */
+function buildBanner(
+  entries: AppFunctionEntry[],
+  telemetry: boolean,
+  runtimeSecrets: boolean,
+): string {
+  return `//!b44:${BANNER_FORMAT} ${JSON.stringify({
+    functions: entries.map(({ fn }) => fn.name).sort(),
+    telemetry,
+    runtimeSecrets,
+    compiler: COMPILER_VERSION,
+  })}`;
+}
+
 export interface AppFunctionEntry {
   index: number;
   fn: AppFunctionInput;
@@ -179,7 +209,11 @@ export function prepareApp(
     postResponseTelemetry,
     runtimeSecrets,
   );
-  return { entry: ENTRY_FILENAME, files };
+  return {
+    entry: ENTRY_FILENAME,
+    files,
+    banner: buildBanner(entries, postResponseTelemetry, runtimeSecrets),
+  };
 }
 
 // Activation prelude for runtime-secrets bundles: gate on the encrypted
