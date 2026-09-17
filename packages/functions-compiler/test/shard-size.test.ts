@@ -5,6 +5,7 @@
  * is deploy machinery and stays with the service.
  */
 
+import { randomBytes } from "node:crypto";
 import { gzipSync } from "node:zlib";
 
 import { describe, expect, it } from "vitest";
@@ -73,6 +74,66 @@ describe("ceilings", () => {
     expect(verdict.rawBytes).toBe(17);
     expect(verdict.gzipBytes).toBeGreaterThan(0);
   });
+});
+
+describe("the headroom the cap was chosen for", () => {
+  // The regression net for the cap: real production figures it has to keep
+  // clearing. Ported from apper's TestBundleSizeMeasurement, and they matter
+  // more in this lane than in that one — Node's gzip reads ~0.7% heavier than
+  // Python's on identical input, so we sit that much closer to the cap.
+  it("clears the biggest bundle in production", () => {
+    // 8,495,351 B gzipped from 14.4 MB raw — app 6a04bc98, ~40 uploads a day,
+    // the largest compressed module over n=166,471 bundles. The ~1.0 MB (11.8%)
+    // it clears by IS the safety margin. Re-check this number before assuming a
+    // firing cap is wrong.
+    expect(workerRawSizeBreach(14_446_791)).toBeNull();
+    expect(workerGzipCapBreach(8_495_351, 9_500_000)).toBeNull();
+  });
+
+  it("clears a barely compressible bundle too", () => {
+    // Second-largest: 7,935,787 B from 11.8 MB raw, a 1.49x ratio against a
+    // measured floor of 1.33x. Raw size predicts compressed size loosely, which
+    // is why the verdict is taken on the compressed figure and never
+    // extrapolated from raw.
+    expect(workerRawSizeBreach(11_809_821)).toBeNull();
+    expect(workerGzipCapBreach(7_935_787, 9_500_000)).toBeNull();
+  });
+
+  it("does not refuse the largest module production ever uploaded", async () => {
+    // 35.3 MiB raw, uploaded successfully five times. A cap that refuses it is
+    // wrong however defensible the arithmetic looked.
+    const parts: string[] = [];
+    for (let i = 0; i < 700_000; i++) {
+      parts.push(`const v${i}=1;function f${i}(){return v${i}};`);
+    }
+    const { rawBytes, gzipBytes } = await measureBundleBytes(parts.join(""));
+
+    expect(rawBytes).toBeGreaterThan(20_000_000);
+    expect(workerRawSizeBreach(rawBytes)).toBeNull();
+    expect(workerGzipCapBreach(gzipBytes, 9_000_000)).toBeNull();
+  }, 60_000);
+});
+
+describe("compression stays off the event loop", () => {
+  it("keeps the loop servicing while a large module compresses", async () => {
+    // Level 6 on the largest module production has uploaded costs ~650 ms in
+    // apper's measurement. Held on the loop it stalls everything else in the
+    // process, and concurrent shard builds queue behind each other.
+    const module = randomBytes(6_000_000).toString("hex");
+    let ticks = 0;
+    const beat = setInterval(() => {
+      ticks += 1;
+    }, 1);
+    try {
+      await measureBundleBytes(module);
+    } finally {
+      clearInterval(beat);
+    }
+
+    // Blocking would leave this at 0; offloaded to the zlib threadpool, the loop
+    // keeps firing timers.
+    expect(ticks).toBeGreaterThan(3);
+  }, 60_000);
 });
 
 describe("the Python and Node gzips do not agree", () => {

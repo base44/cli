@@ -142,3 +142,41 @@ describe("splitting on size", () => {
     });
   });
 });
+
+describe("the same input compiles to the same bytes", () => {
+  // Load-bearing beyond tidiness: a version's identity is the hash of the
+  // compiled artifacts, never of the sources. Anything that shifts the emitted
+  // bytes mints a new version of unchanged code — so the compile has to be
+  // reproducible, and its inputs have to be the only thing that moves it.
+  it("emits identical modules for two runs of one set", async () => {
+    const functions = [fn("alpha"), fn("beta"), fn("gamma")];
+    const first = await compileFunctionShards(functions, policy({ shardSize: 2 }));
+    const second = await compileFunctionShards(functions, policy({ shardSize: 2 }));
+    expect(first.ok && second.ok).toBe(true);
+    if (!first.ok || !second.ok) return;
+
+    expect(second.shards.map((s) => s.module)).toEqual(
+      first.shards.map((s) => s.module),
+    );
+  });
+
+  it("is sensitive to caller order inside a single shard", async () => {
+    // The single-shard path builds in caller order; only a multi-shard plan
+    // sorts by name. So the caller owns a stable order, and this is the test
+    // that says so out loud rather than leaving it to a comment.
+    const forward = await compileFunctionShards(
+      [fn("alpha"), fn("beta")],
+      policy({ maxShards: 1 }),
+    );
+    const reversed = await compileFunctionShards(
+      [fn("beta"), fn("alpha")],
+      policy({ maxShards: 1 }),
+    );
+    expect(forward.ok && reversed.ok).toBe(true);
+    if (!forward.ok || !reversed.ok) return;
+
+    expect(forward.shards).toHaveLength(1);
+    expect(reversed.shards).toHaveLength(1);
+    expect(reversed.shards[0].module).not.toBe(forward.shards[0].module);
+  });
+});
