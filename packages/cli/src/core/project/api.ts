@@ -78,7 +78,9 @@ export async function setAppVisibility(
   }
 }
 
-export async function listProjects(): Promise<ProjectsResponse> {
+export async function listProjects(
+  options: { workspaceId?: string } = {},
+): Promise<ProjectsResponse> {
   let response: KyResponse;
   try {
     response = await base44Client.get("api/apps", {
@@ -86,6 +88,9 @@ export async function listProjects(): Promise<ProjectsResponse> {
         sort: "-updated_date",
         fields: "id,name,user_description,is_managed_source_code",
         limit: 50,
+        // Scope to a specific workspace when given; otherwise the server
+        // scopes to the caller's active/personal workspace.
+        ...(options.workspaceId ? { workspace_id: options.workspaceId } : {}),
       },
     });
   } catch (error) {
