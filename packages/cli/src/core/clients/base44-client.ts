@@ -14,7 +14,7 @@ import {
   readAuth,
   refreshAndSaveTokens,
 } from "@/core/auth/config.js";
-import { getBase44ApiUrl } from "@/core/config.js";
+import { getBase44ApiUrl, getFfOverride } from "@/core/config.js";
 import { getAppContext } from "@/core/project/index.js";
 
 // Track requests that have already been retried to prevent infinite loops
@@ -101,6 +101,17 @@ export const base44Client = ky.create({
     beforeRequest: [
       (request) => {
         request.headers.set("X-Request-ID", randomUUID());
+        // Honor the caller's account-wide builder model pick (`base44 model`).
+        // Without this header the backend ignores the saved choice and
+        // auto-selects; with it and no saved pick it still falls back to the
+        // app default, so it is safe to send unconditionally — same contract the
+        // web editor's axios client uses.
+        request.headers.set("X-Builder-Model-Selection", "user-v1");
+        // Staging/preview only: lets a dev flip PostHog flags per request
+        // (BASE44_FF_OVERRIDE env, or the persisted `base44 target --ff`);
+        // prod ignores the header.
+        const ffOverride = getFfOverride();
+        if (ffOverride) request.headers.set("X-FF-Override", ffOverride);
       },
       captureRequestBody,
       async (request) => {
