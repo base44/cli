@@ -1,10 +1,12 @@
 import chalk from "chalk";
 import { Box, render, Text, useApp, useInput } from "ink";
 import TextInput from "ink-text-input";
+import open from "open";
 import { useEffect, useReducer, useRef, useState } from "react";
 import { LOGO_COLS, logoRows } from "@/cli/commands/code/logo.js";
 import { createPasteFriendlyStdin } from "@/cli/commands/code/paste.js";
 import {
+  browserUpdate,
   type CardKey,
   type CardState,
   cardKey,
@@ -40,6 +42,11 @@ import {
   isGithubUserTokenError,
   startGithubReauth,
 } from "@/core/resources/apps/api.js";
+import {
+  githubConnected,
+  startConnectorOAuth,
+  waitForConnectorOAuth,
+} from "@/core/resources/apps/connections.js";
 import packageJson from "../../../../package.json";
 
 const FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
@@ -231,6 +238,66 @@ function SessionView({ engine, footer, subscribe }: ViewProps) {
     }
   };
 
+  const browserRunRef = useRef<AbortController | null>(null);
+
+  /** Open the authorization link and wait for the connection, then let the
+   * card approve. The web does the same with a popup; here it's a link. */
+  const runBrowserStep = async (state: CardState) => {
+    browserRunRef.current?.abort();
+    const run = new AbortController();
+    browserRunRef.current = run;
+    const step = state.pending.browser;
+    try {
+      let url: string;
+      let wait: () => Promise<"ACTIVE" | "FAILED" | "PENDING">;
+      if (step?.flow === "github") {
+        url = await startGithubReauth();
+        wait = async () => {
+          const deadline = Date.now() + 10 * 60_000;
+          while (Date.now() < deadline && !run.signal.aborted) {
+            if (await githubConnected()) return "ACTIVE";
+            await new Promise((r) => setTimeout(r, 3_000));
+          }
+          return "PENDING";
+        };
+      } else {
+        const started = await startConnectorOAuth({
+          integrationType: step?.integrationType ?? "",
+          scopes: step?.scopes,
+          connectorId: step?.connectorId,
+          forceReconnect: step?.forceReconnect,
+        });
+        url = started.url;
+        wait = () => waitForConnectorOAuth(started, { signal: run.signal });
+      }
+      setCard((c) => (c ? browserUpdate(c, { url, status: "waiting" }) : c));
+      emit(chalk.dim(`  authorization link: ${url}`));
+      await open(url).catch(() => undefined); // headless: the link is printed anyway
+      const outcome = await wait();
+      if (run.signal.aborted) return;
+      setCard((c) =>
+        c
+          ? browserUpdate(c, {
+              status:
+                outcome === "ACTIVE"
+                  ? "active"
+                  : outcome === "FAILED"
+                    ? "failed"
+                    : "timeout",
+            })
+          : c,
+      );
+    } catch (error) {
+      if (run.signal.aborted) return;
+      emit(
+        chalk.red(
+          `  authorization failed to start: ${error instanceof Error ? error.message : String(error)}`,
+        ),
+      );
+      setCard((c) => (c ? browserUpdate(c, { status: "failed" }) : c));
+    }
+  };
+
   const applyCard = (outcome: {
     state: CardState | null;
     submit?: {
@@ -238,14 +305,20 @@ function SessionView({ engine, footer, subscribe }: ViewProps) {
       input: Record<string, unknown>;
     };
     dismissed?: boolean;
+    startBrowser?: boolean;
   }) => {
     if (outcome.submit && card) {
+      browserRunRef.current?.abort();
       engine.answer(card.pending, outcome.submit.action, outcome.submit.input);
     }
     if (outcome.dismissed && card) {
+      browserRunRef.current?.abort();
       dismissedRef.current.add(card.pending.toolCallId);
     }
     setCard(outcome.state);
+    if (outcome.startBrowser && outcome.state) {
+      void runBrowserStep(outcome.state);
+    }
   };
 
   // Open the oldest unanswered card as soon as the agent parks one; close it

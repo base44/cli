@@ -164,6 +164,63 @@ describe("pendingInputs", () => {
   });
 });
 
+describe("pendingInputs — more kinds", () => {
+  it("turns select_payment_provider into a single choice with the tool's answer key", () => {
+    const [p] = pendingInputs([
+      parked("select_payment_provider", {
+        providers: ["stripe", "wix_payments"],
+      }),
+    ]);
+    expect(p.kind).toBe("choice");
+    expect(p.answerKey).toBe("provider");
+    expect(p.questions?.[0].options.map((o) => o.label)).toEqual([
+      "stripe",
+      "wix_payments",
+    ]);
+    expect(
+      choiceAnswers(p.questions ?? [], [{ labels: ["stripe"] }], p.answerKey),
+    ).toEqual({ provider: "stripe" });
+  });
+
+  it("carries the OAuth request so the CLI can start the connector flow itself", () => {
+    const [p] = pendingInputs([
+      parked("request_oauth_authorization", {
+        integration_type: "wix",
+        scopes: ["stores.read"],
+        reason: "To list your products",
+        force_reconnect: true,
+      }),
+    ]);
+    expect(p).toMatchObject({
+      kind: "browser",
+      title: "Authorize wix",
+      detail: "To list your products",
+      browser: {
+        flow: "connector",
+        integrationType: "wix",
+        scopes: ["stores.read"],
+        forceReconnect: true,
+      },
+    });
+    expect(
+      pendingInputs([parked("connect_github_account", {})])[0].browser,
+    ).toEqual({ flow: "github" });
+  });
+
+  it("marks an unrenderable input/choice tool as unknown instead of yes/no", () => {
+    const msg = parked("some_future_form_tool", { summary: "Fill the form" });
+    (msg.tool_calls as Record<string, unknown>[])[0].waiting_on = {
+      kind: "input",
+    };
+    expect(pendingInputs([msg])[0].kind).toBe("unknown");
+    const approval = parked("some_future_approval_tool", { summary: "Do it?" });
+    (approval.tool_calls as Record<string, unknown>[])[0].waiting_on = {
+      kind: "approval",
+    };
+    expect(pendingInputs([approval])[0].kind).toBe("approval");
+  });
+});
+
 describe("choiceAnswers", () => {
   it("builds the web client's payload, skipping unanswered questions", () => {
     const questions = [

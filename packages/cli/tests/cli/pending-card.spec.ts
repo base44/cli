@@ -1,6 +1,7 @@
 import stripAnsi from "strip-ansi";
 import { describe, expect, it } from "vitest";
 import {
+  browserUpdate,
   cardKey,
   cardLines,
   cardText,
@@ -157,5 +158,73 @@ describe("pending card", () => {
     expect(out.state).toBeNull();
     // Esc while typing a secret drops the card and everything typed so far.
     expect(cardKey(s, "escape")).toEqual({ state: null, dismissed: true });
+  });
+
+  it("browser step: y starts the flow, approval only once connected, n rejects", () => {
+    const p: PendingInput = {
+      ...base,
+      tool: "request_oauth_authorization",
+      kind: "browser",
+      title: "Authorize wix",
+      browser: { flow: "connector", integrationType: "wix" },
+    };
+    let s = openCard(p);
+    expect(stripAnsi(cardLines(s).join("\n"))).toContain(
+      "y open the authorization link",
+    );
+    const out = cardKey(s, "y");
+    expect(out.startBrowser).toBe(true);
+    expect(out.submit).toBeUndefined();
+    s = out.state as typeof s;
+    expect(cardKey(s, "y").startBrowser).toBeUndefined(); // already waiting: y is inert
+    s = browserUpdate(s, { url: "https://auth.example/x", status: "waiting" });
+    expect(stripAnsi(cardLines(s).join("\n"))).toContain(
+      "https://auth.example/x",
+    );
+    s = browserUpdate(s, { status: "failed" });
+    expect(cardKey(s, "y").startBrowser).toBe(true); // retry
+    s = browserUpdate(s, { status: "active" });
+    expect(cardKey(s, "y").submit).toEqual({ action: "approved", input: {} });
+    expect(cardKey(s, "n").submit).toEqual({ action: "rejected", input: {} });
+  });
+
+  it("unknown kind: no approval path, only reject or later", () => {
+    const p: PendingInput = {
+      ...base,
+      tool: "future_form",
+      kind: "unknown",
+      title: "Fill the form",
+    };
+    expect(cardKey(openCard(p), "y").submit).toBeUndefined();
+    expect(cardKey(openCard(p), "n").submit).toEqual({
+      action: "rejected",
+      input: {},
+    });
+    expect(stripAnsi(cardLines(openCard(p)).join("\n"))).toContain(
+      "needs the editor",
+    );
+  });
+
+  it("list choice submits under the tool's answer key", () => {
+    const p: PendingInput = {
+      ...base,
+      tool: "select_payment_provider",
+      kind: "choice",
+      title: "Which provider?",
+      answerKey: "provider",
+      questions: [
+        {
+          question: "Which provider?",
+          options: [{ label: "stripe" }, { label: "wix_payments" }],
+          multiSelect: false,
+        },
+      ],
+    };
+    let s = openCard(p);
+    s = cardKey(s, "down").state as typeof s;
+    expect(cardKey(s, "enter").submit).toEqual({
+      action: "approved",
+      input: { provider: "wix_payments" },
+    });
   });
 });

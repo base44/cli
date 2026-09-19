@@ -289,7 +289,9 @@ export function createSessionEngine(options: EngineOptions): SessionEngine {
           ok
             ? chalk.dim(`— turn finished · ${formatDuration(durationMs)}`)
             : chalk.red(
-                `— turn failed (${turn.backendStatus ?? "unknown"}) · ${formatDuration(durationMs)}`,
+                turn.backendStatus === "error_paywall"
+                  ? `— the workspace is out of credits; nothing ran · ${formatDuration(durationMs)}`
+                  : `— turn failed (${turn.backendStatus ?? "unknown"}) · ${formatDuration(durationMs)}`,
               ),
         );
         const info: TurnSettleInfo = {

@@ -25,7 +25,16 @@ export interface CardState {
   typing: "custom" | "secret" | null;
   /** Secret name → value. Dropped on submit or dismissal. */
   secretValues: Record<string, string>;
+  /** Browser step: the link once started, and the outcome once known. */
+  browser?: { url?: string; status: BrowserStatus };
 }
+
+export type BrowserStatus =
+  | "idle"
+  | "waiting"
+  | "active"
+  | "failed"
+  | "timeout";
 
 export type CardKey =
   | "up"
@@ -43,6 +52,8 @@ interface CardOutcome {
   submit?: { action: ToolCallAction; input: Record<string, unknown> };
   /** The user chose "later": hide the card until Tab. */
   dismissed?: boolean;
+  /** Start the browser step (open the link, poll the connection). */
+  startBrowser?: boolean;
 }
 
 export function openCard(pending: PendingInput): CardState {
@@ -54,6 +65,9 @@ export function openCard(pending: PendingInput): CardState {
     granted: new Set((pending.permissions ?? []).map((p) => p.key)),
     typing: pending.kind === "secrets" ? "secret" : null,
     secretValues: {},
+    ...(pending.kind === "browser"
+      ? { browser: { status: "idle" as const } }
+      : {}),
   };
 }
 
@@ -75,7 +89,10 @@ function advanceChoice(state: CardState): CardOutcome {
       state: { ...state, step: state.step + 1, cursor: 0, typing: null },
     };
   }
-  return done("approved", choiceAnswers(questions, state.selections));
+  return done(
+    "approved",
+    choiceAnswers(questions, state.selections, state.pending.answerKey),
+  );
 }
 
 function choiceKey(state: CardState, key: CardKey): CardOutcome {
@@ -174,13 +191,47 @@ export function cardKey(state: CardState, key: CardKey): CardOutcome {
       return choiceKey(state, key);
     case "permissions":
       return permissionsKey(state, key);
+    case "browser": {
+      const status = state.browser?.status ?? "idle";
+      if (key === "n") return done("rejected");
+      if (key === "escape") return later;
+      if (key === "y" || key === "enter") {
+        // Approve only once the connection exists; before that, start it.
+        if (status === "active") return done("approved");
+        if (status !== "waiting") {
+          return {
+            state: {
+              ...state,
+              browser: { ...state.browser, status: "waiting" },
+            },
+            startBrowser: true,
+          };
+        }
+      }
+      return { state };
+    }
+    case "unknown":
+      if (key === "n") return done("rejected");
+      if (key === "escape") return later;
+      return { state };
     default:
-      // approval and browser steps: yes / no / later
+      // approval: yes / no / later
       if (key === "y" || key === "enter") return done("approved");
       if (key === "n") return done("rejected");
       if (key === "escape") return later;
       return { state };
   }
+}
+
+/** The browser step progressed: a link to show, or a final outcome. */
+export function browserUpdate(
+  state: CardState,
+  update: { url?: string; status: BrowserStatus },
+): CardState {
+  return {
+    ...state,
+    browser: { url: update.url ?? state.browser?.url, status: update.status },
+  };
 }
 
 /** A line the user typed into the input box while the card was capturing it. */
@@ -266,13 +317,52 @@ export function cardLines(state: CardState): string[] {
         chalk.dim("  type the value below (hidden) · Enter next · Esc later"),
       ];
     }
-    case "browser":
+    case "browser": {
+      const b = state.browser ?? { status: "idle" as const };
+      const link = b.url ? [`  ${chalk.cyan(b.url)}`] : [];
+      switch (b.status) {
+        case "waiting":
+          return [
+            ...head,
+            chalk.dim("  opened in your browser — or use the link:"),
+            ...link,
+            chalk.dim(
+              "  waiting for the authorization to complete… · n reject · Esc later",
+            ),
+          ];
+        case "active":
+          return [
+            ...head,
+            chalk.green("  ✓ connected"),
+            chalk.dim("  y continue · n reject"),
+          ];
+        case "failed":
+          return [
+            ...head,
+            chalk.red("  ✗ authorization failed"),
+            chalk.dim("  y try again · n reject · Esc later"),
+          ];
+        case "timeout":
+          return [
+            ...head,
+            chalk.yellow("  ⏱ no response yet"),
+            ...link,
+            chalk.dim("  y try again · n reject · Esc later"),
+          ];
+        default:
+          return [
+            ...head,
+            chalk.dim("  y open the authorization link · n reject · Esc later"),
+          ];
+      }
+    }
+    case "unknown":
       return [
         ...head,
-        chalk.dim(
-          "  finish this step in the editor (footer link), then press y",
+        chalk.yellow(
+          "  this question needs the editor — answer it there and the session continues",
         ),
-        chalk.dim("  y continue · n reject · Esc later"),
+        chalk.dim("  n reject · Esc later"),
       ];
     default:
       return [...head, chalk.dim("  y approve · n reject · Esc later")];

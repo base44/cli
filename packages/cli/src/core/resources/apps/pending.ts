@@ -13,7 +13,18 @@ export type PendingKind =
   | "choice"
   | "secrets"
   | "permissions"
-  | "browser";
+  | "browser"
+  /** Needs a question or form this CLI cannot render — answer in the editor. */
+  | "unknown";
+
+export interface BrowserStep {
+  /** "connector": start OAuth for `integrationType`; "github": the account's GitHub link. */
+  flow: "connector" | "github";
+  integrationType?: string;
+  connectorId?: string;
+  scopes?: string[];
+  forceReconnect?: boolean;
+}
 
 interface PendingOption {
   label: string;
@@ -49,6 +60,10 @@ export interface PendingInput {
   /** Supporting text: the summary, the guard's reason, the permission request's reason. */
   detail?: string;
   questions?: PendingQuestion[];
+  /** For a single list choice: the `extra_user_input` key the tool expects (e.g. "provider"). */
+  answerKey?: string;
+  /** For kind "browser": how to run the step the web runs in a popup. */
+  browser?: BrowserStep;
   secrets?: PendingSecret[];
   permissions?: PendingPermission[];
 }
@@ -58,6 +73,17 @@ const CHOICE_TOOLS = new Set([
   "ask_plan_questions",
 ]);
 const SECRET_TOOLS = new Set(["set_secrets"]);
+/** A single-choice tool whose options live in one arguments array. */
+const LIST_CHOICE_TOOLS: Record<
+  string,
+  { key: string; question: string; answer: string }
+> = {
+  select_payment_provider: {
+    key: "providers",
+    question: "Which payment provider?",
+    answer: "provider",
+  },
+};
 const PERMISSION_TOOLS = new Set(["request_agent_tool_permissions"]);
 /** Approval only after a step the web runs (OAuth popup, payments form). */
 const BROWSER_TOOLS = new Set([
@@ -210,10 +236,63 @@ export function pendingInputs(messages: ConversationMessage[]): PendingInput[] {
           detail: str(args.reason),
           permissions: permissionsFrom(args),
         });
+      } else if (LIST_CHOICE_TOOLS[call.name]) {
+        const spec = LIST_CHOICE_TOOLS[call.name];
+        const raw = Array.isArray(args[spec.key])
+          ? (args[spec.key] as unknown[])
+          : [];
+        const options = raw.flatMap((o) => {
+          const label =
+            typeof o === "string"
+              ? o
+              : str((o as Record<string, unknown>)?.label);
+          return label ? [{ label }] : [];
+        });
+        out.push({
+          ...base,
+          kind: "choice",
+          title: summary ?? spec.question,
+          detail: str(args.reason),
+          questions: [{ question: spec.question, options, multiSelect: false }],
+          answerKey: spec.answer,
+        });
       } else if (BROWSER_TOOLS.has(call.name)) {
+        const integration = str(args.integration_type);
         out.push({
           ...base,
           kind: "browser",
+          title:
+            summary ??
+            (call.name === "connect_github_account"
+              ? "Connect your GitHub account"
+              : integration
+                ? `Authorize ${integration}`
+                : humanize(call.name)),
+          detail: str(args.reason),
+          browser:
+            call.name === "connect_github_account"
+              ? { flow: "github" }
+              : {
+                  flow: "connector",
+                  integrationType: integration,
+                  connectorId: str(args.connector_id),
+                  scopes: Array.isArray(args.scopes)
+                    ? (args.scopes as unknown[]).filter(
+                        (x): x is string => typeof x === "string",
+                      )
+                    : undefined,
+                  forceReconnect: args.force_reconnect === true,
+                },
+        });
+      } else if (
+        call.waiting_on?.kind === "choice" ||
+        call.waiting_on?.kind === "input"
+      ) {
+        // A tool this CLI does not know how to render: say so instead of
+        // offering a yes/no that would answer the wrong question.
+        out.push({
+          ...base,
+          kind: "unknown",
           title: summary ?? humanize(call.name),
           detail: str(args.reason),
         });
@@ -247,7 +326,12 @@ export interface ChoiceSelection {
 export function choiceAnswers(
   questions: PendingQuestion[],
   selections: ChoiceSelection[],
-): { answers: Record<string, unknown>[] } {
+  answerKey?: string,
+): Record<string, unknown> {
+  if (answerKey) {
+    const first = selections[0];
+    return { [answerKey]: first?.labels[0] ?? first?.customText ?? "" };
+  }
   const answers = questions.flatMap((q, index) => {
     const sel = selections[index];
     if (!sel || (sel.labels.length === 0 && !sel.customText)) return [];
