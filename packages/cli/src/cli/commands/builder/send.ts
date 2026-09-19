@@ -289,6 +289,15 @@ export function getSendCommand(): Base44Command {
       "A requested secret from env:VAR, file:PATH or - (stdin); repeat per secret",
       collect,
     )
+    .option(
+      "--connector-name <name>",
+      "Register a workspace connector under this name (Base44's credentials unless --client-id/--client-secret are given)",
+    )
+    .option("--client-id <id>", "Your own OAuth app's client id")
+    .option(
+      "--client-secret <source>",
+      "Your own OAuth app's client secret from env:VAR, file:PATH or - (stdin)",
+    )
     .option("--input <json>", "Raw extra_user_input for the pending call")
     .option(
       "--id <tool-call-id>",

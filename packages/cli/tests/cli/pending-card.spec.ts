@@ -227,4 +227,45 @@ describe("pending card", () => {
       input: { provider: "wix_payments" },
     });
   });
+
+  it("credentials: name, then Base44's credentials (b) or own id + hidden secret (y)", () => {
+    const p: PendingInput = {
+      ...base,
+      tool: "register_workspace_connector",
+      kind: "credentials",
+      title: "Register wix credentials",
+      credentials: {
+        integrationType: "wix",
+        suggestedName: "Wix",
+        scopes: ["stores.read"],
+      },
+    };
+    let s = openCard(p);
+    expect(s.typing).toBe("cred-name");
+    s = cardText(s, "").state as typeof s; // Enter keeps the suggested name
+    expect(s.cred?.name).toBe("Wix");
+    expect(cardKey(s, "b").submit).toEqual({
+      action: "approved",
+      input: {
+        name: "Wix",
+        credential_source: "base44",
+        scopes: ["stores.read"],
+      },
+    });
+    s = cardKey(s, "y").state as typeof s;
+    expect(s.typing).toBe("cred-id");
+    s = cardText(s, "id-123").state as typeof s;
+    expect(s.typing).toBe("cred-secret");
+    expect(stripAnsi(cardLines(s).join("\n"))).not.toContain("shh");
+    const out = cardText(s, "shh");
+    expect(out.submit).toEqual({
+      action: "approved",
+      input: {
+        name: "Wix",
+        client_id: "id-123",
+        client_secret: "shh",
+        scopes: ["stores.read"],
+      },
+    });
+  });
 });

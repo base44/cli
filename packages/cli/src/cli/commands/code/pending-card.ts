@@ -22,7 +22,14 @@ export interface CardState {
   /** Permission keys currently ticked. */
   granted: Set<string>;
   /** When the main input is capturing text for the card. */
-  typing: "custom" | "secret" | null;
+  typing: "custom" | "secret" | "cred-name" | "cred-id" | "cred-secret" | null;
+  /** Credentials card: the fields as they are filled. */
+  cred?: {
+    name?: string;
+    source?: "base44" | "own";
+    clientId?: string;
+    clientSecret?: string;
+  };
   /** Secret name → value. Dropped on submit or dismissal. */
   secretValues: Record<string, string>;
   /** Browser step: the link once started, and the outcome once known. */
@@ -44,7 +51,8 @@ export type CardKey =
   | "escape"
   | "y"
   | "n"
-  | "s";
+  | "s"
+  | "b";
 
 interface CardOutcome {
   state: CardState | null;
@@ -63,7 +71,15 @@ export function openCard(pending: PendingInput): CardState {
     cursor: 0,
     selections: (pending.questions ?? []).map(() => ({ labels: [] })),
     granted: new Set((pending.permissions ?? []).map((p) => p.key)),
-    typing: pending.kind === "secrets" ? "secret" : null,
+    typing:
+      pending.kind === "secrets"
+        ? "secret"
+        : pending.kind === "credentials"
+          ? "cred-name"
+          : null,
+    ...(pending.kind === "credentials"
+      ? { cred: { name: pending.credentials?.suggestedName } }
+      : {}),
     secretValues: {},
     ...(pending.kind === "browser"
       ? { browser: { status: "idle" as const } }
@@ -180,9 +196,11 @@ export function cardKey(state: CardState, key: CardKey): CardOutcome {
   if (state.typing) {
     // The input box has the keys; only Esc backs out of typing.
     if (key === "escape") {
-      return state.typing === "secret"
+      return state.typing === "secret" || state.typing === "cred-secret"
         ? later // dropping the card drops any values typed so far
-        : { state: { ...state, typing: null } };
+        : state.typing === "custom"
+          ? { state: { ...state, typing: null } }
+          : later;
     }
     return { state };
   }
@@ -207,6 +225,29 @@ export function cardKey(state: CardState, key: CardKey): CardOutcome {
             startBrowser: true,
           };
         }
+      }
+      return { state };
+    }
+    case "credentials": {
+      // After the name: pick the source. "b" uses Base44's credentials and
+      // submits; "y" (own) moves on to typing the client id.
+      if (key === "n") return done("rejected");
+      if (key === "escape") return later;
+      if (key === "y") {
+        return {
+          state: {
+            ...state,
+            cred: { ...state.cred, source: "own" },
+            typing: "cred-id",
+          },
+        };
+      }
+      if (key === "b") {
+        return done("approved", {
+          name: state.cred?.name ?? "",
+          credential_source: "base44",
+          scopes: state.pending.credentials?.scopes ?? [],
+        });
       }
       return { state };
     }
@@ -243,6 +284,31 @@ export function cardText(state: CardState, text: string): CardOutcome {
     const current = selections[state.step] ?? { labels: [] };
     selections[state.step] = { ...current, customText: value };
     return advanceChoice({ ...state, selections, typing: null });
+  }
+  if (state.typing === "cred-name") {
+    const name = value || state.cred?.name || "";
+    if (!name) return { state }; // a name is required
+    return { state: { ...state, cred: { ...state.cred, name }, typing: null } };
+  }
+  if (state.typing === "cred-id") {
+    if (!value) return { state };
+    return {
+      state: {
+        ...state,
+        cred: { ...state.cred, clientId: value },
+        typing: "cred-secret",
+      },
+    };
+  }
+  if (state.typing === "cred-secret") {
+    if (!value) return { state };
+    const scopes = state.pending.credentials?.scopes ?? [];
+    return done("approved", {
+      name: state.cred?.name ?? "",
+      client_id: state.cred?.clientId ?? "",
+      client_secret: value,
+      scopes,
+    });
   }
   if (state.typing === "secret") {
     const fields = state.pending.secrets ?? [];
@@ -355,6 +421,29 @@ export function cardLines(state: CardState): string[] {
             chalk.dim("  y open the authorization link · n reject · Esc later"),
           ];
       }
+    }
+    case "credentials": {
+      const c = state.cred ?? {};
+      const scopes = state.pending.credentials?.scopes ?? [];
+      return [
+        ...head,
+        `  ${c.name ? chalk.green("✓") : "▸"} name${c.name ? chalk.dim(`  — ${c.name}`) : ""}`,
+        `  ${c.source ? chalk.green("✓") : c.name ? "▸" : "○"} credentials${c.source === "own" ? chalk.dim("  — your own OAuth app") : c.source === "base44" ? chalk.dim("  — Base44's") : ""}`,
+        ...(c.source === "own"
+          ? [
+              `  ${c.clientId ? chalk.green("✓") : "▸"} client id${c.clientId ? chalk.dim(`  — ${c.clientId}`) : ""}`,
+              `  ${"▸"} client secret ${chalk.dim("(hidden)")}`,
+            ]
+          : []),
+        ...(scopes.length ? [chalk.dim(`  scopes: ${scopes.join(", ")}`)] : []),
+        chalk.dim(
+          !c.name
+            ? "  type the connector name below · Enter · Esc later"
+            : !c.source
+              ? "  b use Base44's credentials · y enter your own client id + secret · n reject · Esc later"
+              : "  type the value below · Enter next · Esc cancel",
+        ),
+      ];
     }
     case "unknown":
       return [

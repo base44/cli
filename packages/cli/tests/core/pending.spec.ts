@@ -221,6 +221,30 @@ describe("pendingInputs — more kinds", () => {
   });
 });
 
+describe("pendingInputs — credentials", () => {
+  it("register_workspace_connector is a credentials form, not a browser step", () => {
+    const [p] = pendingInputs([
+      parked("register_workspace_connector", {
+        integration_type: "wix",
+        name: "Wix",
+        description:
+          "Provide your Wix OAuth app so app users can connect their stores.",
+        scopes: ["stores.read"],
+      }),
+    ]);
+    expect(p).toMatchObject({
+      kind: "credentials",
+      detail:
+        "Provide your Wix OAuth app so app users can connect their stores.",
+      credentials: {
+        integrationType: "wix",
+        suggestedName: "Wix",
+        scopes: ["stores.read"],
+      },
+    });
+  });
+});
+
 describe("choiceAnswers", () => {
   it("builds the web client's payload, skipping unanswered questions", () => {
     const questions = [

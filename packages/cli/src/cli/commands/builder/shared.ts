@@ -268,6 +268,10 @@ export interface AnswerFlags {
   secret?: string[];
   input?: string;
   id?: string;
+  /** register_workspace_connector: the connector name; Base44's credentials unless --client-id/--client-secret are given. */
+  connectorName?: string;
+  clientId?: string;
+  clientSecret?: string;
 }
 
 export function hasAnswer(f: AnswerFlags): boolean {
@@ -279,7 +283,8 @@ export function hasAnswer(f: AnswerFlags): boolean {
       f.other ||
       f.grant ||
       f.secret?.length ||
-      f.input,
+      f.input ||
+      f.connectorName,
   );
 }
 
@@ -415,6 +420,34 @@ export async function buildAnswer(
         );
       }
       return { action: "approved", input: { secrets: values } };
+    }
+    case "credentials": {
+      const name = f.connectorName ?? pending.credentials?.suggestedName;
+      if (!name) {
+        throw new InvalidInputError(
+          "This registers a workspace connector: --connector-name <name> [--client-id <id> --client-secret env:VAR] (omit both to use Base44's credentials).",
+        );
+      }
+      const scopes = pending.credentials?.scopes ?? [];
+      if (!f.clientId && !f.clientSecret) {
+        return {
+          action: "approved",
+          input: { name, credential_source: "base44", scopes },
+        };
+      }
+      if (!f.clientId || !f.clientSecret) {
+        throw new InvalidInputError(
+          "Own credentials need both --client-id and --client-secret.",
+        );
+      }
+      const [, secret] = await secretValue(
+        `client_secret=${f.clientSecret}`,
+        readStdin,
+      );
+      return {
+        action: "approved",
+        input: { name, client_id: f.clientId, client_secret: secret, scopes },
+      };
     }
     case "browser":
       throw new InvalidInputError(

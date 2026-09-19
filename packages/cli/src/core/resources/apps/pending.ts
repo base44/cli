@@ -14,6 +14,8 @@ export type PendingKind =
   | "secrets"
   | "permissions"
   | "browser"
+  /** register_workspace_connector: a name, then Base44's credentials or your own client id + secret. */
+  | "credentials"
   /** Needs a question or form this CLI cannot render — answer in the editor. */
   | "unknown";
 
@@ -64,6 +66,12 @@ export interface PendingInput {
   answerKey?: string;
   /** For kind "browser": how to run the step the web runs in a popup. */
   browser?: BrowserStep;
+  /** For kind "credentials": the connector and the scopes the agent asked for. */
+  credentials?: {
+    integrationType: string;
+    suggestedName?: string;
+    scopes: string[];
+  };
   secrets?: PendingSecret[];
   permissions?: PendingPermission[];
 }
@@ -86,10 +94,10 @@ const LIST_CHOICE_TOOLS: Record<
 };
 const PERMISSION_TOOLS = new Set(["request_agent_tool_permissions"]);
 /** Approval only after a step the web runs (OAuth popup, payments form). */
+const CREDENTIALS_TOOLS = new Set(["register_workspace_connector"]);
 const BROWSER_TOOLS = new Set([
   "connect_github_account",
   "request_oauth_authorization",
-  "register_workspace_connector",
   "configure_psp_credentials",
   "plaid_connect",
 ]);
@@ -255,6 +263,24 @@ export function pendingInputs(messages: ConversationMessage[]): PendingInput[] {
           detail: str(args.reason),
           questions: [{ question: spec.question, options, multiSelect: false }],
           answerKey: spec.answer,
+        });
+      } else if (CREDENTIALS_TOOLS.has(call.name)) {
+        const integration = str(args.integration_type) ?? "connector";
+        out.push({
+          ...base,
+          kind: "credentials",
+          title:
+            summary ?? `Register ${integration} credentials for this workspace`,
+          detail: str(args.description),
+          credentials: {
+            integrationType: integration,
+            suggestedName: str(args.name),
+            scopes: Array.isArray(args.scopes)
+              ? (args.scopes as unknown[]).filter(
+                  (x): x is string => typeof x === "string",
+                )
+              : [],
+          },
         });
       } else if (BROWSER_TOOLS.has(call.name)) {
         const integration = str(args.integration_type);

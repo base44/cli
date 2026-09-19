@@ -376,7 +376,7 @@ function SessionView({ engine, footer, subscribe }: ViewProps) {
               ? "escape"
               : char === " "
                 ? "space"
-                : char === "y" || char === "n" || char === "s"
+                : char === "y" || char === "n" || char === "s" || char === "b"
                   ? (char as CardKey)
                   : null;
       if (card.typing && mapped !== "escape") return; // TextInput handles it
@@ -530,6 +530,30 @@ function SessionView({ engine, footer, subscribe }: ViewProps) {
               {chalk.dim("  — value is hidden · Enter to save · Esc to cancel")}
             </Text>
           )}
+          {card?.typing === "cred-name" && (
+            <Text wrap="truncate-end">
+              {chalk.bold("connector name")}
+              {chalk.dim(
+                card.cred?.name
+                  ? `  — Enter keeps "${card.cred.name}" · Esc later`
+                  : "  — Enter to save · Esc later",
+              )}
+            </Text>
+          )}
+          {card?.typing === "cred-id" && (
+            <Text wrap="truncate-end">
+              {chalk.bold("client id")}
+              {chalk.dim("  — Enter to save · Esc cancel")}
+            </Text>
+          )}
+          {card?.typing === "cred-secret" && (
+            <Text wrap="truncate-end">
+              {chalk.bold("client secret")}
+              {chalk.dim(
+                "  — value is hidden · Enter to register · Esc cancel",
+              )}
+            </Text>
+          )}
           {card?.typing === "custom" && (
             <Text wrap="truncate-end">
               {chalk.bold(card.pending.questions?.[card.step]?.question ?? "")}
@@ -547,7 +571,11 @@ function SessionView({ engine, footer, subscribe }: ViewProps) {
             <TextInput
               value={input}
               onChange={setInput}
-              mask={card?.typing === "secret" ? "•" : undefined}
+              mask={
+                card?.typing === "secret" || card?.typing === "cred-secret"
+                  ? "•"
+                  : undefined
+              }
               onSubmit={(value) => {
                 if (card?.typing) {
                   // Typed for the card, never for the agent: no echo, no transcript line.

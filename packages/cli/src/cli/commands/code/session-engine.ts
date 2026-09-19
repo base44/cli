@@ -250,6 +250,7 @@ export function createSessionEngine(options: EngineOptions): SessionEngine {
             });
             continue;
           }
+          if (event.kind === "waiting" && answered.has(event.id)) continue;
           const line = eventLine(event, undefined, {
             waitingHint: "answer in the card below",
           });
