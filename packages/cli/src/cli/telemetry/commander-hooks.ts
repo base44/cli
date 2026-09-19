@@ -21,6 +21,20 @@ function getFullCommandName(command: Command): string {
   return parts.join(" ");
 }
 
+// Option values that are credentials never leave the machine, even on a crash.
+const SENSITIVE_OPTION = /secret|token|password|launch|instance|key$/i;
+
+function redactSensitiveOptions(
+  options: Record<string, unknown>,
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(options).map(([k, v]) => [
+      k,
+      SENSITIVE_OPTION.test(k) && v != null && v !== false ? "[redacted]" : v,
+    ]),
+  );
+}
+
 export function addCommandInfoToErrorReporter(
   program: Command,
   errorReporter: ErrorReporter,
@@ -32,7 +46,7 @@ export function addCommandInfoToErrorReporter(
       command: {
         name: fullCommandName,
         args: actionCommand.args,
-        options: actionCommand.opts(),
+        options: redactSensitiveOptions(actionCommand.opts()),
       },
     });
   });
