@@ -9,6 +9,8 @@ import {
   runningLine,
   shimmer,
 } from "@/cli/commands/code/render.js";
+import { isConnectionDrop } from "@/cli/commands/code/session-engine.js";
+import { ApiError } from "@/core/errors.js";
 import type { ConversationMessage } from "@/core/resources/apps/api.js";
 import {
   diffConversation,
@@ -396,6 +398,25 @@ describe("render", () => {
     const frames = Array.from({ length: 10 }, (_, i) => shimmer(i * 120));
     expect(frames).toEqual(["·", "✢", "✳", "✶", "✻", "✽", "✻", "✶", "✳", "✢"]);
     expect(shimmer(10 * 120)).toBe("·");
+  });
+
+  it("tells a dropped connection from a real rejection", () => {
+    expect(isConnectionDrop(new TypeError("fetch failed"))).toBe(true);
+    expect(isConnectionDrop(new Error("socket hang up"))).toBe(true);
+    expect(isConnectionDrop(new Error("Request timeout"))).toBe(true);
+    expect(
+      isConnectionDrop(
+        new ApiError("Error answering the agent: gateway", { statusCode: 504 }),
+      ),
+    ).toBe(true);
+    expect(
+      isConnectionDrop(
+        new ApiError("Error answering the agent: not waiting", {
+          statusCode: 404,
+        }),
+      ),
+    ).toBe(false);
+    expect(isConnectionDrop(new Error("Invalid input"))).toBe(false);
   });
 
   it("formats durations for humans", () => {

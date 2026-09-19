@@ -25,6 +25,7 @@ const AppStateSchema = z.object({
     .object({
       state: z.string().nullish(),
       message: z.string().nullish(),
+      error_source: z.string().nullish(),
     })
     .nullish(),
 });

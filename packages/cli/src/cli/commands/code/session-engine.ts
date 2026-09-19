@@ -94,6 +94,28 @@ export interface SessionEngine {
  * queues). Emits already-styled scrollback lines through `onLine`; the UI
  * layer renders them plus a status snapshot.
  */
+/**
+ * A request that stays open for a whole turn (chat/message, submit-tool-call-
+ * input) can be cut by the edge or a proxy long after the backend took it:
+ * a 5xx, a timeout, or a bare transport error ("fetch failed", ECONNRESET,
+ * socket hang up). None of those mean the turn failed — the poller shows it
+ * running. Only a real API rejection (4xx) is a failure to report.
+ */
+export function isConnectionDrop(error: unknown): boolean {
+  const status = error instanceof ApiError ? error.statusCode : undefined;
+  if (status === 502 || status === 503 || status === 504) return true;
+  if (status != null) return false;
+  const text = [
+    error instanceof Error ? error.message : String(error),
+    error instanceof Error
+      ? String((error as { cause?: unknown }).cause ?? "")
+      : "",
+  ].join(" ");
+  return /timeout|gateway|fetch failed|ECONNRESET|ECONNREFUSED|socket hang up|network|aborted|UND_ERR/i.test(
+    text,
+  );
+}
+
 export function createSessionEngine(options: EngineOptions): SessionEngine {
   const running = new Map<string, RunningTool>();
   const diffState = newStreamState();
@@ -137,15 +159,13 @@ export function createSessionEngine(options: EngineOptions): SessionEngine {
       options.branchId,
     )
       .catch((error: unknown) => {
-        // Like submit: an edge timeout after the backend took the answer is
-        // not a failure — the resumed turn shows in the stream.
-        const status = error instanceof ApiError ? error.statusCode : undefined;
-        const edgeDrop =
-          status === 502 ||
-          status === 503 ||
-          status === 504 ||
-          /timeout|gateway/i.test(error instanceof Error ? error.message : "");
-        if (edgeDrop && (turnStartedAt != null || pendingSubmitAt == null)) {
+        // A dropped connection after the backend took the answer is not a
+        // failure — the resumed turn shows in the stream. Report only a real
+        // rejection, or a drop with no sign the turn started.
+        if (
+          isConnectionDrop(error) &&
+          (turnStartedAt != null || pendingSubmitAt == null)
+        ) {
           return;
         }
         answered.delete(p.toolCallId);
@@ -185,13 +205,7 @@ export function createSessionEngine(options: EngineOptions): SessionEngine {
           activeTurnId !== submitTurnId ||
           turnStartedAt != null ||
           pendingSubmitAt == null;
-        const status = error instanceof ApiError ? error.statusCode : undefined;
-        const edgeDrop =
-          status === 502 ||
-          status === 503 ||
-          status === 504 ||
-          /timeout|gateway/i.test(error instanceof Error ? error.message : "");
-        if (edgeDrop && delivered) return; // Running — the stream shows it.
+        if (isConnectionDrop(error) && delivered) return; // Running — the stream shows it.
         pendingSubmitAt = null;
         const message = error instanceof Error ? error.message : String(error);
         options.onLine(chalk.red(`✗ send failed: ${message}`));

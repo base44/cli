@@ -7,12 +7,14 @@ import {
   resolveBranchId,
 } from "@/cli/commands/builder/shared.js";
 import { createTurnStream } from "@/cli/commands/code/render.js";
+import { isConnectionDrop } from "@/cli/commands/code/session-engine.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
 import { InvalidInputError } from "@/core/errors.js";
 import type { ChatTurn } from "@/core/resources/apps/api.js";
 import {
   answerToolCall,
+  getAppState,
   getFullConversation,
   sendTurn,
 } from "@/core/resources/apps/api.js";
@@ -23,6 +25,7 @@ import {
 import {
   type StreamEvent,
   streamConversationDuring,
+  streamConversationUntilSettled,
 } from "@/core/resources/apps/stream.js";
 
 function lastAssistantReply(turn: ChatTurn): string | undefined {
@@ -194,6 +197,35 @@ async function sendAction(
     start = () => sendTurn(text, branchId);
   }
 
+  // The request stays open for the whole turn; if the connection drops after
+  // the backend took it, fall back to the conversation for the outcome.
+  const startOrRecover = async (): Promise<ChatTurn> => {
+    try {
+      return await start();
+    } catch (error) {
+      if (!isConnectionDrop(error)) throw error;
+      const settled = await streamConversationUntilSettled(() => undefined, {
+        branchId,
+        timeoutMs: 20 * 60_000,
+      });
+      const state = await getAppState(ctx.app?.id as string);
+      return {
+        status: {
+          state:
+            settled === "timeout"
+              ? "processing"
+              : (state.status?.state ?? "ready"),
+          error_source: state.status?.error_source ?? null,
+        },
+        conversation: {
+          messages: (await getFullConversation(5, branchId).catch(() => []))
+            .filter((m) => !m.hidden)
+            .map((m) => ({ role: m.role, content: m.content })),
+        },
+      };
+    }
+  };
+
   const finish = async (
     turn: ChatTurn,
     onEvent: (event: StreamEvent) => void,
@@ -211,7 +243,9 @@ async function sendAction(
     const write = ndjsonWriter();
     const onEvent = ({ kind, ...event }: StreamEvent) =>
       write({ type: kind, ...event });
-    const turn = await streamConversationDuring(start, onEvent, { branchId });
+    const turn = await streamConversationDuring(startOrRecover, onEvent, {
+      branchId,
+    });
     const result = await finish(turn, onEvent);
     write({ type: "result", queued: result.queued === true, ...result });
     return {};
@@ -220,7 +254,7 @@ async function sendAction(
   if (ctx.jsonMode) {
     const turn = await ctx.runTask(
       "Agent working (a turn can take minutes)",
-      start,
+      startOrRecover,
     );
     return {
       stdout: `${JSON.stringify(await finish(turn, () => undefined))}\n`,
@@ -232,9 +266,13 @@ async function sendAction(
   });
   let result: Record<string, unknown>;
   try {
-    const turn = await streamConversationDuring(start, stream.onEvent, {
-      branchId,
-    });
+    const turn = await streamConversationDuring(
+      startOrRecover,
+      stream.onEvent,
+      {
+        branchId,
+      },
+    );
     result = await finish(turn, stream.onEvent);
   } finally {
     stream.stop();
