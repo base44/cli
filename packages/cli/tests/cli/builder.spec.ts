@@ -392,6 +392,280 @@ describe("builder", () => {
     for (const line of lines) expect(typeof line.type).toBe("string");
   });
 
+  const parkedConversation = (call: Record<string, unknown>) => ({
+    messages: [
+      {
+        id: "u1",
+        role: "user",
+        content: "add a store",
+        outcome: { backend_status: "success_build" },
+      },
+      {
+        id: "m1",
+        role: "assistant",
+        content: "I need your go-ahead.",
+        tool_calls: [
+          {
+            id: "tc1",
+            status: "waiting_for_user_input",
+            results: "waiting",
+            ...call,
+          },
+        ],
+      },
+    ],
+  });
+  const appReady = () =>
+    t.api.mockRoute("GET", "/api/apps/test-app-id", (_req, res) =>
+      res.json({ id: "test-app-id", status: { state: "ready" } }),
+    );
+  const noBranches = () =>
+    t.api.mockRoute("GET", "/api/apps/test-app-id/branches", (_req, res) =>
+      res.json([]),
+    );
+
+  it("send reports status waiting with what the agent asked, and refuses a new message meanwhile", async () => {
+    await t.givenLoggedIn(USER);
+    appReady();
+    noBranches();
+    t.api.mockRoute(
+      "GET",
+      "/api/apps/test-app-id/chat/full-conversation",
+      (_req, res) =>
+        res.json(
+          parkedConversation({
+            name: "enable_connector",
+            arguments_string: JSON.stringify({
+              integration_type: "wix_stores",
+              summary: "Sell the pillows",
+            }),
+          }),
+        ),
+    );
+    const blocked = await t.run(
+      "builder",
+      "send",
+      "another thing",
+      "--app-id",
+      "test-app-id",
+      "--json",
+    );
+    t.expectResult(blocked).toSucceed();
+    expect(JSON.parse(blocked.stdout)).toEqual({
+      status: "waiting",
+      pending: [
+        {
+          id: "tc1",
+          kind: "approval",
+          tool: "enable_connector",
+          title: "Enable wix_stores?",
+          detail: "Sell the pillows",
+        },
+      ],
+    });
+    const status = await t.run(
+      "builder",
+      "status",
+      "--app-id",
+      "test-app-id",
+      "--json",
+    );
+    t.expectResult(status).toSucceed();
+    expect(JSON.parse(status.stdout).state).toBe("waiting");
+  });
+
+  it("send --approve answers the pending call through submit-tool-call-input", async () => {
+    await t.givenLoggedIn(USER);
+    appReady();
+    noBranches();
+    // Parked until the answer lands; settled after it.
+    let answered = false;
+    t.api.mockRoute(
+      "GET",
+      "/api/apps/test-app-id/chat/full-conversation",
+      (_req, res) =>
+        res.json(
+          answered
+            ? {
+                messages: [
+                  {
+                    id: "u2",
+                    role: "user",
+                    content: "I approved: Sell",
+                    outcome: { backend_status: "success_build" },
+                  },
+                ],
+              }
+            : parkedConversation({
+                name: "enable_connector",
+                arguments_string: JSON.stringify({
+                  integration_type: "wix_stores",
+                  summary: "Sell",
+                }),
+              }),
+        ),
+    );
+    let sentBody: Record<string, unknown> | undefined;
+    t.api.mockRoute(
+      "POST",
+      "/api/apps/test-app-id/chat/submit-tool-call-input",
+      (req, res) => {
+        answered = true;
+        sentBody = req.body as Record<string, unknown>;
+        return res.json({
+          id: "test-app-id",
+          status: { state: "ready" },
+          conversation: {
+            id: "c",
+            messages: [{ role: "assistant", content: "Connector enabled." }],
+          },
+        });
+      },
+    );
+    const result = await t.run(
+      "builder",
+      "send",
+      "--approve",
+      "--app-id",
+      "test-app-id",
+      "--json",
+    );
+    t.expectResult(result).toSucceed();
+    expect(sentBody).toEqual({
+      tool_call_id: "tc1",
+      action: "approved",
+      extra_user_input: {},
+      message_id: "m1",
+    });
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      status: "ready",
+      reply: "Connector enabled.",
+    });
+  });
+
+  it("send --choose validates against the options and builds the web payload", async () => {
+    await t.givenLoggedIn(USER);
+    appReady();
+    noBranches();
+    t.api.mockRoute(
+      "GET",
+      "/api/apps/test-app-id/chat/full-conversation",
+      (_req, res) =>
+        res.json(
+          parkedConversation({
+            name: "ask_clarifying_questions",
+            arguments_string: JSON.stringify({
+              questions: [
+                {
+                  question: "Layout?",
+                  options: [{ label: "Grid" }, { label: "List" }],
+                },
+                {
+                  question: "Sections?",
+                  multi_select: true,
+                  options: [{ label: "Hero" }, { label: "FAQ" }],
+                },
+              ],
+            }),
+          }),
+        ),
+    );
+    let sentBody: Record<string, unknown> | undefined;
+    t.api.mockRoute(
+      "POST",
+      "/api/apps/test-app-id/chat/submit-tool-call-input",
+      (req, res) => {
+        sentBody = req.body as Record<string, unknown>;
+        return res.json({ id: "test-app-id", status: { state: "ready" } });
+      },
+    );
+    const bad = await t.run(
+      "builder",
+      "send",
+      "--choose",
+      "Tiles",
+      "--app-id",
+      "test-app-id",
+      "--json",
+    );
+    t.expectResult(bad).toFail();
+    expect(JSON.parse(bad.stdout).error).toContain("not an option");
+    const ok = await t.run(
+      "builder",
+      "send",
+      "--choose",
+      "List",
+      "--choose",
+      "Hero,FAQ",
+      "--app-id",
+      "test-app-id",
+      "--json",
+    );
+    t.expectResult(ok).toSucceed();
+    expect(sentBody?.extra_user_input).toEqual({
+      answers: [
+        { question_index: 0, selected_label: "List" },
+        { question_index: 1, selected_labels: ["Hero", "FAQ"] },
+      ],
+    });
+  });
+
+  it("send --secret takes values from the environment and refuses plain text", async () => {
+    await t.givenLoggedIn(USER);
+    appReady();
+    noBranches();
+    t.api.mockRoute(
+      "GET",
+      "/api/apps/test-app-id/chat/full-conversation",
+      (_req, res) =>
+        res.json(
+          parkedConversation({
+            name: "set_secrets",
+            arguments_string: JSON.stringify({
+              secrets_schema: [
+                { secretName: "STRIPE_KEY", description: "dashboard" },
+              ],
+            }),
+          }),
+        ),
+    );
+    let sentBody: Record<string, unknown> | undefined;
+    t.api.mockRoute(
+      "POST",
+      "/api/apps/test-app-id/chat/submit-tool-call-input",
+      (req, res) => {
+        sentBody = req.body as Record<string, unknown>;
+        return res.json({ id: "test-app-id", status: { state: "ready" } });
+      },
+    );
+    const plain = await t.run(
+      "builder",
+      "send",
+      "--secret",
+      "STRIPE_KEY=sk_live_plain",
+      "--app-id",
+      "test-app-id",
+      "--json",
+    );
+    t.expectResult(plain).toFail();
+    expect(JSON.parse(plain.stdout).error).toContain("never as plain text");
+    t.givenEnv({ MY_STRIPE: "sk_live_from_env" });
+    const ok = await t.run(
+      "builder",
+      "send",
+      "--secret",
+      "STRIPE_KEY=env:MY_STRIPE",
+      "--app-id",
+      "test-app-id",
+      "--json",
+    );
+    t.expectResult(ok).toSucceed();
+    expect(sentBody?.extra_user_input).toEqual({
+      secrets: { STRIPE_KEY: "sk_live_from_env" },
+    });
+    expect(ok.stdout).not.toContain("sk_live_from_env");
+  });
+
   it("send refuses a code-first project (base44 create)", async () => {
     await t.givenLoggedIn(USER);
     t.api.mockRoute("GET", "/api/apps/test-app-id", (_req, res) =>

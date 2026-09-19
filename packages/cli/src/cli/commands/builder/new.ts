@@ -1,10 +1,11 @@
 import chalk from "chalk";
 import { Option } from "commander";
-import { ndjsonWriter } from "@/cli/commands/builder/send.js";
+import { applyPolicy, ndjsonWriter } from "@/cli/commands/builder/send.js";
 import {
   createAndLinkApp,
   githubReauthLines,
   nextStepsLines,
+  pendingSummary,
 } from "@/cli/commands/builder/shared.js";
 import {
   createTurnStream,
@@ -16,9 +17,14 @@ import { InvalidInputError } from "@/core/errors.js";
 import type { ImportSourceMode } from "@/core/resources/apps/api.js";
 import {
   getAppState,
+  getFullConversation,
   getPreviewUrl,
   resolveActiveBranchId,
 } from "@/core/resources/apps/api.js";
+import {
+  type PendingInput,
+  pendingInputs,
+} from "@/core/resources/apps/pending.js";
 import { streamConversationUntilSettled } from "@/core/resources/apps/stream.js";
 
 const POLL_TIMEOUT_MS = 20 * 60_000;
@@ -35,6 +41,8 @@ interface NewOptions {
   streamJson?: boolean;
   wixInstance?: string;
   wixClientId?: string;
+  autoApprove?: boolean;
+  skipQuestions?: boolean;
 }
 
 async function readStdin(): Promise<string> {
@@ -149,6 +157,7 @@ async function newAction(
 
   let finalState: string | undefined;
   let previewUrl: string | undefined;
+  let pending: PendingInput[] = [];
   const startedAt = Date.now();
   if (prompt) {
     // Completion is the outcome on the turn's user message — the app status
@@ -178,6 +187,20 @@ async function newAction(
         settled === "timeout"
           ? "processing"
           : ((await getAppState(app.id)).status?.state ?? "ready");
+      if (settled === "settled") {
+        pending = pendingInputs(
+          await getFullConversation(30, branchId).catch(() => []),
+        );
+        if (pending.length && (options.autoApprove || options.skipQuestions)) {
+          pending = await applyPolicy(pending, options, branchId, (event) => {
+            if (ndjson) {
+              const { kind, ...rest } = event;
+              ndjson({ type: kind, ...rest });
+            } else if (!jsonMode) stream.onEvent(event);
+          });
+        }
+        if (pending.length) finalState = "waiting";
+      }
       if (finalState === "ready") {
         previewUrl = await getPreviewUrl().catch(() => undefined);
       }
@@ -192,6 +215,7 @@ async function newAction(
       id: app.id,
       preview_url: previewUrl ?? null,
       status: finalState ?? "created",
+      ...(pending.length ? { pending: pendingSummary(pending) } : {}),
     });
     return {};
   }
@@ -205,6 +229,7 @@ async function newAction(
         dir: app.dirName,
         path: app.targetDir,
         status: finalState ?? "created",
+        ...(pending.length ? { pending: pendingSummary(pending) } : {}),
         ...(app.clientCreationId
           ? { client_creation_id: app.clientCreationId }
           : {}),
@@ -213,6 +238,13 @@ async function newAction(
   }
   if (previewUrl) log.message(`preview ${previewUrl}`);
   for (const line of nextStepsLines(app)) log.message(line);
+  if (finalState === "waiting") {
+    for (const p of pending) log.message(`  ⏸ ${p.title} (${p.kind})`);
+    return {
+      outroMessage:
+        "The agent is waiting on you. Answer with `base44 builder send --approve` (or --choose, --grant, --secret), or open `base44 code`.",
+    };
+  }
   if (finalState === "error") {
     return {
       outroMessage: `The first build reported an error — open the editor for details.`,
@@ -267,6 +299,14 @@ export function getNewCommand(): Base44Command {
     .option(
       "--wix-client-id <id>",
       "The companion OAuth app's client id, when the Wix launch has one",
+    )
+    .option(
+      "--auto-approve",
+      "Policy: approve approval-kind pauses in the first build (never secrets or browser steps)",
+    )
+    .option(
+      "--skip-questions",
+      "Policy: skip clarifying questions; the agent decides",
     )
     .option("--verbose", "Show every tool result in full (no folding)")
     .option(

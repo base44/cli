@@ -1,10 +1,21 @@
 import type { ConversationMessage } from "@/core/resources/apps/api.js";
 import { getFullConversation } from "@/core/resources/apps/api.js";
+import {
+  type PendingInput,
+  pendingInputs,
+} from "@/core/resources/apps/pending.js";
 
 export type StreamEvent =
   | { kind: "thinking"; text: string }
   | { kind: "text"; text: string }
-  | { kind: "waiting"; id: string; name: string; label: string }
+  | {
+      kind: "waiting";
+      id: string;
+      name: string;
+      label: string;
+      /** What is being asked, in the shape the cards and `builder send` use. */
+      pending?: PendingInput;
+    }
   | {
       kind: "tool_start";
       id: string;
@@ -231,6 +242,9 @@ export function diffConversation(
           id: tool.id,
           name: tool.name,
           label: labelTense(meta.label, "running"),
+          pending: pendingInputs([message]).find(
+            (p) => p.toolCallId === tool.id,
+          ),
         });
       }
       if (TOOL_SETTLED.has(status) && !progress.settledTools.has(tool.id)) {

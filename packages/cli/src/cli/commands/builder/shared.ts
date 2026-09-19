@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, join, relative, resolve } from "node:path";
 import chalk from "chalk";
 import { terminalLink } from "@/cli/commands/code/render.js";
@@ -10,7 +10,11 @@ import {
   setAppContext,
   writeAppConfig,
 } from "@/core/project/app-config.js";
-import type { AppState, ImportSourceMode } from "@/core/resources/apps/api.js";
+import type {
+  AppState,
+  ImportSourceMode,
+  ToolCallAction,
+} from "@/core/resources/apps/api.js";
 import {
   createApp,
   createImportedApp,
@@ -20,6 +24,10 @@ import {
   resolveActiveBranchId,
   startGithubReauth,
 } from "@/core/resources/apps/api.js";
+import {
+  choiceAnswers,
+  type PendingInput,
+} from "@/core/resources/apps/pending.js";
 import { isDirEmpty } from "@/core/utils/fs.js";
 
 const APP_NAME_RE = /^[A-Za-z0-9._-]+$/;
@@ -228,6 +236,202 @@ export async function assertBuilderApp(appId: string): Promise<AppState> {
     );
   }
   return state;
+}
+
+/** What an agent needs to see when the builder is waiting on a person: the
+ * pending calls in the same shape the session's cards render from. */
+export function pendingSummary(
+  pending: PendingInput[],
+): Record<string, unknown>[] {
+  return pending.map((p) => ({
+    id: p.toolCallId,
+    kind: p.kind,
+    tool: p.tool,
+    title: p.title,
+    ...(p.detail ? { detail: p.detail } : {}),
+    ...(p.questions ? { questions: p.questions } : {}),
+    ...(p.answerKey ? { answer_key: p.answerKey } : {}),
+    ...(p.secrets ? { secrets: p.secrets.map((x) => x.name) } : {}),
+    ...(p.permissions ? { permissions: p.permissions } : {}),
+    ...(p.browser ? { browser: p.browser } : {}),
+  }));
+}
+
+/** The answer flags `builder send` accepts instead of a message. */
+export interface AnswerFlags {
+  approve?: boolean;
+  reject?: boolean;
+  skip?: boolean;
+  choose?: string[];
+  other?: string;
+  grant?: string;
+  secret?: string[];
+  input?: string;
+  id?: string;
+}
+
+export function hasAnswer(f: AnswerFlags): boolean {
+  return Boolean(
+    f.approve ||
+      f.reject ||
+      f.skip ||
+      f.choose?.length ||
+      f.other ||
+      f.grant ||
+      f.secret?.length ||
+      f.input,
+  );
+}
+
+/** Resolve a secret flag value: `NAME=env:VAR` reads the environment,
+ * `NAME=-` reads stdin, `NAME=file:PATH` reads a file. A bare literal is
+ * refused: it would sit in shell history and `ps`. */
+async function secretValue(
+  spec: string,
+  readStdin: () => Promise<string>,
+): Promise<[string, string]> {
+  const eq = spec.indexOf("=");
+  if (eq <= 0) {
+    throw new InvalidInputError(
+      `--secret expects NAME=env:VAR, NAME=file:PATH or NAME=- (got "${spec}").`,
+    );
+  }
+  const name = spec.slice(0, eq);
+  const source = spec.slice(eq + 1);
+  if (source === "-") return [name, (await readStdin()).trim()];
+  if (source.startsWith("env:")) {
+    const v = process.env[source.slice(4)];
+    if (!v) {
+      throw new InvalidInputError(
+        `--secret ${name}: environment variable ${source.slice(4)} is empty.`,
+      );
+    }
+    return [name, v];
+  }
+  if (source.startsWith("file:")) {
+    return [name, (await readFile(source.slice(5), "utf8")).trim()];
+  }
+  throw new InvalidInputError(
+    `--secret ${name}: pass the value as env:VAR, file:PATH or - (stdin), never as plain text.`,
+  );
+}
+
+/** Turn the answer flags into the tool call's `extra_user_input`. */
+export async function buildAnswer(
+  pending: PendingInput,
+  f: AnswerFlags,
+  readStdin: () => Promise<string>,
+): Promise<{ action: ToolCallAction; input: Record<string, unknown> }> {
+  if (f.reject) return { action: "rejected", input: {} };
+  if (f.input) {
+    try {
+      return {
+        action: "approved",
+        input: JSON.parse(f.input) as Record<string, unknown>,
+      };
+    } catch {
+      throw new InvalidInputError("--input must be a JSON object.");
+    }
+  }
+  switch (pending.kind) {
+    case "choice": {
+      if (f.skip) return { action: "approved", input: { answers: [] } };
+      const questions = pending.questions ?? [];
+      if (!f.choose?.length && !f.other) {
+        throw new InvalidInputError(
+          "This is a question: answer with --choose <label> per question (comma-separate for multi-select), --other <text>, or --skip.",
+        );
+      }
+      const selections = questions.map((q, i) => {
+        const raw = f.choose?.[i];
+        const labels = raw
+          ? raw
+              .split(",")
+              .map((x) => x.trim())
+              .filter(Boolean)
+          : [];
+        for (const l of labels) {
+          if (!q.options.some((o) => o.label === l)) {
+            throw new InvalidInputError(
+              `"${l}" is not an option for "${q.question}". Options: ${q.options.map((o) => o.label).join(", ")}.`,
+            );
+          }
+        }
+        return {
+          labels,
+          ...(i === questions.length - 1 && f.other
+            ? { customText: f.other }
+            : {}),
+        };
+      });
+      return {
+        action: "approved",
+        input: choiceAnswers(questions, selections, pending.answerKey),
+      };
+    }
+    case "permissions": {
+      if (!f.approve && !f.grant) {
+        throw new InvalidInputError(
+          "This asks for permissions: --grant key1,key2 (or --approve for all, --reject).",
+        );
+      }
+      const all = (pending.permissions ?? []).map((p) => p.key);
+      const keys = f.grant
+        ? f.grant
+            .split(",")
+            .map((x) => x.trim())
+            .filter(Boolean)
+        : all;
+      for (const k of keys) {
+        if (!all.includes(k)) {
+          throw new InvalidInputError(
+            `Unknown permission key "${k}". Keys: ${all.join(", ")}.`,
+          );
+        }
+      }
+      return { action: "approved", input: { approved_permission_keys: keys } };
+    }
+    case "secrets": {
+      const names = (pending.secrets ?? []).map((x) => x.name);
+      if (!f.secret?.length) {
+        throw new InvalidInputError(
+          `This asks for secrets: --secret NAME=env:VAR for each of ${names.join(", ")}.`,
+        );
+      }
+      const values: Record<string, string> = {};
+      for (const spec of f.secret) {
+        const [name, value] = await secretValue(spec, readStdin);
+        if (!names.includes(name)) {
+          throw new InvalidInputError(
+            `"${name}" is not one of the requested secrets: ${names.join(", ")}.`,
+          );
+        }
+        values[name] = value;
+      }
+      const missing = names.filter((n) => !(n in values));
+      if (missing.length) {
+        throw new InvalidInputError(
+          `Missing --secret for: ${missing.join(", ")}.`,
+        );
+      }
+      return { action: "approved", input: { secrets: values } };
+    }
+    case "browser":
+      throw new InvalidInputError(
+        "This step needs a browser: finish the authorization in the editor (or run `base44 code`, which opens the link and waits), then answer with --approve.",
+      );
+    case "unknown":
+      throw new InvalidInputError(
+        "This question needs the editor — answer it there, or --reject.",
+      );
+    default:
+      if (!f.approve) {
+        throw new InvalidInputError(
+          "This is an approval: --approve or --reject.",
+        );
+      }
+      return { action: "approved", input: {} };
+  }
 }
 
 /** Lines to show when a create failed because the caller's GitHub OAuth token
