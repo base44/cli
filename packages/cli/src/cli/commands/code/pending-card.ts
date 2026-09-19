@@ -32,8 +32,8 @@ export interface CardState {
   };
   /** Secret name → value. Dropped on submit or dismissal. */
   secretValues: Record<string, string>;
-  /** Browser step: the link once started, and the outcome once known. */
-  browser?: { url?: string; status: BrowserStatus };
+  /** Browser step: the link once started, the connection it created, and the outcome once known. */
+  browser?: { url?: string; connectionId?: string; status: BrowserStatus };
 }
 
 export type BrowserStatus =
@@ -214,8 +214,17 @@ export function cardKey(state: CardState, key: CardKey): CardOutcome {
       if (key === "n") return done("rejected");
       if (key === "escape") return later;
       if (key === "y" || key === "enter") {
-        // Approve only once the connection exists; before that, start it.
-        if (status === "active") return done("approved");
+        // Approve only once the connection exists; before that, start it. The
+        // tool verifies the answer by this connection id — an empty approval
+        // reads as "no fresh connection was stored" even after a successful OAuth.
+        if (status === "active") {
+          return done(
+            "approved",
+            state.browser?.connectionId
+              ? { connection_id: state.browser.connectionId }
+              : {},
+          );
+        }
         if (status !== "waiting") {
           return {
             state: {
@@ -267,11 +276,15 @@ export function cardKey(state: CardState, key: CardKey): CardOutcome {
 /** The browser step progressed: a link to show, or a final outcome. */
 export function browserUpdate(
   state: CardState,
-  update: { url?: string; status: BrowserStatus },
+  update: { url?: string; connectionId?: string; status: BrowserStatus },
 ): CardState {
   return {
     ...state,
-    browser: { url: update.url ?? state.browser?.url, status: update.status },
+    browser: {
+      url: update.url ?? state.browser?.url,
+      connectionId: update.connectionId ?? state.browser?.connectionId,
+      status: update.status,
+    },
   };
 }
 

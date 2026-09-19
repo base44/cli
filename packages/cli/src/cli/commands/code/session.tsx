@@ -249,6 +249,7 @@ function SessionView({ engine, footer, subscribe }: ViewProps) {
     const step = state.pending.browser;
     try {
       let url: string;
+      let connectionId: string | undefined;
       let wait: () => Promise<"ACTIVE" | "FAILED" | "PENDING">;
       if (step?.flow === "github") {
         url = await startGithubReauth();
@@ -268,9 +269,12 @@ function SessionView({ engine, footer, subscribe }: ViewProps) {
           forceReconnect: step?.forceReconnect,
         });
         url = started.url;
+        connectionId = started.connectionId;
         wait = () => waitForConnectorOAuth(started, { signal: run.signal });
       }
-      setCard((c) => (c ? browserUpdate(c, { url, status: "waiting" }) : c));
+      setCard((c) =>
+        c ? browserUpdate(c, { url, connectionId, status: "waiting" }) : c,
+      );
       emit(chalk.dim(`  authorization link: ${url}`));
       await open(url).catch(() => undefined); // headless: the link is printed anyway
       const outcome = await wait();
@@ -437,7 +441,15 @@ function SessionView({ engine, footer, subscribe }: ViewProps) {
     : cardOpen
       ? cardRows + 2
       : inputRows + 2 + (card?.typing ? 1 : 0);
-  const widgetHeight = inputBlockHeight + 3 + (footer.length ? 1 : 0);
+  // The footer wraps onto as many rows as the links need, so a narrow terminal
+  // still shows editor and preview instead of truncating them.
+  const footerText = footer.length
+    ? `  ${footer.join(chalk.dim("  ·  "))}`
+    : "";
+  const footerRows = footer.length
+    ? hardWrapAnsi(footerText, Math.max(10, columns)).length
+    : 0;
+  const widgetHeight = inputBlockHeight + 3 + footerRows;
   const viewHeight = Math.max(3, rows - widgetHeight - 1);
 
   // Hard-wrapped physical lines of the whole transcript; the view is a
@@ -595,9 +607,13 @@ function SessionView({ engine, footer, subscribe }: ViewProps) {
           </Box>
         </Box>
       )}
-      {footer.length > 0 && (
-        <Text wrap="truncate-end">{`  ${footer.join(chalk.dim("  ·  "))}`}</Text>
-      )}
+      {footer.length > 0 &&
+        hardWrapAnsi(footerText, Math.max(10, columns)).map((row, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: rows re-render wholesale per frame
+          <Text key={i} wrap="truncate-end">
+            {row}
+          </Text>
+        ))}
       <Text wrap="truncate-end">
         {`  ${chalk.dim("model")} ${chalk.hex(BRAND_ORANGE)(displayName(currentModel))}`}
       </Text>

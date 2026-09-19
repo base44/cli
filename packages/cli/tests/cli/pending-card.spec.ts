@@ -183,8 +183,12 @@ describe("pending card", () => {
     );
     s = browserUpdate(s, { status: "failed" });
     expect(cardKey(s, "y").startBrowser).toBe(true); // retry
-    s = browserUpdate(s, { status: "active" });
-    expect(cardKey(s, "y").submit).toEqual({ action: "approved", input: {} });
+    s = browserUpdate(s, { connectionId: "conn-42", status: "active" });
+    // The tool verifies by connection id: the approval must carry it.
+    expect(cardKey(s, "y").submit).toEqual({
+      action: "approved",
+      input: { connection_id: "conn-42" },
+    });
     expect(cardKey(s, "n").submit).toEqual({ action: "rejected", input: {} });
   });
 
