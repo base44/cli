@@ -535,6 +535,10 @@ export class InternalError extends SystemError {
   }
 }
 
+export class ResourceDeploymentError extends SystemError {
+  readonly code = "RESOURCE_DEPLOYMENT_FAILED";
+}
+
 /**
  * Thrown when type generation fails for an entity.
  */

@@ -48,8 +48,15 @@ export async function deployAction(
     };
   }
 
-  const { project, entities, functions, agents, connectors, authConfig } =
-    projectData;
+  const {
+    project,
+    entities,
+    functions,
+    actors,
+    agents,
+    connectors,
+    authConfig,
+  } = projectData;
 
   // Build summary of what will be deployed
   const summaryLines: string[] = [];
@@ -61,6 +68,11 @@ export async function deployAction(
   if (functions.length > 0) {
     summaryLines.push(
       `  - ${functions.length} ${functions.length === 1 ? "function" : "functions"}`,
+    );
+  }
+  if (actors.length > 0) {
+    summaryLines.push(
+      `  - ${actors.length} ${actors.length === 1 ? "actor" : "actors"}`,
     );
   }
   if (agents.length > 0) {
@@ -105,6 +117,7 @@ export async function deployAction(
   // Deploy resources with per-function progress
   let functionCompleted = 0;
   const functionTotal = functions.length;
+  let actorCompleted = 0;
 
   const result = await deployAll(projectData, {
     onVisibilitySet: (level) => {
@@ -121,6 +134,20 @@ export async function deployAction(
     onFunctionResult: (r) => {
       functionCompleted++;
       formatDeployResult(r, log);
+    },
+    onActorStart: (name) => {
+      log.step(
+        theme.styles.dim(
+          `[${actorCompleted + 1}/${actors.length}] Deploying ${name}...`,
+        ),
+      );
+    },
+    onActorResult: (result) => {
+      actorCompleted++;
+      formatDeployResult(result, log);
+      if (result.status !== "error")
+        for (const warning of result.warnings)
+          log.warn(`${result.name}: ${warning}`);
     },
   });
 
@@ -147,7 +174,7 @@ export async function deployAction(
 export function getDeployCommand(): Command {
   return new Base44Command("deploy")
     .description(
-      "Deploy all project resources (entities, functions, agents, connectors, and site)",
+      "Deploy all project resources (entities, functions, actors, agents, connectors, and site)",
     )
     .option("-y, --yes", "Skip confirmation prompt")
     .option("--build", "Build the site before deploying (skips the prompt)")

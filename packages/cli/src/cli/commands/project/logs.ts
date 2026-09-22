@@ -516,7 +516,7 @@ export function getLogsCommand(): Command {
     .addOption(
       new Option(
         "--env <env>",
-        "Which deployment to read logs from: preview (current draft) or prod (published). Default: preview",
+        "Which deployment to read logs from: preview (current draft) or prod (published). Omit to read both.",
       ).choices([...LogEnvSchema.options]),
     )
     .action(logsAction);

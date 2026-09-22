@@ -1,8 +1,14 @@
 import { resolve } from "node:path";
 import { hasWorkspaceApiKeyAuth } from "@/core/auth/config.js";
+import { ResourceDeploymentError } from "@/core/errors.js";
 import { setAppVisibility } from "@/core/project/api.js";
 import type { Visibility } from "@/core/project/schema.js";
 import type { ProjectData } from "@/core/project/types.js";
+import {
+  deployActorsSequentially,
+  describeActorResult,
+  type SingleActorDeployResult,
+} from "@/core/resources/actor/index.js";
 import { agentResource } from "@/core/resources/agent/index.js";
 import { agentSkillResource } from "@/core/resources/agent-skill/index.js";
 import { authConfigResource } from "@/core/resources/auth-config/index.js";
@@ -28,6 +34,7 @@ export function hasResourcesToDeploy(projectData: ProjectData): boolean {
     project,
     entities,
     functions,
+    actors,
     agents,
     agentSkills,
     connectors,
@@ -36,6 +43,7 @@ export function hasResourcesToDeploy(projectData: ProjectData): boolean {
   const hasSite = Boolean(project.site?.outputDirectory);
   const hasEntities = entities.length > 0;
   const hasFunctions = functions.length > 0;
+  const hasActors = actors.length > 0;
   const hasAgents = agents.length > 0;
   const hasAgentSkills = agentSkills.length > 0;
   const hasConnectors = connectors.length > 0;
@@ -45,6 +53,7 @@ export function hasResourcesToDeploy(projectData: ProjectData): boolean {
   return (
     hasEntities ||
     hasFunctions ||
+    hasActors ||
     hasAgents ||
     hasAgentSkills ||
     hasConnectors ||
@@ -69,6 +78,8 @@ interface DeployAllResult {
 }
 
 interface DeployAllOptions {
+  onActorStart?: (name: string) => void;
+  onActorResult?: (result: SingleActorDeployResult) => void;
   onFunctionStart?: (names: string[]) => void;
   onFunctionResult?: (result: SingleFunctionDeployResult) => void;
   onVisibilitySet?: (visibility: Visibility) => void;
@@ -89,6 +100,7 @@ export async function deployAll(
     project,
     entities,
     functions,
+    actors,
     agents,
     agentSkills,
     connectors,
@@ -100,10 +112,42 @@ export async function deployAll(
     options?.onVisibilitySet?.(project.visibility);
   }
   await entityResource.push(entities);
-  await deployFunctionsSequentially(functions, {
+  const functionResults = await deployFunctionsSequentially(functions, {
     onStart: options?.onFunctionStart,
     onResult: options?.onFunctionResult,
   });
+  const completedStages = [
+    ...(project.visibility ? [`Visibility set to ${project.visibility}`] : []),
+    ...(entities.length ? [`Entities synced: ${entities.length}`] : []),
+  ];
+  const functionDetails = functionResults.map(
+    (result) =>
+      `Function ${result.name}: ${result.status}${result.error ? ` — ${result.error}` : ""}`,
+  );
+  if (functionResults.some((result) => result.status === "error")) {
+    throw new ResourceDeploymentError(
+      "Function deployment failed; remaining deploy stages were not run",
+      {
+        details: [...completedStages, ...functionDetails],
+      },
+    );
+  }
+  const actorResults = await deployActorsSequentially(actors, {
+    onStart: options?.onActorStart,
+    onResult: options?.onActorResult,
+  });
+  if (actorResults.some((result) => result.status === "error")) {
+    throw new ResourceDeploymentError(
+      "Actor deployment failed; remaining deploy stages were not run",
+      {
+        details: [
+          ...completedStages,
+          ...functionDetails,
+          ...actorResults.map(describeActorResult),
+        ],
+      },
+    );
+  }
   await agentSkillResource.push(agentSkills);
   await agentResource.push(agents);
   await authConfigResource.push(authConfig);

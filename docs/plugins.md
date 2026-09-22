@@ -55,6 +55,10 @@ The namespace must be unique in the host project. It may contain letters, number
 7. Append plugin functions after renaming them to `<namespace>__<name>`.
 8. Validate the final entity/function names before returning `ProjectData`.
 
+Actor discovery is skipped for imported plugins. Host actor names are checked
+against both local functions and the final namespaced plugin functions before any
+deployment starts.
+
 Project-owned resources use `source: { type: "project" }`.
 
 ## Entities
@@ -111,7 +115,7 @@ Rules:
 ## Rules
 
 - Plugins may contribute only entities and backend functions.
-- Plugin agents, connectors, and auth config are ignored.
+- Plugin actors, agents, connectors, and auth config are ignored.
 - A project that declares `plugin` cannot also define `plugins`.
 - Plugin entity names are global within the host project; they are not namespaced.
 - Entity extensions cannot add or merge top-level RLS rules yet.

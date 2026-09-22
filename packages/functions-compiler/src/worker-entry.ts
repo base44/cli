@@ -9,7 +9,13 @@ import { readFileSync } from "node:fs";
 import type { AppFunctionInput } from "./contracts.js";
 import { DenoCompatError } from "./errors.js";
 import { RUNTIME_CONTEXT_SPECIFIER } from "./esbuild/runtime-context-virtual.js";
+import {
+  ASCII_ESCAPE,
+  CAPTURE_PATCH,
+  INVOCATION_LOGS_PATCH,
+} from "./invocation-logs.js";
 import { TELEMETRY_PATCH, TELEMETRY_STORE_FIELDS } from "./telemetry.js";
+import { COMPILER_VERSION } from "./version.js";
 
 // Pre-built by scripts/build-shim.ts; regenerate it after changing the shim.
 // Read LAZILY, not at module load: build-shim.ts transitively imports this
@@ -44,6 +50,8 @@ const ACTOR_ENTRY_FILENAME = "__base44_actor_entry.mjs";
 export interface PreparedWorker {
   entry: string;
   files: Record<string, string>;
+  /** Prepended verbatim to the compiled module. Only the app path sets it. */
+  banner?: string;
 }
 
 export function workerRuntimeFiles(): Record<string, string> {
@@ -75,7 +83,9 @@ export const CONSOLE_PATCH = [
   // by per-app bundles, where one script serves every function and log queries
   // need per-function attribution. `secrets` and `workerEnv` reference the
   // request's authoritative Worker env binding.
-  "const _b44Wrap = (lvl, a) => { const _c = _b44Context() ?? {}; _b44Orig({ _b44_env: _c.env ?? 'preview', ...(_c.fn ? { _b44_function: _c.fn } : {}), level: lvl, message: _b44Fmt(a) }); };",
+  ASCII_ESCAPE,
+  CAPTURE_PATCH,
+  "const _b44Wrap = (lvl, a) => { const _c = _b44Context() ?? {}; const _m = _b44Fmt(a); _b44Capture(_c, lvl, _m); _b44Orig({ _b44_env: _c.env ?? 'preview', ...(_c.fn ? { _b44_function: _c.fn } : {}), level: lvl, message: _m }); };",
   "console.log = (...a) => _b44Wrap('info', a);",
   "console.info = (...a) => _b44Wrap('info', a);",
   "console.warn = (...a) => _b44Wrap('warn', a);",
@@ -133,6 +143,33 @@ export async function prepareFunction(
 /** One app function paired with the stable key its files and diagnostics are
  *  namespaced under (`fn_<index>`). The index is the function's original
  *  position so attribution stays correct across an exclude-and-rebuild. */
+/** Bumped only when the payload's shape changes, never for a new field. */
+const BANNER_FORMAT = 1;
+
+/** The bundle's self-description, as its first line: `//!b44:<format> <json>`.
+ *  A fixed sentinel so `head -1` finds it and a reader can version the format,
+ *  and JSON so it parses in one call. Before this, a compiled module named its
+ *  functions only as scattered `registerLazy` literals in minified output.
+ *
+ *  Nothing volatile belongs in here. A version's identity is the hash of these
+ *  bytes, so a timestamp, a build id or anything else that moves on its own
+ *  would re-mint a version for code that did not change; the app id would make
+ *  the same functions compile differently per app; the shard's position would
+ *  make two identical shards differ. Names are sorted for the same reason — the
+ *  module below is assembled in caller order, this line is not. */
+function buildBanner(
+  entries: AppFunctionEntry[],
+  telemetry: boolean,
+  runtimeSecrets: boolean,
+): string {
+  return `//!b44:${BANNER_FORMAT} ${JSON.stringify({
+    functions: entries.map(({ fn }) => fn.name).sort(),
+    telemetry,
+    runtimeSecrets,
+    compiler: COMPILER_VERSION,
+  })}`;
+}
+
 export interface AppFunctionEntry {
   index: number;
   fn: AppFunctionInput;
@@ -172,7 +209,11 @@ export function prepareApp(
     postResponseTelemetry,
     runtimeSecrets,
   );
-  return { entry: ENTRY_FILENAME, files };
+  return {
+    entry: ENTRY_FILENAME,
+    files,
+    banner: buildBanner(entries, postResponseTelemetry, runtimeSecrets),
+  };
 }
 
 // Activation prelude for runtime-secrets bundles: gate on the encrypted
@@ -268,9 +309,11 @@ function buildAppEntrySource(
   const moduleImports = functionModules
     .map((file) => `import "./${file}";`)
     .join("\n");
-  const handlerExpr = telemetry
-    ? "_b44AttachTelemetry(await handler(request, info))"
-    : "await handler(request, info)";
+  const handlerExpr = `_b44AttachInvocationLogs(${
+    telemetry
+      ? "_b44AttachTelemetry(await handler(request, info))"
+      : "await handler(request, info)"
+  })`;
   const returnExpr = runtimeSecrets
     ? `withoutActivationSignal(${handlerExpr})`
     : handlerExpr;
@@ -281,6 +324,7 @@ import { installStaticEgressFetch, resolveHandler } from "./${SHIM_FILENAME}";${
 ${moduleImports}
 
 ${CONSOLE_PATCH}
+${INVOCATION_LOGS_PATCH}
 // Static egress reads workerEnv from the active request store. Install it
 // before telemetry so telemetry remains the outermost fetch wrapper.
 installStaticEgressFetch();
@@ -290,7 +334,7 @@ export default {
   async fetch(request, env, ctx) {
     const _b44Env = (request.headers.get('base44-functions-version') ?? '') === 'prod' ? 'prod' : 'preview';
     const functionName = request.headers.get("Base44-Function-Name");
-    return _b44Run({ env: _b44Env, fn: functionName ?? '', secrets: ${runtimeSecrets ? "process.env" : "env"}, workerEnv: env, waitUntil: (p) => ctx.waitUntil(p)${telemetry ? `, ${TELEMETRY_STORE_FIELDS}` : ""} }, async () => {
+    return _b44Run({ env: _b44Env, fn: functionName ?? '', secrets: ${runtimeSecrets ? "process.env" : "env"}, workerEnv: env, waitUntil: (p) => ctx.waitUntil(p), ..._b44CaptureStore(request)${telemetry ? `, ${TELEMETRY_STORE_FIELDS}` : ""} }, async () => {
 ${runtimeSecrets ? ACTIVATION_GATE : ""}      // Each early return below logs through the patch first: per-function log
       // queries on per-app scripts keep only stamped lines, so a bare return
       // would leave the failing invocation with no trace in its own logs.
@@ -298,22 +342,22 @@ ${runtimeSecrets ? ACTIVATION_GATE : ""}      // Each early return below logs th
       if (pendingHandler === undefined) {
         const message = \`No function registered for "\${functionName ?? ""}"\`;
         console.error(message);
-        return new Response(message, { status: 404 });
+        return _b44AttachInvocationLogs(new Response(message, { status: 404 }));
       }
       let handler;
       try {
         handler = await pendingHandler;
       } catch (e) {
         console.error(\`Function "\${functionName}" failed to initialize:\`, e);
-        return new Response(
+        return _b44AttachInvocationLogs(new Response(
           \`Function "\${functionName}" failed to initialize: \${e instanceof Error ? e.message : String(e)}\`,
           { status: 500 },
-        );
+        ));
       }
       if (handler === null) {
         const message = \`Function "\${functionName}" must export default a request handler or call Deno.serve()\`;
         console.error(message);
-        return new Response(message, { status: 503 });
+        return _b44AttachInvocationLogs(new Response(message, { status: 503 }));
       }
       // Real client IP is in the "cf-connecting-ip" header, not this placeholder.
       const info = {
@@ -326,11 +370,14 @@ ${runtimeSecrets ? ACTIVATION_GATE : ""}      // Each early return below logs th
       // stamped lines (see log_query.event_matches_function). Known gap:
       // exceptions thrown while a response body streams happen after this
       // frame returns and cannot be stamped — those crash events are
-      // dropped from per-function views.
+      // dropped from per-function views, and lines logged after the response
+      // starts streaming are past the invocation-logs header too.
       try {
         return ${returnExpr};
       } catch (e) {
         console.error(e);
+        const crash = _b44CrashResponse(e);
+        if (crash) return crash;
         throw e;
       }
     });

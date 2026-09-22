@@ -1,4 +1,5 @@
 import { Command, Option } from "commander";
+import { getActorsCommand } from "@/cli/commands/actors/index.js";
 import { getAgentSkillsCommand } from "@/cli/commands/agent-skills/index.js";
 import { getAgentsCommand } from "@/cli/commands/agents/index.js";
 import { getAuthCommand } from "@/cli/commands/auth/index.js";
@@ -102,6 +103,7 @@ export function createProgram(context: CLIContext): Command {
 
   // Register functions commands
   program.addCommand(getFunctionsCommand());
+  program.addCommand(getActorsCommand());
 
   // Register workflows commands
   program.addCommand(getWorkflowsCommand());
