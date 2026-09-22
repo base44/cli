@@ -14,6 +14,7 @@ import { getFunctionsCommand } from "@/cli/commands/functions/index.js";
 import { getBuildCommand } from "@/cli/commands/project/build.js";
 import { getCreateCommand } from "@/cli/commands/project/create.js";
 import { getDeployCommand } from "@/cli/commands/project/deploy.js";
+import { getInstallCommand } from "@/cli/commands/project/install.js";
 import { getLinkCommand } from "@/cli/commands/project/link.js";
 import { getLogsCommand } from "@/cli/commands/project/logs.js";
 import { getScaffoldCommand } from "@/cli/commands/project/scaffold.js";
@@ -77,6 +78,7 @@ export function createProgram(context: CLIContext): Command {
   program.addCommand(getCreateCommand());
   program.addCommand(getScaffoldCommand());
   program.addCommand(getDashboardCommand());
+  program.addCommand(getInstallCommand());
   program.addCommand(getBuildCommand());
   program.addCommand(getDeployCommand());
   program.addCommand(getVisibilityCommand());

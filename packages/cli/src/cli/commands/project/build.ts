@@ -26,7 +26,10 @@ async function buildAction(ctx: CLIContext): Promise<RunCommandResult> {
 }
 
 export function getBuildCommand(): Command {
-  return new Base44Command("build")
+  // No API call: the app id comes from --app-id, BASE44_APP_ID or .app.jsonc and
+  // is injected into a local build, so a machine that has never logged in (a
+  // build sandbox) can run it.
+  return new Base44Command("build", { requireAuth: false })
     .description("Build the site with the Base44 app id injected")
     .action(buildAction);
 }

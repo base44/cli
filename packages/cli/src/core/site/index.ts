@@ -6,5 +6,6 @@ export * from "./git-hash.js";
 export * from "./manifest.js";
 export * from "./modules.js";
 export * from "./schema.js";
+export * from "./serve-command.js";
 export * from "./upload.js";
 export * from "./wrangler-config.js";

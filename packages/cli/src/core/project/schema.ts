@@ -27,6 +27,11 @@ const SiteConfigSchema = z.object({
   serveCommand: z.string().optional(),
   outputDirectory: z.string().optional().default("./dist"),
   installCommand: z.string().optional().default("npm install"),
+  // How this project's dev server spells its bind-address flag: `--host` for
+  // Vite/Astro/Nuxt, `--hostname` for Next, which exits on `--host`. Read only
+  // when a caller asks `site dev` to bind a specific address. The port flag is
+  // not configurable — every one of them spells it `--port`.
+  devHostFlag: z.string().optional().default("--host"),
 });
 
 const PluginMetadataSchema = z.object({

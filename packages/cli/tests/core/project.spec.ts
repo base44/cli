@@ -31,6 +31,7 @@ describe("readProjectConfig", () => {
       outputDirectory: "site-output",
       buildCommand: "npm run build",
       installCommand: "npm install",
+      devHostFlag: "--host",
     });
   });
 
@@ -43,6 +44,7 @@ describe("readProjectConfig", () => {
       outputDirectory: "./dist",
       buildCommand: "npm run build",
       installCommand: "npm install",
+      devHostFlag: "--host",
     });
 
     // Not defaulted: `base44 dev` runs the backend alone without one.

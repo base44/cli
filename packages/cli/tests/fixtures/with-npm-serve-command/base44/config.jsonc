@@ -1,0 +1,6 @@
+{
+  "name": "Npm Serve Command Project",
+  // Empty on purpose: serveCommand defaults to `npm run dev`, which is what
+  // forwards an address through `--`.
+  "site": {}
+}

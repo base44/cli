@@ -6,7 +6,10 @@ export interface ServeCommandRunnerOptions {
   serveCommand: string;
   projectRoot: string;
   appId: string;
-  appBaseUrl: string;
+  /** Omitted when the caller has no backend to name — a frontend that reaches its
+   * backend same-origin (the Base44 vite plugin proxies `/api`) must not be told
+   * one, or the SDK would call across origins instead. */
+  appBaseUrl?: string;
 }
 
 export function createServeCommandRunner({
@@ -20,7 +23,7 @@ export function createServeCommandRunner({
     cwd: projectRoot,
     env: {
       VITE_BASE44_APP_ID: appId,
-      VITE_BASE44_APP_BASE_URL: appBaseUrl,
+      ...(appBaseUrl ? { VITE_BASE44_APP_BASE_URL: appBaseUrl } : {}),
     },
     logger: createDevLogger("frontend", theme.colors.base44Orange),
   });
