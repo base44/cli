@@ -41,14 +41,15 @@ describe("readProjectConfig", () => {
     );
 
     expect(result.project.site).toEqual({
-      outputDirectory: "./dist",
       buildCommand: "npm run build",
       installCommand: "npm install",
       devHostFlag: "--host",
     });
 
-    // Not defaulted: `base44 dev` runs the backend alone without one.
+    // Neither defaults: their absence says "no frontend to run here" and
+    // "nothing built to upload", which a default would erase.
     expect(result.project.site?.serveCommand).toBeUndefined();
+    expect(result.project.site?.outputDirectory).toBeUndefined();
   });
 
   it("leaves a project with no site block without a site", async () => {
