@@ -40,9 +40,7 @@ export function hasResourcesToDeploy(projectData: ProjectData): boolean {
     connectors,
     authConfig,
   } = projectData;
-  // The block, not the field: `outputDirectory` always resolves now (it defaults),
-  // so a project declares it has a site by having the block at all.
-  const hasSite = project.site !== undefined;
+  const hasSite = Boolean(project.site?.outputDirectory);
   const hasEntities = entities.length > 0;
   const hasFunctions = functions.length > 0;
   const hasActors = actors.length > 0;
