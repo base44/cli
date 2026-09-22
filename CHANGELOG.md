@@ -14,6 +14,7 @@
 
 ### Changed
 
+- `base44 dev` now fronts the app's own dev server: it serves the whole app on one origin, answers `/api/apps` itself and forwards everything else — the app's own `/api` routes included — to the dev server, carrying `Base44-App-Id`, `Base44-Api-Url` and a service-role credential, and dropping the caller's copies of those headers. Full-stack apps (SSR pages, server functions) can build an SDK client with `createClientFromRequest` locally, the way they do in production. Open the URL the command prints instead of the frontend dev server's own.
 - `base44 sandbox` help now explains that writes are committed but not checkpointed: a Restore or Revert in the builder rolls the app back to the last checkpoint and discards everything after it, so run `base44 sandbox checkpoint` after each unit of work and before stopping. The note appears on `sandbox`, `sandbox write`, `sandbox edit`, `sandbox run`, and `sandbox checkpoint`.
 - The `backend-and-client` template now scaffolds the same client convention editor-created apps use: `@base44/vite-plugin` + `src/lib/app-params.js`, with the SDK client on same-origin `/api` (`serverUrl: ''`). Under `base44 dev` the plugin proxies `/api` to the local dev backend, so scaffolded apps get local entities and functions; the app id is injected via `VITE_BASE44_APP_ID` by `base44 dev`, `base44 dev --remote`, and the build/deploy commands instead of being baked into source.
 

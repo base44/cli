@@ -80,6 +80,7 @@ Read these when working on the relevant area:
 - **[Adding or modifying CLI commands](commands.md)** - Factory pattern, `runCommand()`, `runTask()`, `CLIContext`, theming, `chalk` ban
 - **[Making API calls](api-patterns.md)** - HTTP clients, Zod snake_case-to-camelCase transforms, `ApiError.fromHttpError()`
 - **[Working with resources](resources.md)** - `Resource<T>` interface, adding new resources, site module, unified deploy
+- **[Local dev server](dev-server.md)** - `base44 dev` as the front door, SDK header injection into app-owned code, app dev server discovery
 - **[Deployments](deployments.md)** - Deploys addressed by commit, wrangler config, asset manifest hashing, direct asset uploads (Workers) and presigned uploads (static)
 - **[Plugins](plugins.md)** - Plugin config, namespaces, entity extension rules, function namespacing, pull/deploy behavior
 - **[Error handling](error-handling.md)** - Error hierarchy, throwing patterns, error codes, `CLIExitError`, `process.exit` ban

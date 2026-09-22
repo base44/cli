@@ -29,8 +29,40 @@ type ConfiguredSite = Pick<
   "serveCommand" | "projectRoot"
 >;
 
+const APP_SERVER_START_TIMEOUT_MS = 120_000;
+
 function localServerUrl(port: number): string {
   return `http://localhost:${port}`;
+}
+
+/**
+ * The app dev server picks its own port and announces it on startup, so the
+ * front door learns where to forward from the line it prints.
+ */
+function createAppServerOrigin(): {
+  waitForOrigin: () => Promise<string>;
+  report: (origin: string) => void;
+} {
+  let report!: (origin: string) => void;
+  const announced = new Promise<string>((resolve) => {
+    report = resolve;
+  });
+  const timedOut = new Promise<never>((_, reject) => {
+    const timer = setTimeout(
+      () =>
+        reject(
+          new Error(
+            "The app dev server did not print a local URL, so requests cannot be forwarded to it.",
+          ),
+        ),
+      APP_SERVER_START_TIMEOUT_MS,
+    );
+    timer.unref();
+  });
+  return {
+    waitForOrigin: () => Promise.race([announced, timedOut]),
+    report,
+  };
 }
 
 function validateDevOptions(command: Command): void {
@@ -118,11 +150,15 @@ async function localDevAction(
 ): Promise<RunCommandResult> {
   const site = await resolveConfiguredSite(app);
   const siteUrlPromise = getSiteUrl().catch(() => undefined);
+  const appServerOrigin = createAppServerOrigin();
 
   const backend = await createDevServer({
     log: ctx.log,
     port: options.port ? Number(options.port) : undefined,
     denoWrapperPath: getDenoWrapperPath(),
+    appServer: site
+      ? { appId: app.id, waitForOrigin: appServerOrigin.waitForOrigin }
+      : undefined,
     loadResources: async () => {
       const { functions, entities, project } = await readProjectConfig();
       const siteUrl = await siteUrlPromise;
@@ -136,12 +172,15 @@ async function localDevAction(
       ...site,
       appId: app.id,
       appBaseUrl: backendUrl,
+      onOrigin: appServerOrigin.report,
+      ignorePort: backend.port,
     });
     startServeCommand(runner, { url: backendUrl, shutdown: backend.shutdown });
   }
 
+  // One origin for the app and its backend, the way the platform serves it.
   const outroMessage = site
-    ? "Open your app using the frontend dev server URL"
+    ? `Your app is available at ${theme.colors.links(backendUrl)}`
     : `Dev server is available at ${theme.colors.links(backendUrl)}`;
 
   return { outroMessage };

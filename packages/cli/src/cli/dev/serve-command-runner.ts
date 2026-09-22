@@ -7,6 +7,8 @@ export interface ServeCommandRunnerOptions {
   projectRoot: string;
   appId: string;
   appBaseUrl: string;
+  onOrigin?: (origin: string) => void;
+  ignorePort?: number;
 }
 
 export function createServeCommandRunner({
@@ -14,6 +16,8 @@ export function createServeCommandRunner({
   projectRoot,
   appId,
   appBaseUrl,
+  onOrigin,
+  ignorePort,
 }: ServeCommandRunnerOptions): ServeRunner {
   return new ServeRunner({
     command: serveCommand,
@@ -23,5 +27,7 @@ export function createServeCommandRunner({
       VITE_BASE44_APP_BASE_URL: appBaseUrl,
     },
     logger: createDevLogger("frontend", theme.colors.base44Orange),
+    onOrigin,
+    ignorePort,
   });
 }
