@@ -4,7 +4,9 @@
 
 A **version** is one immutable thing a build produced — every frontend file, plus the entity and agent payloads the app declares. A **deployment** is a version made live at an environment. Recording one and serving one are separate acts, which is what makes a rollback a deploy of an older version rather than a second code path.
 
-This lives in `src/core/version/`: `artifacts.ts` (the build-output walk and the raw resource reads), `api.ts` (the three HTTP calls), `publish.ts` (orchestration and step tagging), `project.ts` (where to build and what to publish), `gate.ts` (the env gate), `schema.ts` (wire types).
+This lives in `src/core/version/`: `artifacts.ts` (the build-output walk and the raw resource reads), `api.ts` (the three HTTP calls), `publish.ts` (orchestration, and the step names behind the shared tagger in `core/errors.ts`), `gate.ts` (the env gate), `schema.ts` (wire types).
+
+Where to build and what to collect is **not** here — it is `core/project/target.ts`, because nothing it resolves is about a version and `base44 build` needs the same answer without importing this lane.
 
 It is **not** `src/core/site/` — see [Deployments](deployments.md). That lane ships a build to the legacy hosting API and its `deploymentId` names a Cloudflare script; this one records a version on the platform's version plane and its `deploymentId` names a deployment there. A caller that could not tell the two apart would publish by accident, so they are separate commands with separate envelope field names.
 
@@ -28,7 +30,7 @@ Each of the three responses is parsed through its Zod schema and a mismatch rais
 
 What that does **not** catch is a change of meaning behind an unchanged shape. Nothing here does; the lane is small enough that both sides are reviewed together.
 
-`setEnvironmentVersion(environment, versionId, options)` is one `PATCH /environments/{name}` carrying the version id and an idempotency key. **An environment serves one version, so making a version live is editing that pointer — there is no deployment to create.** The `Deployment` record the switch leaves behind is how the plane remembers what it prepared, returned so a caller can correlate a log line.
+`setEnvironmentVersion(environment, versionId, options)` is one `PATCH /environments/{name}` carrying the version id and an idempotency key. The key is what makes a repeat the SAME call rather than a second publish, so the request is retried — bounded, and **only when a key is sent**, including on our own timeout, which says nothing about whether the server committed. Without a key a repeat is a deliberate redeploy and is never retried. **An environment serves one version, so making a version live is editing that pointer — there is no deployment to create.** The `Deployment` record the switch leaves behind is how the plane remembers what it prepared, returned so a caller can correlate a log line.
 
 Nothing else is the caller's to say: the app comes from the credential, and so do the acting principal, the runtime environment variables, every artifact key, the manifest hash and the publication revision. The request models on the server forbid unknown fields, so sending one is an error rather than a silent drop.
 
@@ -45,7 +47,9 @@ A commit is a static app **or** a full-stack one, never both, and backend functi
 
 `main` is sent as the module set names it, not as the config wrote it. The platform matches the entry against the names it was sent, so a surviving `./` would name a module nothing in the set provides.
 
-`compatibility_date` and `compatibility_flags` ride along. They are part of the Worker's **identity** on the platform, not metadata: the same modules under a different compatibility date are a different Worker.
+`compatibility_date`, `compatibility_flags`, each module's `type` and the whole `assets_config` ride along. They are part of the Worker's **identity** on the platform, not metadata: the same modules under a different compatibility date are a different Worker, and so are the same bytes read as `text` instead of `data`, or served with `run_worker_first` flipped. A version that dropped any of them would record two different Workers as one and could never tell them apart afterwards.
+
+`assets_config` is wrangler's own `assets` block, field for field — `html_handling`, `not_found_handling`, `run_worker_first`, `headers`, `redirects`. A block stating none of them is sent as `null`, the same as no block at all: a bare `assets: { directory }` describes the identical Worker, and recording them apart would split one version in two.
 
 **Nothing deploys this yet.** The platform records the Worker on the version and stores its modules, and refuses a full-stack app at admission — so today this proves the transport, not a publish.
 
@@ -71,7 +75,7 @@ One commit, not two: an app's frontend and backend are the same app at the same 
 
 ## A Builder repo carries no CLI config
 
-`resolvePublishTarget(projectRoot, overrides)` in `project.ts` fills in `npm run build` and `dist` **only when a repo has no config at all**, and **writes nothing**. The python driver it replaces used to overwrite `base44/config.jsonc` with a minimal config before building, destroying any checked-in configuration — and, for a full-stack app, its build command.
+`resolveBuildTarget(projectRoot, overrides)` in `core/project/target.ts` fills in `npm run build` and `dist` **only when a repo has no config at all**, and **writes nothing**. The python driver it replaces used to overwrite `base44/config.jsonc` with a minimal config before building, destroying any checked-in configuration — and, for a full-stack app, its build command.
 
 A config that is present wins, field by field, and one that omits a field still gets today's error: omitting `site.buildCommand` is a deliberate statement, and answering it with a guessed `npm run build` would change what `base44 build` does for every project that relies on that error. `requireOutputDir(target)` raises at the point of collection rather than at resolution, so a project missing both is told about its build command first — the one it hits first.
 
@@ -89,7 +93,7 @@ A callback that throws synchronously is tagged too; `run().catch(...)` would let
 
 **`base44 versions deploy <version-id> [--target <name>]`** — point an environment at a recorded version: no checkout, no build, no upload. Passing an older id is how a rollback is done.
 
-`base44 build` is not part of this group and is not gated, but the lane depends on two things about it: it needs **no credential** (the publish sandbox builds before minting a key that can deploy), and it resolves its config through `resolvePublishTarget` (a Builder repo has none). What it builds and what it prints are unchanged.
+`base44 build` is not part of this group and is not gated, but the lane depends on two things about it: it needs **no credential** (the publish sandbox builds before minting a key that can deploy), and it resolves its config through `resolveBuildTarget` (a Builder repo has none). What it builds and what it prints are unchanged.
 
 The group is plural to match `agents`, `entities`, `functions`, `secrets` and `workflows` — and because `base44 version` shadowed `base44 --version` two lines above it in `--help`.
 
