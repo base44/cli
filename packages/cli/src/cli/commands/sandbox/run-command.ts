@@ -3,7 +3,7 @@ import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
 import { getAppContext } from "@/core/project/index.js";
 import { runCommand } from "@/core/resources/sandbox/api.js";
-import { parsePositiveInt, toJsonStdout } from "./shared.js";
+import { CHECKPOINT_HELP, parsePositiveInt, toJsonStdout } from "./shared.js";
 
 interface RunCommandOptions {
   cwd?: string;
@@ -45,6 +45,8 @@ export function getSandboxRunCommandCommand(): Command {
     .addHelpText(
       "after",
       `
+A command that changes files needs a checkpoint too.${CHECKPOINT_HELP}
+
 Examples:
   $ base44 sandbox run "npm test"
   $ base44 sandbox run ls -la --cwd src`,

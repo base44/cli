@@ -3,7 +3,7 @@ import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
 import { getAppContext } from "@/core/project/index.js";
 import { writeFile } from "@/core/resources/sandbox/api.js";
-import { resolveFlagOrStdin, toJsonStdout } from "./shared.js";
+import { CHECKPOINT_HELP, resolveFlagOrStdin, toJsonStdout } from "./shared.js";
 
 interface WriteFileOptions {
   content?: string;
@@ -38,7 +38,8 @@ export function getSandboxWriteFileCommand(): Command {
     .option("--overwrite", "Overwrite the file if it already exists")
     .addHelpText(
       "after",
-      `
+      `${CHECKPOINT_HELP}
+
 Examples:
   $ echo "hello" | base44 sandbox write notes.txt
   $ base44 sandbox write notes.txt --content "hello" --overwrite`,

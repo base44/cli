@@ -6,7 +6,7 @@ import { InvalidInputError } from "@/core/errors.js";
 import { getAppContext } from "@/core/project/index.js";
 import { editFile } from "@/core/resources/sandbox/api.js";
 import type { EditSpec } from "@/core/resources/sandbox/schema.js";
-import { resolveFlagOrStdin, toJsonStdout } from "./shared.js";
+import { CHECKPOINT_HELP, resolveFlagOrStdin, toJsonStdout } from "./shared.js";
 
 interface EditFileOptions {
   editsJson?: string;
@@ -80,6 +80,7 @@ export function getSandboxEditFileCommand(): Command {
       "after",
       `
 Each edit is { "old_text": "...", "new_text": "...", "replace_all"?: true }.
+${CHECKPOINT_HELP}
 
 Examples:
   $ echo '[{"old_text":"foo","new_text":"bar"}]' | base44 sandbox edit src/x.ts
