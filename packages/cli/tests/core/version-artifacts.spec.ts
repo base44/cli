@@ -228,6 +228,9 @@ describe("collectSiteWorker", () => {
         absolutePath: join(distDir, "index.js"),
         size: 18,
         digest: sha256("export default {};"),
+        // Not a fact about the bytes: the same file is a string under `text`
+        // and an ArrayBuffer under `data`, so it rides beside the digest.
+        type: "esm",
       },
     ]);
   });
@@ -252,6 +255,43 @@ describe("collectSiteWorker", () => {
 
     expect(worker?.compatibilityDate).toBe("2026-01-01");
     expect(worker?.compatibilityFlags).toEqual(["nodejs_compat"]);
+  });
+
+  it("carries how Cloudflare is told to serve the files the worker owns", async () => {
+    // These decide whether the worker even runs for a request, so a version
+    // that dropped them would describe two different workers identically.
+    await writeFullStackBuild({
+      assets: {
+        directory: "./client",
+        run_worker_first: true,
+        not_found_handling: "single-page-application",
+        html_handling: "force-trailing-slash",
+      },
+    });
+
+    const worker = await collectSiteWorker(projectRoot);
+
+    expect(worker?.assetsConfig).toMatchObject({
+      runWorkerFirst: true,
+      notFoundHandling: "single-page-application",
+      htmlHandling: "force-trailing-slash",
+    });
+  });
+
+  it("states no setting when the config states none", async () => {
+    // The defaults apply, which is not the same claim as any particular value —
+    // so nothing is filled in with one.
+    await writeFullStackBuild();
+
+    const worker = await collectSiteWorker(projectRoot);
+
+    expect(worker?.assetsConfig).toEqual({
+      htmlHandling: undefined,
+      notFoundHandling: undefined,
+      runWorkerFirst: undefined,
+      headers: undefined,
+      redirects: undefined,
+    });
   });
 
   it("carries the files it serves, from its own assets directory", async () => {

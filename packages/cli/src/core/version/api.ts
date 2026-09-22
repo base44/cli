@@ -8,12 +8,14 @@ import {
   SchemaValidationError,
 } from "@/core/errors.js";
 import { putPresigned } from "@/core/site/upload.js";
+import type { ResolvedAssetsConfig } from "@/core/site/wrangler-config.js";
 import type {
   ArtifactFile,
   ArtifactSet,
   CreateVersionProgress,
   CreateVersionResponse,
   EnvironmentResponse,
+  WorkerModuleArtifact,
 } from "@/core/version/schema.js";
 import {
   CreateVersionResponseSchema,
@@ -30,6 +32,28 @@ export const MAX_VERSION_UPLOAD_CONCURRENCY = 16;
 
 function declaredFile({ path, size, digest }: ArtifactFile) {
   return { path, size, digest };
+}
+
+function declaredModule(module: WorkerModuleArtifact) {
+  return { ...declaredFile(module), type: module.type };
+}
+
+/**
+ * Wrangler's own `assets` block, back in its own snake_case.
+ *
+ * A config that states no setting collapses to `null`, the same as no config at
+ * all: a bare `assets: { directory }` and an absent block describe the identical
+ * Worker, and recording them apart would split one version into two.
+ */
+function declaredAssetsConfig(config: ResolvedAssetsConfig | null) {
+  const stated = {
+    html_handling: config?.htmlHandling ?? null,
+    not_found_handling: config?.notFoundHandling ?? null,
+    run_worker_first: config?.runWorkerFirst ?? null,
+    headers: config?.headers ?? null,
+    redirects: config?.redirects ?? null,
+  };
+  return Object.values(stated).every((v) => v === null) ? null : stated;
 }
 
 async function post(
@@ -90,10 +114,13 @@ export async function createVersion(
             ? {
                 site_worker: {
                   main: artifacts.siteWorker.main,
-                  modules: artifacts.siteWorker.modules.map(declaredFile),
+                  modules: artifacts.siteWorker.modules.map(declaredModule),
                   assets: artifacts.siteWorker.assets.map(declaredFile),
                   compatibility_date: artifacts.siteWorker.compatibilityDate,
                   compatibility_flags: artifacts.siteWorker.compatibilityFlags,
+                  assets_config: declaredAssetsConfig(
+                    artifacts.siteWorker.assetsConfig,
+                  ),
                 },
               }
             : {}),

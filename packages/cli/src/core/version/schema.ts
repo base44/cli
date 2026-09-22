@@ -1,4 +1,6 @@
 import { z } from "zod";
+import type { ModuleType } from "@/core/site/schema.js";
+import type { ResolvedAssetsConfig } from "@/core/site/wrangler-config.js";
 
 /**
  * A file the build produced. `digest` is a full sha256, signed into the upload
@@ -19,9 +21,19 @@ export interface ArtifactFile {
  * module is not `index.js` as an asset — and the settings are part of the
  * Worker's identity, not metadata.
  */
+export interface WorkerModuleArtifact extends ArtifactFile {
+  /**
+   * How the runtime hands this module to its importer. The SAME bytes are a
+   * string under `text` and an ArrayBuffer under `data`, so this is a setting
+   * rather than a fact about the file — which is why it travels beside the
+   * digest instead of being re-derived from the path.
+   */
+  type: ModuleType;
+}
+
 export interface SiteWorkerArtifact {
   main: string;
-  modules: ArtifactFile[];
+  modules: WorkerModuleArtifact[];
   /**
    * The files this Worker serves. Not `ArtifactSet.files`, which the platform
    * serves from S3 — past every route the Worker owns.
@@ -29,6 +41,12 @@ export interface SiteWorkerArtifact {
   assets: ArtifactFile[];
   compatibilityDate: string | null;
   compatibilityFlags: string[];
+  /**
+   * How Cloudflare serves the assets above. These decide whether the Worker
+   * even runs for a request, so two builds differing only here are different
+   * Workers and must not record as one.
+   */
+  assetsConfig: ResolvedAssetsConfig | null;
 }
 
 /** Everything one build produced, as the create-version call describes it. */

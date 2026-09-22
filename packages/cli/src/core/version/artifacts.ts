@@ -93,11 +93,14 @@ export async function collectSiteWorker(
     main,
     modules: await pMap(
       modules,
-      async ({ name, absolutePath, size }) => ({
+      async ({ name, absolutePath, size, type }) => ({
         path: name,
         absolutePath,
         size,
         digest: await digestFile(absolutePath),
+        // Carried, not re-derived: the rules that decided it are the wrangler
+        // config's, and a second guess from the extension would disagree.
+        type,
       }),
       { concurrency: HASH_CONCURRENCY },
     ),
@@ -107,6 +110,7 @@ export async function collectSiteWorker(
       : [],
     compatibilityDate: config.compatibilityDate,
     compatibilityFlags: config.compatibilityFlags,
+    assetsConfig: config.assetsConfig,
   };
 }
 
