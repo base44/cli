@@ -79,6 +79,11 @@ const KEYED_RETRY: RetryOptions = {
   limit: 3,
   methods: ["patch"],
   statusCodes: [408, 500, 502, 503, 504],
+  // The case the key exists for, and the one ky skips by default: our own
+  // deadline expiring says nothing about whether the server committed. HTTP 408
+  // above is the server reporting a timeout; this is the client giving up on a
+  // request that may well have landed.
+  retryOnTimeout: true,
 };
 
 async function patch(

@@ -1,19 +1,25 @@
+import ky from "ky";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setEnvironmentVersion } from "../../src/core/version/api.js";
 
-const mockPatch = vi.fn();
+/**
+ * A real ky client over a fake network, so these exercise ky's own retry loop
+ * rather than asserting the options we handed it. Configuration that reads
+ * correctly and retries nothing is exactly the bug under test.
+ */
+const fakeFetch = vi.fn();
 vi.mock("../../src/core/clients/index.js", async (importOriginal) => {
   const actual =
     await importOriginal<typeof import("../../src/core/clients/index.js")>();
   return {
     ...actual,
-    getAppClient: () => ({ patch: mockPatch }),
+    getAppClient: () =>
+      ky.create({
+        prefixUrl: "https://api.test/api/apps/app-1/",
+        fetch: (...args: unknown[]) => fakeFetch(...args),
+      }),
   };
 });
-
-function answered(body: unknown) {
-  return { json: async () => body };
-}
 
 const DEPLOYED = {
   name: "production",
@@ -22,42 +28,107 @@ const DEPLOYED = {
   deployment_id: "dep-1",
 };
 
+function committed(): Response {
+  return new Response(JSON.stringify(DEPLOYED), {
+    status: 200,
+    headers: { "content-type": "application/json" },
+  });
+}
+
+function unavailable(): Response {
+  return new Response("", { status: 503 });
+}
+
+/** What ky raises when OUR deadline expires — which says nothing about the server. */
+function clientTimeout(): Error {
+  const error = new Error("Request timed out");
+  error.name = "TimeoutError";
+  return error;
+}
+
+/** Read as each call is made: by assertion time the request body is consumed. */
+const bodiesSent: unknown[] = [];
+let plan: Array<() => Response | Error> = [];
+
+/** What the network answers, in order. The last entry answers every call after. */
+function answers(...entries: Array<() => Response | Error>): void {
+  plan = entries;
+}
+
 describe("setEnvironmentVersion", () => {
   beforeEach(() => {
-    mockPatch.mockReset();
-    mockPatch.mockResolvedValue(answered(DEPLOYED));
+    fakeFetch.mockReset();
+    bodiesSent.length = 0;
+    plan = [committed];
+    fakeFetch.mockImplementation(async (request: Request) => {
+      bodiesSent.push(await request.clone().json());
+      const answer = (plan.length > 1 ? plan.shift() : plan[0]) as () =>
+        | Response
+        | Error;
+      const result = answer();
+      if (result instanceof Error) {
+        throw result;
+      }
+      return result;
+    });
   });
 
-  it("retries the request when an idempotency key makes a repeat the same call", async () => {
-    // A lost response is otherwise a failed command over a publication the
-    // server already committed. The key is what turns a repeat into a replay:
-    // the server answers it with the deployment it already made.
+  it("replays a keyed deploy whose response never arrived", async () => {
+    // The case the key exists for: the server may well have committed, so the
+    // second attempt is answered from the publication it already made rather
+    // than making a second one.
+    answers(clientTimeout, committed);
+
+    const answer = await setEnvironmentVersion("production", "ver-1", {
+      idempotencyKey: "key-1",
+    });
+
+    expect(answer.deploymentId).toBe("dep-1");
+    expect(fakeFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("replays it with the same key, or the replay is a second publish", async () => {
+    answers(clientTimeout, committed);
+
     await setEnvironmentVersion("production", "ver-1", {
       idempotencyKey: "key-1",
     });
 
-    const [, options] = mockPatch.mock.calls[0];
-    expect(options.retry).toMatchObject({ limit: 3, methods: ["patch"] });
-  });
-
-  it("does not retry without one, because a repeat is a second publish", async () => {
-    // Which is exactly what a deliberate redeploy is — so retrying a keyless
-    // call would turn one dropped packet into two publications.
-    await setEnvironmentVersion("production", "ver-1");
-
-    const [, options] = mockPatch.mock.calls[0];
-    expect(options.retry).toBeUndefined();
-  });
-
-  it("sends the key so the server can recognise the replay", async () => {
-    await setEnvironmentVersion("production", "ver-1", {
-      idempotencyKey: "key-1",
-    });
-
-    const [, options] = mockPatch.mock.calls[0];
-    expect(options.json).toMatchObject({
+    expect(bodiesSent[0]).toEqual({
       version_id: "ver-1",
       idempotency_key: "key-1",
     });
+    expect(bodiesSent[1]).toEqual(bodiesSent[0]);
+  });
+
+  it("replays a keyed deploy the server failed to answer", async () => {
+    answers(unavailable, committed);
+
+    const answer = await setEnvironmentVersion("production", "ver-1", {
+      idempotencyKey: "key-1",
+    });
+
+    expect(answer.deploymentId).toBe("dep-1");
+    expect(fakeFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not replay without a key, because a repeat is a second publish", async () => {
+    // Which is exactly what a deliberate redeploy is — so a dropped packet must
+    // not quietly become two publications.
+    answers(clientTimeout);
+
+    await expect(
+      setEnvironmentVersion("production", "ver-1"),
+    ).rejects.toThrow();
+    expect(fakeFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("gives up rather than replaying forever", async () => {
+    answers(clientTimeout);
+
+    await expect(
+      setEnvironmentVersion("production", "ver-1", { idempotencyKey: "key-1" }),
+    ).rejects.toThrow();
+    expect(fakeFetch).toHaveBeenCalledTimes(4);
   });
 });
