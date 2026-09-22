@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { ApiError } from "@/core/errors.js";
-import { stepOf, tagStep } from "@/core/version/publish.js";
+import { ApiError, stepOf } from "@/core/errors.js";
+import { tagStep } from "@/core/version/publish.js";
 
 describe("which step a publish broke in", () => {
   it("carries the step out with the failure", async () => {

@@ -37,8 +37,7 @@ export interface AssetFile {
   absolutePath: string;
   hash: string;
   size: number;
-  /** Read by the cf arm only — the s3 arm echoes the type the server signed. */
-  contentType?: string;
+  contentType: string;
 }
 
 export interface AssetManifestResult {

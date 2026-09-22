@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { tagStep as tagError } from "@/core/errors.js";
 import { createVersion, setEnvironmentVersion } from "@/core/version/api.js";
 import type {
   ArtifactSet,
@@ -12,40 +13,18 @@ import type {
  */
 type PublishStep = "build" | "create_version" | "deploy";
 
-const STEP = Symbol.for("base44.publishStep");
-
 /** The environment a publish points at unless told otherwise. */
 export const DEFAULT_ENVIRONMENT = "production";
 
-/** Tag an error with its step without wrapping it, so the original type,
- * status and request id still reach the envelope. */
+/**
+ * {@link tagError}, narrowed to this command's vocabulary — the mechanism is
+ * shared error infrastructure, the three step names are publish's own.
+ */
 export async function tagStep<T>(
   step: PublishStep,
   run: () => Promise<T>,
 ): Promise<T> {
-  try {
-    // Awaited inside the try so a callback that throws SYNCHRONOUSLY is tagged
-    // too — `run().catch(...)` would let that one escape untagged.
-    return await run();
-  } catch (error) {
-    // `isExtensible` too: a library that freezes its errors would turn the
-    // tag into a TypeError and lose the original entirely.
-    if (
-      error !== null &&
-      typeof error === "object" &&
-      !(STEP in error) &&
-      Object.isExtensible(error)
-    ) {
-      Object.defineProperty(error, STEP, { value: step, enumerable: false });
-    }
-    throw error;
-  }
-}
-
-export function stepOf(error: unknown): PublishStep | undefined {
-  return error !== null && typeof error === "object" && STEP in error
-    ? (error as Record<symbol, PublishStep>)[STEP]
-    : undefined;
+  return await tagError(step, run);
 }
 
 interface PublishResult {

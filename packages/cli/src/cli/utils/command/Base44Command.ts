@@ -15,9 +15,13 @@ import {
   formatPlainUpgradeMessage,
   startUpgradeCheck,
 } from "@/cli/utils/upgradeNotification.js";
-import { ApiError, InvalidInputError, isCLIError } from "@/core/errors.js";
+import {
+  ApiError,
+  InvalidInputError,
+  isCLIError,
+  stepOf,
+} from "@/core/errors.js";
 import { resolveBranchName } from "@/core/resources/branch/api.js";
-import { stepOf } from "@/core/version/publish.js";
 
 /**
  * Write a command result to stdout as a single JSON document (the `--json`
