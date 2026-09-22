@@ -15,6 +15,7 @@ import {
 } from "@/cli/commands/code/session.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { type AppIdOptions, Base44Command } from "@/cli/utils/index.js";
+import { getBase44ApiUrl } from "@/core/config.js";
 import { InvalidInputError } from "@/core/errors.js";
 import { getAppContext, initAppContext } from "@/core/project/app-config.js";
 import {
@@ -76,7 +77,11 @@ async function bootstrapApp(
       turnIndex: number;
       ok: boolean;
     }) => {
-      if (turnIndex !== 0 || !ok || previewPushed) return;
+      // The sandbox may not serve yet after an early or failed turn: keep
+      // trying after each settled turn until the preview URL is known.
+      void turnIndex;
+      void ok;
+      if (previewPushed) return;
       const url = await getPreviewUrl().catch(() => undefined);
       if (url) {
         previewPushed = true;
@@ -120,11 +125,31 @@ async function codeAction(
     const { id, projectRoot } = getAppContext();
     const state = await assertBuilderApp(id);
     const branchId = await resolveActiveBranchId().catch(() => undefined);
+    const footer = [
+      chip(appTypeChip(state)),
+      ...(state.imported_repo_url
+        ? [terminalLink("repo", state.imported_repo_url)]
+        : []),
+      terminalLink("editor", `${getBase44ApiUrl()}/apps/${id}/editor/preview`),
+    ];
+    // The preview cold-starts the sandbox; fetch it in the background and pin
+    // it when it answers, and again after any turn if it was not up yet.
+    let previewPushed = false;
+    const pushPreview = async () => {
+      if (previewPushed) return;
+      const url = await getPreviewUrl().catch(() => undefined);
+      if (url && !previewPushed) {
+        previewPushed = true;
+        footer.push(terminalLink("preview", url));
+      }
+    };
+    void pushPreview();
     await runInteractiveSession({
       branchId,
-      footer: [chip(appTypeChip(state))],
+      footer,
       primeFirstPoll: true,
       idleHint: "what should the agent do next?",
+      onTurnSettled: pushPreview,
     });
     if (projectRoot) {
       log.message(chalk.dim(`app dir  ${projectRoot}`));

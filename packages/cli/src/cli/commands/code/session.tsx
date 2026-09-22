@@ -39,6 +39,7 @@ import {
   saveBuilderModel,
 } from "@/core/model.js";
 import {
+  getPreviewUrl,
   isGithubUserTokenError,
   startGithubReauth,
 } from "@/core/resources/apps/api.js";
@@ -340,6 +341,23 @@ function SessionView({ engine, footer, subscribe }: ViewProps) {
     if (next) setCard(openCard(next));
   }, [pending, card, pickerIndex]);
 
+  /** /preview prints the live preview URL (cold-starting the sandbox if
+   * needed); "/preview open" also opens it in the browser. */
+  const runPreviewSlash = async (openIt: boolean) => {
+    emit(chalk.dim("· resolving the preview URL…"));
+    try {
+      const url = await getPreviewUrl();
+      emit(`  ${chalk.dim("preview")} ${terminalLink(url, url)}`);
+      if (openIt) await open(url).catch(() => undefined);
+    } catch (error) {
+      emit(
+        chalk.red(
+          `  /preview: ${error instanceof Error ? error.message : String(error)}`,
+        ),
+      );
+    }
+  };
+
   useInput((char, key) => {
     // Model picker owns the keyboard while open: arrows move the selection,
     // Enter commits, Esc/Ctrl-C cancels. Swallow everything else so it doesn't
@@ -596,7 +614,12 @@ function SessionView({ engine, footer, subscribe }: ViewProps) {
                   return;
                 }
                 const trimmed = value.trim();
-                if (trimmed === "/model" || trimmed.startsWith("/model ")) {
+                if (trimmed === "/preview" || trimmed === "/preview open") {
+                  void runPreviewSlash(trimmed.endsWith(" open"));
+                } else if (
+                  trimmed === "/model" ||
+                  trimmed.startsWith("/model ")
+                ) {
                   runModelSlash(trimmed.slice("/model".length).trim());
                 } else if (trimmed) {
                   engine.submit(value);
@@ -626,7 +649,7 @@ function SessionView({ engine, footer, subscribe }: ViewProps) {
               ? `  ⏸ ${pending[0].title} — Tab to answer · Ctrl+C to exit`
               : engine.turnRunning()
                 ? "  Esc to stop · type to queue · scroll to read · Ctrl+O to expand · Ctrl+C to exit"
-                : "  Enter to send · /model to switch model · Esc for live · Ctrl+O to expand · Ctrl+C to exit"}
+                : "  Enter to send · /preview · /model · Esc for live · Ctrl+O to expand · Ctrl+C to exit"}
       </Text>
     </Box>
   );
