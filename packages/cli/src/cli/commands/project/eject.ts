@@ -171,10 +171,16 @@ async function eject(
       await runTask(
         "Installing dependencies...",
         async (updateMessage) => {
-          await execa({ cwd: resolvedPath, shell: true })`${site.installCommand}`;
+          await execa({
+            cwd: resolvedPath,
+            shell: true,
+          })`${site.installCommand}`;
 
           updateMessage("Building project...");
-          await execa({ cwd: resolvedPath, shell: true })`${site.buildCommand}`;
+          await execa({
+            cwd: resolvedPath,
+            shell: true,
+          })`${site.buildCommand}`;
         },
         {
           successMessage: theme.colors.base44Orange(
