@@ -12,6 +12,9 @@ import {
   collectSiteWorker,
 } from "@/core/version/artifacts.js";
 
+/** What `collectArtifacts` requires of the set the PLATFORM serves. */
+const ENTRY = "index.html";
+
 function sha256(content: string): string {
   return `sha256:${createHash("sha256").update(content).digest("hex")}`;
 }
@@ -92,21 +95,23 @@ describe("collectBuildOutput", () => {
     expect(new Set(files.map((f) => f.digest)).size).toBe(1201);
   }, 30_000);
 
-  it("refuses a set with no entry point", async () => {
+  it("refuses a set with no entry point when one is required", async () => {
     await rm(join(outputDir, "index.html"));
     await writeFile(join(outputDir, "app.js"), "console.log(1);");
 
-    await expect(collectBuildOutput(outputDir)).rejects.toThrow(
-      /no index\.html/,
-    );
+    await expect(
+      collectBuildOutput(outputDir, { entryFile: ENTRY }),
+    ).rejects.toThrow(/no index\.html/);
   });
 
-  it("refuses an empty output directory", async () => {
+  it("refuses an empty output directory when an entry is required", async () => {
+    // Only for the set the PLATFORM serves. A Worker's assets may be empty:
+    // the Worker answers every path itself.
     await rm(join(outputDir, "index.html"));
 
-    await expect(collectBuildOutput(outputDir)).rejects.toBeInstanceOf(
-      InvalidInputError,
-    );
+    await expect(
+      collectBuildOutput(outputDir, { entryFile: ENTRY }),
+    ).rejects.toBeInstanceOf(InvalidInputError);
   });
 });
 
@@ -334,17 +339,26 @@ describe("who serves the frontend decides what it must contain", () => {
   it("refuses a set with no entry when the platform is what serves", async () => {
     // Any unmatched path is answered with that one file, so without it there is
     // nothing to enter.
-    await expect(collectBuildOutput(outputDir)).rejects.toThrow(
-      InvalidInputError,
-    );
+    await expect(
+      collectBuildOutput(outputDir, { entryFile: ENTRY }),
+    ).rejects.toThrow(InvalidInputError);
   });
 
   it("accepts a set with no entry when a Worker serves", async () => {
     // A server-rendered app renders its own HTML, and the Worker's asset
     // settings decide what an unmatched path gets.
-    const files = await collectBuildOutput(outputDir, { requireEntry: false });
+    const files = await collectBuildOutput(outputDir);
 
     expect(files.map((f) => f.path)).toEqual(["app.js"]);
+  });
+
+  it("reads an existing but empty directory as an empty set", async () => {
+    // A Worker that answers every path itself is a complete app. Refusing here
+    // made it succeed with NO assets directory and fail with an empty one.
+    const empty = join(outputDir, "nothing");
+    await mkdir(empty, { recursive: true });
+
+    await expect(collectBuildOutput(empty)).resolves.toEqual([]);
   });
 });
 

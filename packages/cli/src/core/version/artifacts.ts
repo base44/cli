@@ -30,32 +30,42 @@ async function digestFile(absolutePath: string): Promise<string> {
   return `sha256:${hash.digest("hex")}`;
 }
 
-/** Every file a build emitted, addressed and hashed. */
+/**
+ * Every file a build emitted, addressed and hashed. An empty directory is an
+ * empty set, not an error: a Worker that answers every path itself is a complete
+ * app whose assets directory exists and holds nothing.
+ *
+ * `entryFile` is the caller saying this set must be ENTERABLE, which is one
+ * rule, not two — a set nothing can enter is as broken empty as it is without
+ * its entry, and the platform is what serves it.
+ */
 export async function collectBuildOutput(
   outputDir: string,
-  options: { requireEntry?: boolean } = {},
+  options: { entryFile?: string } = {},
 ): Promise<ArtifactFile[]> {
   const found = await describeBuildOutput(outputDir);
 
-  if (found.length === 0) {
-    throw new InvalidInputError(
-      `No files found in ${outputDir}. Build the site before creating a version.`,
-      {
-        hints: [
-          { message: "Run 'base44 build' first", command: "base44 build" },
-        ],
-      },
-    );
-  }
   if (found.length > MAX_FILE_COUNT) {
     throw new InvalidInputError(
       `Too many files: found ${found.length}, the limit is ${MAX_FILE_COUNT}.`,
     );
   }
-  if (options.requireEntry !== false && !found.some((f) => f.path === ENTRY)) {
-    throw new InvalidInputError(
-      `${outputDir} has no ${ENTRY}, so nothing could enter the site.`,
-    );
+  if (options.entryFile) {
+    if (found.length === 0) {
+      throw new InvalidInputError(
+        `No files found in ${outputDir}. Build the site before creating a version.`,
+        {
+          hints: [
+            { message: "Run 'base44 build' first", command: "base44 build" },
+          ],
+        },
+      );
+    }
+    if (!found.some((f) => f.path === options.entryFile)) {
+      throw new InvalidInputError(
+        `${outputDir} has no ${options.entryFile}, so nothing could enter the site.`,
+      );
+    }
   }
 
   // Bounded: an unbounded Promise.all hits EMFILE at ~1.5k open descriptors.
@@ -104,10 +114,9 @@ export async function collectSiteWorker(
       }),
       { concurrency: HASH_CONCURRENCY },
     ),
-    // No entry rule: the Worker's own asset settings answer an unmatched path.
-    assets: assetsDir
-      ? await collectBuildOutput(assetsDir, { requireEntry: false })
-      : [],
+    // No entry rule: the Worker's own asset settings answer an unmatched path,
+    // and a Worker that serves nothing is a complete app.
+    assets: assetsDir ? await collectBuildOutput(assetsDir) : [],
     compatibilityDate: config.compatibilityDate,
     compatibilityFlags: config.compatibilityFlags,
     assetsConfig: config.assetsConfig,
@@ -161,7 +170,11 @@ export async function collectArtifacts(
 ): Promise<ArtifactSet> {
   const siteWorker = await collectSiteWorker(target.root);
   return {
-    files: siteWorker ? [] : await collectBuildOutput(requireOutputDir(target)),
+    files: siteWorker
+      ? []
+      : await collectBuildOutput(requireOutputDir(target), {
+          entryFile: ENTRY,
+        }),
     ...(siteWorker ? { siteWorker } : {}),
     ...(await collectResources(target.configDir, target)),
   };

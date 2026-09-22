@@ -1,4 +1,4 @@
-import type { KyResponse } from "ky";
+import type { KyResponse, RetryOptions } from "ky";
 import pMap from "p-map";
 import type { ZodType } from "zod";
 import { getAppClient } from "@/core/clients/index.js";
@@ -68,13 +68,31 @@ async function post(
   }
 }
 
+/**
+ * Ky retries neither PATCH nor a POST by default, and rightly: a repeat is a
+ * second request unless something makes it the same one. An idempotency key is
+ * exactly that — the server answers a repeated key with the publication it
+ * already made — so retrying is only safe WITH one, and this is only ever
+ * passed then.
+ */
+const KEYED_RETRY: RetryOptions = {
+  limit: 3,
+  methods: ["patch"],
+  statusCodes: [408, 500, 502, 503, 504],
+};
+
 async function patch(
   path: string,
   json: unknown,
   doing: string,
+  retry?: RetryOptions,
 ): Promise<KyResponse> {
   try {
-    return await getAppClient().patch(path, { json, timeout: 180_000 });
+    return await getAppClient().patch(path, {
+      json,
+      timeout: 180_000,
+      ...(retry ? { retry } : {}),
+    });
   } catch (error) {
     throw await ApiError.fromHttpError(error, doing);
   }
@@ -209,6 +227,9 @@ export async function setEnvironmentVersion(
             : {}),
         },
         "setting the environment's version",
+        // Same body, same key, so a lost response is replayed into the answer
+        // the server already committed rather than reported as a failure.
+        options.idempotencyKey ? KEYED_RETRY : undefined,
       )
     ).json(),
     "environment",
