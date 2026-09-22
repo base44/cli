@@ -13,6 +13,25 @@ describe("install command", () => {
     expect(await t.readProjectFile("install-marker.txt")).toBe("installed");
   });
 
+  it("installs without a login", async () => {
+    // A build sandbox that has never logged in must still be able to install.
+    await t.givenProject(fixture("with-installable-site"));
+
+    const result = await t.run("install");
+
+    t.expectResult(result).toSucceed();
+    expect(await t.readProjectFile("install-marker.txt")).toBe("installed");
+  });
+
+  it("fails when the installCommand fails", async () => {
+    await t.givenLoggedInWithProject(fixture("with-failing-install"));
+
+    const result = await t.run("install");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("Install failed");
+  });
+
   it("fails when the project has no site block", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
 

@@ -1,0 +1,7 @@
+{
+  "name": "Hostname Serve Command Project",
+  "site": {
+    // Next spells it this way and exits on `--host`.
+    "devHostFlag": "--hostname"
+  }
+}

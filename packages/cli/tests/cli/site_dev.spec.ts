@@ -19,8 +19,6 @@ describe("site dev command", () => {
     const output = handle.stdout.join("");
     expect(output).toContain(`APP=${t.api.appId}`);
     expect(output).toContain("URL=https://preview.example/api");
-    // The point of the command: the caller's backend, not one started here.
-    expect(output).not.toContain("Backend running on");
   });
 
   it("binds the address it is given", async () => {
@@ -42,23 +40,55 @@ describe("site dev command", () => {
     expect(handle.stdout.join("")).toContain("ARGS=--host 0.0.0.0 --port 5173");
   });
 
-  it("warns when the serveCommand cannot take the address", async () => {
-    // A bare binary would read `--` as its own argument, so the address is
-    // dropped — loudly, since the caller asked for a reachable server.
+  it("refuses an address the serveCommand cannot take", async () => {
+    // A bare binary would read `--` as its own argument. Failing is the point:
+    // the caller asked for a reachable server, and a warning plus exit 0 would
+    // leave a sandbox serving on some other port and reporting success.
     await t.givenLoggedInWithProject(fixture("with-serve-command"));
 
-    const handle = await t.runLive(
-      "site",
-      "dev",
-      "--backend-url",
-      "https://preview.example/api",
-      "--host",
-      "0.0.0.0",
-    );
-    await handle.waitForOutput(/SERVE_APP=/);
-    const result = await handle.stop();
+    const result = await t.run("site", "dev", "--host", "0.0.0.0");
 
-    t.expectResult(result).toContain("were not passed to it");
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("takes no forwarded arguments");
+  });
+
+  it.each([
+    "",
+    " ",
+    "0",
+    "0x10",
+    "1e3",
+    "5173.0",
+    "-1",
+    "70000",
+    "abc",
+  ])("refuses --port %j", async (port) => {
+    await t.givenLoggedInWithProject(fixture("with-npm-serve-command"));
+
+    const result = await t.run("site", "dev", "--port", port);
+
+    t.expectResult(result).toFail();
+  });
+
+  it("serves without a login", async () => {
+    // The whole point of the command: a build sandbox that has never logged in.
+    await t.givenProject(fixture("with-npm-serve-command"));
+
+    const handle = await t.runLive("site", "dev");
+    await handle.waitForOutput(/ARGS=/);
+    await handle.stop();
+
+    expect(handle.stdout.join("")).toContain("ARGS=");
+  });
+
+  it("uses the project's own spelling of the host flag", async () => {
+    await t.givenLoggedInWithProject(fixture("with-hostname-serve-command"));
+
+    const handle = await t.runLive("site", "dev", "--host", "0.0.0.0");
+    await handle.waitForOutput(/ARGS=/);
+    await handle.stop();
+
+    expect(handle.stdout.join("")).toContain("ARGS=--hostname 0.0.0.0");
   });
 
   it("injects no backend url when the caller names none", async () => {

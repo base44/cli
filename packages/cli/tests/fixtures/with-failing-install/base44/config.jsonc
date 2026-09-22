@@ -1,0 +1,6 @@
+{
+  "name": "Failing Install Project",
+  "site": {
+    "installCommand": "node -e \"process.exit(1)\""
+  }
+}

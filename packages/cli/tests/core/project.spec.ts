@@ -31,7 +31,6 @@ describe("readProjectConfig", () => {
       outputDirectory: "site-output",
       buildCommand: "npm run build",
       installCommand: "npm install",
-      devHostFlag: "--host",
     });
   });
 
@@ -43,13 +42,14 @@ describe("readProjectConfig", () => {
     expect(result.project.site).toEqual({
       buildCommand: "npm run build",
       installCommand: "npm install",
-      devHostFlag: "--host",
     });
 
-    // Neither defaults: their absence says "no frontend to run here" and
-    // "nothing built to upload", which a default would erase.
+    // None of the three defaults. The first two say "no frontend to run here"
+    // and "nothing built to upload"; the third is a flag spelling only the
+    // command that needs it should assume.
     expect(result.project.site?.serveCommand).toBeUndefined();
     expect(result.project.site?.outputDirectory).toBeUndefined();
+    expect(result.project.site?.devHostFlag).toBeUndefined();
   });
 
   it("leaves a project with no site block without a site", async () => {

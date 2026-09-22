@@ -1,35 +1,45 @@
 import type { Command } from "commander";
+import { InvalidArgumentError } from "commander";
 import { createServeCommandRunner } from "@/cli/dev/serve-command-runner.js";
 import { stopRunnerOnProcessSignals } from "@/cli/dev/stop-runner-on-signals.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { type AppIdOptions, Base44Command, theme } from "@/cli/utils/index.js";
-import { InvalidInputError } from "@/core/errors.js";
+import { ConfigInvalidError, InvalidInputError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/project/index.js";
 import {
   DEFAULT_SERVE_COMMAND,
-  forwardsServeAddress,
   withServeAddress,
 } from "@/core/site/serve-command.js";
 
 interface SiteDevOptions extends AppIdOptions {
   backendUrl?: string;
   host?: string;
-  port?: string;
+  port?: number;
+}
+
+function parsePort(value: string): number {
+  // `Number()` is not port validation: it turns "", " ", "0x10" and "1e3" into
+  // numbers, and an empty string into 0 — a random port, silently.
+  if (!/^\d+$/.test(value)) {
+    throw new InvalidArgumentError("must be a whole number");
+  }
+  const port = Number(value);
+  if (port < 1 || port > 65535) {
+    throw new InvalidArgumentError("must be between 1 and 65535");
+  }
+  return port;
 }
 
 async function siteDevAction(
   ctx: CLIContext,
   options: SiteDevOptions,
 ): Promise<RunCommandResult> {
-  const { app, log } = ctx;
-  if (!app) {
-    throw new InvalidInputError("No app id resolved for this project.");
-  }
-
-  const port = options.port === undefined ? undefined : Number(options.port);
-  if (port !== undefined && !Number.isInteger(port)) {
-    throw new InvalidInputError(
-      `--port must be a whole number: ${options.port}`,
+  const { app } = ctx;
+  // Same shape as `base44 build`: the framework's own app-context step has
+  // already refused with actionable hints, so this is the type's guard.
+  if (!app?.projectRoot) {
+    throw new ConfigInvalidError(
+      "base44 site dev requires a linked local project. Run it from a project with base44/.app.jsonc.",
     );
   }
 
@@ -37,27 +47,24 @@ async function siteDevAction(
   const site = project.site;
   if (!site) {
     throw new InvalidInputError(
-      "This project has no 'site' block in base44/config.jsonc, so there is no frontend to serve. Add one; inside it serveCommand defaults to \"npm run dev\".",
+      "This project has no 'site' block in base44/config.jsonc, so there is no frontend to serve. Add one naming its serveCommand; site dev falls back to \"npm run dev\".",
     );
   }
 
   // Serving is this command's whole job, so an unnamed dev server is the
   // convention rather than "nothing to run".
   const serveCommand = site.serveCommand ?? DEFAULT_SERVE_COMMAND;
-  const command = withServeAddress(serveCommand, {
+  const { command, droppedAddress } = withServeAddress(serveCommand, {
     host: options.host,
-    port,
+    port: options.port,
     hostFlag: site.devHostFlag,
   });
-  // Said out loud rather than silently dropped: a caller that asked for an
-  // address and did not get one would otherwise find out from a preview that
-  // never loads.
-  if (
-    (options.host || port !== undefined) &&
-    !forwardsServeAddress(serveCommand)
-  ) {
-    log.warn(
-      `serveCommand '${serveCommand}' is not an 'npm run' invocation, so --host/--port were not passed to it. Put the address in serveCommand itself.`,
+  // An address that cannot be delivered is a failure, not a warning: the caller
+  // is usually a sandbox, and it would otherwise get a preview on some other
+  // port and a zero exit status saying everything worked.
+  if (droppedAddress) {
+    throw new InvalidInputError(
+      `serveCommand '${serveCommand}' takes no forwarded arguments, so --host/--port cannot be passed to it. Put the address in serveCommand itself, or use an 'npm run', 'pnpm', 'yarn' or 'bun run' script.`,
     );
   }
 
@@ -91,6 +98,6 @@ export function getSiteDevCommand(): Command {
       "Backend the frontend should call, injected as VITE_BASE44_APP_BASE_URL. Omit for a frontend that reaches its backend same-origin.",
     )
     .option("--host <address>", "Address to bind, e.g. 0.0.0.0")
-    .option("--port <number>", "Port to bind")
+    .option("--port <number>", "Port to bind", parsePort)
     .action(siteDevAction);
 }

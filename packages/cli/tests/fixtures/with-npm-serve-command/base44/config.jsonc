@@ -1,6 +1,7 @@
 {
   "name": "Npm Serve Command Project",
-  // Empty on purpose: serveCommand defaults to `npm run dev`, which is what
-  // forwards an address through `--`.
+  // Empty on purpose: `site dev` falls back to `npm run dev`, which is what
+  // forwards an address through `--`. The schema does not default it — an
+  // absent serveCommand is how `base44 dev` knows to run the backend alone.
   "site": {}
 }
