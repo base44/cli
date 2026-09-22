@@ -155,11 +155,12 @@ async function eject(
   );
 
   const { project } = await readProjectConfig(resolvedPath);
-  const installCommand = project.site?.installCommand;
-  const buildCommand = project.site?.buildCommand;
+  const site = project.site;
 
-  // Only offer deploy if the project has build commands configured
-  if (installCommand && buildCommand) {
+  // The commands default inside a `site` block, so `outputDirectory` is what says
+  // there is built output to upload. Without it `--yes` would install and build
+  // for a project with nothing to deploy.
+  if (site?.outputDirectory) {
     const shouldDeploy = options.yes
       ? true
       : await confirm({
@@ -170,10 +171,16 @@ async function eject(
       await runTask(
         "Installing dependencies...",
         async (updateMessage) => {
-          await execa({ cwd: resolvedPath, shell: true })`${installCommand}`;
+          await execa({
+            cwd: resolvedPath,
+            shell: true,
+          })`${site.installCommand}`;
 
           updateMessage("Building project...");
-          await execa({ cwd: resolvedPath, shell: true })`${buildCommand}`;
+          await execa({
+            cwd: resolvedPath,
+            shell: true,
+          })`${site.buildCommand}`;
         },
         {
           successMessage: theme.colors.base44Orange(
