@@ -8,11 +8,11 @@ import {
 } from "@/cli/commands/versions/options.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, requireApp, theme } from "@/cli/utils/index.js";
+import { resolveBuildTarget } from "@/core/project/index.js";
 import { resolveProvenanceCommit } from "@/core/site/index.js";
 import {
   collectArtifacts,
   publishVersion,
-  resolvePublishTarget,
   tagStep,
 } from "@/core/version/index.js";
 
@@ -38,7 +38,7 @@ async function publishAction(
   // Tagged: a config this command cannot read is a version it cannot produce,
   // the same reason `collectArtifacts` is tagged below.
   const target = await tagStep("create_version", () =>
-    resolvePublishTarget(app.projectRoot, { outputDir: options.outputDir }),
+    resolveBuildTarget(app.projectRoot, { outputDir: options.outputDir }),
   );
 
   if (options.build !== false) {

@@ -4,11 +4,11 @@ import { globby } from "globby";
 import pMap from "p-map";
 import { CONFIG_FILE_EXTENSION_GLOB } from "@/core/consts.js";
 import { InvalidInputError } from "@/core/errors.js";
+import type { BuildTarget } from "@/core/project/target.js";
+import { requireOutputDir } from "@/core/project/target.js";
 import { resolveFullStackBuild } from "@/core/site/full-stack.js";
 import { describeBuildOutput, hashFileInto } from "@/core/site/manifest.js";
 import { pathExists, readJsonFile } from "@/core/utils/fs.js";
-import type { PublishTarget } from "@/core/version/project.js";
-import { requireOutputDir } from "@/core/version/project.js";
 import type {
   ArtifactFile,
   ArtifactSet,
@@ -166,7 +166,7 @@ export async function collectResources(
  * a static bundle, which is the one thing the platform reads as "serve from S3".
  */
 export async function collectArtifacts(
-  target: PublishTarget,
+  target: BuildTarget,
 ): Promise<ArtifactSet> {
   const siteWorker = await collectSiteWorker(target.root);
   return {

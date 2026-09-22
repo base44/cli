@@ -10,12 +10,9 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SchemaValidationError } from "@/core/errors.js";
-import {
-  requireOutputDir,
-  resolvePublishTarget,
-} from "@/core/version/project.js";
+import { requireOutputDir, resolveBuildTarget } from "@/core/project/target.js";
 
-describe("resolvePublishTarget", () => {
+describe("resolveBuildTarget", () => {
   let root: string;
 
   beforeEach(async () => {
@@ -37,7 +34,7 @@ describe("resolvePublishTarget", () => {
   it("supplies a Builder repo's missing defaults", async () => {
     // Builder repos carry no CLI config at all, and `base44 build` used to throw
     // ConfigNotFoundError on one.
-    const target = await resolvePublishTarget(root);
+    const target = await resolveBuildTarget(root);
 
     expect(target).toEqual({
       root,
@@ -54,7 +51,7 @@ describe("resolvePublishTarget", () => {
     // the existing error still gets it. Only a wholly absent config is defaulted.
     await writeConfig({ name: "my-app" });
 
-    const target = await resolvePublishTarget(root, { outputDir: "dist" });
+    const target = await resolveBuildTarget(root, { outputDir: "dist" });
 
     expect(target.buildCommand).toBeUndefined();
   });
@@ -67,7 +64,7 @@ describe("resolvePublishTarget", () => {
       site: { buildCommand: "npm run build" },
     });
 
-    const target = await resolvePublishTarget(root);
+    const target = await resolveBuildTarget(root);
 
     expect(target.outputDir).toBeNull();
     expect(() => requireOutputDir(target)).toThrow(
@@ -79,7 +76,7 @@ describe("resolvePublishTarget", () => {
     // The sandbox used to overwrite base44/config.jsonc with a minimal one,
     // destroying any checked-in configuration — and, for a full-stack app, its
     // build command.
-    await resolvePublishTarget(root);
+    await resolveBuildTarget(root);
 
     expect(await readdir(root)).toEqual([]);
   });
@@ -92,7 +89,7 @@ describe("resolvePublishTarget", () => {
     await writeConfig(config);
     const before = await readFile(join(root, "base44", "config.jsonc"), "utf8");
 
-    const target = await resolvePublishTarget(root);
+    const target = await resolveBuildTarget(root);
 
     expect(await readFile(join(root, "base44", "config.jsonc"), "utf8")).toBe(
       before,
@@ -104,7 +101,7 @@ describe("resolvePublishTarget", () => {
   it("honors an explicit output directory over both", async () => {
     await writeConfig({ name: "my-app", site: { outputDirectory: "out" } });
 
-    const target = await resolvePublishTarget(root, { outputDir: "elsewhere" });
+    const target = await resolveBuildTarget(root, { outputDir: "elsewhere" });
 
     expect(target.outputDir).toBe(resolve(root, "elsewhere"));
   });
@@ -114,7 +111,7 @@ describe("resolvePublishTarget", () => {
     // typo becomes a version built the wrong way.
     await writeConfig({ site: { buildCommand: 42 } });
 
-    await expect(resolvePublishTarget(root)).rejects.toBeInstanceOf(
+    await expect(resolveBuildTarget(root)).rejects.toBeInstanceOf(
       SchemaValidationError,
     );
   });

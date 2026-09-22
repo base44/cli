@@ -8,7 +8,8 @@ import type { ProjectWithPaths } from "@/core/project/types.js";
 const DEFAULT_BUILD_COMMAND = "npm run build";
 const DEFAULT_OUTPUT_DIRECTORY = "dist";
 
-export interface PublishTarget {
+/** A project's resolved layout: where its build runs, and what it leaves behind. */
+export interface BuildTarget {
   root: string;
   /** Where `entitiesDir` and `agentsDir` are resolved from. */
   configDir: string;
@@ -23,17 +24,21 @@ export interface PublishTarget {
 }
 
 /**
- * Resolve where to build and what to publish, filling in what a Builder repo
- * does not carry — without writing a file. The sandbox used to overwrite
+ * Where to build, and what to collect afterwards — filling in what a Builder
+ * repo does not carry, without writing a file. The sandbox used to overwrite
  * `base44/config.jsonc` with a minimal one, destroying checked-in configuration.
+ *
+ * Here and not under `version/`: nothing it resolves is about a version. `build`
+ * needs the identical answer and is not a publish command, so a module that made
+ * it import the versions lane to ask would have the dependency backwards.
  *
  * Defaults apply only when there is no config at all: one that omits a field
  * said so deliberately, and still gets today's error.
  */
-export async function resolvePublishTarget(
+export async function resolveBuildTarget(
   projectRoot: string | undefined,
   overrides: { outputDir?: string } = {},
-): Promise<PublishTarget> {
+): Promise<BuildTarget> {
   const project = await readSettingsIfPresent(projectRoot);
   const root = project?.root ?? projectRoot ?? process.cwd();
 
@@ -62,7 +67,7 @@ function outputDirectory(
 
 /** The directory to collect a build from, or the error saying the project never
  * named one. */
-export function requireOutputDir(target: PublishTarget): string {
+export function requireOutputDir(target: BuildTarget): string {
   if (target.outputDir === null) {
     throw new ConfigNotFoundError("No site configuration found.", {
       hints: [

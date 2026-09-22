@@ -6,12 +6,9 @@ import {
 } from "@/cli/commands/versions/options.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, requireApp } from "@/cli/utils/index.js";
+import { resolveBuildTarget } from "@/core/project/index.js";
 import { resolveProvenanceCommit } from "@/core/site/index.js";
-import {
-  collectArtifacts,
-  createVersion,
-  resolvePublishTarget,
-} from "@/core/version/index.js";
+import { collectArtifacts, createVersion } from "@/core/version/index.js";
 
 interface CreateOptions {
   outputDir?: string;
@@ -25,7 +22,7 @@ async function createAction(
   options: CreateOptions,
 ): Promise<RunCommandResult> {
   const { runTask, jsonMode } = ctx;
-  const target = await resolvePublishTarget(requireApp(ctx).projectRoot, {
+  const target = await resolveBuildTarget(requireApp(ctx).projectRoot, {
     outputDir: options.outputDir,
   });
   const gitHash = await resolveProvenanceCommit(target.root, options.gitHash);
