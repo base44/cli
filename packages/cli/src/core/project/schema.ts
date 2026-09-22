@@ -12,11 +12,21 @@ export const TemplatesConfigSchema = z.object({
 });
 
 export type Template = z.infer<typeof TemplateSchema>;
+// Defaults are the conventions `base44 create` scaffolds, so a `site` block only
+// has to name what this project does differently. `site` itself stays optional:
+// a backend-only project omits it and has no site at all, which is what every
+// "is there a site?" check keys on.
+//
+// `serveCommand` is deliberately NOT defaulted. `base44 dev` reads its absence as
+// "this project has no frontend to run here" and runs the backend alone; with a
+// default it would spawn one for every site block, and a dev server that fails
+// immediately takes the backend down with it. Commands that exist only to serve a
+// frontend default it themselves, where the intent is unambiguous.
 const SiteConfigSchema = z.object({
-  buildCommand: z.string().optional(),
+  buildCommand: z.string().optional().default("npm run build"),
   serveCommand: z.string().optional(),
-  outputDirectory: z.string().optional(),
-  installCommand: z.string().optional(),
+  outputDirectory: z.string().optional().default("./dist"),
+  installCommand: z.string().optional().default("npm install"),
 });
 
 const PluginMetadataSchema = z.object({

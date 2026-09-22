@@ -23,6 +23,39 @@ describe("readProjectConfig", () => {
     expect(result.agents).toEqual([]);
   });
 
+  it("defaults the site commands a block does not name", async () => {
+    const result = await readProjectConfig(resolve(FIXTURES_DIR, "with-site"));
+
+    // The one field the fixture names survives; the rest come from the schema.
+    expect(result.project.site).toEqual({
+      outputDirectory: "site-output",
+      buildCommand: "npm run build",
+      installCommand: "npm install",
+    });
+  });
+
+  it("defaults every site command for an empty block", async () => {
+    const result = await readProjectConfig(
+      resolve(FIXTURES_DIR, "with-site-defaults"),
+    );
+
+    expect(result.project.site).toEqual({
+      outputDirectory: "./dist",
+      buildCommand: "npm run build",
+      installCommand: "npm install",
+    });
+
+    // Not defaulted: `base44 dev` runs the backend alone without one.
+    expect(result.project.site?.serveCommand).toBeUndefined();
+  });
+
+  it("leaves a project with no site block without a site", async () => {
+    // What every "is there a site?" check keys on — a backend-only project.
+    const result = await readProjectConfig(resolve(FIXTURES_DIR, "basic"));
+
+    expect(result.project.site).toBeUndefined();
+  });
+
   it("reads project with entities", async () => {
     const result = await readProjectConfig(
       resolve(FIXTURES_DIR, "with-entities"),

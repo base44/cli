@@ -122,7 +122,7 @@ const viaDeployments = deploymentsApiEnabled();
 ```
 
 - Gate on → the deployments API, see [deployments.md](deployments.md). Whether the build carries a worker changes what that flow sends, never which flow runs, and a worker brings its own assets directory — so the command may pass a null `outputDir`.
-- Gate off → the legacy tar.gz path: tar.gz `site.outputDirectory` and upload via `POST /api/apps/{app_id}/deploy-dist`. This is the flow that requires the config field, and the one that raises "No site configuration found."
+- Gate off → the legacy tar.gz path: tar.gz `site.outputDirectory` and upload via `POST /api/apps/{app_id}/deploy-dist`. This is the flow that requires the config field — it defaults to `./dist` inside a `site` block, so "No site configuration found." is raised only for a project with no block at all.
 
 Each flow validates its own inputs, so the decision itself is a boolean and needs nothing from the tree.
 

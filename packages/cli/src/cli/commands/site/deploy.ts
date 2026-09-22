@@ -126,7 +126,7 @@ async function deployTarball(
       hints: [
         {
           message:
-            'Add \'site.outputDirectory\' to your config.jsonc (e.g., "site": { "outputDirectory": "dist" })',
+            'Add a \'site\' block to your config.jsonc (e.g., "site": { "outputDirectory": "dist" }). Inside one, outputDirectory defaults to "./dist".',
         },
       ],
     });
