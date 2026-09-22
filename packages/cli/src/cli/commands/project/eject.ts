@@ -157,10 +157,9 @@ async function eject(
   const { project } = await readProjectConfig(resolvedPath);
   const site = project.site;
 
-  // The commands default inside a `site` block, so `outputDirectory` is what says
-  // there is built output to upload. Without it `--yes` would install and build
-  // for a project with nothing to deploy.
-  if (site?.outputDirectory) {
+  // Both commands default inside a `site` block, so having one is the whole
+  // condition: a backend-only project has nothing to build.
+  if (site) {
     const shouldDeploy = options.yes
       ? true
       : await confirm({
