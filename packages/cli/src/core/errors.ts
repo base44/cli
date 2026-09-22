@@ -288,6 +288,28 @@ export class DependencyNotFoundError extends UserError {
 // System Errors
 // ============================================================================
 
+/** Keeps an unparseable error body loggable without dumping a whole HTML page. */
+const MAX_RESPONSE_TEXT_CHARS = 500;
+
+/**
+ * The response body as text, for a response whose body would not parse as JSON.
+ * Reads a clone so the caller's own body stays unconsumed, and never throws —
+ * this runs on a path that is already reporting a failure.
+ */
+async function readResponseText(
+  response: Response,
+): Promise<string | undefined> {
+  try {
+    const text = (await response.clone().text()).trim();
+    if (!text) return undefined;
+    return text.length > MAX_RESPONSE_TEXT_CHARS
+      ? `${text.slice(0, MAX_RESPONSE_TEXT_CHARS)}…`
+      : text;
+  } catch {
+    return undefined;
+  }
+}
+
 interface ApiErrorOptions extends CLIErrorOptions {
   statusCode?: number;
   requestUrl?: string;
@@ -357,7 +379,18 @@ export class ApiError extends SystemError {
           details = parseErrorDetails(parsedData.extra_data);
         }
       } catch {
-        message = error.message;
+        // A non-JSON body is the one case where the server's own words are
+        // lost: ky's message names only the status and URL, so an opaque 403
+        // or 502 reads identically whoever emitted it. Keep the bytes (and,
+        // when there are none, the content type) — they identify the layer
+        // that answered, which JSON from our API would have named outright.
+        const body = await readResponseText(error.response);
+        responseBody = body;
+        message = body
+          ? `${error.message} — ${body}`
+          : `${error.message} — empty body, content-type ${
+              error.response.headers.get("content-type") ?? "absent"
+            }`;
       }
 
       const statusCode = ApiError.normalizeStatusCode(
