@@ -14,6 +14,7 @@
 
 ### Changed
 
+- The `site` block's two commands now default to the conventions `base44 create` scaffolds, so a block only has to name what a project does differently: `installCommand` `npm install` and `buildCommand` `npm run build`. `site` itself stays optional, and `serveCommand` and `outputDirectory` are deliberately not defaulted — their absence says "no frontend to run here" and "nothing built to upload", so `base44 dev` still runs the backend alone and `base44 deploy` still skips the site step. For a project that declared a partial block, `base44 build` and `deploy --build` now build it instead of refusing, and the deploy flow may offer to build first.
 - `base44 sandbox` help now explains that writes are committed but not checkpointed: a Restore or Revert in the builder rolls the app back to the last checkpoint and discards everything after it, so run `base44 sandbox checkpoint` after each unit of work and before stopping. The note appears on `sandbox`, `sandbox write`, `sandbox edit`, `sandbox run`, and `sandbox checkpoint`.
 - The `backend-and-client` template now scaffolds the same client convention editor-created apps use: `@base44/vite-plugin` + `src/lib/app-params.js`, with the SDK client on same-origin `/api` (`serverUrl: ''`). Under `base44 dev` the plugin proxies `/api` to the local dev backend, so scaffolded apps get local entities and functions; the app id is injected via `VITE_BASE44_APP_ID` by `base44 dev`, `base44 dev --remote`, and the build/deploy commands instead of being baked into source.
 

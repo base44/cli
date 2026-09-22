@@ -70,6 +70,18 @@ describe("deploy command (unified)", () => {
     t.expectResult(help).toNotContain("--concurrency");
   });
 
+  it("does not deploy a site for a block that never named an output directory", async () => {
+    // A defaulted command must never turn into an upload: `./dist` here would
+    // publish whatever happened to be built, or fail a deploy that used to pass.
+    await t.givenLoggedInWithProject(fixture("with-serve-command"));
+
+    const result = await t.run("deploy", "-y");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("No resources found to deploy");
+    t.expectResult(result).toNotContain("Site from");
+  });
+
   it("reports no resources when project is empty", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
 

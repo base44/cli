@@ -155,11 +155,11 @@ async function eject(
   );
 
   const { project } = await readProjectConfig(resolvedPath);
-  const installCommand = project.site?.installCommand;
-  const buildCommand = project.site?.buildCommand;
+  const site = project.site;
 
-  // Only offer deploy if the project has build commands configured
-  if (installCommand && buildCommand) {
+  // Both commands default inside a `site` block, so having one is the whole
+  // condition: a backend-only project has nothing to build.
+  if (site) {
     const shouldDeploy = options.yes
       ? true
       : await confirm({
@@ -170,10 +170,16 @@ async function eject(
       await runTask(
         "Installing dependencies...",
         async (updateMessage) => {
-          await execa({ cwd: resolvedPath, shell: true })`${installCommand}`;
+          await execa({
+            cwd: resolvedPath,
+            shell: true,
+          })`${site.installCommand}`;
 
           updateMessage("Building project...");
-          await execa({ cwd: resolvedPath, shell: true })`${buildCommand}`;
+          await execa({
+            cwd: resolvedPath,
+            shell: true,
+          })`${site.buildCommand}`;
         },
         {
           successMessage: theme.colors.base44Orange(
