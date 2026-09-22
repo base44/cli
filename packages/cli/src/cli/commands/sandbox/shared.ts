@@ -5,6 +5,12 @@ import { InvalidInputError } from "@/core/errors.js";
 // one implementation of the `--json` serializer.
 export { toJsonStdout } from "@/cli/utils/index.js";
 
+export const CHECKPOINT_HELP = `
+Writes are committed but not checkpointed. Only checkpoints appear in the
+builder's version history, and a Restore or Revert there rolls the app back to
+the last checkpoint and discards everything written after it. Run
+\`base44 sandbox checkpoint\` when you finish a unit of work and before you stop.`;
+
 /**
  * Resolve a payload that may come from a flag or piped stdin.
  * Returns the flag value when set, otherwise reads stdin (without trimming, so
