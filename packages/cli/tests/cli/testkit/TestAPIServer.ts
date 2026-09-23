@@ -252,6 +252,9 @@ interface DeploymentCreateResponse {
         }>;
       }
     | null;
+  /** True once the server stages index.html with the presigned PUTs, so
+   * finalize carries no file parts at all for a static build. */
+  index_html_staged?: boolean;
 }
 
 interface DeploymentFinalizeResponse {

@@ -15,11 +15,12 @@ const SESSION_ID = "3f9a1c07b8e44d2f";
 const SIGNED_CONTENT_TYPES: Record<string, string> = {
   "/main.js": "application/javascript",
   "/styles.css": "text/css",
+  "/index.html": "text/html",
 };
 
 /** Byte counts the server signs into the URLs (from the real fixture files). */
 const FIXTURE_SIZES: Record<string, number> = Object.fromEntries(
-  ["/main.js", "/styles.css"].map((path) => [
+  ["/main.js", "/styles.css", "/index.html"].map((path) => [
     path,
     readFileSync(join(fixture("with-site"), "site-output", path.slice(1)))
       .length,
@@ -36,10 +37,11 @@ describe("site deploy command (static site through the deployments API, env-gate
   const t = setupCLITests();
 
   /** The s3 create arm: presigned PUT targets for the requested paths. */
-  function mockStaticCreate(uploadPaths: string[]) {
+  function mockStaticCreate(uploadPaths: string[], indexHtmlStaged = false) {
     t.api.mockDeploymentCreate({
       deployment_id: DEPLOYMENT_ID,
       session_id: SESSION_ID,
+      ...(indexHtmlStaged ? { index_html_staged: true } : {}),
       asset_uploads:
         uploadPaths.length === 0
           ? null
@@ -299,5 +301,58 @@ describe("site deploy command (static site through the deployments API, env-gate
     expect(body.config?.main).toBe("index.js");
     expect(body.config?.compatibility_flags).toEqual(["nodejs_compat"]);
     expect(t.api.presignedUploadRequests).toHaveLength(0);
+  });
+});
+
+describe("site deploy — index.html staged through the presigned PUTs", () => {
+  const t = setupCLITests();
+
+  async function readSiteFile(name: string): Promise<Buffer> {
+    return await readFile(join(fixture("with-site"), "site-output", name));
+  }
+
+  function mockStagedCreate(uploadPaths: string[]) {
+    t.api.mockDeploymentCreate({
+      deployment_id: DEPLOYMENT_ID,
+      session_id: SESSION_ID,
+      index_html_staged: true,
+      asset_uploads: {
+        type: "s3" as const,
+        uploads: uploadPaths.map((path) => ({
+          path,
+          content_type: `${SIGNED_CONTENT_TYPES[path]}; charset=utf-8`,
+          content_length: FIXTURE_SIZES[path],
+          url: `${t.api.baseUrl}/presigned${path}`,
+        })),
+      },
+    });
+    for (const path of uploadPaths) {
+      t.api.mockPresignedUpload(path);
+    }
+  }
+
+  it("PUTs index.html with the other assets and finalizes with an empty form", async () => {
+    await t.givenLoggedInWithProject(fixture("with-site"));
+    t.givenEnv({ BASE44_DEPLOYMENTS_API: "1" });
+    mockStagedCreate(["/index.html", "/main.js", "/styles.css"]);
+    t.api.mockDeploymentFinalize({ deployment_id: DEPLOYMENT_ID });
+
+    const result = await t.run("site", "deploy", "-y", "--git-hash", GIT_HASH);
+
+    t.expectResult(result).toSucceed();
+
+    // The entry point goes up the same way as every other asset — the server
+    // signed it to a staging key, so nothing here has to know that.
+    const byPath = new Map(
+      t.api.presignedUploadRequests.map((r) => [r.path, r]),
+    );
+    const index = byPath.get("/index.html");
+    expect(index?.data.equals(await readSiteFile("index.html"))).toBe(true);
+    expect(index?.authorization).toBeUndefined();
+
+    // The point of the change: no user-authored HTML in a request body of ours.
+    expect(t.api.finalizeRequests).toHaveLength(1);
+    expect(t.api.finalizeRequests[0]).toEqual([]);
+    expect(t.api.finalizeQueries[0]).toEqual({ session_id: SESSION_ID });
   });
 });
