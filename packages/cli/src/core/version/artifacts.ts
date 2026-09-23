@@ -124,7 +124,8 @@ async function describeSiteWorker(
     ),
     compatibilityDate: config.compatibilityDate,
     compatibilityFlags: config.compatibilityFlags,
-    assetsConfig: config.assetsConfig,
+    // Read from wrangler's `assets` block, recorded under what it decides.
+    servingConfig: config.assetsConfig,
   };
 }
 

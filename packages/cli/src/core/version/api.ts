@@ -39,13 +39,14 @@ function declaredModule(module: WorkerModuleArtifact) {
 }
 
 /**
- * Wrangler's own `assets` block, back in its own snake_case.
+ * Wrangler's own `assets` block, back in its own snake_case. The FIELDS are
+ * theirs; what contains them is ours, named for what it decides.
  *
  * A config that states no setting collapses to `null`, the same as no config at
  * all: a bare `assets: { directory }` and an absent block describe the identical
  * Worker, and recording them apart would split one version into two.
  */
-function declaredAssetsConfig(config: ResolvedAssetsConfig | null) {
+function declaredServingConfig(config: ResolvedAssetsConfig | null) {
   const stated = {
     html_handling: config?.htmlHandling ?? null,
     not_found_handling: config?.notFoundHandling ?? null,
@@ -140,8 +141,8 @@ export async function createVersion(
                   modules: artifacts.siteWorker.modules.map(declaredModule),
                   compatibility_date: artifacts.siteWorker.compatibilityDate,
                   compatibility_flags: artifacts.siteWorker.compatibilityFlags,
-                  assets_config: declaredAssetsConfig(
-                    artifacts.siteWorker.assetsConfig,
+                  serving_config: declaredServingConfig(
+                    artifacts.siteWorker.servingConfig,
                   ),
                 },
               }

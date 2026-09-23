@@ -273,7 +273,7 @@ describe("collectSiteWorker", () => {
 
     const worker = await collectSiteWorker(projectRoot);
 
-    expect(worker?.assetsConfig).toMatchObject({
+    expect(worker?.servingConfig).toMatchObject({
       runWorkerFirst: true,
       notFoundHandling: "single-page-application",
       htmlHandling: "force-trailing-slash",
@@ -287,7 +287,7 @@ describe("collectSiteWorker", () => {
 
     const worker = await collectSiteWorker(projectRoot);
 
-    expect(worker?.assetsConfig).toEqual({
+    expect(worker?.servingConfig).toEqual({
       htmlHandling: undefined,
       notFoundHandling: undefined,
       runWorkerFirst: undefined,

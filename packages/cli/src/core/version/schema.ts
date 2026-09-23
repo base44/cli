@@ -39,11 +39,12 @@ export interface SiteWorkerArtifact {
   compatibilityDate: string | null;
   compatibilityFlags: string[];
   /**
-   * How Cloudflare serves the set's assets. These decide whether the Worker
-   * even runs for a request, so two builds differing only here are different
-   * Workers and must not record as one.
+   * What happens to a request before this Worker runs — whether it runs at all,
+   * which asset a path resolves to, what a miss gets. Not the assets' config and
+   * not the Worker's: it decides how the two are routed between. Two builds
+   * differing only here are different Workers and must not record as one.
    */
-  assetsConfig: ResolvedAssetsConfig | null;
+  servingConfig: ResolvedAssetsConfig | null;
 }
 
 /** Everything one build produced, as the create-version call describes it. */
