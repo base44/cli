@@ -5,11 +5,13 @@ import { getSandboxGrepCommand } from "./grep.js";
 import { getSandboxListDirectoryCommand } from "./list-directory.js";
 import { getSandboxReadFileCommand } from "./read-file.js";
 import { getSandboxRunCommandCommand } from "./run-command.js";
+import { CHECKPOINT_HELP } from "./shared.js";
 import { getSandboxWriteFileCommand } from "./write-file.js";
 
 export function getSandboxCommand(): Command {
   return new Command("sandbox")
     .description("Develop an app remotely via its server-side sandbox")
+    .addHelpText("after", CHECKPOINT_HELP)
     .addCommand(getSandboxListDirectoryCommand())
     .addCommand(getSandboxReadFileCommand())
     .addCommand(getSandboxWriteFileCommand())

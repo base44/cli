@@ -147,6 +147,9 @@ export const CreateDeploymentResponseSchema = z
       ])
       .nullable()
       .optional(),
+    // Absent on a server predating staged entry points, where finalize is still
+    // the only thing that writes index.html.
+    index_html_staged: z.boolean().optional().default(false),
   })
   .transform(
     (
@@ -155,9 +158,11 @@ export const CreateDeploymentResponseSchema = z
       deploymentId: string;
       sessionId: string;
       assetUploads: CfAssetUploads | S3AssetUploads | null;
+      indexHtmlStaged: boolean;
     } => ({
       deploymentId: data.deployment_id,
       sessionId: data.session_id,
+      indexHtmlStaged: data.index_html_staged,
       assetUploads:
         data.asset_uploads == null
           ? null
