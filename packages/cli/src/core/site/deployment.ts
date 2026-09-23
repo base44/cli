@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { InvalidInputError } from "@/core/errors.js";
 import { getAppContext } from "@/core/project/app-config.js";
 import { pathExists } from "@/core/utils/fs.js";
+import type { FinalizePayload } from "./api.js";
 import { createDeployment, finalizeDeployment } from "./api.js";
 import { buildAssetManifest } from "./manifest.js";
 import { collectModules } from "./modules.js";
@@ -27,9 +28,6 @@ interface WorkerBuild {
   /** The worker's own assets directory, which supersedes site.outputDirectory. */
   assetsDir: string | null;
 }
-
-/** What completes the deployment at finalize. */
-type Completion = { modules: WorkerModule[] } | { indexHtml: Uint8Array };
 
 const NO_ASSETS: AssetManifestResult = { manifest: {}, filesByHash: new Map() };
 
@@ -81,11 +79,11 @@ export async function deployToDeployments(options: {
     ? await buildAssetManifest(assetsDir, getAppContext().id)
     : NO_ASSETS;
 
-  // Resolved before the create call so a build that cannot be completed fails
-  // before any upload work.
-  const completion: Completion = worker
-    ? { modules: worker.modules }
-    : { indexHtml: await readIndexHtml(assetsDir, assets) };
+  // Checked before the create call so a build that cannot be completed fails
+  // before any upload work — the bytes are only read if finalize carries them.
+  if (!worker) {
+    requireStaticEntryPoint(assetsDir, assets);
+  }
 
   const created = await createDeployment({
     git_hash: gitHash,
@@ -99,13 +97,17 @@ export async function deployToDeployments(options: {
     { concurrency, progress },
   );
 
-  if ("modules" in completion) {
+  const completion: FinalizePayload = worker
+    ? { kind: "worker", modules: worker.modules, completionJwt }
+    : await resolveStaticCompletion(assetsDir, assets, created.indexHtmlStaged);
+
+  if (completion.kind === "worker") {
     progress?.onWorker?.({ moduleCount: completion.modules.length });
   }
   const finalized = await finalizeDeployment(
     created.deploymentId,
     created.sessionId,
-    "modules" in completion ? { ...completion, completionJwt } : completion,
+    completion,
   );
 
   return { deploymentId: finalized.deploymentId, gitHash };
@@ -140,20 +142,38 @@ async function resolveWorkerBuild(
 }
 
 /**
- * Finalize carries these bytes by contract when no worker completes the
- * deployment, so a build with no index.html at its root is broken — or the
- * configured outputDirectory points at the wrong place.
+ * A static build is addressed by its entry point, so one without an index.html
+ * at its root is broken — or the configured outputDirectory points at the wrong
+ * place. Checked against the manifest, which is already built.
  */
-async function readIndexHtml(
+function requireStaticEntryPoint(
   assetsDir: string | null,
   assets: AssetManifestResult,
-): Promise<Uint8Array> {
+): string {
   if (!assetsDir || !assets.manifest["/index.html"]) {
     throw new InvalidInputError(
       `No index.html found in "${assetsDir ?? "the site output directory"}" — a static site needs one at the output directory root.`,
     );
   }
-  return new Uint8Array(await readFile(join(assetsDir, "index.html")));
+  return assetsDir;
+}
+
+/**
+ * How a static build completes. A current server stages the entry point with
+ * the other presigned uploads and copies it in, so finalize sends nothing;
+ * older ones still expect the bytes in the request body.
+ */
+async function resolveStaticCompletion(
+  assetsDir: string | null,
+  assets: AssetManifestResult,
+  indexHtmlStaged: boolean,
+): Promise<FinalizePayload> {
+  if (indexHtmlStaged) return { kind: "static-staged" };
+  const dir = requireStaticEntryPoint(assetsDir, assets);
+  return {
+    kind: "static-inline",
+    indexHtml: new Uint8Array(await readFile(join(dir, "index.html"))),
+  };
 }
 
 /**

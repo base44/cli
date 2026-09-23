@@ -88,14 +88,15 @@ export async function createDeployment(
 }
 
 /**
- * What completes a deployment — the one thing the two kinds of build send
- * differently. A build that produced a worker completes with its modules and
- * the asset completion token; a plain static build completes with the
- * `index.html` sentinel, which is the whole form and carries no payload part.
+ * What completes a deployment. A worker build sends its modules and the asset
+ * completion token. A static build sends nothing at all against a current
+ * server — its entry point went up through the presigned PUTs and finalize
+ * copies it into place — and the `index.html` bytes against an older one.
  */
-type FinalizePayload =
-  | { modules: WorkerModule[]; completionJwt: string | null }
-  | { indexHtml: Uint8Array };
+export type FinalizePayload =
+  | { kind: "worker"; modules: WorkerModule[]; completionJwt: string | null }
+  | { kind: "static-inline"; indexHtml: Uint8Array }
+  | { kind: "static-staged" };
 
 export async function finalizeDeployment(
   deploymentId: string,
@@ -104,12 +105,12 @@ export async function finalizeDeployment(
 ): Promise<FinalizeDeploymentResponse> {
   const formData = new FormData();
 
-  if ("indexHtml" in payload) {
+  if (payload.kind === "static-inline") {
     formData.append(
       "index.html",
       new File([payload.indexHtml], "index.html", { type: "text/html" }),
     );
-  } else {
+  } else if (payload.kind === "worker") {
     formData.append(
       "payload",
       JSON.stringify({ completion_jwt: payload.completionJwt }),
