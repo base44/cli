@@ -20,6 +20,7 @@
 
 ### Fixed
 
+- The `backend-and-client` template names its entity file `Task.jsonc`, matching the entity's `name`; the Base44 platform derives the entity from the filename, so `task.jsonc` read as a second entity.
 - `base44 link` now lists editor-created apps; previously only apps created by the CLI could be linked.
 
 ## [0.0.51] - 2026-04-28
