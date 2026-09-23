@@ -33,6 +33,11 @@ const SiteConfigSchema = z.object({
   // not configurable — every one of them spells it `--port`. Undefaulted for the
   // same reason as the two above: `site dev` supplies the fallback.
   devHostFlag: z.string().optional(),
+  // Where `site dev` binds. Undefaulted here for the same reason as the fields
+  // above: the one command that reads them supplies the fallback, so a project
+  // that says nothing is distinguishable from one that chose these values.
+  devHost: z.string().optional(),
+  devPort: z.number().int().min(1).max(65535).optional(),
 });
 
 const PluginMetadataSchema = z.object({

@@ -7,6 +7,8 @@ import { type AppIdOptions, Base44Command, theme } from "@/cli/utils/index.js";
 import { ConfigInvalidError, InvalidInputError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/project/index.js";
 import {
+  DEFAULT_DEV_HOST,
+  DEFAULT_DEV_PORT,
   DEFAULT_SERVE_COMMAND,
   withServeAddress,
 } from "@/core/site/serve-command.js";
@@ -51,12 +53,13 @@ async function siteDevAction(
     );
   }
 
-  // Serving is this command's whole job, so an unnamed dev server is the
-  // convention rather than "nothing to run".
+  // Serving is this command's whole job, so an unnamed dev server, and an
+  // unnamed address, are conventions rather than "nothing to run". A caller that
+  // wants none of these decisions can run `base44 site dev` with no arguments.
   const serveCommand = site.serveCommand ?? DEFAULT_SERVE_COMMAND;
   const { command, droppedAddress } = withServeAddress(serveCommand, {
-    host: options.host,
-    port: options.port,
+    host: options.host ?? site.devHost ?? DEFAULT_DEV_HOST,
+    port: options.port ?? site.devPort ?? DEFAULT_DEV_PORT,
     hostFlag: site.devHostFlag,
   });
   // An address that cannot be delivered is a failure, not a warning: the caller
@@ -64,7 +67,7 @@ async function siteDevAction(
   // port and a zero exit status saying everything worked.
   if (droppedAddress) {
     throw new InvalidInputError(
-      `serveCommand '${serveCommand}' takes no forwarded arguments, so --host/--port cannot be passed to it. Put the address in serveCommand itself, or use an 'npm run', 'pnpm', 'yarn' or 'bun run' script.`,
+      `serveCommand '${serveCommand}' takes no forwarded arguments, so the bind address cannot be passed to it. Bind it inside serveCommand itself, or use an 'npm run', 'pnpm', 'yarn' or 'bun run' script.`,
     );
   }
 
@@ -97,7 +100,14 @@ export function getSiteDevCommand(): Command {
       "--backend-url <url>",
       "Backend the frontend should call, injected as VITE_BASE44_APP_BASE_URL. Omit for a frontend that reaches its backend same-origin.",
     )
-    .option("--host <address>", "Address to bind, e.g. 0.0.0.0")
-    .option("--port <number>", "Port to bind", parsePort)
+    .option(
+      "--host <address>",
+      `Address to bind (default: site.devHost, else ${DEFAULT_DEV_HOST})`,
+    )
+    .option(
+      "--port <number>",
+      `Port to bind (default: site.devPort, else ${DEFAULT_DEV_PORT})`,
+      parsePort,
+    )
     .action(siteDevAction);
 }

@@ -1,0 +1,8 @@
+{
+  "name": "Dev Address Project",
+  "site": {
+    // A project that wants to bind somewhere other than the sandbox convention.
+    "devHost": "127.0.0.1",
+    "devPort": 4321
+  }
+}

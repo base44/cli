@@ -21,6 +21,42 @@ describe("site dev command", () => {
     expect(output).toContain("URL=https://preview.example/api");
   });
 
+  it("binds the sandbox convention when nothing names an address", async () => {
+    // The point of the defaults: apper runs `base44 site dev` with no arguments
+    // and no knowledge of what they would have been.
+    await t.givenLoggedInWithProject(fixture("with-npm-serve-command"));
+
+    const handle = await t.runLive("site", "dev");
+    await handle.waitForOutput(/ARGS=/);
+    await handle.stop();
+
+    expect(handle.stdout.join("")).toContain("ARGS=--host 0.0.0.0 --port 5173");
+  });
+
+  it("lets the project name its own address", async () => {
+    await t.givenLoggedInWithProject(fixture("with-dev-address"));
+
+    const handle = await t.runLive("site", "dev");
+    await handle.waitForOutput(/ARGS=/);
+    await handle.stop();
+
+    expect(handle.stdout.join("")).toContain(
+      "ARGS=--host 127.0.0.1 --port 4321",
+    );
+  });
+
+  it("lets a flag override what the project named", async () => {
+    await t.givenLoggedInWithProject(fixture("with-dev-address"));
+
+    const handle = await t.runLive("site", "dev", "--port", "5999");
+    await handle.waitForOutput(/ARGS=/);
+    await handle.stop();
+
+    expect(handle.stdout.join("")).toContain(
+      "ARGS=--host 127.0.0.1 --port 5999",
+    );
+  });
+
   it("binds the address it is given", async () => {
     await t.givenLoggedInWithProject(fixture("with-npm-serve-command"));
 
@@ -46,7 +82,7 @@ describe("site dev command", () => {
     // leave a sandbox serving on some other port and reporting success.
     await t.givenLoggedInWithProject(fixture("with-serve-command"));
 
-    const result = await t.run("site", "dev", "--host", "0.0.0.0");
+    const result = await t.run("site", "dev");
 
     t.expectResult(result).toFail();
     t.expectResult(result).toContain("takes no forwarded arguments");
