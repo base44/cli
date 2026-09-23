@@ -83,7 +83,9 @@ describe("site dev command", () => {
     await handle.waitForOutput(/ARGS=/);
     await handle.stop();
 
-    expect(handle.stdout.join("")).toContain("ARGS=--hostname 0.0.0.0 --port 5173");
+    expect(handle.stdout.join("")).toContain(
+      "ARGS=--hostname 0.0.0.0 --port 5173",
+    );
   });
 
   it("injects no backend url when the caller names none", async () => {
