@@ -33,28 +33,14 @@ describe("site dev command", () => {
     expect(handle.stdout.join("")).toContain("ARGS=--host 0.0.0.0 --port 5173");
   });
 
-  it("lets the project name its own address", async () => {
-    await t.givenLoggedInWithProject(fixture("with-dev-address"));
-
-    const handle = await t.runLive("site", "dev");
-    await handle.waitForOutput(/ARGS=/);
-    await handle.stop();
-
-    expect(handle.stdout.join("")).toContain(
-      "ARGS=--host 127.0.0.1 --port 4321",
-    );
-  });
-
-  it("lets a flag override what the project named", async () => {
-    await t.givenLoggedInWithProject(fixture("with-dev-address"));
+  it("lets a flag override the default", async () => {
+    await t.givenLoggedInWithProject(fixture("with-npm-serve-command"));
 
     const handle = await t.runLive("site", "dev", "--port", "5999");
     await handle.waitForOutput(/ARGS=/);
     await handle.stop();
 
-    expect(handle.stdout.join("")).toContain(
-      "ARGS=--host 127.0.0.1 --port 5999",
-    );
+    expect(handle.stdout.join("")).toContain("ARGS=--host 0.0.0.0 --port 5999");
   });
 
   it("binds the address it is given", async () => {

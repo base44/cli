@@ -17,6 +17,16 @@ interface SiteDevOptions extends AppIdOptions {
   port?: number;
 }
 
+/**
+ * Where this command binds when the caller says nothing. `0.0.0.0` because the
+ * command exists for a hosted sandbox, whose preview is reached from outside the
+ * container, so loopback would make it unreachable. Not config: no project has a
+ * say in which address a given run should listen on, and a sandbox that needs
+ * something else can pass a flag.
+ */
+const DEFAULT_DEV_HOST = "0.0.0.0";
+const DEFAULT_DEV_PORT = 5173;
+
 function parsePort(value: string): number {
   // `Number()` is not port validation: it turns "", " ", "0x10" and "1e3" into
   // numbers, and an empty string into 0 — a random port, silently.
@@ -56,8 +66,8 @@ async function siteDevAction(
   // wants none of these decisions can run `base44 site dev` with no arguments.
   const serveCommand = site.serveCommand ?? DEFAULT_SERVE_COMMAND;
   const { command, droppedAddress } = withServeAddress(serveCommand, {
-    host: options.host ?? site.devHost,
-    port: options.port ?? site.devPort,
+    host: options.host ?? DEFAULT_DEV_HOST,
+    port: options.port ?? DEFAULT_DEV_PORT,
     hostFlag: site.devHostFlag,
   });
   // An address that cannot be delivered is a failure, not a warning: the caller
@@ -98,11 +108,7 @@ export function getSiteDevCommand(): Command {
       "--backend-url <url>",
       "Backend the frontend should call, injected as VITE_BASE44_APP_BASE_URL. Omit for a frontend that reaches its backend same-origin.",
     )
-    .option("--host <address>", "Address to bind, overriding site.devHost")
-    .option(
-      "--port <number>",
-      "Port to bind, overriding site.devPort",
-      parsePort,
-    )
+    .option("--host <address>", "Address to bind (default: 0.0.0.0)")
+    .option("--port <number>", "Port to bind (default: 5173)", parsePort)
     .action(siteDevAction);
 }
