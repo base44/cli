@@ -31,6 +31,9 @@ describe("readProjectConfig", () => {
       outputDirectory: "site-output",
       buildCommand: "npm run build",
       installCommand: "npm install",
+      devHostFlag: "--host",
+      devHost: "0.0.0.0",
+      devPort: 5173,
     });
   });
 
@@ -42,14 +45,16 @@ describe("readProjectConfig", () => {
     expect(result.project.site).toEqual({
       buildCommand: "npm run build",
       installCommand: "npm install",
+      devHostFlag: "--host",
+      devHost: "0.0.0.0",
+      devPort: 5173,
     });
 
-    // None of the three defaults. The first two say "no frontend to run here"
-    // and "nothing built to upload"; the third is a flag spelling only the
-    // command that needs it should assume.
+    // These two never default: their absence answers a question a reader asks.
+    // `base44 dev` reads the first as "no frontend to run here" and `deploy`
+    // reads the second as "nothing built to upload".
     expect(result.project.site?.serveCommand).toBeUndefined();
     expect(result.project.site?.outputDirectory).toBeUndefined();
-    expect(result.project.site?.devHostFlag).toBeUndefined();
   });
 
   it("leaves a project with no site block without a site", async () => {

@@ -39,12 +39,6 @@ describe("withServeAddress", () => {
     ).toBe("npm run dev -- --hostname 0.0.0.0");
   });
 
-  it("falls back to --host when the project names no spelling", () => {
-    expect(withServeAddress("npm run dev", { host: "0.0.0.0" }).command).toBe(
-      "npm run dev -- --host 0.0.0.0",
-    );
-  });
-
   it("appends a prefixed npm script too", () => {
     expect(
       withServeAddress("npm --prefix site run dev", {
