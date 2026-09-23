@@ -8,7 +8,7 @@ A simple todo list app built with React and Base44 backend.
 base44/               # Backend configuration
 ├── config.jsonc      # Project settings
 └── entities/         # Data schemas
-    └── task.jsonc    # Task entity
+    └── Task.jsonc    # Task entity
 
 src/                  # Frontend code
 ├── App.jsx           # Main todo app
