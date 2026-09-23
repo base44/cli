@@ -1,0 +1,7 @@
+{
+  "name": "dev-address-fixture",
+  "private": true,
+  "scripts": {
+    "dev": "node serve.js"
+  }
+}

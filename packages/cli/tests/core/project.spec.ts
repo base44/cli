@@ -32,6 +32,8 @@ describe("readProjectConfig", () => {
       buildCommand: "npm run build",
       installCommand: "npm install",
       devHostFlag: "--host",
+      devHost: "0.0.0.0",
+      devPort: 5173,
     });
   });
 
@@ -44,6 +46,8 @@ describe("readProjectConfig", () => {
       buildCommand: "npm run build",
       installCommand: "npm install",
       devHostFlag: "--host",
+      devHost: "0.0.0.0",
+      devPort: 5173,
     });
 
     // These two never default: their absence answers a question a reader asks.

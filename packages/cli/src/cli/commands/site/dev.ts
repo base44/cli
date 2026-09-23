@@ -1,5 +1,4 @@
 import type { Command } from "commander";
-import { InvalidArgumentError } from "commander";
 import { createServeCommandRunner } from "@/cli/dev/serve-command-runner.js";
 import { stopRunnerOnProcessSignals } from "@/cli/dev/stop-runner-on-signals.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
@@ -13,31 +12,6 @@ import {
 
 interface SiteDevOptions extends AppIdOptions {
   backendUrl?: string;
-  host?: string;
-  port?: number;
-}
-
-/**
- * Where this command binds when the caller says nothing. `0.0.0.0` because the
- * command exists for a hosted sandbox, whose preview is reached from outside the
- * container, so loopback would make it unreachable. Not config: no project has a
- * say in which address a given run should listen on, and a sandbox that needs
- * something else can pass a flag.
- */
-const DEFAULT_DEV_HOST = "0.0.0.0";
-const DEFAULT_DEV_PORT = 5173;
-
-function parsePort(value: string): number {
-  // `Number()` is not port validation: it turns "", " ", "0x10" and "1e3" into
-  // numbers, and an empty string into 0 — a random port, silently.
-  if (!/^\d+$/.test(value)) {
-    throw new InvalidArgumentError("must be a whole number");
-  }
-  const port = Number(value);
-  if (port < 1 || port > 65535) {
-    throw new InvalidArgumentError("must be between 1 and 65535");
-  }
-  return port;
 }
 
 async function siteDevAction(
@@ -61,13 +35,13 @@ async function siteDevAction(
     );
   }
 
-  // Serving is this command's whole job, so an unnamed dev server, and an
-  // unnamed address, are conventions rather than "nothing to run". A caller that
-  // wants none of these decisions can run `base44 site dev` with no arguments.
+  // Serving is this command's whole job, so an unnamed dev server is a
+  // convention rather than "nothing to run". Everything else comes from the
+  // config, which is why this command takes no arguments for it.
   const serveCommand = site.serveCommand ?? DEFAULT_SERVE_COMMAND;
   const { command, droppedAddress } = withServeAddress(serveCommand, {
-    host: options.host ?? DEFAULT_DEV_HOST,
-    port: options.port ?? DEFAULT_DEV_PORT,
+    host: site.devHost,
+    port: site.devPort,
     hostFlag: site.devHostFlag,
   });
   // An address that cannot be delivered is a failure, not a warning: the caller
@@ -108,7 +82,5 @@ export function getSiteDevCommand(): Command {
       "--backend-url <url>",
       "Backend the frontend should call, injected as VITE_BASE44_APP_BASE_URL. Omit for a frontend that reaches its backend same-origin.",
     )
-    .option("--host <address>", "Address to bind (default: 0.0.0.0)")
-    .option("--port <number>", "Port to bind (default: 5173)", parsePort)
     .action(siteDevAction);
 }

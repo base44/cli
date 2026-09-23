@@ -34,27 +34,20 @@ describe("withServeAddress", () => {
     expect(
       withServeAddress("npm run dev", {
         host: "0.0.0.0",
+        port: 5173,
         hostFlag: "--hostname",
       }).command,
-    ).toBe("npm run dev -- --hostname 0.0.0.0");
+    ).toBe("npm run dev -- --hostname 0.0.0.0 --port 5173");
   });
 
   it("appends a prefixed npm script too", () => {
     expect(
       withServeAddress("npm --prefix site run dev", {
+        host: "0.0.0.0",
         port: 4173,
         hostFlag: "--host",
       }).command,
-    ).toBe("npm --prefix site run dev -- --port 4173");
-  });
-
-  it("leaves the command alone when there is no address to add", () => {
-    expect(withServeAddress("  npm run dev  ", { hostFlag: "--host" })).toEqual(
-      {
-        command: "npm run dev",
-        droppedAddress: false,
-      },
-    );
+    ).toBe("npm --prefix site run dev -- --host 0.0.0.0 --port 4173");
   });
 
   it("trims the command it composes, not just the one it tests", () => {

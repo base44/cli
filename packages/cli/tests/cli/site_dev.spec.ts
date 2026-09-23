@@ -33,33 +33,24 @@ describe("site dev command", () => {
     expect(handle.stdout.join("")).toContain("ARGS=--host 0.0.0.0 --port 5173");
   });
 
-  it("lets a flag override the default", async () => {
-    await t.givenLoggedInWithProject(fixture("with-npm-serve-command"));
+  it("binds what the config names, the only way to change it", async () => {
+    await t.givenLoggedInWithProject(fixture("with-dev-address"));
 
-    const handle = await t.runLive("site", "dev", "--port", "5999");
+    const handle = await t.runLive("site", "dev");
     await handle.waitForOutput(/ARGS=/);
     await handle.stop();
 
-    expect(handle.stdout.join("")).toContain("ARGS=--host 0.0.0.0 --port 5999");
+    expect(handle.stdout.join("")).toContain(
+      "ARGS=--host 127.0.0.1 --port 4321",
+    );
   });
 
-  it("binds the address it is given", async () => {
+  it("takes no address flags at all", async () => {
     await t.givenLoggedInWithProject(fixture("with-npm-serve-command"));
 
-    const handle = await t.runLive(
-      "site",
-      "dev",
-      "--backend-url",
-      "https://preview.example/api",
-      "--host",
-      "0.0.0.0",
-      "--port",
-      "5173",
-    );
-    await handle.waitForOutput(/ARGS=/);
-    await handle.stop();
+    const result = await t.run("site", "dev", "--port", "5999");
 
-    expect(handle.stdout.join("")).toContain("ARGS=--host 0.0.0.0 --port 5173");
+    t.expectResult(result).toFail();
   });
 
   it("refuses an address the serveCommand cannot take", async () => {
@@ -72,24 +63,6 @@ describe("site dev command", () => {
 
     t.expectResult(result).toFail();
     t.expectResult(result).toContain("takes no forwarded arguments");
-  });
-
-  it.each([
-    "",
-    " ",
-    "0",
-    "0x10",
-    "1e3",
-    "5173.0",
-    "-1",
-    "70000",
-    "abc",
-  ])("refuses --port %j", async (port) => {
-    await t.givenLoggedInWithProject(fixture("with-npm-serve-command"));
-
-    const result = await t.run("site", "dev", "--port", port);
-
-    t.expectResult(result).toFail();
   });
 
   it("serves without a login", async () => {
@@ -106,11 +79,11 @@ describe("site dev command", () => {
   it("uses the project's own spelling of the host flag", async () => {
     await t.givenLoggedInWithProject(fixture("with-hostname-serve-command"));
 
-    const handle = await t.runLive("site", "dev", "--host", "0.0.0.0");
+    const handle = await t.runLive("site", "dev");
     await handle.waitForOutput(/ARGS=/);
     await handle.stop();
 
-    expect(handle.stdout.join("")).toContain("ARGS=--hostname 0.0.0.0");
+    expect(handle.stdout.join("")).toContain("ARGS=--hostname 0.0.0.0 --port 5173");
   });
 
   it("injects no backend url when the caller names none", async () => {

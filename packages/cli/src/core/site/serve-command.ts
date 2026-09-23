@@ -31,8 +31,8 @@ const SCRIPT_RUNNERS: { pattern: RegExp; separator: string }[] = [
 
 interface ServeAddress {
   /** Address to bind, e.g. `0.0.0.0` so something outside the machine can reach it. */
-  host?: string;
-  port?: number;
+  host: string;
+  port: number;
   /** How this dev server spells its bind-address flag. */
   hostFlag: string;
 }
@@ -54,13 +54,7 @@ export function withServeAddress(
   { host, port, hostFlag }: ServeAddress,
 ): { command: string; droppedAddress: boolean } {
   const command = serveCommand.trim();
-  const args = [
-    ...(host ? [hostFlag, host] : []),
-    ...(port === undefined ? [] : ["--port", String(port)]),
-  ];
-  if (args.length === 0) {
-    return { command, droppedAddress: false };
-  }
+  const args = [hostFlag, host, "--port", String(port)];
   const runner = runnerFor(command);
   if (!runner) {
     return { command, droppedAddress: true };
