@@ -132,13 +132,12 @@ export async function createVersion(
       await post(
         "versions",
         {
-          static_bundle: artifacts.files.map(declaredFile),
+          assets: artifacts.assets.map(declaredFile),
           ...(artifacts.siteWorker
             ? {
                 site_worker: {
                   main: artifacts.siteWorker.main,
                   modules: artifacts.siteWorker.modules.map(declaredModule),
-                  assets: artifacts.siteWorker.assets.map(declaredFile),
                   compatibility_date: artifacts.siteWorker.compatibilityDate,
                   compatibility_flags: artifacts.siteWorker.compatibilityFlags,
                   assets_config: declaredAssetsConfig(
@@ -157,12 +156,11 @@ export async function createVersion(
     "declare",
   );
 
-  // Paired by POSITION, in the order the server signed them: the three sets have
-  // separate namespaces, so a module and an asset may share a path.
+  // Paired by POSITION, in the order the server signed them: assets and modules
+  // are separate namespaces, so the two may share a path.
   const declaredFiles = [
-    ...artifacts.files,
+    ...artifacts.assets,
     ...(artifacts.siteWorker?.modules ?? []),
-    ...(artifacts.siteWorker?.assets ?? []),
   ];
 
   options.progress?.onDeclared?.({ fileCount: declaredFiles.length });

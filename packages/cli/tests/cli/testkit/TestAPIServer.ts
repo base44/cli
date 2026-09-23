@@ -869,21 +869,16 @@ export class TestAPIServer {
       path: `/api/apps/${this.appId}/versions`,
       handler: (req, res) => {
         const body = req.body as {
-          static_bundle: Array<{ path: string; size: number; digest: string }>;
+          assets: Array<{ path: string; size: number; digest: string }>;
           site_worker?: {
             modules: Array<{ path: string; size: number; digest: string }>;
             assets: Array<{ path: string; size: number; digest: string }>;
           };
         };
         this.versionDeclareRequests.push(body);
-        // The static frontend, then the Worker's modules, then what it serves —
-        // the slot order the server signs them in, which is what the client
-        // pairs uploads against.
-        const declared = [
-          ...body.static_bundle,
-          ...(body.site_worker?.modules ?? []),
-          ...(body.site_worker?.assets ?? []),
-        ];
+        // The app's assets, then the Worker's modules — the slot order the
+        // server signs them in, which is what the client pairs uploads against.
+        const declared = [...body.assets, ...(body.site_worker?.modules ?? [])];
         res.status(200).json({
           session_id: sessionId,
           uploads: declared.map((file) => ({

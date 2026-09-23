@@ -36,7 +36,7 @@ describe("publish command", () => {
 
     t.expectResult(result).toSucceed();
     expect(t.api.versionDeclareRequests[0]).toMatchObject({
-      static_bundle: [
+      assets: [
         { path: "assets/app.js", size: APP_JS.length, digest: sha256(APP_JS) },
         { path: "index.html", size: INDEX.length, digest: sha256(INDEX) },
       ],
@@ -282,21 +282,17 @@ describe("publish command, for an app with a server of its own", () => {
     });
   });
 
-  it("declares no static bundle — the files it serves are the Worker's", async () => {
-    // Naming them as a static bundle would ask the platform to serve them from
-    // S3, past every route the Worker owns.
+  it("takes the assets from the Worker's own directory", async () => {
+    // Collecting the project's build output instead would ask the platform to
+    // serve the Worker's files from S3, past every route it owns.
     const result = await publish();
 
     t.expectResult(result).toSucceed();
     const declared = t.api.versionDeclareRequests[0] as {
-      static_bundle: Array<{ path: string }>;
-      site_worker: {
-        modules: Array<{ path: string }>;
-        assets: Array<{ path: string }>;
-      };
+      assets: Array<{ path: string }>;
+      site_worker: { modules: Array<{ path: string }> };
     };
-    expect(declared.static_bundle).toEqual([]);
-    expect(declared.site_worker.assets.map((f) => f.path)).toEqual([
+    expect(declared.assets.map((f) => f.path)).toEqual([
       "assets/app-123.js",
       "index.html",
     ]);

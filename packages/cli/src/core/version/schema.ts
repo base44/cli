@@ -16,11 +16,8 @@ export interface ArtifactFile {
   digest: string;
 }
 
-/**
- * The app's own server. Each file set is its own namespace — `index.js` as a
- * module is not `index.js` as an asset — and the settings are part of the
- * Worker's identity, not metadata.
- */
+/** One of the Worker's own modules. Their own namespace: `index.js` as a module
+ * is not `index.js` as an asset. */
 export interface WorkerModuleArtifact extends ArtifactFile {
   /**
    * How the runtime hands this module to its importer. The SAME bytes are a
@@ -31,18 +28,18 @@ export interface WorkerModuleArtifact extends ArtifactFile {
   type: ModuleType;
 }
 
+/**
+ * The app's own server. Its presence is what says the Worker SERVES the set's
+ * assets, rather than the platform serving them from S3; the settings below are
+ * part of the Worker's identity, not metadata.
+ */
 export interface SiteWorkerArtifact {
   main: string;
   modules: WorkerModuleArtifact[];
-  /**
-   * The files this Worker serves. Not `ArtifactSet.files`, which the platform
-   * serves from S3 — past every route the Worker owns.
-   */
-  assets: ArtifactFile[];
   compatibilityDate: string | null;
   compatibilityFlags: string[];
   /**
-   * How Cloudflare serves the assets above. These decide whether the Worker
+   * How Cloudflare serves the set's assets. These decide whether the Worker
    * even runs for a request, so two builds differing only here are different
    * Workers and must not record as one.
    */
@@ -51,8 +48,8 @@ export interface SiteWorkerArtifact {
 
 /** Everything one build produced, as the create-version call describes it. */
 export interface ArtifactSet {
-  /** The frontend, to be served from S3. Empty when a Worker serves. */
-  files: ArtifactFile[];
+  /** The app's files. Who serves them is what `siteWorker` says. */
+  assets: ArtifactFile[];
   /** Absent for an app with no server of its own — almost every app. */
   siteWorker?: SiteWorkerArtifact;
   /** Raw payloads by name. The server normalizes and hashes them. */

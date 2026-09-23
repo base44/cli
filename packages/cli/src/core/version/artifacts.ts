@@ -6,6 +6,7 @@ import { CONFIG_FILE_EXTENSION_GLOB } from "@/core/consts.js";
 import { InvalidInputError } from "@/core/errors.js";
 import type { BuildTarget } from "@/core/project/target.js";
 import { requireOutputDir } from "@/core/project/target.js";
+import type { FullStackBuild } from "@/core/site/full-stack.js";
 import { resolveFullStackBuild } from "@/core/site/full-stack.js";
 import { describeBuildOutput, hashFileInto } from "@/core/site/manifest.js";
 import { pathExists, readJsonFile } from "@/core/utils/fs.js";
@@ -84,11 +85,18 @@ export async function collectSiteWorker(
   projectRoot: string,
 ): Promise<SiteWorkerArtifact | null> {
   const built = await resolveFullStackBuild(projectRoot);
-  if (!built) {
-    return null;
-  }
+  return built ? await describeSiteWorker(built) : null;
+}
 
-  const { config, modules, assetsDir } = built;
+/**
+ * The same description from a build already resolved — so `collectArtifacts`,
+ * which needs the assets directory too, reads the wrangler config ONCE. A second
+ * read is a second opinion about what the framework built.
+ */
+async function describeSiteWorker(
+  built: FullStackBuild,
+): Promise<SiteWorkerArtifact> {
+  const { config, modules } = built;
   // By identity, not by position: the platform matches the entry against the
   // module NAMES it was sent, and `main` in the config may still carry a "./".
   const entry = resolve(config.configDir, config.main);
@@ -114,9 +122,6 @@ export async function collectSiteWorker(
       }),
       { concurrency: HASH_CONCURRENCY },
     ),
-    // No entry rule: the Worker's own asset settings answer an unmatched path,
-    // and a Worker that serves nothing is a complete app.
-    assets: assetsDir ? await collectBuildOutput(assetsDir) : [],
     compatibilityDate: config.compatibilityDate,
     compatibilityFlags: config.compatibilityFlags,
     assetsConfig: config.assetsConfig,
@@ -168,10 +173,16 @@ export async function collectResources(
 export async function collectArtifacts(
   target: BuildTarget,
 ): Promise<ArtifactSet> {
-  const siteWorker = await collectSiteWorker(target.root);
+  const built = await resolveFullStackBuild(target.root);
+  const siteWorker = built ? await describeSiteWorker(built) : null;
   return {
-    files: siteWorker
-      ? []
+    // One set, from wherever this build put it. The entry rule applies only
+    // when the PLATFORM serves it: a Worker's own asset settings answer an
+    // unmatched path, and a Worker that serves nothing is a complete app.
+    assets: built
+      ? built.assetsDir
+        ? await collectBuildOutput(built.assetsDir)
+        : []
       : await collectBuildOutput(requireOutputDir(target), {
           entryFile: ENTRY,
         }),

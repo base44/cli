@@ -7,7 +7,7 @@ import {
   resolveWranglerConfig,
 } from "./wrangler-config.js";
 
-interface FullStackBuild {
+export interface FullStackBuild {
   config: ResolvedWranglerConfig;
   modules: WorkerModule[];
   /**

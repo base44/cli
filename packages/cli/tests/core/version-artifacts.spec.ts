@@ -206,15 +206,12 @@ describe("collectSiteWorker", () => {
     await rm(projectRoot, { recursive: true, force: true });
   });
 
-  it("serves nothing static when the build declared no assets", async () => {
+  it("describes a worker for a build that declared no assets", async () => {
     // A Worker that answers every path itself is a complete app, not a build
-    // to refuse — and there is no static bundle to declare beside it.
+    // to refuse. Whether it has assets is the SET's business, not the worker's.
     await writeFullStackBuild({ assets: undefined });
 
-    const worker = await collectSiteWorker(projectRoot);
-
-    expect(worker).not.toBeNull();
-    expect(worker?.assets).toEqual([]);
+    expect(await collectSiteWorker(projectRoot)).not.toBeNull();
   });
 
   it("reports no worker for an app that has no server of its own", async () => {
@@ -297,19 +294,6 @@ describe("collectSiteWorker", () => {
       headers: undefined,
       redirects: undefined,
     });
-  });
-
-  it("carries the files it serves, from its own assets directory", async () => {
-    // Not the project's `site.outputDirectory`, and not a static bundle beside
-    // it: these files are the Worker's to serve.
-    await writeFullStackBuild();
-
-    const worker = await collectSiteWorker(projectRoot);
-
-    expect(worker?.assets.map((f) => f.path)).toEqual(["index.html"]);
-    expect(worker?.assets[0].absolutePath).toBe(
-      join(distDir, "client", "index.html"),
-    );
   });
 
   it("leaves the assets out of the module set", async () => {
@@ -404,21 +388,22 @@ describe("collectArtifacts", () => {
     await rm(projectRoot, { recursive: true, force: true });
   });
 
-  it("never declares a Worker's own files as a static bundle", async () => {
-    // Every command collects through here for this reason: a second collector
-    // would eventually name them in `files`, which the platform reads as
-    // "serve from S3" — past every route the Worker owns.
+  it("takes the assets from the Worker's own directory when one built", async () => {
+    // Not the project's `site.outputDirectory`. Naming the wrong directory here
+    // is how a Worker's files get served from S3, past every route it owns —
+    // which is why every command collects through this one reader.
     await fullStackProject();
 
     const artifacts = await collectArtifacts(target());
 
-    expect(artifacts.files).toEqual([]);
-    expect(artifacts.siteWorker?.assets.map((f) => f.path)).toEqual([
-      "index.html",
-    ]);
+    expect(artifacts.assets.map((f) => f.path)).toEqual(["index.html"]);
+    expect(artifacts.assets[0].absolutePath).toBe(
+      join(projectRoot, "dist", "client", "index.html"),
+    );
+    expect(artifacts.siteWorker).not.toBeUndefined();
   });
 
-  it("declares a static bundle when no Worker built", async () => {
+  it("takes them from the build output when no Worker built", async () => {
     await mkdir(join(projectRoot, "dist", "client"), { recursive: true });
     await writeFile(
       join(projectRoot, "dist", "client", "index.html"),
@@ -427,7 +412,18 @@ describe("collectArtifacts", () => {
 
     const artifacts = await collectArtifacts(target());
 
-    expect(artifacts.files.map((f) => f.path)).toEqual(["index.html"]);
+    expect(artifacts.assets.map((f) => f.path)).toEqual(["index.html"]);
     expect(artifacts.siteWorker).toBeUndefined();
+  });
+
+  it("requires an entry only when the platform is what serves", async () => {
+    // A Worker answers an unmatched path itself; S3 needs an index.html to
+    // enter. One asset set, two rules, and the Worker's presence picks.
+    await fullStackProject();
+    await rm(join(projectRoot, "dist", "client", "index.html"));
+
+    const artifacts = await collectArtifacts(target());
+
+    expect(artifacts.assets).toEqual([]);
   });
 });
