@@ -2,7 +2,7 @@ import type { Command } from "commander";
 import { createServeCommandRunner } from "@/cli/dev/serve-command-runner.js";
 import { stopRunnerOnProcessSignals } from "@/cli/dev/stop-runner-on-signals.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
-import { type AppIdOptions, Base44Command, theme } from "@/cli/utils/index.js";
+import { Base44Command } from "@/cli/utils/index.js";
 import { ConfigInvalidError, InvalidInputError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/project/index.js";
 import {
@@ -10,14 +10,7 @@ import {
   withServeAddress,
 } from "@/core/site/serve-command.js";
 
-interface SiteDevOptions extends AppIdOptions {
-  backendUrl?: string;
-}
-
-async function siteDevAction(
-  ctx: CLIContext,
-  options: SiteDevOptions,
-): Promise<RunCommandResult> {
+async function siteDevAction(ctx: CLIContext): Promise<RunCommandResult> {
   const { app } = ctx;
   // Same shape as `base44 build`: the framework's own app-context step has
   // already refused with actionable hints, so this is the type's guard.
@@ -57,30 +50,19 @@ async function siteDevAction(
     serveCommand: command,
     projectRoot: project.root,
     appId: app.id,
-    appBaseUrl: options.backendUrl,
   });
   stopRunnerOnProcessSignals(runner);
   runner.onExit((code) => process.exit(code ?? 1));
   runner.start();
 
-  return {
-    outroMessage: options.backendUrl
-      ? `Frontend dev server running '${command}' against ${theme.styles.bold(options.backendUrl)}`
-      : `Frontend dev server running '${command}'`,
-  };
+  return { outroMessage: `Frontend dev server running '${command}'` };
 }
 
 export function getSiteDevCommand(): Command {
-  // The frontend alone, against a backend the caller names — what a hosted
-  // sandbox needs. `base44 dev` is the developer-machine command: it also runs
-  // the backend, locally or (with --remote) the app's published one.
+  // The frontend alone, reaching its backend same-origin — what a hosted sandbox
+  // needs. `base44 dev` is the developer-machine command: it also runs the
+  // backend, locally or (with --remote) the app's published one.
   return new Base44Command("dev", { requireAuth: false })
-    .description(
-      "Run the site's dev server against a given backend (no local backend)",
-    )
-    .option(
-      "--backend-url <url>",
-      "Backend the frontend should call, injected as VITE_BASE44_APP_BASE_URL. Omit for a frontend that reaches its backend same-origin.",
-    )
+    .description("Run the site's dev server, with no local backend")
     .action(siteDevAction);
 }

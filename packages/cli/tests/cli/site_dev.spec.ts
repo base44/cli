@@ -4,23 +4,6 @@ import { fixture, setupCLITests } from "./testkit/index.js";
 describe("site dev command", () => {
   const t = setupCLITests();
 
-  it("serves the frontend against the given backend, with no local backend", async () => {
-    await t.givenLoggedInWithProject(fixture("with-npm-serve-command"));
-
-    const handle = await t.runLive(
-      "site",
-      "dev",
-      "--backend-url",
-      "https://preview.example/api",
-    );
-    await handle.waitForOutput(/ARGS=/);
-    await handle.stop();
-
-    const output = handle.stdout.join("");
-    expect(output).toContain(`APP=${t.api.appId}`);
-    expect(output).toContain("URL=https://preview.example/api");
-  });
-
   it("binds the sandbox convention when nothing names an address", async () => {
     // The point of the defaults: apper runs `base44 site dev` with no arguments
     // and no knowledge of what they would have been.
@@ -88,8 +71,9 @@ describe("site dev command", () => {
     );
   });
 
-  it("injects no backend url when the caller names none", async () => {
-    // A frontend that reaches its backend same-origin must not be handed one.
+  it("serves the frontend same-origin, with no backend url injected", async () => {
+    // A sandbox frontend reaches its backend through the vite plugin's /api
+    // proxy, so it must not be pointed anywhere else.
     await t.givenLoggedInWithProject(fixture("with-npm-serve-command"));
 
     const handle = await t.runLive("site", "dev");
@@ -104,12 +88,7 @@ describe("site dev command", () => {
   it("fails when the project has no site block", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
 
-    const result = await t.run(
-      "site",
-      "dev",
-      "--backend-url",
-      "https://preview.example/api",
-    );
+    const result = await t.run("site", "dev");
 
     t.expectResult(result).toFail();
     t.expectResult(result).toContain("no 'site' block");
