@@ -5,13 +5,14 @@
  *
  * Steps:
  *   1. Create dist/assets.tar.gz from dist/assets/ (templates + backend-runtime)
- *   2. Cross-compile for each platform with `bun build --compile`
+ *   2. Cross-compile for each platform with Bun.build({ compile })
  *
  * After this, run `bun run package:binaries` to archive and checksum.
  */
 import { existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import chalk from "chalk";
+import { RUNTIME_EXTERNALS, stubReactDevtools } from "./bundle.js";
 
 function collectFiles(
 	dir: string,
@@ -84,36 +85,27 @@ for (const { target, output } of TARGETS) {
 	const outPath = join(BINARIES_DIR, output);
 	console.log(chalk.dim(`  Compiling ${output}...`));
 
-	const args = [
-		"bun",
-		"build",
-		"--compile",
-		`--target=${target}`,
-		ENTRY,
-		"--outfile",
-		outPath,
+	const result = await Bun.build({
+		entrypoints: [ENTRY],
 		// The workerd function runtime cannot ship inside a compiled binary
 		// (native executables and WASM cannot be embedded), so its packages are
 		// excluded here; the runtime probe in function-runtime.ts fails to
 		// import miniflare at runtime and `base44 dev` falls back to Deno.
-		"--external",
-		"miniflare",
-		"--external",
-		"esbuild",
-		"--external",
-		"@deno/loader",
-	];
-
-	// --windows-icon is only supported when the build host is Windows
-	if (target.includes("windows") && process.platform === "win32") {
-		args.push(`--windows-icon=${WINDOWS_ICON}`);
-	}
-
-	const result = Bun.spawnSync(args, { cwd: ROOT });
+		external: RUNTIME_EXTERNALS,
+		plugins: [stubReactDevtools],
+		compile: {
+			target,
+			outfile: outPath,
+			// A Windows icon can only be applied when the build host is Windows.
+			...(target.includes("windows") && process.platform === "win32"
+				? { windows: { icon: WINDOWS_ICON } }
+				: {}),
+		},
+	});
 
 	if (!result.success) {
 		console.error(chalk.red(`\n✗ Failed to compile ${output}\n`));
-		console.error(result.stderr.toString());
+		for (const log of result.logs) console.error(chalk.red(`  ${log}`));
 		process.exit(1);
 	}
 }

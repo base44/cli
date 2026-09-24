@@ -1,6 +1,7 @@
-import { watch, copyFileSync, mkdirSync } from "node:fs";
+import { copyFileSync, mkdirSync, watch } from "node:fs";
 import type { BuildConfig } from "bun";
 import chalk from "chalk";
+import { RUNTIME_EXTERNALS, stubReactDevtools } from "./bundle.js";
 
 const runBuild = async (config: BuildConfig) => {
   const defaultBuildOptions: Partial<BuildConfig> = {
@@ -32,7 +33,10 @@ const copyBackendRuntime = () => {
   copyFileSync("./backend-runtime/exec.ts", `${outDir}/exec.ts`);
   // The import map and the module it points at must land next to main.ts —
   // function-manager.ts resolves the config relative to the wrapper.
-  copyFileSync("./backend-runtime/import-map.json", `${outDir}/import-map.json`);
+  copyFileSync(
+    "./backend-runtime/import-map.json",
+    `${outDir}/import-map.json`,
+  );
   copyFileSync(
     "./backend-runtime/base44-runtime.ts",
     `${outDir}/base44-runtime.ts`,
@@ -40,19 +44,12 @@ const copyBackendRuntime = () => {
   return outDir;
 };
 
-// Runtime dependencies of the local workerd function runtime. They cannot be
-// bundled (workerd and esbuild ship native binaries; @deno/loader ships WASM),
-// so they are real npm `dependencies` resolved from node_modules at runtime —
-// the one deliberate exception to the zero-dependency distribution rule. The
-// standalone binary excludes them too and `base44 dev` falls back to the Deno
-// runtime there.
-export const RUNTIME_EXTERNALS = ["miniflare", "esbuild", "@deno/loader"];
-
 const runAllBuilds = async () => {
   const cli = await runBuild({
     entrypoints: ["./src/cli/index.ts"],
     outdir: "./dist/cli",
     external: RUNTIME_EXTERNALS,
+    plugins: [stubReactDevtools],
   });
   const backendRuntimePath = copyBackendRuntime();
   return {
