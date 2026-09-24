@@ -2,11 +2,10 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { InvalidInputError } from "@/core/errors.js";
 import { getAppContext } from "@/core/project/app-config.js";
-import { pathExists } from "@/core/utils/fs.js";
 import type { FinalizePayload } from "./api.js";
 import { createDeployment, finalizeDeployment } from "./api.js";
+import { resolveFullStackBuild } from "./full-stack.js";
 import { buildAssetManifest } from "./manifest.js";
-import { collectModules } from "./modules.js";
 import type {
   AssetManifestResult,
   CreateDeploymentRequest,
@@ -15,10 +14,6 @@ import type {
 } from "./schema.js";
 import { uploadDeploymentAssets } from "./upload.js";
 import type { ResolvedWranglerConfig } from "./wrangler-config.js";
-import {
-  detectFullStackArtifact,
-  resolveWranglerConfig,
-} from "./wrangler-config.js";
 
 type WorkerConfig = NonNullable<CreateDeploymentRequest["config"]>;
 
@@ -117,18 +112,12 @@ async function resolveWorkerBuild(
   projectRoot: string,
   progress?: DeploymentProgress,
 ): Promise<WorkerBuild | null> {
-  const redirectPath = await detectFullStackArtifact(projectRoot);
-  if (!redirectPath) {
+  const built = await resolveFullStackBuild(projectRoot);
+  if (!built) {
     return null;
   }
 
-  const config = await resolveWranglerConfig(redirectPath);
-
-  const assetsDir =
-    config.assetsDirectory && (await pathExists(config.assetsDirectory))
-      ? config.assetsDirectory
-      : null;
-
+  const { config, modules, assetsDir } = built;
   return {
     config: {
       main: config.main,
@@ -136,7 +125,7 @@ async function resolveWorkerBuild(
       compatibility_flags: config.compatibilityFlags,
       assets: buildAssetsConfig(config.assetsConfig, progress),
     },
-    modules: await collectModules(config),
+    modules,
     assetsDir,
   };
 }

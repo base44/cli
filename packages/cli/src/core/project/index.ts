@@ -5,4 +5,5 @@ export * from "./create.js";
 export * from "./deploy.js";
 export * from "./find-root.js";
 export * from "./schema.js";
+export * from "./target.js";
 export * from "./template.js";

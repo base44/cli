@@ -81,6 +81,7 @@ Read these when working on the relevant area:
 - **[Making API calls](api-patterns.md)** - HTTP clients, Zod snake_case-to-camelCase transforms, `ApiError.fromHttpError()`
 - **[Working with resources](resources.md)** - `Resource<T>` interface, adding new resources, site module, unified deploy
 - **[Deployments](deployments.md)** - Deploys addressed by commit, wrangler config, asset manifest hashing, direct asset uploads (Workers) and presigned uploads (static)
+- **[Versions](versions.md)** - Recording a build as an immutable version and serving it, staged uploads with server-verified digests, raw resource payloads, the `BASE44_VERSIONS_API` gate
 - **[Plugins](plugins.md)** - Plugin config, namespaces, entity extension rules, function namespacing, pull/deploy behavior
 - **[Error handling](error-handling.md)** - Error hierarchy, throwing patterns, error codes, `CLIExitError`, `process.exit` ban
 - **[Writing tests](testing.md)** - Testkit, Given/When/Then pattern, API mocks, fixtures, test overrides

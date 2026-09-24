@@ -6,6 +6,8 @@ import {
   readAuth,
   seedAuthFromEnv,
 } from "@/core/auth/index.js";
+import { InternalError } from "@/core/errors.js";
+import type { AppContext } from "@/core/project/index.js";
 import { initAppContext } from "@/core/project/index.js";
 
 /**
@@ -51,4 +53,22 @@ export async function ensureAppContext(
   const appContext = await initAppContext(options);
   ctx.app = appContext;
   ctx.errorReporter.setContext({ appId: appContext.id });
+}
+
+/**
+ * The app this command resolved. Optional on `CLIContext` only for the few
+ * commands declaring `requireAppContext: false`; everywhere else
+ * {@link ensureAppContext} has already returned one or thrown.
+ *
+ * Narrow here rather than defaulting at the call site: an app id defaulted to
+ * `""` is inlined by Vite, so the build and the publish both succeed and the
+ * served app addresses no app.
+ */
+export function requireApp(ctx: Pick<CLIContext, "app">): AppContext {
+  if (!ctx.app) {
+    throw new InternalError(
+      "This command read an app context it never resolved — it is declared with requireAppContext: false.",
+    );
+  }
+  return ctx.app;
 }
