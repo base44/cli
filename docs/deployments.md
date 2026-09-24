@@ -1,6 +1,6 @@
 # Deployments
 
-**Keywords:** deployments, full-stack, Cloudflare Workers, wrangler, no_bundle, asset manifest, hash, git hash, commit, buckets, presigned, S3, upload session, finalize, .assetsignore, negation, concurrency, .wrangler/deploy/config.json, static site, BASE44_DEPLOYMENTS_API, env gate, target
+**Keywords:** deployments, full-stack, Cloudflare Workers, wrangler, no_bundle, asset manifest, hash, git hash, commit, buckets, presigned, S3, upload session, finalize, .assetsignore, negation, concurrency, .wrangler/deploy/config.json, static site, BASE44_DEPLOYMENTS_API, env gate, target, index.html, entry point, output directory, diagnostics
 
 Deployments ship an app's built output addressed by the commit that produced it. This is a transport of the site module, not a module of its own, so it lives directly in `src/core/site/`: `deployment.ts` (the flow), `wrangler-config.ts` (artifact detection), `modules.ts` (worker module collection), `manifest.ts` (asset walk + hashing), `upload.ts` (bucket and presigned uploads), `git-hash.ts` (the commit address), with the requests and responses in the shared `api.ts` / `schema.ts` next to the legacy tar.gz upload.
 
@@ -75,9 +75,24 @@ On the lane with no worker, the output directory becomes the asset manifest (ind
 
 With the gate off, every `site deploy` takes the legacy tar.gz path unchanged — including a full-stack project, whose worker is then not shipped at all.
 
+### When there is no index.html to finalize with
+
+A build that emitted no artifact takes the no-worker arm, so `readIndexHtml()` is where a full-stack build that failed to emit its worker lands — not just a genuinely static one. `missingIndexHtmlError()` therefore separates the four ways the entry point can be absent, because one message for all of them says nothing about which happened:
+
+| condition | message |
+|---|---|
+| no worker **and** no `site.outputDirectory` | "No site output to deploy" |
+| output directory missing | "Output directory does not exist" |
+| output directory empty | "No files found in output directory" |
+| populated, no root index.html | "No index.html at the root", naming any `**/index.html` found deeper |
+
+The last one is the interesting case: an `index.html` one level down is the signature of a client/server split build whose `.wrangler/deploy/config.json` was never emitted, so the error names the paths it did find and says the artifact was missing. The first two restore the guard rails the legacy tar.gz upload has (`deploySite()`) and this lane had dropped.
+
+All four are diagnosis only — same throw, same `INVALID_INPUT` code, and the hints ride the `--json` envelope, which is the platform publish sandbox's only view of a failed deploy. **Do not change the code here**: platform-side publish alerting keys on `cli_error_code`.
+
 ## Testing
 
-`TestAPIServer` mocks: `mockDeploymentCreate` (captures the JSON body in `deploymentCreateRequests`; echoes whatever response shape you pass — `asset_uploads` selects the arm: `{type: "cf", ...}`, `{type: "s3", ...}` or `null`), `mockAssetUpload` (serves a Cloudflare-style `POST /cf-assets/upload` target, captures the Authorization header, `?base64=true` query and multipart fields in `assetUploadRequests`, responds 201 with the completion jwt), `mockPresignedUpload(path)` (serves a presigned-style `PUT /presigned{path}` target, captures body/Content-Type/Authorization in `presignedUploadRequests`), `mockDeploymentFinalize` (captures multipart fields in `finalizeRequests` and query strings in `finalizeQueries`). Fixtures: `tests/fixtures/fullstack-project/` (redirect file + `build/server` worker + `build/client` assets with `.assetsignore`) and `tests/fixtures/with-site/` (static output dir) — not git repos, so specs pass `--git-hash`. Unit tests live in `tests/core/site-*.spec.ts`.
+`TestAPIServer` mocks: `mockDeploymentCreate` (captures the JSON body in `deploymentCreateRequests`; echoes whatever response shape you pass — `asset_uploads` selects the arm: `{type: "cf", ...}`, `{type: "s3", ...}` or `null`), `mockAssetUpload` (serves a Cloudflare-style `POST /cf-assets/upload` target, captures the Authorization header, `?base64=true` query and multipart fields in `assetUploadRequests`, responds 201 with the completion jwt), `mockPresignedUpload(path)` (serves a presigned-style `PUT /presigned{path}` target, captures body/Content-Type/Authorization in `presignedUploadRequests`), `mockDeploymentFinalize` (captures multipart fields in `finalizeRequests` and query strings in `finalizeQueries`). Fixtures: `tests/fixtures/fullstack-project/` (redirect file + `build/server` worker + `build/client` assets with `.assetsignore`) and `tests/fixtures/with-site/` (static output dir) — not git repos, so specs pass `--git-hash`. Unit tests live in `tests/core/site-*.spec.ts`. The no-entry-point diagnostics have their own spec, `tests/cli/site_deploy_output_diagnostics.spec.ts`, which mutates the copied `with-site` fixture (nest the index.html, empty the directory, remove it) and asserts each case fails before the create call.
 
 ## Rules (Deployments-Specific)
 

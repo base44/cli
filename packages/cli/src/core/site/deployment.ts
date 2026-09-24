@@ -140,9 +140,7 @@ function requireStaticEntryPoint(
   assets: AssetManifestResult,
 ): string {
   if (!assetsDir || !assets.manifest["/index.html"]) {
-    throw new InvalidInputError(
-      `No index.html found in "${assetsDir ?? "the site output directory"}" — a static site needs one at the output directory root.`,
-    );
+    throw await missingIndexHtmlError(assetsDir, assets);
   }
   return assetsDir;
 }
@@ -163,6 +161,94 @@ async function resolveStaticCompletion(
     kind: "static-inline",
     indexHtml: new Uint8Array(await readFile(join(dir, "index.html"))),
   };
+}
+
+/** Same wording the legacy tar.gz upload uses for an unbuilt project. */
+const BUILD_FIRST_HINT = {
+  message:
+    "Run 'base44 build' first (it injects your app id; a bare 'npm run build' does not)",
+} as const;
+
+/**
+ * The redirect file as it appears in copy, spelled out rather than taken from
+ * `WRANGLER_REDIRECT_PATH` in `wrangler-config.ts`: that constant is built with
+ * `join()` for touching the file, so it would read with backslashes on Windows.
+ */
+const REDIRECT_FILE_IN_COPY = ".wrangler/deploy/config.json";
+
+/**
+ * Says what the build did not emit without naming the worker — user-facing copy
+ * says "site" and does not make the distinction (see docs/deployments.md).
+ */
+const NO_ARTIFACT_HINT = {
+  message: `A build that emits ${REDIRECT_FILE_IN_COPY} deploys its server too; without one, only the files in the output directory are deployed.`,
+} as const;
+
+/**
+ * Why there is no index.html to finalize with. One message used to cover every
+ * one of these — a missing output directory, an empty one, and one whose entry
+ * point sits a level down all read as "No index.html found ... a static site
+ * needs one", which says nothing about which of the three happened and asserts
+ * a site type the caller never chose. The first two also restore the guard
+ * rails the legacy tar.gz upload has and this lane dropped.
+ *
+ * Diagnosis only: the throw itself, and the `INVALID_INPUT` code the platform
+ * keys its publish alerting on, are unchanged.
+ */
+async function missingIndexHtmlError(
+  assetsDir: string | null,
+  assets: AssetManifestResult,
+): Promise<InvalidInputError> {
+  if (!assetsDir) {
+    return new InvalidInputError(
+      `No site output to deploy: this build emitted no ${REDIRECT_FILE_IN_COPY}, and the project config sets no 'site.outputDirectory' to fall back to.`,
+      {
+        hints: [
+          {
+            message:
+              'Add \'site.outputDirectory\' to your config.jsonc (e.g., "site": { "outputDirectory": "dist" })',
+          },
+        ],
+      },
+    );
+  }
+
+  if (!(await pathExists(assetsDir))) {
+    return new InvalidInputError(
+      `Output directory does not exist: ${assetsDir}. Make sure to build your project first.`,
+      { hints: [BUILD_FIRST_HINT] },
+    );
+  }
+
+  const paths = Object.keys(assets.manifest);
+  if (paths.length === 0) {
+    return new InvalidInputError(
+      `No files found in output directory: ${assetsDir}. Make sure to build your project first.`,
+      { hints: [BUILD_FIRST_HINT] },
+    );
+  }
+
+  // Populated, but the entry point is not where finalize reads it from. An
+  // index.html one level down is the signature of a build that split its
+  // output client/server without emitting the artifact that would have shipped
+  // the server, so name the ones we found rather than leave it to be guessed.
+  const nested = paths.filter((path) => path.endsWith("/index.html")).sort();
+
+  return new InvalidInputError(
+    `No index.html at the root of "${assetsDir}" — the build emitted ${paths.length} ${paths.length === 1 ? "file" : "files"} there, none of them an entry point.`,
+    {
+      hints: [
+        ...(nested.length > 0
+          ? [
+              {
+                message: `Found an index.html deeper in the output: ${nested.join(", ")} — point 'site.outputDirectory' at that directory, or have the build emit an entry point at the root.`,
+              },
+            ]
+          : []),
+        NO_ARTIFACT_HINT,
+      ],
+    },
+  );
 }
 
 /**
