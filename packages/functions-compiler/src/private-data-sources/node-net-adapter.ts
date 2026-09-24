@@ -3,6 +3,7 @@ import nodeNet from "node:net";
 import { Duplex } from "node:stream";
 
 import { isCloudflareTcpSocket } from "./tcp";
+import type { CloudflareTcpSocket } from "./types";
 
 interface NodeNetSocket extends Duplex {
   connecting: boolean;
@@ -95,10 +96,7 @@ export function buildNodeNetSocket(
   label: string,
   options: { deferConnectEvent?: boolean } = {},
 ): NodeNetSocket {
-  if (!isCloudflareTcpSocket(socket)) {
-    throw new Error(`${label} did not return a readable/writable TCP socket`);
-  }
-  const cloudflareSocket = socket;
+  let cloudflareSocket: CloudflareTcpSocket | undefined;
 
   let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
   let writer: WritableStreamDefaultWriter<Uint8Array> | null = null;
@@ -107,6 +105,14 @@ export function buildNodeNetSocket(
   let readableEnded = false;
   let timeout: ReturnType<typeof setTimeout> | null = null;
   let writeChain = Promise.resolve();
+  const socketReady = Promise.resolve(socket).then((resolved) => {
+    if (!isCloudflareTcpSocket(resolved)) {
+      throw new Error(`${label} did not return a readable/writable TCP socket`);
+    }
+    cloudflareSocket = resolved;
+    if (closed) resolved.close?.();
+    return resolved;
+  });
 
   function clearTimer() {
     if (!timeout) return;
@@ -143,8 +149,9 @@ export function buildNodeNetSocket(
       const bytes = chunk instanceof Uint8Array ? chunk : Buffer.from(chunk);
       writeChain = writeChain
         .then(async () => {
+          const connectedSocket = await socketReady;
           if (closed) throw new Error(`${label} connection is closed`);
-          const activeWriter = writer ?? cloudflareSocket.writable.getWriter();
+          const activeWriter = writer ?? connectedSocket.writable.getWriter();
           writer = activeWriter;
           await activeWriter.write(bytes);
         })
@@ -157,7 +164,7 @@ export function buildNodeNetSocket(
       writeChain
         .then(() => {
           try {
-            cloudflareSocket.close?.();
+            cloudflareSocket?.close?.();
           } finally {
             callback();
           }
@@ -168,7 +175,7 @@ export function buildNodeNetSocket(
       closed = true;
       clearTimer();
       try {
-        cloudflareSocket.close?.();
+        cloudflareSocket?.close?.();
       } catch {
         // The stream is already being destroyed; surface the original error below.
       }
@@ -192,7 +199,7 @@ export function buildNodeNetSocket(
   };
 
   async function readLoop() {
-    const activeReader = reader ?? cloudflareSocket.readable.getReader();
+    const activeReader = reader ?? cloudflareSocket!.readable.getReader();
     reader = activeReader;
     try {
       while (!closed) {
@@ -226,19 +233,15 @@ export function buildNodeNetSocket(
     }
   }
 
-  if (cloudflareSocket.opened) {
-    cloudflareSocket.opened.then(
-      (info) => scheduleConnected(info),
-      (error) => stream.destroy(error instanceof Error ? error : new Error(String(error))),
-    );
-  } else {
-    queueMicrotask(() => scheduleConnected());
-  }
-  cloudflareSocket.closed?.finally(() => {
-    closed = true;
-    clearTimer();
-    endReadable();
-    releaseLocks();
+  socketReady.then(async (connectedSocket) => {
+    connectedSocket.closed?.finally(() => {
+      closed = true;
+      clearTimer();
+      endReadable();
+      releaseLocks();
+    }).catch((error) => stream.destroy(error instanceof Error ? error : new Error(String(error))));
+    const info = await connectedSocket.opened;
+    scheduleConnected(info);
   }).catch((error) => stream.destroy(error instanceof Error ? error : new Error(String(error))));
   return stream;
 }
