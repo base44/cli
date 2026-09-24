@@ -1,5 +1,6 @@
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { fixture, setupCLITests } from "./testkit/index.js";
+import { fixture, gitInitWithCommit, setupCLITests } from "./testkit/index.js";
 
 describe("deploy command (unified)", () => {
   const t = setupCLITests();
@@ -68,6 +69,45 @@ describe("deploy command (unified)", () => {
     t.expectResult(concurrency).toContain("unknown option");
     t.expectResult(help).toNotContain("--git-hash");
     t.expectResult(help).toNotContain("--concurrency");
+  });
+
+  it("ships a worker build through the deployments API, addressed by HEAD", async () => {
+    // The fixture names no site.outputDirectory: the worker's own assets
+    // directory is the site, and the legacy tar.gz step could not carry it.
+    await t.givenLoggedInWithProject(fixture("fullstack-project"));
+    const head = await gitInitWithCommit(join(t.getTempDir(), "project"));
+    t.api.mockConnectorsList({ integrations: [] });
+    t.api.mockDeploymentCreate({
+      deployment_id: "test-app-git-abc",
+      session_id: "3f9a1c07b8e44d2f",
+      asset_uploads: null,
+    });
+    t.api.mockDeploymentFinalize({ deployment_id: "test-app-git-abc" });
+
+    const result = await t.run("deploy", "-y");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("- Site");
+    t.expectResult(result).toContain("App deployed successfully");
+    t.expectResult(result).toContain(
+      `Deployment: test-app-git-abc (commit ${head.slice(0, 12)})`,
+    );
+    expect(t.api.deploymentCreateRequests).toHaveLength(1);
+    expect(t.api.deploymentCreateRequests[0]).toMatchObject({
+      git_hash: head,
+      config: { main: "index.js" },
+    });
+    expect(t.api.finalizeRequests).toHaveLength(1);
+  });
+
+  it("fails a worker build with no commit before pushing any resource", async () => {
+    await t.givenLoggedInWithProject(fixture("fullstack-project"));
+
+    const result = await t.run("deploy", "-y");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("no git commit was found");
+    expect(t.api.deploymentCreateRequests).toHaveLength(0);
   });
 
   it("does not deploy a site for a block that never named an output directory", async () => {
