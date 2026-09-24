@@ -252,6 +252,9 @@ interface DeploymentCreateResponse {
         }>;
       }
     | null;
+  /** True once the server stages index.html with the presigned PUTs, so
+   * finalize carries no file parts at all for a static build. */
+  index_html_staged?: boolean;
 }
 
 interface DeploymentFinalizeResponse {
@@ -355,7 +358,7 @@ interface ErrorResponse {
 
 // ─── ROUTE HANDLER TYPES ─────────────────────────────────────
 
-type Method = "GET" | "POST" | "PUT" | "DELETE";
+type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 interface RouteEntry {
   method: Method;
@@ -433,6 +436,7 @@ export class TestAPIServer {
         | "get"
         | "post"
         | "put"
+        | "patch"
         | "delete";
       this.app[method](entry.path, entry.handler);
     }
@@ -846,6 +850,91 @@ export class TestAPIServer {
       },
     });
     return this;
+  }
+
+  // ─── VERSION ENDPOINTS ────────────────────────────────────
+
+  /** Captured JSON bodies of POST versions (declare) requests. */
+  readonly versionDeclareRequests: unknown[] = [];
+  /** Captured JSON bodies of PATCH environments/{name} requests. */
+  readonly versionDeployRequests: unknown[] = [];
+  /** Captured environment names the PATCH addressed. */
+  readonly environmentNames: string[] = [];
+
+  /**
+   * Mock POST /api/apps/{appId}/versions. `uploads` is built from the declared
+   * files, pointed at this server's own presigned-style PUT targets, so a test
+   * exercises the real declare -> upload -> finalize order.
+   */
+  mockVersionDeclare(sessionId: string): this {
+    this.pendingRoutes.push({
+      method: "POST",
+      path: `/api/apps/${this.appId}/versions`,
+      handler: (req, res) => {
+        const body = req.body as {
+          assets: Array<{ path: string; size: number; digest: string }>;
+          site_worker?: {
+            modules: Array<{ path: string; size: number; digest: string }>;
+            assets: Array<{ path: string; size: number; digest: string }>;
+          };
+        };
+        this.versionDeclareRequests.push(body);
+        // The app's assets, then the Worker's modules — the slot order the
+        // server signs them in, which is what the client pairs uploads against.
+        const declared = [...body.assets, ...(body.site_worker?.modules ?? [])];
+        res.status(200).json({
+          session_id: sessionId,
+          uploads: declared.map((file) => ({
+            path: file.path,
+            url: `${this.baseUrl}/presigned/${file.path}`,
+            content_type: "application/octet-stream",
+            content_length: file.size,
+            checksum_sha256: Buffer.from(
+              file.digest.replace("sha256:", ""),
+              "hex",
+            ).toString("base64"),
+          })),
+        });
+      },
+    });
+    return this;
+  }
+
+  mockVersionFinalize(response: {
+    version_id: string;
+    manifest_hash: string;
+  }): this {
+    return this.addRoute(
+      "POST",
+      `/api/apps/${this.appId}/versions/:sessionId/finalize`,
+      response,
+    );
+  }
+
+  mockEnvironmentSet(response: {
+    name: string;
+    version_id: string;
+    manifest_hash: string;
+    deployment_id: string;
+  }): this {
+    this.pendingRoutes.push({
+      method: "PATCH",
+      path: `/api/apps/${this.appId}/environments/:name`,
+      handler: (req, res) => {
+        this.versionDeployRequests.push(req.body);
+        this.environmentNames.push(String(req.params.name));
+        res.status(200).json(response);
+      },
+    });
+    return this;
+  }
+
+  mockVersionDeclareError(error: ErrorResponse): this {
+    return this.addErrorRoute(
+      "POST",
+      `/api/apps/${this.appId}/versions`,
+      error,
+    );
   }
 
   /** Mock the Cloudflare assets endpoint to always fail with the given error. */

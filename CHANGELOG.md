@@ -4,7 +4,6 @@
 
 ### Added
 
-- `base44 build` no longer requires a logged-in user: it resolves the app id locally and runs a local build, so a build sandbox can use it.
 - `base44 site install` runs the site's `installCommand` and nothing else, so a machine that only needs a project's dependencies no longer has to go through `create`, `scaffold` or `eject`. Local only: no login and no app id required.
 - `base44 site dev` runs the site's `serveCommand` exactly as written, with no local backend and the frontend reaching its backend same-origin — the shape a hosted sandbox needs, where `base44 dev` (local backend) and `dev --remote` (the published app) are the developer-machine paths. It takes no arguments and appends nothing: where the dev server binds is the command's own business, and in a sandbox `@base44/vite-plugin` binds Base44 apps to `0.0.0.0:5173`. Serving is its whole job, so it falls back to `npm run dev` when the block names none.
 
@@ -24,6 +23,7 @@
 
 ### Fixed
 
+- The `backend-and-client` template names its entity file `Task.jsonc`, matching the entity's `name`; the Base44 platform derives the entity from the filename, so `task.jsonc` read as a second entity.
 - `base44 link` now lists editor-created apps; previously only apps created by the CLI could be linked.
 
 ## [0.0.51] - 2026-04-28

@@ -44,9 +44,8 @@ describe("readProjectConfig", () => {
       installCommand: "npm install",
     });
 
-    // These two never default: their absence answers a question a reader asks.
-    // `base44 dev` reads the first as "no frontend to run here" and `deploy`
-    // reads the second as "nothing built to upload".
+    // Neither defaults: their absence says "no frontend to run here" and
+    // "nothing built to upload", which a default would erase.
     expect(result.project.site?.serveCommand).toBeUndefined();
     expect(result.project.site?.outputDirectory).toBeUndefined();
   });

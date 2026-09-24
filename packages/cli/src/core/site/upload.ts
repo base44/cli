@@ -218,14 +218,33 @@ async function uploadPresignedAsset(
       `Server requested upload of unknown asset path: ${upload.path}`,
     );
   }
-  const content = await readFile(file.absolutePath);
+  await putPresigned(upload, file.absolutePath);
+}
+
+/**
+ * PUT one file to the URL the server signed for it. Which file that is, is the
+ * caller's to decide: the site lane resolves it by path, the version lane by
+ * the order it declared, because a version can declare two sets whose paths
+ * overlap.
+ */
+export async function putPresigned(
+  upload: PresignedAssetUpload,
+  absolutePath: string,
+): Promise<void> {
+  const content = await readFile(absolutePath);
 
   try {
     await ky.put(upload.url, {
       body: new Uint8Array(content),
-      // The server signed this exact Content-Type into the URL — deriving
-      // our own value would 403 on any mapping difference.
-      headers: { "Content-Type": upload.contentType },
+      headers: {
+        // The server signed these exact values into the URL — deriving our own
+        // would 403 on any mapping difference, and the checksum is what makes
+        // S3 refuse a body other than the one that was declared.
+        "Content-Type": upload.contentType,
+        ...(upload.checksumSha256
+          ? { "x-amz-checksum-sha256": upload.checksumSha256 }
+          : {}),
+      },
       timeout: 120_000,
       retry: UPLOAD_RETRY,
     });

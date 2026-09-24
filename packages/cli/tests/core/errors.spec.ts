@@ -255,7 +255,80 @@ describe("SystemError subclasses", () => {
     expect(apiError.statusCode).toBe(500);
     expect(apiError.requestUrl).toBe("https://api.base44.com/v1/deploy");
     expect(apiError.requestMethod).toBe("POST");
+    expect(apiError.responseBody).toBe("Internal Server Error");
+    expect(apiError.message).toContain("Internal Server Error");
+  });
+
+  it("ApiError.fromHttpError keeps a non-JSON body that names the emitting layer", async () => {
+    const { HTTPError } = await import("ky");
+    const response = new Response(
+      "<html><body>403 Forbidden — nginx</body></html>",
+      {
+        status: 403,
+        statusText: "Forbidden",
+        headers: { "content-type": "text/html" },
+      },
+    );
+    const request = new Request(
+      "https://app.base44.com/api/apps/a1/deployments/d1/finalize",
+      {
+        method: "POST",
+      },
+    );
+
+    const apiError = await ApiError.fromHttpError(
+      new HTTPError(response, request, {} as never),
+      "finalizing deployment",
+    );
+
+    expect(apiError.statusCode).toBe(403);
+    expect(apiError.message).toContain("403 Forbidden — nginx");
+  });
+
+  it("ApiError.fromHttpError reports the content type when the body is empty", async () => {
+    const { HTTPError } = await import("ky");
+    const response = new Response("", {
+      status: 403,
+      statusText: "Forbidden",
+      headers: { "content-type": "text/plain" },
+    });
+    const request = new Request(
+      "https://app.base44.com/api/apps/a1/deployments",
+      {
+        method: "POST",
+      },
+    );
+
+    const apiError = await ApiError.fromHttpError(
+      new HTTPError(response, request, {} as never),
+      "creating deployment",
+    );
+
     expect(apiError.responseBody).toBeUndefined();
+    expect(apiError.message).toContain("empty body");
+    expect(apiError.message).toContain("text/plain");
+  });
+
+  it("ApiError.fromHttpError truncates a long non-JSON body", async () => {
+    const { HTTPError } = await import("ky");
+    const response = new Response("x".repeat(2000), {
+      status: 502,
+      statusText: "Bad Gateway",
+    });
+    const request = new Request(
+      "https://app.base44.com/api/apps/a1/deployments",
+      {
+        method: "POST",
+      },
+    );
+
+    const apiError = await ApiError.fromHttpError(
+      new HTTPError(response, request, {} as never),
+      "creating deployment",
+    );
+
+    expect(apiError.message).toContain("…");
+    expect(apiError.message.length).toBeLessThan(800);
   });
 
   it("ApiError.fromHttpError handles plain Error", async () => {
