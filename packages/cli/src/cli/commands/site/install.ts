@@ -35,7 +35,7 @@ async function installAction({
   };
 }
 
-export function getInstallCommand(): Command {
+export function getSiteInstallCommand(): Command {
   // Local only: no app to resolve and no API to call, so a machine that has
   // never logged in (a build sandbox) can still install a project.
   return new Base44Command("install", {
