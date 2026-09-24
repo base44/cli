@@ -4,48 +4,38 @@ import { fixture, setupCLITests } from "./testkit/index.js";
 describe("site dev command", () => {
   const t = setupCLITests();
 
-  it("binds the sandbox convention when nothing names an address", async () => {
-    // The point of the defaults: apper runs `base44 site dev` with no arguments
-    // and no knowledge of what they would have been.
+  it("runs the serveCommand as written, appending nothing", async () => {
+    // Where the dev server binds is the command's own business: in a sandbox the
+    // vite plugin binds it, so nothing is added to the line.
     await t.givenLoggedInWithProject(fixture("with-npm-serve-command"));
 
     const handle = await t.runLive("site", "dev");
     await handle.waitForOutput(/ARGS=/);
     await handle.stop();
 
-    expect(handle.stdout.join("")).toContain("ARGS=--host 0.0.0.0 --port 5173");
+    expect(handle.stdout.join("")).toContain("ARGS= APP=");
   });
 
-  it("binds what the config names, the only way to change it", async () => {
-    await t.givenLoggedInWithProject(fixture("with-dev-address"));
+  it("runs a serveCommand that takes no forwarded arguments", async () => {
+    // A bare binary used to be refused because the address could not be
+    // appended to it. With nothing appended there is nothing to refuse.
+    await t.givenLoggedInWithProject(fixture("with-serve-command"));
 
     const handle = await t.runLive("site", "dev");
-    await handle.waitForOutput(/ARGS=/);
+    // Wait on the child's own line: the startup message echoes the command,
+    // which also contains "SERVE_APP=".
+    await handle.waitForOutput(new RegExp(`SERVE_APP=${t.api.appId}`));
     await handle.stop();
 
-    expect(handle.stdout.join("")).toContain(
-      "ARGS=--host 127.0.0.1 --port 4321",
-    );
+    expect(handle.stdout.join("")).toContain(`SERVE_APP=${t.api.appId}`);
   });
 
-  it("takes no address flags at all", async () => {
+  it("takes no arguments", async () => {
     await t.givenLoggedInWithProject(fixture("with-npm-serve-command"));
 
     const result = await t.run("site", "dev", "--port", "5999");
 
     t.expectResult(result).toFail();
-  });
-
-  it("refuses an address the serveCommand cannot take", async () => {
-    // A bare binary would read `--` as its own argument. Failing is the point:
-    // the caller asked for a reachable server, and a warning plus exit 0 would
-    // leave a sandbox serving on some other port and reporting success.
-    await t.givenLoggedInWithProject(fixture("with-serve-command"));
-
-    const result = await t.run("site", "dev");
-
-    t.expectResult(result).toFail();
-    t.expectResult(result).toContain("takes no forwarded arguments");
   });
 
   it("serves without a login", async () => {
@@ -57,18 +47,6 @@ describe("site dev command", () => {
     await handle.stop();
 
     expect(handle.stdout.join("")).toContain("ARGS=");
-  });
-
-  it("uses the project's own spelling of the host flag", async () => {
-    await t.givenLoggedInWithProject(fixture("with-hostname-serve-command"));
-
-    const handle = await t.runLive("site", "dev");
-    await handle.waitForOutput(/ARGS=/);
-    await handle.stop();
-
-    expect(handle.stdout.join("")).toContain(
-      "ARGS=--hostname 0.0.0.0 --port 5173",
-    );
   });
 
   it("serves the frontend same-origin, with no backend url injected", async () => {

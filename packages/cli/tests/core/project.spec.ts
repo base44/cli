@@ -31,9 +31,6 @@ describe("readProjectConfig", () => {
       outputDirectory: "site-output",
       buildCommand: "npm run build",
       installCommand: "npm install",
-      devHostFlag: "--host",
-      devHost: "0.0.0.0",
-      devPort: 5173,
     });
   });
 
@@ -45,9 +42,6 @@ describe("readProjectConfig", () => {
     expect(result.project.site).toEqual({
       buildCommand: "npm run build",
       installCommand: "npm install",
-      devHostFlag: "--host",
-      devHost: "0.0.0.0",
-      devPort: 5173,
     });
 
     // These two never default: their absence answers a question a reader asks.

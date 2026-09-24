@@ -5,10 +5,13 @@ import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
 import { ConfigInvalidError, InvalidInputError } from "@/core/errors.js";
 import { readProjectConfig } from "@/core/project/index.js";
-import {
-  DEFAULT_SERVE_COMMAND,
-  withServeAddress,
-} from "@/core/site/serve-command.js";
+
+/**
+ * What to run when a project has a site but names no dev server. Not a schema
+ * default: `base44 dev` reads an absent `serveCommand` as "no frontend to run
+ * here", so only a command that exists purely to serve one may assume this.
+ */
+const DEFAULT_SERVE_COMMAND = "npm run dev";
 
 async function siteDevAction(ctx: CLIContext): Promise<RunCommandResult> {
   const { app } = ctx;
@@ -28,23 +31,10 @@ async function siteDevAction(ctx: CLIContext): Promise<RunCommandResult> {
     );
   }
 
-  // Serving is this command's whole job, so an unnamed dev server is a
-  // convention rather than "nothing to run". Everything else comes from the
-  // config, which is why this command takes no arguments for it.
-  const serveCommand = site.serveCommand ?? DEFAULT_SERVE_COMMAND;
-  const { command, droppedAddress } = withServeAddress(serveCommand, {
-    host: site.devHost,
-    port: site.devPort,
-    hostFlag: site.devHostFlag,
-  });
-  // An address that cannot be delivered is a failure, not a warning: the caller
-  // is usually a sandbox, and it would otherwise get a preview on some other
-  // port and a zero exit status saying everything worked.
-  if (droppedAddress) {
-    throw new InvalidInputError(
-      `serveCommand '${serveCommand}' takes no forwarded arguments, so the bind address cannot be passed to it. Bind it inside serveCommand itself, or use an 'npm run', 'pnpm', 'yarn' or 'bun run' script.`,
-    );
-  }
+  // Run as written: where the dev server binds is the command's own business.
+  // In a sandbox @base44/vite-plugin binds 0.0.0.0:5173 for Base44 apps; any
+  // other serveCommand must bind the address the sandbox exposes itself.
+  const command = site.serveCommand ?? DEFAULT_SERVE_COMMAND;
 
   const runner = createServeCommandRunner({
     serveCommand: command,

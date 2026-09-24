@@ -1,8 +1,0 @@
-{
-  "name": "Dev Address Project",
-  "site": {
-    // The only way to change where `site dev` binds: it takes no flags for it.
-    "devHost": "127.0.0.1",
-    "devPort": 4321
-  }
-}

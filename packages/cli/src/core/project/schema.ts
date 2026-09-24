@@ -27,18 +27,6 @@ const SiteConfigSchema = z.object({
   serveCommand: z.string().optional(),
   outputDirectory: z.string().optional(),
   installCommand: z.string().default("npm install"),
-  // Where `site dev` binds and how this project's dev server spells the
-  // bind-address flag: `--host` for Vite/Astro/Nuxt, `--hostname` for Next,
-  // which exits on `--host`. The port flag itself is not configurable, because
-  // every dev server spells it `--port`.
-  //
-  // Config rather than command-line options, so the caller needs to know none of
-  // it: `base44 site dev` takes no arguments and reads every decision from here.
-  // `0.0.0.0` is the address a hosted sandbox needs, its preview being reached
-  // from outside the container; narrow it where binding the LAN matters.
-  devHostFlag: z.string().default("--host"),
-  devHost: z.string().default("0.0.0.0"),
-  devPort: z.number().int().min(1).max(65535).default(5173),
 });
 
 const PluginMetadataSchema = z.object({
