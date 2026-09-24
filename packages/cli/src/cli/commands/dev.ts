@@ -6,6 +6,7 @@ import {
   createServeCommandRunner,
   type ServeCommandRunnerOptions,
 } from "@/cli/dev/serve-command-runner.js";
+import { stopRunnerOnProcessSignals } from "@/cli/dev/stop-runner-on-signals.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { type AppIdOptions, Base44Command, theme } from "@/cli/utils/index.js";
 import { getDenoWrapperPath } from "@/core/assets.js";
@@ -63,12 +64,6 @@ async function resolveConfiguredSite(
   const { project } = await readProjectConfig(app.projectRoot);
   const serveCommand = project.site?.serveCommand;
   return serveCommand ? { serveCommand, projectRoot: project.root } : undefined;
-}
-
-function stopRunnerOnProcessSignals(runner: ServeRunner): void {
-  const stop = () => void runner.stop();
-  process.on("SIGINT", stop);
-  process.on("SIGTERM", stop);
 }
 
 function startServeCommand(
