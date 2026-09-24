@@ -7,10 +7,14 @@ import { getLoginCommand } from "@/cli/commands/auth/login.js";
 import { getLogoutCommand } from "@/cli/commands/auth/logout.js";
 import { getWhoamiCommand } from "@/cli/commands/auth/whoami.js";
 import { getBranchesCommand } from "@/cli/commands/branches/index.js";
+import { getCodeCommand } from "@/cli/commands/code.js";
 import { getConnectorsCommand } from "@/cli/commands/connectors/index.js";
 import { getDashboardCommand } from "@/cli/commands/dashboard/index.js";
 import { getEntitiesPushCommand } from "@/cli/commands/entities/push.js";
 import { getFunctionsCommand } from "@/cli/commands/functions/index.js";
+import { getNewCommand } from "@/cli/commands/imported/create.js";
+import { getImportedCommand } from "@/cli/commands/imported/index.js";
+import { getModelCommand } from "@/cli/commands/model.js";
 import { getBuildCommand } from "@/cli/commands/project/build.js";
 import { getCreateCommand } from "@/cli/commands/project/create.js";
 import { getDeployCommand } from "@/cli/commands/project/deploy.js";
@@ -22,6 +26,7 @@ import { getPublishCommand } from "@/cli/commands/publish.js";
 import { getSandboxCommand } from "@/cli/commands/sandbox/index.js";
 import { getSecretsCommand } from "@/cli/commands/secrets/index.js";
 import { getSiteCommand } from "@/cli/commands/site/index.js";
+import { getTargetCommand } from "@/cli/commands/target.js";
 import { getTypesCommand } from "@/cli/commands/types/index.js";
 import { getVersionsCommand } from "@/cli/commands/versions/index.js";
 import { getWorkflowsCommand } from "@/cli/commands/workflows/index.js";
@@ -114,6 +119,15 @@ export function createProgram(context: CLIContext): Command {
   // Register sandbox (remote development) commands
   program.addCommand(getSandboxCommand());
   program.addCommand(getBranchesCommand());
+
+  // Register imported-app commands
+  program.addCommand(getImportedCommand());
+  program.addCommand(getNewCommand());
+  program.addCommand(getCodeCommand());
+  program.addCommand(getModelCommand());
+
+  // Register the target command (staging/preview host selection)
+  program.addCommand(getTargetCommand());
 
   // Register auth config commands
   program.addCommand(getAuthCommand());
