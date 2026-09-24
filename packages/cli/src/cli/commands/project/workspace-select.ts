@@ -19,12 +19,14 @@ function workspaceLabel(workspace: WorkspaceListEntry): string {
 }
 
 /**
- * Resolve the workspace a new app should belong to.
+ * Resolve which workspace a command should target (creating an app in it, or
+ * scoping the app list for `link`). The server is the source of truth for
+ * permissions — the CLI never filters or validates by role:
  *
- * - `--workspace <id>` set: pass it straight through — the server authorizes
- *   creation in that workspace and returns a clear error if you can't.
+ * - `--workspace <id>` set: pass it straight through; the server returns a clear
+ *   error if you can't use it.
  * - interactive with more than one workspace: prompt to pick (no role filter;
- *   personal first). The server rejects a workspace you can't create in.
+ *   personal first).
  * - otherwise: return `undefined` so the server defaults to the personal
  *   workspace (no extra API call in the common single-workspace case).
  */
@@ -32,6 +34,7 @@ export async function resolveWorkspaceId(
   ctx: CLIContext,
   flagWorkspaceId: string | undefined,
   isInteractive: boolean,
+  options: { promptMessage?: string } = {},
 ): Promise<string | undefined> {
   if (flagWorkspaceId) {
     return flagWorkspaceId;
@@ -47,14 +50,15 @@ export async function resolveWorkspaceId(
     return undefined;
   }
 
-  const options: PromptOption<string>[] = workspaces.map((w) => ({
+  const promptOptions: PromptOption<string>[] = workspaces.map((w) => ({
     value: w.id,
     label: workspaceLabel(w),
   }));
 
   const selected = await select({
-    message: "Which workspace should this app belong to?",
-    options,
+    message:
+      options.promptMessage ?? "Which workspace should this app belong to?",
+    options: promptOptions,
     initialValue: workspaces[0].id,
   });
 
