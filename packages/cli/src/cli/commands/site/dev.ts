@@ -1,4 +1,5 @@
 import type { Command } from "commander";
+import { appendServeArgs } from "@/cli/dev/append-serve-args.js";
 import { createServeCommandRunner } from "@/cli/dev/serve-command-runner.js";
 import { stopRunnerOnProcessSignals } from "@/cli/dev/stop-runner-on-signals.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
@@ -13,7 +14,10 @@ import { readProjectConfig } from "@/core/project/index.js";
  */
 const DEFAULT_SERVE_COMMAND = "npm run dev";
 
-async function siteDevAction(ctx: CLIContext): Promise<RunCommandResult> {
+async function siteDevAction(
+  ctx: CLIContext,
+  forwarded: string[],
+): Promise<RunCommandResult> {
   const { app } = ctx;
   // Same shape as `base44 build`: the framework's own app-context step has
   // already refused with actionable hints, so this is the type's guard.
@@ -33,8 +37,12 @@ async function siteDevAction(ctx: CLIContext): Promise<RunCommandResult> {
 
   // Run as written: where the dev server binds is the command's own business.
   // In a sandbox @base44/vite-plugin binds 0.0.0.0:5173 for Base44 apps; any
-  // other serveCommand must bind the address the sandbox exposes itself.
-  const command = site.serveCommand ?? DEFAULT_SERVE_COMMAND;
+  // other serveCommand must bind the address the sandbox exposes itself. What
+  // the caller put after `--` is appended, and only that.
+  const command = appendServeArgs(
+    site.serveCommand ?? DEFAULT_SERVE_COMMAND,
+    forwarded,
+  );
 
   const runner = createServeCommandRunner({
     serveCommand: command,
@@ -54,5 +62,6 @@ export function getSiteDevCommand(): Command {
   // backend, locally or (with --remote) the app's published one.
   return new Base44Command("dev", { requireAuth: false })
     .description("Run the site's dev server, with no local backend")
+    .argument("[args...]", "Arguments appended to the serveCommand, after --")
     .action(siteDevAction);
 }
