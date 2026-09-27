@@ -23,6 +23,7 @@
 
 ### Fixed
 
+- An app id passed with `--app-id` or `BASE44_APP_ID` no longer discards the project the command runs in. Commands that need a project — `site dev`, `dev`, `connectors pull`/`push` — refused as if there were none. A checkout with `base44/config.jsonc` but no `.app.jsonc`, such as a hosted sandbox, can now run them.
 - The `backend-and-client` template names its entity file `Task.jsonc`, matching the entity's `name`; the Base44 platform derives the entity from the filename, so `task.jsonc` read as a second entity.
 - `base44 link` now lists editor-created apps; previously only apps created by the CLI could be linked.
 

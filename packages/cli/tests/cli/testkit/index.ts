@@ -27,6 +27,9 @@ export interface TestContext {
   /** Set up project directory by copying fixture to temp dir */
   givenProject: (fixturePath: string) => Promise<void>;
 
+  /** Project setup that lets the CLI resolve the app for real */
+  givenUnlinkedProject: (fixturePath: string) => Promise<void>;
+
   /** Combined: login + project setup (most common pattern) */
   givenLoggedInWithProject: (
     fixturePath: string,
@@ -121,6 +124,8 @@ export function setupCLITests(): TestContext {
     // Given methods
     givenLoggedIn: (user) => getKit().givenLoggedIn(user),
     givenProject: (fixturePath) => getKit().givenProject(fixturePath),
+    givenUnlinkedProject: (fixturePath) =>
+      getKit().givenUnlinkedProject(fixturePath),
     givenLoggedInWithProject: async (fixturePath, user = defaultUser) => {
       await getKit().givenLoggedIn(user);
       await getKit().givenProject(fixturePath);
