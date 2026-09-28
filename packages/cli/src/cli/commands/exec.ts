@@ -4,7 +4,11 @@ import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
 import { DEFAULT_DEV_SERVER_PORT } from "@/core/consts.js";
 import { InvalidInputError } from "@/core/errors.js";
-import { runScript } from "@/core/exec/index.js";
+import {
+  hasExecEnvTarget,
+  readExecEnvTarget,
+  runScript,
+} from "@/core/exec/index.js";
 import { readAuth } from "@/core/index.js";
 
 interface ExecOptions {
@@ -62,6 +66,13 @@ async function execAction(
     });
   }
 
+  const envTarget = readExecEnvTarget();
+  if (envTarget && options.local) {
+    throw new InvalidInputError(
+      "--local cannot be used when BASE44_EXEC_ACCESS_TOKEN and BASE44_EXEC_SERVER_URL are set.",
+    );
+  }
+
   const noInputError = new InvalidInputError(
     "No input provided. Pipe a script to stdin.",
     {
@@ -85,13 +96,15 @@ async function execAction(
     throw noInputError;
   }
 
-  const local = options.local
-    ? await resolveLocalTarget(
-        options.port !== undefined
-          ? parsePort(options.port)
-          : DEFAULT_DEV_SERVER_PORT,
-      )
-    : undefined;
+  const local = envTarget
+    ? { serverUrl: envTarget.serverUrl, token: envTarget.token }
+    : options.local
+      ? await resolveLocalTarget(
+          options.port !== undefined
+            ? parsePort(options.port)
+            : DEFAULT_DEV_SERVER_PORT,
+        )
+      : undefined;
 
   const { exitCode } = await runScript({
     appId: app!.id,
@@ -99,6 +112,8 @@ async function execAction(
     local,
     privileged: options.privileged,
     dataEnv: options.dataEnv,
+    serviceToken: envTarget?.serviceToken,
+    headers: envTarget?.headers,
   });
 
   if (exitCode !== 0) {
@@ -109,7 +124,8 @@ async function execAction(
 }
 
 export function getExecCommand(): Command {
-  return new Base44Command("exec")
+  // An env-supplied target (e.g. a platform sandbox) needs no platform login.
+  return new Base44Command("exec", { requireAuth: () => !hasExecEnvTarget() })
     .description(
       "Run a script with the Base44 SDK pre-authenticated as the current user",
     )
@@ -143,7 +159,14 @@ Examples:
     $ echo "await base44.entities.Task.create({ title: 'seed' })" | base44 exec --local
 
   With privileged access (bypass RLS):
-    $ echo "const all = await base44.entities.Task.list()" | base44 exec --privileged`,
+    $ echo "const all = await base44.entities.Task.list()" | base44 exec --privileged
+
+Environment (for sandboxes and agents; no login or linked project needed):
+  BASE44_EXEC_ACCESS_TOKEN   App-user token for the SDK (requires BASE44_EXEC_SERVER_URL)
+  BASE44_EXEC_SERVER_URL     SDK server URL (requires BASE44_EXEC_ACCESS_TOKEN)
+  BASE44_EXEC_SERVICE_TOKEN  Optional service token, enables base44.asServiceRole
+  BASE44_EXEC_HEADERS        Optional JSON object of extra request headers
+  The app id comes from --app-id or BASE44_APP_ID.`,
     )
     .action(execAction);
 }

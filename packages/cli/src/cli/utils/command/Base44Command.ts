@@ -83,9 +83,10 @@ interface Base44CommandOptions {
   /**
    * Require user authentication before running this command.
    * If the user is not logged in, they will be prompted to login.
+   * A function is evaluated when the command runs.
    * @default true
    */
-  requireAuth?: boolean;
+  requireAuth?: boolean | (() => boolean);
   /**
    * Resolve the active app context before running this command.
    * The app ID may come from --app-id, BASE44_APP_ID, or .app.jsonc.
@@ -197,7 +198,8 @@ export class Base44Command extends Command {
         if (branch !== undefined && !branch.trim()) {
           throw new InvalidInputError("--branch must not be empty.");
         }
-        if (this._commandOptions.requireAuth) {
+        const { requireAuth } = this._commandOptions;
+        if (typeof requireAuth === "function" ? requireAuth() : requireAuth) {
           await ensureAuth(this.context);
         }
         if (this._commandOptions.requireAppContext) {

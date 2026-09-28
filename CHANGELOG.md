@@ -4,6 +4,7 @@
 
 ### Added
 
+- `base44 exec` can run with no platform login or linked project: when `BASE44_EXEC_ACCESS_TOKEN` and `BASE44_EXEC_SERVER_URL` are both set, the SDK uses them as the app-user token and server URL, skipping the token exchange and published-URL lookup (so unpublished apps work). `BASE44_EXEC_SERVICE_TOKEN` enables `base44.asServiceRole`, and `BASE44_EXEC_HEADERS` (a JSON object) adds headers to every SDK request. The app id comes from `--app-id` or `BASE44_APP_ID`. Setting only one of the token/URL pair, or invalid header JSON, fails with a clear error.
 - `base44 site install` runs the site's `installCommand` and nothing else, so a machine that only needs a project's dependencies no longer has to go through `create`, `scaffold` or `eject`. Local only: no login and no app id required.
 - `base44 site dev` runs the site's `serveCommand` exactly as written, with no local backend and the frontend reaching its backend same-origin — the shape a hosted sandbox needs, where `base44 dev` (local backend) and `dev --remote` (the published app) are the developer-machine paths. It appends nothing of its own — anything after `--` is appended as given, so `npm run dev` needs a second `--` to reach the script (`base44 site dev -- -- --config wrapper.mjs`) — and where the dev server binds is the command's own business, and in a sandbox `@base44/vite-plugin` binds Base44 apps to `0.0.0.0:5173`. Serving is its whole job, so it falls back to `npm run dev` when the block names none.
 

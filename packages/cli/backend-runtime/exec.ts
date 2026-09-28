@@ -11,6 +11,11 @@
  * - BASE44_APP_BASE_URL: App's published URL / subdomain (used for function calls)
  * - BASE44_PRIVILEGED: When "true", adds the X-Bypass-RLS header (bypass RLS)
  * - BASE44_DATA_ENV: When set, adds the X-Data-Env header (target data environment)
+ * - BASE44_SERVICE_TOKEN: When set, passed as `serviceToken` (enables `base44.asServiceRole`)
+ * - BASE44_EXTRA_HEADERS: When set, a JSON object of extra headers on every SDK request
+ *
+ * BASE44_SERVICE_TOKEN and BASE44_EXTRA_HEADERS are removed from the environment
+ * before the user script runs.
  */
 
 export {};
@@ -21,6 +26,10 @@ const accessToken = Deno.env.get("BASE44_ACCESS_TOKEN");
 const appBaseUrl = Deno.env.get("BASE44_APP_BASE_URL");
 const isPrivileged = Deno.env.get("BASE44_PRIVILEGED") === "true";
 const dataEnv = Deno.env.get("BASE44_DATA_ENV");
+const serviceToken = Deno.env.get("BASE44_SERVICE_TOKEN");
+const extraHeaders = Deno.env.get("BASE44_EXTRA_HEADERS");
+Deno.env.delete("BASE44_SERVICE_TOKEN");
+Deno.env.delete("BASE44_EXTRA_HEADERS");
 
 if (!scriptPath) {
   console.error("SCRIPT_PATH environment variable is required");
@@ -39,13 +48,16 @@ if (!appBaseUrl) {
 
 import { createClient } from "npm:@base44/sdk";
 
-const customHeaders: Record<string, string> = {};
+const customHeaders: Record<string, string> = extraHeaders
+  ? JSON.parse(extraHeaders)
+  : {};
 if (isPrivileged) customHeaders["X-Bypass-RLS"] = "true";
 if (dataEnv) customHeaders["X-Data-Env"] = dataEnv;
 
 const base44 = createClient({
   appId,
   token: accessToken,
+  ...(serviceToken ? { serviceToken } : {}),
   serverUrl: appBaseUrl,
   headers: customHeaders,
 });

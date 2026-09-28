@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { copyFileSync, writeFileSync } from "node:fs";
 import { file } from "tmp-promise";
 import { getExecWrapperPath } from "@/core/assets.js";
+import { EXEC_ENV_VARS } from "@/core/exec/env-target.js";
 import { getAppUserToken, getSiteUrl } from "@/core/project/api.js";
 import { verifyDenoInstalled } from "@/core/utils/index.js";
 
@@ -9,13 +10,39 @@ interface RunScriptOptions {
   appId: string;
   code: string;
   /**
-   * When set, run against a local `base44 dev` server instead of the remote
-   * published app: the SDK's `serverUrl` and access token are taken from here
-   * rather than fetched via `getSiteUrl()` / `getAppUserToken()`.
+   * When set (a local `base44 dev` server, or an env-supplied target), the
+   * SDK's `serverUrl` and access token are taken from here rather than fetched
+   * via `getSiteUrl()` / `getAppUserToken()`.
    */
   local?: { serverUrl: string; token: string };
   privileged?: boolean;
   dataEnv?: string;
+  /** Passed to `createClient` as `serviceToken`, enabling `base44.asServiceRole`. */
+  serviceToken?: string;
+  /** Extra headers on every SDK request; `--privileged` / `--data-env` win. */
+  headers?: Record<string, string>;
+}
+
+// The wrapper reads and deletes these before the user script runs.
+const SERVICE_TOKEN_ENV = "BASE44_SERVICE_TOKEN";
+const EXTRA_HEADERS_ENV = "BASE44_EXTRA_HEADERS";
+
+function wrapperOnlyEnv(
+  serviceToken: string | undefined,
+  headers: Record<string, string> | undefined,
+): Record<string, string> {
+  return {
+    ...(serviceToken ? { [SERVICE_TOKEN_ENV]: serviceToken } : {}),
+    ...(headers ? { [EXTRA_HEADERS_ENV]: JSON.stringify(headers) } : {}),
+  };
+}
+
+function inheritedEnv(): NodeJS.ProcessEnv {
+  const env = { ...process.env };
+  for (const name of [...EXEC_ENV_VARS, SERVICE_TOKEN_ENV, EXTRA_HEADERS_ENV]) {
+    delete env[name];
+  }
+  return env;
 }
 
 interface RunScriptResult {
@@ -25,7 +52,8 @@ interface RunScriptResult {
 export async function runScript(
   options: RunScriptOptions,
 ): Promise<RunScriptResult> {
-  const { appId, code, local, privileged, dataEnv } = options;
+  const { appId, code, local, privileged, dataEnv, serviceToken, headers } =
+    options;
 
   verifyDenoInstalled("to run scripts with exec");
 
@@ -57,7 +85,8 @@ export async function runScript(
         ["run", "--allow-all", "--node-modules-dir=auto", tempWrapper.path],
         {
           env: {
-            ...process.env,
+            ...inheritedEnv(),
+            ...wrapperOnlyEnv(serviceToken, headers),
             SCRIPT_PATH: scriptPath,
             BASE44_APP_ID: appId,
             BASE44_ACCESS_TOKEN: appUserToken,
