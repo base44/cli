@@ -30,12 +30,31 @@ describe("site dev command", () => {
     expect(handle.stdout.join("")).toContain(`SERVE_APP=${t.api.appId}`);
   });
 
-  it("takes no arguments", async () => {
+  it("refuses a flag that is not forwarded after --", async () => {
     await t.givenLoggedInWithProject(fixture("with-npm-serve-command"));
 
     const result = await t.run("site", "dev", "--port", "5999");
 
     t.expectResult(result).toFail();
+  });
+
+  it("appends what follows -- to the serveCommand", async () => {
+    // How a caller hands the dev server its own flags. npm needs a second `--`
+    // to pass them on to the script, so the caller includes it.
+    await t.givenLoggedInWithProject(fixture("with-npm-serve-command"));
+
+    const handle = await t.runLive(
+      "site",
+      "dev",
+      "--",
+      "--",
+      "--config",
+      "wrapper.mjs",
+    );
+    await handle.waitForOutput(/ARGS=/);
+    await handle.stop();
+
+    expect(handle.stdout.join("")).toContain("ARGS=--config wrapper.mjs");
   });
 
   it("serves without a login", async () => {
