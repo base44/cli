@@ -82,7 +82,10 @@ export async function runScript(
     const exitCode = await new Promise<number>((resolvePromise) => {
       const child = spawn(
         "deno",
-        ["run", "--allow-all", "--node-modules-dir=auto", tempWrapper.path],
+        // `none` resolves npm: specifiers from Deno's global cache; `auto` would
+        // install into the caller's project node_modules (the cwd is kept for
+        // the script's relative paths), replacing e.g. its @base44/sdk.
+        ["run", "--allow-all", "--node-modules-dir=none", tempWrapper.path],
         {
           env: {
             ...inheritedEnv(),

@@ -84,6 +84,20 @@ describe("runScript", () => {
     }
   });
 
+  it("runs Deno in the caller's cwd without writing its node_modules", async () => {
+    await runScript({ appId: "app-1", code: "console.log(1)" });
+
+    const [command, args, options] = spawnMock.mock.calls[0];
+    expect(command).toBe("deno");
+    expect(args.slice(0, 3)).toEqual([
+      "run",
+      "--allow-all",
+      "--node-modules-dir=none",
+    ]);
+    expect(args).not.toContain("--node-modules-dir=auto");
+    expect(options.cwd).toBeUndefined();
+  });
+
   it("keeps the default path unchanged: remote lookups, no extra wrapper env", async () => {
     vi.stubEnv("BASE44_SERVICE_TOKEN", "ambient");
     vi.stubEnv("BASE44_EXTRA_HEADERS", "{}");
