@@ -1,5 +1,4 @@
 import type { Command } from "commander";
-import { appendServeArgs } from "@/cli/dev/append-serve-args.js";
 import { createServeCommandRunner } from "@/cli/dev/serve-command-runner.js";
 import { stopRunnerOnProcessSignals } from "@/cli/dev/stop-runner-on-signals.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
@@ -39,10 +38,8 @@ async function siteDevAction(
   // In a sandbox @base44/vite-plugin binds 0.0.0.0:5173 for Base44 apps; any
   // other serveCommand must bind the address the sandbox exposes itself. What
   // the caller put after `--` is appended, and only that.
-  const command = appendServeArgs(
-    site.serveCommand ?? DEFAULT_SERVE_COMMAND,
-    forwarded,
-  );
+  const serveCommand = site.serveCommand ?? DEFAULT_SERVE_COMMAND;
+  const command = [serveCommand, ...forwarded].join(" ");
 
   const runner = createServeCommandRunner({
     serveCommand: command,
