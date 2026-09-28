@@ -17,7 +17,7 @@ export const EXEC_ENV_VARS = [
  * An `exec` target supplied by the environment (e.g. a platform sandbox): the
  * SDK runs against `serverUrl` with `token`, with no platform login or lookup.
  */
-export interface ExecEnvTarget {
+interface ExecEnvTarget {
   serverUrl: string;
   token: string;
   serviceToken?: string;
