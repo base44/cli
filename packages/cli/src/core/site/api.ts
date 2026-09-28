@@ -7,12 +7,14 @@ import type {
   DeployResponse,
   FinalizeDeploymentResponse,
   ModuleType,
+  PublishDeploymentResponse,
   WorkerModule,
 } from "@/core/site/schema.js";
 import {
   CreateDeploymentResponseSchema,
   DeployResponseSchema,
   FinalizeDeploymentResponseSchema,
+  PublishDeploymentResponseSchema,
 } from "@/core/site/schema.js";
 import { readFile } from "@/core/utils/fs.js";
 
@@ -142,6 +144,41 @@ export async function finalizeDeployment(
   }
 
   const result = FinalizeDeploymentResponseSchema.safeParse(
+    await response.json(),
+  );
+  if (!result.success) {
+    throw new SchemaValidationError(
+      "Invalid response from server",
+      result.error,
+    );
+  }
+  return result.data;
+}
+
+/**
+ * Serve a deployed commit's build in production.
+ *
+ * Deploying and publishing are separate acts server-side — a build lands at its
+ * commit's address and only a publish repoints production at it — so this is a
+ * second call rather than a flag on finalize. Addressed by the commit, not the
+ * deployment id: the id is the short form the server derives, while the build
+ * itself is addressed by the full hash.
+ */
+export async function publishDeployment(
+  gitHash: string,
+): Promise<PublishDeploymentResponse> {
+  const appClient = getAppClient();
+
+  let response: KyResponse;
+  try {
+    response = await appClient.post(`deployments/${gitHash}/publish`, {
+      timeout: 120_000,
+    });
+  } catch (error) {
+    throw await ApiError.fromHttpError(error, "publishing deployment");
+  }
+
+  const result = PublishDeploymentResponseSchema.safeParse(
     await response.json(),
   );
   if (!result.success) {

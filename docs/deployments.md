@@ -1,6 +1,6 @@
 # Deployments
 
-**Keywords:** deployments, full-stack, Cloudflare Workers, wrangler, no_bundle, asset manifest, hash, git hash, commit, buckets, presigned, S3, upload session, finalize, .assetsignore, negation, concurrency, .wrangler/deploy/config.json, static site, BASE44_DEPLOYMENTS_API, env gate, target
+**Keywords:** deployments, full-stack, Cloudflare Workers, wrangler, no_bundle, asset manifest, hash, git hash, commit, buckets, presigned, S3, upload session, finalize, .assetsignore, negation, concurrency, .wrangler/deploy/config.json, static site, publish, --publish, --no-publish, target
 
 Deployments ship an app's built output addressed by the commit that produced it. This is a transport of the site module, not a module of its own, so it lives directly in `src/core/site/`: `deployment.ts` (the flow), `wrangler-config.ts` (artifact detection), `modules.ts` (worker module collection), `manifest.ts` (asset walk + hashing), `upload.ts` (bucket and presigned uploads), `git-hash.ts` (the commit address), with the requests and responses in the shared `api.ts` / `schema.ts` next to the legacy tar.gz upload.
 
@@ -8,7 +8,14 @@ Deployments ship an app's built output addressed by the commit that produced it.
 
 Everything downstream follows from the server's answer rather than from a decision of ours: `uploadDeploymentAssets()` dispatches on the `asset_uploads` discriminant, and `finalizeDeployment()` takes whichever payload completes the deployment (worker modules, or the index.html sentinel). The only place the two shapes are spelled out is where the protocol itself differs — the finalize form in `api.ts`.
 
-**Deploying builds — it never publishes.** A deployment is addressed by the commit that produced the build: the server derives the deployment id from `git_hash`, so one commit means one deployment and re-deploying a commit is idempotent. What production serves is decided by the platform publish flow, not by this CLI — there is no `--prod`, no promote/rollback, and no deployment list/logs surface.
+**Deploying and publishing are separate acts.** A deployment is addressed by the commit that produced the build: the server derives the deployment id from `git_hash`, so one commit means one deployment and re-deploying a commit is idempotent. Making a commit's build the one production serves is a second call, `POST deployments/{git_hash}/publish` (`publishDeployment()` in `api.ts`), and the server takes it only for an app whose source Base44 does not manage — a builder-managed app is published from the builder, where checkpoints and branch rules live.
+
+Which command publishes is therefore not a style choice:
+
+- **`base44 deploy` publishes by default** (`--no-publish` opts out). It is the door a developer uses on their own project, where the archive upload it replaces always left the app live.
+- **`base44 site deploy` does not** (`--publish` asks for it). Its main caller is the platform's own build step, which builds a builder-managed app and repoints production itself; publishing there would fail those apps outright.
+
+There is still no promote/rollback surface: rolling back is publishing an earlier commit.
 
 ## Git Hash Resolution
 
@@ -16,7 +23,7 @@ Everything downstream follows from the server's answer rather than from a decisi
 
 ## Artifact Detection
 
-The transport is **not** picked from the artifact: `base44 site deploy` takes the deployments API whenever `deploymentsApiEnabled()` says the env gate is on (see [the gate](#the-deployments-api-lane-experimental-env-gated)), and the legacy tar.gz upload otherwise. Detection then decides only what the create call *sends* — a worker config or none — inside `deployToDeployments()`. A gated-on deploy needs no `site.outputDirectory` when the build emitted a worker, since the worker brings its own assets directory. **This lane is reachable only from `site deploy`** — `base44 deploy` ships the site through `deployAll()`'s legacy tar.gz step and has none of these flags.
+The transport is **not** picked from the artifact: every site deploy goes through the deployments API. Detection decides only what the create call *sends* — a worker config or none — inside `deployToDeployments()`. A deploy needs no `site.outputDirectory` when the build emitted a worker, since the worker brings its own assets directory, and `hasResourcesToDeploy()` counts such a build as a site for the same reason.
 
 `detectFullStackArtifact(projectRoot)` looks for exactly one thing: `.wrangler/deploy/config.json`, the redirect file emitted by `@cloudflare/vite-plugin` builds. Its `configPath` points at the generated `wrangler.json`, **relative to the redirect file's directory**.
 
@@ -55,25 +62,23 @@ Entry = `main` from the wrangler config. With `no_bundle: true`, every file unde
 
 ## Command UX
 
-**`base44 site deploy [--git-hash <hash>] [--concurrency <n>] [--build|--no-build]`** — the optional build step is `maybeBuildBeforeDeploy` (`--build` forces it, `--no-build` skips it, otherwise an interactive ask whenever `site.buildCommand` exists). It runs **before** the deploy confirmation, so the prompt is the last gate before anything leaves the machine. Progress: "Found N static assets (M new)" → "Uploaded X of Y assets" → "Deploying worker (K modules)…" (only when there is one) → outro `Deployment <id> (commit <hash>)`. Under `--json`, stdout is a single `{deploymentId, gitHash}` document.
+**`base44 site deploy [--git-hash <hash>] [--concurrency <n>] [--build|--no-build] [--publish]`** — the optional build step is `maybeBuildBeforeDeploy` (`--build` forces it, `--no-build` skips it, otherwise an interactive ask whenever `site.buildCommand` exists). It runs **before** the deploy confirmation, so the prompt is the last gate before anything leaves the machine. Progress: "Found N static assets (M new)" → "Uploaded X of Y assets" → "Deploying worker (K modules)…" (only when there is one) → outro `Deployment <id> (commit <hash>)`. Under `--json`, stdout is a single `{deploymentId, gitHash, published}` document.
 
 **"Site" is the only word for it in user-facing copy.** A site is whatever we deploy, worker or no worker, so the prompt, spinner, success line and errors say "site" and never distinguish the two — the distinction is ours, not the user's, and a deploy that reports itself differently depending on the build reads as two products. Internally the code says "worker" for the thing that may or may not be there.
 
 **Config only, no resources.** `site deploy` reads the project config through `readProjectSettings()`, not `readProjectConfig()`: it ships the built output and touches none of the project's resource files, so an invalid one must not fail it. It used to — builder apps carry entity schemas the CLI's `EntitySchema` rejects, and every publish through this lane failed with `SCHEMA_INVALID` before reaching a single asset. Commands that do consume those resources keep using `readProjectConfig()`.
 
-`base44 deploy` is deliberately untouched by this: it deploys the project's resources and ships the site through `deployAll()`'s legacy tar.gz step, exactly as before, and neither `--git-hash` nor `--concurrency` exists on it. Adopting the lane there is a separate decision — it would need a commit address the unified deploy has no way to take.
+**`base44 deploy [--git-hash <hash>] [--no-publish]`** ships the project's resources and then its site, through this same lane, and publishes what it deployed. It takes `--git-hash` because a deployment needs the address it is made at; it takes no `--concurrency`, since the caller uploading at scale is `site deploy`.
 
 The primary automated consumer is the platform's build/deploy sandbox, which runs `base44 site deploy -y --json --git-hash <commit>` with a scoped `apps:deploy` workspace key — so the sandbox and a human at a terminal go through the exact same door.
 
-## The Deployments-API Lane (experimental, env-gated)
+## The Commit Address, and What Is Left of the Archive Upload
 
-The whole lane is one env var: with `BASE44_DEPLOYMENTS_API=1` (or `true`; internal gate, not user-facing yet) `site deploy` ships through the deployments API — static output and full-stack builds alike — and without it, through the legacy tar.gz upload. `deploymentsApiEnabled()` in `core/site/deployment.ts` is read in exactly two places, both in the command: the transport choice, and the registration of `--git-hash` / `--concurrency`, which exist only on the lane that can honor them (with the gate off they are unknown options, as they were before the lane existed).
+The commit comes from `--git-hash` when passed, otherwise `git rev-parse HEAD`. `site deploy` with neither fails asking for the flag: its build has no address, so nothing could publish it later.
 
-The commit comes from `--git-hash` when passed, otherwise `git rev-parse HEAD`; on the lane with neither available the deploy fails asking for the flag, rather than silently falling back to the tar.gz upload — a deployment is addressed by the commit that produced it, so a build with no address could never be published.
+`base44 deploy` is softer, in the one case where a project legitimately has no history: with a `site.outputDirectory` and no commit, it warns and ships that directory through the legacy tar.gz upload (`deploySite()`), which publishes as it always did. A **worker** build has no archive form, so there a missing commit is fatal. The archive upload's other caller is the scaffold deploy in `base44 create`, which runs before a new project has any history at all. Those two are the whole of what is left on it — everything else is the lane.
 
-On the lane with no worker, the output directory becomes the asset manifest (index.html included — it is only ever excluded from uploads), and the create request carries **no `config`**, which the server answers with the `s3` arm. The CLI PUTs each requested file directly to its presigned URL and finalizes with the index.html bytes; today's serving keeps working because the server stores the result the way the legacy site upload does. Same flow, same commands, same `--git-hash` addressing, same `--json` output.
-
-With the gate off, every `site deploy` takes the legacy tar.gz path unchanged — including a full-stack project, whose worker is then not shipped at all.
+With no worker, the output directory becomes the asset manifest (index.html included — it is only ever excluded from uploads), and the create request carries **no `config`**, which the server answers with the `s3` arm. The CLI PUTs each requested file directly to its presigned URL and finalizes with the index.html bytes.
 
 ## Testing
 
@@ -89,4 +94,5 @@ With the gate off, every `site deploy` takes the legacy tar.gz path unchanged �
 - **`git_hash` is required** — a build with no commit behind it has no address and could never be published
 - **One `createDeployment()` call site** — a worker changes its parameters, never the flow around it; do not fork the code path on "full-stack vs static"
 - **Say "site" to the user** — never "full-stack app"; the presence of a worker is not a distinction user-facing copy makes
-- **Legacy behavior stays identical** when no worker artifact exists and the static gate is off — the tar.gz site path must not change
+- **`site deploy` never publishes on its own** — the platform's build step runs it against builder-managed apps, where a publish is both wrong and fatal
+- **The archive upload is for builds with no commit only** — `base44 create`'s scaffold deploy and a `base44 deploy` in a non-git project; never add a third caller

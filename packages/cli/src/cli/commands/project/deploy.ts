@@ -1,6 +1,7 @@
 import type { Logger } from "@base44-cli/logger";
 import { confirm, isCancel } from "@clack/prompts";
 import type { Command } from "commander";
+import { InvalidArgumentError, Option } from "commander";
 import {
   filterPendingOAuth,
   promptOAuthFlows,
@@ -24,11 +25,14 @@ import type {
   ConnectorSyncResult,
   StripeSyncResult,
 } from "@/core/resources/connector/index.js";
+import { isGitCommitHash } from "@/core/utils/git.js";
 
 interface DeployOptions {
   yes?: boolean;
   build?: boolean;
   projectRoot?: string;
+  gitHash?: string;
+  publish?: boolean;
 }
 
 export async function deployAction(
@@ -42,7 +46,7 @@ export async function deployAction(
 
   const projectData = await readProjectConfig(options.projectRoot);
 
-  if (!hasResourcesToDeploy(projectData)) {
+  if (!(await hasResourcesToDeploy(projectData))) {
     return {
       outroMessage: "No resources found to deploy",
     };
@@ -120,6 +124,11 @@ export async function deployAction(
   let actorCompleted = 0;
 
   const result = await deployAll(projectData, {
+    gitHash: options.gitHash,
+    publish: options.publish,
+    onSiteProgress: (message) => {
+      log.message(theme.styles.dim(message));
+    },
     onVisibilitySet: (level) => {
       log.success(`App visibility set to ${level}`);
     },
@@ -179,6 +188,16 @@ export function getDeployCommand(): Command {
     .option("-y, --yes", "Skip confirmation prompt")
     .option("--build", "Build the site before deploying (skips the prompt)")
     .option("--no-build", "Deploy without building (skips the prompt)")
+    .option(
+      "--no-publish",
+      "Deploy the site without serving it in production yet",
+    )
+    .addOption(
+      new Option(
+        "--git-hash <hash>",
+        "Commit the built site came from (defaults to the checkout's HEAD)",
+      ).argParser(parseGitHash),
+    )
     .action(deployAction);
 }
 
@@ -211,4 +230,13 @@ function printStripeResult(r: StripeSyncResult, log: Logger): void {
     log.info(`  Claim your Stripe sandbox: ${theme.colors.links(r.claimUrl)}`);
   }
   log.info(`  Connectors dashboard: ${theme.colors.links(getConnectorsUrl())}`);
+}
+
+function parseGitHash(value: string): string {
+  if (!isGitCommitHash(value)) {
+    throw new InvalidArgumentError(
+      "Expected a git commit hash (7-64 hex chars).",
+    );
+  }
+  return value;
 }

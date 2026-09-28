@@ -44,7 +44,7 @@ export interface AppServerTarget {
   waitForOrigin: () => Promise<string>;
 }
 
-export interface AppServerProxy {
+interface AppServerProxy {
   middleware: RequestHandler;
   upgrade: (req: IncomingMessage, socket: Duplex, head: Buffer) => void;
 }
