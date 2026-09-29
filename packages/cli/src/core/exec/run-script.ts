@@ -2,6 +2,11 @@ import { spawn } from "node:child_process";
 import { copyFileSync, writeFileSync } from "node:fs";
 import { file } from "tmp-promise";
 import { getExecWrapperPath } from "@/core/assets.js";
+import {
+  DATA_ENV_ENV_VAR,
+  EXEC_ENV_VARS,
+  PRIVILEGED_ENV_VAR,
+} from "@/core/exec/env-target.js";
 import { getAppUserToken, getSiteUrl } from "@/core/project/api.js";
 import { verifyDenoInstalled } from "@/core/utils/index.js";
 
@@ -9,13 +14,31 @@ interface RunScriptOptions {
   appId: string;
   code: string;
   /**
-   * When set, run against a local `base44 dev` server instead of the remote
-   * published app: the SDK's `serverUrl` and access token are taken from here
-   * rather than fetched via `getSiteUrl()` / `getAppUserToken()`.
+   * When set (a local `base44 dev` server, or an env-supplied target), the
+   * SDK's `serverUrl` and access token are taken from here rather than fetched
+   * via `getSiteUrl()` / `getAppUserToken()`.
    */
   local?: { serverUrl: string; token: string };
   privileged?: boolean;
   dataEnv?: string;
+  /** Passed to `createClient` as `serviceToken`, enabling `base44.asServiceRole`. */
+  serviceToken?: string;
+}
+
+// The wrapper reads and deletes this before the user script runs.
+const SERVICE_TOKEN_ENV = "BASE44_SERVICE_TOKEN";
+
+function inheritedEnv(): NodeJS.ProcessEnv {
+  const env = { ...process.env };
+  for (const name of [
+    ...EXEC_ENV_VARS,
+    PRIVILEGED_ENV_VAR,
+    DATA_ENV_ENV_VAR,
+    SERVICE_TOKEN_ENV,
+  ]) {
+    delete env[name];
+  }
+  return env;
 }
 
 interface RunScriptResult {
@@ -25,7 +48,7 @@ interface RunScriptResult {
 export async function runScript(
   options: RunScriptOptions,
 ): Promise<RunScriptResult> {
-  const { appId, code, local, privileged, dataEnv } = options;
+  const { appId, code, local, privileged, dataEnv, serviceToken } = options;
 
   verifyDenoInstalled("to run scripts with exec");
 
@@ -54,10 +77,14 @@ export async function runScript(
     const exitCode = await new Promise<number>((resolvePromise) => {
       const child = spawn(
         "deno",
-        ["run", "--allow-all", "--node-modules-dir=auto", tempWrapper.path],
+        // `none` resolves npm: specifiers from Deno's global cache; `auto` would
+        // install into the caller's project node_modules (the cwd is kept for
+        // the script's relative paths), replacing e.g. its @base44/sdk.
+        ["run", "--allow-all", "--node-modules-dir=none", tempWrapper.path],
         {
           env: {
-            ...process.env,
+            ...inheritedEnv(),
+            ...(serviceToken ? { [SERVICE_TOKEN_ENV]: serviceToken } : {}),
             SCRIPT_PATH: scriptPath,
             BASE44_APP_ID: appId,
             BASE44_ACCESS_TOKEN: appUserToken,

@@ -1,10 +1,16 @@
-import type { Command } from "commander";
+import { type Command, Option } from "commander";
 import { createJwtToken } from "@/cli/dev/dev-server/auth/tokens.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
 import { DEFAULT_DEV_SERVER_PORT } from "@/core/consts.js";
 import { InvalidInputError } from "@/core/errors.js";
-import { runScript } from "@/core/exec/index.js";
+import {
+  DATA_ENV_ENV_VAR,
+  hasExecEnvTarget,
+  PRIVILEGED_ENV_VAR,
+  readExecEnvTarget,
+  runScript,
+} from "@/core/exec/index.js";
 import { readAuth } from "@/core/index.js";
 
 interface ExecOptions {
@@ -62,6 +68,13 @@ async function execAction(
     });
   }
 
+  const envTarget = readExecEnvTarget();
+  if (envTarget && options.local) {
+    throw new InvalidInputError(
+      "--local cannot be used when BASE44_EXEC_ACCESS_TOKEN and BASE44_EXEC_SERVER_URL are set.",
+    );
+  }
+
   const noInputError = new InvalidInputError(
     "No input provided. Pipe a script to stdin.",
     {
@@ -85,13 +98,15 @@ async function execAction(
     throw noInputError;
   }
 
-  const local = options.local
-    ? await resolveLocalTarget(
-        options.port !== undefined
-          ? parsePort(options.port)
-          : DEFAULT_DEV_SERVER_PORT,
-      )
-    : undefined;
+  const local = envTarget
+    ? { serverUrl: envTarget.serverUrl, token: envTarget.token }
+    : options.local
+      ? await resolveLocalTarget(
+          options.port !== undefined
+            ? parsePort(options.port)
+            : DEFAULT_DEV_SERVER_PORT,
+        )
+      : undefined;
 
   const { exitCode } = await runScript({
     appId: app!.id,
@@ -99,6 +114,7 @@ async function execAction(
     local,
     privileged: options.privileged,
     dataEnv: options.dataEnv,
+    serviceToken: envTarget?.serviceToken,
   });
 
   if (exitCode !== 0) {
@@ -109,7 +125,8 @@ async function execAction(
 }
 
 export function getExecCommand(): Command {
-  return new Base44Command("exec")
+  // An env-supplied target (e.g. a platform sandbox) needs no platform login.
+  return new Base44Command("exec", { requireAuth: !hasExecEnvTarget() })
     .description(
       "Run a script with the Base44 SDK pre-authenticated as the current user",
     )
@@ -121,13 +138,17 @@ export function getExecCommand(): Command {
       "--port <number>",
       `Port the local dev server is on (with --local; defaults to ${DEFAULT_DEV_SERVER_PORT})`,
     )
-    .option(
-      "--privileged",
-      "Run with admin privileges (bypass RLS). Requires app owner/editor role.",
+    .addOption(
+      new Option(
+        "--privileged",
+        "Run with admin privileges (bypass RLS). Requires app owner/editor role.",
+      ).env(PRIVILEGED_ENV_VAR),
     )
-    .option(
-      "--data-env <environment>",
-      "Data environment to run against (e.g. dev, prod)",
+    .addOption(
+      new Option(
+        "--data-env <environment>",
+        "Data environment to run against (e.g. dev, prod)",
+      ).env(DATA_ENV_ENV_VAR),
     )
     .addHelpText(
       "after",
