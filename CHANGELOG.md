@@ -4,7 +4,7 @@
 
 ### Changed
 
-- `base44 exec` pins the SDK its scripts get (`@base44/sdk@0.8.48`) instead of resolving the latest release from npm on each fresh Deno cache, so runs are reproducible and a pre-cached SDK is used without a download.
+- `base44 exec` pins the SDK its scripts get (`@base44/sdk@0.8.52`) instead of resolving the latest release from npm on each fresh Deno cache, so runs are reproducible and a pre-cached SDK is used without a download. The pinned SDK is exempt from Deno's minimum dependency age, so a just-released SDK still loads; other npm packages a script imports keep the default.
 
 ### Added
 

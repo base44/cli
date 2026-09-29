@@ -25,6 +25,10 @@ interface RunScriptOptions {
   serviceToken?: string;
 }
 
+const DENO_CONFIG = {
+  minimumDependencyAge: { exclude: ["npm:@base44/sdk"] },
+};
+
 // The wrapper reads and deletes this before the user script runs.
 const SERVICE_TOKEN_ENV = "BASE44_SERVICE_TOKEN";
 
@@ -73,6 +77,12 @@ export async function runScript(
   cleanupFns.push(tempWrapper.cleanup);
   copyFileSync(getExecWrapperPath(), tempWrapper.path);
 
+  // Deno's default minimum dependency age (24h) would refuse the wrapper's pinned
+  // SDK right after a release; it keeps applying to everything else.
+  const tempConfig = await file({ postfix: ".json" });
+  cleanupFns.push(tempConfig.cleanup);
+  writeFileSync(tempConfig.path, JSON.stringify(DENO_CONFIG), "utf-8");
+
   try {
     const exitCode = await new Promise<number>((resolvePromise) => {
       const child = spawn(
@@ -80,7 +90,14 @@ export async function runScript(
         // `none` resolves npm: specifiers from Deno's global cache; `auto` would
         // install into the caller's project node_modules (the cwd is kept for
         // the script's relative paths), replacing e.g. its @base44/sdk.
-        ["run", "--allow-all", "--node-modules-dir=none", tempWrapper.path],
+        [
+          "run",
+          "--allow-all",
+          "--node-modules-dir=none",
+          "--config",
+          tempConfig.path,
+          tempWrapper.path,
+        ],
         {
           env: {
             ...inheritedEnv(),

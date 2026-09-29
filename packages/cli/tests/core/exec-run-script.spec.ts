@@ -44,9 +44,16 @@ const EXEC_VARS = {
   BASE44_DATA_ENV: "dev",
 };
 
+let configContents: Record<string, unknown>;
+
 describe("runScript", () => {
   beforeEach(() => {
-    spawnMock.mockImplementation(() => {
+    configContents = {};
+    spawnMock.mockImplementation((_command: string, args: string[]) => {
+      const configPath = args[args.indexOf("--config") + 1];
+      configContents[configPath] = JSON.parse(
+        readFileSync(configPath, "utf-8"),
+      );
       const child = new EventEmitter();
       queueMicrotask(() => child.emit("close", 0));
       return child;
@@ -95,6 +102,10 @@ describe("runScript", () => {
       "--node-modules-dir=none",
     ]);
     expect(args).not.toContain("--node-modules-dir=auto");
+    const configPath = args[args.indexOf("--config") + 1];
+    expect(configContents).toEqual({
+      [configPath]: { minimumDependencyAge: { exclude: ["npm:@base44/sdk"] } },
+    });
     expect(options.cwd).toBeUndefined();
   });
 
