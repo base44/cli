@@ -89,7 +89,7 @@ new Base44Command("my-cmd", { requireAuth: false, requireAppContext: false })
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `requireAuth` | `true` | Check authentication before running, auto-triggers login if needed. A function is evaluated at run time (e.g. `exec` skips login when `BASE44_EXEC_*` env vars supply the target) |
+| `requireAuth` | `true` | Check authentication before running, auto-triggers login if needed |
 | `requireAppContext` | `true` | Resolve the app ID from `--app-id`, `BASE44_APP_ID`, or `.app.jsonc`, then cache it for sync access via `getAppContext()` |
 | `fullBanner` | `false` | Show ASCII art banner instead of simple intro tag |
 
