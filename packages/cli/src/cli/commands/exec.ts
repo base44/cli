@@ -9,6 +9,7 @@ import {
   hasExecEnvTarget,
   PRIVILEGED_ENV_VAR,
   readExecEnvTarget,
+  readExecSdkVersion,
   runScript,
 } from "@/core/exec/index.js";
 import { readAuth } from "@/core/index.js";
@@ -69,6 +70,7 @@ async function execAction(
   }
 
   const envTarget = readExecEnvTarget();
+  const sdkVersion = readExecSdkVersion();
   if (envTarget && options.local) {
     throw new InvalidInputError(
       "--local cannot be used when BASE44_EXEC_ACCESS_TOKEN and BASE44_EXEC_SERVER_URL are set.",
@@ -115,6 +117,7 @@ async function execAction(
     privileged: options.privileged,
     dataEnv: options.dataEnv,
     serviceToken: envTarget?.serviceToken,
+    sdkVersion,
   });
 
   if (exitCode !== 0) {

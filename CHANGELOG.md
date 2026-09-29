@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- `base44 exec` loads an SDK released in the last 24 hours instead of Deno's default minimum dependency age silently holding scripts on the previous one. Other npm packages a script imports keep the default.
+
 ### Added
 
 - `base44 site install` runs the site's `installCommand` and nothing else, so a machine that only needs a project's dependencies no longer has to go through `create`, `scaffold` or `eject`. Local only: no login and no app id required.

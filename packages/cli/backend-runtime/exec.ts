@@ -42,6 +42,7 @@ if (!appBaseUrl) {
   Deno.exit(1);
 }
 
+// runScript pins this to BASE44_EXEC_SDK_VERSION when set; otherwise Deno resolves latest.
 import { createClient } from "npm:@base44/sdk";
 
 const customHeaders: Record<string, string> = {};

@@ -1,4 +1,5 @@
 import { EventEmitter } from "node:events";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runScript } from "../../src/core/exec/run-script.js";
@@ -43,9 +44,18 @@ const EXEC_VARS = {
   BASE44_DATA_ENV: "dev",
 };
 
+let configContents: Record<string, unknown>;
+let wrapperContents = "";
+
 describe("runScript", () => {
   beforeEach(() => {
-    spawnMock.mockImplementation(() => {
+    configContents = {};
+    spawnMock.mockImplementation((_command: string, args: string[]) => {
+      const configPath = args[args.indexOf("--config") + 1];
+      configContents[configPath] = JSON.parse(
+        readFileSync(configPath, "utf-8"),
+      );
+      wrapperContents = readFileSync(args[args.length - 1], "utf-8");
       const child = new EventEmitter();
       queueMicrotask(() => child.emit("close", 0));
       return child;
@@ -94,6 +104,10 @@ describe("runScript", () => {
       "--node-modules-dir=none",
     ]);
     expect(args).not.toContain("--node-modules-dir=auto");
+    const configPath = args[args.indexOf("--config") + 1];
+    expect(configContents).toEqual({
+      [configPath]: { minimumDependencyAge: { exclude: ["npm:@base44/sdk"] } },
+    });
     expect(options.cwd).toBeUndefined();
   });
 
@@ -110,5 +124,25 @@ describe("runScript", () => {
     expect(env).not.toHaveProperty("BASE44_SERVICE_TOKEN");
     expect(env).not.toHaveProperty("BASE44_PRIVILEGED");
     expect(env).not.toHaveProperty("BASE44_DATA_ENV");
+  });
+
+  it("imports the latest SDK unless a version is given", async () => {
+    await runScript({ appId: "app-1", code: "console.log(1)" });
+
+    expect(wrapperContents.match(/"npm:@base44\/sdk[^"]*"/g)).toEqual([
+      '"npm:@base44/sdk"',
+    ]);
+  });
+
+  it("pins the SDK import to the given version", async () => {
+    await runScript({
+      appId: "app-1",
+      code: "console.log(1)",
+      sdkVersion: "0.8.48",
+    });
+
+    expect(wrapperContents.match(/"npm:@base44\/sdk[^"]*"/g)).toEqual([
+      '"npm:@base44/sdk@0.8.48"',
+    ]);
   });
 });
