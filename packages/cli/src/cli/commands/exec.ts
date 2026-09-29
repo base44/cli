@@ -1,4 +1,4 @@
-import type { Command } from "commander";
+import { type Command, Option } from "commander";
 import { createJwtToken } from "@/cli/dev/dev-server/auth/tokens.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
@@ -112,9 +112,8 @@ async function execAction(
     appId: app!.id,
     code,
     local,
-    privileged:
-      options.privileged || process.env[PRIVILEGED_ENV_VAR] !== undefined,
-    dataEnv: options.dataEnv ?? process.env[DATA_ENV_ENV_VAR],
+    privileged: options.privileged,
+    dataEnv: options.dataEnv,
     serviceToken: envTarget?.serviceToken,
   });
 
@@ -139,13 +138,17 @@ export function getExecCommand(): Command {
       "--port <number>",
       `Port the local dev server is on (with --local; defaults to ${DEFAULT_DEV_SERVER_PORT})`,
     )
-    .option(
-      "--privileged",
-      "Run with admin privileges (bypass RLS). Requires app owner/editor role.",
+    .addOption(
+      new Option(
+        "--privileged",
+        "Run with admin privileges (bypass RLS). Requires app owner/editor role.",
+      ).env(PRIVILEGED_ENV_VAR),
     )
-    .option(
-      "--data-env <environment>",
-      "Data environment to run against (e.g. dev, prod)",
+    .addOption(
+      new Option(
+        "--data-env <environment>",
+        "Data environment to run against (e.g. dev, prod)",
+      ).env(DATA_ENV_ENV_VAR),
     )
     .addHelpText(
       "after",

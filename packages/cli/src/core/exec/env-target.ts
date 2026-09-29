@@ -10,9 +10,9 @@ export const EXEC_ENV_VARS = [
   SERVICE_TOKEN_VAR,
 ] as const;
 
-/** Env fallbacks for `--privileged` / `--data-env`; not part of the target. */
-export const PRIVILEGED_ENV_VAR = "BASE44_EXEC_PRIVILEGED";
-export const DATA_ENV_ENV_VAR = "BASE44_EXEC_DATA_ENV";
+/** Env fallbacks for `--privileged` / `--data-env` (also the wrapper's own names); not part of the target. */
+export const PRIVILEGED_ENV_VAR = "BASE44_PRIVILEGED";
+export const DATA_ENV_ENV_VAR = "BASE44_DATA_ENV";
 
 /**
  * An `exec` target supplied by the environment (e.g. a platform sandbox): the

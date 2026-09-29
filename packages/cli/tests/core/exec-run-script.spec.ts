@@ -39,8 +39,8 @@ const EXEC_VARS = {
   BASE44_EXEC_ACCESS_TOKEN: "env-token",
   BASE44_EXEC_SERVER_URL: "https://sandbox.example.com",
   BASE44_EXEC_SERVICE_TOKEN: "env-service-token",
-  BASE44_EXEC_PRIVILEGED: "1",
-  BASE44_EXEC_DATA_ENV: "dev",
+  BASE44_PRIVILEGED: "1",
+  BASE44_DATA_ENV: "dev",
 };
 
 describe("runScript", () => {
