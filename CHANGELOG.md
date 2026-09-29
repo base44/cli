@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- `base44 exec` pins the SDK its scripts get (`@base44/sdk@0.8.48`) instead of resolving the latest release from npm on each fresh Deno cache, so runs are reproducible and a pre-cached SDK is used without a download.
+
 ### Added
 
 - `base44 site install` runs the site's `installCommand` and nothing else, so a machine that only needs a project's dependencies no longer has to go through `create`, `scaffold` or `eject`. Local only: no login and no app id required.

@@ -1,4 +1,5 @@
 import { EventEmitter } from "node:events";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runScript } from "../../src/core/exec/run-script.js";
@@ -110,5 +111,14 @@ describe("runScript", () => {
     expect(env).not.toHaveProperty("BASE44_SERVICE_TOKEN");
     expect(env).not.toHaveProperty("BASE44_PRIVILEGED");
     expect(env).not.toHaveProperty("BASE44_DATA_ENV");
+  });
+
+  it("pins the SDK the wrapper imports to an exact version", () => {
+    const wrapper = readFileSync(
+      join(import.meta.dirname, "../../backend-runtime/exec.ts"),
+      "utf-8",
+    );
+
+    expect(wrapper).toMatch(/from "npm:@base44\/sdk@\d+\.\d+\.\d+";/);
   });
 });
