@@ -1,11 +1,13 @@
-import type { Command } from "commander";
+import { type Command, Option } from "commander";
 import { createJwtToken } from "@/cli/dev/dev-server/auth/tokens.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
 import { DEFAULT_DEV_SERVER_PORT } from "@/core/consts.js";
 import { InvalidInputError } from "@/core/errors.js";
 import {
+  DATA_ENV_ENV_VAR,
   hasExecEnvTarget,
+  PRIVILEGED_ENV_VAR,
   readExecEnvTarget,
   runScript,
 } from "@/core/exec/index.js";
@@ -113,7 +115,6 @@ async function execAction(
     privileged: options.privileged,
     dataEnv: options.dataEnv,
     serviceToken: envTarget?.serviceToken,
-    headers: envTarget?.headers,
   });
 
   if (exitCode !== 0) {
@@ -137,13 +138,17 @@ export function getExecCommand(): Command {
       "--port <number>",
       `Port the local dev server is on (with --local; defaults to ${DEFAULT_DEV_SERVER_PORT})`,
     )
-    .option(
-      "--privileged",
-      "Run with admin privileges (bypass RLS). Requires app owner/editor role.",
+    .addOption(
+      new Option(
+        "--privileged",
+        "Run with admin privileges (bypass RLS). Requires app owner/editor role.",
+      ).env(PRIVILEGED_ENV_VAR),
     )
-    .option(
-      "--data-env <environment>",
-      "Data environment to run against (e.g. dev, prod)",
+    .addOption(
+      new Option(
+        "--data-env <environment>",
+        "Data environment to run against (e.g. dev, prod)",
+      ).env(DATA_ENV_ENV_VAR),
     )
     .addHelpText(
       "after",
@@ -165,7 +170,8 @@ Environment (for sandboxes and agents; no login or linked project needed):
   BASE44_EXEC_ACCESS_TOKEN   App-user token for the SDK (requires BASE44_EXEC_SERVER_URL)
   BASE44_EXEC_SERVER_URL     SDK server URL (requires BASE44_EXEC_ACCESS_TOKEN)
   BASE44_EXEC_SERVICE_TOKEN  Optional service token, enables base44.asServiceRole
-  BASE44_EXEC_HEADERS        Optional JSON object of extra request headers
+  BASE44_EXEC_PRIVILEGED     Same as --privileged (set to any value to enable)
+  BASE44_EXEC_DATA_ENV       Same as --data-env
   The app id comes from --app-id or BASE44_APP_ID.`,
     )
     .action(execAction);

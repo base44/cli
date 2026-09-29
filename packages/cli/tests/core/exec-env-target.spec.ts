@@ -23,19 +23,17 @@ describe("readExecEnvTarget", () => {
     expect(target).toEqual({ token: TOKEN, serverUrl: URL_ });
   });
 
-  it("reads the optional service token and headers", () => {
+  it("reads the optional service token", () => {
     const target = readExecEnvTarget({
       BASE44_EXEC_ACCESS_TOKEN: TOKEN,
       BASE44_EXEC_SERVER_URL: URL_,
       BASE44_EXEC_SERVICE_TOKEN: "svc",
-      BASE44_EXEC_HEADERS: '{"X-Branch":"b1","X-Test-DB":"true"}',
     });
 
     expect(target).toEqual({
       token: TOKEN,
       serverUrl: URL_,
       serviceToken: "svc",
-      headers: { "X-Branch": "b1", "X-Test-DB": "true" },
     });
   });
 
@@ -59,26 +57,5 @@ describe("readExecEnvTarget", () => {
         BASE44_EXEC_SERVER_URL: "not a url",
       }),
     ).toThrow("BASE44_EXEC_SERVER_URL is not a valid URL.");
-  });
-
-  it.each([
-    ["{not json", "BASE44_EXEC_HEADERS is not valid JSON."],
-    ['["a"]', "BASE44_EXEC_HEADERS must be a JSON object"],
-    ['{"X-Count":1}', "BASE44_EXEC_HEADERS must be a JSON object"],
-  ])("fails on invalid headers %s without echoing the value", (raw, message) => {
-    const read = () =>
-      readExecEnvTarget({
-        BASE44_EXEC_ACCESS_TOKEN: TOKEN,
-        BASE44_EXEC_SERVER_URL: URL_,
-        BASE44_EXEC_HEADERS: raw,
-      });
-
-    expect(read).toThrow(message);
-    try {
-      read();
-    } catch (error) {
-      expect(String((error as Error).message)).not.toContain(TOKEN);
-      expect(String((error as Error).message)).not.toContain(raw);
-    }
   });
 });

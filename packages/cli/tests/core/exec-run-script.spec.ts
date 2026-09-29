@@ -39,7 +39,8 @@ const EXEC_VARS = {
   BASE44_EXEC_ACCESS_TOKEN: "env-token",
   BASE44_EXEC_SERVER_URL: "https://sandbox.example.com",
   BASE44_EXEC_SERVICE_TOKEN: "env-service-token",
-  BASE44_EXEC_HEADERS: '{"X-Branch":"b1"}',
+  BASE44_EXEC_PRIVILEGED: "1",
+  BASE44_EXEC_DATA_ENV: "dev",
 };
 
 describe("runScript", () => {
@@ -67,7 +68,6 @@ describe("runScript", () => {
       code: "console.log(1)",
       local: { token: "env-token", serverUrl: "https://sandbox.example.com" },
       serviceToken: "env-service-token",
-      headers: { "X-Branch": "b1" },
     });
 
     expect(exitCode).toBe(0);
@@ -78,7 +78,6 @@ describe("runScript", () => {
     expect(env.BASE44_ACCESS_TOKEN).toBe("env-token");
     expect(env.BASE44_APP_BASE_URL).toBe("https://sandbox.example.com");
     expect(env.BASE44_SERVICE_TOKEN).toBe("env-service-token");
-    expect(JSON.parse(env.BASE44_EXTRA_HEADERS!)).toEqual({ "X-Branch": "b1" });
     for (const name of Object.keys(EXEC_VARS)) {
       expect(env).not.toHaveProperty(name);
     }
@@ -100,7 +99,6 @@ describe("runScript", () => {
 
   it("keeps the default path unchanged: remote lookups, no extra wrapper env", async () => {
     vi.stubEnv("BASE44_SERVICE_TOKEN", "ambient");
-    vi.stubEnv("BASE44_EXTRA_HEADERS", "{}");
 
     await runScript({ appId: "app-1", code: "console.log(1)" });
 
@@ -110,7 +108,6 @@ describe("runScript", () => {
     expect(env.BASE44_ACCESS_TOKEN).toBe("remote-token");
     expect(env.BASE44_APP_BASE_URL).toBe("https://app.base44.app");
     expect(env).not.toHaveProperty("BASE44_SERVICE_TOKEN");
-    expect(env).not.toHaveProperty("BASE44_EXTRA_HEADERS");
     expect(env).not.toHaveProperty("BASE44_PRIVILEGED");
     expect(env).not.toHaveProperty("BASE44_DATA_ENV");
   });

@@ -35,20 +35,6 @@ describe("exec command with BASE44_EXEC_* env target", () => {
     t.expectResult(result).toNotContain("env-token");
   });
 
-  it("fails clearly on invalid BASE44_EXEC_HEADERS", async () => {
-    t.givenEnv({
-      BASE44_EXEC_ACCESS_TOKEN: "env-token",
-      BASE44_EXEC_SERVER_URL: t.api.baseUrl,
-      BASE44_EXEC_HEADERS: "{nope",
-    });
-    t.givenStdin("console.log(1)");
-
-    const result = await t.run("exec", "--app-id", t.api.appId);
-
-    t.expectResult(result).toFail();
-    t.expectResult(result).toContain("BASE44_EXEC_HEADERS is not valid JSON.");
-  });
-
   it("rejects --local with an env target", async () => {
     t.givenEnv({
       BASE44_EXEC_ACCESS_TOKEN: "env-token",
