@@ -42,9 +42,8 @@ if (!appBaseUrl) {
   Deno.exit(1);
 }
 
-// Exact version: an unversioned specifier makes Deno resolve "latest" from npm on
-// every fresh cache, so a pre-cached SDK is never used.
-import { createClient } from "npm:@base44/sdk@0.8.52";
+// runScript pins this to BASE44_EXEC_SDK_VERSION when set; otherwise Deno resolves latest.
+import { createClient } from "npm:@base44/sdk";
 
 const customHeaders: Record<string, string> = {};
 if (isPrivileged) customHeaders["X-Bypass-RLS"] = "true";

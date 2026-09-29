@@ -45,6 +45,7 @@ const EXEC_VARS = {
 };
 
 let configContents: Record<string, unknown>;
+let wrapperContents = "";
 
 describe("runScript", () => {
   beforeEach(() => {
@@ -54,6 +55,7 @@ describe("runScript", () => {
       configContents[configPath] = JSON.parse(
         readFileSync(configPath, "utf-8"),
       );
+      wrapperContents = readFileSync(args[args.length - 1], "utf-8");
       const child = new EventEmitter();
       queueMicrotask(() => child.emit("close", 0));
       return child;
@@ -124,12 +126,23 @@ describe("runScript", () => {
     expect(env).not.toHaveProperty("BASE44_DATA_ENV");
   });
 
-  it("pins the SDK the wrapper imports to an exact version", () => {
-    const wrapper = readFileSync(
-      join(import.meta.dirname, "../../backend-runtime/exec.ts"),
-      "utf-8",
-    );
+  it("imports the latest SDK unless a version is given", async () => {
+    await runScript({ appId: "app-1", code: "console.log(1)" });
 
-    expect(wrapper).toMatch(/from "npm:@base44\/sdk@\d+\.\d+\.\d+";/);
+    expect(wrapperContents.match(/"npm:@base44\/sdk[^"]*"/g)).toEqual([
+      '"npm:@base44/sdk"',
+    ]);
+  });
+
+  it("pins the SDK import to the given version", async () => {
+    await runScript({
+      appId: "app-1",
+      code: "console.log(1)",
+      sdkVersion: "0.8.48",
+    });
+
+    expect(wrapperContents.match(/"npm:@base44\/sdk[^"]*"/g)).toEqual([
+      '"npm:@base44/sdk@0.8.48"',
+    ]);
   });
 });
