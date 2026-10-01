@@ -3,12 +3,14 @@ import { execa } from "execa";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, theme } from "@/cli/utils/index.js";
 import { ConfigNotFoundError } from "@/core/errors.js";
-import { readProjectConfig } from "@/core/project/index.js";
+import { readProjectSettings } from "@/core/project/index.js";
 
 async function installAction({
   runTask,
 }: CLIContext): Promise<RunCommandResult> {
-  const { project } = await readProjectConfig();
+  // Config only: installing dependencies reads none of the project's resource
+  // files, so an invalid one must not fail it.
+  const project = await readProjectSettings();
   const installCommand = project.site?.installCommand;
   if (!installCommand) {
     throw new ConfigNotFoundError("No site install command found.", {

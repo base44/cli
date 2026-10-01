@@ -40,4 +40,15 @@ describe("site install command", () => {
     t.expectResult(result).toFail();
     t.expectResult(result).toContain("No site install command found");
   });
+
+  it("installs even when a resource file is invalid", async () => {
+    // Installing reads only the config, so an entity the CLI would reject at
+    // deploy must not block it.
+    await t.givenLoggedInWithProject(fixture("with-site-and-invalid-entity"));
+
+    const result = await t.run("site", "install");
+
+    t.expectResult(result).toSucceed();
+    expect(await t.readProjectFile("install-marker.txt")).toBe("installed");
+  });
 });
