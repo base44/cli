@@ -1,6 +1,6 @@
 import type {
   Entity,
-  PropertyDefinition,
+  NestedPropertyDefinition,
 } from "@/core/resources/entity/schema.js";
 
 export type EntityRecord = Record<string, unknown>;
@@ -119,7 +119,7 @@ export class Validator {
 
   private validateValue(
     value: unknown,
-    property: PropertyDefinition | undefined,
+    property: NestedPropertyDefinition | undefined,
     fieldPath: string,
   ): ValidationResponse {
     // Silently ignore fields not defined in the schema.
@@ -144,7 +144,8 @@ export class Validator {
           };
     }
 
-    const propertyType = property.type;
+    // The server's record model reads a missing type as a string.
+    const propertyType = property.type ?? "string";
     if (!fieldTypes.includes(propertyType)) {
       return {
         hasError: true,

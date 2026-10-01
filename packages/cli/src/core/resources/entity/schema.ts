@@ -116,8 +116,9 @@ const FieldRLSSchema = z.looseObject({
   delete: RLSRuleSchema.optional(),
 });
 
-export const PropertyDefinitionSchema = z.looseObject({
-  type: z.union([z.string(), z.array(z.string())]),
+const PropertyTypeSchema = z.union([z.string(), z.array(z.string())]);
+
+const propertyFields = {
   title: z.string().optional(),
   description: z.string().optional(),
   minLength: z.number().int().min(0).optional(),
@@ -132,14 +133,35 @@ export const PropertyDefinitionSchema = z.looseObject({
   $ref: z.string().optional(),
   rls: FieldRLSSchema.optional(),
   required: z.array(z.string()).optional(),
+};
+
+// A property inside `items` or a nested `properties`. The server requires
+// `type` only on an entity's top-level properties and never inspects these.
+export const NestedPropertyDefinitionSchema = z.looseObject({
+  ...propertyFields,
+  type: PropertyTypeSchema.optional(),
   get items() {
-    return PropertyDefinitionSchema.optional();
+    return NestedPropertyDefinitionSchema.optional();
   },
   get properties() {
-    return z.record(z.string(), PropertyDefinitionSchema).optional();
+    return z.record(z.string(), NestedPropertyDefinitionSchema).optional();
   },
 });
 
+export const PropertyDefinitionSchema = z.looseObject({
+  ...propertyFields,
+  type: PropertyTypeSchema,
+  get items() {
+    return NestedPropertyDefinitionSchema.optional();
+  },
+  get properties() {
+    return z.record(z.string(), NestedPropertyDefinitionSchema).optional();
+  },
+});
+
+export type NestedPropertyDefinition = z.infer<
+  typeof NestedPropertyDefinitionSchema
+>;
 export type PropertyDefinition = z.infer<typeof PropertyDefinitionSchema>;
 
 export const EntitySchema = z.looseObject({
