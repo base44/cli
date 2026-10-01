@@ -116,8 +116,11 @@ const FieldRLSSchema = z.looseObject({
   delete: RLSRuleSchema.optional(),
 });
 
+// `type` is optional here because properties under `items` or a nested
+// `properties` may omit it: the server checks it on top-level properties only
+// (see TopLevelPropertySchema).
 export const PropertyDefinitionSchema = z.looseObject({
-  type: z.union([z.string(), z.array(z.string())]),
+  type: z.union([z.string(), z.array(z.string())]).optional(),
   title: z.string().optional(),
   description: z.string().optional(),
   minLength: z.number().int().min(0).optional(),
@@ -142,6 +145,11 @@ export const PropertyDefinitionSchema = z.looseObject({
 
 export type PropertyDefinition = z.infer<typeof PropertyDefinitionSchema>;
 
+const TopLevelPropertySchema = PropertyDefinitionSchema.refine(
+  (property) => property.type !== undefined,
+  { message: "Top-level properties must declare a type", path: ["type"] },
+);
+
 export const EntitySchema = z.looseObject({
   type: z.literal("object").default("object"),
   name: z
@@ -153,7 +161,7 @@ export const EntitySchema = z.looseObject({
     ),
   title: z.string().optional(),
   description: z.string().optional(),
-  properties: z.record(z.string(), PropertyDefinitionSchema).default({}),
+  properties: z.record(z.string(), TopLevelPropertySchema).default({}),
   required: z.array(z.string()).optional(),
   rls: EntityRLSSchema.optional(),
   source: ResourceSourceSchema.default({ type: "project" }),
