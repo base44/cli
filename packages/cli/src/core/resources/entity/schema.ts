@@ -116,9 +116,11 @@ const FieldRLSSchema = z.looseObject({
   delete: RLSRuleSchema.optional(),
 });
 
-const PropertyTypeSchema = z.union([z.string(), z.array(z.string())]);
-
-const propertyFields = {
+// `type` is optional here because properties under `items` or a nested
+// `properties` may omit it: the server checks it on top-level properties only
+// (see TopLevelPropertySchema).
+export const PropertyDefinitionSchema = z.looseObject({
+  type: z.union([z.string(), z.array(z.string())]).optional(),
   title: z.string().optional(),
   description: z.string().optional(),
   minLength: z.number().int().min(0).optional(),
@@ -133,36 +135,20 @@ const propertyFields = {
   $ref: z.string().optional(),
   rls: FieldRLSSchema.optional(),
   required: z.array(z.string()).optional(),
-};
-
-// A property inside `items` or a nested `properties`. The server requires
-// `type` only on an entity's top-level properties and never inspects these.
-export const NestedPropertyDefinitionSchema = z.looseObject({
-  ...propertyFields,
-  type: PropertyTypeSchema.optional(),
   get items() {
-    return NestedPropertyDefinitionSchema.optional();
+    return PropertyDefinitionSchema.optional();
   },
   get properties() {
-    return z.record(z.string(), NestedPropertyDefinitionSchema).optional();
+    return z.record(z.string(), PropertyDefinitionSchema).optional();
   },
 });
 
-export const PropertyDefinitionSchema = z.looseObject({
-  ...propertyFields,
-  type: PropertyTypeSchema,
-  get items() {
-    return NestedPropertyDefinitionSchema.optional();
-  },
-  get properties() {
-    return z.record(z.string(), NestedPropertyDefinitionSchema).optional();
-  },
-});
-
-export type NestedPropertyDefinition = z.infer<
-  typeof NestedPropertyDefinitionSchema
->;
 export type PropertyDefinition = z.infer<typeof PropertyDefinitionSchema>;
+
+const TopLevelPropertySchema = PropertyDefinitionSchema.refine(
+  (property) => property.type !== undefined,
+  { message: "Top-level properties must declare a type", path: ["type"] },
+);
 
 export const EntitySchema = z.looseObject({
   type: z.literal("object").default("object"),
@@ -175,7 +161,7 @@ export const EntitySchema = z.looseObject({
     ),
   title: z.string().optional(),
   description: z.string().optional(),
-  properties: z.record(z.string(), PropertyDefinitionSchema).default({}),
+  properties: z.record(z.string(), TopLevelPropertySchema).default({}),
   required: z.array(z.string()).optional(),
   rls: EntityRLSSchema.optional(),
   source: ResourceSourceSchema.default({ type: "project" }),

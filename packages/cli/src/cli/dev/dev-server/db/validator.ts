@@ -1,6 +1,6 @@
 import type {
   Entity,
-  NestedPropertyDefinition,
+  PropertyDefinition,
 } from "@/core/resources/entity/schema.js";
 
 export type EntityRecord = Record<string, unknown>;
@@ -119,7 +119,7 @@ export class Validator {
 
   private validateValue(
     value: unknown,
-    property: NestedPropertyDefinition | undefined,
+    property: PropertyDefinition | undefined,
     fieldPath: string,
   ): ValidationResponse {
     // Silently ignore fields not defined in the schema.
