@@ -1,0 +1,7 @@
+{
+  "name": "Site With Invalid Entity Project",
+  // The entity below fails validation; the site commands must not read it.
+  "site": {
+    "installCommand": "node -e \"require('fs').writeFileSync('install-marker.txt', 'installed')\""
+  }
+}

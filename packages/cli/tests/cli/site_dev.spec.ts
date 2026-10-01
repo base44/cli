@@ -57,6 +57,16 @@ describe("site dev command", () => {
     expect(handle.stdout.join("")).toContain("ARGS=--config wrapper.mjs");
   });
 
+  it("serves even when a resource file is invalid", async () => {
+    await t.givenLoggedInWithProject(fixture("with-site-and-invalid-entity"));
+
+    const handle = await t.runLive("site", "dev");
+    await handle.waitForOutput(/ARGS=/);
+    await handle.stop();
+
+    expect(handle.stdout.join("")).toContain("ARGS=");
+  });
+
   it("serves without a login", async () => {
     // The whole point of the command: a build sandbox that has never logged in.
     await t.givenProject(fixture("with-npm-serve-command"));
