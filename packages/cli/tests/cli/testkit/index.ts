@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import { execa } from "execa";
 import { afterEach, beforeEach } from "vitest";
 import type { CLIResult, CLIResultMatcher } from "./CLIResultMatcher.js";
 import type { RunLiveHandle } from "./CLITestkit.js";
@@ -9,6 +10,24 @@ const FIXTURES_DIR = resolve(__dirname, "../../fixtures");
 /** Resolve a fixture path by name */
 export function fixture(name: string): string {
   return resolve(FIXTURES_DIR, name);
+}
+
+/** Turn a copied fixture into a git checkout with one commit and return its HEAD. */
+export async function gitInitWithCommit(projectDir: string): Promise<string> {
+  const git = (...args: string[]) => execa("git", args, { cwd: projectDir });
+  await git("init", "-q");
+  await git(
+    "-c",
+    "user.email=test@example.com",
+    "-c",
+    "user.name=Test",
+    "commit",
+    "-q",
+    "--allow-empty",
+    "-m",
+    "build",
+  );
+  return (await git("rev-parse", "HEAD")).stdout.trim();
 }
 
 /**

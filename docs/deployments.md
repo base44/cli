@@ -16,7 +16,7 @@ Everything downstream follows from the server's answer rather than from a decisi
 
 ## Artifact Detection
 
-The transport is **not** picked from the artifact: `base44 site deploy` takes the deployments API whenever `deploymentsApiEnabled()` says the env gate is on (see [the gate](#the-deployments-api-lane-experimental-env-gated)), and the legacy tar.gz upload otherwise. Detection then decides only what the create call *sends* — a worker config or none — inside `deployToDeployments()`. A gated-on deploy needs no `site.outputDirectory` when the build emitted a worker, since the worker brings its own assets directory. **This lane is reachable only from `site deploy`** — `base44 deploy` ships the site through `deployAll()`'s legacy tar.gz step and has none of these flags.
+A build that carries a worker always ships through the deployments API — the tar.gz upload cannot carry a worker, so `hasWorkerBuild(projectRoot)` (a `.wrangler/deploy/config.json` check) routes it there from both `base44 site deploy` and `base44 deploy`, whatever the env says. For a build with **no** worker, the transport is the env gate's call: `site deploy` takes the deployments API when `deploymentsApiEnabled()` is on (see [the gate](#the-deployments-api-lane-experimental-env-gated)) and the legacy tar.gz upload otherwise, while `base44 deploy` always takes the tar.gz step. Detection then decides only what the create call *sends* — a worker config or none — inside `deployToDeployments()`. A worker build needs no `site.outputDirectory`, since the worker brings its own assets directory; one that names a `dist` the build never wrote (the platform's default config does) is simply not read.
 
 `detectFullStackArtifact(projectRoot)` looks for exactly one thing: `.wrangler/deploy/config.json`, the redirect file emitted by `@cloudflare/vite-plugin` builds. Its `configPath` points at the generated `wrangler.json`, **relative to the redirect file's directory**.
 
@@ -61,19 +61,19 @@ Entry = `main` from the wrangler config. With `no_bundle: true`, every file unde
 
 **Config only, no resources.** `site deploy` reads the project config through `readProjectSettings()`, not `readProjectConfig()`: it ships the built output and touches none of the project's resource files, so an invalid one must not fail it. It used to — builder apps carry entity schemas the CLI's `EntitySchema` rejects, and every publish through this lane failed with `SCHEMA_INVALID` before reaching a single asset. Commands that do consume those resources keep using `readProjectConfig()`.
 
-`base44 deploy` is deliberately untouched by this: it deploys the project's resources and ships the site through `deployAll()`'s legacy tar.gz step, exactly as before, and neither `--git-hash` nor `--concurrency` exists on it. Adopting the lane there is a separate decision — it would need a commit address the unified deploy has no way to take.
+**`base44 deploy`** deploys the project's resources and then the site: a worker build goes through `deployToDeployments()` addressed by the checkout's HEAD (resolved *before* any resource is pushed, so a checkout with no commit fails whole rather than half-deployed), and prints `Deployment <id> (commit <hash>)` instead of an app URL; anything else ships through the legacy tar.gz step exactly as before. `hasResourcesToDeploy()` counts a worker build as a site even with no `site.outputDirectory`. Neither `--git-hash` nor `--concurrency` exists on it — a worker build here is always the commit that is checked out.
 
 The primary automated consumer is the platform's build/deploy sandbox, which runs `base44 site deploy -y --json --git-hash <commit>` with a scoped `apps:deploy` workspace key — so the sandbox and a human at a terminal go through the exact same door.
 
 ## The Deployments-API Lane (experimental, env-gated)
 
-The whole lane is one env var: with `BASE44_DEPLOYMENTS_API=1` (or `true`; internal gate, not user-facing yet) `site deploy` ships through the deployments API — static output and full-stack builds alike — and without it, through the legacy tar.gz upload. `deploymentsApiEnabled()` in `core/site/deployment.ts` is read in exactly two places, both in the command: the transport choice, and the registration of `--git-hash` / `--concurrency`, which exist only on the lane that can honor them (with the gate off they are unknown options, as they were before the lane existed).
+The gate covers static output only: with `BASE44_DEPLOYMENTS_API=1` (or `true`; internal gate, not user-facing yet) `site deploy` ships a build with no worker through the deployments API, and without it, through the legacy tar.gz upload. A worker build takes the lane regardless. `deploymentsApiEnabled()` in `core/site/deployment.ts` is read in exactly two places, both in the command: the static transport choice, and the registration of `--git-hash` / `--concurrency`, which exist only on the lane that can honor them (with the gate off they are unknown options, as they were before the lane existed) — so an ungated worker deploy is always addressed by HEAD.
 
 The commit comes from `--git-hash` when passed, otherwise `git rev-parse HEAD`; on the lane with neither available the deploy fails asking for the flag, rather than silently falling back to the tar.gz upload — a deployment is addressed by the commit that produced it, so a build with no address could never be published.
 
 On the lane with no worker, the output directory becomes the asset manifest (index.html included — it is only ever excluded from uploads), and the create request carries **no `config`**, which the server answers with the `s3` arm. The CLI PUTs each requested file directly to its presigned URL and finalizes with the index.html bytes; today's serving keeps working because the server stores the result the way the legacy site upload does. Same flow, same commands, same `--git-hash` addressing, same `--json` output.
 
-With the gate off, every `site deploy` takes the legacy tar.gz path unchanged — including a full-stack project, whose worker is then not shipped at all.
+With the gate off, a `site deploy` with no worker takes the legacy tar.gz path unchanged. A full-stack project is never routed there: its worker would not ship at all, so it takes the lane and fails fast when no commit can be found rather than falling back.
 
 ## Testing
 
@@ -90,3 +90,4 @@ With the gate off, every `site deploy` takes the legacy tar.gz path unchanged �
 - **One `createDeployment()` call site** — a worker changes its parameters, never the flow around it; do not fork the code path on "full-stack vs static"
 - **Say "site" to the user** — never "full-stack app"; the presence of a worker is not a distinction user-facing copy makes
 - **Legacy behavior stays identical** when no worker artifact exists and the static gate is off — the tar.gz site path must not change
+- **A worker build never takes the tar.gz path** — it cannot carry the worker; route on `hasWorkerBuild()`, not on the env gate

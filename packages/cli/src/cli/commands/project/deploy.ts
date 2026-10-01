@@ -24,6 +24,7 @@ import type {
   ConnectorSyncResult,
   StripeSyncResult,
 } from "@/core/resources/connector/index.js";
+import { hasWorkerBuild } from "@/core/site/index.js";
 
 interface DeployOptions {
   yes?: boolean;
@@ -41,8 +42,9 @@ export async function deployAction(
   }
 
   const projectData = await readProjectConfig(options.projectRoot);
+  const workerBuild = await hasWorkerBuild(projectData.project.root);
 
-  if (!hasResourcesToDeploy(projectData)) {
+  if (!hasResourcesToDeploy(projectData, { workerBuild })) {
     return {
       outroMessage: "No resources found to deploy",
     };
@@ -91,7 +93,9 @@ export async function deployAction(
   if (project.visibility) {
     summaryLines.push(`  - Visibility: ${project.visibility}`);
   }
-  if (project.site?.outputDirectory) {
+  if (workerBuild) {
+    summaryLines.push("  - Site");
+  } else if (project.site?.outputDirectory) {
     summaryLines.push(`  - Site from ${project.site.outputDirectory}`);
   }
 
@@ -165,6 +169,14 @@ export async function deployAction(
   if (result.appUrl) {
     log.message(
       `${theme.styles.header("App URL")}: ${theme.colors.links(result.appUrl)}`,
+    );
+  }
+  // No URL: what production serves is decided when the app is published from
+  // the builder, not by this deploy.
+  if (result.deployment) {
+    const { deploymentId, gitHash } = result.deployment;
+    log.message(
+      `${theme.styles.header("Deployment")}: ${deploymentId} (commit ${gitHash.slice(0, 12)})`,
     );
   }
 
