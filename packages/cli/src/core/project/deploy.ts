@@ -68,6 +68,10 @@ export function hasResourcesToDeploy(projectData: ProjectData): boolean {
  */
 interface DeployAllResult {
   /**
+   * Per-function deployment results, including failures.
+   */
+  functionResults: SingleFunctionDeployResult[];
+  /**
    * The app URL if a site was deployed, undefined otherwise.
    */
   appUrl?: string;
@@ -163,8 +167,8 @@ export async function deployAll(
   if (project.site?.outputDirectory) {
     const outputDir = resolve(project.root, project.site.outputDirectory);
     const { appUrl } = await deploySite(outputDir);
-    return { appUrl, connectorResults };
+    return { appUrl, connectorResults, functionResults };
   }
 
-  return { connectorResults };
+  return { connectorResults, functionResults };
 }
