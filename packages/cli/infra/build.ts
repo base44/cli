@@ -1,4 +1,4 @@
-import { watch, copyFileSync, mkdirSync } from "node:fs";
+import { copyFileSync, mkdirSync, watch } from "node:fs";
 import type { BuildConfig } from "bun";
 import chalk from "chalk";
 
@@ -32,7 +32,10 @@ const copyBackendRuntime = () => {
   copyFileSync("./backend-runtime/exec.ts", `${outDir}/exec.ts`);
   // The import map and the module it points at must land next to main.ts —
   // function-manager.ts resolves the config relative to the wrapper.
-  copyFileSync("./backend-runtime/import-map.json", `${outDir}/import-map.json`);
+  copyFileSync(
+    "./backend-runtime/import-map.json",
+    `${outDir}/import-map.json`,
+  );
   copyFileSync(
     "./backend-runtime/base44-runtime.ts",
     `${outDir}/base44-runtime.ts`,
@@ -48,11 +51,30 @@ const copyBackendRuntime = () => {
 // runtime there.
 export const RUNTIME_EXTERNALS = ["miniflare", "esbuild", "@deno/loader"];
 
+// Ink's dev-only react-devtools bridge would otherwise land in the bundle as
+// an eager import of a package we don't ship; the code path is dead outside
+// DEV=true, so it compiles to an inert stub.
+const stubReactDevtools = {
+  name: "stub-react-devtools",
+  setup(build: { onResolve: Function; onLoad: Function }) {
+    build.onResolve({ filter: /^react-devtools-core$/ }, () => ({
+      path: "react-devtools-core-stub",
+      namespace: "stub",
+    }));
+    build.onLoad({ filter: /.*/, namespace: "stub" }, () => ({
+      contents: "export default {}; export const connectToDevTools = () => {};",
+      loader: "js",
+    }));
+  },
+};
+
 const runAllBuilds = async () => {
   const cli = await runBuild({
     entrypoints: ["./src/cli/index.ts"],
     outdir: "./dist/cli",
     external: RUNTIME_EXTERNALS,
+    // biome-ignore lint/suspicious/noExplicitAny: BunPlugin's setup type is stricter than the minimal stub needs
+    plugins: [stubReactDevtools as any],
   });
   const backendRuntimePath = copyBackendRuntime();
   return {
