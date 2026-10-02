@@ -7,6 +7,8 @@ import { getLoginCommand } from "@/cli/commands/auth/login.js";
 import { getLogoutCommand } from "@/cli/commands/auth/logout.js";
 import { getWhoamiCommand } from "@/cli/commands/auth/whoami.js";
 import { getBranchesCommand } from "@/cli/commands/branches/index.js";
+import { getBuilderCommand } from "@/cli/commands/builder/index.js";
+import { getCodeCommand } from "@/cli/commands/code/index.js";
 import { getConnectorsCommand } from "@/cli/commands/connectors/index.js";
 import { getDashboardCommand } from "@/cli/commands/dashboard/index.js";
 import { getEntitiesPushCommand } from "@/cli/commands/entities/push.js";
@@ -114,6 +116,10 @@ export function createProgram(context: CLIContext): Command {
   // Register sandbox (remote development) commands
   program.addCommand(getSandboxCommand());
   program.addCommand(getBranchesCommand());
+
+  // Register agent-build commands (non-interactive atoms + interactive session)
+  program.addCommand(getBuilderCommand());
+  program.addCommand(getCodeCommand());
 
   // Register auth config commands
   program.addCommand(getAuthCommand());

@@ -32,6 +32,12 @@ async function captureRequestBody(
   if (request.body == null) {
     return;
   }
+  // Callers sending credentials (secret values, a signed Wix instance) opt out
+  // of body capture so a failed request never carries them into telemetry.
+  if (options.context.__redactBody) {
+    options.context.__requestBody = "[redacted]";
+    return;
+  }
   try {
     const cloned = request.clone();
     const text = await cloned.text();
@@ -101,6 +107,10 @@ export const base44Client = ky.create({
     beforeRequest: [
       (request) => {
         request.headers.set("X-Request-ID", randomUUID());
+        // Honor the account's saved builder-model pick (`base44 builder model`);
+        // without it the backend auto-selects. Safe unconditionally: with no
+        // saved pick it falls back to the app default — the web editor's contract.
+        request.headers.set("X-Builder-Model-Selection", "user-v1");
       },
       captureRequestBody,
       async (request) => {
