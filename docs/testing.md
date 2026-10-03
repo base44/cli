@@ -333,7 +333,7 @@ t.api.mockRoute("PUT", `/api/apps/${appId}/entity-schemas`, (req, res) => {
 For behaviors that can't be mocked via the API server (like filesystem-based config loading), the CLI uses a centralized JSON override mechanism.
 
 **Current overrides:**
-- `appConfig` -- Mock app configuration (id, projectRoot). Set automatically by `givenProject()`
+- `appConfig` -- Mock app configuration (id, projectRoot). Set automatically by `givenProject()`, which bypasses real app resolution. Use `givenUnlinkedProject()` to test that resolution itself (`--app-id` / `BASE44_APP_ID`, or the fixture's `.app.jsonc`)
 - `latestVersion` -- Mock version check response (string for newer version, null for no update). Defaults to `null`
 
 ### Adding a New Override

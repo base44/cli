@@ -1,7 +1,13 @@
 import { spawn } from "node:child_process";
-import { copyFileSync, writeFileSync } from "node:fs";
-import { file } from "tmp-promise";
+import { readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { dir, file } from "tmp-promise";
 import { getExecWrapperPath } from "@/core/assets.js";
+import {
+  DATA_ENV_ENV_VAR,
+  EXEC_ENV_VARS,
+  PRIVILEGED_ENV_VAR,
+} from "@/core/exec/env-target.js";
 import { getAppUserToken, getSiteUrl } from "@/core/project/api.js";
 import { verifyDenoInstalled } from "@/core/utils/index.js";
 
@@ -9,13 +15,46 @@ interface RunScriptOptions {
   appId: string;
   code: string;
   /**
-   * When set, run against a local `base44 dev` server instead of the remote
-   * published app: the SDK's `serverUrl` and access token are taken from here
-   * rather than fetched via `getSiteUrl()` / `getAppUserToken()`.
+   * When set (a local `base44 dev` server, or an env-supplied target), the
+   * SDK's `serverUrl` and access token are taken from here rather than fetched
+   * via `getSiteUrl()` / `getAppUserToken()`.
    */
   local?: { serverUrl: string; token: string };
   privileged?: boolean;
   dataEnv?: string;
+  /** Passed to `createClient` as `serviceToken`, enabling `base44.asServiceRole`. */
+  serviceToken?: string;
+  /** Exact SDK version the wrapper imports; the latest release when unset. */
+  sdkVersion?: string;
+}
+
+const SDK_SPECIFIER = '"npm:@base44/sdk"';
+
+function wrapperSource(sdkVersion: string | undefined): string {
+  const source = readFileSync(getExecWrapperPath(), "utf-8");
+  return sdkVersion
+    ? source.replace(SDK_SPECIFIER, `"npm:@base44/sdk@${sdkVersion}"`)
+    : source;
+}
+
+const DENO_CONFIG = {
+  minimumDependencyAge: { exclude: ["npm:@base44/sdk"] },
+};
+
+// The wrapper reads and deletes this before the user script runs.
+const SERVICE_TOKEN_ENV = "BASE44_SERVICE_TOKEN";
+
+function inheritedEnv(): NodeJS.ProcessEnv {
+  const env = { ...process.env };
+  for (const name of [
+    ...EXEC_ENV_VARS,
+    PRIVILEGED_ENV_VAR,
+    DATA_ENV_ENV_VAR,
+    SERVICE_TOKEN_ENV,
+  ]) {
+    delete env[name];
+  }
+  return env;
 }
 
 interface RunScriptResult {
@@ -25,7 +64,8 @@ interface RunScriptResult {
 export async function runScript(
   options: RunScriptOptions,
 ): Promise<RunScriptResult> {
-  const { appId, code, local, privileged, dataEnv } = options;
+  const { appId, code, local, privileged, dataEnv, serviceToken, sdkVersion } =
+    options;
 
   verifyDenoInstalled("to run scripts with exec");
 
@@ -48,16 +88,35 @@ export async function runScript(
   // npm: specifiers in them.
   const tempWrapper = await file({ postfix: ".ts" });
   cleanupFns.push(tempWrapper.cleanup);
-  copyFileSync(getExecWrapperPath(), tempWrapper.path);
+  writeFileSync(tempWrapper.path, wrapperSource(sdkVersion), "utf-8");
+
+  // Deno's default minimum dependency age (24h) would hide a just-released SDK
+  // (or refuse a pinned one); it keeps applying to everything else. The config's
+  // directory becomes Deno's project root, so it gets an empty one of its own.
+  const configDir = await dir({ unsafeCleanup: true });
+  cleanupFns.push(configDir.cleanup);
+  const configPath = join(configDir.path, "deno.json");
+  writeFileSync(configPath, JSON.stringify(DENO_CONFIG), "utf-8");
 
   try {
     const exitCode = await new Promise<number>((resolvePromise) => {
       const child = spawn(
         "deno",
-        ["run", "--allow-all", "--node-modules-dir=auto", tempWrapper.path],
+        // `none` resolves npm: specifiers from Deno's global cache; `auto` would
+        // install into the caller's project node_modules (the cwd is kept for
+        // the script's relative paths), replacing e.g. its @base44/sdk.
+        [
+          "run",
+          "--allow-all",
+          "--node-modules-dir=none",
+          "--config",
+          configPath,
+          tempWrapper.path,
+        ],
         {
           env: {
-            ...process.env,
+            ...inheritedEnv(),
+            ...(serviceToken ? { [SERVICE_TOKEN_ENV]: serviceToken } : {}),
             SCRIPT_PATH: scriptPath,
             BASE44_APP_ID: appId,
             BASE44_ACCESS_TOKEN: appUserToken,

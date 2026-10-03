@@ -15,7 +15,12 @@ import {
   formatPlainUpgradeMessage,
   startUpgradeCheck,
 } from "@/cli/utils/upgradeNotification.js";
-import { ApiError, InvalidInputError, isCLIError } from "@/core/errors.js";
+import {
+  ApiError,
+  InvalidInputError,
+  isCLIError,
+  stepOf,
+} from "@/core/errors.js";
 import { resolveBranchName } from "@/core/resources/branch/api.js";
 
 /**
@@ -44,6 +49,12 @@ function writeJsonError(error: unknown): void {
   const envelope: Record<string, unknown> = {
     error: error instanceof Error ? error.message : String(error),
   };
+  // Which step of a multi-step command broke. One exit code for all of them is
+  // how a sandbox log stops being diagnostic.
+  const step = stepOf(error);
+  if (step !== undefined) {
+    envelope.step = step;
+  }
   if (isCLIError(error)) {
     envelope.code = error.code;
     if (error.details.length > 0) {

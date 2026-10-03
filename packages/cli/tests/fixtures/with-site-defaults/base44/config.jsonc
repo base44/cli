@@ -1,0 +1,5 @@
+{
+  "name": "Site Defaults Project",
+  // A site block that names nothing: every command comes from the schema defaults.
+  "site": {}
+}

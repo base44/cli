@@ -1,0 +1,6 @@
+{
+  "name": "Installable Site Project",
+  "site": {
+    "installCommand": "node -e \"require('fs').writeFileSync('install-marker.txt', 'installed')\""
+  }
+}

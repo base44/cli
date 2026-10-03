@@ -12,11 +12,21 @@ export const TemplatesConfigSchema = z.object({
 });
 
 export type Template = z.infer<typeof TemplateSchema>;
+// Defaults are the conventions `base44 create` scaffolds, so a `site` block only
+// has to name what this project does differently.
+//
+// Only the two commands default. `serveCommand` and `outputDirectory` carry a
+// meaning in their absence that a default would erase: no frontend to run here,
+// and nothing built to upload. `base44 dev` runs the backend alone without the
+// first, and `base44 deploy` skips the site step without the second — a default
+// would spawn a dev server for every site block and upload whatever happened to
+// sit in ./dist. Commands that exist only to serve or build a site supply their
+// own fallback, where the intent is unambiguous.
 const SiteConfigSchema = z.object({
-  buildCommand: z.string().optional(),
+  buildCommand: z.string().default("npm run build"),
   serveCommand: z.string().optional(),
   outputDirectory: z.string().optional(),
-  installCommand: z.string().optional(),
+  installCommand: z.string().default("npm install"),
 });
 
 const PluginMetadataSchema = z.object({

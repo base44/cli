@@ -18,14 +18,17 @@ import { getLinkCommand } from "@/cli/commands/project/link.js";
 import { getLogsCommand } from "@/cli/commands/project/logs.js";
 import { getScaffoldCommand } from "@/cli/commands/project/scaffold.js";
 import { getVisibilityCommand } from "@/cli/commands/project/visibility.js";
+import { getPublishCommand } from "@/cli/commands/publish.js";
 import { getSandboxCommand } from "@/cli/commands/sandbox/index.js";
 import { getSecretsCommand } from "@/cli/commands/secrets/index.js";
 import { getSiteCommand } from "@/cli/commands/site/index.js";
 import { getTypesCommand } from "@/cli/commands/types/index.js";
+import { getVersionsCommand } from "@/cli/commands/versions/index.js";
 import { getWorkflowsCommand } from "@/cli/commands/workflows/index.js";
 import { getWorkspaceCommand } from "@/cli/commands/workspace/index.js";
 import { Base44Command } from "@/cli/utils/index.js";
 import { BASE44_APP_ID_ENV_VAR } from "@/core/consts.js";
+import { versionsApiEnabled } from "@/core/version/gate.js";
 import packageJson from "../../package.json";
 import { getDevCommand } from "./commands/dev.js";
 import { getExecCommand } from "./commands/exec.js";
@@ -117,6 +120,13 @@ export function createProgram(context: CLIContext): Command {
 
   // Register site commands
   program.addCommand(getSiteCommand());
+  // Registered on the enabled lane only: with the gate off they are absent from
+  // --help and rejected as unknown commands, rather than exposing a lane that is
+  // still being integrated against the platform.
+  if (versionsApiEnabled()) {
+    program.addCommand(getPublishCommand());
+    program.addCommand(getVersionsCommand());
+  }
 
   // Register types command
   program.addCommand(getTypesCommand());

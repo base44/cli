@@ -58,7 +58,9 @@ export async function initAppContext(
       throw new InvalidInputError("App id cannot be empty.");
     }
 
-    cache = { id };
+    // The id names the app, not the folder: keep the project this runs in, as a
+    // linked one would. A hosted sandbox has config.jsonc but no .app.jsonc.
+    cache = { id, projectRoot: projectRoot?.root };
     return cache;
   }
 

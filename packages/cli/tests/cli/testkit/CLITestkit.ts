@@ -55,6 +55,7 @@ export class CLITestkit {
   private tempDir: string;
   private env: Record<string, string> = {};
   private projectDir?: string;
+  private projectLinked = true;
   // Default latestVersion to null to skip npm version check in tests
   private testOverrides: TestOverrides = { latestVersion: null };
   private stdinContent: string | undefined = undefined;
@@ -116,7 +117,17 @@ export class CLITestkit {
   /** Set up project directory by copying fixture to temp dir */
   async givenProject(fixturePath: string): Promise<void> {
     this.projectDir = join(this.tempDir, "project");
+    this.projectLinked = true;
     await cp(fixturePath, this.projectDir, { recursive: true });
+  }
+
+  /**
+   * Set up a project with no injected app config, so the CLI resolves the app
+   * for real — from --app-id / BASE44_APP_ID or the fixture's own .app.jsonc.
+   */
+  async givenUnlinkedProject(fixturePath: string): Promise<void> {
+    await this.givenProject(fixturePath);
+    this.projectLinked = false;
   }
 
   /**
@@ -313,7 +324,7 @@ export class CLITestkit {
   // ─── PRIVATE HELPERS ───────────────────────────────────────────
 
   private setupEnvOverrides(): void {
-    if (this.projectDir) {
+    if (this.projectDir && this.projectLinked) {
       this.testOverrides.appConfig = {
         id: this.api.appId,
         projectRoot: this.projectDir,

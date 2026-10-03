@@ -1,22 +1,18 @@
 import type { Command } from "commander";
 import { runSiteBuild } from "@/cli/commands/project/site-build.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
-import { Base44Command, theme } from "@/cli/utils/index.js";
-import { ConfigInvalidError } from "@/core/errors.js";
-import { readProjectConfig } from "@/core/project/index.js";
+import { Base44Command, requireApp, theme } from "@/cli/utils/index.js";
+import { resolveBuildTarget } from "@/core/project/index.js";
 
 async function buildAction(ctx: CLIContext): Promise<RunCommandResult> {
-  const { app } = ctx;
-  if (!app?.projectRoot) {
-    throw new ConfigInvalidError(
-      "base44 build requires a linked local project. Run it from a project with base44/.app.jsonc.",
-    );
-  }
+  const app = requireApp(ctx);
+  // Not readProjectConfig: a Builder repo carries no CLI config, and this is the
+  // step a publish sandbox runs inside one. A present config still wins.
+  const target = await resolveBuildTarget(app.projectRoot);
 
-  const { project } = await readProjectConfig(app.projectRoot);
   await runSiteBuild(ctx, {
-    root: project.root,
-    buildCommand: project.site?.buildCommand,
+    root: target.root,
+    buildCommand: target.buildCommand,
     appId: app.id,
   });
 
@@ -26,7 +22,9 @@ async function buildAction(ctx: CLIContext): Promise<RunCommandResult> {
 }
 
 export function getBuildCommand(): Command {
-  return new Base44Command("build")
+  // No credential: it calls no API, and a publish sandbox runs it before minting
+  // a key that can deploy. The app id is still required.
+  return new Base44Command("build", { requireAuth: false })
     .description("Build the site with the Base44 app id injected")
     .action(buildAction);
 }

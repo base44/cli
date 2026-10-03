@@ -2,7 +2,14 @@
 
 ## [Unreleased]
 
+### Changed
+
+- `base44 exec` loads an SDK released in the last 24 hours instead of Deno's default minimum dependency age silently holding scripts on the previous one. Other npm packages a script imports keep the default.
+
 ### Added
+
+- `base44 site install` runs the site's `installCommand` and nothing else, so a machine that only needs a project's dependencies no longer has to go through `create`, `scaffold` or `eject`. Local only: no login and no app id required.
+- `base44 site dev` runs the site's `serveCommand` exactly as written, with no local backend and the frontend reaching its backend same-origin — the shape a hosted sandbox needs, where `base44 dev` (local backend) and `dev --remote` (the published app) are the developer-machine paths. It appends nothing of its own — anything after `--` is appended as given, so `npm run dev` needs a second `--` to reach the script (`base44 site dev -- -- --config wrapper.mjs`) — and where the dev server binds is the command's own business, and in a sandbox `@base44/vite-plugin` binds Base44 apps to `0.0.0.0:5173`. Serving is its whole job, so it falls back to `npm run dev` when the block names none.
 
 - `base44 branches list --app-id <id> --json` lists main and active branch names for agents working outside Builder.
 
@@ -17,11 +24,14 @@
 - `base44 deploy` now ships the site through the deployments API — the same lane `base44 site deploy` uses — and publishes what it deployed, so a full-stack build's worker is no longer silently dropped. It takes `--git-hash <hash>` (the commit the build came from, defaulting to the checkout's HEAD) and `--no-publish`. A project with a `site.outputDirectory` and no commit behind it still deploys through the legacy archive upload, with a warning.
 - `base44 site deploy` is no longer behind `BASE44_DEPLOYMENTS_API`: it always goes through the deployments API, and `--git-hash` / `--concurrency` are always available. Setting the env var now does nothing. It still does **not** publish what it deploys — `--publish` asks for that — because the platform's own build step runs it against builder-managed apps, which are published from the builder.
 - `base44 dev` now fronts the app's own dev server: it serves the whole app on one origin, answers `/api/apps` itself and forwards everything else — the app's own `/api` routes included — to the dev server, carrying `Base44-App-Id`, `Base44-Api-Url` and a service-role credential, and dropping the caller's copies of those headers. Full-stack apps (SSR pages, server functions) can build an SDK client with `createClientFromRequest` locally, the way they do in production. Open the URL the command prints instead of the frontend dev server's own.
+- The `site` block's two commands now default to the conventions `base44 create` scaffolds, so a block only has to name what a project does differently: `installCommand` `npm install` and `buildCommand` `npm run build`. `site` itself stays optional, and `serveCommand` and `outputDirectory` are deliberately not defaulted — their absence says "no frontend to run here" and "nothing built to upload", so `base44 dev` still runs the backend alone and `base44 deploy` still skips the site step. For a project that declared a partial block, `base44 build` and `deploy --build` now build it instead of refusing, and the deploy flow may offer to build first.
 - `base44 sandbox` help now explains that writes are committed but not checkpointed: a Restore or Revert in the builder rolls the app back to the last checkpoint and discards everything after it, so run `base44 sandbox checkpoint` after each unit of work and before stopping. The note appears on `sandbox`, `sandbox write`, `sandbox edit`, `sandbox run`, and `sandbox checkpoint`.
 - The `backend-and-client` template now scaffolds the same client convention editor-created apps use: `@base44/vite-plugin` + `src/lib/app-params.js`, with the SDK client on same-origin `/api` (`serverUrl: ''`). Under `base44 dev` the plugin proxies `/api` to the local dev backend, so scaffolded apps get local entities and functions; the app id is injected via `VITE_BASE44_APP_ID` by `base44 dev`, `base44 dev --remote`, and the build/deploy commands instead of being baked into source.
 
 ### Fixed
 
+- An app id passed with `--app-id` or `BASE44_APP_ID` no longer discards the project the command runs in. Commands that need a project — `site dev`, `dev`, `connectors pull`/`push` — refused as if there were none. A checkout with `base44/config.jsonc` but no `.app.jsonc`, such as a hosted sandbox, can now run them.
+- The `backend-and-client` template names its entity file `Task.jsonc`, matching the entity's `name`; the Base44 platform derives the entity from the filename, so `task.jsonc` read as a second entity.
 - `base44 link` now lists editor-created apps; previously only apps created by the CLI could be linked.
 
 ## [0.0.51] - 2026-04-28

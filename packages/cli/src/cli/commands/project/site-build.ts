@@ -19,7 +19,7 @@ export async function runSiteBuild(
       hints: [
         {
           message:
-            'Add \'site.buildCommand\' to your config.jsonc (e.g., "site": { "buildCommand": "npm run build" })',
+            'Add a \'site\' block to your config.jsonc (e.g., "site": { "buildCommand": "npm run build" }). Inside one, buildCommand defaults to "npm run build".',
         },
       ],
     });

@@ -13,6 +13,7 @@ const PUBLIC_MODULES = new Set([
   "mariadb",
   "mongodb",
   "mysql",
+  "oracle",
   "postgres",
   "redis",
   "sqlserver",

@@ -98,3 +98,7 @@ deno.lock
 # Python bytecode — from running the .github/scripts checks locally.
 __pycache__/
 *.pyc
+
+# Local review artifacts
+pr-review-*.md
+pr-review-*.html

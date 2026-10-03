@@ -288,6 +288,28 @@ export class DependencyNotFoundError extends UserError {
 // System Errors
 // ============================================================================
 
+/** Keeps an unparseable error body loggable without dumping a whole HTML page. */
+const MAX_RESPONSE_TEXT_CHARS = 500;
+
+/**
+ * The response body as text, for a response whose body would not parse as JSON.
+ * Reads a clone so the caller's own body stays unconsumed, and never throws —
+ * this runs on a path that is already reporting a failure.
+ */
+async function readResponseText(
+  response: Response,
+): Promise<string | undefined> {
+  try {
+    const text = (await response.clone().text()).trim();
+    if (!text) return undefined;
+    return text.length > MAX_RESPONSE_TEXT_CHARS
+      ? `${text.slice(0, MAX_RESPONSE_TEXT_CHARS)}…`
+      : text;
+  } catch {
+    return undefined;
+  }
+}
+
 interface ApiErrorOptions extends CLIErrorOptions {
   statusCode?: number;
   requestUrl?: string;
@@ -357,7 +379,18 @@ export class ApiError extends SystemError {
           details = parseErrorDetails(parsedData.extra_data);
         }
       } catch {
-        message = error.message;
+        // A non-JSON body is the one case where the server's own words are
+        // lost: ky's message names only the status and URL, so an opaque 403
+        // or 502 reads identically whoever emitted it. Keep the bytes (and,
+        // when there are none, the content type) — they identify the layer
+        // that answered, which JSON from our API would have named outright.
+        const body = await readResponseText(error.response);
+        responseBody = body;
+        message = body
+          ? `${error.message} — ${body}`
+          : `${error.message} — empty body, content-type ${
+              error.response.headers.get("content-type") ?? "absent"
+            }`;
       }
 
       const statusCode = ApiError.normalizeStatusCode(
@@ -582,4 +615,48 @@ export function isUserError(error: unknown): error is UserError {
  */
 export function isSystemError(error: unknown): error is SystemError {
   return error instanceof SystemError;
+}
+
+/**
+ * Which step of a multi-step command a failure came from.
+ *
+ * Here rather than beside any one command: the envelope that reads the tag is
+ * the generic command framework, and a framework importing a feature module to
+ * read its own output is the dependency backwards. The vocabulary stays with
+ * the command that owns it.
+ */
+const STEP = Symbol.for("base44.commandStep");
+
+/** Tag an error with its step without wrapping it, so the original type,
+ * status and request id still reach the envelope. */
+export async function tagStep<T>(
+  step: string,
+  run: () => Promise<T>,
+): Promise<T> {
+  try {
+    // Awaited inside the try so a callback that throws SYNCHRONOUSLY is tagged
+    // too — `run().catch(...)` would let that one escape untagged.
+    return await run();
+  } catch (error) {
+    // The innermost tag wins: an outer step re-tagging would report where the
+    // failure surfaced rather than where it happened. `isExtensible` too: a
+    // library that freezes its errors would turn the tag into a TypeError and
+    // lose the original entirely.
+    if (
+      error !== null &&
+      typeof error === "object" &&
+      !(STEP in error) &&
+      Object.isExtensible(error)
+    ) {
+      Object.defineProperty(error, STEP, { value: step, enumerable: false });
+    }
+    throw error;
+  }
+}
+
+/** The step a tagged error came from, or `undefined` for an untagged one. */
+export function stepOf(error: unknown): string | undefined {
+  return error !== null && typeof error === "object" && STEP in error
+    ? (error as Record<symbol, string>)[STEP]
+    : undefined;
 }

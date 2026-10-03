@@ -84,6 +84,13 @@ export interface PresignedAssetUpload {
   contentLength: number;
   /** Presigned S3 URL — the URL itself is the credential. */
   url: string;
+  /**
+   * Base64 sha256 the server signed in, when it signed one. Sent as
+   * `x-amz-checksum-sha256`, which is what makes S3 itself reject a body that
+   * is not the declared one. Absent on the legacy static lane, whose URLs pin
+   * only type and length.
+   */
+  checksumSha256?: string;
 }
 
 /**
@@ -140,6 +147,9 @@ export const CreateDeploymentResponseSchema = z
       ])
       .nullable()
       .optional(),
+    // Absent on a server predating staged entry points, where finalize is still
+    // the only thing that writes index.html.
+    index_html_staged: z.boolean().optional().default(false),
   })
   .transform(
     (
@@ -148,9 +158,11 @@ export const CreateDeploymentResponseSchema = z
       deploymentId: string;
       sessionId: string;
       assetUploads: CfAssetUploads | S3AssetUploads | null;
+      indexHtmlStaged: boolean;
     } => ({
       deploymentId: data.deployment_id,
       sessionId: data.session_id,
+      indexHtmlStaged: data.index_html_staged,
       assetUploads:
         data.asset_uploads == null
           ? null
