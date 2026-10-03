@@ -55,18 +55,19 @@ describe("deploy command (unified)", () => {
   // The deployments lane belongs to `site deploy`. This command ships the site
   // through the legacy tar.gz step, so it has no commit to address and none of
   // the lane's flags.
-  it("does not take the deployments-lane flags", async () => {
+  it("takes the commit that produced the build, but not upload tuning", async () => {
+    // The site ships through the deployments API now, so the deploy needs the
+    // address it is made at. Concurrency stays on `site deploy`, whose caller
+    // is the one uploading at scale.
     await t.givenLoggedInWithProject(fixture("with-site"));
 
-    const gitHash = await t.run("deploy", "-y", "--git-hash", "a1b2c3d4e5f6");
     const concurrency = await t.run("deploy", "-y", "--concurrency", "5");
     const help = await t.run("deploy", "--help");
 
-    t.expectResult(gitHash).toFail();
-    t.expectResult(gitHash).toContain("unknown option");
     t.expectResult(concurrency).toFail();
     t.expectResult(concurrency).toContain("unknown option");
-    t.expectResult(help).toNotContain("--git-hash");
+    t.expectResult(help).toContain("--git-hash");
+    t.expectResult(help).toContain("--no-publish");
     t.expectResult(help).toNotContain("--concurrency");
   });
 
@@ -282,5 +283,108 @@ describe("deploy command (unified)", () => {
     t.expectResult(result).toContain("Stripe sandbox provisioned");
     t.expectResult(result).toContain("connect.stripe.com/setup/claim/xxx");
     t.expectResult(result).toContain("Connectors dashboard");
+  });
+
+  describe("shipping the site", () => {
+    const GIT_HASH = "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0";
+    const DEPLOYMENT_ID = "test-app-git-a1b2c3d4e5f6";
+
+    function mockProjectResources(): void {
+      t.api.mockEntitiesPush({ created: [], updated: [], deleted: [] });
+      t.api.mockSingleFunctionDeploy({ status: "deployed" });
+      t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
+      t.api.mockConnectorsList({ integrations: [] });
+      t.api.mockStripeStatus({ stripe_mode: null });
+    }
+
+    function mockDeployment(): void {
+      t.api.mockDeploymentCreate({
+        deployment_id: DEPLOYMENT_ID,
+        session_id: "3f9a1c07b8e44d2f",
+        asset_uploads: null,
+      });
+      t.api.mockDeploymentFinalize({ deployment_id: DEPLOYMENT_ID });
+    }
+
+    it("deploys the site through the deployments API and publishes it", async () => {
+      // What the archive upload did in one step: a deploy still leaves the app
+      // live, now addressed by the commit that produced the build.
+      await t.givenLoggedInWithProject(fixture("full-project"));
+      mockProjectResources();
+      mockDeployment();
+      t.api.mockDeploymentPublish({
+        app_url: "https://full-project.base44.app",
+      });
+
+      const result = await t.run("deploy", "-y", "--git-hash", GIT_HASH);
+
+      t.expectResult(result).toSucceed();
+      t.expectResult(result).toContain("https://full-project.base44.app");
+      expect(t.api.publishedCommits).toEqual([GIT_HASH]);
+    });
+
+    it("--no-publish leaves production where it was", async () => {
+      await t.givenLoggedInWithProject(fixture("full-project"));
+      mockProjectResources();
+      mockDeployment();
+      t.api.mockDeploymentPublish();
+
+      const result = await t.run(
+        "deploy",
+        "-y",
+        "--git-hash",
+        GIT_HASH,
+        "--no-publish",
+      );
+
+      t.expectResult(result).toSucceed();
+      expect(t.api.deploymentCreateRequests).toHaveLength(1);
+      expect(t.api.publishedCommits).toEqual([]);
+    });
+
+    it("still succeeds when the app is published from the builder", async () => {
+      // Its resources and its build did deploy; only production was left alone.
+      await t.givenLoggedInWithProject(fixture("full-project"));
+      mockProjectResources();
+      mockDeployment();
+      t.api.mockDeploymentPublishError(400, {
+        message:
+          "This app is published from the Base44 builder, not from a deployment.",
+        extra_data: { code: "app_publishes_from_builder" },
+      });
+
+      const result = await t.run("deploy", "-y", "--git-hash", GIT_HASH);
+
+      t.expectResult(result).toSucceed();
+      t.expectResult(result).toContain("published from the Base44 builder");
+    });
+
+    it("fails when the publish itself fails", async () => {
+      await t.givenLoggedInWithProject(fixture("full-project"));
+      mockProjectResources();
+      mockDeployment();
+      t.api.mockDeploymentPublishError(404, {
+        message: "No build exists for this commit.",
+        extra_data: { code: "build_not_found" },
+      });
+
+      const result = await t.run("deploy", "-y", "--git-hash", GIT_HASH);
+
+      t.expectResult(result).toFail();
+    });
+
+    it("falls back to the archive upload when the build has no commit", async () => {
+      // The fixture is not a git checkout, so there is no address to deploy to.
+      await t.givenLoggedInWithProject(fixture("full-project"));
+      mockProjectResources();
+      t.api.mockSiteDeploy({ app_url: "https://full-project.base44.app" });
+
+      const result = await t.run("deploy", "-y");
+
+      t.expectResult(result).toSucceed();
+      t.expectResult(result).toContain("No commit found for this build");
+      t.expectResult(result).toContain("https://full-project.base44.app");
+      expect(t.api.deploymentCreateRequests).toHaveLength(0);
+    });
   });
 });

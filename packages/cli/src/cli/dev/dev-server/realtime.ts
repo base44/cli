@@ -16,9 +16,12 @@ export type BroadcastEntityEvent = (
   event: EntityEvent,
 ) => void;
 
+/** The path the entity-events socket owns; no other transport may claim it. */
+export const REALTIME_PATH = "/ws-user-apps/socket.io/";
+
 export function createRealtimeServer(httpServer: HttpServer): SocketIOServer {
   const io = new SocketIOServer(httpServer, {
-    path: "/ws-user-apps/socket.io/",
+    path: REALTIME_PATH,
     cors: {
       origin: /^http:\/\/localhost(:\d+)?$/,
       credentials: true,
