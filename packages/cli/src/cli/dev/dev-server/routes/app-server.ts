@@ -1,9 +1,9 @@
 import type { IncomingMessage } from "node:http";
 import { ServerResponse } from "node:http";
-import type { Socket } from "node:net";
 import type { Duplex } from "node:stream";
-import type { Request, RequestHandler } from "express";
+import type { RequestHandler } from "express";
 import { createProxyMiddleware } from "http-proxy-middleware";
+import { type RawData, WebSocket, WebSocketServer } from "ws";
 import type { DevLogger } from "@/cli/dev/createDevLogger.js";
 import { createServiceAuthorizationHeader } from "@/cli/dev/dev-server/auth/tokens.js";
 
@@ -38,6 +38,23 @@ const PROXY_LOOP_MESSAGE = [
   "Update @base44/vite-plugin, or narrow the proxy in vite.config.js to /api/apps.",
 ].join(" ");
 
+/** What a request into app code carries, in place of any copies of its own. */
+function sdkHeaders(
+  appId: string,
+  host: string | undefined,
+): Record<string, string> {
+  return {
+    "Base44-App-Id": appId,
+    // The front door is plain HTTP on localhost, so its origin is the host the
+    // request reached.
+    "Base44-Api-Url": `http://${host}`,
+    // Production injects a service-role token on every request into app code,
+    // so `asServiceRole` works server-side for anonymous visitors too.
+    "Base44-Service-Authorization": createServiceAuthorizationHeader(),
+    [FORWARDED_HEADER]: "1",
+  };
+}
+
 export interface AppServerTarget {
   appId: string;
   /** Resolves with the app dev server's origin once it announces itself. */
@@ -65,24 +82,16 @@ export function createAppServerProxy(
   const proxy = createProxyMiddleware<IncomingMessage, ServerResponse>({
     router: () => origin,
     changeOrigin: true,
-    ws: true,
     on: {
       proxyReq: (proxyReq, req) => {
         for (const header of PLATFORM_OWNED_SDK_HEADERS) {
           proxyReq.removeHeader(header);
         }
-        proxyReq.setHeader("Base44-App-Id", target.appId);
-        proxyReq.setHeader(
-          "Base44-Api-Url",
-          `${(req as Request).protocol}://${req.headers.host}`,
-        );
-        // Production injects a service-role token on every request into app
-        // code, so `asServiceRole` works server-side for anonymous visitors too.
-        proxyReq.setHeader(
-          "Base44-Service-Authorization",
-          createServiceAuthorizationHeader(),
-        );
-        proxyReq.setHeader(FORWARDED_HEADER, "1");
+        for (const [name, value] of Object.entries(
+          sdkHeaders(target.appId, req.headers.host),
+        )) {
+          proxyReq.setHeader(name, value);
+        }
       },
       error: (err, _req, res) => {
         logger.error("App dev server proxy error:", err);
@@ -120,14 +129,77 @@ export function createAppServerProxy(
     await proxy(req, res, next);
   };
 
+  // Relayed message by message rather than tunnelled: under Bun, which runs the
+  // compiled binary, bytes written to the socket an `upgrade` listener receives
+  // never reach the wire. `ws` is the one path Bun maps onto its own websockets.
+  const relay = new WebSocketServer({
+    noServer: true,
+    handleProtocols: (protocols) => [...protocols][0] ?? false,
+  });
+
   const upgrade = (req: IncomingMessage, socket: Duplex, head: Buffer) => {
     resolveOrigin().then(
-      () => proxy.upgrade(req, socket as Socket, head),
+      () =>
+        relay.handleUpgrade(req, socket, head, (client) =>
+          relayTo(client, req),
+        ),
       (error: unknown) => {
         logger.error(error instanceof Error ? error.message : String(error));
         socket.destroy();
       },
     );
+  };
+
+  const relayTo = (client: WebSocket, req: IncomingMessage) => {
+    const forwarded: Record<string, string> = {};
+    for (let i = 0; i < req.rawHeaders.length; i += 2) {
+      const lower = req.rawHeaders[i].toLowerCase();
+      // The handshake's own headers are the upstream client's to set.
+      if (
+        lower === "host" ||
+        lower.startsWith("sec-websocket-") ||
+        lower === "upgrade" ||
+        lower === "connection" ||
+        PLATFORM_OWNED_SDK_HEADERS.includes(lower)
+      ) {
+        continue;
+      }
+      forwarded[req.rawHeaders[i]] = req.rawHeaders[i + 1];
+    }
+    const upstream = new WebSocket(
+      `${origin.replace(/^http/, "ws")}${req.url}`,
+      client.protocol || undefined,
+      {
+        headers: {
+          ...forwarded,
+          ...sdkHeaders(target.appId, req.headers.host),
+        },
+      },
+    );
+
+    // The browser may speak before the dev server has answered.
+    const pending: Array<{ data: RawData; isBinary: boolean }> = [];
+    client.on("message", (data, isBinary) => {
+      if (upstream.readyState === WebSocket.OPEN) {
+        upstream.send(data, { binary: isBinary });
+      } else {
+        pending.push({ data, isBinary });
+      }
+    });
+    upstream.on("open", () => {
+      for (const { data, isBinary } of pending.splice(0)) {
+        upstream.send(data, { binary: isBinary });
+      }
+    });
+    upstream.on("message", (data, isBinary) =>
+      client.send(data, { binary: isBinary }),
+    );
+    client.on("close", () => upstream.close());
+    upstream.on("close", () => client.close());
+    upstream.on("error", (error) => {
+      logger.error("App dev server websocket error:", error);
+      client.close();
+    });
   };
 
   return { middleware, upgrade };

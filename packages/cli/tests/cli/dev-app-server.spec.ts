@@ -78,17 +78,25 @@ describe("dev command fronting the app dev server", () => {
     t.expectResult(result).toSucceed();
   });
 
-  it("forwards the websocket upgrade the app's HMR client makes", async () => {
+  it("relays the app's HMR socket to its dev server, carrying the SDK headers", async () => {
     const { handle, url } = await startDevServer();
 
-    const socket = new WebSocket(`${url.replace("http", "ws")}/`);
-    await new Promise<void>((resolve, reject) => {
-      socket.addEventListener("open", () => resolve());
+    const socket = new WebSocket(`${url.replace("http", "ws")}/__hmr`);
+    const first = await new Promise<string>((resolve, reject) => {
+      socket.addEventListener("message", (event) =>
+        resolve(String(event.data)),
+      );
       socket.addEventListener("error", () =>
         reject(new Error("The upgrade never reached the app dev server")),
       );
     });
     socket.close();
+
+    // The dev server's own frame, so the socket reached it rather than only
+    // being accepted at the front door.
+    const { url: forwardedUrl, headers } = JSON.parse(first) as EchoedRequest;
+    expect(forwardedUrl).toBe("/__hmr");
+    expect(headers["base44-app-id"]).toBe(t.api.appId);
 
     const result = await handle.stop();
     t.expectResult(result).toSucceed();
