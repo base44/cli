@@ -14,7 +14,6 @@ export async function runSiteBuild(
   { runTask }: Pick<CLIContext, "runTask">,
   { root, buildCommand = DEFAULT_SITE.buildCommand, appId }: SiteBuildTarget,
 ): Promise<void> {
-
   await runTask(
     "Building site...",
     () =>
