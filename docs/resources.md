@@ -122,7 +122,7 @@ const viaDeployments = deploymentsApiEnabled();
 ```
 
 - Gate on → the deployments API, see [deployments.md](deployments.md). Whether the build carries a worker changes what that flow sends, never which flow runs, and a worker brings its own assets directory — so the command may pass a null `outputDir`.
-- Gate off → the legacy tar.gz path: tar.gz `site.outputDirectory` and upload via `POST /api/apps/{app_id}/deploy-dist`. This is the flow that requires the config field, and the one that raises "No site configuration found."
+- Gate off → the legacy tar.gz path: tar.gz `site.outputDirectory` and upload via `POST /api/apps/{app_id}/deploy-dist`. It tars `site.outputDirectory`, or `./dist` when the config names none.
 
 Each flow validates its own inputs, so the decision itself is a boolean and needs nothing from the tree.
 
@@ -137,6 +137,17 @@ One flow per transport: `deployment.ts` (deployments API, worker or not) and `de
 3. Upload archive to the API
 4. Parse response with Zod schema
 5. Clean up temporary archive file
+
+## Config fallback
+
+`readProjectSettings` (and `readProjectConfig`, built on it) never fails on `base44/config.jsonc` itself (`core/project/fallback.ts`):
+
+- **Missing** — in a folder with a `package.json`, the template defaults are used; with neither, it is not a project and `Project root not found` still throws.
+- **Unreadable** (bad JSONC, not an object) — the template defaults.
+- **Invalid** — each field the schema rejects is replaced with its default (`name` becomes `base44-app`, a bad `site` field its default); valid fields are kept.
+- **A plugin project listing plugins** — `plugins` is ignored.
+
+Each fallback is reported once per command through `setConfigWarningHandler`, which `Base44Command` wires to `log.warn`. The site-only commands (`site install`, `site dev`, `site deploy`, `build`, `publish`) also use `DEFAULT_SITE` via `siteOrDefault` when a config has no `site` block. `base44 dev` and `base44 deploy` do not: there an absent block means "no frontend". A plugin's own config stays strict.
 
 ## Unified Deploy Command
 

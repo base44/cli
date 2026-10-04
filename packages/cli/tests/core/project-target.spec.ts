@@ -9,8 +9,7 @@ import {
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { SchemaValidationError } from "@/core/errors.js";
-import { requireOutputDir, resolveBuildTarget } from "@/core/project/target.js";
+import { resolveBuildTarget } from "@/core/project/target.js";
 
 describe("resolveBuildTarget", () => {
   let root: string;
@@ -46,30 +45,25 @@ describe("resolveBuildTarget", () => {
     });
   });
 
-  it("does not guess for a config that is present and omits a field", async () => {
-    // Omitting one is a deliberate statement, and every project that relies on
-    // the existing error still gets it. Only a wholly absent config is defaulted.
+  it("defaults the site block a present config omits", async () => {
     await writeConfig({ name: "my-app" });
 
-    const target = await resolveBuildTarget(root, { outputDir: "dist" });
+    const target = await resolveBuildTarget(root);
 
-    expect(target.buildCommand).toBeUndefined();
+    expect(target.buildCommand).toBe("npm run build");
+    expect(target.outputDir).toBe(resolve(root, "dist"));
   });
 
-  it("names no output directory when a present config names none", async () => {
-    // Reported at the point of collection, not here: a project missing both is
-    // told about its build command first, which is the one it hits first.
+  it("defaults the output directory a present site block omits", async () => {
     await writeConfig({
       name: "my-app",
-      site: { buildCommand: "npm run build" },
+      site: { buildCommand: "pnpm build" },
     });
 
     const target = await resolveBuildTarget(root);
 
-    expect(target.outputDir).toBeNull();
-    expect(() => requireOutputDir(target)).toThrow(
-      /No site configuration found/,
-    );
+    expect(target.buildCommand).toBe("pnpm build");
+    expect(target.outputDir).toBe(resolve(root, "dist"));
   });
 
   it("writes nothing", async () => {
@@ -106,13 +100,12 @@ describe("resolveBuildTarget", () => {
     expect(target.outputDir).toBe(resolve(root, "elsewhere"));
   });
 
-  it("still fails on a config that is present and invalid", async () => {
-    // Only a MISSING config is defaulted. Publishing past a broken one is how a
-    // typo becomes a version built the wrong way.
-    await writeConfig({ site: { buildCommand: 42 } });
+  it("defaults the fields of an invalid config and keeps the valid ones", async () => {
+    await writeConfig({ site: { buildCommand: 42, outputDirectory: "out" } });
 
-    await expect(resolveBuildTarget(root)).rejects.toBeInstanceOf(
-      SchemaValidationError,
-    );
+    const target = await resolveBuildTarget(root);
+
+    expect(target.buildCommand).toBe("npm run build");
+    expect(target.outputDir).toBe(resolve(root, "out"));
   });
 });

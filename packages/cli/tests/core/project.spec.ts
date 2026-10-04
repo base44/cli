@@ -2,7 +2,11 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { readProjectConfig } from "@/core/project/index.js";
+import {
+  DEFAULT_SITE,
+  readProjectConfig,
+  readProjectSettings,
+} from "@/core/project/index.js";
 import { resolvePluginRoot } from "@/core/project/plugins.js";
 import { mergeProjectAndPluginEntities } from "@/core/resources/entity/merge.js";
 
@@ -216,16 +220,57 @@ describe("readProjectConfig", () => {
     ).rejects.toThrow(/Project root not found/);
   });
 
-  it("throws on invalid JSON syntax", async () => {
-    await expect(
-      readProjectConfig(resolve(FIXTURES_DIR, "invalid-json")),
-    ).rejects.toThrow();
+  it("falls back to the default config when the file does not parse", async () => {
+    const { project } = await readProjectConfig(
+      resolve(FIXTURES_DIR, "invalid-json"),
+    );
+
+    expect(project.name).toBe("base44-app");
+    expect(project.site).toEqual(DEFAULT_SITE);
   });
 
-  it("throws on invalid config schema", async () => {
-    await expect(
-      readProjectConfig(resolve(FIXTURES_DIR, "invalid-config-schema")),
-    ).rejects.toThrow(/Invalid project configuration/);
+  it("replaces only the fields the schema rejects", async () => {
+    const { project } = await readProjectConfig(
+      resolve(FIXTURES_DIR, "invalid-config-schema"),
+    );
+
+    expect(project.name).toBe("base44-app");
+  });
+
+  it("falls back to defaults in a package without a config", async () => {
+    const tmpDir = await mkdtemp(join(tmpdir(), "b44-no-config-"));
+    try {
+      await writeJson(join(tmpDir, "package.json"), { name: "app" });
+
+      const project = await readProjectSettings(tmpDir);
+
+      expect(project).toMatchObject({
+        name: "base44-app",
+        site: DEFAULT_SITE,
+        root: tmpDir,
+        configPath: join(tmpDir, "base44", "config.jsonc"),
+      });
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("ignores plugins a plugin project lists, rather than failing", async () => {
+    const tmpDir = await mkdtemp(join(tmpdir(), "b44-plugin-project-"));
+    try {
+      await mkdir(join(tmpDir, "base44"), { recursive: true });
+      await writeJson(join(tmpDir, "base44", "config.jsonc"), {
+        name: "crm",
+        plugin: { namespace: "crm" },
+        plugins: [{ source: "../other" }],
+      });
+
+      const project = await readProjectSettings(tmpDir);
+
+      expect(project.plugins).toEqual([]);
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
   });
 
   it("throws on invalid entity file", async () => {

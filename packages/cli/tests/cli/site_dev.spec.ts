@@ -105,12 +105,12 @@ describe("site dev command", () => {
     expect(output).toContain("URL=undefined");
   });
 
-  it("fails when the project has no site block", async () => {
+  it("serves with the default command when the project has no site block", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
 
     const result = await t.run("site", "dev");
 
-    t.expectResult(result).toFail();
-    t.expectResult(result).toContain("no 'site' block");
+    t.expectResult(result).toContain("using the default site commands");
+    t.expectResult(result).toNotContain("so there is no frontend to serve");
   });
 });

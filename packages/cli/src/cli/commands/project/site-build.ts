@@ -1,7 +1,7 @@
 import { confirm, isCancel } from "@clack/prompts";
 import { execa } from "execa";
 import type { CLIContext } from "@/cli/types.js";
-import { ConfigNotFoundError } from "@/core/errors.js";
+import { DEFAULT_SITE } from "@/core/project/index.js";
 import type { ProjectData } from "@/core/project/types.js";
 
 interface SiteBuildTarget {
@@ -12,18 +12,8 @@ interface SiteBuildTarget {
 
 export async function runSiteBuild(
   { runTask }: Pick<CLIContext, "runTask">,
-  { root, buildCommand, appId }: SiteBuildTarget,
+  { root, buildCommand = DEFAULT_SITE.buildCommand, appId }: SiteBuildTarget,
 ): Promise<void> {
-  if (!buildCommand) {
-    throw new ConfigNotFoundError("No site build command found.", {
-      hints: [
-        {
-          message:
-            'Add a \'site\' block to your config.jsonc (e.g., "site": { "buildCommand": "npm run build" }). Inside one, buildCommand defaults to "npm run build".',
-        },
-      ],
-    });
-  }
 
   await runTask(
     "Building site...",

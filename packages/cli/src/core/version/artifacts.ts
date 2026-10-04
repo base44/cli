@@ -5,7 +5,6 @@ import pMap from "p-map";
 import { CONFIG_FILE_EXTENSION_GLOB } from "@/core/consts.js";
 import { InvalidInputError } from "@/core/errors.js";
 import type { BuildTarget } from "@/core/project/target.js";
-import { requireOutputDir } from "@/core/project/target.js";
 import type { FullStackBuild } from "@/core/site/full-stack.js";
 import { resolveFullStackBuild } from "@/core/site/full-stack.js";
 import { describeBuildOutput, hashFileInto } from "@/core/site/manifest.js";
@@ -184,7 +183,7 @@ export async function collectArtifacts(
       ? built.assetsDir
         ? await collectBuildOutput(built.assetsDir)
         : []
-      : await collectBuildOutput(requireOutputDir(target), {
+      : await collectBuildOutput(target.outputDir, {
           entryFile: ENTRY,
         }),
     ...(siteWorker ? { siteWorker } : {}),

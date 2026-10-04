@@ -1,10 +1,17 @@
+import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { z } from "zod";
 import { PROJECT_SUBDIR } from "@/core/consts.js";
 import {
   ConfigInvalidError,
   ConfigNotFoundError,
   SchemaValidationError,
 } from "@/core/errors.js";
+import {
+  defaultProjectConfig,
+  salvageProjectConfig,
+  warnConfigFallback,
+} from "@/core/project/fallback.js";
 import { findConfigInDir, findProjectRoot } from "@/core/project/find-root.js";
 import {
   markPluginEntities,
@@ -41,13 +48,25 @@ type ProjectResources = Omit<ProjectData, "project">;
 class ProjectConfigReader {
   private readonly pluginSourceByNamespace = new Map<string, string>();
 
+  /**
+   * Never fails on the config itself: a missing, unreadable or invalid one falls
+   * back to the template defaults, with a warning, so a broken config cannot
+   * stop a command. The one exception is a folder with no config and no
+   * package.json, which is not a project at all.
+   */
   async readProjectSettings(projectRoot?: string): Promise<ProjectWithPaths> {
-    const { root, configPath } = await this.findConfigOrThrow(projectRoot);
+    const found = this.findConfig(projectRoot);
+    if (!found) {
+      return this.defaultSettingsOrThrow(projectRoot);
+    }
 
-    const project = await this.readConfigFile(configPath);
-    this.assertPluginProjectDoesNotLoadPlugins(project, configPath);
-
-    return { ...project, root, configPath };
+    const { root, configPath } = found;
+    const project = await this.readConfigFileOrDefaults(configPath);
+    return {
+      ...this.withoutPluginsInPluginProject(project, configPath),
+      root,
+      configPath,
+    };
   }
 
   async readProjectConfig(projectRoot?: string): Promise<ProjectData> {
@@ -90,38 +109,51 @@ class ProjectConfigReader {
     };
   }
 
-  private async findConfigOrThrow(projectRoot?: string): Promise<ProjectRoot> {
-    let found: ProjectRoot | null;
-
-    if (projectRoot) {
-      const configPath = findConfigInDir(projectRoot);
-      found = configPath ? { root: projectRoot, configPath } : null;
-    } else {
-      found = findProjectRoot();
+  private findConfig(projectRoot?: string): ProjectRoot | null {
+    if (!projectRoot) {
+      return findProjectRoot();
     }
+    const configPath = findConfigInDir(projectRoot);
+    return configPath ? { root: projectRoot, configPath } : null;
+  }
 
-    if (!found) {
+  private defaultSettingsOrThrow(projectRoot?: string): ProjectWithPaths {
+    const root = projectRoot ?? process.cwd();
+    if (!existsSync(join(root, "package.json"))) {
       throw new ConfigNotFoundError(
         `Project root not found. Please ensure config.jsonc or config.json exists in the project directory or ${PROJECT_SUBDIR}/ subdirectory.`,
       );
     }
 
-    return found;
+    const configPath = join(root, PROJECT_SUBDIR, "config.jsonc");
+    warnConfigFallback(
+      `No ${PROJECT_SUBDIR}/config.jsonc found in ${root}; using the default project config.`,
+    );
+    return { ...defaultProjectConfig(), root, configPath };
   }
 
-  private async readConfigFile(configPath: string): Promise<ProjectConfig> {
-    const parsed = await readJsonFile(configPath);
-    const result = ProjectConfigSchema.safeParse(parsed);
-
-    if (!result.success) {
-      throw new SchemaValidationError(
-        "Invalid project configuration",
-        result.error,
-        configPath,
+  private async readConfigFileOrDefaults(
+    configPath: string,
+  ): Promise<ProjectConfig> {
+    let parsed: unknown;
+    try {
+      parsed = await readJsonFile(configPath);
+    } catch (error) {
+      warnConfigFallback(
+        `${configPath} could not be read (${errorMessage(error)}); using the default project config.`,
       );
+      return defaultProjectConfig();
     }
 
-    return result.data;
+    const result = ProjectConfigSchema.safeParse(parsed);
+    if (result.success) {
+      return result.data;
+    }
+
+    warnConfigFallback(
+      `Invalid project configuration in ${configPath}; using defaults for the invalid fields:\n${z.prettifyError(result.error)}`,
+    );
+    return salvageProjectConfig(parsed, result.error);
   }
 
   private async readProjectResources(
@@ -161,16 +193,34 @@ class ProjectConfigReader {
     };
   }
 
-  private assertPluginProjectDoesNotLoadPlugins(
-    project: ProjectConfig,
+  /** A plugin's config stays strict: it is not this project's to default. */
+  private async readPluginConfigFile(
     configPath: string,
-  ): void {
-    if (project.plugin && project.plugins.length > 0) {
-      throw new ConfigInvalidError(
-        "Plugin projects cannot define plugins in this version.",
+  ): Promise<ProjectConfig> {
+    const result = ProjectConfigSchema.safeParse(
+      await readJsonFile(configPath),
+    );
+    if (!result.success) {
+      throw new SchemaValidationError(
+        "Invalid project configuration",
+        result.error,
         configPath,
       );
     }
+    return result.data;
+  }
+
+  private withoutPluginsInPluginProject(
+    project: ProjectConfig,
+    configPath: string,
+  ): ProjectConfig {
+    if (!project.plugin || project.plugins.length === 0) {
+      return project;
+    }
+    warnConfigFallback(
+      `${configPath}: plugin projects cannot define plugins in this version; ignoring 'plugins'.`,
+    );
+    return { ...project, plugins: [] };
   }
 
   private registerPluginNamespace(
@@ -204,16 +254,26 @@ class ProjectConfigReader {
       plugin.source,
       dirname(hostConfigPath),
     );
-    const { configPath } = await this.findConfigOrThrow(pluginRoot);
+    const configPath = findConfigInDir(pluginRoot);
+    if (!configPath) {
+      throw new ConfigNotFoundError(
+        `Project root not found. Please ensure config.jsonc or config.json exists in the project directory or ${PROJECT_SUBDIR}/ subdirectory.`,
+      );
+    }
 
-    const project = await this.readConfigFile(configPath);
+    const project = await this.readPluginConfigFile(configPath);
     const namespace = requirePluginNamespace(
       project,
       plugin.source,
       configPath,
     );
 
-    this.assertPluginProjectDoesNotLoadPlugins(project, configPath);
+    if (project.plugins.length > 0) {
+      throw new ConfigInvalidError(
+        "Plugin projects cannot define plugins in this version.",
+        configPath,
+      );
+    }
 
     return { configPath, namespace, project, source: plugin.source };
   }
@@ -358,4 +418,8 @@ export async function readProjectSettings(
 ): Promise<ProjectWithPaths> {
   const reader = new ProjectConfigReader();
   return await reader.readProjectSettings(projectRoot);
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
