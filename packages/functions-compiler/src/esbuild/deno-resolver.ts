@@ -22,11 +22,10 @@ import { isBuiltin } from "node:module";
 import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import {
+import type {
   MediaType,
   RequestedModuleType,
   ResolutionMode,
-  ResolveError,
   Workspace,
 } from "@deno/loader";
 import type {
@@ -37,6 +36,7 @@ import type {
   OnResolveResult,
   Plugin,
 } from "esbuild";
+import { lazyDenoLoader } from "../lazy-deps.js";
 import { logEvent } from "../log.js";
 import { USER_NAMESPACE } from "./user-files.js";
 
@@ -54,10 +54,14 @@ interface DenoResolverOptions {
   configPath?: string;
 }
 
+// Set by the first plugin setup, before anything below can run.
+let deno: Awaited<ReturnType<typeof lazyDenoLoader>>;
+
 export function denoResolverPlugin(options: DenoResolverOptions = {}): Plugin {
   return {
     name: "deno-resolver",
     async setup(build) {
+      deno = await lazyDenoLoader();
       // Security: stop a dependency or data: module from reading host files.
       // Allow file: reads only from where deps live — the global cache, or this
       // build's temp node_modules in "auto" mode — and resolve symlinks first so
@@ -76,7 +80,7 @@ export function denoResolverPlugin(options: DenoResolverOptions = {}): Plugin {
         });
       };
 
-      const workspace = new Workspace({
+      const workspace = new deno.Workspace({
         platform: "browser",
         nodeConditions: build.initialOptions.conditions,
         configPath: options.configPath,
@@ -132,8 +136,8 @@ export function denoResolverPlugin(options: DenoResolverOptions = {}): Plugin {
 
         const mode =
           args.kind === "require-call" || args.kind === "require-resolve"
-            ? ResolutionMode.Require
-            : ResolutionMode.Import;
+            ? deno.ResolutionMode.Require
+            : deno.ResolutionMode.Import;
 
         const importer =
           args.namespace === USER_NAMESPACE && baseDir
@@ -305,37 +309,37 @@ function isUrlScheme(p: string): boolean {
 function moduleType(args: OnLoadArgs): RequestedModuleType {
   switch (args.with?.type) {
     case "text":
-      return RequestedModuleType.Text;
+      return deno.RequestedModuleType.Text;
     case "bytes":
-      return RequestedModuleType.Bytes;
+      return deno.RequestedModuleType.Bytes;
     case "json":
-      return RequestedModuleType.Json;
+      return deno.RequestedModuleType.Json;
     default:
       return args.path.endsWith(".json")
-        ? RequestedModuleType.Json
-        : RequestedModuleType.Default;
+        ? deno.RequestedModuleType.Json
+        : deno.RequestedModuleType.Default;
   }
 }
 
 function mediaToLoader(type: MediaType): Loader {
   switch (type) {
-    case MediaType.Jsx:
+    case deno.MediaType.Jsx:
       return "jsx";
-    case MediaType.Tsx:
+    case deno.MediaType.Tsx:
       return "tsx";
-    case MediaType.TypeScript:
-    case MediaType.Mts:
-    case MediaType.Cts:
+    case deno.MediaType.TypeScript:
+    case deno.MediaType.Mts:
+    case deno.MediaType.Cts:
       return "ts";
-    case MediaType.Json:
+    case deno.MediaType.Json:
       return "json";
-    case MediaType.Css:
+    case deno.MediaType.Css:
       return "css";
-    case MediaType.Wasm:
+    case deno.MediaType.Wasm:
       return "binary";
-    case MediaType.JavaScript:
-    case MediaType.Mjs:
-    case MediaType.Cjs:
+    case deno.MediaType.JavaScript:
+    case deno.MediaType.Mjs:
+    case deno.MediaType.Cjs:
       return "js";
     default:
       return "js";
@@ -426,11 +430,13 @@ function canonicalPath(p: string): string {
 // `@deno/loader` sets `isOptionalDependency` on ResolveError when an optional
 // npm dependency can't be found (ERR_MODULE_NOT_FOUND).
 function isOptionalDependency(err: unknown): boolean {
-  return err instanceof ResolveError && err.isOptionalDependency === true;
+  return err instanceof deno.ResolveError && err.isOptionalDependency === true;
 }
 
 function isMissingDependency(err: unknown): boolean {
-  return err instanceof ResolveError && err.code === "ERR_MODULE_NOT_FOUND";
+  return (
+    err instanceof deno.ResolveError && err.code === "ERR_MODULE_NOT_FOUND"
+  );
 }
 
 function locatedError(err: unknown, file: string) {
@@ -481,7 +487,10 @@ function resolveEntryFromPackageJson(
   mode: ResolutionMode,
   pathUnderDeps: (absPath: string) => boolean,
 ): string | null {
-  if (!(err instanceof ResolveError) || err.code !== "ERR_MODULE_NOT_FOUND") {
+  if (
+    !(err instanceof deno.ResolveError) ||
+    err.code !== "ERR_MODULE_NOT_FOUND"
+  ) {
     return null;
   }
   const msg = errMessage(err);
@@ -521,7 +530,7 @@ function resolveEntryFromPackageJson(
     // never falls through to `module` — an ESM/browser entry is not require-safe.
     const browser = typeof pkg.browser === "string" ? pkg.browser : undefined;
     const fields =
-      mode === ResolutionMode.Require
+      mode === deno.ResolutionMode.Require
         ? [browser, pkg.main]
         : [browser, pkg.main, pkg.module];
     for (const entry of fields) {

@@ -42,7 +42,9 @@ export function createGuardedFetch(
   originalFetch: typeof fetch,
   maxBytes = MAX_RESPONSE_BYTES,
 ): typeof fetch {
-  return async (input: RequestInfo | URL, init?: RequestInit) => {
+  // Cast: a runtime's own `fetch` type may carry members beyond the call (Bun's
+  // `preconnect`), and the guard wraps only the call.
+  return (async (input: FetchInput, init?: RequestInit) => {
     const url = requestUrl(input);
     if (!isAllowedHost(url.hostname)) {
       logEvent("warn", "base44.bundler.fetch_blocked", { host: url.hostname });
@@ -66,10 +68,12 @@ export function createGuardedFetch(
       );
     }
     return response;
-  };
+  }) as typeof fetch;
 }
 
-function requestUrl(input: RequestInfo | URL): URL {
+type FetchInput = Parameters<typeof fetch>[0];
+
+function requestUrl(input: FetchInput): URL {
   if (input instanceof URL) return input;
   if (typeof input === "string") return new URL(input);
   return new URL(input.url);

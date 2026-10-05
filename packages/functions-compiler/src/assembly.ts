@@ -15,7 +15,7 @@
  */
 
 import path from "node:path";
-import { build } from "esbuild";
+import { lazyEsbuild } from "./lazy-deps.js";
 
 const NAMESPACE = "base44-reachability";
 
@@ -55,7 +55,7 @@ async function walkInputs(
   entryPath: string,
   backendFiles: Record<string, string>,
 ): Promise<Record<string, unknown>> {
-  const result = await build({
+  const result = await (await lazyEsbuild()).build({
     entryPoints: [entryPath],
     bundle: true,
     write: false,

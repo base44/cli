@@ -1,10 +1,10 @@
 # Versions
 
-**Keywords:** versions, publish, deployment, rollback, artifact set, sha256, digest, staged upload, presigned, x-amz-checksum-sha256, entities, agents, raw payloads, provenance, commit, idempotency key, step, BASE44_VERSIONS_API, env gate, build sandbox
+**Keywords:** versions, publish, deployment, rollback, artifact set, sha256, digest, staged upload, presigned, x-amz-checksum-sha256, entities, agents, backend functions, backend_bundles, functions-compiler, shards, raw payloads, provenance, commit, idempotency key, step, BASE44_VERSIONS_API, env gate, build sandbox
 
 A **version** is one immutable thing a build produced — every frontend file, plus the entity and agent payloads the app declares. A **deployment** is a version made live at an environment. Recording one and serving one are separate acts, which is what makes a rollback a deploy of an older version rather than a second code path.
 
-This lives in `src/core/version/`: `artifacts.ts` (the build-output walk and the raw resource reads), `api.ts` (the three HTTP calls), `publish.ts` (orchestration, and the step names behind the shared tagger in `core/errors.ts`), `gate.ts` (the env gate), `schema.ts` (wire types).
+This lives in `src/core/version/`: `artifacts.ts` (the build-output walk and the raw resource reads), `functions.ts` (compiling the backend functions), `api.ts` (the three HTTP calls), `publish.ts` (orchestration, and the step names behind the shared tagger in `core/errors.ts`), `gate.ts` (the env gate), `schema.ts` (wire types).
 
 Where to build and what to collect is **not** here — it is `core/project/target.ts`, because nothing it resolves is about a version and `base44 build` needs the same answer without importing this lane.
 
@@ -20,7 +20,7 @@ It is **not** `src/core/site/` — see [Deployments](deployments.md). That lane 
 
 `createVersion(artifacts, options)` in `api.ts` — three calls, in this order and no other, so nothing is recorded until the bytes are in place:
 
-1. **Declare.** `POST versions` with `assets` (path, size, digest per file), optionally a `site_worker` beside it, plus the raw `entities` and `agents` payloads and `source_commit`. The response carries a `session_id` and one presigned PUT per declared file, in declared order.
+1. **Declare.** `POST versions` with `assets` (path, size, digest per file), optionally a `site_worker` beside it, the compiled `backend_bundles`, plus the raw `entities` and `agents` payloads and `source_commit`. The response carries a `session_id` and one presigned PUT per declared file, in declared order: the assets, the Worker's modules, then one per bundle.
 2. **Upload.** `putPresigned` per file — the same PUT the static deployments lane uses, same ky retry policy. Each PUT sends the server's `Content-Type` **and** its `x-amz-checksum-sha256` verbatim; deriving either locally would 403 on any mapping difference. Uploads are paired with declared files **by position**, not by path: the frontend and the Worker's modules are separate namespaces, so the same name can appear in both and mean two different files.
 3. **Finalize.** `POST versions/{session_id}/finalize`, no body. The set was fixed at declare, so there is nothing left for the caller to change.
 
@@ -52,6 +52,22 @@ One set, two readings, and the Worker's presence is the whole of the difference 
 `serving_config` decides what happens to a request BEFORE the Worker runs — whether it runs at all, which asset a path resolves to, what a miss gets. It is named for that rather than for the assets, which are the set of files at the top of the declaration. Its FIELDS are wrangler's own `assets` block, name for name — `html_handling`, `not_found_handling`, `run_worker_first`, `headers`, `redirects` — because that is what the producer read. A block stating none of them is sent as `null`, the same as no block at all: a bare `assets: { directory }` describes the identical Worker, and recording them apart would split one version in two.
 
 **Nothing deploys this yet.** The platform records the Worker on the version and stores its modules, and refuses a full-stack app at admission — so today this proves the transport, not a publish.
+
+## Backend functions are compiled here
+
+`compileBackendBundles` in `functions.ts` reads the project's functions with the same reader `base44 deploy` uses, compiles them with `@base44/functions-compiler` (`compileFunctionShards`), and declares each emitted Worker shard as a bundle: the module's size and digest, the functions it serves, and the two wrapper modes. The platform stores and deploys the module as it is — it compiles nothing for a version — so the bytes it serves are the bytes this CLI emitted.
+
+The compile inputs are the platform's own: each function is handed over as `cfwBundleInput` builds it, under its project-relative path, so a function that reaches nothing beyond its entry compiles as the flat `main.ts` it always has, and one that imports `../../shared/x.ts` compiles under `base44/functions/<name>/entry.ts`. That `entry` is what the declaration carries.
+
+The shard policy and the modes are **fixed**, at the platform's production defaults with Worker sharding off: one shard holding every function, halved only when its module is over the 9.5 MB compressed cap, and `runtime_secrets` / `post_response_telemetry` both off. They are the same for every app, so there is nothing to ask the platform. `static_egress_artifact` is the compiler's `STATIC_EGRESS_ARTIFACT_MARKER`: every module it emits carries that wrapper.
+
+Functions are sorted by name before compiling. A single shard compiles in the order it is given and that order is in the bytes, so a filesystem walk's order would mint a new version for unchanged code.
+
+`backend_bundles` is **always** sent — `[]` for an app with none. An absent field is what a CLI that cannot compile functions sends, and the platform refuses it for an app that has them: its version would describe the app without them, and the deploy would remove them. For the same reason one function that fails to compile fails the whole publish, at step `build`, before anything is declared.
+
+Compiled during collection, not by `base44 build`: `--no-build` skips only the site's build command, so the publish exec compiles. The compiler runs no repo code — esbuild bundles the sources and `@deno/loader` resolves dependencies without lifecycle scripts — so this does not widen what runs while the publish key exists.
+
+The compiler is bundled like the rest of the CLI, and imports `esbuild` and `@deno/loader` — the external runtime packages `base44 dev` uses too — only when it compiles. The standalone binary cannot carry those, so from there an app with functions fails with `DEPENDENCY_NOT_FOUND`; an app without functions publishes as before.
 
 ## Why the digest is signed into the URL
 

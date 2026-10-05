@@ -43,6 +43,7 @@ describe("resolveBuildTarget", () => {
       outputDir: resolve(root, "dist"),
       entitiesDir: "entities",
       agentsDir: "agents",
+      functionsDir: "functions",
     });
   });
 

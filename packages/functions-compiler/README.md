@@ -150,8 +150,20 @@ Without a sink, `logEvent` writes the Datadog-shaped JSON line it always has.
 | `src/runtime/`, `src/runtime-context.ts`, `src/private-data-sources/` | Compile-time assets read as **text** and injected into the user bundle |
 
 The compile-time assets must stay TypeScript: the virtual plugins load them
-with esbuild's `ts` loader. `scripts/copy-assets.ts` copies them into `lib/`
-next to the compiled JS so the published package resolves them the same way.
+with esbuild's `ts` loader. `scripts/build-shim.ts` embeds them, with the three
+shims it builds, as strings in `src/generated/assets.ts`, and everything reads
+them through `src/assets.ts`. The compiler reads no file of its own, because a
+path relative to `import.meta.url` stops naming the file once a consumer has
+bundled it. The generated module is not committed: `prepare` writes it on
+install, which the root `package.json` allows through `trustedDependencies` —
+bun blocks a dependency's lifecycle scripts by default, and the CLI depends on
+this workspace.
+
+`esbuild` and `@deno/loader` are imported on first use (`src/lazy-deps.ts`), not
+with the modules that call them. A consumer that bundles the compiler keeps
+both external, and a bundler hoists an external's ESM import to the top of its
+output — loading a native binary and a WASM module at that consumer's startup
+whether it compiles or not.
 
 **Do not reformat an asset.** Their text goes into the user's bundle, so
 whitespace is part of the emitted worker bytes — running Biome over
@@ -164,16 +176,18 @@ copy is deleted; it sits outside the repo's `packages/*/src` lint glob.
 ## Commands
 
 ```bash
-bun run build:shim   # regenerate dist/{deno-shim,activation-shim,actor}.mjs
-bun run test         # vitest (builds the shims first)
+bun run build:shim   # regenerate src/generated/assets.ts (shims + text assets)
+bun run test         # vitest (regenerates the assets first)
 bun run typecheck    # tsc --noEmit over src/, test/, scripts/
-bun run build        # shims + tsc -> lib/ + assets; what gets published
+bun run build        # assets + tsc -> lib/; what gets published
 ```
 
-`exports` points only at `lib/`, so anything consuming this package — including
-a sibling workspace — needs `bun run build` here first. There is deliberately
-no source-resolving export condition: the tarball ships `lib/` alone, and a
-second resolution path would mean two answers to "which code ran".
+`exports` points only at `lib/`, the one thing the tarball ships. There is
+deliberately no source-resolving export condition: a second resolution path
+for the package would mean two answers to "which code ran". The CLI does not
+go through `exports` at all — it maps the package to `src/index.ts` in its own
+tsconfig and bundles the source `lib/` is compiled from, so its bundle is the
+answer for the CLI, and it needs no `bun run build` here first.
 
 ## Releasing
 

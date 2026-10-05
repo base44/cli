@@ -14,7 +14,7 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { type BuildFailure, build } from "esbuild";
+import type { BuildFailure, build } from "esbuild";
 import type { BundleErrorItem } from "./errors.js";
 import { denoResolverPlugin } from "./esbuild/deno-resolver.js";
 import { nodeBuiltinRequirePlugin } from "./esbuild/node-builtin-require.js";
@@ -22,6 +22,7 @@ import { privateDataSourcesVirtualPlugin } from "./esbuild/private-data-sources-
 import { runtimeContextVirtualPlugin } from "./esbuild/runtime-context-virtual.js";
 import { runtimeVirtualPlugin } from "./esbuild/runtime-virtual.js";
 import { USER_NAMESPACE, userFilesPlugin } from "./esbuild/user-files.js";
+import { lazyEsbuild } from "./lazy-deps.js";
 import type { PreparedWorker } from "./worker-entry.js";
 
 // Whether the build writes a node_modules folder. See installAndCompile for why
@@ -53,7 +54,7 @@ export async function bundleToModule(
 
     let result: Awaited<ReturnType<typeof build>>;
     try {
-      result = await build({
+      result = await (await lazyEsbuild()).build({
         entryPoints: [prepared.entry],
         absWorkingDir: dir,
         bundle: true,

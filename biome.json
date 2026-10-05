@@ -29,7 +29,8 @@
       "!packages/functions-compiler/src/runtime/**",
       "!packages/functions-compiler/src/runtime-context.ts",
       "!packages/functions-compiler/src/static-egress.ts",
-      "!packages/functions-compiler/src/static-egress-marker.ts"
+      "!packages/functions-compiler/src/static-egress-marker.ts",
+      "!packages/functions-compiler/src/generated/**"
     ]
   },
   "formatter": {

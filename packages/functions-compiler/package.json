@@ -23,9 +23,10 @@
     "README.md"
   ],
   "scripts": {
-    "build": "bun run clean && bun run build:shim && tsc -p tsconfig.build.json && bun run scripts/copy-assets.ts",
+    "build": "bun run clean && bun run build:shim && tsc -p tsconfig.build.json",
     "build:shim": "bun run scripts/build-shim.ts",
-    "clean": "rm -rf dist lib",
+    "prepare": "bun run build:shim",
+    "clean": "rm -rf dist lib src/generated",
     "typecheck": "tsc --noEmit",
     "test": "bun run build:shim && vitest run"
   },

@@ -378,6 +378,7 @@ describe("collectArtifacts", () => {
       outputDir: join(projectRoot, "dist", "client"),
       entitiesDir: "entities",
       agentsDir: "agents",
+      functionsDir: "functions",
     };
   }
 

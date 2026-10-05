@@ -8,12 +8,13 @@ import type { ProjectWithPaths } from "@/core/project/types.js";
 /** A project's resolved layout: where its build runs, and what it leaves behind. */
 export interface BuildTarget {
   root: string;
-  /** Where `entitiesDir` and `agentsDir` are resolved from. */
+  /** Where `entitiesDir`, `agentsDir` and `functionsDir` are resolved from. */
   configDir: string;
   buildCommand: string;
   outputDir: string;
   entitiesDir: string;
   agentsDir: string;
+  functionsDir: string;
 }
 
 /**
@@ -50,6 +51,7 @@ export async function resolveBuildTarget(
     ),
     entitiesDir: project?.entitiesDir ?? "entities",
     agentsDir: project?.agentsDir ?? "agents",
+    functionsDir: project?.functionsDir ?? "functions",
   };
 }
 

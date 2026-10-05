@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { fixture, setupCLITests } from "./testkit/index.js";
 
@@ -6,7 +8,7 @@ const SESSION = "sess-1";
 const INDEX = "<!doctype html><div id=root></div>";
 const APP_JS = "console.log(1)";
 
-function sha256(content: string): string {
+function sha256(content: string | Uint8Array): string {
   return `sha256:${createHash("sha256").update(content).digest("hex")}`;
 }
 
@@ -63,6 +65,21 @@ describe("publish command", () => {
         },
       },
       agents: { helper: { name: "helper", instructions: "help" } },
+    });
+  });
+
+  it("declares an app with no functions as having none", async () => {
+    // Not an absent field: that is what an older CLI sends, and the platform
+    // refuses it for an app whose functions it would then remove.
+    t.givenEnv({ BASE44_VERSIONS_API: "1" });
+    await t.givenLoggedInWithProject(fixture("publishable"));
+    mockPublishApi();
+
+    const result = await t.run("publish", "--no-build");
+
+    t.expectResult(result).toSucceed();
+    expect(t.api.versionDeclareRequests[0]).toMatchObject({
+      backend_bundles: [],
     });
   });
 
@@ -170,6 +187,108 @@ describe("publish command", () => {
     );
   });
 });
+
+// The standalone binary cannot load the compiler, so only the npm build compiles.
+describe.skipIf(process.env.CLI_TEST_RUNNER === "binary")(
+  "publish command, for an app with backend functions",
+  () => {
+    const t = setupCLITests();
+    const BUNDLE = "/backend-bundles/0.mjs";
+
+    const mockFunctionsApi = () =>
+      t.api
+        .mockVersionDeclare(SESSION)
+        .mockPresignedUpload("/index.html")
+        .mockPresignedUpload("/assets/app.js")
+        .mockPresignedUpload(BUNDLE)
+        .mockVersionFinalize({
+          version_id: "ver-1",
+          manifest_hash: "sha256:abc",
+        })
+        .mockEnvironmentSet({
+          name: "production",
+          version_id: "ver-1",
+          manifest_hash: "sha256:abc",
+          deployment_id: "dep-1",
+        });
+
+    it("declares the compiled module and uploads exactly those bytes", async () => {
+      t.givenEnv({ BASE44_VERSIONS_API: "1" });
+      await t.givenLoggedInWithProject(fixture("publishable-with-functions"));
+      mockFunctionsApi();
+
+      const result = await t.run("publish", "--no-build");
+
+      t.expectResult(result).toSucceed();
+      const declared = t.api.versionDeclareRequests[0] as {
+        backend_bundles: { module: { size: number; digest: string } }[];
+      };
+      expect(declared.backend_bundles).toMatchObject([
+        {
+          functions: [{ name: "greet", entry: "main.ts" }],
+          runtime_secrets: false,
+          post_response_telemetry: false,
+          static_egress_artifact: "base44.static-egress.request-env.v2",
+        },
+      ]);
+      const module = t.api.presignedUploadRequests.find(
+        (u) => u.path === BUNDLE,
+      )?.data;
+      expect(module?.toString()).toMatch(
+        /^\/\/!b44:1 \{"functions":\["greet"\]/,
+      );
+      expect(declared.backend_bundles[0].module).toEqual({
+        size: module?.length,
+        digest: sha256(module ?? ""),
+      });
+    });
+
+    it("names the build step when a function does not compile, before declaring", async () => {
+      t.givenEnv({ BASE44_VERSIONS_API: "1" });
+      await t.givenLoggedInWithProject(fixture("publishable-with-functions"));
+      const broken = join(
+        t.getTempDir(),
+        "project",
+        "base44",
+        "functions",
+        "broken",
+      );
+      await mkdir(broken, { recursive: true });
+      await writeFile(join(broken, "entry.ts"), "Deno.serve(() => {\n");
+      mockFunctionsApi();
+
+      const result = await t.run("publish", "--no-build", "--json");
+
+      t.expectResult(result).toFail();
+      const envelope = JSON.parse(result.stdout);
+      expect(envelope).toMatchObject({ step: "build", code: "INVALID_INPUT" });
+      expect(envelope.details.join("\n")).toContain("broken");
+      expect(t.api.versionDeclareRequests).toEqual([]);
+    });
+  },
+);
+
+describe.runIf(process.env.CLI_TEST_RUNNER === "binary")(
+  "publish command, from the standalone binary",
+  () => {
+    const t = setupCLITests();
+
+    it("refuses an app with backend functions before declaring anything", async () => {
+      t.givenEnv({ BASE44_VERSIONS_API: "1" });
+      await t.givenLoggedInWithProject(fixture("publishable-with-functions"));
+      t.api.mockVersionDeclare(SESSION);
+
+      const result = await t.run("publish", "--no-build", "--json");
+
+      t.expectResult(result).toFail();
+      expect(JSON.parse(result.stdout)).toMatchObject({
+        step: "build",
+        code: "DEPENDENCY_NOT_FOUND",
+      });
+      expect(t.api.versionDeclareRequests).toEqual([]);
+    });
+  },
+);
 
 describe("versions deploy points an environment", () => {
   const t = setupCLITests();
