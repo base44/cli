@@ -877,11 +877,20 @@ export class TestAPIServer {
             modules: Array<{ path: string; size: number; digest: string }>;
             assets: Array<{ path: string; size: number; digest: string }>;
           };
+          backend_bundles?: Array<{ module: { size: number; digest: string } }>;
         };
         this.versionDeclareRequests.push(body);
-        // The app's assets, then the Worker's modules — the slot order the
-        // server signs them in, which is what the client pairs uploads against.
-        const declared = [...body.assets, ...(body.site_worker?.modules ?? [])];
+        // The app's assets, then the Worker's modules, then each bundle's module
+        // at a path the server names — the slot order the server signs them in,
+        // which is what the client pairs uploads against.
+        const declared = [
+          ...body.assets,
+          ...(body.site_worker?.modules ?? []),
+          ...(body.backend_bundles ?? []).map((bundle, index) => ({
+            path: `backend-bundles/${index}.mjs`,
+            ...bundle.module,
+          })),
+        ];
         res.status(200).json({
           session_id: sessionId,
           uploads: declared.map((file) => ({

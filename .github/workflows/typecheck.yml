@@ -38,5 +38,11 @@ jobs:
         run: bun install --frozen-lockfile
         working-directory: .
 
+      # The CLI imports the compiler through its package exports, which point
+      # at the built lib/.
+      - name: Build the functions compiler
+        run: bun run build
+        working-directory: packages/functions-compiler
+
       - name: Run typecheck
         run: bun run typecheck

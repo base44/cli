@@ -11,7 +11,7 @@ const DEFAULT_OUTPUT_DIRECTORY = "dist";
 /** A project's resolved layout: where its build runs, and what it leaves behind. */
 export interface BuildTarget {
   root: string;
-  /** Where `entitiesDir` and `agentsDir` are resolved from. */
+  /** Where `entitiesDir`, `agentsDir` and `functionsDir` are resolved from. */
   configDir: string;
   /** `undefined` when a config is present and declares none; `runSiteBuild`
    * reports that, as it always has. */
@@ -21,6 +21,7 @@ export interface BuildTarget {
   outputDir: string | null;
   entitiesDir: string;
   agentsDir: string;
+  functionsDir: string;
 }
 
 /**
@@ -51,6 +52,7 @@ export async function resolveBuildTarget(
     outputDir: outputDirectory(project, root, overrides.outputDir),
     entitiesDir: project?.entitiesDir ?? "entities",
     agentsDir: project?.agentsDir ?? "agents",
+    functionsDir: project?.functionsDir ?? "functions",
   };
 }
 

@@ -15,9 +15,10 @@ Two consumers share this one engine:
 ## Status and scope
 
 Internal to Base44 — published **public** so apper's bundler service can install
-it, but it is not a supported public API: the CLI bundles it at build time so
-end users never install it, and it carries no compatibility promise to anyone
-outside this repo. Compilation is the whole of its job, and that now includes
+it and the CLI can depend on it, but it is not a supported public API: it
+carries no compatibility promise to anyone outside this repo. The CLI depends on
+the workspace's own version, so a CLI release needs that version published
+first. Compilation is the whole of its job, and that now includes
 source assembly, shard planning, size measurement and splitting. Artifact
 writing, version creation, upload and deploy live above it.
 

@@ -90,6 +90,12 @@ jobs:
         run: bun install --frozen-lockfile
         working-directory: .
 
+      # `publish` imports the compiler at runtime through its package exports,
+      # which point at the built lib/ — it is external to the CLI bundle.
+      - name: Build the functions compiler
+        run: bun run build
+        working-directory: packages/functions-compiler
+
       - name: Download build artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:

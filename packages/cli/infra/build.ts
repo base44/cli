@@ -40,13 +40,20 @@ const copyBackendRuntime = () => {
   return outDir;
 };
 
-// Runtime dependencies of the local workerd function runtime. They cannot be
-// bundled (workerd and esbuild ship native binaries; @deno/loader ships WASM),
-// so they are real npm `dependencies` resolved from node_modules at runtime —
-// the one deliberate exception to the zero-dependency distribution rule. The
-// standalone binary excludes them too and `base44 dev` falls back to the Deno
-// runtime there.
-export const RUNTIME_EXTERNALS = ["miniflare", "esbuild", "@deno/loader"];
+// Runtime dependencies of the local workerd function runtime and of the
+// functions compiler `publish` runs. They cannot be bundled (workerd and esbuild
+// ship native binaries; @deno/loader ships WASM; the compiler reads its own
+// assets relative to its install), so they are real npm `dependencies` resolved
+// from node_modules at runtime — the one deliberate exception to the
+// zero-dependency distribution rule. The standalone binary excludes them too:
+// `base44 dev` falls back to the Deno runtime there, and `publish` refuses an
+// app with functions.
+export const RUNTIME_EXTERNALS = [
+  "miniflare",
+  "esbuild",
+  "@deno/loader",
+  "@base44/functions-compiler",
+];
 
 const runAllBuilds = async () => {
   const cli = await runBuild({

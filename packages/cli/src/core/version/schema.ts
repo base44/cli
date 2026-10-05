@@ -47,12 +47,34 @@ export interface SiteWorkerArtifact {
   servingConfig: ResolvedAssetsConfig | null;
 }
 
+/**
+ * One compiled Worker shard of the app's backend functions. The module is held
+ * in memory: it is what the compiler returned, not a file the build left.
+ */
+export interface BackendBundleArtifact {
+  module: Uint8Array;
+  size: number;
+  digest: string;
+  /** `entry` is the one the compiler was given — flat `main.ts`, or the
+   * function's real path when it reaches files beside it. */
+  functions: { name: string; entry: string }[];
+  /** Both change the emitted bytes, so they describe the module rather than
+   * configure it — the platform deploys the module under the modes it states. */
+  runtimeSecrets: boolean;
+  postResponseTelemetry: boolean;
+  staticEgressArtifact: string;
+}
+
 /** Everything one build produced, as the create-version call describes it. */
 export interface ArtifactSet {
   /** The app's files. Who serves them is what `siteWorker` says. */
   assets: ArtifactFile[];
   /** Absent for an app with no server of its own — almost every app. */
   siteWorker?: SiteWorkerArtifact;
+  /** Always sent, empty when the app has none: an absent list tells the
+   * platform this producer cannot describe functions, and it refuses that for
+   * an app that has them. */
+  backendBundles: BackendBundleArtifact[];
   /** Raw payloads by name. The server normalizes and hashes them. */
   entities: Record<string, unknown>;
   agents: Record<string, unknown>;
