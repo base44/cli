@@ -11,7 +11,7 @@
         "tests/**/testkit/index.ts"
       ],
       "project": [
-        "src/**/*.ts",
+        "src/**/*.{ts,tsx}",
         "tests/**/*.ts"
       ],
       "ignore": [
