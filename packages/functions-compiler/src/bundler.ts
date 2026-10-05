@@ -1,5 +1,10 @@
 import { type ActorCompat, applyActorCompat } from "./actor-compat.js";
-import type { BundleAppRequest, BundleRequest } from "./contracts.js";
+import {
+  ACTIVATION_MODE,
+  type ActivationMode,
+  type BundleAppRequest,
+  type BundleRequest,
+} from "./contracts.js";
 import { bundleToModule, type NodeModulesMode } from "./deno-bundle.js";
 import { type BundleErrorItem, DenoCompatError } from "./errors.js";
 import { setSpanTags, withSpan } from "./tracing.js";
@@ -26,6 +31,7 @@ export type BundleResponse =
       warnings: string[];
       handler_name?: string;
       do_class_name?: string;
+      activation?: ActivationMode;
     }
   | {
       ok: false;
@@ -46,6 +52,7 @@ export type BundleAppResponse =
       module: string;
       main_module: string;
       functions: AppFunctionStatus[];
+      activation?: ActivationMode;
     }
   | {
       ok: false;
@@ -120,17 +127,33 @@ export async function bundle(req: BundleRequest): Promise<BundleResponse> {
       module: outcome.module,
       main_module: NORMALIZED_MAIN_MODULE,
       warnings: outcome.warnings,
+      ...activationField(req.runtimeSecrets ?? false),
     };
   }
   return { ok: false, stage: outcome.stage, errors: outcome.errors };
 }
 
-// One combined build resolves npm deps once and dedupes them across functions.
-// esbuild fails the whole build on any unresolved import, so on failure we map
-// each error to the function it came from, drop those, and rebuild the rest.
+function activationField(runtimeSecrets: boolean): {
+  activation?: ActivationMode;
+} {
+  return runtimeSecrets ? { activation: ACTIVATION_MODE } : {};
+}
+
 export async function bundleApp(
   req: BundleAppRequest,
 ): Promise<BundleAppResponse> {
+  const result = await assembleApp(req);
+  // Set once here, not per return path: a runtime-secrets module reported without
+  // it would be deployed without its activation bindings.
+  return result.ok
+    ? { ...result, ...activationField(req.runtimeSecrets ?? false) }
+    : result;
+}
+
+// One combined build resolves npm deps once and dedupes them across functions.
+// esbuild fails the whole build on any unresolved import, so on failure we map
+// each error to the function it came from, drop those, and rebuild the rest.
+async function assembleApp(req: BundleAppRequest): Promise<BundleAppResponse> {
   const telemetry = req.postResponseTelemetry ?? false;
   const runtimeSecrets = req.runtimeSecrets ?? false;
   const entries: AppFunctionEntry[] = req.functions.map((fn, index) => ({

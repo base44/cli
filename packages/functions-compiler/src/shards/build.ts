@@ -18,7 +18,7 @@
  */
 
 import { bundleApp } from "../bundler.js";
-import type { AppFunctionInput } from "../contracts.js";
+import type { ActivationMode, AppFunctionInput } from "../contracts.js";
 import type { BundleErrorItem } from "../errors.js";
 import { planFreshShards, type ShardPolicy } from "./plan.js";
 import { judgeBundleSize, type SizeVerdict } from "./size.js";
@@ -37,6 +37,9 @@ export interface CompiledShard {
   mainModule: string;
   rawBytes: number;
   gzipBytes: number;
+  /** Set when the module carries the pull activation shim (a runtime-secrets
+   *  build); the deployer needs it to give the script a pull-shim id. */
+  activation?: ActivationMode;
 }
 
 export interface ShardBuildFailure {
@@ -124,7 +127,7 @@ async function buildWithSplit(
   if (!verdict.breach) {
     return {
       ok: true,
-      shards: [shardOf(group, response.module, response.main_module, verdict)],
+      shards: [shardOf(group, response, verdict)],
     };
   }
 
@@ -148,16 +151,20 @@ async function buildWithSplit(
 
 function shardOf(
   group: AppFunctionInput[],
-  module: string,
-  mainModule: string,
+  response: {
+    module: string;
+    main_module: string;
+    activation?: ActivationMode;
+  },
   verdict: SizeVerdict,
 ): Omit<CompiledShard, "index"> {
   return {
     functions: group.map((fn) => fn.name),
-    module,
-    mainModule,
+    module: response.module,
+    mainModule: response.main_module,
     rawBytes: verdict.rawBytes,
     gzipBytes: verdict.gzipBytes,
+    ...(response.activation ? { activation: response.activation } : {}),
   };
 }
 

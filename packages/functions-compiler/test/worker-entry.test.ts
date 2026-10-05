@@ -7,6 +7,18 @@ import { STATIC_EGRESS_ARTIFACT_MARKER } from "../src/static-egress";
 const serve = (body: string) =>
   `Deno.serve(() => new Response(${JSON.stringify(body)}));`;
 
+describe("binding-mode entries", () => {
+  // Every app without the pull flag runs these bytes, so any change to them has
+  // to show up in review as a snapshot diff.
+  it.each([false, true])("are pinned (telemetry=%s)", async (telemetry) => {
+    const files = { "main.ts": serve("a") };
+    const single = await prepareFunction("main.ts", files, telemetry, false);
+    const app = prepareApp([{ index: 0, fn: { name: "alpha", entry: "main.ts", files } }], telemetry, false);
+    expect(single.files[single.entry]).toMatchSnapshot("single function");
+    expect(app.files[app.entry]).toMatchSnapshot("per-app");
+  });
+});
+
 describe("prepareFunction", () => {
   it("injects a shim and a wrapper entry that delegates to the Deno.serve handler", async () => {
     const result = await prepareFunction("main.ts", { "main.ts": serve("ok") });
@@ -64,13 +76,35 @@ describe("prepareFunction", () => {
 
     const gated = await prepareFunction("main.ts", { "main.ts": serve("ok") }, false, true);
     const entry = gated.files[gated.entry];
-    expect(gated.files["__base44_activation.mjs"]).toContain("X-Base44-Needs-Activation");
-    // Gate ordering: activation must resolve before any user module loads,
-    // the envelope is stripped from the request, and a forged signal is
-    // stripped from the user handler's response.
+    expect(gated.files["__base44_activation.mjs"]).toContain("Base44-Activation-Challenge");
+    expect(gated.files["__base44_activation.mjs"]).toContain("X-Base44-Activation-Error");
+    // Gate ordering: activation must resolve before any user module loads, the
+    // challenge is stripped from the request, and the user handler's response
+    // passes through the header strip / marker stamp with the gate's outcome.
     expect(entry.indexOf("ensureActivation")).toBeLessThan(entry.indexOf("_b44Init ="));
-    expect(entry).toContain("withoutRuntimeSecretsHeader(request)");
-    expect(entry).toContain("withoutActivationSignal(");
+    expect(entry).toContain("if (_b44Activation.response) return _b44Activation.response;");
+    // The challenge leaves the request before the entry's own header reads.
+    const fetchBody = entry.indexOf("async fetch(");
+    expect(entry.indexOf("takeActivationChallenge(request)", fetchBody)).toBeLessThan(
+      entry.indexOf("request.headers.get(", fetchBody),
+    );
+    expect(entry).toContain("ensureActivation(_b44Taken.challenge, env)");
+    expect(entry).toContain("withoutActivationHeaders(");
+    expect(entry).toContain(", _b44Activation)");
+  });
+
+  it("reserves the pull bindings in the secrets bridge only for runtime-secrets bundles", async () => {
+    // A binding-mode function never carries the bindings, and one that stored a
+    // user secret under either name before it was reserved must keep reading it.
+    const files = { "main.ts": serve("ok") };
+    const plain = (await prepareFunction("main.ts", files)).files["__base44_entry.mjs"];
+    expect(plain).toContain("'BASE44_PRIVATE_DATA_SOURCES'");
+    expect(plain).not.toContain("BASE44_ACTIVATION_KEY");
+    expect(plain).not.toContain("BASE44_ACTIVATION_URL");
+    const gated = (await prepareFunction("main.ts", files, false, true)).files["__base44_entry.mjs"];
+    expect(gated).toContain(
+      "_b44ReservedSecrets.add('BASE44_ACTIVATION_KEY').add('BASE44_ACTIVATION_URL');",
+    );
   });
 
   it("reserves the activation filename in EVERY mode (store gate keys on it)", async () => {
@@ -259,10 +293,29 @@ describe("prepareApp", () => {
 
     const gated = prepareApp([fn], false, true);
     const entry = gated.files["__base44_entry.mjs"];
-    expect(gated.files["__base44_activation.mjs"]).toContain("X-Base44-Needs-Activation");
+    expect(gated.files["__base44_activation.mjs"]).toContain("Base44-Activation-Challenge");
+    expect(gated.files["__base44_activation.mjs"]).toContain("X-Base44-Activation-Error");
     // Activation gates BEFORE resolveHandler (which imports the user module).
     expect(entry.indexOf("ensureActivation")).toBeLessThan(entry.indexOf("resolveHandler(functionName)"));
-    expect(entry).toContain("withoutRuntimeSecretsHeader(request)");
-    expect(entry).toContain("withoutActivationSignal(");
+    expect(entry).toContain("if (_b44Activation.response) return _b44Activation.response;");
+    const fetchBody = entry.indexOf("async fetch(");
+    expect(entry.indexOf("takeActivationChallenge(request)", fetchBody)).toBeLessThan(
+      entry.indexOf("request.headers.get(", fetchBody),
+    );
+    expect(entry).toContain("ensureActivation(_b44Taken.challenge, env)");
+    expect(entry).toContain("withoutActivationHeaders(");
+    expect(entry).toContain(", _b44Activation)");
+  });
+
+  it("reserves the pull bindings in the secrets bridge only for runtime-secrets bundles", () => {
+    const fn = { index: 0, fn: { name: "a", entry: "main.ts", files: { "main.ts": serve("a") } } };
+    const plain = prepareApp([fn]).files["__base44_entry.mjs"];
+    expect(plain).toContain("'BASE44_PRIVATE_DATA_SOURCES'");
+    expect(plain).not.toContain("BASE44_ACTIVATION_KEY");
+    expect(plain).not.toContain("BASE44_ACTIVATION_URL");
+    const gated = prepareApp([fn], false, true).files["__base44_entry.mjs"];
+    expect(gated).toContain(
+      "_b44ReservedSecrets.add('BASE44_ACTIVATION_KEY').add('BASE44_ACTIVATION_URL');",
+    );
   });
 });
