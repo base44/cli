@@ -2,7 +2,11 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { readProjectConfig } from "@/core/project/index.js";
+import {
+  DEFAULT_SITE,
+  readProjectConfig,
+  readProjectSettingsOrDefaults,
+} from "@/core/project/index.js";
 import { resolvePluginRoot } from "@/core/project/plugins.js";
 import { mergeProjectAndPluginEntities } from "@/core/resources/entity/merge.js";
 
@@ -217,15 +221,54 @@ describe("readProjectConfig", () => {
   });
 
   it("throws on invalid JSON syntax", async () => {
+    // The layout it would have named is unknown, so a command that pushes
+    // resources must not guess it.
     await expect(
       readProjectConfig(resolve(FIXTURES_DIR, "invalid-json")),
     ).rejects.toThrow();
   });
 
-  it("throws on invalid config schema", async () => {
-    await expect(
-      readProjectConfig(resolve(FIXTURES_DIR, "invalid-config-schema")),
-    ).rejects.toThrow(/Invalid project configuration/);
+  it("defaults an invalid app name", async () => {
+    const { project } = await readProjectConfig(
+      resolve(FIXTURES_DIR, "invalid-config-schema"),
+    );
+
+    expect(project.name).toBe("base44-app");
+  });
+
+  it.each([
+    { visibility: "Private" },
+    { entitiesDir: 42 },
+    { plugins: [{ source: "" }] },
+    { plugin: { namespace: "has spaces" } },
+  ])("throws on an invalid access or layout field: %o", async (field) => {
+    const tmpDir = await mkdtemp(join(tmpdir(), "b44-invalid-layout-"));
+    try {
+      await mkdir(join(tmpDir, "base44"), { recursive: true });
+      await writeJson(join(tmpDir, "base44", "config.jsonc"), {
+        name: "app",
+        ...field,
+      });
+
+      await expect(readProjectConfig(tmpDir)).rejects.toThrow(
+        /Invalid project configuration/,
+      );
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("still requires a config to load resources, even in a package", async () => {
+    const tmpDir = await mkdtemp(join(tmpdir(), "b44-no-config-"));
+    try {
+      await writeJson(join(tmpDir, "package.json"), { name: "app" });
+
+      await expect(readProjectConfig(tmpDir)).rejects.toThrow(
+        /Project root not found/,
+      );
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
   });
 
   it("throws on invalid entity file", async () => {
@@ -289,6 +332,63 @@ describe("readProjectConfig", () => {
         resolve(FIXTURES_DIR, "plugin-validation-errors/plugin-with-plugins"),
       ),
     ).rejects.toThrow(/Plugin projects cannot define plugins/);
+  });
+});
+
+describe("readProjectSettingsOrDefaults", () => {
+  it("falls back to defaults in a package without a config", async () => {
+    const tmpDir = await mkdtemp(join(tmpdir(), "b44-no-config-"));
+    try {
+      await writeJson(join(tmpDir, "package.json"), { name: "app" });
+
+      const project = await readProjectSettingsOrDefaults(tmpDir);
+
+      expect(project).toMatchObject({
+        name: "base44-app",
+        site: DEFAULT_SITE,
+        root: tmpDir,
+        configPath: join(tmpDir, "base44", "config.jsonc"),
+      });
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("still fails outside any package", async () => {
+    await expect(
+      readProjectSettingsOrDefaults(resolve(FIXTURES_DIR, "no-config")),
+    ).rejects.toThrow(/Project root not found/);
+  });
+
+  it("falls back to the default config when the file does not parse", async () => {
+    const project = await readProjectSettingsOrDefaults(
+      resolve(FIXTURES_DIR, "invalid-json"),
+    );
+
+    expect(project.name).toBe("base44-app");
+    expect(project.site).toEqual(DEFAULT_SITE);
+  });
+
+  it("keeps the valid fields of an invalid config", async () => {
+    const tmpDir = await mkdtemp(join(tmpdir(), "b44-invalid-"));
+    try {
+      await mkdir(join(tmpDir, "base44"), { recursive: true });
+      await writeJson(join(tmpDir, "base44", "config.jsonc"), {
+        name: "",
+        entitiesDir: 42,
+        site: { installCommand: "npm ci", buildCommand: 5 },
+      });
+
+      const project = await readProjectSettingsOrDefaults(tmpDir);
+
+      expect(project).toMatchObject({
+        name: "base44-app",
+        entitiesDir: "entities",
+        site: { installCommand: "npm ci", buildCommand: "npm run build" },
+      });
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
   });
 });
 

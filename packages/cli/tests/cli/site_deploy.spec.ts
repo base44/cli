@@ -22,13 +22,15 @@ describe("site deploy command", () => {
     );
   });
 
-  it("fails when no site configuration found", async () => {
+  it("deploys from the default output directory when no site configuration found", async () => {
+    // Nothing is built in the fixture, so ./dist is missing and the deploy fails there.
     await t.givenLoggedInWithProject(fixture("basic"));
 
     const result = await t.run("site", "deploy", "-y");
 
     t.expectResult(result).toFail();
-    t.expectResult(result).toContain("No site configuration found");
+    t.expectResult(result).toContain("using the default site commands");
+    t.expectResult(result).toNotContain("No site configuration found");
   });
 
   it("fails when not in a project directory", async () => {

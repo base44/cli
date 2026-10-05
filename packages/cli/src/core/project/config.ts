@@ -1,10 +1,18 @@
+import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { z } from "zod";
 import { PROJECT_SUBDIR } from "@/core/consts.js";
 import {
   ConfigInvalidError,
   ConfigNotFoundError,
   SchemaValidationError,
 } from "@/core/errors.js";
+import {
+  defaultProjectConfig,
+  onlyDefaultableFieldsInvalid,
+  salvageProjectConfig,
+  warnConfigFallback,
+} from "@/core/project/fallback.js";
 import { findConfigInDir, findProjectRoot } from "@/core/project/find-root.js";
 import {
   markPluginEntities,
@@ -38,16 +46,41 @@ import { readJsonFile } from "@/core/utils/fs.js";
 
 type ProjectResources = Omit<ProjectData, "project">;
 
+/**
+ * - `strict`: any problem fails. A plugin's config is not this project's to default.
+ * - `safe`: fields that describe the app or its site fall back to their defaults;
+ *   a missing or unreadable file, `visibility`, or a field that decides which
+ *   resources load still fails, since a command that syncs them would push the
+ *   wrong set.
+ * - `lenient`: nothing about the file fails. Only for commands that read the
+ *   site block alone.
+ */
+type ConfigReadMode = "strict" | "safe" | "lenient";
+
+const PROJECT_ROOT_NOT_FOUND = `Project root not found. Please ensure config.jsonc or config.json exists in the project directory or ${PROJECT_SUBDIR}/ subdirectory.`;
+
 class ProjectConfigReader {
   private readonly pluginSourceByNamespace = new Map<string, string>();
 
   async readProjectSettings(projectRoot?: string): Promise<ProjectWithPaths> {
     const { root, configPath } = await this.findConfigOrThrow(projectRoot);
 
-    const project = await this.readConfigFile(configPath);
+    const project = await this.readConfigFile(configPath, "safe");
     this.assertPluginProjectDoesNotLoadPlugins(project, configPath);
 
     return { ...project, root, configPath };
+  }
+
+  async readProjectSettingsOrDefaults(
+    projectRoot?: string,
+  ): Promise<ProjectWithPaths> {
+    const found = this.findConfig(projectRoot);
+    if (!found) {
+      return this.defaultSettingsOrThrow(projectRoot);
+    }
+
+    const project = await this.readConfigFile(found.configPath, "lenient");
+    return { ...project, ...found };
   }
 
   async readProjectConfig(projectRoot?: string): Promise<ProjectData> {
@@ -91,29 +124,61 @@ class ProjectConfigReader {
   }
 
   private async findConfigOrThrow(projectRoot?: string): Promise<ProjectRoot> {
-    let found: ProjectRoot | null;
-
-    if (projectRoot) {
-      const configPath = findConfigInDir(projectRoot);
-      found = configPath ? { root: projectRoot, configPath } : null;
-    } else {
-      found = findProjectRoot();
-    }
-
+    const found = this.findConfig(projectRoot);
     if (!found) {
-      throw new ConfigNotFoundError(
-        `Project root not found. Please ensure config.jsonc or config.json exists in the project directory or ${PROJECT_SUBDIR}/ subdirectory.`,
-      );
+      throw new ConfigNotFoundError(PROJECT_ROOT_NOT_FOUND);
     }
-
     return found;
   }
 
-  private async readConfigFile(configPath: string): Promise<ProjectConfig> {
-    const parsed = await readJsonFile(configPath);
-    const result = ProjectConfigSchema.safeParse(parsed);
+  private findConfig(projectRoot?: string): ProjectRoot | null {
+    if (!projectRoot) {
+      return findProjectRoot();
+    }
+    const configPath = findConfigInDir(projectRoot);
+    return configPath ? { root: projectRoot, configPath } : null;
+  }
 
-    if (!result.success) {
+  /** A folder with neither a config nor a package.json is not a project at all. */
+  private defaultSettingsOrThrow(projectRoot?: string): ProjectWithPaths {
+    const root = projectRoot ?? process.cwd();
+    if (!existsSync(join(root, "package.json"))) {
+      throw new ConfigNotFoundError(PROJECT_ROOT_NOT_FOUND);
+    }
+
+    warnConfigFallback(
+      `No ${PROJECT_SUBDIR}/config.jsonc found in ${root}; using the default project config.`,
+    );
+    const configPath = join(root, PROJECT_SUBDIR, "config.jsonc");
+    return { ...defaultProjectConfig(), root, configPath };
+  }
+
+  private async readConfigFile(
+    configPath: string,
+    mode: ConfigReadMode = "strict",
+  ): Promise<ProjectConfig> {
+    let parsed: unknown;
+    try {
+      parsed = await readJsonFile(configPath);
+    } catch (error) {
+      if (mode !== "lenient") {
+        throw error;
+      }
+      warnConfigFallback(
+        `${configPath} could not be read (${errorMessage(error)}); using the default project config.`,
+      );
+      return defaultProjectConfig();
+    }
+
+    const result = ProjectConfigSchema.safeParse(parsed);
+    if (result.success) {
+      return result.data;
+    }
+
+    const defaultable =
+      mode === "lenient" ||
+      (mode === "safe" && onlyDefaultableFieldsInvalid(result.error));
+    if (!defaultable) {
       throw new SchemaValidationError(
         "Invalid project configuration",
         result.error,
@@ -121,7 +186,10 @@ class ProjectConfigReader {
       );
     }
 
-    return result.data;
+    warnConfigFallback(
+      `Invalid project configuration in ${configPath}; using defaults for the invalid fields:\n${z.prettifyError(result.error)}`,
+    );
+    return salvageProjectConfig(parsed, result.error);
   }
 
   private async readProjectResources(
@@ -358,4 +426,24 @@ export async function readProjectSettings(
 ): Promise<ProjectWithPaths> {
   const reader = new ProjectConfigReader();
   return await reader.readProjectSettings(projectRoot);
+}
+
+/**
+ * Like {@link readProjectSettings}, but never fails on the config: a missing
+ * one (in a folder with a package.json), an unreadable one or any invalid
+ * field falls back to the template defaults, with a warning.
+ *
+ * Only for commands that read the site block and nothing else — installing or
+ * serving the frontend. A command that loads or pushes resources must not run
+ * on a guessed layout.
+ */
+export async function readProjectSettingsOrDefaults(
+  projectRoot?: string,
+): Promise<ProjectWithPaths> {
+  const reader = new ProjectConfigReader();
+  return await reader.readProjectSettingsOrDefaults(projectRoot);
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

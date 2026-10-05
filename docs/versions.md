@@ -75,9 +75,9 @@ One commit, not two: an app's frontend and backend are the same app at the same 
 
 ## A Builder repo carries no CLI config
 
-`resolveBuildTarget(projectRoot, overrides)` in `core/project/target.ts` fills in `npm run build` and `dist` **only when a repo has no config at all**, and **writes nothing**. The python driver it replaces used to overwrite `base44/config.jsonc` with a minimal config before building, destroying any checked-in configuration — and, for a full-stack app, its build command.
+`resolveBuildTarget(projectRoot, overrides)` in `core/project/target.ts` fills in `npm run build` and `dist` for whatever the config lacks — the whole file, its `site` block, or a field in it — and **writes nothing**. The python driver it replaces used to overwrite `base44/config.jsonc` with a minimal config before building, destroying any checked-in configuration — and, for a full-stack app, its build command.
 
-A config that is present wins, field by field, and one that omits a field still gets today's error: omitting `site.buildCommand` is a deliberate statement, and answering it with a guessed `npm run build` would change what `base44 build` does for every project that relies on that error. `requireOutputDir(target)` raises at the point of collection rather than at resolution, so a project missing both is told about its build command first — the one it hits first.
+A config that is present wins, field by field. See [Config fallback](resources.md#config-fallback) for how a missing or invalid one is read.
 
 ## Which step failed
 

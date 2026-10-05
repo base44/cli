@@ -32,13 +32,13 @@ describe("site install command", () => {
     t.expectResult(result).toContain("Install failed");
   });
 
-  it("fails when the project has no site block", async () => {
+  it("installs with the default command when the project has no site block", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
 
     const result = await t.run("site", "install");
 
-    t.expectResult(result).toFail();
-    t.expectResult(result).toContain("No site install command found");
+    t.expectResult(result).toContain("using the default site commands");
+    t.expectResult(result).toNotContain("No site install command found");
   });
 
   it("installs even when a resource file is invalid", async () => {

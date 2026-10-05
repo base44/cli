@@ -3,8 +3,11 @@ import { createServeCommandRunner } from "@/cli/dev/serve-command-runner.js";
 import { stopRunnerOnProcessSignals } from "@/cli/dev/stop-runner-on-signals.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
-import { ConfigInvalidError, InvalidInputError } from "@/core/errors.js";
-import { readProjectSettings } from "@/core/project/index.js";
+import { ConfigInvalidError } from "@/core/errors.js";
+import {
+  readProjectSettingsOrDefaults,
+  siteOrDefault,
+} from "@/core/project/index.js";
 
 /**
  * What to run when a project has a site but names no dev server. Not a schema
@@ -18,9 +21,10 @@ async function siteDevAction(
   forwarded: string[],
 ): Promise<RunCommandResult> {
   const { app } = ctx;
-  // Same shape as `base44 build`: the framework's own app-context step has
-  // already refused with actionable hints, so this is the type's guard.
-  if (!app?.projectRoot) {
+  // The framework's own app-context step has already refused with actionable
+  // hints, so this is the type's guard. No projectRoot is fine: a checkout
+  // whose config is missing or gitignored still serves, with the defaults.
+  if (!app) {
     throw new ConfigInvalidError(
       "base44 site dev requires a linked local project. Run it from a project with base44/.app.jsonc.",
     );
@@ -28,13 +32,8 @@ async function siteDevAction(
 
   // Config only, like `site install`: serving the frontend reads none of the
   // project's resource files, so an invalid one must not fail it.
-  const project = await readProjectSettings(app.projectRoot);
-  const site = project.site;
-  if (!site) {
-    throw new InvalidInputError(
-      "This project has no 'site' block in base44/config.jsonc, so there is no frontend to serve. Add one naming its serveCommand; site dev falls back to \"npm run dev\".",
-    );
-  }
+  const project = await readProjectSettingsOrDefaults(app.projectRoot);
+  const site = siteOrDefault(project);
 
   // Run as written: where the dev server binds is the command's own business.
   // In a sandbox @base44/vite-plugin binds 0.0.0.0:5173 for Base44 apps; any

@@ -117,12 +117,13 @@ describe("deploy --build", () => {
     t.expectResult(result).toContain("Build failed");
   });
 
-  it("--build fails when the project has no site configuration", async () => {
+  it("--build runs the default build command when the project has no site block", async () => {
+    // The fixture has no package.json, so the default `npm run build` fails.
     await t.givenLoggedInWithProject(fixture("with-entities"));
 
     const result = await t.run("deploy", "--yes", "--build");
 
-    t.expectResult(result).toFail();
-    t.expectResult(result).toContain("No site build command found");
+    t.expectResult(result).toContain("Build failed");
+    t.expectResult(result).toNotContain("No site build command found");
   });
 });
