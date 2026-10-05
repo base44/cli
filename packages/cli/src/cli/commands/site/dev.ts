@@ -21,9 +21,10 @@ async function siteDevAction(
   forwarded: string[],
 ): Promise<RunCommandResult> {
   const { app } = ctx;
-  // Same shape as `base44 build`: the framework's own app-context step has
-  // already refused with actionable hints, so this is the type's guard.
-  if (!app?.projectRoot) {
+  // The framework's own app-context step has already refused with actionable
+  // hints, so this is the type's guard. No projectRoot is fine: a checkout
+  // whose config is missing or gitignored still serves, with the defaults.
+  if (!app) {
     throw new ConfigInvalidError(
       "base44 site dev requires a linked local project. Run it from a project with base44/.app.jsonc.",
     );

@@ -142,13 +142,13 @@ One flow per transport: `deployment.ts` (deployments API, worker or not) and `de
 
 How a broken `base44/config.jsonc` is read depends on whether the command touches resources (`core/project/config.ts`, `core/project/fallback.ts`):
 
-| Reader | Used by | Missing / unreadable config | Invalid `name`, `description`, `visibility`, `site` | Invalid `*Dir`, `plugin`, `plugins` |
+| Reader | Used by | Missing / unreadable config | Invalid `name`, `description`, `site` | Invalid `visibility`, `*Dir`, `plugin`, `plugins` |
 |---|---|---|---|---|
 | `readProjectSettingsOrDefaults` | `site install`, `site dev` | template defaults (a missing one only in a folder with a `package.json`) | defaulted | defaulted |
 | `readProjectSettings` / `readProjectConfig` | everything else | fails | defaulted | fails |
 | plugin configs | `readProjectConfig` | fails | fails | fails |
 
-A command that loads resources must not run on a guessed layout: entity push is a full sync, so defaulting `entitiesDir` or dropping `plugins` would delete the entities it no longer finds. `build` and `publish` still default a wholly missing config through `resolveBuildTarget`, as before.
+`visibility` never falls back: dropping a typo'd value would deploy and leave the app's access unchanged. A command that loads resources must not run on a guessed layout: entity push is a full sync, so defaulting `entitiesDir` or dropping `plugins` would delete the entities it no longer finds. `build` and `publish` still default a wholly missing config through `resolveBuildTarget`, as before.
 
 Each fallback is reported once per command through `setConfigWarningHandler`, which `Base44Command` wires to `log.warn`. The site-only commands (`site install`, `site dev`, `site deploy`, `build`, `publish`) also use `DEFAULT_SITE` via `siteOrDefault` when a config has no `site` block. `base44 dev` and `base44 deploy` do not: there an absent block means "no frontend".
 

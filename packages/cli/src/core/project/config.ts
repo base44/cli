@@ -49,8 +49,9 @@ type ProjectResources = Omit<ProjectData, "project">;
 /**
  * - `strict`: any problem fails. A plugin's config is not this project's to default.
  * - `safe`: fields that describe the app or its site fall back to their defaults;
- *   a missing or unreadable file, or a field that decides which resources load,
- *   still fails, since a command that syncs them would push the wrong set.
+ *   a missing or unreadable file, `visibility`, or a field that decides which
+ *   resources load still fails, since a command that syncs them would push the
+ *   wrong set.
  * - `lenient`: nothing about the file fails. Only for commands that read the
  *   site block alone.
  */

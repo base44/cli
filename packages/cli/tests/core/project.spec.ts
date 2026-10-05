@@ -237,10 +237,11 @@ describe("readProjectConfig", () => {
   });
 
   it.each([
+    { visibility: "Private" },
     { entitiesDir: 42 },
     { plugins: [{ source: "" }] },
     { plugin: { namespace: "has spaces" } },
-  ])("throws on an invalid field that locates resources: %o", async (field) => {
+  ])("throws on an invalid access or layout field: %o", async (field) => {
     const tmpDir = await mkdtemp(join(tmpdir(), "b44-invalid-layout-"));
     try {
       await mkdir(join(tmpDir, "base44"), { recursive: true });

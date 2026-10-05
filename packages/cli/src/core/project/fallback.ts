@@ -15,13 +15,11 @@ export const DEFAULT_SITE = Object.freeze({
 
 const PLACEHOLDER_APP_NAME = "base44-app";
 
-/** Fields that describe the app or its site, not where its resources live. */
-const DEFAULTABLE_FIELDS = new Set([
-  "name",
-  "description",
-  "visibility",
-  "site",
-]);
+/**
+ * Fields that describe the app or its site, not where its resources live. Not
+ * `visibility`: dropping a typo'd "Private" would deploy and leave the app public.
+ */
+const DEFAULTABLE_FIELDS = new Set(["name", "description", "site"]);
 
 type SiteConfig = NonNullable<ProjectConfig["site"]>;
 
