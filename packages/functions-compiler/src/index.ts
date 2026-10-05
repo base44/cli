@@ -18,6 +18,7 @@ export {
   importsConflictingPackage,
 } from "./bundler.js";
 export type {
+  ActivationMode,
   AppFunctionInput,
   BundleAppRequest,
   BundleRequest,

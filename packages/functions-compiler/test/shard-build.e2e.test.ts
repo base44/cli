@@ -59,6 +59,18 @@ describe("a whole-app build", () => {
     }
   });
 
+  it("marks runtime-secrets shards as carrying the pull shim, and only those", async () => {
+    const pulled = await compileFunctionShards([fn("alpha")], policy(), {
+      runtimeSecrets: true,
+    });
+    const plain = await compileFunctionShards([fn("alpha")], policy());
+    expect(pulled.ok && plain.ok).toBe(true);
+    if (!pulled.ok || !plain.ok) return;
+
+    expect(pulled.shards[0].activation).toBe("pull");
+    expect(plain.shards[0]).not.toHaveProperty("activation");
+  });
+
   it("produces shards that actually route their functions", async () => {
     const result = await compileFunctionShards(
       [fn("alpha"), fn("beta")],

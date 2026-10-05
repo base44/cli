@@ -45,6 +45,12 @@ export const bundleAppRequestSchema = z
     { message: "function names must be unique" },
   );
 
+// How a runtime-secrets bundle obtains its data key at runtime. Reported on
+// every successful runtime-secrets bundle so the backend knows which shim the
+// script it deploys carries; absent for binding-mode bundles.
+export const ACTIVATION_MODE = "pull" as const;
+export type ActivationMode = typeof ACTIVATION_MODE;
+
 export type BundleRequest = z.infer<typeof bundleRequestSchema>;
 export type AppFunctionInput = z.infer<typeof appFunctionSchema>;
 export type BundleAppRequest = z.infer<typeof bundleAppRequestSchema>;

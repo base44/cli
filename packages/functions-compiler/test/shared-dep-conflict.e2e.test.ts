@@ -106,7 +106,7 @@ describe("bundle-app shared-dep version conflict", () => {
       if (byName.getDashboardData.ok) return; // conflict didn't fire this run
       expect(result.ok).toBe(true);
       // The rebuilt survivor module still carries the activation wrapper.
-      expect(result.module).toContain("X-Base44-Needs-Activation");
+      expect(result.module).toContain("Base44-Activation-Challenge");
     },
   );
 });
