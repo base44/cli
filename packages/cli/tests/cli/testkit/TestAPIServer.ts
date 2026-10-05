@@ -261,6 +261,12 @@ interface DeploymentFinalizeResponse {
   deployment_id: string;
 }
 
+interface DeploymentPublishResponse {
+  git_hash: string;
+  deployed_at: string;
+  app_url: string;
+}
+
 /** A parsed part of a multipart/form-data request body. */
 interface MultipartField {
   name: string;
@@ -773,6 +779,9 @@ export class TestAPIServer {
   /** Captured query strings of finalize requests, for the session id. */
   readonly finalizeQueries: Record<string, unknown>[] = [];
 
+  /** Commits whose builds a publish was asked to serve, in call order. */
+  readonly publishedCommits: string[] = [];
+
   /**
    * Mock POST /api/apps/{appId}/deployments. Captures the JSON request body
    * in `deploymentCreateRequests`.
@@ -961,6 +970,43 @@ export class TestAPIServer {
     return this;
   }
 
+  /**
+   * Serves the publish that puts a deployed commit live, capturing the commits
+   * it was called with in `publishedCommits`.
+   */
+  mockDeploymentPublish(
+    response: Partial<DeploymentPublishResponse> = {},
+  ): this {
+    this.pendingRoutes.push({
+      method: "POST",
+      path: `/api/apps/${this.appId}/deployments/:gitHash/publish`,
+      handler: (req, res) => {
+        const gitHash = String(req.params.gitHash);
+        this.publishedCommits.push(gitHash);
+        res.status(200).json({
+          git_hash: gitHash,
+          deployed_at: "2026-09-28T12:00:00Z",
+          app_url: `https://${this.appId}.base44.app`,
+          ...response,
+        });
+      },
+    });
+    return this;
+  }
+
+  /** Answers a publish with an error, e.g. a commit whose build is missing. */
+  mockDeploymentPublishError(status: number, body: unknown): this {
+    this.pendingRoutes.push({
+      method: "POST",
+      path: `/api/apps/${this.appId}/deployments/:gitHash/publish`,
+      handler: (req, res) => {
+        this.publishedCommits.push(String(req.params.gitHash));
+        res.status(status).json(body);
+      },
+    });
+    return this;
+  }
+
   // ─── SECRETS ENDPOINTS ───────────────────────────────────
 
   mockSecretsList(response: SecretsListResponse): this {
@@ -1083,10 +1129,10 @@ export class TestAPIServer {
     );
   }
 
-  mockSiteDeployError(error: ErrorResponse): this {
+  mockDeploymentCreateError(error: ErrorResponse): this {
     return this.addErrorRoute(
       "POST",
-      `/api/apps/${this.appId}/deploy-dist`,
+      `/api/apps/${this.appId}/deployments`,
       error,
     );
   }

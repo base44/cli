@@ -26,24 +26,6 @@ interface WorkerBuild {
 
 const NO_ASSETS: AssetManifestResult = { manifest: {}, filesByHash: new Map() };
 
-const DEPLOYMENTS_API_ENV = "BASE44_DEPLOYMENTS_API";
-
-/**
- * Internal gate for the deployments-API lane — static output and full-stack
- * builds alike, neither user-facing yet. With it off `site deploy` takes the
- * legacy tar.gz upload and the flags that only mean something on this lane are
- * not registered at all, so the whole lane is one env var away from existing.
- *
- * It is the only thing that selects the transport: whether the build carries a
- * worker changes what `deployToDeployments()` sends, never which flow runs.
- */
-export function deploymentsApiEnabled(
-  env: NodeJS.ProcessEnv = process.env,
-): boolean {
-  const value = env[DEPLOYMENTS_API_ENV];
-  return value === "1" || value === "true";
-}
-
 /**
  * Deploy a build for a commit through the deployments API: hash its static
  * assets into a manifest, create the deployment at the commit's address, upload

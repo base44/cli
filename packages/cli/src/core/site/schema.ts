@@ -202,3 +202,19 @@ export const FinalizeDeploymentResponseSchema = z
 export type FinalizeDeploymentResponse = z.infer<
   typeof FinalizeDeploymentResponseSchema
 >;
+
+export const PublishDeploymentResponseSchema = z
+  .object({
+    git_hash: z.string(),
+    deployed_at: z.string(),
+    app_url: z.string(),
+  })
+  .transform((data) => ({
+    gitHash: data.git_hash,
+    deployedAt: data.deployed_at,
+    appUrl: data.app_url,
+  }));
+
+export type PublishDeploymentResponse = z.infer<
+  typeof PublishDeploymentResponseSchema
+>;

@@ -1,0 +1,6 @@
+{
+  "name": "App Server Project",
+  "site": {
+    "serveCommand": "node app-server.cjs"
+  }
+}
