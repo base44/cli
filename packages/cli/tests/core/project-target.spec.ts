@@ -9,6 +9,7 @@ import {
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { SchemaValidationError } from "@/core/errors.js";
 import { resolveBuildTarget } from "@/core/project/target.js";
 
 describe("resolveBuildTarget", () => {
@@ -98,6 +99,15 @@ describe("resolveBuildTarget", () => {
     const target = await resolveBuildTarget(root, { outputDir: "elsewhere" });
 
     expect(target.outputDir).toBe(resolve(root, "elsewhere"));
+  });
+
+  it("fails on an invalid field that locates resources", async () => {
+    // A publish uploads the entities it finds there, so it must not guess.
+    await writeConfig({ name: "my-app", entitiesDir: 42 });
+
+    await expect(resolveBuildTarget(root)).rejects.toBeInstanceOf(
+      SchemaValidationError,
+    );
   });
 
   it("defaults the fields of an invalid config and keeps the valid ones", async () => {

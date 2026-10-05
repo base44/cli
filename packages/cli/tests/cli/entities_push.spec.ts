@@ -62,13 +62,13 @@ describe("entities push command", () => {
     t.expectResult(result).toContain("name");
   });
 
-  it("warns and uses the default config when config has invalid JSON", async () => {
+  it("fails with helpful error when config has invalid JSON", async () => {
     await t.givenLoggedInWithProject(fixture("invalid-json"));
 
     const result = await t.run("entities", "push", "--yes");
 
-    t.expectResult(result).toContain("config.jsonc could not be read");
-    t.expectResult(result).toContain("using the default project config");
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("config.jsonc");
   });
 
   it("fails when API returns error", async () => {

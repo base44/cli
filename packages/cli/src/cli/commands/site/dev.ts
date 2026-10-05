@@ -4,7 +4,10 @@ import { stopRunnerOnProcessSignals } from "@/cli/dev/stop-runner-on-signals.js"
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
 import { ConfigInvalidError } from "@/core/errors.js";
-import { readProjectSettings, siteOrDefault } from "@/core/project/index.js";
+import {
+  readProjectSettingsOrDefaults,
+  siteOrDefault,
+} from "@/core/project/index.js";
 
 /**
  * What to run when a project has a site but names no dev server. Not a schema
@@ -28,7 +31,7 @@ async function siteDevAction(
 
   // Config only, like `site install`: serving the frontend reads none of the
   // project's resource files, so an invalid one must not fail it.
-  const project = await readProjectSettings(app.projectRoot);
+  const project = await readProjectSettingsOrDefaults(app.projectRoot);
   const site = siteOrDefault(project);
 
   // Run as written: where the dev server binds is the command's own business.

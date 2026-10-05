@@ -2,14 +2,17 @@ import type { Command } from "commander";
 import { execa } from "execa";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, theme } from "@/cli/utils/index.js";
-import { readProjectSettings, siteOrDefault } from "@/core/project/index.js";
+import {
+  readProjectSettingsOrDefaults,
+  siteOrDefault,
+} from "@/core/project/index.js";
 
 async function installAction({
   runTask,
 }: CLIContext): Promise<RunCommandResult> {
   // Config only: installing dependencies reads none of the project's resource
   // files, so an invalid one must not fail it.
-  const project = await readProjectSettings();
+  const project = await readProjectSettingsOrDefaults();
   const { installCommand } = siteOrDefault(project);
 
   await runTask(

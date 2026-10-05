@@ -6,14 +6,22 @@ import {
 import type { ProjectWithPaths } from "@/core/project/types.js";
 
 /** What every Base44 template ships, and what a missing or broken config falls back to. */
-export const DEFAULT_SITE = {
+export const DEFAULT_SITE = Object.freeze({
   installCommand: "npm install",
   buildCommand: "npm run build",
   serveCommand: "npm run dev",
   outputDirectory: "./dist",
-};
+});
 
 const PLACEHOLDER_APP_NAME = "base44-app";
+
+/** Fields that describe the app or its site, not where its resources live. */
+const DEFAULTABLE_FIELDS = new Set([
+  "name",
+  "description",
+  "visibility",
+  "site",
+]);
 
 type SiteConfig = NonNullable<ProjectConfig["site"]>;
 
@@ -39,6 +47,13 @@ export function defaultProjectConfig(): ProjectConfig {
     name: PLACEHOLDER_APP_NAME,
     site: DEFAULT_SITE,
   });
+}
+
+export function onlyDefaultableFieldsInvalid(error: z.ZodError): boolean {
+  return error.issues.every(
+    (issue) =>
+      issue.path.length > 0 && DEFAULTABLE_FIELDS.has(String(issue.path[0])),
+  );
 }
 
 /**

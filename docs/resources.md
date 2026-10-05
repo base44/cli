@@ -140,14 +140,17 @@ One flow per transport: `deployment.ts` (deployments API, worker or not) and `de
 
 ## Config fallback
 
-`readProjectSettings` (and `readProjectConfig`, built on it) never fails on `base44/config.jsonc` itself (`core/project/fallback.ts`):
+How a broken `base44/config.jsonc` is read depends on whether the command touches resources (`core/project/config.ts`, `core/project/fallback.ts`):
 
-- **Missing** — in a folder with a `package.json`, the template defaults are used; with neither, it is not a project and `Project root not found` still throws.
-- **Unreadable** (bad JSONC, not an object) — the template defaults.
-- **Invalid** — each field the schema rejects is replaced with its default (`name` becomes `base44-app`, a bad `site` field its default); valid fields are kept.
-- **A plugin project listing plugins** — `plugins` is ignored.
+| Reader | Used by | Missing / unreadable config | Invalid `name`, `description`, `visibility`, `site` | Invalid `*Dir`, `plugin`, `plugins` |
+|---|---|---|---|---|
+| `readProjectSettingsOrDefaults` | `site install`, `site dev` | template defaults (a missing one only in a folder with a `package.json`) | defaulted | defaulted |
+| `readProjectSettings` / `readProjectConfig` | everything else | fails | defaulted | fails |
+| plugin configs | `readProjectConfig` | fails | fails | fails |
 
-Each fallback is reported once per command through `setConfigWarningHandler`, which `Base44Command` wires to `log.warn`. The site-only commands (`site install`, `site dev`, `site deploy`, `build`, `publish`) also use `DEFAULT_SITE` via `siteOrDefault` when a config has no `site` block. `base44 dev` and `base44 deploy` do not: there an absent block means "no frontend". A plugin's own config stays strict.
+A command that loads resources must not run on a guessed layout: entity push is a full sync, so defaulting `entitiesDir` or dropping `plugins` would delete the entities it no longer finds. `build` and `publish` still default a wholly missing config through `resolveBuildTarget`, as before.
+
+Each fallback is reported once per command through `setConfigWarningHandler`, which `Base44Command` wires to `log.warn`. The site-only commands (`site install`, `site dev`, `site deploy`, `build`, `publish`) also use `DEFAULT_SITE` via `siteOrDefault` when a config has no `site` block. `base44 dev` and `base44 deploy` do not: there an absent block means "no frontend".
 
 ## Unified Deploy Command
 
