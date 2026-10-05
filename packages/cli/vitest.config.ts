@@ -13,6 +13,11 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": resolve(__dirname, "./src"),
+      // Bundled from source, as the CLI build does — not its published lib/.
+      "@base44/functions-compiler": resolve(
+        __dirname,
+        "../functions-compiler/src/index.ts",
+      ),
     },
   },
 });

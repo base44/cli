@@ -1,9 +1,12 @@
 import { createHash } from "node:crypto";
 import { relative } from "node:path";
-import type {
-  AppFunctionInput,
-  ShardBuildFailure,
-  ShardPolicy,
+import {
+  type AppFunctionInput,
+  cfwBundleInput,
+  compileFunctionShards,
+  type ShardBuildFailure,
+  type ShardPolicy,
+  STATIC_EGRESS_ARTIFACT_MARKER,
 } from "@base44/functions-compiler";
 import pMap from "p-map";
 import { DependencyNotFoundError, InvalidInputError } from "@/core/errors.js";
@@ -11,8 +14,6 @@ import { readAllFunctions } from "@/core/resources/function/config.js";
 import type { BackendFunction } from "@/core/resources/function/schema.js";
 import { readTextFile } from "@/core/utils/fs.js";
 import type { BackendBundleArtifact } from "@/core/version/schema.js";
-
-type Compiler = typeof import("@base44/functions-compiler");
 
 /**
  * apper's production defaults with Worker sharding off: one shard holding every
@@ -30,12 +31,13 @@ const SHARD_POLICY: ShardPolicy = {
 const COMPILE_MODES = { runtimeSecrets: false, postResponseTelemetry: false };
 
 /**
- * A real `dependency`, external to the bundle and imported here only: it pulls
- * in esbuild and @deno/loader, which the standalone binary cannot carry.
+ * The compiler is bundled, but runs on esbuild and @deno/loader — the external
+ * runtime packages the standalone binary cannot carry, which the compiler
+ * itself imports only when it compiles.
  */
-async function loadCompiler(): Promise<Compiler> {
+async function requireCompilerRuntime(): Promise<void> {
   try {
-    return await import("@base44/functions-compiler");
+    await Promise.all([import("esbuild"), import("@deno/loader")]);
   } catch (error) {
     throw new DependencyNotFoundError(
       "Backend functions cannot be compiled by this installation of the CLI.",
@@ -54,7 +56,6 @@ function projectPath(root: string, absolutePath: string): string {
 }
 
 async function compilerInput(
-  compiler: Compiler,
   root: string,
   fn: BackendFunction,
 ): Promise<AppFunctionInput> {
@@ -62,7 +63,7 @@ async function compilerInput(
   for (const filePath of fn.filePaths) {
     backendFiles[projectPath(root, filePath)] = await readTextFile(filePath);
   }
-  const { entry, files } = await compiler.cfwBundleInput(
+  const { entry, files } = await cfwBundleInput(
     projectPath(root, fn.entryPath),
     await readTextFile(fn.entryPath),
     backendFiles,
@@ -96,16 +97,16 @@ export async function compileBackendBundles(
     return [];
   }
 
-  const compiler = await loadCompiler();
+  await requireCompilerRuntime();
   // By name: one shard compiles in the order it is given, and that order is
   // in the bytes — a filesystem walk's order would mint versions for nothing.
   const sorted = [...functions].sort((a, b) => (a.name < b.name ? -1 : 1));
-  const inputs = await pMap(sorted, (fn) => compilerInput(compiler, root, fn), {
+  const inputs = await pMap(sorted, (fn) => compilerInput(root, fn), {
     concurrency: 8,
   });
   const entries = new Map(inputs.map((input) => [input.name, input.entry]));
 
-  const built = await compiler.compileFunctionShards(
+  const built = await compileFunctionShards(
     inputs,
     SHARD_POLICY,
     COMPILE_MODES,
@@ -130,7 +131,7 @@ export async function compileBackendBundles(
       ...COMPILE_MODES,
       // Every module this compiler emits carries its static-egress wrapper,
       // which is what the platform checks before binding a static egress.
-      staticEgressArtifact: compiler.STATIC_EGRESS_ARTIFACT_MARKER,
+      staticEgressArtifact: STATIC_EGRESS_ARTIFACT_MARKER,
     };
   });
 }

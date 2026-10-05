@@ -67,7 +67,7 @@ Functions are sorted by name before compiling. A single shard compiles in the or
 
 Compiled during collection, not by `base44 build`: `--no-build` skips only the site's build command, so the publish exec compiles. The compiler runs no repo code — esbuild bundles the sources and `@deno/loader` resolves dependencies without lifecycle scripts — so this does not widen what runs while the publish key exists.
 
-The compiler is an external `dependency`, imported only on this path. The standalone binary cannot carry it, so from there an app with functions fails with `DEPENDENCY_NOT_FOUND`; an app without functions publishes as before.
+The compiler is bundled like the rest of the CLI, and imports `esbuild` and `@deno/loader` — the external runtime packages `base44 dev` uses too — only when it compiles. The standalone binary cannot carry those, so from there an app with functions fails with `DEPENDENCY_NOT_FOUND`; an app without functions publishes as before.
 
 ## Why the digest is signed into the URL
 

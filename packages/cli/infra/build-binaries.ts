@@ -95,17 +95,13 @@ for (const { target, output } of TARGETS) {
 		// The workerd function runtime cannot ship inside a compiled binary
 		// (native executables and WASM cannot be embedded), so its packages are
 		// excluded here; the runtime probe in function-runtime.ts fails to
-		// import miniflare at runtime and `base44 dev` falls back to Deno. The
-		// functions compiler is built on the same packages, so `publish` refuses an
-		// app with functions there.
+		// import miniflare at runtime and `base44 dev` falls back to Deno.
 		"--external",
 		"miniflare",
 		"--external",
 		"esbuild",
 		"--external",
 		"@deno/loader",
-		"--external",
-		"@base44/functions-compiler",
 	];
 
 	// --windows-icon is only supported when the build host is Windows

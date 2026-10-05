@@ -5,7 +5,7 @@
  * Worker entry. This is the layer that understands "functions" and "an app".
  */
 
-import { readFileSync } from "node:fs";
+import { asset } from "./assets.js";
 import type { AppFunctionInput } from "./contracts.js";
 import { DenoCompatError } from "./errors.js";
 import { RUNTIME_CONTEXT_SPECIFIER } from "./esbuild/runtime-context-virtual.js";
@@ -17,26 +17,12 @@ import {
 import { TELEMETRY_PATCH, TELEMETRY_STORE_FIELDS } from "./telemetry.js";
 import { COMPILER_VERSION } from "./version.js";
 
-// Pre-built by scripts/build-shim.ts; regenerate it after changing the shim.
-// Read LAZILY, not at module load: build-shim.ts transitively imports this
-// module through the esbuild plugins, and on a fresh checkout dist/ doesn't
-// exist yet — a load-time read would crash the very script that produces these
-// files (and only pass locally where dist/ already exists).
-let _denoShimSource: string | undefined;
+// Pre-built by scripts/build-shim.ts; regenerate them after changing a shim.
 function denoShimSource(): string {
-  _denoShimSource ??= readFileSync(
-    new URL("../dist/deno-shim.mjs", import.meta.url),
-    "utf8",
-  );
-  return _denoShimSource;
+  return asset("deno-shim.mjs");
 }
-let _activationShimSource: string | undefined;
 function activationShimSource(): string {
-  _activationShimSource ??= readFileSync(
-    new URL("../dist/activation-shim.mjs", import.meta.url),
-    "utf8",
-  );
-  return _activationShimSource;
+  return asset("activation-shim.mjs");
 }
 
 // Synthetic files injected into the bundle; asserted absent from user input.

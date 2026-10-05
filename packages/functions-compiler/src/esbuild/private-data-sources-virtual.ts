@@ -1,12 +1,11 @@
-import { readFileSync } from "node:fs";
 import path from "node:path";
 import type { Plugin } from "esbuild";
+import { asset } from "../assets.js";
 import { ACTIVATION_FILENAME } from "../worker-entry.js";
 import { USER_NAMESPACE } from "./user-files.js";
 
 const PREFIX = "base44:private-data-sources";
 export const PRIVATE_DATA_SOURCES_NAMESPACE = "base44-private-data-sources";
-const MODULE_DIR = new URL("../private-data-sources/", import.meta.url);
 const PUBLIC_MODULES = new Set([
   "elasticsearch",
   "http",
@@ -73,7 +72,7 @@ function relativeModulePath(
 }
 
 function loadModule(modulePath: string) {
-  return readFileSync(new URL(modulePath, MODULE_DIR), "utf8");
+  return asset(`private-data-sources/${modulePath}`);
 }
 
 export function privateDataSourcesVirtualPlugin(): Plugin {

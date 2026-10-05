@@ -4,7 +4,8 @@
     "types": ["node", "bun"],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@base44/functions-compiler": ["../functions-compiler/src/index.ts"]
     }
   },
   "include": ["src/**/*", "tests/**/*"],
