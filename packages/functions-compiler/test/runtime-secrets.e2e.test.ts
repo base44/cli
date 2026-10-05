@@ -238,6 +238,14 @@ const challenged = (headers: Record<string, string> = {}): DispatchInit => ({
   headers: { [CHALLENGE_HEADER]: CHALLENGE, ...headers },
 });
 
+/** Read the body the moment its response arrives: holding 50 unread bodies while
+ *  reading them one by one once failed on CI with "Body is unusable". */
+const readNow = async (res: Response) => ({
+  status: res.status,
+  headers: res.headers,
+  body: await res.text(),
+});
+
 const REPORTER = `
 Deno.serve((req) => Response.json({
   secret: Deno.env.get("MY_SECRET") ?? null,
@@ -286,11 +294,11 @@ describe("runtime-secrets activation in workerd", () => {
   it("50 concurrent cold requests on one isolate make exactly one pull", async () => {
     await withPullIsolate(await reporter(), async (dispatch, { pulls }) => {
       const responses = await Promise.all(
-        Array.from({ length: 50 }, () => dispatch(challenged())),
+        Array.from({ length: 50 }, () => dispatch(challenged()).then(readNow)),
       );
       for (const res of responses) {
         expect(res.status).toBe(200);
-        expect(((await res.json()) as { secret: string }).secret).toBe("herd");
+        expect((JSON.parse(res.body) as { secret: string }).secret).toBe("herd");
       }
       expect(pulls).toHaveLength(1);
       // Only the request that performed the install carries the marker; the
@@ -336,14 +344,16 @@ describe("runtime-secrets activation in workerd", () => {
     // the install chain lets exactly one rider pull again and the rest ride it.
     let answered = 0;
     await withPullIsolate(await reporter(), async (dispatch, { pulls }) => {
-      const responses = await Promise.all(Array.from({ length: 50 }, () => dispatch(challenged())));
+      const responses = await Promise.all(
+        Array.from({ length: 50 }, () => dispatch(challenged()).then(readNow)),
+      );
       const failed = responses.filter((r) => r.status === 503);
       expect(failed).toHaveLength(1);
       expect(failed[0].headers.get(ERROR_HEADER)).toBe("endpoint_409");
       expect(failed[0].headers.get(DIGEST_HEADER)).toBe(errorDigestFor("endpoint_409"));
       for (const res of responses.filter((r) => r.status !== 503)) {
         expect(res.status).toBe(200);
-        expect(((await res.json()) as { secret: string }).secret).toBe("x");
+        expect((JSON.parse(res.body) as { secret: string }).secret).toBe("x");
       }
       expect(pulls).toHaveLength(2);
       expect(responses.filter((r) => r.headers.get(MARKER_HEADER) !== null)).toHaveLength(1);
