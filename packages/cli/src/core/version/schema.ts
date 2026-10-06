@@ -1,3 +1,4 @@
+import type { ShardWrapper } from "@base44/functions-compiler";
 import { z } from "zod";
 import type { ModuleType } from "@/core/site/schema.js";
 import type { ResolvedAssetsConfig } from "@/core/site/wrangler-config.js";
@@ -58,11 +59,9 @@ export interface BackendBundleArtifact {
   /** `entry` is the one the compiler was given — flat `main.ts`, or the
    * function's real path when it reaches files beside it. */
   functions: { name: string; entry: string }[];
-  /** Both change the emitted bytes, so they describe the module rather than
-   * configure it — the platform deploys the module under the modes it states. */
-  runtimeSecrets: boolean;
-  postResponseTelemetry: boolean;
-  staticEgressArtifact: string;
+  /** The compiler's own account of what it wrapped the functions in, carried
+   * as it said it — the platform deploys the module under what it states. */
+  wrapper: ShardWrapper;
 }
 
 /** Everything one build produced, as the create-version call describes it. */

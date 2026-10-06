@@ -54,9 +54,11 @@ describe("compileBackendBundles", () => {
         { name: "greet", entry: "main.ts" },
         { name: "report", entry: "base44/functions/report/entry.ts" },
       ],
-      runtimeSecrets: false,
-      postResponseTelemetry: false,
-      staticEgressArtifact: STATIC_EGRESS_ARTIFACT_MARKER,
+      wrapper: {
+        secrets: "binding",
+        postResponseTelemetry: false,
+        staticEgress: STATIC_EGRESS_ARTIFACT_MARKER,
+      },
     });
     expect(bundle.size).toBe(bundle.module.byteLength);
     expect(bundle.digest).toBe(

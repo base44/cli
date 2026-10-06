@@ -6,7 +6,6 @@ import {
   compileFunctionShards,
   type ShardBuildFailure,
   type ShardPolicy,
-  STATIC_EGRESS_ARTIFACT_MARKER,
 } from "@base44/functions-compiler";
 import pMap from "p-map";
 import { DependencyNotFoundError, InvalidInputError } from "@/core/errors.js";
@@ -128,10 +127,7 @@ export async function compileBackendBundles(
         name,
         entry: entries.get(name)!,
       })),
-      ...COMPILE_MODES,
-      // Every module this compiler emits carries its static-egress wrapper,
-      // which is what the platform checks before binding a static egress.
-      staticEgressArtifact: STATIC_EGRESS_ARTIFACT_MARKER,
+      wrapper: shard.wrapper,
     };
   });
 }

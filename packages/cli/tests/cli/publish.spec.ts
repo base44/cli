@@ -226,9 +226,11 @@ describe.skipIf(process.env.CLI_TEST_RUNNER === "binary")(
       expect(declared.backend_bundles).toMatchObject([
         {
           functions: [{ name: "greet", entry: "main.ts" }],
-          runtime_secrets: false,
-          post_response_telemetry: false,
-          static_egress_artifact: "base44.static-egress.request-env.v2",
+          wrapper: {
+            secrets: "binding",
+            post_response_telemetry: false,
+            static_egress: "base44.static-egress.request-env.v2",
+          },
         },
       ]);
       const module = t.api.presignedUploadRequests.find(

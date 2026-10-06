@@ -9,6 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 import { compileFunctionShards } from "../src/shards/build";
+import { STATIC_EGRESS_ARTIFACT_MARKER } from "../src/static-egress-marker";
 import type { ShardPolicy } from "../src/shards/plan";
 import { measureBundleBytes } from "../src/shards/size";
 import { runInWorkerd } from "./workerd";
@@ -69,6 +70,27 @@ describe("a whole-app build", () => {
 
     expect(pulled.shards[0].activation).toBe("pull");
     expect(plain.shards[0]).not.toHaveProperty("activation");
+  });
+
+  it("describes the wrapper each shard was compiled in", async () => {
+    const pulled = await compileFunctionShards([fn("alpha")], policy(), {
+      runtimeSecrets: true,
+      postResponseTelemetry: true,
+    });
+    const plain = await compileFunctionShards([fn("alpha")], policy());
+    expect(pulled.ok && plain.ok).toBe(true);
+    if (!pulled.ok || !plain.ok) return;
+
+    expect(pulled.shards[0].wrapper).toEqual({
+      secrets: "blob-pull",
+      postResponseTelemetry: true,
+      staticEgress: STATIC_EGRESS_ARTIFACT_MARKER,
+    });
+    expect(plain.shards[0].wrapper).toEqual({
+      secrets: "binding",
+      postResponseTelemetry: false,
+      staticEgress: STATIC_EGRESS_ARTIFACT_MARKER,
+    });
   });
 
   it("produces shards that actually route their functions", async () => {
