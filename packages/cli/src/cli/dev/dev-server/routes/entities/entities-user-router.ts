@@ -7,10 +7,7 @@ import {
   USER_COLLECTION,
 } from "@/cli/dev/dev-server/db/database.js";
 import { queryEntity } from "@/cli/dev/dev-server/db/entity-queries.js";
-import {
-  assertFLSWrite,
-  FLSWriteError,
-} from "@/cli/dev/dev-server/db/fls-write.js";
+import { assertFLSWrite, FLSWriteError } from "@/cli/dev/dev-server/db/rls.js";
 import {
   type EntityRecord,
   EntityValidationError,
