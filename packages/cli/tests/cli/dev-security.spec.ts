@@ -83,6 +83,14 @@ describe("Security in dev", () => {
                 "write": {"user_condition": {"role": "admin"}},
                 "read": {"user_condition": {"role": "admin"}}
               }
+            },
+            "reviewed_by": { "type": ["string", "null"], "rls": { "write": false } },
+            "profile": {
+              "type": "object",
+              "properties": {
+                "bio": { "type": "string" },
+                "tier": { "type": "string", "rls": { "write": false } }
+              }
             }
           },
           "rls": {
@@ -278,6 +286,39 @@ describe("Security in dev", () => {
       );
       const tasks = await base44.entities.Task.list();
       expect(tasks[0].title).toBe("Test");
+    });
+
+    it("should treat null as unchanged for an unset protected field", async () => {
+      await registerAndLogin(base44, handle, testUser);
+      const { id } = await base44.entities.Task.create({
+        title: "Test",
+        reviewed_by: null,
+      });
+
+      await base44.entities.Task.update(id, { reviewed_by: null });
+      await expect(
+        base44.entities.Task.update(id, { reviewed_by: "me" }),
+      ).rejects.toThrow(
+        "You're not allowed to modify the following fields: data.reviewed_by",
+      );
+    });
+
+    it("should enforce rules on nested properties", async () => {
+      await registerAndLogin(base44, handle, testUser);
+      await expect(
+        base44.entities.Task.create({
+          title: "Test",
+          profile: { tier: "pro" },
+        }),
+      ).rejects.toThrow(
+        "You're not allowed to set the following fields: data.profile.tier",
+      );
+
+      const task = await base44.entities.Task.create({
+        title: "Test",
+        profile: { bio: "hi" },
+      });
+      expect(task.profile).toEqual({ bio: "hi" });
     });
   });
 

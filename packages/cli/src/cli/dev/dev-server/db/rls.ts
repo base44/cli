@@ -1,4 +1,9 @@
 import { isDeepStrictEqual } from "node:util";
+import {
+  collectFieldRules,
+  findClosestRule,
+  flattenToDataPaths,
+} from "@/cli/dev/dev-server/db/field-paths.js";
 import type { Entity } from "@/core/resources/entity/schema.js";
 
 /**
@@ -206,9 +211,13 @@ export class FLSWriteError extends Error {
   }
 }
 
+const isUnchanged = (before: unknown, after: unknown) =>
+  isDeepStrictEqual(before ?? null, after ?? null);
+
 /**
- * Rejects the whole write if any field in `changes` is protected, like production:
- * unchanged values are skipped and rules are evaluated against `context`
+ * Rejects the whole write if any changed field is protected, like production:
+ * values are compared per nested path (a missing value equals null), a nested
+ * path falls under its closest rule, and rules are evaluated against `context`
  * (the existing record on update, the owner fields on create).
  */
 export function assertFLSWrite(
@@ -218,17 +227,19 @@ export function assertFLSWrite(
   user: Record<string, unknown> | undefined,
   operation: "create" | "update",
 ): void {
-  const denied = Object.entries(changes)
-    .filter(([key, value]) => {
-      const rls = schema.properties[key]?.rls;
+  const rules = new Map(collectFieldRules(schema.properties));
+  const before = new Map(flattenToDataPaths(context));
+  const denied = flattenToDataPaths(changes)
+    .filter(([path, value]) => {
+      const rls = findClosestRule(rules, path);
       const rule = rls?.[operation] ?? rls?.write;
       return (
         rule !== undefined &&
-        !isDeepStrictEqual(context[key], value) &&
+        !isUnchanged(before.get(path), value) &&
         !checkRLS(rule, context, user)
       );
     })
-    .map(([key]) => `data.${key}`);
+    .map(([path]) => path);
   if (denied.length > 0) {
     throw new FLSWriteError(operation, denied);
   }
