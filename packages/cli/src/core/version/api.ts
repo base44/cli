@@ -39,13 +39,20 @@ function declaredModule(module: WorkerModuleArtifact) {
   return { ...declaredFile(module), type: module.type };
 }
 
-function declaredBundle(bundle: BackendBundleArtifact) {
+function declaredBundle({
+  size,
+  digest,
+  functions,
+  wrapper,
+}: BackendBundleArtifact) {
   return {
-    module: { size: bundle.size, digest: bundle.digest },
-    functions: bundle.functions,
-    runtime_secrets: bundle.runtimeSecrets,
-    post_response_telemetry: bundle.postResponseTelemetry,
-    static_egress_artifact: bundle.staticEgressArtifact,
+    module: { size, digest },
+    functions,
+    wrapper: {
+      secrets: wrapper.secrets,
+      post_response_telemetry: wrapper.postResponseTelemetry,
+      static_egress: wrapper.staticEgress,
+    },
   };
 }
 

@@ -37,6 +37,7 @@ export type {
   CompiledShard,
   ShardBuildFailure,
   ShardBuildResult,
+  ShardWrapper,
 } from "./shards/build.js";
 export { compileFunctionShards } from "./shards/build.js";
 export type { ShardPolicy } from "./shards/plan.js";

@@ -55,11 +55,13 @@ One set, two readings, and the Worker's presence is the whole of the difference 
 
 ## Backend functions are compiled here
 
-`compileBackendBundles` in `functions.ts` reads the project's functions with the same reader `base44 deploy` uses, compiles them with `@base44/functions-compiler` (`compileFunctionShards`), and declares each emitted Worker shard as a bundle: the module's size and digest, the functions it serves, and the two wrapper modes. The platform stores and deploys the module as it is — it compiles nothing for a version — so the bytes it serves are the bytes this CLI emitted.
+`compileBackendBundles` in `functions.ts` reads the project's functions with the same reader `base44 deploy` uses, compiles them with `@base44/functions-compiler` (`compileFunctionShards`), and declares each emitted Worker shard as a bundle: the module's size and digest, the functions it serves, and what the compiler wrapped them in. The platform stores and deploys the module as it is — it compiles nothing for a version — so the bytes it serves are the bytes this CLI emitted.
 
 The compile inputs are the platform's own: each function is handed over as `cfwBundleInput` builds it, under its project-relative path, so a function that reaches nothing beyond its entry compiles as the flat `main.ts` it always has, and one that imports `../../shared/x.ts` compiles under `base44/functions/<name>/entry.ts`. That `entry` is what the declaration carries.
 
-The shard policy and the modes are **fixed**, at the platform's production defaults with Worker sharding off: one shard holding every function, halved only when its module is over the 9.5 MB compressed cap, and `runtime_secrets` / `post_response_telemetry` both off. They are the same for every app, so there is nothing to ask the platform. `static_egress_artifact` is the compiler's `STATIC_EGRESS_ARTIFACT_MARKER`: every module it emits carries that wrapper.
+The shard policy and the modes are **fixed**, at the platform's production defaults with Worker sharding off: one shard holding every function, halved only when its module is over the 9.5 MB compressed cap, and runtime secrets and post-response telemetry both off. They are the same for every app, so there is nothing to ask the platform.
+
+Each bundle carries a `wrapper` — `secrets` (`binding`, or `blob-pull` for a runtime-secrets build), `post_response_telemetry`, and `static_egress` — copied from the compiler's own `CompiledShard.wrapper` rather than restated here. All three change the emitted bytes, so they describe the module, and the platform deploys it under what they say. Today that is always `binding`, `false`, and the compiler's `STATIC_EGRESS_ARTIFACT_MARKER`.
 
 Functions are sorted by name before compiling. A single shard compiles in the order it is given and that order is in the bytes, so a filesystem walk's order would mint a new version for unchanged code.
 

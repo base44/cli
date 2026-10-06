@@ -20,12 +20,27 @@
 import { bundleApp } from "../bundler.js";
 import type { ActivationMode, AppFunctionInput } from "../contracts.js";
 import type { BundleErrorItem } from "../errors.js";
+import { STATIC_EGRESS_ARTIFACT_MARKER } from "../static-egress-marker.js";
 import { planFreshShards, type ShardPolicy } from "./plan.js";
 import { judgeBundleSize, type SizeVerdict } from "./size.js";
 
 /** Shards compile independently; bound how many esbuild runs are in flight so
  *  peak memory does not scale with the app's function count. */
 const MAX_PARALLEL_SHARDS = 4;
+
+/**
+ * What the functions were wrapped in. Every field changes the emitted bytes, so
+ * it describes the module rather than configuring it — a deployer pairs its
+ * secrets delivery and bindings with what is here.
+ */
+export interface ShardWrapper {
+  /** Secrets bound to the script, or pulled at runtime by the activation shim. */
+  secrets: "binding" | `blob-${ActivationMode}`;
+  postResponseTelemetry: boolean;
+  /** The static-egress contract the module was compiled for. Every worker entry
+   *  installs the static-egress fetch, so every shard carries one. */
+  staticEgress: string;
+}
 
 export interface CompiledShard {
   /** Position in the emitted list. Not a deployment identity — the caller owns
@@ -40,6 +55,7 @@ export interface CompiledShard {
   /** Set when the module carries the pull activation shim (a runtime-secrets
    *  build); the deployer needs it to give the script a pull-shim id. */
   activation?: ActivationMode;
+  wrapper: ShardWrapper;
 }
 
 export interface ShardBuildFailure {
@@ -127,7 +143,7 @@ async function buildWithSplit(
   if (!verdict.breach) {
     return {
       ok: true,
-      shards: [shardOf(group, response, verdict)],
+      shards: [shardOf(group, response, verdict, options)],
     };
   }
 
@@ -157,6 +173,7 @@ function shardOf(
     activation?: ActivationMode;
   },
   verdict: SizeVerdict,
+  options: { postResponseTelemetry?: boolean },
 ): Omit<CompiledShard, "index"> {
   return {
     functions: group.map((fn) => fn.name),
@@ -165,6 +182,11 @@ function shardOf(
     rawBytes: verdict.rawBytes,
     gzipBytes: verdict.gzipBytes,
     ...(response.activation ? { activation: response.activation } : {}),
+    wrapper: {
+      secrets: response.activation ? `blob-${response.activation}` : "binding",
+      postResponseTelemetry: options.postResponseTelemetry ?? false,
+      staticEgress: STATIC_EGRESS_ARTIFACT_MARKER,
+    },
   };
 }
 
