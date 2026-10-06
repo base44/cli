@@ -1,5 +1,8 @@
 import { isDeepStrictEqual } from "node:util";
-import type { Entity } from "@/core/resources/entity/schema.js";
+import type {
+  Entity,
+  PropertyDefinition,
+} from "@/core/resources/entity/schema.js";
 
 /**
  * Gets a value from a flat RLS source, handling `data.*` field references.
@@ -206,9 +209,49 @@ export class FLSWriteError extends Error {
   }
 }
 
+type FieldRLS = NonNullable<PropertyDefinition["rls"]>;
+
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const flattenToDataPaths = (
+  record: Record<string, unknown>,
+  prefix = "data",
+): [string, unknown][] =>
+  Object.entries(record).flatMap(([key, value]) =>
+    isPlainObject(value)
+      ? flattenToDataPaths(value, `${prefix}.${key}`)
+      : [[`${prefix}.${key}`, value]],
+  );
+
+const collectFieldRules = (
+  properties: Record<string, PropertyDefinition>,
+  prefix = "data",
+): [string, FieldRLS][] =>
+  Object.entries(properties).flatMap(([key, property]) => {
+    const path = `${prefix}.${key}`;
+    const own: [string, FieldRLS][] = property.rls
+      ? [[path, property.rls]]
+      : [];
+    return [...own, ...collectFieldRules(property.properties ?? {}, path)];
+  });
+
+const findClosestRule = (rules: Map<string, FieldRLS>, path: string) => {
+  const segments = path.split(".");
+  for (let length = segments.length; length > 1; length--) {
+    const rule = rules.get(segments.slice(0, length).join("."));
+    if (rule) return rule;
+  }
+  return undefined;
+};
+
+const isUnchanged = (before: unknown, after: unknown) =>
+  isDeepStrictEqual(before ?? null, after ?? null);
+
 /**
- * Rejects the whole write if any field in `changes` is protected, like production:
- * unchanged values are skipped and rules are evaluated against `context`
+ * Rejects the whole write if any changed field is protected, like production:
+ * values are compared per nested path (a missing value equals null), a nested
+ * path falls under its closest rule, and rules are evaluated against `context`
  * (the existing record on update, the owner fields on create).
  */
 export function assertFLSWrite(
@@ -218,17 +261,19 @@ export function assertFLSWrite(
   user: Record<string, unknown> | undefined,
   operation: "create" | "update",
 ): void {
-  const denied = Object.entries(changes)
-    .filter(([key, value]) => {
-      const rls = schema.properties[key]?.rls;
+  const rules = new Map(collectFieldRules(schema.properties));
+  const before = new Map(flattenToDataPaths(context));
+  const denied = flattenToDataPaths(changes)
+    .filter(([path, value]) => {
+      const rls = findClosestRule(rules, path);
       const rule = rls?.[operation] ?? rls?.write;
       return (
         rule !== undefined &&
-        !isDeepStrictEqual(context[key], value) &&
+        !isUnchanged(before.get(path), value) &&
         !checkRLS(rule, context, user)
       );
     })
-    .map(([key]) => `data.${key}`);
+    .map(([path]) => path);
   if (denied.length > 0) {
     throw new FLSWriteError(operation, denied);
   }
