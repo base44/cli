@@ -61,7 +61,7 @@ The compile inputs are the platform's own: each function is handed over as `cfwB
 
 The shard policy and the modes are **fixed**, at the platform's production defaults with Worker sharding off: one shard holding every function, halved only when its module is over the 9.5 MB compressed cap, and runtime secrets and post-response telemetry both off. They are the same for every app, so there is nothing to ask the platform.
 
-Each bundle carries a `wrapper` — `secrets` (`binding`, or `blob-pull` for a runtime-secrets build), `post_response_telemetry`, and `static_egress` — copied from the compiler's own `CompiledShard.wrapper` rather than restated here. All three change the emitted bytes, so they describe the module, and the platform deploys it under what they say. Today that is always `binding`, `false`, and the compiler's `STATIC_EGRESS_ARTIFACT_MARKER`.
+Each bundle carries a `wrapper` — `secrets` (`binding`, or `blob_pull` for a runtime-secrets build), `post_response_telemetry`, and `static_egress` — copied from the compiler's own `CompiledShard.wrapper` rather than restated here. All three change the emitted bytes, so they describe the module, and the platform deploys it under what they say. Today that is always `binding`, `false`, and the compiler's `STATIC_EGRESS_ARTIFACT_MARKER`.
 
 Functions are sorted by name before compiling. A single shard compiles in the order it is given and that order is in the bytes, so a filesystem walk's order would mint a new version for unchanged code.
 
