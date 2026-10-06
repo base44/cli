@@ -5,11 +5,10 @@ import { nanoid } from "nanoid";
 import type { DevLogger } from "@/cli/dev/createDevLogger.js";
 import type { Database } from "@/cli/dev/dev-server/db/database.js";
 import {
-  applyFLS,
   assertFLSWrite,
-  checkRLS,
   FLSWriteError,
-} from "@/cli/dev/dev-server/db/rls.js";
+} from "@/cli/dev/dev-server/db/fls-write.js";
+import { applyFLS, checkRLS } from "@/cli/dev/dev-server/db/rls.js";
 import {
   type EntityRecord,
   EntityValidationError,
