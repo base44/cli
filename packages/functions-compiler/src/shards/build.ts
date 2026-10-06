@@ -35,7 +35,7 @@ const MAX_PARALLEL_SHARDS = 4;
  */
 export interface ShardWrapper {
   /** Secrets bound to the script, or pulled at runtime by the activation shim. */
-  secrets: "binding" | `blob-${ActivationMode}`;
+  secrets: "binding" | `blob_${ActivationMode}`;
   postResponseTelemetry: boolean;
   /** The static-egress contract the module was compiled for. Every worker entry
    *  installs the static-egress fetch, so every shard carries one. */
@@ -183,7 +183,7 @@ function shardOf(
     gzipBytes: verdict.gzipBytes,
     ...(response.activation ? { activation: response.activation } : {}),
     wrapper: {
-      secrets: response.activation ? `blob-${response.activation}` : "binding",
+      secrets: response.activation ? `blob_${response.activation}` : "binding",
       postResponseTelemetry: options.postResponseTelemetry ?? false,
       staticEgress: STATIC_EGRESS_ARTIFACT_MARKER,
     },

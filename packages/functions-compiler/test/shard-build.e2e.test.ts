@@ -82,7 +82,7 @@ describe("a whole-app build", () => {
     if (!pulled.ok || !plain.ok) return;
 
     expect(pulled.shards[0].wrapper).toEqual({
-      secrets: "blob-pull",
+      secrets: "blob_pull",
       postResponseTelemetry: true,
       staticEgress: STATIC_EGRESS_ARTIFACT_MARKER,
     });
