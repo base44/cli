@@ -105,6 +105,24 @@ describe("Security in dev", () => {
       `,
     );
 
+    await writeFile(
+      join(entitiesDir, "user.jsonc"),
+      outdent`
+        {
+          "name": "User",
+          "type": "object",
+          "properties": {
+            "nickname": { "type": "string" },
+            "plan": { "type": "string", "rls": { "read": true, "write": false } },
+            "credits": {
+              "type": "number",
+              "rls": { "write": {"user_condition": {"role": "admin"}} }
+            }
+          }
+        }
+      `,
+    );
+
     handle = await t.runLive("dev");
     const serverUrl = await waitForDevServer(handle);
 
@@ -212,16 +230,17 @@ describe("Security in dev", () => {
   });
 
   describe("FLS", () => {
-    it("should not allow to write of protected property by user", async () => {
+    it("should reject create with a protected property by user", async () => {
       await registerAndLogin(base44, handle, testUser);
-      await base44.entities.Task.create({
-        title: "Test",
-        description: "Test description",
-        protected: "Protected value",
-      });
-      const tasks = await base44.entities.Task.list();
-      expect(tasks.length).toBe(1);
-      expect(tasks[0].protected).toBeUndefined();
+      await expect(
+        base44.entities.Task.create({
+          title: "Test",
+          protected: "Protected value",
+        }),
+      ).rejects.toThrow(
+        "You're not allowed to set the following fields: data.protected",
+      );
+      expect(await base44.entities.Task.list()).toHaveLength(0);
     });
 
     it("should allow write and read of protected property only by admin", async () => {
@@ -238,12 +257,84 @@ describe("Security in dev", () => {
       await base44.entities.Task.create({
         title: "Test 2",
         description: "Test description 2",
-        protected: "Protected value 2",
       });
 
       const another_tasks = await base44.entities.Task.list();
       expect(another_tasks.length).toBe(1);
       expect(another_tasks[0].protected).toBeUndefined();
+    });
+
+    it("should reject a mixed update as a whole", async () => {
+      await registerAndLogin(base44, handle, testUser);
+      const { id } = await base44.entities.Task.create({ title: "Test" });
+
+      await expect(
+        base44.entities.Task.update(id, {
+          title: "Updated",
+          protected: "Protected value",
+        }),
+      ).rejects.toThrow(
+        "You're not allowed to modify the following fields: data.protected",
+      );
+      const tasks = await base44.entities.Task.list();
+      expect(tasks[0].title).toBe("Test");
+    });
+  });
+
+  describe("User entity", () => {
+    it("should reject updating protected fields on own record", async () => {
+      await registerAndLogin(base44, handle, testUser);
+
+      await expect(base44.auth.updateMe({ plan: "pro" })).rejects.toThrow(
+        "You're not allowed to modify the following fields: data.plan",
+      );
+      const me = await base44.auth.me();
+      await expect(
+        base44.entities.User.update(me.id, { nickname: "nick", credits: 100 }),
+      ).rejects.toThrow(
+        "You're not allowed to modify the following fields: data.credits",
+      );
+
+      const after = await base44.auth.me();
+      expect(after.plan).toBeUndefined();
+      expect(after.nickname).toBeUndefined();
+      expect(after.credits).toBeUndefined();
+    });
+
+    it("should allow updating open fields and unchanged protected values", async () => {
+      await registerAndLogin(base44, handle, testUser);
+      const { id } = await base44.auth.me();
+
+      await login(base44, adminUser);
+      await base44.entities.User.update(id, { credits: 100 });
+
+      await login(base44, testUser);
+      const me = await base44.auth.me();
+      expect(me.credits).toBe(100);
+      const updated = await base44.auth.updateMe({ ...me, nickname: "nick" });
+      expect(updated.nickname).toBe("nick");
+      expect(updated.credits).toBe(100);
+    });
+
+    it("should evaluate user_condition field rules for admin", async () => {
+      await base44.auth.updateMe({ credits: 100 });
+      expect((await base44.auth.me()).credits).toBe(100);
+
+      await expect(base44.auth.updateMe({ plan: "pro" })).rejects.toThrow(
+        "You're not allowed to modify the following fields: data.plan",
+      );
+    });
+
+    it("should not allow a regular user to update another user", async () => {
+      const admin = await base44.auth.me();
+      await registerAndLogin(base44, handle, testUser);
+
+      await expect(
+        base44.entities.User.update(admin.id, { nickname: "hacked" }),
+      ).rejects.toThrow("You are not authorized to update this user");
+
+      await login(base44, adminUser);
+      expect((await base44.auth.me()).nickname).toBeUndefined();
     });
   });
 });

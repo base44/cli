@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from "node:util";
 import type { Entity } from "@/core/resources/entity/schema.js";
 
 /**
@@ -194,4 +195,41 @@ export function applyFLS(
     }
   }
   return result;
+}
+
+export class FLSWriteError extends Error {
+  constructor(operation: "create" | "update", deniedFields: string[]) {
+    const verb = operation === "create" ? "set" : "modify";
+    super(
+      `You're not allowed to ${verb} the following fields: ${deniedFields.join(", ")}`,
+    );
+  }
+}
+
+/**
+ * Rejects the whole write if any field in `changes` is protected, like production:
+ * unchanged values are skipped and rules are evaluated against `context`
+ * (the existing record on update, the owner fields on create).
+ */
+export function assertFLSWrite(
+  changes: Record<string, unknown>,
+  context: Record<string, unknown>,
+  schema: Entity,
+  user: Record<string, unknown> | undefined,
+  operation: "create" | "update",
+): void {
+  const denied = Object.entries(changes)
+    .filter(([key, value]) => {
+      const rls = schema.properties[key]?.rls;
+      const rule = rls?.[operation] ?? rls?.write;
+      return (
+        rule !== undefined &&
+        !isDeepStrictEqual(context[key], value) &&
+        !checkRLS(rule, context, user)
+      );
+    })
+    .map(([key]) => `data.${key}`);
+  if (denied.length > 0) {
+    throw new FLSWriteError(operation, denied);
+  }
 }
