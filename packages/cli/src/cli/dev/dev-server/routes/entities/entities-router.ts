@@ -4,7 +4,12 @@ import { Router as createRouter, json } from "express";
 import { nanoid } from "nanoid";
 import type { DevLogger } from "@/cli/dev/createDevLogger.js";
 import type { Database } from "@/cli/dev/dev-server/db/database.js";
-import { applyFLS, checkRLS } from "@/cli/dev/dev-server/db/rls.js";
+import {
+  applyFLS,
+  assertFLSWrite,
+  checkRLS,
+  FLSWriteError,
+} from "@/cli/dev/dev-server/db/rls.js";
 import {
   type EntityRecord,
   EntityValidationError,
@@ -111,12 +116,8 @@ export async function createEntityRoutes(
       return undefined;
     }
 
-    const filteredBody = applyFLS(
-      db.prepareRecord(entityName, recordBody),
-      schema,
-      currentUser,
-      "write",
-    );
+    assertFLSWrite(recordBody, ownerFields, schema, currentUser, "create");
+    const filteredBody = db.prepareRecord(entityName, recordBody);
     db.validate(entityName, filteredBody);
 
     return {
@@ -230,6 +231,10 @@ export async function createEntityRoutes(
           res.status(422).json(error.context);
           return;
         }
+        if (error instanceof FLSWriteError) {
+          res.status(403).json({ message: error.message });
+          return;
+        }
         logger.error(`Error in POST /${entityName}:`, error);
         res.status(500).json({ error: "Internal server error" });
       }
@@ -280,6 +285,10 @@ export async function createEntityRoutes(
           res.status(422).json(error.context);
           return;
         }
+        if (error instanceof FLSWriteError) {
+          res.status(403).json({ message: error.message });
+          return;
+        }
         logger.error(`Error in POST /${entityName}/bulk:`, error);
         res.status(500).json({ error: "Internal server error" });
       }
@@ -294,26 +303,20 @@ export async function createEntityRoutes(
       const { id: _id, created_date: _created_date, ...body } = req.body;
 
       try {
-        if (schema.rls?.update !== undefined) {
-          const existing = await collection.findOneAsync({ id });
-          if (!existing) {
-            res.status(404).json({ error: `Record with id "${id}" not found` });
-            return;
-          }
-          if (!checkRLS(schema.rls.update, existing, currentUser)) {
-            res.status(404).json({
-              message: `Entity ${entityName} with ID ${id} not found`,
-            });
-            return;
-          }
+        const existing = await collection.findOneAsync({ id });
+        if (!existing) {
+          res.status(404).json({ error: `Record with id "${id}" not found` });
+          return;
+        }
+        if (!checkRLS(schema.rls?.update, existing, currentUser)) {
+          res.status(404).json({
+            message: `Entity ${entityName} with ID ${id} not found`,
+          });
+          return;
         }
 
-        const filteredBody = applyFLS(
-          db.prepareRecord(entityName, body, true),
-          schema,
-          currentUser,
-          "write",
-        );
+        const filteredBody = db.prepareRecord(entityName, body, true);
+        assertFLSWrite(filteredBody, existing, schema, currentUser, "update");
         db.validate(entityName, filteredBody, true);
 
         const updateData = {
@@ -343,6 +346,10 @@ export async function createEntityRoutes(
       } catch (error) {
         if (error instanceof EntityValidationError) {
           res.status(422).json(error.context);
+          return;
+        }
+        if (error instanceof FLSWriteError) {
+          res.status(403).json({ message: error.message });
           return;
         }
         logger.error(`Error in PUT /${entityName}/${id}:`, error);

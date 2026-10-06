@@ -194,7 +194,7 @@ export function createAuthRouter(db: Database, logger: DevLogger): Router {
           is_verified: true,
           disabled: null,
           role: "user",
-          collaborator_role: "editor",
+          collaborator_role: null,
           created_date: now,
           updated_date: now,
         });
