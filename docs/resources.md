@@ -152,6 +152,8 @@ How a broken `base44/config.jsonc` is read depends on whether the command touche
 
 Each fallback is reported once per command through `setConfigWarningHandler`, which `Base44Command` wires to `log.warn`. The site-only commands (`site install`, `site dev`, `site deploy`, `build`, `publish`) also use `DEFAULT_SITE` via `siteOrDefault` when a config has no `site` block. `base44 dev` and `base44 deploy` do not: there an absent block means "no frontend".
 
+When a configured `installCommand`, `buildCommand` or `serveCommand` exits 127 ("command not found"), `site install`, every build and `site dev` rerun the matching `DEFAULT_SITE` command once, with a warning (`runSiteCommandOrDefault`). A pnpm or yarn project still installs where only npm exists. Not on Windows: `cmd /c` exits 1 for an unknown program, which nothing distinguishes from a failure. Any other failure, and a failure of the default itself, fails as before.
+
 ## Unified Deploy Command
 
 The `base44 deploy` command deploys all project resources in one operation:
