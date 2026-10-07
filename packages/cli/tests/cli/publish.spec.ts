@@ -225,7 +225,13 @@ describe.skipIf(process.env.CLI_TEST_RUNNER === "binary")(
       };
       expect(declared.backend_bundles).toMatchObject([
         {
-          functions: [{ name: "greet", entry: "main.ts" }],
+          functions: [
+            {
+              name: "greet",
+              entry: "main.ts",
+              source: 'Deno.serve(() => new Response("hi"));\n',
+            },
+          ],
           wrapper: {
             secrets: "binding",
             post_response_telemetry: false,

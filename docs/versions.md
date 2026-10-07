@@ -55,7 +55,7 @@ One set, two readings, and the Worker's presence is the whole of the difference 
 
 ## Backend functions are compiled here
 
-`compileBackendBundles` in `functions.ts` reads the project's functions with the same reader `base44 deploy` uses, compiles them with `@base44/functions-compiler` (`compileFunctionShards`), and declares each emitted Worker shard as a bundle: the module's size and digest, the functions it serves, and what the compiler wrapped them in. The platform stores and deploys the module as it is — it compiles nothing for a version — so the bytes it serves are the bytes this CLI emitted.
+`compileBackendBundles` in `functions.ts` reads the project's functions with the same reader `base44 deploy` uses, compiles them with `@base44/functions-compiler` (`compileFunctionShards`), and declares each emitted Worker shard as a bundle: the module's size and digest, the functions it serves — each with its entry file's `source` as written, which no compiled module carries and the platform shows for that function — and what the compiler wrapped them in. The platform stores and deploys the module as it is — it compiles nothing for a version — so the bytes it serves are the bytes this CLI emitted.
 
 The compile inputs are the platform's own: each function is handed over as `cfwBundleInput` builds it, under its project-relative path, so a function that reaches nothing beyond its entry compiles as the flat `main.ts` it always has, and one that imports `../../shared/x.ts` compiles under `base44/functions/<name>/entry.ts`. That `entry` is what the declaration carries.
 

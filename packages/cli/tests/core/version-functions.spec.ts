@@ -31,14 +31,10 @@ describe("compileBackendBundles", () => {
   });
 
   it("compiles every function into one shard, at the production modes", async () => {
-    await givenFile(
-      "base44/functions/greet/entry.ts",
-      `Deno.serve(() => new Response("hi"));\n`,
-    );
-    await givenFile(
-      "base44/functions/report/entry.ts",
-      `import { format } from "../../shared/format.ts";\nDeno.serve(() => new Response(format(1)));\n`,
-    );
+    const greet = `Deno.serve(() => new Response("hi"));\n`;
+    const report = `import { format } from "../../shared/format.ts";\nDeno.serve(() => new Response(format(1)));\n`;
+    await givenFile("base44/functions/greet/entry.ts", greet);
+    await givenFile("base44/functions/report/entry.ts", report);
     await givenFile(
       "base44/shared/format.ts",
       "export const format = (n: number) => '#' + n;\n",
@@ -49,10 +45,15 @@ describe("compileBackendBundles", () => {
     expect(rest).toEqual([]);
     expect(bundle).toMatchObject({
       // A flat function keeps the `main.ts` it has always compiled as; one that
-      // reaches a shared module compiles under its real path.
+      // reaches a shared module compiles under its real path. Either way the
+      // source is the entry file as written.
       functions: [
-        { name: "greet", entry: "main.ts" },
-        { name: "report", entry: "base44/functions/report/entry.ts" },
+        { name: "greet", entry: "main.ts", source: greet },
+        {
+          name: "report",
+          entry: "base44/functions/report/entry.ts",
+          source: report,
+        },
       ],
       wrapper: {
         secrets: "binding",
