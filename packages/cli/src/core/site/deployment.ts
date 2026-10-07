@@ -29,19 +29,24 @@ const NO_ASSETS: AssetManifestResult = { manifest: {}, filesByHash: new Map() };
 const DEPLOYMENTS_API_ENV = "BASE44_DEPLOYMENTS_API";
 
 /**
- * Internal gate for the deployments-API lane — static output and full-stack
- * builds alike, neither user-facing yet. With it off `site deploy` takes the
- * legacy tar.gz upload and the flags that only mean something on this lane are
- * not registered at all, so the whole lane is one env var away from existing.
+ * Internal gate for shipping STATIC output through the deployments-API lane.
+ * With it off, a build with no worker takes the legacy tar.gz upload and the
+ * flags that only mean something on this lane are not registered at all.
  *
- * It is the only thing that selects the transport: whether the build carries a
- * worker changes what `deployToDeployments()` sends, never which flow runs.
+ * A build that carries a worker never consults it: the tar.gz upload cannot
+ * carry a worker, so `hasWorkerBuild()` sends such a build down this lane
+ * whatever the env says.
  */
 export function deploymentsApiEnabled(
   env: NodeJS.ProcessEnv = process.env,
 ): boolean {
   const value = env[DEPLOYMENTS_API_ENV];
   return value === "1" || value === "true";
+}
+
+/** Whether the build emitted a worker, which only the deployments API can ship. */
+export async function hasWorkerBuild(projectRoot: string): Promise<boolean> {
+  return (await detectFullStackArtifact(projectRoot)) !== null;
 }
 
 /**

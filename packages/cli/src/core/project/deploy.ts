@@ -21,15 +21,24 @@ import {
   deployFunctionsSequentially,
   type SingleFunctionDeployResult,
 } from "@/core/resources/function/deploy.js";
-import { deploySite } from "@/core/site/index.js";
+import {
+  deploySite,
+  deployToDeployments,
+  hasWorkerBuild,
+  resolveGitHash,
+} from "@/core/site/index.js";
 
 /**
  * Checks if there are any resources to deploy in the project.
  *
  * @param projectData - The project configuration and resources
- * @returns true if there are entities, functions, agents, connectors, or a configured site to deploy
+ * @param options.workerBuild - Whether the build emitted a worker, which is a site even with no `site.outputDirectory`
+ * @returns true if there are entities, functions, agents, connectors, or a site to deploy
  */
-export function hasResourcesToDeploy(projectData: ProjectData): boolean {
+export function hasResourcesToDeploy(
+  projectData: ProjectData,
+  options: { workerBuild?: boolean } = {},
+): boolean {
   const {
     project,
     entities,
@@ -40,7 +49,8 @@ export function hasResourcesToDeploy(projectData: ProjectData): boolean {
     connectors,
     authConfig,
   } = projectData;
-  const hasSite = Boolean(project.site?.outputDirectory);
+  const hasSite =
+    Boolean(project.site?.outputDirectory) || Boolean(options.workerBuild);
   const hasEntities = entities.length > 0;
   const hasFunctions = functions.length > 0;
   const hasActors = actors.length > 0;
@@ -68,9 +78,14 @@ export function hasResourcesToDeploy(projectData: ProjectData): boolean {
  */
 interface DeployAllResult {
   /**
-   * The app URL if a site was deployed, undefined otherwise.
+   * The app URL if a site was deployed through the legacy upload, undefined otherwise.
    */
   appUrl?: string;
+  /**
+   * The deployment a worker build shipped as, undefined otherwise. Nothing is
+   * live until the app is published from the builder.
+   */
+  deployment?: { deploymentId: string; gitHash: string };
   /**
    * Results of connector push, including any that need OAuth.
    */
@@ -106,6 +121,13 @@ export async function deployAll(
     connectors,
     authConfig,
   } = projectData;
+
+  // A worker ships only through the deployments API, which addresses the build
+  // by its commit. Resolved before any resource is pushed so a checkout with no
+  // commit fails whole rather than half-deployed.
+  const workerGitHash = (await hasWorkerBuild(project.root))
+    ? await resolveGitHash(project.root)
+    : null;
 
   await setAppVisibility(project.visibility);
   if (project.visibility) {
@@ -160,8 +182,23 @@ export async function deployAll(
     ? []
     : (await pushConnectors(connectors)).results;
 
-  if (project.site?.outputDirectory) {
-    const outputDir = resolve(project.root, project.site.outputDirectory);
+  const outputDir = project.site?.outputDirectory
+    ? resolve(project.root, project.site.outputDirectory)
+    : null;
+
+  if (workerGitHash) {
+    const { deploymentId } = await deployToDeployments({
+      projectRoot: project.root,
+      outputDir,
+      gitHash: workerGitHash,
+    });
+    return {
+      deployment: { deploymentId, gitHash: workerGitHash },
+      connectorResults,
+    };
+  }
+
+  if (outputDir) {
     const { appUrl } = await deploySite(outputDir);
     return { appUrl, connectorResults };
   }

@@ -17,6 +17,7 @@ import {
   deploymentsApiEnabled,
   deploySite,
   deployToDeployments,
+  hasWorkerBuild,
   MAX_UPLOAD_CONCURRENCY,
   resolveGitHash,
 } from "@/core/site/index.js";
@@ -44,12 +45,17 @@ async function deployAction(
 
   await maybeBuildBeforeDeploy(ctx, project, options.build);
 
+  // A worker brings its own assets directory, so site.outputDirectory (often a
+  // `dist` the build never wrote) does not describe what ships.
+  const workerBuild = await hasWorkerBuild(project.root);
+
   if (!options.yes) {
     const outputDirectory = project.site?.outputDirectory;
     const shouldDeploy = await confirm({
-      message: outputDirectory
-        ? `Deploy site from ${outputDirectory}?`
-        : "Deploy site?",
+      message:
+        outputDirectory && !workerBuild
+          ? `Deploy site from ${outputDirectory}?`
+          : "Deploy site?",
     });
 
     if (isCancel(shouldDeploy) || !shouldDeploy) {
@@ -57,7 +63,9 @@ async function deployAction(
     }
   }
 
-  return deploymentsApiEnabled()
+  // The tar.gz upload cannot carry a worker, so a worker build takes the
+  // deployments API whatever the gate says; the gate decides for static output.
+  return workerBuild || deploymentsApiEnabled()
     ? await deployToDeploymentsApi(ctx, project, options)
     : await deployTarball(ctx, project);
 }

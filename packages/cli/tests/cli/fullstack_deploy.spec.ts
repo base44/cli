@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { fixture, setupCLITests } from "./testkit/index.js";
+import { fixture, gitInitWithCommit, setupCLITests } from "./testkit/index.js";
 
 function assetHash(appId: string, content: string): string {
   return createHash("sha256")
@@ -142,6 +142,35 @@ describe("site deploy command (full-stack)", () => {
     expect(JSON.parse(payloadField?.data.toString() ?? "{}")).toEqual({
       completion_jwt: null,
     });
+  });
+
+  it("ships a worker build through the deployments API without the env gate, addressed by HEAD", async () => {
+    // The tar.gz upload cannot carry a worker, so the gate must not be what
+    // stands between a full-stack build and its only transport.
+    await t.givenLoggedInWithProject(fixture("fullstack-project"));
+    const head = await gitInitWithCommit(join(t.getTempDir(), "project"));
+    mockHappyPath();
+
+    const result = await t.run("site", "deploy", "-y");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Site deployed");
+    t.expectResult(result).toContain(`Deployment ${DEPLOYMENT_ID}`);
+    expect(t.api.deploymentCreateRequests).toHaveLength(1);
+    const body = t.api.deploymentCreateRequests[0] as CreateBody;
+    expect(body.git_hash).toBe(head);
+    expect(body.config.main).toBe("index.js");
+    expect(t.api.finalizeRequests).toHaveLength(1);
+  });
+
+  it("fails a worker build with no commit instead of falling back to the tar.gz upload", async () => {
+    await t.givenLoggedInWithProject(fixture("fullstack-project"));
+
+    const result = await t.run("site", "deploy", "-y");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("no git commit was found");
+    expect(t.api.deploymentCreateRequests).toHaveLength(0);
   });
 
   it("normalizes and requires a commit hash", async () => {
