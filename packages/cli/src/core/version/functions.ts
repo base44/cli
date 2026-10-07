@@ -54,20 +54,23 @@ function projectPath(root: string, absolutePath: string): string {
   return relative(root, absolutePath).split(/[/\\]/).join("/");
 }
 
+/** What to compile, and the entry file as written — the source the platform
+ * shows for a function, which no compiled module carries. */
 async function compilerInput(
   root: string,
   fn: BackendFunction,
-): Promise<AppFunctionInput> {
+): Promise<{ input: AppFunctionInput; source: string }> {
   const backendFiles: Record<string, string> = {};
   for (const filePath of fn.filePaths) {
     backendFiles[projectPath(root, filePath)] = await readTextFile(filePath);
   }
+  const source = await readTextFile(fn.entryPath);
   const { entry, files } = await cfwBundleInput(
     projectPath(root, fn.entryPath),
-    await readTextFile(fn.entryPath),
+    source,
     backendFiles,
   );
-  return { name: fn.name, entry, files };
+  return { input: { name: fn.name, entry, files }, source };
 }
 
 function describeFailure(failure: ShardBuildFailure): string {
@@ -100,13 +103,18 @@ export async function compileBackendBundles(
   // By name: one shard compiles in the order it is given, and that order is
   // in the bytes — a filesystem walk's order would mint versions for nothing.
   const sorted = [...functions].sort((a, b) => (a.name < b.name ? -1 : 1));
-  const inputs = await pMap(sorted, (fn) => compilerInput(root, fn), {
+  const compiled = await pMap(sorted, (fn) => compilerInput(root, fn), {
     concurrency: 8,
   });
-  const entries = new Map(inputs.map((input) => [input.name, input.entry]));
+  const declared = new Map(
+    compiled.map(({ input, source }) => [
+      input.name,
+      { name: input.name, entry: input.entry, source },
+    ]),
+  );
 
   const built = await compileFunctionShards(
-    inputs,
+    compiled.map(({ input }) => input),
     SHARD_POLICY,
     COMPILE_MODES,
   );
@@ -123,10 +131,7 @@ export async function compileBackendBundles(
       module,
       size: module.byteLength,
       digest: sha256(module),
-      functions: shard.functions.map((name) => ({
-        name,
-        entry: entries.get(name)!,
-      })),
+      functions: shard.functions.map((name) => declared.get(name)!),
       wrapper: shard.wrapper,
     };
   });

@@ -57,8 +57,9 @@ export interface BackendBundleArtifact {
   size: number;
   digest: string;
   /** `entry` is the one the compiler was given — flat `main.ts`, or the
-   * function's real path when it reaches files beside it. */
-  functions: { name: string; entry: string }[];
+   * function's real path when it reaches files beside it. `source` is the entry
+   * file as written, not as compiled. */
+  functions: { name: string; entry: string; source: string }[];
   /** The compiler's own account of what it wrapped the functions in, carried
    * as it said it — the platform deploys the module under what it states. */
   wrapper: ShardWrapper;
