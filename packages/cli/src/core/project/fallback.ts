@@ -103,8 +103,11 @@ export function siteOrDefault(project: ProjectWithPaths): SiteConfig {
   return DEFAULT_SITE;
 }
 
-/** A shell's exit status when the program it was told to run does not exist. */
-const COMMAND_NOT_FOUND_EXIT_CODES = new Set([127, 9009]);
+/**
+ * A POSIX shell's exit status when the program it was told to run does not
+ * exist. `cmd /c` exits 1 for that, which nothing distinguishes from a failure.
+ */
+const COMMAND_NOT_FOUND_EXIT_CODE = 127;
 
 /**
  * Runs a site command from the config, and `fallback` when its program is not
@@ -137,7 +140,7 @@ export function warnSiteCommandFallback(
 }
 
 export function isCommandNotFoundExit(code: unknown): boolean {
-  return typeof code === "number" && COMMAND_NOT_FOUND_EXIT_CODES.has(code);
+  return code === COMMAND_NOT_FOUND_EXIT_CODE && process.platform !== "win32";
 }
 
 function isCommandNotFound(error: unknown): boolean {

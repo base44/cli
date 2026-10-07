@@ -1,10 +1,7 @@
 import { confirm, isCancel } from "@clack/prompts";
 import { execa } from "execa";
 import type { CLIContext } from "@/cli/types.js";
-import {
-  DEFAULT_SITE,
-  runSiteCommandOrDefault,
-} from "@/core/project/index.js";
+import { DEFAULT_SITE, runSiteCommandOrDefault } from "@/core/project/index.js";
 import type { ProjectData } from "@/core/project/types.js";
 
 interface SiteBuildTarget {

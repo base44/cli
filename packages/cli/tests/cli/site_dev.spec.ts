@@ -30,22 +30,26 @@ describe("site dev command", () => {
     expect(handle.stdout.join("")).toContain(`SERVE_APP=${t.api.appId}`);
   });
 
-  it("serves with the default serveCommand when the configured program is not installed", async () => {
-    await t.givenLoggedInWithProject(fixture("with-missing-site-tool"));
+  // cmd.exe has no "command not found" exit status: no fallback on Windows.
+  it.skipIf(process.platform === "win32")(
+    "serves with the default serveCommand when the configured program is not installed",
+    async () => {
+      await t.givenLoggedInWithProject(fixture("with-missing-site-tool"));
 
-    const handle = await t.runLive(
-      "site",
-      "dev",
-      "--",
-      "--",
-      "--port",
-      "5999",
-    );
-    await handle.waitForOutput(/ARGS=/);
-    await handle.stop();
+      const handle = await t.runLive(
+        "site",
+        "dev",
+        "--",
+        "--",
+        "--port",
+        "5999",
+      );
+      await handle.waitForOutput(/ARGS=/);
+      await handle.stop();
 
-    expect(handle.stdout.join("")).toContain("ARGS=--port 5999");
-  });
+      expect(handle.stdout.join("")).toContain("ARGS=--port 5999");
+    },
+  );
 
   it("refuses a flag that is not forwarded after --", async () => {
     await t.givenLoggedInWithProject(fixture("with-npm-serve-command"));
