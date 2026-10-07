@@ -5,8 +5,10 @@ import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
 import { ConfigInvalidError } from "@/core/errors.js";
 import {
+  isCommandNotFoundExit,
   readProjectSettingsOrDefaults,
   siteOrDefault,
+  warnSiteCommandFallback,
 } from "@/core/project/index.js";
 
 /**
@@ -41,15 +43,26 @@ async function siteDevAction(
   // the caller put after `--` is appended, and only that.
   const serveCommand = site.serveCommand ?? DEFAULT_SERVE_COMMAND;
   const command = [serveCommand, ...forwarded].join(" ");
+  const fallback = [DEFAULT_SERVE_COMMAND, ...forwarded].join(" ");
 
-  const runner = createServeCommandRunner({
-    serveCommand: command,
-    projectRoot: project.root,
-    appId: app.id,
-  });
-  stopRunnerOnProcessSignals(runner);
-  runner.onExit((code) => process.exit(code ?? 1));
-  runner.start();
+  const serve = (line: string) => {
+    const runner = createServeCommandRunner({
+      serveCommand: line,
+      projectRoot: project.root,
+      appId: app.id,
+    });
+    stopRunnerOnProcessSignals(runner);
+    runner.onExit((code) => {
+      if (line !== fallback && isCommandNotFoundExit(code)) {
+        warnSiteCommandFallback(line, fallback);
+        serve(fallback);
+        return;
+      }
+      process.exit(code ?? 1);
+    });
+    runner.start();
+  };
+  serve(command);
 
   return { outroMessage: `Frontend dev server running '${command}'` };
 }

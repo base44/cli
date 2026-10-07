@@ -1,7 +1,10 @@
 import { confirm, isCancel } from "@clack/prompts";
 import { execa } from "execa";
 import type { CLIContext } from "@/cli/types.js";
-import { DEFAULT_SITE } from "@/core/project/index.js";
+import {
+  DEFAULT_SITE,
+  runSiteCommandOrDefault,
+} from "@/core/project/index.js";
 import type { ProjectData } from "@/core/project/types.js";
 
 interface SiteBuildTarget {
@@ -17,11 +20,16 @@ export async function runSiteBuild(
   await runTask(
     "Building site...",
     () =>
-      execa({
-        cwd: root,
-        shell: true,
-        env: { VITE_BASE44_APP_ID: appId },
-      })`${buildCommand}`,
+      runSiteCommandOrDefault(
+        buildCommand,
+        DEFAULT_SITE.buildCommand,
+        (command) =>
+          execa({
+            cwd: root,
+            shell: true,
+            env: { VITE_BASE44_APP_ID: appId },
+          })`${command}`,
+      ),
     {
       successMessage: "Site built successfully",
       errorMessage: "Build failed",

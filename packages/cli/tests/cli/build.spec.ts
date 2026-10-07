@@ -26,6 +26,18 @@ describe("build command", () => {
     );
   });
 
+  it("builds with the default buildCommand when the configured program is not installed", async () => {
+    await t.givenLoggedInWithProject(fixture("with-missing-site-tool"));
+
+    const result = await t.run("build");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("its program is not installed");
+    expect(await t.readProjectFile("build-env.txt")).toBe(
+      `BUILD_APP=${t.api.appId}`,
+    );
+  });
+
   it("fails when the buildCommand fails", async () => {
     await t.givenLoggedInWithProject(fixture("with-failing-build"));
 
