@@ -3,6 +3,7 @@ import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, confirmPush } from "@/cli/utils/index.js";
 import { readProjectConfig } from "@/core/index.js";
 import { pushEntities } from "@/core/resources/entity/index.js";
+import { getEntitiesListCommand } from "@/cli/commands/entities/list.js";
 
 interface PushOptions {
   yes?: boolean;
@@ -65,5 +66,6 @@ export function getEntitiesPushCommand(): Command {
         .description("Push local entities to Base44")
         .option("-y, --yes", "Skip confirmation prompt")
         .action(pushEntitiesAction),
-    );
+    )
+    .addCommand(getEntitiesListCommand());
 }
