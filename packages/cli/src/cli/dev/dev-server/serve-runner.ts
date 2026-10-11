@@ -8,13 +8,31 @@ interface ServeRunnerOptions {
   cwd: string;
   env: Record<string, string>;
   logger: DevLogger;
+  /** Called once with the local origin the dev server announced on startup. */
+  onOrigin?: (origin: string) => void;
+  /**
+   * Port to disregard while looking for that origin: the dev server echoes the
+   * backend URL we handed it (the Vite plugin logs its API proxy target), and
+   * taking that for its own address would point the front door at itself.
+   */
+  ignorePort?: number;
 }
+
+// Dev servers announce themselves with a line like "Local: http://localhost:5173/".
+// Vite bolds the port, so the escape codes have to go before the match.
+// Built at runtime: an escape character is not allowed in a regex literal.
+const ANSI_PATTERN = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "g");
+const LOCAL_ORIGIN_PATTERN =
+  /https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\]):(\d+)/g;
 
 export class ServeRunner {
   private readonly command: string;
   private readonly cwd: string;
   private readonly env: Record<string, string>;
   private readonly logger: DevLogger;
+  private readonly onOrigin?: (origin: string) => void;
+  private readonly ignorePort?: number;
+  private originReported = false;
   private child?: ChildProcess;
   private stopping = false;
   private stopPromise?: Promise<void>;
@@ -25,6 +43,8 @@ export class ServeRunner {
     this.cwd = options.cwd;
     this.env = options.env;
     this.logger = options.logger;
+    this.onOrigin = options.onOrigin;
+    this.ignorePort = options.ignorePort;
   }
 
   start(): void {
@@ -117,11 +137,29 @@ export class ServeRunner {
   private emitLines(data: Buffer, type: "log" | "error"): void {
     const lines = data.toString().trimEnd().split("\n");
     for (const line of lines) {
+      this.reportOrigin(line);
       if (type === "error") {
         this.logger.error(line);
       } else {
         this.logger.log(line);
       }
+    }
+  }
+
+  private reportOrigin(line: string): void {
+    if (this.originReported || !this.onOrigin) {
+      return;
+    }
+    const matches = line
+      .replace(ANSI_PATTERN, "")
+      .matchAll(LOCAL_ORIGIN_PATTERN);
+    for (const [origin, port] of matches) {
+      if (Number(port) === this.ignorePort) {
+        continue;
+      }
+      this.originReported = true;
+      this.onOrigin(origin);
+      return;
     }
   }
 }
