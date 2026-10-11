@@ -7,6 +7,7 @@ import {
   USER_COLLECTION,
 } from "@/cli/dev/dev-server/db/database.js";
 import { queryEntity } from "@/cli/dev/dev-server/db/entity-queries.js";
+import { assertFLSWrite, FLSWriteError } from "@/cli/dev/dev-server/db/rls.js";
 import {
   type EntityRecord,
   EntityValidationError,
@@ -139,6 +140,16 @@ export function createUserRouter(db: Database, logger: DevLogger): Router {
         id,
       });
       if (userRecord) {
+        if (
+          id !== currentUser.id &&
+          currentUser.collaborator_role !== "editor" &&
+          !currentUser.is_service
+        ) {
+          res
+            .status(403)
+            .json({ message: "You are not authorized to update this user" });
+          return;
+        }
         try {
           const { id: _id, created_date: _created_date, ...body } = req.body;
           const filteredBody = db.prepareRecord(USER_COLLECTION, body, true);
@@ -148,6 +159,13 @@ export function createUserRouter(db: Database, logger: DevLogger): Router {
               allowedFields[key] = property;
             }
           }
+          assertFLSWrite(
+            allowedFields,
+            { ...userRecord, created_by: userRecord.email },
+            db.getSchema(USER_COLLECTION)!,
+            currentUser,
+            "update",
+          );
           db.validate(USER_COLLECTION, allowedFields, true);
 
           const updateData = {
@@ -169,6 +187,10 @@ export function createUserRouter(db: Database, logger: DevLogger): Router {
         } catch (error) {
           if (error instanceof EntityValidationError) {
             res.status(422).json(error.context);
+            return;
+          }
+          if (error instanceof FLSWriteError) {
+            res.status(403).json({ message: error.message });
             return;
           }
           logger.error(

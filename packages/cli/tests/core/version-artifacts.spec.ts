@@ -374,9 +374,11 @@ describe("collectArtifacts", () => {
     return {
       root: projectRoot,
       configDir: join(projectRoot, "base44"),
+      buildCommand: "npm run build",
       outputDir: join(projectRoot, "dist", "client"),
       entitiesDir: "entities",
       agentsDir: "agents",
+      functionsDir: "functions",
     };
   }
 

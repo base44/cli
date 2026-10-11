@@ -57,3 +57,25 @@ describe("dev server validation of union field types", () => {
     expect(() => validate("string", 42)).toThrow();
   });
 });
+
+describe("dev server validation of a nested property with no type", () => {
+  const entity = {
+    name: "MarketingBoard",
+    type: "object",
+    properties: {
+      filters: {
+        type: "array",
+        items: { type: "object", properties: { value: {} } },
+      },
+    },
+    source: { type: "project" },
+  } as unknown as Entity;
+
+  const validate = (value: unknown) =>
+    new Validator().validate({ filters: [{ value }] }, entity, true);
+
+  it("reads it as a string, like the server's record model", () => {
+    expect(() => validate("active")).not.toThrow();
+    expect(() => validate(42)).toThrow(/valid string/);
+  });
+});

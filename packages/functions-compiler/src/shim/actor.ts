@@ -187,7 +187,9 @@ export abstract class Actor<Incoming = unknown, Outgoing = unknown> extends Serv
   }
 
   // Reserved platform keys — the private-data-sources manifest carries
-  // plaintext VPC DB credentials. Keep in sync with worker-entry.ts.
+  // plaintext VPC DB credentials. Keep in sync with CONSOLE_PATCH in
+  // worker-entry.ts (not its runtime-secrets additions: actors never carry
+  // the pull bindings).
   private static readonly RESERVED_SECRETS = new Set([
     "BASE44_ACTOR_PRIVATE_KEY",
     "BASE44_ACTOR_PUBLIC_KEY",

@@ -91,6 +91,18 @@ describe("site dev command", () => {
     expect(handle.stdout.join("")).toContain(`APP=${t.api.appId}`);
   });
 
+  it("serves a checkout with no config, using the default serve command", async () => {
+    // A gitignored config never reaches the commit a sandbox checks out.
+    await t.givenUnlinkedProject(fixture("with-npm-serve-command-no-config"));
+    t.givenEnv({ BASE44_APP_ID: t.api.appId });
+
+    const handle = await t.runLive("site", "dev");
+    await handle.waitForOutput(/ARGS=/);
+    await handle.stop();
+
+    expect(handle.stdout.join("")).toContain(`APP=${t.api.appId}`);
+  });
+
   it("serves the frontend same-origin, with no backend url injected", async () => {
     // A sandbox frontend reaches its backend through the vite plugin's /api
     // proxy, so it must not be pointed anywhere else.
@@ -105,12 +117,12 @@ describe("site dev command", () => {
     expect(output).toContain("URL=undefined");
   });
 
-  it("fails when the project has no site block", async () => {
+  it("serves with the default command when the project has no site block", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
 
     const result = await t.run("site", "dev");
 
-    t.expectResult(result).toFail();
-    t.expectResult(result).toContain("no 'site' block");
+    t.expectResult(result).toContain("using the default site commands");
+    t.expectResult(result).toNotContain("so there is no frontend to serve");
   });
 });

@@ -7,11 +7,12 @@ import {
   InternalError,
   SchemaValidationError,
 } from "@/core/errors.js";
-import { putPresigned } from "@/core/site/upload.js";
+import { putPresigned, putPresignedBody } from "@/core/site/upload.js";
 import type { ResolvedAssetsConfig } from "@/core/site/wrangler-config.js";
 import type {
   ArtifactFile,
   ArtifactSet,
+  BackendBundleArtifact,
   CreateVersionProgress,
   CreateVersionResponse,
   EnvironmentResponse,
@@ -36,6 +37,23 @@ function declaredFile({ path, size, digest }: ArtifactFile) {
 
 function declaredModule(module: WorkerModuleArtifact) {
   return { ...declaredFile(module), type: module.type };
+}
+
+function declaredBundle({
+  size,
+  digest,
+  functions,
+  wrapper,
+}: BackendBundleArtifact) {
+  return {
+    module: { size, digest },
+    functions,
+    wrapper: {
+      secrets: wrapper.secrets,
+      post_response_telemetry: wrapper.postResponseTelemetry,
+      static_egress: wrapper.staticEgress,
+    },
+  };
 }
 
 /**
@@ -147,6 +165,7 @@ export async function createVersion(
                 },
               }
             : {}),
+          backend_bundles: artifacts.backendBundles.map(declaredBundle),
           entities: artifacts.entities,
           agents: artifacts.agents,
           source_commit: options.sourceCommit,
@@ -158,23 +177,25 @@ export async function createVersion(
   );
 
   // Paired by POSITION, in the order the server signed them: assets and modules
-  // are separate namespaces, so the two may share a path.
+  // are separate namespaces, so the two may share a path. Each bundle's module
+  // follows them, at a path the server names.
   const declaredFiles = [
     ...artifacts.assets,
     ...(artifacts.siteWorker?.modules ?? []),
   ];
+  const slotCount = declaredFiles.length + artifacts.backendBundles.length;
 
-  options.progress?.onDeclared?.({ fileCount: declaredFiles.length });
+  options.progress?.onDeclared?.({ fileCount: slotCount });
 
-  if (declared.uploads.length !== declaredFiles.length) {
+  if (declared.uploads.length !== slotCount) {
     throw new InternalError(
-      `Declared ${declaredFiles.length} files but the server signed ${declared.uploads.length} upload URLs.`,
+      `Declared ${slotCount} files but the server signed ${declared.uploads.length} upload URLs.`,
     );
   }
   // Necessary, not sufficient — but it catches an order drift here rather than
   // as an S3 checksum rejection part way through the uploads.
-  const drifted = declared.uploads.findIndex(
-    (upload, index) => upload.path !== declaredFiles[index].path,
+  const drifted = declaredFiles.findIndex(
+    (file, index) => declared.uploads[index].path !== file.path,
   );
   if (drifted !== -1) {
     throw new InternalError(
@@ -186,7 +207,14 @@ export async function createVersion(
   await pMap(
     declared.uploads,
     async (upload, index) => {
-      await putPresigned(upload, declaredFiles[index].absolutePath);
+      if (index < declaredFiles.length) {
+        await putPresigned(upload, declaredFiles[index].absolutePath);
+      } else {
+        await putPresignedBody(
+          upload,
+          artifacts.backendBundles[index - declaredFiles.length].module,
+        );
+      }
       uploadedFiles++;
       options.progress?.onUpload?.({
         uploadedFiles,

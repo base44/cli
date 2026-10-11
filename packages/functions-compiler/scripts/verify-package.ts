@@ -2,7 +2,7 @@
 // directory that can see neither this repo nor apper, and run a real compile
 // there on the host `node`. Catches the failure a source-tree test cannot —
 // a runtime asset (a shim, or a .ts module the plugins read as text) that the
-// build never copied into lib/, or a native/WASM dependency that does not load.
+// build never embedded, or a native/WASM dependency that does not load.
 //
 //   bun run scripts/verify-package.ts        # uses `node` from PATH
 //   NODE_BIN=/path/to/node20 bun run ...     # pin the toolchain under test

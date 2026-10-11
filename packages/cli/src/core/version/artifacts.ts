@@ -5,11 +5,12 @@ import pMap from "p-map";
 import { CONFIG_FILE_EXTENSION_GLOB } from "@/core/consts.js";
 import { InvalidInputError } from "@/core/errors.js";
 import type { BuildTarget } from "@/core/project/target.js";
-import { requireOutputDir } from "@/core/project/target.js";
 import type { FullStackBuild } from "@/core/site/full-stack.js";
 import { resolveFullStackBuild } from "@/core/site/full-stack.js";
 import { describeBuildOutput, hashFileInto } from "@/core/site/manifest.js";
 import { pathExists, readJsonFile } from "@/core/utils/fs.js";
+import { compileBackendBundles } from "@/core/version/functions.js";
+import { tagStep } from "@/core/version/publish.js";
 import type {
   ArtifactFile,
   ArtifactSet,
@@ -184,10 +185,18 @@ export async function collectArtifacts(
       ? built.assetsDir
         ? await collectBuildOutput(built.assetsDir)
         : []
-      : await collectBuildOutput(requireOutputDir(target), {
+      : await collectBuildOutput(target.outputDir, {
           entryFile: ENTRY,
         }),
     ...(siteWorker ? { siteWorker } : {}),
+    // Compiled here, not by `base44 build`: `--no-build` skips only the site's
+    // own build command, and a version without its functions would remove them.
+    backendBundles: await tagStep("build", () =>
+      compileBackendBundles(
+        target.root,
+        join(target.configDir, target.functionsDir),
+      ),
+    ),
     ...(await collectResources(target.configDir, target)),
   };
 }

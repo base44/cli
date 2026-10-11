@@ -1,0 +1,7 @@
+{
+  "name": "npm-serve-command-no-config-fixture",
+  "private": true,
+  "scripts": {
+    "dev": "node serve.js"
+  }
+}

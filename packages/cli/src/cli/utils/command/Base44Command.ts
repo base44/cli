@@ -21,6 +21,7 @@ import {
   isCLIError,
   stepOf,
 } from "@/core/errors.js";
+import { setConfigWarningHandler } from "@/core/project/fallback.js";
 import { resolveBranchName } from "@/core/resources/branch/api.js";
 
 /**
@@ -174,6 +175,7 @@ export class Base44Command extends Command {
   override action(fn: (ctx: CLIContext, ...args: any[]) => any): this {
     // biome-ignore lint/suspicious/noExplicitAny: must match Commander.js action() signature
     return super.action(async (...args: any[]) => {
+      setConfigWarningHandler((message) => this.context.log.warn(message));
       // The global `--json` flag keeps stdout a pure JSON document: skip the
       // clack framing and send the status line to stderr.
       const jsonMode = this.context.jsonMode;

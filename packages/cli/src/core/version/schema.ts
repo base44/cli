@@ -1,3 +1,4 @@
+import type { ShardWrapper } from "@base44/functions-compiler";
 import { z } from "zod";
 import type { ModuleType } from "@/core/site/schema.js";
 import type { ResolvedAssetsConfig } from "@/core/site/wrangler-config.js";
@@ -47,12 +48,33 @@ export interface SiteWorkerArtifact {
   servingConfig: ResolvedAssetsConfig | null;
 }
 
+/**
+ * One compiled Worker shard of the app's backend functions. The module is held
+ * in memory: it is what the compiler returned, not a file the build left.
+ */
+export interface BackendBundleArtifact {
+  module: Uint8Array;
+  size: number;
+  digest: string;
+  /** `entry` is the one the compiler was given — flat `main.ts`, or the
+   * function's real path when it reaches files beside it. `source` is the entry
+   * file as written, not as compiled. */
+  functions: { name: string; entry: string; source: string }[];
+  /** The compiler's own account of what it wrapped the functions in, carried
+   * as it said it — the platform deploys the module under what it states. */
+  wrapper: ShardWrapper;
+}
+
 /** Everything one build produced, as the create-version call describes it. */
 export interface ArtifactSet {
   /** The app's files. Who serves them is what `siteWorker` says. */
   assets: ArtifactFile[];
   /** Absent for an app with no server of its own — almost every app. */
   siteWorker?: SiteWorkerArtifact;
+  /** Always sent, empty when the app has none: an absent list tells the
+   * platform this producer cannot describe functions, and it refuses that for
+   * an app that has them. */
+  backendBundles: BackendBundleArtifact[];
   /** Raw payloads by name. The server normalizes and hashes them. */
   entities: Record<string, unknown>;
   agents: Record<string, unknown>;

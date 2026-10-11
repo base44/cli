@@ -144,7 +144,8 @@ export class Validator {
           };
     }
 
-    const propertyType = property.type;
+    // The server's record model reads a missing type as a string.
+    const propertyType = property.type ?? "string";
     if (!fieldTypes.includes(propertyType)) {
       return {
         hasError: true,

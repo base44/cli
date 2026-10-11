@@ -1,3 +1,9 @@
+import { isDeepStrictEqual } from "node:util";
+import {
+  collectFieldRules,
+  findClosestRule,
+  flattenToDataPaths,
+} from "@/cli/dev/dev-server/db/field-paths.js";
 import type { Entity } from "@/core/resources/entity/schema.js";
 
 /**
@@ -194,4 +200,47 @@ export function applyFLS(
     }
   }
   return result;
+}
+
+export class FLSWriteError extends Error {
+  constructor(operation: "create" | "update", deniedFields: string[]) {
+    const verb = operation === "create" ? "set" : "modify";
+    super(
+      `You're not allowed to ${verb} the following fields: ${deniedFields.join(", ")}`,
+    );
+  }
+}
+
+const isUnchanged = (before: unknown, after: unknown) =>
+  isDeepStrictEqual(before ?? null, after ?? null);
+
+/**
+ * Rejects the whole write if any changed field is protected, like production:
+ * values are compared per nested path (a missing value equals null), a nested
+ * path falls under its closest rule, and rules are evaluated against `context`
+ * (the existing record on update, the owner fields on create).
+ */
+export function assertFLSWrite(
+  changes: Record<string, unknown>,
+  context: Record<string, unknown>,
+  schema: Entity,
+  user: Record<string, unknown> | undefined,
+  operation: "create" | "update",
+): void {
+  const rules = new Map(collectFieldRules(schema.properties));
+  const before = new Map(flattenToDataPaths(context));
+  const denied = flattenToDataPaths(changes)
+    .filter(([path, value]) => {
+      const rls = findClosestRule(rules, path);
+      const rule = rls?.[operation] ?? rls?.write;
+      return (
+        rule !== undefined &&
+        !isUnchanged(before.get(path), value) &&
+        !checkRLS(rule, context, user)
+      );
+    })
+    .map(([path]) => path);
+  if (denied.length > 0) {
+    throw new FLSWriteError(operation, denied);
+  }
 }

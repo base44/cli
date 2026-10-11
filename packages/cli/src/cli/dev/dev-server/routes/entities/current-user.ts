@@ -11,6 +11,7 @@ import {
 } from "@/cli/dev/dev-server/db/database.js";
 
 export type UserDocument = Document<{
+  collaborator_role?: "editor" | null;
   email: string;
   id: string;
   is_service?: boolean;

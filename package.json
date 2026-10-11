@@ -17,5 +17,8 @@
   },
   "workspaces": [
     "packages/*"
+  ],
+  "trustedDependencies": [
+    "@base44/functions-compiler"
   ]
 }

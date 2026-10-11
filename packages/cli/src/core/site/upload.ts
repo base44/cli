@@ -231,11 +231,18 @@ export async function putPresigned(
   upload: PresignedAssetUpload,
   absolutePath: string,
 ): Promise<void> {
-  const content = await readFile(absolutePath);
+  await putPresignedBody(upload, new Uint8Array(await readFile(absolutePath)));
+}
 
+/** {@link putPresigned} for bytes already in memory — a compiled module, which
+ * never was a file. */
+export async function putPresignedBody(
+  upload: PresignedAssetUpload,
+  body: Uint8Array,
+): Promise<void> {
   try {
     await ky.put(upload.url, {
-      body: new Uint8Array(content),
+      body,
       headers: {
         // The server signed these exact values into the URL — deriving our own
         // would 403 on any mapping difference, and the checksum is what makes

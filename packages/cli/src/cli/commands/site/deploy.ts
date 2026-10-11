@@ -5,13 +5,16 @@ import { InvalidArgumentError, Option } from "commander";
 import { maybeBuildBeforeDeploy } from "@/cli/commands/project/site-build.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, theme } from "@/cli/utils/index.js";
-import { ConfigNotFoundError, InvalidInputError } from "@/core/errors.js";
-import { readProjectSettings } from "@/core/project/index.js";
+import { InvalidInputError } from "@/core/errors.js";
+import {
+  DEFAULT_SITE,
+  readProjectSettings,
+  siteOrDefault,
+} from "@/core/project/index.js";
 import type { ProjectWithPaths } from "@/core/project/types.js";
 import {
   DEFAULT_UPLOAD_CONCURRENCY,
   deployToDeployments,
-  detectFullStackArtifact,
   MAX_UPLOAD_CONCURRENCY,
   publishDeployment,
   resolveGitHash,
@@ -64,21 +67,8 @@ async function deployToDeploymentsApi(
 ): Promise<RunCommandResult> {
   const { runTask, log, jsonMode } = ctx;
   const projectRoot = project.root;
-  // A worker build brings its own assets directory, so only a project with
-  // neither has nothing to deploy.
-  if (
-    !siteOutputDir(project) &&
-    !(await detectFullStackArtifact(projectRoot))
-  ) {
-    throw new ConfigNotFoundError("No site configuration found.", {
-      hints: [
-        {
-          message:
-            'Add \'site.outputDirectory\' to your config.jsonc (e.g., "site": { "outputDirectory": "dist" })',
-        },
-      ],
-    });
-  }
+  // First, so a defaulted site block is reported before anything can fail.
+  const outputDir = siteOutputDir(project);
   const gitHash = await resolveGitHash(projectRoot, options.gitHash);
   const progressLines: string[] = [];
   const warnings: string[] = [];
@@ -88,9 +78,8 @@ async function deployToDeploymentsApi(
     async (updateMessage) =>
       await deployToDeployments({
         projectRoot,
-        // Null is fine: a build carrying a worker brings its own assets
-        // directory, so it needs no site.outputDirectory.
-        outputDir: siteOutputDir(project),
+        // A build carrying a worker brings its own assets directory instead.
+        outputDir,
         gitHash,
         concurrency: options.concurrency,
         progress: {
@@ -147,9 +136,10 @@ async function deployToDeploymentsApi(
   };
 }
 
-function siteOutputDir(project: ProjectWithPaths): string | null {
-  const outputDirectory = project.site?.outputDirectory;
-  return outputDirectory ? resolve(project.root, outputDirectory) : null;
+function siteOutputDir(project: ProjectWithPaths): string {
+  const { outputDirectory = DEFAULT_SITE.outputDirectory } =
+    siteOrDefault(project);
+  return resolve(project.root, outputDirectory);
 }
 
 export function getSiteDeployCommand(): Command {

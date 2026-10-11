@@ -122,7 +122,7 @@ const viaDeployments = deploymentsApiEnabled();
 ```
 
 - Gate on → the deployments API, see [deployments.md](deployments.md). Whether the build carries a worker changes what that flow sends, never which flow runs, and a worker brings its own assets directory — so the command may pass a null `outputDir`.
-- Gate off → the legacy tar.gz path: tar.gz `site.outputDirectory` and upload via `POST /api/apps/{app_id}/deploy-dist`. This is the flow that requires the config field, and the one that raises "No site configuration found."
+- Gate off → the legacy tar.gz path: tar.gz `site.outputDirectory` and upload via `POST /api/apps/{app_id}/deploy-dist`. It tars `site.outputDirectory`, or `./dist` when the config names none.
 
 Each flow validates its own inputs, so the decision itself is a boolean and needs nothing from the tree.
 
@@ -137,6 +137,20 @@ One flow per transport: `deployment.ts` (deployments API, worker or not) and `de
 3. Upload archive to the API
 4. Parse response with Zod schema
 5. Clean up temporary archive file
+
+## Config fallback
+
+How a broken `base44/config.jsonc` is read depends on whether the command touches resources (`core/project/config.ts`, `core/project/fallback.ts`):
+
+| Reader | Used by | Missing / unreadable config | Invalid `name`, `description`, `site` | Invalid `visibility`, `*Dir`, `plugin`, `plugins` |
+|---|---|---|---|---|
+| `readProjectSettingsOrDefaults` | `site install`, `site dev` | template defaults (a missing one only in a folder with a `package.json`) | defaulted | defaulted |
+| `readProjectSettings` / `readProjectConfig` | everything else | fails | defaulted | fails |
+| plugin configs | `readProjectConfig` | fails | fails | fails |
+
+`visibility` never falls back: dropping a typo'd value would deploy and leave the app's access unchanged. A command that loads resources must not run on a guessed layout: entity push is a full sync, so defaulting `entitiesDir` or dropping `plugins` would delete the entities it no longer finds. `build` and `publish` still default a wholly missing config through `resolveBuildTarget`, as before.
+
+Each fallback is reported once per command through `setConfigWarningHandler`, which `Base44Command` wires to `log.warn`. The site-only commands (`site install`, `site dev`, `site deploy`, `build`, `publish`) also use `DEFAULT_SITE` via `siteOrDefault` when a config has no `site` block. `base44 dev` and `base44 deploy` do not: there an absent block means "no frontend".
 
 ## Unified Deploy Command
 

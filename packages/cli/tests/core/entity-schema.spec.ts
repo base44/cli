@@ -111,6 +111,33 @@ describe("EntitySchema accepts what the platform accepts", () => {
     expect(result.success).toBe(true);
   });
 
+  it("accepts a nested property with no type, which the server never checks", () => {
+    // From a production entity: a filter's `value` holds any scalar, so it has
+    // no type. The server checks `type` on top-level properties only.
+    const result = parse({
+      properties: {
+        filters: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              field: { type: "string" },
+              value: { description: "Any value to compare with" },
+            },
+          },
+        },
+      },
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("still requires a type on a top-level property, like the server", () => {
+    const result = parse({ properties: { status: { title: "Status" } } });
+
+    expect(result.success).toBe(false);
+  });
+
   it("accepts an underscored entity name, which the platform allows", () => {
     expect(parse({ name: "Order_Item" }).success).toBe(true);
   });

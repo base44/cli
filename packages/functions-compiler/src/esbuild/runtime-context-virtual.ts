@@ -1,12 +1,12 @@
-import { readFileSync } from "node:fs";
 import type { Plugin } from "esbuild";
+import { asset } from "../assets.js";
 import { PRIVATE_DATA_SOURCES_NAMESPACE } from "./private-data-sources-virtual.js";
+import { RUNTIME_CONTEXT_SPECIFIER } from "./runtime-context-specifier.js";
 import { USER_NAMESPACE } from "./user-files.js";
 
-export const RUNTIME_CONTEXT_SPECIFIER = "base44:internal/runtime-context";
+export { RUNTIME_CONTEXT_SPECIFIER };
 
 const NAMESPACE = "base44-runtime-context";
-const MODULE_URL = new URL("../runtime-context.ts", import.meta.url);
 const TRUSTED_USER_IMPORTERS = new Set([
   "__base44_actor_entry.mjs",
   "__base44_actor_prelude.mjs",
@@ -42,7 +42,7 @@ export function runtimeContextVirtualPlugin(): Plugin {
       );
 
       build.onLoad({ filter: /.*/, namespace: NAMESPACE }, () => ({
-        contents: readFileSync(MODULE_URL, "utf8"),
+        contents: asset("runtime-context.ts"),
         loader: "ts",
       }));
     },

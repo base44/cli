@@ -8,6 +8,9 @@ export default defineConfig({
       "base44:internal/runtime-context": fileURLToPath(
         new URL("./src/runtime-context.ts", import.meta.url),
       ),
+      "base44:private-data-sources/runtime-manifest-store": fileURLToPath(
+        new URL("./src/private-data-sources/runtime-manifest-store.ts", import.meta.url),
+      ),
       // Resolved by the Deno bundler at deploy; stub it for vitest.
       "npm:@base44/sdk@0.8.41": fileURLToPath(
         new URL("./test/base44-sdk-stub.ts", import.meta.url),

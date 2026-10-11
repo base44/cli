@@ -1,6 +1,6 @@
 {
     "name": "base44",
-    "version": "0.1.25",
+    "version": "0.1.32",
     "description": "Base44 CLI - Unified interface for managing Base44 applications",
     "type": "module",
     "bin": {
@@ -40,6 +40,7 @@
     },
     "devDependencies": {
         "@base44-cli/logger": "workspace:*",
+        "@base44/functions-compiler": "workspace:*",
         "@base44/sdk": "^0.8.23",
         "@clack/prompts": "^1.0.1",
         "@seald-io/nedb": "^4.1.2",
