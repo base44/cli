@@ -10,8 +10,6 @@ export interface ServeCommandRunnerOptions {
    * backend same-origin (the Base44 vite plugin proxies `/api`) must not be told
    * one, or the SDK would call across origins instead. */
   appBaseUrl?: string;
-  onOrigin?: (origin: string) => void;
-  ignorePort?: number;
 }
 
 export function createServeCommandRunner({
@@ -19,8 +17,6 @@ export function createServeCommandRunner({
   projectRoot,
   appId,
   appBaseUrl,
-  onOrigin,
-  ignorePort,
 }: ServeCommandRunnerOptions): ServeRunner {
   return new ServeRunner({
     command: serveCommand,
@@ -30,7 +26,5 @@ export function createServeCommandRunner({
       ...(appBaseUrl ? { VITE_BASE44_APP_BASE_URL: appBaseUrl } : {}),
     },
     logger: createDevLogger("frontend", theme.colors.base44Orange),
-    onOrigin,
-    ignorePort,
   });
 }
