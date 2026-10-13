@@ -197,7 +197,8 @@ whether it compiles or not.
 **Do not reformat an asset.** Their text goes into the user's bundle, so
 whitespace is part of the emitted worker bytes — running Biome over
 `src/shim/`, `src/private-data-sources/`, `src/runtime/`, `runtime-context.ts`,
-`static-egress.ts` or `static-egress-marker.ts` changes what every compiled
+`static-egress.ts`, `static-egress-tcp.ts`, `static-egress-tcp-core.mjs`
+or `static-egress-marker.ts` changes what every compiled
 function hashes to. `biome.json` excludes those paths for that reason. The
 `test/` directory is likewise held byte-identical to apper's copy until that
 copy is deleted; it sits outside the repo's `packages/*/src` lint glob.

@@ -44,12 +44,11 @@ function publicModulePath(specifier: string): string | null {
 // instance in the final bundle.
 const INTERNAL_STORE_SPECIFIER = `${PREFIX}/runtime-manifest-store`;
 
-function isRuntimeShimImporter(
-  namespace: string,
-  importer: string,
-): boolean {
-  return namespace === USER_NAMESPACE &&
-    (importer === ACTIVATION_FILENAME || importer === SHIM_FILENAME);
+function isRuntimeShimImporter(namespace: string, importer: string): boolean {
+  return (
+    namespace === USER_NAMESPACE &&
+    (importer === ACTIVATION_FILENAME || importer === SHIM_FILENAME)
+  );
 }
 
 function relativeModulePath(
