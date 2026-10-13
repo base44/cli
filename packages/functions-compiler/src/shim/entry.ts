@@ -7,6 +7,9 @@ import { Deno as ShimDeno } from "@deno/shim-deno";
 import { Buffer } from "node:buffer";
 
 import { installStaticEgressFetch } from "../static-egress";
+import { installStaticEgressTcp } from "../static-egress-tcp.js";
+
+installStaticEgressTcp();
 
 export { installStaticEgressFetch };
 
