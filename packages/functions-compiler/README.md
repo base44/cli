@@ -139,6 +139,35 @@ setLogSink((level, event, fields) => myLogger[level](event, fields));
 
 Without a sink, `logEvent` writes the Datadog-shaped JSON line it always has.
 
+## Static-egress TCP runtime
+
+Compiled functions expose `staticEgress` from `base44:runtime`:
+
+```ts
+import { staticEgress } from "base44:runtime";
+
+const socket = await staticEgress.connect({ hostname: "sftp.example.com", port: 2222 });
+```
+
+The API reads the current trusted Worker environment, calls only
+`STATIC_EGRESS.connect`, and rejects when the workspace gate or binding is
+unavailable. It never falls back to direct TCP. The optional second argument
+supports only `{ secureTransport: "off" }`; SSH supplies its own encryption.
+TLS/STARTTLS and unknown options reject. Callers own authentication, timeouts,
+stream locks and socket cleanup. The public socket exposes streams, `opened`,
+`closed`, and `close()`.
+
+`src/static-egress-tcp-core.mjs` matches apper's
+`backend/app/static_egress/tcp.mjs`, which its bundler and full-stack uploader
+share. Keep the source and contract tests aligned until the in-repo compiler is
+retired. `build:shim` embeds this core in the runtime shim; it is not a runtime
+filesystem dependency. The internal manifest-store importer allowlist includes
+the exact injected runtime shim so activation-delivered PDS exclusions are
+enforced without making the manifest user-importable.
+
+Release this package before bumping apper's compiler pin. Existing compiled
+Workers need rebuilding; the workspace toggle does not install new code.
+
 ## Layout
 
 | Path | What it is |
@@ -168,7 +197,8 @@ whether it compiles or not.
 **Do not reformat an asset.** Their text goes into the user's bundle, so
 whitespace is part of the emitted worker bytes — running Biome over
 `src/shim/`, `src/private-data-sources/`, `src/runtime/`, `runtime-context.ts`,
-`static-egress.ts` or `static-egress-marker.ts` changes what every compiled
+`static-egress.ts`, `static-egress-tcp.ts`, `static-egress-tcp-core.mjs`
+or `static-egress-marker.ts` changes what every compiled
 function hashes to. `biome.json` excludes those paths for that reason. The
 `test/` directory is likewise held byte-identical to apper's copy until that
 copy is deleted; it sits outside the repo's `packages/*/src` lint glob.

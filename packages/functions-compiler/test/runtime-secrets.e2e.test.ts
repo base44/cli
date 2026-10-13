@@ -165,6 +165,7 @@ type DispatchInit = { headers?: Record<string, string>; method?: string; body?: 
 type Dispatch = (init?: DispatchInit) => Promise<Response>;
 
 interface IsolateOptions {
+  workerHarness?: string;
   secrets?: Record<string, string>;
   bindings?: Record<string, unknown>;
   serviceBindings?: Record<string, (request: Request) => Response | Promise<Response>>;
@@ -185,7 +186,10 @@ async function withIsolate(
   const dataKey = opts.dataKey ?? newDataKey();
   const blob = blobBindings(await encryptBlob(dataKey, opts.blobAppId ?? APP_ID, opts.secrets ?? {}));
   const mf = new Miniflare({
-    modules: [{ type: "ESModule", path: "_bundled.mjs", contents: bundle }],
+    modules: [
+      ...(opts.workerHarness ? [{ type: "ESModule" as const, path: "harness.mjs", contents: opts.workerHarness }] : []),
+      { type: "ESModule", path: "_bundled.mjs", contents: bundle },
+    ],
     compatibilityDate: WFP_COMPAT_DATE,
     compatibilityFlags: ["nodejs_compat"],
     bindings: {
@@ -258,6 +262,84 @@ let reporterBundle: Promise<string> | undefined;
 const reporter = () => (reporterBundle ??= bundled(REPORTER, "main.ts", false, true));
 
 describe("runtime-secrets activation in workerd", () => {
+  it.each(["single", "per-app"])("uses trusted TCP settings and the private activation manifest in %s mode", async (mode) => {
+    const source = `
+      import { staticEgress, secrets } from "base44:runtime";
+      export default async function() {
+        const results = [];
+        for (const hostname of ["sftp.example.com", "private.example.com"]) {
+          try {
+            const socket = await staticEgress.connect({ hostname, port: 2222 });
+            await socket.close();
+            results.push("dedicated");
+          } catch (error) { results.push(error.message); }
+        }
+        return Response.json({ results, manifest: secrets.get("BASE44_PRIVATE_DATA_SOURCES") ?? null });
+      }
+    `;
+    const module = mode === "single" ? await bundled(source, "main.ts", false, true)
+      : await bundledApp([{ name: "tcp", files: { "main.ts": source } }], false, true);
+    const workerHarness = `
+      import app from "./_bundled.mjs";
+      export default { fetch(request, env, ctx) {
+        return app.fetch(request, { ...env, STATIC_EGRESS: { async connect(address) {
+          if (address.hostname !== "sftp.example.com") throw new Error("Private target reached network binding");
+          return { close: async () => {} };
+        } } }, ctx);
+      } };
+    `;
+    for (const enabled of ["1", "0"]) {
+      await withPullIsolate(module, async (dispatch) => {
+        const response = await dispatch({ headers: { ...challenged().headers, "Base44-Function-Name": "tcp" } });
+        expect(response.status).toBe(200);
+        const result = await response.json() as { results: string[]; manifest: unknown };
+        expect(result.manifest).toBeNull();
+        expect(result.results).toEqual(enabled === "1"
+          ? ["dedicated", expect.stringContaining("not allowed")]
+          : [expect.stringContaining("not enabled"), expect.stringContaining("not enabled")]);
+      }, {
+        workerHarness,
+        bindings: { BASE44_STATIC_EGRESS_ENABLED: enabled },
+        secrets: {
+          BASE44_STATIC_EGRESS_ENABLED: enabled === "1" ? "0" : "1",
+          BASE44_PRIVATE_DATA_SOURCES: '[{"host":"private.example.com","password":"fixture-only"}]',
+        },
+      });
+    }
+  });
+
+  it.each(["single", "per-app"])("allows TCP with no activation manifest despite stale bindings in %s mode", async (mode) => {
+    const source = `
+      import { staticEgress } from "base44:runtime";
+      export default async function() {
+        const socket = await staticEgress.connect({ hostname: "sftp.example.com", port: 2222 });
+        await socket.close();
+        return new Response("connected");
+      }
+    `;
+    const module = mode === "single" ? await bundled(source, "main.ts", false, true)
+      : await bundledApp([{ name: "tcp", files: { "main.ts": source } }], false, true);
+    await withPullIsolate(module, async (dispatch) => {
+      const response = await dispatch({ headers: { ...challenged().headers, "Base44-Function-Name": "tcp" } });
+      expect(response.status).toBe(200);
+      expect(await response.text()).toBe("connected");
+    }, {
+      workerHarness: `
+        import app from "./_bundled.mjs";
+        export default { fetch(request, env, ctx) {
+          return app.fetch(request, { ...env, STATIC_EGRESS: { async connect() {
+            return { close: async () => {} };
+          } } }, ctx);
+        } };
+      `,
+      bindings: {
+        BASE44_STATIC_EGRESS_ENABLED: "1",
+        BASE44_PRIVATE_DATA_SOURCES: '[{"host":"sftp.example.com"}]',
+      },
+      secrets: {},
+    });
+  });
+
   it("cold isolate pulls the data key once — challenge and proof, no keypair — and serves the same request", async () => {
     await withPullIsolate(await reporter(), async (dispatch, { pulls }) => {
       const served = await dispatch(challenged());

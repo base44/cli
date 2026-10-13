@@ -37,6 +37,7 @@
         "src/runtime/**",
         "src/runtime-context.ts",
         "src/static-egress.ts",
+        "src/static-egress-tcp.ts",
         "src/private-data-sources/**"
       ],
       "ignoreDependencies": [
