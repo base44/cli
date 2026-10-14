@@ -90,6 +90,25 @@ describe("edge errors on a function's outbound fetches", () => {
     expect(report.dropped).toBe(2);
   });
 
+  it("never holds a fetch on a body that stalls", async () => {
+    vi.useFakeTimers();
+    try {
+      const stalledBody = () =>
+        new Response(new ReadableStream({ start() {} }), {
+          status: 403,
+          headers: { "cf-ray": "a4a477e719d71683-PDX", "content-length": "17" },
+        });
+      const pending = reportedErrors([stalledBody]);
+      await vi.advanceTimersByTimeAsync(500);
+      const { seen, report } = await pending;
+
+      expect(seen[0].status).toBe(403);
+      expect(report).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("marks errors that came back through dedicated static egress", async () => {
     const binding = { fetch: vi.fn(async () => edgeResponse("error code: 522", 522)) };
     const routed = createRequestScopedStaticEgressFetch(vi.fn<typeof fetch>(), () => ({

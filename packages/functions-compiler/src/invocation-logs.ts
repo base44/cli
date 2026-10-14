@@ -47,10 +47,9 @@ export const INVOCATION_LOGS_PATCH = [
   // classifies by message (errors.ts:41-45) rethrow so their 429 stands.
   "const _b44CrashResponse = (e) => {",
   "  const c = _b44Context();",
-  // Also answer after an edge error: the crash is usually its fallout, and this keeps it reported.
-  "  if (!c || !(c.invocationLogs || c.edgeErrors)) return null;",
+  "  if (!c || !c.invocationLogs) return null;",
   "  const m = String(e instanceof Error ? e.message : e).toLowerCase();",
   "  if (m.includes('cpu time limit') || m.includes('too many subrequests')) return null;",
-  "  return _b44AttachInvocationLogs(_b44AttachEdgeErrors(new Response(JSON.stringify({ error: 'user-exception', detail: 'user worker threw an exception' }), { status: 500, headers: { 'Content-Type': 'application/json' } })));",
+  "  return _b44AttachInvocationLogs(new Response(JSON.stringify({ error: 'user-exception', detail: 'user worker threw an exception' }), { status: 500, headers: { 'Content-Type': 'application/json' } }));",
   "};",
 ].join("\n");

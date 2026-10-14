@@ -2,7 +2,7 @@
  * Cloudflare-generated errors on a function's own outbound fetches (1000,
  * 1016, 522, 524, ...). They never reach our API, so the Worker is the only
  * place that sees them: it records each one in the request store and reports
- * them on its response in `X-B44-Edge-Errors`, which the platform proxy logs to
+ * them on its response in `X-B44-Edge-Errors`, which apper's proxy logs to
  * Datadog and strips (backend/app/cloudflare_functions/edge_errors.py).
  */
 
@@ -49,7 +49,6 @@ function safe(value: unknown): string | undefined {
 function parseEdgeErrorBody(body: string): EdgeErrorBody | null {
   const plain = PLAIN_TEXT_EDGE_ERROR.exec(body);
   if (plain) return { code: Number(plain[1]) };
-  if (!body.trimStart().startsWith("{")) return null;
   try {
     const json: unknown = JSON.parse(body);
     if (json === null || typeof json !== "object") return null;

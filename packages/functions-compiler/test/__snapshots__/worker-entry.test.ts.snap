@@ -57,10 +57,10 @@ const _b44AttachInvocationLogs = (res) => {
 };
 const _b44CrashResponse = (e) => {
   const c = _b44Context();
-  if (!c || !(c.invocationLogs || c.edgeErrors)) return null;
+  if (!c || !c.invocationLogs) return null;
   const m = String(e instanceof Error ? e.message : e).toLowerCase();
   if (m.includes('cpu time limit') || m.includes('too many subrequests')) return null;
-  return _b44AttachInvocationLogs(_b44AttachEdgeErrors(new Response(JSON.stringify({ error: 'user-exception', detail: 'user worker threw an exception' }), { status: 500, headers: { 'Content-Type': 'application/json' } })));
+  return _b44AttachInvocationLogs(new Response(JSON.stringify({ error: 'user-exception', detail: 'user worker threw an exception' }), { status: 500, headers: { 'Content-Type': 'application/json' } }));
 };
 // Static egress reads workerEnv from the active request store. Install it and
 // the edge-error recorder before telemetry so telemetry remains the outermost
@@ -257,10 +257,10 @@ const _b44AttachInvocationLogs = (res) => {
 };
 const _b44CrashResponse = (e) => {
   const c = _b44Context();
-  if (!c || !(c.invocationLogs || c.edgeErrors)) return null;
+  if (!c || !c.invocationLogs) return null;
   const m = String(e instanceof Error ? e.message : e).toLowerCase();
   if (m.includes('cpu time limit') || m.includes('too many subrequests')) return null;
-  return _b44AttachInvocationLogs(_b44AttachEdgeErrors(new Response(JSON.stringify({ error: 'user-exception', detail: 'user worker threw an exception' }), { status: 500, headers: { 'Content-Type': 'application/json' } })));
+  return _b44AttachInvocationLogs(new Response(JSON.stringify({ error: 'user-exception', detail: 'user worker threw an exception' }), { status: 500, headers: { 'Content-Type': 'application/json' } }));
 };
 // Static egress reads workerEnv from the active request store. Install it and
 // the edge-error recorder before telemetry so telemetry remains the outermost

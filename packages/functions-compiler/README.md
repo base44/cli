@@ -170,15 +170,11 @@ Workers need rebuilding; the workspace toggle does not install new code.
 
 ## Cloudflare edge errors on outbound fetches
 
-Every generated entry wraps `fetch` (`src/edge-errors.ts`) to catch errors
-Cloudflare's edge generates for a function's own fetches (1000, 522, 524, ...),
-which never reach Base44's API. It matches only Cloudflare's two body shapes,
-plain `error code: NNNN` or RFC 9457 JSON with `cloudflare_error: true`, and
-never changes the response the function sees. Up to five per request ride the
-response in `X-B44-Edge-Errors`; apper's proxy logs them to Datadog and strips
-the header (`backend/app/cloudflare_functions/edge_errors.py`). The file
-matches apper's `infra/base44-userapp-bundler/src/edge-errors.ts`; keep them
-aligned until the in-repo compiler is retired.
+Every generated entry wraps `fetch` (`src/edge-errors.ts`) and reports the
+errors Cloudflare's own edge returns to a function's outbound calls (1000, 522,
+524, ...), which never reach Base44's API, in `X-B44-Edge-Errors`. apper's proxy
+logs them to Datadog and strips the header
+(`backend/app/cloudflare_functions/edge_errors.py`).
 
 ## Layout
 
