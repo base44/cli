@@ -6,12 +6,13 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { Deno as ShimDeno } from "@deno/shim-deno";
 import { Buffer } from "node:buffer";
 
+import { attachEdgeErrors, installEdgeErrorFetch } from "../edge-errors";
 import { installStaticEgressFetch } from "../static-egress";
 import { installStaticEgressTcp } from "../static-egress-tcp.js";
 
 installStaticEgressTcp();
 
-export { installStaticEgressFetch };
+export { attachEdgeErrors, installEdgeErrorFetch, installStaticEgressFetch };
 
 type DenoServeHandler = (
   request: Request,

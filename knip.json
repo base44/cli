@@ -36,6 +36,7 @@
         "src/shim/**",
         "src/runtime/**",
         "src/runtime-context.ts",
+        "src/edge-errors.ts",
         "src/static-egress.ts",
         "src/static-egress-tcp.ts",
         "src/private-data-sources/**"

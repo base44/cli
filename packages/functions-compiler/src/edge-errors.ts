@@ -1,0 +1,182 @@
+/**
+ * Cloudflare-generated errors on a function's own outbound fetches (1000,
+ * 1016, 522, 524, ...). They never reach our API, so the Worker is the only
+ * place that sees them: it records each one in the request store and reports
+ * them on its response in `X-B44-Edge-Errors`, which apper's proxy logs to
+ * Datadog and strips (backend/app/cloudflare_functions/edge_errors.py).
+ *
+ * Only Cloudflare's own response shapes count (sources in test/edge-errors.test.ts):
+ * - plain text `error code: NNNN`, what non-browser clients receive;
+ * - RFC 9457 JSON with `cloudflare_error: true`, to `Accept: application/json`
+ *   (https://developers.cloudflare.com/fundamentals/reference/error-responses/);
+ * - a challenge, marked `cf-mitigated: challenge`
+ *   (https://developers.cloudflare.com/cloudflare-challenges/challenge-types/challenge-pages/detect-response/);
+ * - the unbranded 5xx page signed `<center>cloudflare</center>`
+ *   (https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-5xx-errors/error-502-504/).
+ */
+
+import { currentWorkerRuntimeContext } from "./private-data-sources/runtime-environment";
+import { isDedicatedEgressResponse } from "./static-egress";
+
+export const EDGE_ERRORS_HEADER = "X-B44-Edge-Errors";
+export const MAX_EDGE_ERRORS = 5;
+
+// Cloudflare's own bodies are ~16 bytes as text and ~1.5 KB as JSON; longer or
+// slower bodies are not theirs, and are never read in full.
+const MAX_INSPECTED_BODY_BYTES = 8192;
+const BODY_READ_TIMEOUT_MS = 500;
+const PLAIN_TEXT_EDGE_ERROR = /^error code: (\d{3,4})\s*$/;
+const UNBRANDED_5XX_PAGE = /<center>cloudflare<\/center>/i;
+// Header values must stay ASCII (workerd's headers.set throws above 0xff).
+const SAFE_VALUE = /^[\x20-\x7e]{1,253}$/;
+
+interface EdgeErrorBody {
+  code: number;
+  name?: string;
+  category?: string;
+  zone?: string;
+}
+
+interface EdgeError extends EdgeErrorBody {
+  target: string;
+  status: number;
+  ray: string;
+  egress: "dedicated" | "shared";
+  elapsed_ms: number;
+}
+
+interface EdgeErrorStore {
+  edgeErrors?: { errors: EdgeError[]; dropped: number };
+}
+
+function safe(value: unknown): string | undefined {
+  return typeof value === "string" && SAFE_VALUE.test(value) ? value : undefined;
+}
+
+function parseEdgeErrorBody(body: string, status: number): EdgeErrorBody | null {
+  const plain = PLAIN_TEXT_EDGE_ERROR.exec(body);
+  if (plain) return { code: Number(plain[1]) };
+  if (status >= 500 && UNBRANDED_5XX_PAGE.test(body)) return { code: status };
+  try {
+    const json: unknown = JSON.parse(body);
+    if (json === null || typeof json !== "object") return null;
+    const fields = json as Record<string, unknown>;
+    if (fields.cloudflare_error !== true || !Number.isInteger(fields.error_code)) return null;
+    return {
+      code: fields.error_code as number,
+      name: safe(fields.error_name),
+      category: safe(fields.error_category),
+      zone: safe(fields.zone),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Up to MAX_INSPECTED_BODY_BYTES of a clone's body, read for at most
+ *  BODY_READ_TIMEOUT_MS; null when the body is longer or unreadable. A
+ *  Content-Length is not required: an HTML page may arrive without one. */
+async function readBodyPrefix(response: Response): Promise<string | null> {
+  if (Number(response.headers.get("content-length")) > MAX_INSPECTED_BODY_BYTES) return null;
+  const reader = response.clone().body?.getReader();
+  if (!reader) return "";
+  // A timeout ends the read early; a partial body never parses as a Cloudflare error.
+  const timer = setTimeout(() => reader.cancel().catch(() => {}), BODY_READ_TIMEOUT_MS);
+  const decoder = new TextDecoder();
+  let text = "";
+  let size = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_INSPECTED_BODY_BYTES) return null;
+      text += decoder.decode(value, { stream: true });
+    }
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+    reader.cancel().catch(() => {});
+  }
+  return text + decoder.decode();
+}
+
+async function readEdgeError(response: Response): Promise<EdgeErrorBody | null> {
+  if (response.status < 400 || !response.headers.get("cf-ray")) return null;
+  if (response.headers.get("cf-mitigated") === "challenge") {
+    return { code: response.status, name: "challenge" };
+  }
+  const body = await readBodyPrefix(response);
+  return body === null ? null : parseEdgeErrorBody(body, response.status);
+}
+
+function targetOrigin(input: RequestInfo | URL): string | null {
+  try {
+    const raw = input instanceof URL ? input.href : typeof input === "string" ? input : input.url;
+    return new URL(raw).origin;
+  } catch {
+    return null;
+  }
+}
+
+async function recordEdgeError(
+  input: RequestInfo | URL,
+  response: Response,
+  startedAt: number,
+): Promise<void> {
+  const store = currentWorkerRuntimeContext() as EdgeErrorStore | undefined;
+  if (!store) return;
+  const body = await readEdgeError(response);
+  const target = targetOrigin(input);
+  if (!body || !target) return;
+  const record = (store.edgeErrors ??= { errors: [], dropped: 0 });
+  if (record.errors.length >= MAX_EDGE_ERRORS) {
+    record.dropped += 1;
+    return;
+  }
+  record.errors.push({
+    ...body,
+    target,
+    status: response.status,
+    ray: safe(response.headers.get("cf-ray")) ?? "",
+    egress: isDedicatedEgressResponse(response) ? "dedicated" : "shared",
+    elapsed_ms: Date.now() - startedAt,
+  });
+}
+
+export function createEdgeErrorFetch(innerFetch: typeof fetch): typeof fetch {
+  return async (input: RequestInfo | URL, init?: RequestInit) => {
+    const startedAt = Date.now();
+    const response = await innerFetch(input, init);
+    try {
+      await recordEdgeError(input, response, startedAt);
+    } catch {
+      // Observation only: never fail the function's own fetch.
+    }
+    return response;
+  };
+}
+
+let edgeErrorFetchInstalled = false;
+
+export function installEdgeErrorFetch(): void {
+  if (edgeErrorFetchInstalled) return;
+  globalThis.fetch = createEdgeErrorFetch(globalThis.fetch.bind(globalThis));
+  edgeErrorFetchInstalled = true;
+}
+
+/** Mirrors this request's edge errors onto its response; clean requests and
+ *  upgrade responses pass through untouched. */
+export function attachEdgeErrors<T>(response: T): T {
+  const record = (currentWorkerRuntimeContext() as EdgeErrorStore | undefined)?.edgeErrors;
+  if (!record || !(response instanceof Response)) return response;
+  if (response.status === 101 || (response as { webSocket?: unknown }).webSocket) return response;
+  try {
+    const wrapped = new Response(response.body, response);
+    wrapped.headers.set(EDGE_ERRORS_HEADER, JSON.stringify(record));
+    return wrapped as T;
+  } catch {
+    return response;
+  }
+}

@@ -168,6 +168,16 @@ enforced without making the manifest user-importable.
 Release this package before bumping apper's compiler pin. Existing compiled
 Workers need rebuilding; the workspace toggle does not install new code.
 
+## Cloudflare edge errors on outbound fetches
+
+Every generated entry wraps `fetch` (`src/edge-errors.ts`) and reports the
+errors Cloudflare's own edge returns to a function's outbound calls (1000, 522,
+524, challenges, ...), which never reach Base44's API, in `X-B44-Edge-Errors`.
+Only Cloudflare's own response shapes count; each one has a test in
+`test/edge-errors.test.ts` citing where it is documented or was observed.
+apper's proxy logs them to Datadog and strips the header
+(`backend/app/cloudflare_functions/edge_errors.py`).
+
 ## Layout
 
 | Path | What it is |
@@ -175,7 +185,7 @@ Workers need rebuilding; the workspace toggle does not install new code.
 | `src/bundler.ts` | Single-function and combined-app compilation, error attribution |
 | `src/deno-bundle.ts`, `src/esbuild/` | esbuild execution and the resolver/virtual-module plugins |
 | `src/worker-entry.ts`, `src/actor-compat.ts` | Generated worker entry and the Actor wrapper |
-| `src/shim/`, `src/static-egress.ts` | Shim sources — esbuild inputs for `build:shim`, never imported |
+| `src/shim/`, `src/static-egress.ts`, `src/edge-errors.ts` | Shim sources — esbuild inputs for `build:shim`, never imported |
 | `src/runtime/`, `src/runtime-context.ts`, `src/private-data-sources/` | Compile-time assets read as **text** and injected into the user bundle |
 
 The compile-time assets must stay TypeScript: the virtual plugins load them
@@ -197,7 +207,7 @@ whether it compiles or not.
 **Do not reformat an asset.** Their text goes into the user's bundle, so
 whitespace is part of the emitted worker bytes — running Biome over
 `src/shim/`, `src/private-data-sources/`, `src/runtime/`, `runtime-context.ts`,
-`static-egress.ts`, `static-egress-tcp.ts`, `static-egress-tcp-core.mjs`
+`edge-errors.ts`, `static-egress.ts`, `static-egress-tcp.ts`, `static-egress-tcp-core.mjs`
 or `static-egress-marker.ts` changes what every compiled
 function hashes to. `biome.json` excludes those paths for that reason. The
 `test/` directory is likewise held byte-identical to apper's copy until that

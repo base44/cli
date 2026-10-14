@@ -16,6 +16,11 @@ interface FetchBinding {
 
 let staticEgressFetchInstalled = false;
 let staticEgressDiagnosticCount = 0;
+const dedicatedEgressResponses = new WeakSet<Response>();
+
+export function isDedicatedEgressResponse(response: Response): boolean {
+  return dedicatedEgressResponses.has(response);
+}
 
 type StaticEgressRoute = "dedicated" | "excluded" | "fallback";
 
@@ -162,7 +167,10 @@ export function createRequestScopedStaticEgressFetch(
       return originalFetch(input, init);
     }
     logStaticEgressDecision("dedicated", input, binding, enableSecret);
-    return binding.fetch(input, init);
+    return binding.fetch(input, init).then((response) => {
+      dedicatedEgressResponses.add(response);
+      return response;
+    });
   };
 }
 
