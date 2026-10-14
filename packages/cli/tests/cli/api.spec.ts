@@ -1,0 +1,360 @@
+import { access, readFile, utimes, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import type { Request, Response } from "express";
+import { beforeEach, describe, expect, it } from "vitest";
+import { fixture, setupCLITests } from "./testkit/index.js";
+
+interface CapturedRequest {
+  url: string;
+  authorization?: string;
+  contentType?: string;
+  body: string;
+}
+
+function capture(req: Request): CapturedRequest {
+  const body = Buffer.isBuffer(req.body)
+    ? req.body.toString("utf-8")
+    : req.body && Object.keys(req.body).length > 0
+      ? JSON.stringify(req.body)
+      : "";
+  return {
+    url: req.originalUrl,
+    authorization: req.headers.authorization,
+    contentType: req.headers["content-type"],
+    body,
+  };
+}
+
+describe("api command", () => {
+  const t = setupCLITests();
+  let specText: string;
+  let specFetches: number;
+  let sent: CapturedRequest[];
+
+  const cachePath = () => {
+    const server = new URL(t.api.baseUrl).host.replace(":", "_");
+    return join(t.getTempDir(), ".base44", "cache", server, "openapi.json");
+  };
+
+  beforeEach(async () => {
+    specText = await readFile(fixture("api-spec/openapi.json"), "utf-8");
+    specFetches = 0;
+    sent = [];
+    t.api.mockRoute("GET", "/api/openapi.json", (_req, res) => {
+      specFetches++;
+      res.type("application/json").send(specText);
+    });
+  });
+
+  describe("search", () => {
+    it("returns the best matches as JSON", async () => {
+      const result = await t.run("api", "search", "workflow", "runs");
+
+      t.expectResult(result).toSucceed();
+      expect(JSON.parse(result.stdout)[0]).toEqual({
+        method: "GET",
+        path: "/api/apps/{app_id}/workflows/runs",
+        summary: "List workflow runs for an app",
+        readOnly: true,
+      });
+    });
+
+    it("returns only read-only operations with --read-only", async () => {
+      const result = await t.run("api", "search", "workflow", "--read-only");
+
+      t.expectResult(result).toSucceed();
+      const results = JSON.parse(result.stdout);
+      expect(results.length).toBeGreaterThan(0);
+      expect(results.every((r: { readOnly: boolean }) => r.readOnly)).toBe(
+        true,
+      );
+    });
+
+    it("rejects a malformed --limit", async () => {
+      const result = await t.run("api", "search", "apps", "--limit", "0");
+
+      t.expectResult(result).toFail();
+      t.expectResult(result).toContain("--limit must be a positive integer");
+    });
+  });
+
+  describe("spec cache", () => {
+    it("saves the spec as is and reuses it within the hour", async () => {
+      await t.run("api", "search", "apps");
+      const second = await t.run("api", "search", "apps");
+
+      t.expectResult(second).toSucceed();
+      expect(specFetches).toBe(1);
+      expect(await readFile(cachePath(), "utf-8")).toBe(specText);
+    });
+
+    it("fetches again with --refresh", async () => {
+      await t.run("api", "search", "apps");
+      await t.run("api", "search", "apps", "--refresh");
+
+      expect(specFetches).toBe(2);
+    });
+
+    it("fetches again once the cached copy is over an hour old", async () => {
+      await t.run("api", "search", "apps");
+      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+      await utimes(cachePath(), twoHoursAgo, twoHoursAgo);
+
+      await t.run("api", "search", "apps");
+
+      expect(specFetches).toBe(2);
+    });
+
+    it("does not cache a spec it cannot parse", async () => {
+      specText = '{"not":"a spec"}';
+      const result = await t.run("api", "search", "apps");
+
+      t.expectResult(result).toFail();
+      t.expectResult(result).toContain("Invalid API spec");
+      await expect(access(cachePath())).rejects.toThrow();
+    });
+  });
+
+  describe("grep", () => {
+    it("returns regex matches grouped by operation or schema", async () => {
+      const result = await t.run("api", "grep", "trigger_\\w+");
+
+      t.expectResult(result).toSucceed();
+      expect(JSON.parse(result.stdout)).toEqual([
+        {
+          schema: "WorkflowCreate",
+          matches: [expect.stringContaining("trigger_status")],
+        },
+      ]);
+    });
+
+    it("rejects an invalid regular expression", async () => {
+      const result = await t.run("api", "grep", "(unclosed");
+
+      t.expectResult(result).toFail();
+      t.expectResult(result).toContain("Invalid regular expression");
+    });
+  });
+
+  describe("fetch", () => {
+    beforeEach(async () => {
+      await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+      const record = (status: number) => (req: Request, res: Response) => {
+        sent.push(capture(req));
+        res.status(status).json({ ok: true, echoed: sent.at(-1)?.body });
+      };
+      t.api
+        .mockRoute("GET", "/api/apps/:appId/workflows/runs", record(200))
+        .mockRoute("POST", "/api/apps/:appId/secrets", record(200))
+        .mockRoute("DELETE", "/api/apps/:appId/workflows/:id", record(200))
+        .mockRoute("GET", "/api/brand-new-route", record(200))
+        .mockRoute("GET", "/api/apps/:appId/forbidden", (_req, res) => {
+          res.status(403).json({ detail: "You cannot open this app" });
+        });
+    });
+
+    it("sends the path and query string as is, with the login attached", async () => {
+      const result = await t.run(
+        "api",
+        "fetch",
+        "get",
+        "/api/apps/68a1/workflows/runs?status=failed&since=2026-10-10",
+      );
+
+      t.expectResult(result).toSucceed();
+      expect(sent).toEqual([
+        expect.objectContaining({
+          url: "/api/apps/68a1/workflows/runs?status=failed&since=2026-10-10",
+          authorization: "Bearer test-access-token",
+        }),
+      ]);
+      expect(JSON.parse(result.stdout)).toMatchObject({ ok: true });
+      expect(specFetches).toBe(0);
+    });
+
+    it("prints the response compact when piped", async () => {
+      const result = await t.run("api", "fetch", "GET", "/api/brand-new-route");
+
+      t.expectResult(result).toSucceed();
+      expect(result.stdout).toBe('{"ok":true,"echoed":""}');
+    });
+
+    it("sends a --body JSON flag", async () => {
+      const result = await t.run(
+        "api",
+        "fetch",
+        "POST",
+        "/api/apps/68a1/secrets",
+        "--body",
+        '{"name":"KEY","value":"v"}',
+      );
+
+      t.expectResult(result).toSucceed();
+      expect(sent[0]).toMatchObject({
+        contentType: "application/json",
+        body: '{"name":"KEY","value":"v"}',
+      });
+    });
+
+    it("sends a --body @file", async () => {
+      const file = join(t.getTempDir(), "body.json");
+      await writeFile(file, '{"from":"file"}');
+
+      const result = await t.run(
+        "api",
+        "fetch",
+        "POST",
+        "/api/apps/68a1/secrets",
+        "--body",
+        `@${file}`,
+      );
+
+      t.expectResult(result).toSucceed();
+      expect(sent[0]?.body).toBe('{"from":"file"}');
+    });
+
+    it("sends stdin with --body @-", async () => {
+      t.givenStdin('{"from":"stdin"}');
+
+      const result = await t.run(
+        "api",
+        "fetch",
+        "POST",
+        "/api/apps/68a1/secrets",
+        "--body",
+        "@-",
+      );
+
+      t.expectResult(result).toSucceed();
+      expect(sent[0]?.body).toBe('{"from":"stdin"}');
+    });
+
+    it("sends piped stdin without --body", async () => {
+      t.givenStdin('{"from":"pipe"}');
+
+      const result = await t.run(
+        "api",
+        "fetch",
+        "POST",
+        "/api/apps/68a1/secrets",
+      );
+
+      t.expectResult(result).toSucceed();
+      expect(sent[0]?.body).toBe('{"from":"pipe"}');
+    });
+
+    it("reports the server's error", async () => {
+      const result = await t.run(
+        "api",
+        "fetch",
+        "GET",
+        "/api/apps/68a1/forbidden",
+      );
+
+      t.expectResult(result).toFail();
+      t.expectResult(result).toContain("You cannot open this app");
+    });
+
+    it("sends a path the spec does not know", async () => {
+      const result = await t.run("api", "fetch", "GET", "/api/brand-new-route");
+
+      t.expectResult(result).toSucceed();
+      expect(sent).toHaveLength(1);
+    });
+
+    describe("--read-only", () => {
+      it("refuses an unsafe operation without sending it", async () => {
+        const result = await t.run(
+          "api",
+          "fetch",
+          "DELETE",
+          "/api/apps/68a1/workflows/wf_9",
+          "--read-only",
+        );
+
+        t.expectResult(result).toFail();
+        t.expectResult(result).toContain(
+          "DELETE /api/apps/{app_id}/workflows/{workflow_id} is not a read-only operation",
+        );
+        expect(sent).toEqual([]);
+      });
+
+      it("refuses a path the spec does not know without sending it", async () => {
+        const result = await t.run(
+          "api",
+          "fetch",
+          "GET",
+          "/api/brand-new-route",
+          "--read-only",
+        );
+
+        t.expectResult(result).toFail();
+        t.expectResult(result).toContain(
+          "No operation in the API spec matches",
+        );
+        expect(sent).toEqual([]);
+      });
+
+      it("sends a read-only operation", async () => {
+        const result = await t.run(
+          "api",
+          "fetch",
+          "GET",
+          "/api/apps/68a1/workflows/runs?status=failed",
+          "--read-only",
+        );
+
+        t.expectResult(result).toSucceed();
+        expect(sent).toHaveLength(1);
+      });
+    });
+
+    describe("--help", () => {
+      it("prints the matched operation's contract without sending", async () => {
+        const result = await t.run(
+          "api",
+          "fetch",
+          "POST",
+          "/api/apps/68a1/workflows",
+          "--help",
+        );
+
+        t.expectResult(result).toSucceed();
+        const contract = JSON.parse(result.stdout);
+        expect(contract).toMatchObject({
+          method: "POST",
+          path: "/api/apps/{app_id}/workflows",
+          readOnly: false,
+          parameters: [expect.objectContaining({ name: "app_id" })],
+        });
+        expect(contract.refs).toHaveProperty(
+          "#/components/schemas/WorkflowCreate",
+        );
+        expect(sent).toEqual([]);
+      });
+
+      it("prints the command help without a path", async () => {
+        const result = await t.run("api", "fetch", "--help");
+
+        t.expectResult(result).toSucceed();
+        t.expectResult(result).toContain("Usage: base44 api fetch");
+      });
+    });
+  });
+});
+
+describe("api fetch when logged out", () => {
+  const t = setupCLITests();
+
+  it("prints a contract without a login", async () => {
+    const specText = await readFile(fixture("api-spec/openapi.json"), "utf-8");
+    t.api.mockRoute("GET", "/api/openapi.json", (_req, res) => {
+      res.type("application/json").send(specText);
+    });
+
+    const result = await t.run("api", "fetch", "GET", "/api/apps", "--help");
+
+    t.expectResult(result).toSucceed();
+    expect(JSON.parse(result.stdout)).toMatchObject({ path: "/api/apps" });
+  });
+});

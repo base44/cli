@@ -43,6 +43,9 @@ The CLI will guide you through project setup. For step-by-step tutorials, see th
 
 | Command | Description |
 | ------- | ----------- |
+| `api search <text>` | Search every public Base44 API operation by what it does |
+| `api grep <pattern>` | Search the raw API spec with a regular expression |
+| `api fetch <METHOD> <path>` | Call any public Base44 API operation, like curl; `--help` after a path prints its contract |
 | [`create`](https://docs.base44.com/developers/references/cli/commands/create) | Create a new Base44 project from a template |
 | [`deploy`](https://docs.base44.com/developers/references/cli/commands/deploy) | Deploy all project resources and site to Base44 |
 | [`eject`](https://docs.base44.com/developers/references/cli/commands/eject) | Download the code for an existing Base44 project |
