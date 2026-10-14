@@ -172,8 +172,10 @@ Workers need rebuilding; the workspace toggle does not install new code.
 
 Every generated entry wraps `fetch` (`src/edge-errors.ts`) and reports the
 errors Cloudflare's own edge returns to a function's outbound calls (1000, 522,
-524, ...), which never reach Base44's API, in `X-B44-Edge-Errors`. apper's proxy
-logs them to Datadog and strips the header
+524, challenges, ...), which never reach Base44's API, in `X-B44-Edge-Errors`.
+Only Cloudflare's own response shapes count; each one has a test in
+`test/edge-errors.test.ts` citing where it is documented or was observed.
+apper's proxy logs them to Datadog and strips the header
 (`backend/app/cloudflare_functions/edge_errors.py`).
 
 ## Layout

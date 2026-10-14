@@ -4,6 +4,15 @@
  * place that sees them: it records each one in the request store and reports
  * them on its response in `X-B44-Edge-Errors`, which apper's proxy logs to
  * Datadog and strips (backend/app/cloudflare_functions/edge_errors.py).
+ *
+ * Only Cloudflare's own response shapes count (sources in test/edge-errors.test.ts):
+ * - plain text `error code: NNNN`, what non-browser clients receive;
+ * - RFC 9457 JSON with `cloudflare_error: true`, to `Accept: application/json`
+ *   (https://developers.cloudflare.com/fundamentals/reference/error-responses/);
+ * - a challenge, marked `cf-mitigated: challenge`
+ *   (https://developers.cloudflare.com/cloudflare-challenges/challenge-types/challenge-pages/detect-response/);
+ * - the unbranded 5xx page signed `<center>cloudflare</center>`
+ *   (https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-5xx-errors/error-502-504/).
  */
 
 import { currentWorkerRuntimeContext } from "./private-data-sources/runtime-environment";
@@ -12,11 +21,12 @@ import { isDedicatedEgressResponse } from "./static-egress";
 export const EDGE_ERRORS_HEADER = "X-B44-Edge-Errors";
 export const MAX_EDGE_ERRORS = 5;
 
-// Cloudflare's own bodies are ~16 bytes as text and ~1.5 KB as JSON; only a
-// body whose length is known up front is read, so a stream never stalls a fetch.
+// Cloudflare's own bodies are ~16 bytes as text and ~1.5 KB as JSON; longer or
+// slower bodies are not theirs, and are never read in full.
 const MAX_INSPECTED_BODY_BYTES = 8192;
 const BODY_READ_TIMEOUT_MS = 500;
 const PLAIN_TEXT_EDGE_ERROR = /^error code: (\d{3,4})\s*$/;
+const UNBRANDED_5XX_PAGE = /<center>cloudflare<\/center>/i;
 // Header values must stay ASCII (workerd's headers.set throws above 0xff).
 const SAFE_VALUE = /^[\x20-\x7e]{1,253}$/;
 
@@ -43,12 +53,10 @@ function safe(value: unknown): string | undefined {
   return typeof value === "string" && SAFE_VALUE.test(value) ? value : undefined;
 }
 
-/** The code of an error Cloudflare's edge generated itself, or null for an
- *  origin's own response. Cloudflare answers plain text (`error code: 1000`)
- *  or, to some clients, RFC 9457 JSON flagged `cloudflare_error`. */
-function parseEdgeErrorBody(body: string): EdgeErrorBody | null {
+function parseEdgeErrorBody(body: string, status: number): EdgeErrorBody | null {
   const plain = PLAIN_TEXT_EDGE_ERROR.exec(body);
   if (plain) return { code: Number(plain[1]) };
+  if (status >= 500 && UNBRANDED_5XX_PAGE.test(body)) return { code: status };
   try {
     const json: unknown = JSON.parse(body);
     if (json === null || typeof json !== "object") return null;
@@ -65,24 +73,42 @@ function parseEdgeErrorBody(body: string): EdgeErrorBody | null {
   }
 }
 
-async function readEdgeError(response: Response): Promise<EdgeErrorBody | null> {
-  if (response.status < 400) return null;
-  const length = Number(response.headers.get("content-length"));
-  if (!response.headers.get("cf-ray") || !(length > 0 && length <= MAX_INSPECTED_BODY_BYTES)) {
-    return null;
-  }
-  let timer: ReturnType<typeof setTimeout> | undefined;
+/** Up to MAX_INSPECTED_BODY_BYTES of a clone's body, read for at most
+ *  BODY_READ_TIMEOUT_MS; null when the body is longer or unreadable. A
+ *  Content-Length is not required: an HTML page may arrive without one. */
+async function readBodyPrefix(response: Response): Promise<string | null> {
+  if (Number(response.headers.get("content-length")) > MAX_INSPECTED_BODY_BYTES) return null;
+  const reader = response.clone().body?.getReader();
+  if (!reader) return "";
+  // A timeout ends the read early; a partial body never parses as a Cloudflare error.
+  const timer = setTimeout(() => reader.cancel().catch(() => {}), BODY_READ_TIMEOUT_MS);
+  const decoder = new TextDecoder();
+  let text = "";
+  let size = 0;
   try {
-    const body = await Promise.race([
-      response.clone().text(),
-      new Promise<null>((resolve) => {
-        timer = setTimeout(() => resolve(null), BODY_READ_TIMEOUT_MS);
-      }),
-    ]);
-    return body === null ? null : parseEdgeErrorBody(body);
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_INSPECTED_BODY_BYTES) return null;
+      text += decoder.decode(value, { stream: true });
+    }
+  } catch {
+    return null;
   } finally {
     clearTimeout(timer);
+    reader.cancel().catch(() => {});
   }
+  return text + decoder.decode();
+}
+
+async function readEdgeError(response: Response): Promise<EdgeErrorBody | null> {
+  if (response.status < 400 || !response.headers.get("cf-ray")) return null;
+  if (response.headers.get("cf-mitigated") === "challenge") {
+    return { code: response.status, name: "challenge" };
+  }
+  const body = await readBodyPrefix(response);
+  return body === null ? null : parseEdgeErrorBody(body, response.status);
 }
 
 function targetOrigin(input: RequestInfo | URL): string | null {
