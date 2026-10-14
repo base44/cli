@@ -28,6 +28,7 @@
       "!packages/functions-compiler/src/private-data-sources/**",
       "!packages/functions-compiler/src/runtime/**",
       "!packages/functions-compiler/src/runtime-context.ts",
+      "!packages/functions-compiler/src/edge-errors.ts",
       "!packages/functions-compiler/src/static-egress.ts",
       "!packages/functions-compiler/src/static-egress-tcp.ts",
       "!packages/functions-compiler/src/static-egress-tcp-core.mjs",

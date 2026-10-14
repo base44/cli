@@ -31,6 +31,8 @@ const _b44Store = new AsyncLocalStorage();
 const _b44Context = () => _b44Store.getStore();
 ${CONSOLE_PATCH}
 ${INVOCATION_LOGS_PATCH}
+// The shim's edge-error hook (test/edge-errors.test.ts); its header is not under test here.
+const _b44AttachEdgeErrors = (res) => res;
 export default {
   async fetch(request, env, ctx) {
     try {
@@ -94,6 +96,16 @@ describe("a request that did not ask for its logs", () => {
     expect(status).toBe(500);
     expect(json()).toEqual({ error: "dispatcher" });
     expect(header).toBeNull();
+  });
+
+  it("answers a crash itself after an edge error, so the edge-error report reaches the proxy", async () => {
+    const { status, json } = await invoke(
+      `_b44Context().edgeErrors = { errors: [], dropped: 0 }; throw new Error("boom");`,
+      { capture: false },
+    );
+
+    expect(status).toBe(500);
+    expect(json()).toEqual({ error: "user-exception", detail: "user worker threw an exception" });
   });
 });
 

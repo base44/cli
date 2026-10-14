@@ -137,7 +137,7 @@ describe("prepareApp", () => {
 
     expect(entry).toContain("..._b44CaptureStore(request)");
     expect(entry).toContain("_b44Capture(_c, lvl, _m)");
-    expect(entry).toContain("_b44AttachInvocationLogs(await handler(request, info))");
+    expect(entry).toContain("_b44AttachInvocationLogs(_b44AttachEdgeErrors(await handler(request, info)))");
     // The 404 / init-500 / 503 early returns and the crash path answer through
     // the same attach: an import error is the test tool's most common failure.
     expect(entry.match(/_b44AttachInvocationLogs\(/g)).toHaveLength(5);
@@ -151,7 +151,7 @@ describe("prepareApp", () => {
     );
 
     expect(result.files["__base44_entry.mjs"]).toContain(
-      "_b44AttachInvocationLogs(_b44AttachTelemetry(await handler(request, info)))",
+      "_b44AttachInvocationLogs(_b44AttachEdgeErrors(_b44AttachTelemetry(await handler(request, info))))",
     );
   });
 
