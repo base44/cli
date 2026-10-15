@@ -36,29 +36,14 @@ Omitting the flag preserves existing main-app behavior.
 
 `src/cli/commands/api/` (`catalog`, `search`, `grep`, `fetch`) is driven by the server's OpenAPI spec at runtime, with no per-endpoint code. The logic lives in `src/core/api-spec/`.
 
-### Spec and cache
-
-- The spec is `GET /api/openapi.json` from `getBase44ApiUrl()`, saved as is to `~/.base44/cache/<server>/openapi.json`.
-- The cache is reused for one hour; `--refresh` forces a download. An unreadable cached copy is downloaded again.
-- The file is written to a temp file and renamed, so a concurrent run never reads a partial file. The download allows 60 s.
-- The file is parsed on every run; there is no index file.
-
-### Listings (`catalog`, `search`, `grep`)
-
-- Every listing identifies an operation as `{endpoint, summary}`, where `endpoint` is `METHOD /path/template`.
-- An area (`catalog`, `grep --area`) is the path segment after `{app_id}`, else the one after `/api`.
-- Read-only comes from the operation's `security` list: `PersonalAccessTokenAuth: ["read_only"]` (the backend's `@read_safe`). It is not printed; `--read-only` filters by it.
-
-### `fetch`
-
-- The concrete path goes as is through `base44Client`, so every auth mode works. Nothing is validated locally; the server validates.
-- There is no timeout: a call such as a deploy can take minutes.
-- The spec is read only for `--help` and `--read-only`, so a route newer than the cache still works. Both send nothing, so they run before the login check.
-- `--help` after a method and path prints the operation's contract instead of the command help, so Commander's help option is disabled. The contract has the parameters, `requestBodySchema` and the success `responseSchema`, with `$ref`s inlined to depth 4; a cycle keeps its `$ref`, listed under `refs`. It also has an `errors` map of status to description, without FastAPI's generic 422. Schemas drop FastAPI's generated `title`s and write `anyOf: [X, null]` as `type: [X, "null"]`; descriptions drop docs-site markup (callout tags, relative links) and keep their text.
-- `--read-only` refuses, before sending, any operation the spec does not mark read-only. The server stays the real guard for a read-only token.
-- The body comes from `--body '<json>'`, `--body @file.json` or `--body @-`. Stdin is read only for `@-`, because an agent harness can hold stdin open forever. A pipe or file on stdin without `--body` gets a warning that it is ignored.
-- Output: a JSON body as JSON; other text as is, or `{status, contentType, body}` under `--json`; `{"status": N}` for an empty body; `{status, contentType, bytes, note}` for a binary body. `--output <file>` saves any body as is.
-- A failed call reports to telemetry without the request or response body, `--body`, or the query string, since any endpoint can carry secrets. The server's raw reply goes to the caller in the error's details.
+- The spec (`GET /api/openapi.json`) is cached per server under `~/.base44/cache/<server>/` for one hour; `--refresh` forces a download.
+- Read-only comes from each operation's `security` list: `PersonalAccessTokenAuth: ["read_only"]` (the backend's `@read_safe`). `--read-only` filters or refuses by it; the server stays the real guard.
+- `fetch` sends the path as is through `base44Client`, so every auth mode works. Don't add local validation; the server validates.
+- `fetch` reads the spec only for `--help` and `--read-only`, so a route newer than the cache still works. Both send nothing, so they run before the login check.
+- `fetch` disables Commander's help option, so `--help` after a method and path can print that operation's contract.
+- `fetch` has no timeout: a call such as a deploy can take minutes.
+- `fetch` reads stdin only for `--body @-`. An agent harness can hold stdin open forever, so reading it unasked would hang the call.
+- A failed `fetch` reports to telemetry without the request or response body, `--body`, or the query string: any endpoint can carry secrets.
 
 ## Command File Template
 
