@@ -61,7 +61,7 @@ export function getApiGrepCommand(): Command {
     requireAppContext: false,
   })
     .description(
-      "Search the raw API spec with a regular expression, for when search misses",
+      "Search the API spec with a regular expression, for when search misses",
     )
     .argument("<pattern>", 'Regular expression, e.g. "runs.*status"')
     .option(

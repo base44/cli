@@ -171,7 +171,7 @@ export function getApiFetchCommand(): Command {
     requireAppContext: false,
   })
     .description(
-      "Call a Base44 API operation, like curl; add --help after a path for its contract",
+      "Call a Base44 API operation; add --help after a path for its contract",
     )
     .helpOption(false)
     .argument("[method]", "HTTP method, e.g. GET or POST")

@@ -68,8 +68,8 @@ function isPipedStdin(): boolean {
 
 /**
  * The body from `--body '<json>'`, `--body @file.json` or `--body @-`. Stdin
- * is read only for `@-`, as with curl: a harness can hold stdin open forever,
- * so reading it unasked could hang the call.
+ * is read only for `@-`: a harness can hold stdin open forever, so reading it
+ * unasked could hang the call.
  */
 export async function readRequestBody(
   flag: string | undefined,

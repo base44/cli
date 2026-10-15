@@ -32,7 +32,7 @@ export async function sendApiRequest(
       method,
       body,
       headers: body === undefined ? {} : { "Content-Type": "application/json" },
-      // Like curl: the user's call may be a long deploy; built-in commands wait as long.
+      // The call may be a long deploy; the built-in commands wait as long.
       timeout: false,
     });
     return {
