@@ -1111,4 +1111,57 @@ export default {
       hasFunctionsInvoke: true,
     });
   });
+
+  it("ws: the npm client runs over workerd's native WebSocket", async () => {
+    const echo = new Miniflare({
+      modules: true,
+      script: `export default {
+        fetch() {
+          const [client, server] = Object.values(new WebSocketPair());
+          server.accept();
+          server.addEventListener("message", (e) => server.send("echo:" + e.data));
+          return new Response(null, { status: 101, webSocket: client });
+        },
+      };`,
+      compatibilityDate: WFP_COMPAT_DATE,
+      port: 0,
+    });
+    try {
+      const wsUrl = (await echo.ready).href.replace(/^http/, "ws");
+      const m = await bundled(`
+        import WebSocket from "npm:ws@8.18.0";
+        Deno.serve(async (req) => {
+          const ws = new WebSocket(new URL(req.url).searchParams.get("ws"));
+          const reply = await new Promise((resolve, reject) => {
+            ws.once("open", () => ws.send("hi"));
+            ws.once("message", (data, isBinary) => resolve(String(data) + "|" + isBinary));
+            ws.once("error", reject);
+          });
+          ws.close();
+          return new Response(reply + "|" + (WebSocket.OPEN === 1));
+        });
+      `);
+      const { status, text } = await runInWorkerd(m, {
+        url: `http://localhost/?ws=${encodeURIComponent(wsUrl)}`,
+      });
+      expect(status).toBe(200);
+      expect(text).toBe("echo:hi|false|true");
+    } finally {
+      await echo.dispose();
+    }
+  });
+
+  it("AsyncLocalStorage.enterWith() is a no-op instead of throwing", async () => {
+    const m = await bundled(`
+      import { AsyncLocalStorage } from "node:async_hooks";
+      Deno.serve(() => {
+        const store = new AsyncLocalStorage();
+        store.enterWith({ seeded: true });
+        return new Response(String(store.getStore()));
+      });
+    `);
+    const { status, text } = await runInWorkerd(m);
+    expect(status).toBe(200);
+    expect(text).toBe("undefined");
+  });
 });

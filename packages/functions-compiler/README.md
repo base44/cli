@@ -168,6 +168,21 @@ enforced without making the manifest user-importable.
 Release this package before bumping apper's compiler pin. Existing compiled
 Workers need rebuilding; the workspace toggle does not install new code.
 
+## Workers compatibility for npm clients
+
+Two gaps in workerd break common Node-targeted npm packages, Stagehand among
+them, and the compiler closes both for every function and actor:
+
+- **`ws`.** Its exports map sends the `browser` condition to a stub that throws
+  on use. `src/esbuild/ws-native-virtual.ts` resolves bare `ws` and
+  `npm:ws[@version]` to a `ws`-shaped client over workerd's native WebSocket
+  (`on`/`once`/`off`, `send`, `close`, `terminate`, `readyState`). Connection
+  options such as custom headers are ignored, and `WebSocketServer` throws: a
+  function can open sockets but not listen.
+- **`AsyncLocalStorage.enterWith()`.** workerd omits it. The Deno shim makes it
+  a no-op, which suits libraries that also pass their context explicitly and
+  re-enter it with `run()`.
+
 ## Layout
 
 | Path | What it is |
