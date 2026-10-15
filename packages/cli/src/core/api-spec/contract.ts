@@ -8,8 +8,6 @@ import {
 
 const SCHEMA_REF_PREFIX = "#/components/schemas/";
 const MAX_REF_DEPTH = 4;
-// FastAPI's 422 for any request that fails validation; the same on every operation.
-const FRAMEWORK_VALIDATION_ERROR = "Validation Error";
 
 /**
  * Replace component `$ref`s with their schemas so a contract reads on its own.
@@ -179,7 +177,8 @@ function nullableType(variants: unknown[]): string | undefined {
 
 /**
  * The operation's contract: what a caller needs to build the request and read
- * the result. Error responses keep only their descriptions.
+ * the result. Error shapes are left out, as in the MCP bridge: a failed call
+ * returns the server's own error.
  */
 export function getOperationContract(spec: OpenApiSpec, op: ApiOperation) {
   const schemas = spec.components?.schemas ?? {};
@@ -196,11 +195,6 @@ export function getOperationContract(spec: OpenApiSpec, op: ApiOperation) {
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([, response]) => bodyOf(response).schema)
     .find(Boolean);
-  const errors = responses.filter(
-    ([status, response]) =>
-      !status.startsWith("2") &&
-      response.description !== FRAMEWORK_VALIDATION_ERROR,
-  );
   const requestBody = bodyOf(op.operation.requestBody);
   const contract = {
     endpoint: op.endpoint,
@@ -238,12 +232,6 @@ export function getOperationContract(spec: OpenApiSpec, op: ApiOperation) {
       : {}),
     requestBodySchema: inline(requestBody.schema),
     responseSchema: inline(success),
-    errors: Object.fromEntries(
-      errors.map(([status, response]) => [
-        status,
-        cleanText(response.description ?? ""),
-      ]),
-    ),
   };
   const refs = leftoverRefs(contract, schemas);
   return {

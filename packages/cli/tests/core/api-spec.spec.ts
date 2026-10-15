@@ -250,10 +250,8 @@ describe("getOperationContract", () => {
     });
   });
 
-  it("keeps error descriptions, without the framework's validation error", () => {
-    expect(contractOf("GET", "/api/apps").errors).toEqual({
-      "403": "You can't open this workspace.",
-    });
+  it("leaves error responses out, as the MCP bridge does", () => {
+    expect(contractOf("GET", "/api/apps")).not.toHaveProperty("errors");
   });
 
   it("returns the request body schema and trimmed parameters", () => {
