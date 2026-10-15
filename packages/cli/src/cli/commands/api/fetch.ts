@@ -55,6 +55,9 @@ async function findOperation(
   return { spec, op };
 }
 
+const CONTRACT_HELP =
+  "\nThe contract is JSON; cut it down with e.g. | jq '.parameters, .requestBodySchema'";
+
 const TEXT_CONTENT_TYPES = [
   "json",
   "text/",
@@ -120,7 +123,8 @@ async function fetchAction(
   });
   if (!methodArg || !path) {
     if (options.help) {
-      const usage = command.helpInformation();
+      // helpInformation() leaves out addHelpText, so add the line here too.
+      const usage = `${command.helpInformation()}${CONTRACT_HELP}\n`;
       return { stdout: ctx.jsonMode ? formatJson({ usage }) : usage };
     }
     throw new InvalidInputError(
@@ -193,5 +197,6 @@ export function getApiFetchCommand(): Command {
       "-h, --help",
       "With a method and path, print that operation's contract; otherwise this help",
     )
+    .addHelpText("after", CONTRACT_HELP)
     .action(fetchAction);
 }
