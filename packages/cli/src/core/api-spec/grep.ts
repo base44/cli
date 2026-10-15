@@ -1,3 +1,4 @@
+import { areaOf } from "./catalog.js";
 import type { ApiOperation } from "./operations.js";
 import type { OpenApiSpec } from "./schema.js";
 import { type OperationSummary, toOperationSummary } from "./search.js";
@@ -26,16 +27,19 @@ function snippets(text: string, pattern: RegExp): string[] {
 /**
  * Regex over the spec's JSON text. The served spec is one minified line, so
  * matches are grouped by the operation or component schema they fall in.
+ * With `area`, only that area's operations are searched.
  */
 export function grepSpec(
   spec: OpenApiSpec,
   operations: ApiOperation[],
   pattern: string,
-  options: { ignoreCase?: boolean; limit?: number } = {},
+  options: { ignoreCase?: boolean; limit?: number; area?: string } = {},
 ): GrepHit[] {
   const regex = new RegExp(pattern, options.ignoreCase ? "gi" : "g");
   const hits: GrepHit[] = [];
-  for (const op of operations) {
+  const inArea = (op: ApiOperation) =>
+    options.area === undefined || areaOf(op.path) === options.area;
+  for (const op of operations.filter(inArea)) {
     const matches = snippets(
       `${op.method} ${op.path} ${JSON.stringify(op.operation)}`,
       regex,
@@ -44,9 +48,9 @@ export function grepSpec(
       hits.push({ ...toOperationSummary(op), matches });
     }
   }
-  for (const [schema, definition] of Object.entries(
-    spec.components?.schemas ?? {},
-  )) {
+  // Component schemas belong to no area, so --area leaves them out.
+  const schemas = options.area === undefined ? spec.components?.schemas : {};
+  for (const [schema, definition] of Object.entries(schemas ?? {})) {
     const matches = snippets(JSON.stringify(definition), regex);
     if (matches.length > 0) {
       hits.push({ schema, matches });

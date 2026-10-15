@@ -6,11 +6,13 @@ import { InvalidInputError } from "@/core/errors.js";
 import {
   formatJson,
   loadSpecTask,
+  operationsInArea,
   parseLimit,
   REFRESH_OPTION_HELP,
 } from "./shared.js";
 
 interface GrepOptions {
+  area?: string;
   ignoreCase?: boolean;
   limit?: string;
   refresh?: boolean;
@@ -34,7 +36,12 @@ async function grepAction(
   const limit = parseLimit(options.limit);
   assertValidRegex(pattern);
   const { spec } = await loadSpecTask(ctx, options.refresh);
-  const hits = grepSpec(spec, listOperations(spec), pattern, {
+  const operations = listOperations(spec);
+  if (options.area !== undefined) {
+    operationsInArea(operations, options.area);
+  }
+  const hits = grepSpec(spec, operations, pattern, {
+    area: options.area,
     ignoreCase: options.ignoreCase,
     limit,
   });
@@ -50,6 +57,10 @@ export function getApiGrepCommand(): Command {
       "Search the raw API spec with a regular expression, for when search misses",
     )
     .argument("<pattern>", 'Regular expression, e.g. "runs.*status"')
+    .option(
+      "--area <area>",
+      "Search only one area's operations (see base44 api catalog)",
+    )
     .option("-i, --ignore-case", "Case-insensitive match")
     .option("--limit <n>", "Most operations or schemas to return (default 20)")
     .option("--refresh", REFRESH_OPTION_HELP)

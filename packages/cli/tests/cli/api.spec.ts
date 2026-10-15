@@ -115,7 +115,72 @@ describe("api command", () => {
     });
   });
 
+  describe("catalog", () => {
+    it("lists every area", async () => {
+      const result = await t.run("api", "catalog");
+
+      t.expectResult(result).toSucceed();
+      const index = JSON.parse(result.stdout);
+      expect(index.total).toBe(11);
+      expect(index.areas.map((a: { area: string }) => a.area)).toContain(
+        "workflows",
+      );
+    });
+
+    it("lists one area's operations", async () => {
+      const result = await t.run("api", "catalog", "secrets");
+
+      t.expectResult(result).toSucceed();
+      expect(JSON.parse(result.stdout)).toEqual({
+        area: "secrets",
+        operations: [
+          expect.objectContaining({
+            method: "GET",
+            path: "/api/apps/{app_id}/secrets",
+          }),
+          expect.objectContaining({
+            method: "POST",
+            path: "/api/apps/{app_id}/secrets",
+          }),
+        ],
+        total: 2,
+      });
+    });
+
+    it("fails on an unknown area and lists the real ones", async () => {
+      const result = await t.run("api", "catalog", "nope");
+
+      t.expectResult(result).toFail();
+      t.expectResult(result).toContain("Unknown API area: nope");
+      t.expectResult(result).toContain("workflows");
+    });
+  });
+
   describe("grep", () => {
+    it("searches one area with --area", async () => {
+      const result = await t.run(
+        "api",
+        "grep",
+        "workflow",
+        "--area",
+        "workflows",
+      );
+
+      t.expectResult(result).toSucceed();
+      const hits = JSON.parse(result.stdout);
+      expect(hits).toHaveLength(4);
+      expect(
+        hits.every((h: { path: string }) => h.path.includes("/workflows")),
+      ).toBe(true);
+    });
+
+    it("fails on an unknown --area", async () => {
+      const result = await t.run("api", "grep", "x", "--area", "nope");
+
+      t.expectResult(result).toFail();
+      t.expectResult(result).toContain("Unknown API area: nope");
+    });
+
     it("returns regex matches grouped by operation or schema", async () => {
       const result = await t.run("api", "grep", "trigger_\\w+");
 
@@ -241,6 +306,22 @@ describe("api command", () => {
 
       t.expectResult(result).toSucceed();
       expect(sent[0]?.body).toBe('{"from":"pipe"}');
+    });
+
+    it("ignores piped stdin on a GET", async () => {
+      t.givenStdin('{"ignored":true}');
+
+      const result = await t.run("api", "fetch", "GET", "/api/brand-new-route");
+
+      t.expectResult(result).toSucceed();
+      expect(sent[0]?.body).toBe("");
+    });
+
+    it("accepts a path without the leading slash", async () => {
+      const result = await t.run("api", "fetch", "GET", "api/brand-new-route");
+
+      t.expectResult(result).toSucceed();
+      expect(sent[0]?.url).toBe("/api/brand-new-route");
     });
 
     it("reports the server's error", async () => {

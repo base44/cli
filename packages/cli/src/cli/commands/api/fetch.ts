@@ -1,12 +1,10 @@
 import type { Command } from "commander";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
-import { Base44Command, ensureAuth, readStdin } from "@/cli/utils/index.js";
+import { Base44Command, ensureAuth } from "@/cli/utils/index.js";
 import {
   getOperationContract,
-  HTTP_METHODS,
   listOperations,
   matchOperation,
-  resolveRequestBody,
   sendApiRequest,
 } from "@/core/api-spec/index.js";
 import { InvalidInputError } from "@/core/errors.js";
@@ -15,6 +13,7 @@ import {
   formatResponseBody,
   loadSpecTask,
   REFRESH_OPTION_HELP,
+  readRequestBody,
 } from "./shared.js";
 
 interface FetchOptions {
@@ -64,12 +63,6 @@ async function fetchAction(
     );
   }
   const method = methodArg.toUpperCase();
-  if (!HTTP_METHODS.some((m) => m.toUpperCase() === method)) {
-    throw new InvalidInputError(`Unknown HTTP method: ${methodArg}`);
-  }
-  if (!path.startsWith("/")) {
-    throw new InvalidInputError(`The path must start with "/", got ${path}.`);
-  }
 
   if (options.help) {
     const { spec, op } = await findOperation(
@@ -81,6 +74,7 @@ async function fetchAction(
     return { stdout: formatJson(getOperationContract(spec, op)) };
   }
 
+  // --help and the --read-only refusal send nothing, so they need no login.
   if (options.readOnly) {
     const { op } = await findOperation(ctx, method, path, options.refresh);
     if (!op.readOnly) {
@@ -90,11 +84,8 @@ async function fetchAction(
     }
   }
 
-  const body = await resolveRequestBody(method, options.body, {
-    stdinIsTTY: Boolean(process.stdin.isTTY),
-    readStdin: () => readStdin("--body @-", { trim: false }),
-  });
   await ensureAuth(ctx);
+  const body = await readRequestBody(method, options.body);
   const text = await ctx.runTask(
     `Calling ${method} ${path}`,
     () => sendApiRequest(method, path, body),

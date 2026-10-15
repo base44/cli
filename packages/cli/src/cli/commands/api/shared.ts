@@ -1,6 +1,13 @@
 import type { CLIContext } from "@/cli/types.js";
-import { type LoadedSpec, loadSpec } from "@/core/api-spec/index.js";
+import { readStdin } from "@/cli/utils/index.js";
+import {
+  type ApiOperation,
+  groupByArea,
+  type LoadedSpec,
+  loadSpec,
+} from "@/core/api-spec/index.js";
 import { InvalidInputError } from "@/core/errors.js";
+import { readTextFile } from "@/core/utils/fs.js";
 
 /** JSON for stdout: pretty-printed in a terminal, compact when piped. */
 export function formatJson(value: unknown): string {
@@ -40,4 +47,44 @@ export function loadSpecTask(
   return runTask("Loading the API spec", () => loadSpec({ refresh }), {
     successMessage: "Loaded the API spec",
   });
+}
+
+/** An area's operations; an unknown area fails with the list of real ones. */
+export function operationsInArea(
+  operations: ApiOperation[],
+  area: string,
+): ApiOperation[] {
+  const areas = groupByArea(operations);
+  const inArea = areas.get(area);
+  if (!inArea) {
+    throw new InvalidInputError(`Unknown API area: ${area}`, {
+      details: [`Areas: ${[...areas.keys()].join(", ")}`],
+      hints: [{ message: "List the areas", command: "base44 api catalog" }],
+    });
+  }
+  return inArea;
+}
+
+/**
+ * The body from `--body '<json>'`, `--body @file.json` or `--body @-`, else
+ * piped stdin for methods that carry one.
+ */
+export async function readRequestBody(
+  method: string,
+  flag: string | undefined,
+): Promise<string | undefined> {
+  if (flag === "@-") {
+    return readStdin("--body @-", { trim: false });
+  }
+  if (flag?.startsWith("@")) {
+    return readTextFile(flag.slice(1));
+  }
+  if (flag !== undefined) {
+    return flag;
+  }
+  if (method === "GET" || method === "HEAD" || process.stdin.isTTY) {
+    return undefined;
+  }
+  const piped = await readStdin("--body", { trim: false });
+  return piped.trim() ? piped : undefined;
 }

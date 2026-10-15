@@ -1,21 +1,22 @@
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
-import { homedir, tmpdir } from "node:os";
+import { readFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 import {
+  areaOf,
+  catalogIndex,
   getOperationContract,
   getSpecCachePath,
   grepSpec,
+  groupByArea,
   isSpecCacheFresh,
   listOperations,
   matchOperation,
   type OpenApiSpec,
   parseSpec,
-  resolveRequestBody,
   SPEC_CACHE_TTL_MS,
   searchOperations,
 } from "../../src/core/api-spec/index.js";
-import { InvalidInputError } from "../../src/core/errors.js";
 
 const FIXTURE = resolve(__dirname, "../fixtures/api-spec/openapi.json");
 
@@ -192,6 +193,15 @@ describe("grepSpec", () => {
     ]);
   });
 
+  it("searches only one area's operations, and no schemas, with area", () => {
+    expect(grepSpec(spec, ops(), "name", { area: "apps" })).toEqual([]);
+    const hits = grepSpec(spec, ops(), "workflow", { area: "workflows" });
+    expect(hits.length).toBe(4);
+    expect(
+      hits.every((hit) => "path" in hit && hit.path.includes("/workflows")),
+    ).toBe(true);
+  });
+
   it("matches the method and path, case-insensitively when asked", () => {
     expect(grepSpec(spec, ops(), "DEPLOY AN APP")).toEqual([]);
     const hits = grepSpec(spec, ops(), "DEPLOY AN APP", { ignoreCase: true });
@@ -201,60 +211,60 @@ describe("grepSpec", () => {
   });
 });
 
-describe("resolveRequestBody", () => {
-  const noStdin = {
-    stdinIsTTY: true,
-    readStdin: () => Promise.reject(new Error("stdin must not be read")),
-  };
-  const piped = (text: string) => ({
-    stdinIsTTY: false,
-    readStdin: () => Promise.resolve(text),
-  });
-
-  it("takes a JSON flag as is", async () => {
-    expect(await resolveRequestBody("POST", '{"a":1}', noStdin)).toBe(
-      '{"a":1}',
+describe("catalog", () => {
+  it("names the area after {app_id}, else after /api", () => {
+    expect(areaOf("/api/apps/{app_id}/deploy")).toBe("deploy");
+    expect(areaOf("/api/apps/{app_id}/workflows/{workflow_id}")).toBe(
+      "workflows",
     );
-  });
-
-  it("reads @file", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "api-body-"));
-    const file = join(dir, "body.json");
-    await writeFile(file, '{"from":"file"}\n');
-    expect(await resolveRequestBody("PUT", `@${file}`, noStdin)).toBe(
-      '{"from":"file"}\n',
+    expect(areaOf("/api/apps/{app_id}")).toBe("apps");
+    expect(areaOf("/api/apps")).toBe("apps");
+    expect(areaOf("/api/workspace/{workspace_id}/connectors")).toBe(
+      "workspace",
     );
+    expect(areaOf("/health")).toBe("health");
+    expect(areaOf("/")).toBe("other");
   });
 
-  it("reads stdin for @-", async () => {
-    expect(await resolveRequestBody("POST", "@-", piped('{"b":2}'))).toBe(
-      '{"b":2}',
-    );
-  });
-
-  it("reads piped stdin when no flag is given", async () => {
-    expect(await resolveRequestBody("PATCH", undefined, piped('{"c":3}'))).toBe(
-      '{"c":3}',
-    );
-  });
-
-  it("sends no body for empty piped stdin or a terminal", async () => {
+  it("sorts areas and their operations", () => {
+    const areas = groupByArea(ops());
+    expect([...areas.keys()]).toEqual([
+      "apps",
+      "deploy",
+      "health",
+      "secrets",
+      "whoami",
+      "workflows",
+    ]);
     expect(
-      await resolveRequestBody("POST", undefined, piped("  \n")),
-    ).toBeUndefined();
-    expect(
-      await resolveRequestBody("POST", undefined, noStdin),
-    ).toBeUndefined();
+      areas.get("workflows")?.map((op) => `${op.method} ${op.path}`),
+    ).toEqual([
+      "DELETE /api/apps/{app_id}/workflows/{workflow_id}",
+      "GET /api/apps/{app_id}/workflows/runs",
+      "GET /api/apps/{app_id}/workflows/{workflow_id}",
+      "POST /api/apps/{app_id}/workflows",
+    ]);
   });
 
-  it("never reads stdin for GET and rejects a GET body", async () => {
-    const stdinThatThrows = { ...noStdin, stdinIsTTY: false };
-    expect(
-      await resolveRequestBody("GET", undefined, stdinThatThrows),
-    ).toBeUndefined();
-    await expect(resolveRequestBody("get", "{}", noStdin)).rejects.toThrow(
-      InvalidInputError,
-    );
+  it("lists small areas in full and collapses the rest", () => {
+    const { areas, total } = catalogIndex(ops());
+    expect(total).toBe(11);
+    expect(areas.find((a) => a.area === "secrets")).toEqual({
+      area: "secrets",
+      operations: [
+        expect.objectContaining({ method: "GET", readOnly: true }),
+        expect.objectContaining({ method: "POST", readOnly: false }),
+      ],
+    });
+    expect(areas.find((a) => a.area === "workflows")).toEqual({
+      area: "workflows",
+      operationCount: 4,
+      sample: [
+        "Delete workflow",
+        "List workflow runs for an app",
+        "Get workflow",
+      ],
+    });
   });
 });
 
