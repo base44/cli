@@ -9,6 +9,7 @@ import type { FullStackBuild } from "@/core/site/full-stack.js";
 import { resolveFullStackBuild } from "@/core/site/full-stack.js";
 import { describeBuildOutput, hashFileInto } from "@/core/site/manifest.js";
 import { pathExists, readJsonFile } from "@/core/utils/fs.js";
+import { compileActors } from "@/core/version/actors.js";
 import { compileBackendBundles } from "@/core/version/functions.js";
 import { tagStep } from "@/core/version/publish.js";
 import type {
@@ -196,6 +197,9 @@ export async function collectArtifacts(
         target.root,
         join(target.configDir, target.functionsDir),
       ),
+    ),
+    actors: await tagStep("build", () =>
+      compileActors(join(target.configDir, target.actorsDir)),
     ),
     ...(await collectResources(target.configDir, target)),
   };

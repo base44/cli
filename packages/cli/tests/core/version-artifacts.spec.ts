@@ -379,6 +379,7 @@ describe("collectArtifacts", () => {
       entitiesDir: "entities",
       agentsDir: "agents",
       functionsDir: "functions",
+      actorsDir: "actors",
     };
   }
 

@@ -10,6 +10,7 @@ import {
 import { putPresigned, putPresignedBody } from "@/core/site/upload.js";
 import type { ResolvedAssetsConfig } from "@/core/site/wrangler-config.js";
 import type {
+  ActorArtifact,
   ArtifactFile,
   ArtifactSet,
   BackendBundleArtifact,
@@ -54,6 +55,31 @@ function declaredBundle({
       static_egress: wrapper.staticEgress,
     },
   };
+}
+
+/** The name is the folder's and also the Durable Object class, so no class
+ * name is declared. */
+function declaredActor({
+  name,
+  entry,
+  source,
+  size,
+  digest,
+  staticEgress,
+}: ActorArtifact) {
+  return {
+    name,
+    entry,
+    source,
+    module: { size, digest },
+    static_egress: staticEgress,
+  };
+}
+
+/** The path the server stages an actor's module at, which the client knows in
+ * advance — unlike a bundle's. */
+function actorUploadPath(actor: ActorArtifact): string {
+  return `actors/${actor.name}.mjs`;
 }
 
 /**
@@ -166,6 +192,7 @@ export async function createVersion(
               }
             : {}),
           backend_bundles: artifacts.backendBundles.map(declaredBundle),
+          actors: artifacts.actors.map(declaredActor),
           entities: artifacts.entities,
           agents: artifacts.agents,
           source_commit: options.sourceCommit,
@@ -178,12 +205,14 @@ export async function createVersion(
 
   // Paired by POSITION, in the order the server signed them: assets and modules
   // are separate namespaces, so the two may share a path. Each bundle's module
-  // follows them, at a path the server names.
+  // follows them, at a path the server names, and then each actor's — last, so
+  // an app gaining actors moves no slot the others had.
   const declaredFiles = [
     ...artifacts.assets,
     ...(artifacts.siteWorker?.modules ?? []),
   ];
-  const slotCount = declaredFiles.length + artifacts.backendBundles.length;
+  const actorsAt = declaredFiles.length + artifacts.backendBundles.length;
+  const slotCount = actorsAt + artifacts.actors.length;
 
   options.progress?.onDeclared?.({ fileCount: slotCount });
 
@@ -202,6 +231,15 @@ export async function createVersion(
       `Upload ${drifted} is signed for ${declared.uploads[drifted].path}, but that slot declared ${declaredFiles[drifted].path}.`,
     );
   }
+  const actorDrifted = artifacts.actors.findIndex(
+    (actor, index) =>
+      declared.uploads[actorsAt + index].path !== actorUploadPath(actor),
+  );
+  if (actorDrifted !== -1) {
+    throw new InternalError(
+      `Upload ${actorsAt + actorDrifted} is signed for ${declared.uploads[actorsAt + actorDrifted].path}, but that slot declared the actor ${artifacts.actors[actorDrifted].name}.`,
+    );
+  }
 
   let uploadedFiles = 0;
   await pMap(
@@ -209,10 +247,15 @@ export async function createVersion(
     async (upload, index) => {
       if (index < declaredFiles.length) {
         await putPresigned(upload, declaredFiles[index].absolutePath);
-      } else {
+      } else if (index < actorsAt) {
         await putPresignedBody(
           upload,
           artifacts.backendBundles[index - declaredFiles.length].module,
+        );
+      } else {
+        await putPresignedBody(
+          upload,
+          artifacts.actors[index - actorsAt].module,
         );
       }
       uploadedFiles++;

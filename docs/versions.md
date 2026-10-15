@@ -1,10 +1,10 @@
 # Versions
 
-**Keywords:** versions, publish, deployment, rollback, artifact set, sha256, digest, staged upload, presigned, x-amz-checksum-sha256, entities, agents, backend functions, backend_bundles, functions-compiler, shards, raw payloads, provenance, commit, idempotency key, step, BASE44_VERSIONS_API, env gate, build sandbox
+**Keywords:** versions, publish, deployment, rollback, artifact set, sha256, digest, staged upload, presigned, x-amz-checksum-sha256, entities, agents, backend functions, backend_bundles, actors, Durable Objects, functions-compiler, shards, raw payloads, provenance, commit, idempotency key, step, BASE44_VERSIONS_API, env gate, build sandbox
 
 A **version** is one immutable thing a build produced — every frontend file, plus the entity and agent payloads the app declares. A **deployment** is a version made live at an environment. Recording one and serving one are separate acts, which is what makes a rollback a deploy of an older version rather than a second code path.
 
-This lives in `src/core/version/`: `artifacts.ts` (the build-output walk and the raw resource reads), `functions.ts` (compiling the backend functions), `api.ts` (the three HTTP calls), `publish.ts` (orchestration, and the step names behind the shared tagger in `core/errors.ts`), `gate.ts` (the env gate), `schema.ts` (wire types).
+This lives in `src/core/version/`: `artifacts.ts` (the build-output walk and the raw resource reads), `functions.ts` (compiling the backend functions), `actors.ts` (compiling the actors), `api.ts` (the three HTTP calls), `publish.ts` (orchestration, and the step names behind the shared tagger in `core/errors.ts`), `gate.ts` (the env gate), `schema.ts` (wire types).
 
 Where to build and what to collect is **not** here — it is `core/project/target.ts`, because nothing it resolves is about a version and `base44 build` needs the same answer without importing this lane.
 
@@ -20,7 +20,7 @@ It is **not** `src/core/site/` — see [Deployments](deployments.md). That lane 
 
 `createVersion(artifacts, options)` in `api.ts` — three calls, in this order and no other, so nothing is recorded until the bytes are in place:
 
-1. **Declare.** `POST versions` with `assets` (path, size, digest per file), optionally a `site_worker` beside it, the compiled `backend_bundles`, plus the raw `entities` and `agents` payloads and `source_commit`. The response carries a `session_id` and one presigned PUT per declared file, in declared order: the assets, the Worker's modules, then one per bundle.
+1. **Declare.** `POST versions` with `assets` (path, size, digest per file), optionally a `site_worker` beside it, the compiled `backend_bundles` and `actors`, plus the raw `entities` and `agents` payloads and `source_commit`. The response carries a `session_id` and one presigned PUT per declared file, in declared order: the assets, the Worker's modules, one per bundle, then one per actor. Each kind comes after the ones before it, so an app gaining one moves no existing slot.
 2. **Upload.** `putPresigned` per file — the same PUT the static deployments lane uses, same ky retry policy. Each PUT sends the server's `Content-Type` **and** its `x-amz-checksum-sha256` verbatim; deriving either locally would 403 on any mapping difference. Uploads are paired with declared files **by position**, not by path: the frontend and the Worker's modules are separate namespaces, so the same name can appear in both and mean two different files.
 3. **Finalize.** `POST versions/{session_id}/finalize`, no body. The set was fixed at declare, so there is nothing left for the caller to change.
 
@@ -70,6 +70,14 @@ Functions are sorted by name before compiling. A single shard compiles in the or
 Compiled during collection, not by `base44 build`: `--no-build` skips only the site's build command, so the publish exec compiles. The compiler runs no repo code — esbuild bundles the sources and `@deno/loader` resolves dependencies without lifecycle scripts — so this does not widen what runs while the publish key exists.
 
 The compiler is bundled like the rest of the CLI, and imports `esbuild` and `@deno/loader` — the external runtime packages `base44 dev` uses too — only when it compiles. The standalone binary cannot carry those, so from there an app with functions fails with `DEPENDENCY_NOT_FOUND`; an app without functions publishes as before.
+
+## Actors are compiled here too
+
+`compileActors` in `actors.ts` compiles each actor into a module of its own — an actor is a Durable Object Worker, never a shard — with the compiler's single-function `bundle()`. Each is declared with its `name` (the folder's, which is also the Durable Object class), its `entry`, the entry file's `source` as written, the module's `size` and `digest`, and the `static_egress` contract it was compiled for: the compiler's `STATIC_EGRESS_ARTIFACT_MARKER`, because an actor's prelude installs the same static-egress fetch every worker entry does. Actors are sorted by name, and each one's module uploads at `actors/<name>.mjs`, a path the client checks the server signed.
+
+The entry is always `base44/actors/<name>/entry.ts`, an `entry.js` included, and that path is not cosmetic: it is how the compiler knows the entry is an actor. That is why this does not go through `cfwBundleInput`, which flattens an entry that reaches nothing to `main.ts`. The files are the ones the entry reaches among its own folder and the shared modules, keyed at `base44/actors/<name>/` and `base44/shared/` wherever the project keeps them — which is how apper assembles an actor, so `../../shared/x.ts` resolves and a reach into another actor or a function does not.
+
+`actors` is always sent, `[]` for an app with none, for the reason `backend_bundles` is: an absent field is what a CLI from before actors sends, and the platform refuses it (409 `actors_undeclared`) for an app that has them. One actor that fails to compile fails the publish at step `build`. The platform caps a version at 50 actors and the CLI refuses more before compiling any; the standalone binary refuses an app with actors as it does one with functions.
 
 ## Why the digest is signed into the URL
 
