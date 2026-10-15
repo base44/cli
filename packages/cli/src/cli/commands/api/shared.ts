@@ -91,6 +91,10 @@ export async function readRequestBody(
  * The command as error reporting records it: the path without its query
  * string, and `--body` masked, since either can carry secrets.
  */
+export function withoutQuery(path: string): string {
+  return path.split("?", 1)[0] ?? "";
+}
+
 export function reportedFetchCommand(
   method: string,
   path: string,
@@ -98,7 +102,7 @@ export function reportedFetchCommand(
 ) {
   return {
     name: "api fetch",
-    args: [method, path.split("?", 1)[0] ?? ""],
+    args: [method, withoutQuery(path)],
     options: {
       ...options,
       ...(options.body === undefined ? {} : { body: "[not reported]" }),

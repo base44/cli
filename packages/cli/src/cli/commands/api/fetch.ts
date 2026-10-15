@@ -16,6 +16,7 @@ import {
   REFRESH_OPTION_HELP,
   readRequestBody,
   reportedFetchCommand,
+  withoutQuery,
 } from "./shared.js";
 
 interface FetchOptions {
@@ -36,7 +37,7 @@ async function findOperation(
   const op = matchOperation(listOperations(spec), method, path);
   if (!op) {
     throw new InvalidInputError(
-      `No operation in the API spec matches ${method} ${path}.`,
+      `No operation in the API spec matches ${method} ${withoutQuery(path)}.`,
       {
         hints: [
           {
@@ -112,6 +113,11 @@ async function fetchAction(
   options: FetchOptions,
   command: Command,
 ): Promise<RunCommandResult> {
+  // First: the CLI recorded the raw arguments and --body for error reporting,
+  // and any endpoint's body or query can carry secrets.
+  ctx.errorReporter.setContext({
+    command: reportedFetchCommand(methodArg ?? "", path ?? "", { ...options }),
+  });
   if (!methodArg || !path) {
     if (options.help) {
       const usage = command.helpInformation();
@@ -144,10 +150,6 @@ async function fetchAction(
     }
   }
 
-  // Any endpoint's body or query can carry secrets; report neither on failure.
-  ctx.errorReporter.setContext({
-    command: reportedFetchCommand(method, path, { ...options }),
-  });
   await ensureAuth(ctx);
   const body = await readRequestBody(options.body, ctx.log);
   const response = await ctx.runTask(

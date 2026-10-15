@@ -1,4 +1,4 @@
-import { rename, stat } from "node:fs/promises";
+import { rename, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { base44Client } from "@/core/clients/index.js";
 import { getBase44ApiUrl, getBase44GlobalDir } from "@/core/config.js";
@@ -76,8 +76,13 @@ export async function loadSpec(
   const text = await downloadSpec();
   const spec = parseSpec(text);
   // Write then rename, so a concurrent run never reads a half-written file.
+  // A cache that can't be written (full or read-only disk) only costs speed.
   const partial = `${path}.${process.pid}.tmp`;
-  await writeFile(partial, text);
-  await rename(partial, path);
+  try {
+    await writeFile(partial, text);
+    await rename(partial, path);
+  } catch {
+    await rm(partial, { force: true }).catch(() => undefined);
+  }
   return { text, spec };
 }

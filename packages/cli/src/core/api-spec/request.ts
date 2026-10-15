@@ -3,6 +3,7 @@ import { base44Client } from "@/core/clients/index.js";
 import { ApiError } from "@/core/errors.js";
 
 const MAX_ERROR_BODY_CHARS = 4000;
+const QUERY_STRING = /\?\S*/g;
 
 async function readBody(response: Response): Promise<string | undefined> {
   try {
@@ -34,6 +35,8 @@ export async function sendApiRequest(
       headers: body === undefined ? {} : { "Content-Type": "application/json" },
       // The call may be a long deploy; the built-in commands wait as long.
       timeout: false,
+      // Re-sending a write the server may have applied is not safe.
+      retry: { methods: ["get", "head"] },
     });
     return {
       status: response.status,
@@ -63,10 +66,13 @@ export function redactedApiError(
   method: string,
   path: string,
 ): ApiError {
-  const message =
-    raw && apiError.statusCode !== undefined
-      ? `Error calling ${method} ${path.split("?", 1)[0]}: HTTP ${apiError.statusCode}`
-      : apiError.message;
+  // Never reuse apiError.message: it holds the path and ky's full URL with
+  // the query string. A network error keeps its own words, minus any query.
+  const reason =
+    apiError.statusCode !== undefined
+      ? `HTTP ${apiError.statusCode}`
+      : (apiError.cause?.message ?? "request failed").replace(QUERY_STRING, "");
+  const message = `Error calling ${method} ${path.split("?", 1)[0]}: ${reason}`;
   return new ApiError(message, {
     statusCode: apiError.statusCode,
     requestUrl: apiError.requestUrl?.split("?", 1)[0],

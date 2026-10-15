@@ -1,4 +1,11 @@
-import { access, readdir, readFile, utimes, writeFile } from "node:fs/promises";
+import {
+  access,
+  mkdir,
+  readdir,
+  readFile,
+  utimes,
+  writeFile,
+} from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { Request, Response } from "express";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -115,6 +122,16 @@ describe("api command", () => {
       expect(specFetches).toBe(2);
       expect(await readFile(cachePath(), "utf-8")).toBe(specText);
       expect(await readdir(dirname(cachePath()))).toEqual(["openapi.json"]);
+    });
+
+    it("still answers when the cache cannot be written", async () => {
+      await mkdir(join(t.getTempDir(), ".base44"), { recursive: true });
+      await writeFile(join(t.getTempDir(), ".base44", "cache"), "not a dir");
+
+      const result = await t.run("api", "search", "apps");
+
+      t.expectResult(result).toSucceed();
+      expect(JSON.parse(result.stdout).length).toBeGreaterThan(0);
     });
 
     it("does not cache a spec it cannot parse", async () => {

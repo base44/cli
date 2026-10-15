@@ -40,6 +40,42 @@ describe("api fetch error reporting", () => {
     expect(reported.details).toEqual(['Response body: {"detail":"x"}']);
   });
 
+  it("names only the status when the error body is empty", () => {
+    const reported = redactedApiError(
+      failed,
+      undefined,
+      "POST",
+      "/api/apps/a1/secrets?token=t0k",
+    );
+
+    expect(reported.message).toBe(
+      "Error calling POST /api/apps/a1/secrets: HTTP 422",
+    );
+  });
+
+  it("keeps a network error's words without the query string", () => {
+    const networkError = new ApiError(
+      "Error calling GET /api/x?token=t0k: Request timed out: GET https://h/api/x?token=t0k",
+      {
+        cause: new Error(
+          "Request timed out: GET https://h/api/x?token=t0k after 10s",
+        ),
+      },
+    );
+
+    const reported = redactedApiError(
+      networkError,
+      undefined,
+      "GET",
+      "/api/x?token=t0k",
+    );
+
+    expect(reported.message).toBe(
+      "Error calling GET /api/x: Request timed out: GET https://h/api/x after 10s",
+    );
+    expect(reported.cause).toBeUndefined();
+  });
+
   it("records the command without --body or the query string", () => {
     expect(
       reportedFetchCommand("POST", "/api/apps/a1/secrets?token=t0k", {

@@ -87,8 +87,11 @@ function leftoverRefs(
         !found.has(value)
       ) {
         const schema = schemas[value.slice(SCHEMA_REF_PREFIX.length)];
-        found.set(value, schema);
-        leftoverRefs(schema, schemas, found);
+        // A ref to a schema the spec lacks has nothing to list.
+        if (schema !== undefined) {
+          found.set(value, schema);
+          leftoverRefs(schema, schemas, found);
+        }
       } else {
         leftoverRefs(value, schemas, found);
       }
