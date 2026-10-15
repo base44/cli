@@ -151,7 +151,7 @@ async function fetchAction(
     },
   });
   await ensureAuth(ctx);
-  const body = await readRequestBody(method, options.body);
+  const body = await readRequestBody(options.body, ctx.log);
   const response = await ctx.runTask(
     `Calling ${method} ${path}`,
     () => sendApiRequest(method, path, body),
@@ -181,7 +181,7 @@ export function getApiFetchCommand(): Command {
     )
     .option(
       "--body <json>",
-      "Request body: JSON, @file.json, or @- for stdin (piped stdin is read too)",
+      "Request body: JSON, @file.json, or @- to read it from stdin",
     )
     .option("--output <file>", "Save the response body to a file")
     .option(

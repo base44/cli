@@ -1,6 +1,6 @@
 import { fstatSync } from "node:fs";
 import type { CLIContext } from "@/cli/types.js";
-import { readStdin, toJsonStdout } from "@/cli/utils/index.js";
+import { type Logger, readStdin, toJsonStdout } from "@/cli/utils/index.js";
 import {
   type ApiOperation,
   groupByArea,
@@ -56,10 +56,7 @@ export function operationsInArea(
   return inArea;
 }
 
-/**
- * Stdin is a shell pipe or a redirected file. Not a terminal, `/dev/null`, or
- * the socket a harness may hold open forever, which would hang the read.
- */
+/** Stdin is a shell pipe or a redirected file; checking reads nothing from it. */
 function isPipedStdin(): boolean {
   try {
     const stats = fstatSync(0);
@@ -70,12 +67,13 @@ function isPipedStdin(): boolean {
 }
 
 /**
- * The body from `--body '<json>'`, `--body @file.json` or `--body @-`, else
- * piped stdin for methods that carry one.
+ * The body from `--body '<json>'`, `--body @file.json` or `--body @-`. Stdin
+ * is read only for `@-`, as with curl: a harness can hold stdin open forever,
+ * so reading it unasked could hang the call.
  */
 export async function readRequestBody(
-  method: string,
   flag: string | undefined,
+  log: Logger,
 ): Promise<string | undefined> {
   if (flag === "@-") {
     return readStdin("--body @-", { trim: false });
@@ -83,12 +81,8 @@ export async function readRequestBody(
   if (flag?.startsWith("@")) {
     return readTextFile(flag.slice(1));
   }
-  if (flag !== undefined) {
-    return flag;
+  if (flag === undefined && isPipedStdin()) {
+    log.warn("stdin is ignored; pass --body @- to send it as the body.");
   }
-  if (method === "GET" || method === "HEAD" || !isPipedStdin()) {
-    return undefined;
-  }
-  const piped = await readStdin("--body", { trim: false });
-  return piped.trim() ? piped : undefined;
+  return flag;
 }

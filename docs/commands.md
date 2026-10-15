@@ -43,7 +43,7 @@ Omitting the flag preserves existing main-app behavior.
 - An area (`catalog`, `grep --area`) is the path segment after `{app_id}`, else the one after `/api`.
 - `fetch` disables Commander's help option: `--help` after a method and path prints that operation's contract: parameters, `requestBodySchema` and the success `responseSchema` with `$ref`s inlined (to depth 4, cycles left as `$ref`), and an `errors` map of status to description without FastAPI's generic 422.
 - `fetch` has no timeout (like curl; a deploy can take minutes), and the spec download allows 60 s. The cache is written to a temp file and renamed, and an unreadable cached copy is downloaded again.
-- Without `--body`, `fetch` reads stdin only when it is a shell pipe or a file (`fstat` FIFO or regular file), never a socket or `/dev/null`: agent harnesses can hold a socket open forever, which would hang the call.
+- `fetch` reads stdin only for `--body @-`, as curl does with `-d @-` (and cf never reads a body from stdin): an agent harness can hold stdin open forever, so reading it unasked would hang the call. When stdin is a pipe or a file and `--body` is not set, it warns that stdin is ignored.
 - A failed `fetch` reports to telemetry without the request or response body and without `--body` or the query string, since any endpoint can carry secrets; the server's raw reply goes to the caller in the error's details.
 - `fetch` prints a JSON body as JSON, other text as is, `{"status": N}` for an empty body, a binary body as `{status, contentType, bytes, note}`, and under `--json` wraps a non-JSON text body (and its own usage text) in JSON; `--output <file>` saves any body as is.
 

@@ -354,9 +354,8 @@ describe("api command", () => {
       expect(sent[0]?.body).toBe('{"from":"stdin"}');
     });
 
-    it("does not wait on stdin that is not a pipe or file", async () => {
-      // The testkit hands stdin over as a socket, as agent harnesses do.
-      t.givenStdin('{"from":"socket"}');
+    it("reads stdin only with --body @-", async () => {
+      t.givenStdin('{"from":"stdin"}');
 
       const result = await t.run(
         "api",
