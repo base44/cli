@@ -1112,14 +1112,30 @@ export default {
     });
   });
 
-  it("ws: the npm client runs over workerd's native WebSocket", async () => {
+  // Without custom headers the adapter uses the native WebSocket constructor;
+  // with them (Stagehand's cdpHeaders) it opens the socket by fetch upgrade.
+  it.each([
+    { label: "native constructor", options: "{}", auth: "null" },
+    {
+      label: "fetch upgrade carrying headers",
+      options: '{ headers: { Authorization: "Bearer t", "User-Agent": "Stagehand/x" } }',
+      auth: "Bearer t",
+    },
+  ])("ws: the npm client runs over workerd's WebSocket ($label)", async ({
+    options,
+    auth,
+  }) => {
     const echo = new Miniflare({
       modules: true,
       script: `export default {
-        fetch() {
+        fetch(req) {
           const [client, server] = Object.values(new WebSocketPair());
           server.accept();
-          server.addEventListener("message", (e) => server.send("echo:" + e.data));
+          const authorization = req.headers.get("authorization");
+          server.addEventListener("message", (e) => server.send("echo:" + e.data + ":" + authorization));
+          server.addEventListener("close", (e) => {
+            try { server.close(e.code, "bye"); } catch {}
+          });
           return new Response(null, { status: 101, webSocket: client });
         },
       };`,
@@ -1131,21 +1147,24 @@ export default {
       const m = await bundled(`
         import WebSocket from "npm:ws@8.18.0";
         Deno.serve(async (req) => {
-          const ws = new WebSocket(new URL(req.url).searchParams.get("ws"));
+          const ws = new WebSocket(new URL(req.url).searchParams.get("ws"), ${options});
           const reply = await new Promise((resolve, reject) => {
             ws.once("open", () => ws.send("hi"));
             ws.once("message", (data, isBinary) => resolve(String(data) + "|" + isBinary));
             ws.once("error", reject);
           });
-          ws.close();
-          return new Response(reply + "|" + (WebSocket.OPEN === 1));
+          // Stagehand's shutdown closes and then waits for "close".
+          const closed = new Promise((resolve) => ws.once("close", (code) => resolve(code)));
+          ws.close(1000);
+          const code = await closed;
+          return new Response(reply + "|" + code + "|" + (ws.readyState === WebSocket.CLOSED));
         });
       `);
       const { status, text } = await runInWorkerd(m, {
         url: `http://localhost/?ws=${encodeURIComponent(wsUrl)}`,
       });
       expect(status).toBe(200);
-      expect(text).toBe("echo:hi|false|true");
+      expect(text).toBe(`echo:hi:${auth}|false|1000|true`);
     } finally {
       await echo.dispose();
     }
@@ -1157,11 +1176,11 @@ export default {
       Deno.serve(() => {
         const store = new AsyncLocalStorage();
         store.enterWith({ seeded: true });
-        return new Response(String(store.getStore()));
+        return new Response("ok");
       });
     `);
     const { status, text } = await runInWorkerd(m);
     expect(status).toBe(200);
-    expect(text).toBe("undefined");
+    expect(text).toBe("ok");
   });
 });

@@ -176,12 +176,16 @@ them, and the compiler closes both for every function and actor:
 - **`ws`.** Its exports map sends the `browser` condition to a stub that throws
   on use. `src/esbuild/ws-native-virtual.ts` resolves bare `ws` and
   `npm:ws[@version]` to a `ws`-shaped client over workerd's native WebSocket
-  (`on`/`once`/`off`, `send`, `close`, `terminate`, `readyState`). Connection
-  options such as custom headers are ignored, and `WebSocketServer` throws: a
-  function can open sockets but not listen.
-- **`AsyncLocalStorage.enterWith()`.** workerd omits it. The Deno shim makes it
-  a no-op, which suits libraries that also pass their context explicitly and
-  re-enter it with `run()`.
+  (`on`/`once`/`off`, `send`, `close`, `terminate`, `readyState`). It covers
+  what Stagehand uses, not the whole `ws` API. When the options carry headers
+  beyond `User-Agent` (Stagehand's `cdpHeaders`), the socket is opened with a
+  `fetch` upgrade so they reach the server, and that connection follows the
+  function's egress routing. Other connection options are ignored, and
+  `WebSocketServer` throws: a function can open sockets but not listen.
+- **`AsyncLocalStorage.enterWith()`.** workerd's version throws. The Deno shim
+  replaces it with a no-op, so the store is never seeded. That suits libraries
+  that also pass their context explicitly and re-enter it with `run()`. The
+  shim probes first and keeps a working native implementation.
 
 ## Layout
 
