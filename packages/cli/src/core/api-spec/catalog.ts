@@ -1,11 +1,10 @@
 import type { ApiOperation } from "./operations.js";
 import { type OperationSummary, toOperationSummary } from "./search.js";
 
-// Same shape as the MCP bridge's list_api_catalog (backend/app/mcp/platform_api_catalog.py).
 const INLINE_AREA_MAX = 2;
 const AREA_SAMPLE_MAX = 3;
 
-// Code-point order, as Python sorts there; localeCompare would put "{" first.
+// Code-point order; localeCompare would sort "{" before letters.
 const byCodePoint = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
 /** The area a path belongs to: the segment after `{app_id}`, else the one after `/api`. */

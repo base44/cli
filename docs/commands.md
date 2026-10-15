@@ -39,7 +39,7 @@ Omitting the flag preserves existing main-app behavior.
 - The spec is `GET /api/openapi.json` from `getBase44ApiUrl()`, saved as is to `~/.base44/cache/<server>/openapi.json` and reused for one hour (`--refresh` forces a fetch). It is parsed on every run; there is no index file.
 - Read-only per operation comes from its `security` list: `PersonalAccessTokenAuth: ["read_only"]` (the backend's `@read_safe`). `fetch --read-only` refuses anything else locally, before sending; the server stays the real guard for a read-only token.
 - `fetch` sends the concrete path as is through `base44Client`, so every auth mode works, and does no local validation of method or path. It reads the spec only for `--help` and `--read-only`, so a route newer than the cache still works. Those two send nothing, so they run before the login check.
-- Areas (`catalog`, `grep --area`) use the MCP bridge's rule in `backend/app/mcp/platform_api_catalog.py`: the path segment after `{app_id}`, else the one after `/api`. Keep the two in step so an agent sees the same area names in both.
+- An area (`catalog`, `grep --area`) is the path segment after `{app_id}`, else the one after `/api`.
 - `fetch` disables Commander's help option: `--help` after a method and path prints that operation's contract.
 
 ## Command File Template

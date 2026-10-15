@@ -38,9 +38,7 @@ export function getApiCatalogCommand(): Command {
     requireAuth: false,
     requireAppContext: false,
   })
-    .description(
-      "List the API's areas, or every operation in one area (same areas as the MCP bridge)",
-    )
+    .description("List the API's areas, or every operation in one area")
     .argument("[area]", 'An area from the list, e.g. "workflows"')
     .option("--refresh", REFRESH_OPTION_HELP)
     .action(catalogAction);
