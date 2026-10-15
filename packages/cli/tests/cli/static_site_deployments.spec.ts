@@ -33,7 +33,7 @@ interface CreateBody {
   asset_manifest: Record<string, { hash: string; size: number }>;
 }
 
-describe("site deploy command (static site through the deployments API, env-gated)", () => {
+describe("site deploy command (static site through the deployments API)", () => {
   const t = setupCLITests();
 
   /** The s3 create arm: presigned PUT targets for the requested paths. */
@@ -65,41 +65,8 @@ describe("site deploy command (static site through the deployments API, env-gate
     return await readFile(join(fixture("with-site"), "site-output", name));
   }
 
-  it("keeps the legacy tar.gz site upload when the gate is off", async () => {
-    await t.givenLoggedInWithProject(fixture("with-site"));
-    t.api.mockSiteDeploy({ app_url: "https://legacy.example.com" });
-
-    const result = await t.run("site", "deploy", "-y");
-
-    t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain("https://legacy.example.com");
-    expect(t.api.deploymentCreateRequests).toHaveLength(0);
-  });
-
-  it("hides the lane's flags when the gate is off", async () => {
-    await t.givenLoggedInWithProject(fixture("with-site"));
-
-    const gitHash = await t.run("site", "deploy", "-y", "--git-hash", GIT_HASH);
-    const concurrency = await t.run(
-      "site",
-      "deploy",
-      "-y",
-      "--concurrency",
-      "5",
-    );
-    const help = await t.run("site", "deploy", "--help");
-
-    t.expectResult(gitHash).toFail();
-    t.expectResult(gitHash).toContain("unknown option");
-    t.expectResult(concurrency).toFail();
-    t.expectResult(concurrency).toContain("unknown option");
-    t.expectResult(help).toNotContain("--git-hash");
-    t.expectResult(help).toNotContain("--concurrency");
-  });
-
   it("deploys the site output through the deployments API when gated on", async () => {
     await t.givenLoggedInWithProject(fixture("with-site"));
-    t.givenEnv({ BASE44_DEPLOYMENTS_API: "1" });
     mockStaticCreate(["/main.js", "/styles.css"]);
     t.api.mockDeploymentFinalize({ deployment_id: DEPLOYMENT_ID });
 
@@ -146,7 +113,6 @@ describe("site deploy command (static site through the deployments API, env-gate
 
   it("sends no PUTs and still finalizes when every asset is already stored", async () => {
     await t.givenLoggedInWithProject(fixture("with-site"));
-    t.givenEnv({ BASE44_DEPLOYMENTS_API: "true" });
     mockStaticCreate([]);
     t.api.mockDeploymentFinalize({ deployment_id: DEPLOYMENT_ID });
 
@@ -163,7 +129,6 @@ describe("site deploy command (static site through the deployments API, env-gate
 
   it("emits a single JSON document with --json", async () => {
     await t.givenLoggedInWithProject(fixture("with-site"));
-    t.givenEnv({ BASE44_DEPLOYMENTS_API: "1" });
     mockStaticCreate(["/main.js", "/styles.css"]);
     t.api.mockDeploymentFinalize({ deployment_id: DEPLOYMENT_ID });
 
@@ -180,6 +145,7 @@ describe("site deploy command (static site through the deployments API, env-gate
     expect(JSON.parse(result.stdout)).toEqual({
       deploymentId: DEPLOYMENT_ID,
       gitHash: GIT_HASH,
+      published: false,
     });
   });
 
@@ -187,7 +153,6 @@ describe("site deploy command (static site through the deployments API, env-gate
     // A site deploy reads no entity files, so one it can't parse is unrelated —
     // builder-managed entity schemas failed every publish through this path.
     await t.givenLoggedInWithProject(fixture("with-site"));
-    t.givenEnv({ BASE44_DEPLOYMENTS_API: "1" });
     const entitiesDir = join(t.getTempDir(), "project", "base44", "entities");
     await mkdir(entitiesDir, { recursive: true });
     await writeFile(
@@ -205,7 +170,6 @@ describe("site deploy command (static site through the deployments API, env-gate
 
   it("reports the rejected status in the --json error envelope", async () => {
     await t.givenLoggedInWithProject(fixture("with-site"));
-    t.givenEnv({ BASE44_DEPLOYMENTS_API: "1" });
     t.api.mockError("post", "/api/apps/test-app-id/deployments", {
       status: 401,
       body: { message: "API key is not valid" },
@@ -230,7 +194,6 @@ describe("site deploy command (static site through the deployments API, env-gate
 
   it("requires a commit hash outside a git checkout", async () => {
     await t.givenLoggedInWithProject(fixture("with-site"));
-    t.givenEnv({ BASE44_DEPLOYMENTS_API: "1" });
 
     const result = await t.run("site", "deploy", "-y");
 
@@ -241,7 +204,6 @@ describe("site deploy command (static site through the deployments API, env-gate
 
   it("rejects a --git-hash that is not a commit hash", async () => {
     await t.givenLoggedInWithProject(fixture("with-site"));
-    t.givenEnv({ BASE44_DEPLOYMENTS_API: "1" });
 
     const result = await t.run("site", "deploy", "-y", "--git-hash", "nope");
 
@@ -252,7 +214,6 @@ describe("site deploy command (static site through the deployments API, env-gate
 
   it("uploads every asset under a --concurrency override", async () => {
     await t.givenLoggedInWithProject(fixture("with-site"));
-    t.givenEnv({ BASE44_DEPLOYMENTS_API: "1" });
     mockStaticCreate(["/main.js", "/styles.css"]);
     t.api.mockDeploymentFinalize({ deployment_id: DEPLOYMENT_ID });
 
@@ -272,7 +233,6 @@ describe("site deploy command (static site through the deployments API, env-gate
 
   it("rejects a --concurrency outside the allowed range", async () => {
     await t.givenLoggedInWithProject(fixture("with-site"));
-    t.givenEnv({ BASE44_DEPLOYMENTS_API: "1" });
 
     const zero = await t.run("site", "deploy", "-y", "--concurrency", "0");
     const huge = await t.run("site", "deploy", "-y", "--concurrency", "999");
@@ -285,7 +245,6 @@ describe("site deploy command (static site through the deployments API, env-gate
 
   it("prefers a full-stack artifact over the static lane (cf arm)", async () => {
     await t.givenLoggedInWithProject(fixture("fullstack-project"));
-    t.givenEnv({ BASE44_DEPLOYMENTS_API: "1" });
     t.api.mockDeploymentCreate({
       deployment_id: DEPLOYMENT_ID,
       session_id: SESSION_ID,

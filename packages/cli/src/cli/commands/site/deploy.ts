@@ -14,10 +14,9 @@ import {
 import type { ProjectWithPaths } from "@/core/project/types.js";
 import {
   DEFAULT_UPLOAD_CONCURRENCY,
-  deploymentsApiEnabled,
-  deploySite,
   deployToDeployments,
   MAX_UPLOAD_CONCURRENCY,
+  publishDeployment,
   resolveGitHash,
 } from "@/core/site/index.js";
 import { isGitCommitHash } from "@/core/utils/git.js";
@@ -27,6 +26,7 @@ interface DeployOptions {
   build?: boolean;
   gitHash?: string;
   concurrency?: number;
+  publish?: boolean;
 }
 
 async function deployAction(
@@ -57,9 +57,7 @@ async function deployAction(
     }
   }
 
-  return deploymentsApiEnabled()
-    ? await deployToDeploymentsApi(ctx, project, options)
-    : await deployTarball(ctx, project);
+  return deployToDeploymentsApi(ctx, project, options);
 }
 
 async function deployToDeploymentsApi(
@@ -69,6 +67,8 @@ async function deployToDeploymentsApi(
 ): Promise<RunCommandResult> {
   const { runTask, log, jsonMode } = ctx;
   const projectRoot = project.root;
+  // First, so a defaulted site block is reported before anything can fail.
+  const outputDir = siteOutputDir(project);
   const gitHash = await resolveGitHash(projectRoot, options.gitHash);
   const progressLines: string[] = [];
   const warnings: string[] = [];
@@ -79,7 +79,7 @@ async function deployToDeploymentsApi(
       await deployToDeployments({
         projectRoot,
         // A build carrying a worker brings its own assets directory instead.
-        outputDir: siteOutputDir(project),
+        outputDir,
         gitHash,
         concurrency: options.concurrency,
         progress: {
@@ -109,32 +109,31 @@ async function deployToDeploymentsApi(
     log.warn(warning);
   }
 
-  // No URL: what production serves is decided when the app is published from
-  // the builder, not by this deploy.
+  // Deploying is not publishing: this command builds an app's commit, and the
+  // platform's own build step is its main caller — for an app the builder
+  // manages, production is repointed there, and publishing here would fail it.
+  // `base44 deploy` is the door that puts a build live; `--publish` is the same
+  // step on demand.
+  const published = options.publish
+    ? await runTask(
+        "Publishing site...",
+        async () => await publishDeployment(gitHash),
+        { successMessage: "Site published", errorMessage: "Publish failed" },
+      )
+    : undefined;
+
+  if (published) {
+    log.message(
+      `${theme.styles.header("App URL")}: ${theme.colors.links(published.appUrl)}`,
+    );
+  }
+
   return {
     outroMessage: `Deployment ${deploymentId} (commit ${gitHash.slice(0, 12)})`,
     stdout: jsonMode
-      ? `${JSON.stringify({ deploymentId, gitHash }, null, 2)}\n`
+      ? `${JSON.stringify({ deploymentId, gitHash, published: Boolean(published) }, null, 2)}\n`
       : undefined,
   };
-}
-
-async function deployTarball(
-  { runTask }: CLIContext,
-  project: ProjectWithPaths,
-): Promise<RunCommandResult> {
-  const outputDir = siteOutputDir(project);
-
-  const { appUrl } = await runTask(
-    "Creating archive and deploying site...",
-    async () => await deploySite(outputDir),
-    {
-      successMessage: "Site deployed successfully",
-      errorMessage: "Deployment failed",
-    },
-  );
-
-  return { outroMessage: `Visit your site at: ${appUrl}` };
 }
 
 function siteOutputDir(project: ProjectWithPaths): string {
@@ -144,30 +143,24 @@ function siteOutputDir(project: ProjectWithPaths): string {
 }
 
 export function getSiteDeployCommand(): Command {
-  const command = new Base44Command("deploy")
+  return new Base44Command("deploy")
     .description("Deploy built site files to Base44 hosting")
     .option("-y, --yes", "Skip confirmation prompt")
     .option("--build", "Build the site before deploying (skips the prompt)")
-    .option("--no-build", "Deploy without building (skips the prompt)");
-
-  // Registered on the enabled lane only: with the gate off they are absent from
-  // --help and rejected as unknown options, rather than accepted by a tar.gz
-  // upload that can honor neither.
-  if (deploymentsApiEnabled()) {
-    command.addOption(
+    .option("--no-build", "Deploy without building (skips the prompt)")
+    .option("--publish", "Serve this build in production once it is deployed")
+    .addOption(
       new Option(
         "--git-hash <hash>",
         "Commit the build came from (defaults to the checkout's HEAD)",
       ).argParser(parseGitHash),
-    );
-    command.addOption(
+    )
+    .addOption(
       new Option("--concurrency <n>", "Parallel asset uploads")
         .default(DEFAULT_UPLOAD_CONCURRENCY)
         .argParser(parseConcurrency),
-    );
-  }
-
-  return command.action(deployAction);
+    )
+    .action(deployAction);
 }
 
 function parseGitHash(value: string): string {
