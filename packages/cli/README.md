@@ -70,6 +70,7 @@ The CLI will guide you through project setup. For step-by-step tutorials, see th
 | [`sandbox checkpoint`](https://docs.base44.com/developers/references/cli/commands/sandbox-checkpoint) | Save a restore point in the builder's version history; run it after each unit of work, since sandbox writes are committed but not checkpointed and a Restore or Revert in the builder discards everything after the last checkpoint |
 | [`site deploy`](https://docs.base44.com/developers/references/cli/commands/site-deploy) | Deploy built site files to Base44 hosting |
 | [`site open`](https://docs.base44.com/developers/references/cli/commands/site-open) | Open the published site in your browser |
+| `drop [dir]` | Host a folder of static files (index.html at its root) on Base44 as a new app |
 | [`types generate`](https://docs.base44.com/developers/references/cli/commands/types-generate) | Generate TypeScript types from project resources |
 
 ## Global flags
