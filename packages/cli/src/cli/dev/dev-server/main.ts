@@ -8,6 +8,10 @@ import { createProxyMiddleware } from "http-proxy-middleware";
 import { dir } from "tmp-promise";
 import { createDevLogger } from "@/cli/dev/createDevLogger.js";
 import { createFunctionRuntime } from "@/cli/dev/dev-server/function-runtime.js";
+import {
+  type AppServerTarget,
+  createAppServerProxy,
+} from "@/cli/dev/dev-server/routes/app-server.js";
 import { createFunctionRouter } from "@/cli/dev/dev-server/routes/functions.js";
 import { theme } from "@/cli/utils/index.js";
 import type { ProjectData } from "@/core/project/types.js";
@@ -16,6 +20,7 @@ import {
   type BroadcastEntityEvent,
   broadcastEntityEvent,
   createRealtimeServer,
+  REALTIME_PATH,
 } from "./realtime.js";
 import { createAuthRouter } from "./routes/auth-router.js";
 import { createEntityRoutes } from "./routes/entities/entities-router.js";
@@ -29,10 +34,16 @@ import { WatchBase44 } from "./watcher.js";
 const DEFAULT_PORT = 4400;
 const BASE44_APP_URL = "https://base44.app";
 
+// Paths the platform owns. Everything else belongs to the app's own server —
+// including its server routes, which frameworks conventionally put under /api.
+const PLATFORM_PATH_PATTERN = /^\/api\/apps(\/|$)/;
+
 interface DevServerOptions {
   log: Logger;
   port?: number;
   denoWrapperPath: string;
+  /** The app's own dev server, fronted by this one when the project has a site. */
+  appServer?: AppServerTarget;
   loadResources: () => Promise<{
     functions: ProjectData["functions"];
     entities: ProjectData["entities"];
@@ -164,7 +175,14 @@ export async function createDevServer(
   );
   app.use("/api/apps/:appId/integrations/custom", customIntegrationRoutes);
 
+  const appServerProxy = options.appServer
+    ? createAppServerProxy(options.appServer, devLogger)
+    : undefined;
+
   app.use((req, res, next) => {
+    if (appServerProxy && !PLATFORM_PATH_PATTERN.test(req.path)) {
+      return appServerProxy.middleware(req, res, next);
+    }
     if (siteUrl && (req.path === "/login" || req.path.startsWith("/login/"))) {
       const targetUrl = new URL(req.originalUrl, siteUrl);
       devLogger.warn(
@@ -199,6 +217,16 @@ export async function createDevServer(
       }
     });
   });
+
+  if (appServerProxy) {
+    // Every upgrade that is not the entity-events socket belongs to the app —
+    // its HMR client among them.
+    server.on("upgrade", (req, socket, head) => {
+      if (!req.url?.startsWith(REALTIME_PATH)) {
+        appServerProxy.upgrade(req, socket, head);
+      }
+    });
+  }
 
   const io = createRealtimeServer(server);
   emitEntityEvent = (appId, entityName, event) => {
