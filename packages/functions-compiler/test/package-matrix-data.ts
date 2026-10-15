@@ -157,4 +157,9 @@ export const PACKAGES: PkgCase[] = [
   { name: "testJimp", pkg: "jimp", version: "0.16.13", expected: "pass", source: fn("jimp", "0.16.13",
     "import Jimp from 'npm:jimp@0.16.13';",
     "    const img = new Jimp(1, 1, 0xFF0000FF); const base64 = await img.getBase64Async(Jimp.MIME_PNG); const output = { hasData: base64.length > 0 };") },
+  // Constructing calls AsyncLocalStorage.enterWith() (no-op'd by the shim) and
+  // loading imports `ws` (served as the native-WebSocket adapter).
+  { name: "testStagehand", pkg: "@browserbasehq/stagehand", version: "3.7.3", expected: "pass", source: fn("@browserbasehq/stagehand", "3.7.3",
+    "import { Stagehand } from 'npm:@browserbasehq/stagehand@3.7.3';",
+    "    const stagehand = new Stagehand({ env: 'LOCAL', localBrowserLaunchOptions: { cdpUrl: 'ws://127.0.0.1:9/devtools/browser/x' }, model: { modelName: 'openai/gpt-4.1-mini', apiKey: 'x', openaiEndpointFormat: 'chat' }, disablePino: true }); const output = { hasInit: typeof stagehand.init === 'function', hasAct: typeof stagehand.act === 'function' };") },
 ];

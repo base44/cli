@@ -67,6 +67,15 @@ const deno = Object.freeze({
 
 (globalThis as unknown as { Deno: unknown }).Deno = deno;
 (globalThis as unknown as { Buffer: typeof Buffer }).Buffer = Buffer;
+// workerd's enterWith() is a stub that throws; libraries such as Stagehand
+// call it to seed a context they also pass explicitly, so a no-op keeps them
+// working. Probed on a throwaway instance so a future native implementation is
+// left in place.
+try {
+  new AsyncLocalStorage().enterWith(undefined);
+} catch {
+  AsyncLocalStorage.prototype.enterWith = () => {};
+}
 
 export function getRegisteredHandler(): DenoServeHandler | null {
   return registeredHandler;

@@ -1111,4 +1111,177 @@ export default {
       hasFunctionsInvoke: true,
     });
   });
+
+  // Without custom headers the adapter uses the native WebSocket constructor;
+  // with them (Stagehand's cdpHeaders) it opens the socket by fetch upgrade.
+  it.each([
+    { label: "native constructor", options: "{}", auth: "null" },
+    {
+      label: "fetch upgrade carrying headers",
+      options: '{ headers: { Authorization: "Bearer t", "User-Agent": "Stagehand/x" } }',
+      auth: "Bearer t",
+    },
+  ])("ws: the npm client runs over workerd's WebSocket ($label)", async ({
+    options,
+    auth,
+  }) => {
+    const echo = new Miniflare({
+      modules: true,
+      script: `export default {
+        fetch(req) {
+          const [client, server] = Object.values(new WebSocketPair());
+          server.accept();
+          const authorization = req.headers.get("authorization");
+          server.addEventListener("message", (e) => server.send("echo:" + e.data + ":" + authorization));
+          server.addEventListener("close", (e) => {
+            try { server.close(e.code, "bye"); } catch {}
+          });
+          return new Response(null, { status: 101, webSocket: client });
+        },
+      };`,
+      compatibilityDate: WFP_COMPAT_DATE,
+      port: 0,
+    });
+    try {
+      const wsUrl = (await echo.ready).href.replace(/^http/, "ws");
+      const m = await bundled(`
+        import WebSocket from "npm:ws@8.18.0";
+        Deno.serve(async (req) => {
+          const ws = new WebSocket(new URL(req.url).searchParams.get("ws"), ${options});
+          const reply = await new Promise((resolve, reject) => {
+            ws.once("open", () => ws.send("hi"));
+            ws.once("message", (data, isBinary) => resolve(String(data) + "|" + isBinary));
+            ws.once("error", reject);
+          });
+          // Stagehand's shutdown closes and then waits for "close".
+          const closed = new Promise((resolve) => ws.once("close", (code) => resolve(code)));
+          ws.close(1000);
+          const code = await closed;
+          return new Response(reply + "|" + code + "|" + (ws.readyState === WebSocket.CLOSED));
+        });
+      `);
+      const { status, text } = await runInWorkerd(m, {
+        url: `http://localhost/?ws=${encodeURIComponent(wsUrl)}`,
+      });
+      expect(status).toBe(200);
+      expect(text).toBe(`echo:hi:${auth}|false|1000|true`);
+    } finally {
+      await echo.dispose();
+    }
+  });
+
+  // Close and terminate follow `ws`, within what workerd's WHATWG socket allows.
+  describe("ws: closing", () => {
+    async function runAgainstEcho(body: string): Promise<string> {
+      const echo = new Miniflare({
+        modules: true,
+        script: `export default {
+          fetch() {
+            const [client, server] = Object.values(new WebSocketPair());
+            server.accept();
+            server.addEventListener("close", (e) => {
+              try { server.close(e.code, "bye"); } catch {}
+            });
+            return new Response(null, { status: 101, webSocket: client });
+          },
+        };`,
+        compatibilityDate: WFP_COMPAT_DATE,
+        port: 0,
+      });
+      try {
+        const wsUrl = (await echo.ready).href.replace(/^http/, "ws");
+        const m = await bundled(`
+          import WebSocket from "npm:ws@8.18.0";
+          const settle = () => new Promise((resolve) => setTimeout(resolve, 200));
+          Deno.serve(async (req) => {
+            const url = new URL(req.url).searchParams.get("ws");
+            const closes = [];
+            ${body}
+          });
+        `);
+        const { status, text } = await runInWorkerd(m, {
+          url: `http://localhost/?ws=${encodeURIComponent(wsUrl)}`,
+        });
+        expect(status).toBe(200);
+        return text;
+      } finally {
+        await echo.dispose();
+      }
+    }
+
+    // workerd accepts and rejects the same close codes \`ws\` does, so codes pass
+    // through unchanged and an invalid one throws as it would in Node.
+    it("passes close codes through and rejects invalid ones like ws", async () => {
+      const text = await runAgainstEcho(`
+        const ws = new WebSocket(url);
+        await new Promise((resolve) => ws.once("open", resolve));
+        let invalid = "accepted";
+        try { ws.close(999); } catch { invalid = "threw"; }
+        const closed = new Promise((resolve) => ws.once("close", (code) => resolve(code)));
+        ws.close(1001);
+        return new Response(invalid + "|" + (await closed));
+      `);
+      expect(text).toBe("threw|1001");
+    });
+
+    it("terminate() reports one 1006 close at once and ignores the server's reply", async () => {
+      const text = await runAgainstEcho(`
+        const ws = new WebSocket(url);
+        await new Promise((resolve) => ws.once("open", resolve));
+        ws.on("close", (code) => closes.push(code));
+        ws.terminate();
+        const stateAfter = ws.readyState;
+        await settle();
+        return new Response(closes.join(",") + "|" + (stateAfter === WebSocket.CLOSED));
+      `);
+      expect(text).toBe("1006|true");
+    });
+
+    it("terminate() during a header upgrade never opens and closes once", async () => {
+      const text = await runAgainstEcho(`
+        const ws = new WebSocket(url, { headers: { Authorization: "Bearer t" } });
+        let opened = false;
+        ws.on("open", () => { opened = true; });
+        ws.on("close", (code) => closes.push(code));
+        ws.terminate();
+        await settle();
+        return new Response(closes.join(",") + "|" + opened + "|" + ws.readyState);
+      `);
+      expect(text).toBe("1006|false|3");
+    });
+
+    it("terminate() is a no-op when repeated or after the socket closed", async () => {
+      const text = await runAgainstEcho(`
+        const twice = new WebSocket(url);
+        await new Promise((resolve) => twice.once("open", resolve));
+        twice.on("close", (code) => closes.push("twice:" + code));
+        twice.terminate();
+        twice.terminate();
+        const after = new WebSocket(url);
+        await new Promise((resolve) => after.once("open", resolve));
+        const closed = new Promise((resolve) => after.once("close", resolve));
+        after.close(1000);
+        await closed;
+        after.on("close", (code) => closes.push("after:" + code));
+        after.terminate();
+        await settle();
+        return new Response(closes.join(","));
+      `);
+      expect(text).toBe("twice:1006");
+    });
+  });
+
+  it("AsyncLocalStorage.enterWith() is a no-op instead of throwing", async () => {
+    const m = await bundled(`
+      import { AsyncLocalStorage } from "node:async_hooks";
+      Deno.serve(() => {
+        const store = new AsyncLocalStorage();
+        store.enterWith({ seeded: true });
+        return new Response("ok");
+      });
+    `);
+    const { status, text } = await runInWorkerd(m);
+    expect(status).toBe(200);
+    expect(text).toBe("ok");
+  });
 });
