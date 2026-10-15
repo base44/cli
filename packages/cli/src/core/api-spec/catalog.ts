@@ -3,6 +3,7 @@ import { type OperationSummary, toOperationSummary } from "./search.js";
 
 const INLINE_AREA_MAX = 2;
 const AREA_SAMPLE_MAX = 3;
+const AREA_OPERATIONS_MAX = 200;
 
 // Code-point order; localeCompare would sort "{" before letters.
 const byCodePoint = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
@@ -63,4 +64,18 @@ export function catalogIndex(operations: ApiOperation[]): {
           },
   );
   return { areas, total: operations.length };
+}
+
+/** One area's operations, at most `max`; `truncated` says the area holds more. */
+export function areaListing(
+  area: string,
+  operations: ApiOperation[],
+  max = AREA_OPERATIONS_MAX,
+) {
+  return {
+    area,
+    operations: operations.slice(0, max).map(toOperationSummary),
+    total: operations.length,
+    truncated: operations.length > max,
+  };
 }

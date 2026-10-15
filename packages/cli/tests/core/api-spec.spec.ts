@@ -3,6 +3,7 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 import {
+  areaListing,
   areaOf,
   catalogIndex,
   getOperationContract,
@@ -266,6 +267,17 @@ describe("grepSpec", () => {
 });
 
 describe("catalog", () => {
+  it("caps one area's listing and says when it is truncated", () => {
+    const workflows = groupByArea(ops()).get("workflows") ?? [];
+    expect(areaListing("workflows", workflows)).toMatchObject({
+      total: 4,
+      truncated: false,
+    });
+    const capped = areaListing("workflows", workflows, 3);
+    expect(capped.operations).toHaveLength(3);
+    expect(capped).toMatchObject({ total: 4, truncated: true });
+  });
+
   it("names the area after {app_id}, else after /api", () => {
     expect(areaOf("/api/apps/{app_id}/deploy")).toBe("deploy");
     expect(areaOf("/api/apps/{app_id}/workflows/{workflow_id}")).toBe(

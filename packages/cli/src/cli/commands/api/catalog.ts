@@ -2,9 +2,9 @@ import type { Command } from "commander";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
 import {
+  areaListing,
   catalogIndex,
   listOperations,
-  toOperationSummary,
 } from "@/core/api-spec/index.js";
 import {
   formatJson,
@@ -26,13 +26,8 @@ async function catalogAction(
   if (area === undefined) {
     return { stdout: formatJson(catalogIndex(operations)) };
   }
-  const inArea = operationsInArea(operations, area);
   return {
-    stdout: formatJson({
-      area,
-      operations: inArea.map(toOperationSummary),
-      total: inArea.length,
-    }),
+    stdout: formatJson(areaListing(area, operationsInArea(operations, area))),
   };
 }
 

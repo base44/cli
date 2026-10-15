@@ -144,6 +144,7 @@ describe("api command", () => {
           },
         ],
         total: 2,
+        truncated: false,
       });
     });
 
