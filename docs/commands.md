@@ -42,6 +42,7 @@ Omitting the flag preserves existing main-app behavior.
 - The cache is reused for one hour; `--refresh` forces a download. An unreadable cached copy is downloaded again.
 - The file is written to a temp file and renamed, so a concurrent run never reads a partial file. The download allows 60 s.
 - The file is parsed on every run; there is no index file.
+- Non-interactive runs (piped, CI, `--json`) print no status lines: agents pay tokens for stderr. A terminal still gets spinners.
 
 ### Listings (`catalog`, `search`, `grep`)
 
@@ -54,7 +55,7 @@ Omitting the flag preserves existing main-app behavior.
 - The concrete path goes as is through `base44Client`, so every auth mode works. Nothing is validated locally; the server validates.
 - There is no timeout: a call such as a deploy can take minutes.
 - The spec is read only for `--help` and `--read-only`, so a route newer than the cache still works. Both send nothing, so they run before the login check.
-- `--help` after a method and path prints the operation's contract instead of the command help, so Commander's help option is disabled. The contract has the parameters, `requestBodySchema` and the success `responseSchema`, with `$ref`s inlined to depth 4; a cycle keeps its `$ref`, listed under `refs`. It also has an `errors` map of status to description, without FastAPI's generic 422.
+- `--help` after a method and path prints the operation's contract instead of the command help, so Commander's help option is disabled. The contract has the parameters, `requestBodySchema` and the success `responseSchema`, with `$ref`s inlined to depth 4; a cycle keeps its `$ref`, listed under `refs`. It also has an `errors` map of status to description, without FastAPI's generic 422. Schemas drop FastAPI's generated `title`s and write `anyOf: [X, null]` as `type: [X, "null"]`; descriptions drop docs-site markup (callout tags, relative links) and keep their text.
 - `--read-only` refuses, before sending, any operation the spec does not mark read-only. The server stays the real guard for a read-only token.
 - The body comes from `--body '<json>'`, `--body @file.json` or `--body @-`. Stdin is read only for `@-`, because an agent harness can hold stdin open forever. A pipe or file on stdin without `--body` gets a warning that it is ignored.
 - Output: a JSON body as JSON; other text as is, or `{status, contentType, body}` under `--json`; `{"status": N}` for an empty body; `{status, contentType, bytes, note}` for a binary body. `--output <file>` saves any body as is.

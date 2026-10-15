@@ -246,6 +246,83 @@ function leftoverRefs(
   return found;
 }
 
+// Keys whose values are data, not schemas: never strip a `title` inside them.
+const SCHEMA_DATA_KEYS = new Set([
+  "example",
+  "examples",
+  "default",
+  "enum",
+  "const",
+]);
+
+// Docs-site markup: Mintlify callouts and links relative to the docs site.
+const DOCS_CALLOUT = /<(Info|Note|Tip|Check|Warning)>([\s\S]*?)<\/\1>/g;
+const RELATIVE_LINK = /\[([^\]]+)\]\(\/[^)]*\)/g;
+
+/** Description text without docs-site markup an agent can't use. */
+function cleanText(text: string): string {
+  return text
+    .replace(DOCS_CALLOUT, (_, kind: string, body: string) =>
+      kind === "Warning" ? `Warning: ${body}` : body,
+    )
+    .replace(RELATIVE_LINK, "$1");
+}
+
+/**
+ * A schema without FastAPI's generated `title`s, with `anyOf: [X, null]`
+ * written as `type: [X, "null"]`, and with cleaned descriptions. Keys inside
+ * `properties` are field names, so a field called `title` stays.
+ */
+function slimSchema(node: unknown, isPropertyMap = false): unknown {
+  if (Array.isArray(node)) {
+    return node.map((item) => slimSchema(item));
+  }
+  if (node === null || typeof node !== "object") {
+    return node;
+  }
+  const entries = Object.entries(node as Record<string, unknown>);
+  if (isPropertyMap) {
+    return Object.fromEntries(
+      entries.map(([name, value]) => [name, slimSchema(value)]),
+    );
+  }
+  const slim: Record<string, unknown> = {};
+  for (const [key, value] of entries) {
+    if (key === "title" && typeof value === "string") {
+      continue;
+    }
+    slim[key] = SCHEMA_DATA_KEYS.has(key)
+      ? value
+      : key === "properties"
+        ? slimSchema(value, true)
+        : key === "description" && typeof value === "string"
+          ? cleanText(value)
+          : slimSchema(value);
+  }
+  const { anyOf, ...rest } = slim;
+  const nullable =
+    Array.isArray(anyOf) && anyOf.length === 2
+      ? nullableType(anyOf as unknown[])
+      : undefined;
+  return nullable ? { type: [nullable, "null"], ...rest } : slim;
+}
+
+/** `string` for `[{type: "string"}, {type: "null"}]`, in either order. */
+function nullableType(variants: unknown[]): string | undefined {
+  const types = variants.map((variant) =>
+    variant !== null &&
+    typeof variant === "object" &&
+    Object.keys(variant).length === 1 &&
+    typeof (variant as { type?: unknown }).type === "string"
+      ? (variant as { type: string }).type
+      : undefined,
+  );
+  if (types.includes(undefined) || !types.includes("null")) {
+    return undefined;
+  }
+  return types.find((type) => type !== "null");
+}
+
 /**
  * The operation's contract: what a caller needs to build the request and read
  * the result. Error responses keep only their descriptions.
@@ -253,7 +330,7 @@ function leftoverRefs(
 export function getOperationContract(spec: OpenApiSpec, op: ApiOperation) {
   const schemas = spec.components?.schemas ?? {};
   const inline = (node: unknown) =>
-    node === undefined ? null : inlineRefs(node, schemas);
+    node === undefined ? null : slimSchema(inlineRefs(node, schemas));
   const responses = Object.entries(op.operation.responses ?? {}).flatMap(
     ([status, response]) => {
       const parsed = ResponseObjectSchema.safeParse(response);
@@ -276,7 +353,7 @@ export function getOperationContract(spec: OpenApiSpec, op: ApiOperation) {
     method: op.method,
     path: op.path,
     summary: op.summary,
-    description: op.description,
+    description: cleanText(op.description),
     parameters: (op.operation.parameters ?? []).flatMap((parameter) => {
       const parsed = ParameterSchema.safeParse(parameter);
       if (!parsed.success) {
@@ -294,7 +371,9 @@ export function getOperationContract(spec: OpenApiSpec, op: ApiOperation) {
           in: location,
           required: required ?? false,
           schema: inline(schema ?? {}),
-          ...(description && !inSchema ? { description } : {}),
+          ...(description && !inSchema
+            ? { description: cleanText(description) }
+            : {}),
           ...("example" in parsed.data ? { example: parsed.data.example } : {}),
         },
       ];
@@ -306,12 +385,21 @@ export function getOperationContract(spec: OpenApiSpec, op: ApiOperation) {
     requestBodySchema: inline(requestBody.schema),
     responseSchema: inline(success),
     errors: Object.fromEntries(
-      errors.map(([status, response]) => [status, response.description ?? ""]),
+      errors.map(([status, response]) => [
+        status,
+        cleanText(response.description ?? ""),
+      ]),
     ),
   };
   const refs = leftoverRefs(contract, schemas);
   return {
     ...contract,
-    ...(refs.size > 0 ? { refs: Object.fromEntries(refs) } : {}),
+    ...(refs.size > 0
+      ? {
+          refs: Object.fromEntries(
+            [...refs].map(([ref, schema]) => [ref, slimSchema(schema)]),
+          ),
+        }
+      : {}),
   };
 }

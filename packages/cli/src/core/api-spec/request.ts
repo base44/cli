@@ -49,7 +49,13 @@ export async function sendApiRequest(
     // the server's raw reply is shown to the caller instead.
     const raw =
       error instanceof HTTPError ? await readBody(error.response) : undefined;
-    throw new ApiError(apiError.message, {
+    // With the raw reply in the details, the message names only the status,
+    // so the server's words are printed once.
+    const message =
+      raw && apiError.statusCode !== undefined
+        ? `Error calling ${method} ${path}: HTTP ${apiError.statusCode}`
+        : apiError.message;
+    throw new ApiError(message, {
       statusCode: apiError.statusCode,
       requestUrl: apiError.requestUrl,
       requestMethod: apiError.requestMethod,

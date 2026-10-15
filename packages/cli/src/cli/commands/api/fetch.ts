@@ -13,6 +13,7 @@ import { writeFile } from "@/core/utils/fs.js";
 import {
   formatJson,
   loadSpecTask,
+  quietTask,
   REFRESH_OPTION_HELP,
   readRequestBody,
 } from "./shared.js";
@@ -153,7 +154,8 @@ async function fetchAction(
   });
   await ensureAuth(ctx);
   const body = await readRequestBody(options.body, ctx.log);
-  const response = await ctx.runTask(
+  const response = await quietTask(
+    ctx,
     `Calling ${method} ${path}`,
     () => sendApiRequest(method, path, body),
     {
