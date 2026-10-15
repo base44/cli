@@ -42,7 +42,6 @@ Omitting the flag preserves existing main-app behavior.
 - The cache is reused for one hour; `--refresh` forces a download. An unreadable cached copy is downloaded again.
 - The file is written to a temp file and renamed, so a concurrent run never reads a partial file. The download allows 60 s.
 - The file is parsed on every run; there is no index file.
-- Non-interactive runs (piped, CI, `--json`) print no status lines: agents pay tokens for stderr. A terminal still gets spinners.
 
 ### Listings (`catalog`, `search`, `grep`)
 

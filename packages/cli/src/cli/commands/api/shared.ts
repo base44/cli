@@ -31,24 +31,11 @@ export const READ_ONLY_FILTER_HELP = "Only read-only operations";
 export const REFRESH_OPTION_HELP =
   "Fetch the API spec again instead of using the cached copy (kept 1 hour)";
 
-/**
- * Run a step with a spinner in a terminal and silently otherwise: an agent
- * reading stderr pays tokens for every status line.
- */
-export function quietTask<T>(
-  { runTask, isNonInteractive }: CLIContext,
-  label: string,
-  operation: () => Promise<T>,
-  messages: { successMessage: string; errorMessage?: string },
-): Promise<T> {
-  return isNonInteractive ? operation() : runTask(label, operation, messages);
-}
-
 export function loadSpecTask(
-  ctx: CLIContext,
+  { runTask }: CLIContext,
   refresh: boolean | undefined,
 ): Promise<LoadedSpec> {
-  return quietTask(ctx, "Loading the API spec", () => loadSpec({ refresh }), {
+  return runTask("Loading the API spec", () => loadSpec({ refresh }), {
     successMessage: "Loaded the API spec",
   });
 }
