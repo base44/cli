@@ -250,6 +250,45 @@ describe("getOperationContract", () => {
     });
   });
 
+  it("drops FastAPI's generated titles but keeps a field named title", () => {
+    const body = contractOf("POST", "/api/apps/{app_id}/workflows")
+      .requestBodySchema as Record<string, unknown>;
+    expect(body).not.toHaveProperty("title");
+    expect(body.properties).toMatchObject({
+      title: { type: "string", description: "Shown in the workflow list." },
+    });
+    expect(JSON.stringify(body)).not.toContain('"title":"Title"');
+  });
+
+  it("writes anyOf with null as a nullable type", () => {
+    const status = contractOf(
+      "GET",
+      "/api/apps/{app_id}/workflows/runs",
+    ).parameters.find((p) => p.name === "status");
+    expect(status?.schema).toEqual({ type: ["string", "null"] });
+  });
+
+  it("strips docs callout tags and keeps their text", () => {
+    const { description } = contractOf(
+      "GET",
+      "/api/apps/{app_id}/workflows/{workflow_id}",
+    );
+    expect(description).not.toMatch(/<\/?(Info|Warning)>/);
+    expect(description).toContain("This endpoint is in beta.");
+    expect(description).toContain(
+      "Warning: Archived workflows are not returned.",
+    );
+  });
+
+  it("turns relative docs links into their text", () => {
+    const { description } = contractOf(
+      "GET",
+      "/api/apps/{app_id}/workflows/{workflow_id}",
+    );
+    expect(description).toContain("Start it with Run a workflow now.");
+    expect(description).not.toContain("](/");
+  });
+
   it("leaves error responses out, as the MCP bridge does", () => {
     expect(contractOf("GET", "/api/apps")).not.toHaveProperty("errors");
   });
@@ -267,7 +306,7 @@ describe("getOperationContract", () => {
         name: "status",
         in: "query",
         required: false,
-        schema: { type: "string" },
+        schema: { type: ["string", "null"] },
         description: "Keep only runs in this state, for example `failed`.",
       },
     ]);
