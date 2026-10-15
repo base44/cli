@@ -532,7 +532,9 @@ describe("api command", () => {
         t.expectResult(result).toContain(
           "No operation in the API spec matches",
         );
-        t.expectResult(result).toContain("--refresh");
+        t.expectResult(result).toContain(
+          "base44 api fetch GET /api/brand-new-route --read-only --refresh",
+        );
         expect(sent).toEqual([]);
       });
 

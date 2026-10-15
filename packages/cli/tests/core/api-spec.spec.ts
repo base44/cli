@@ -122,6 +122,24 @@ describe("searchOperations", () => {
     );
   });
 
+  it("puts the summary that names the query exactly first", () => {
+    expect(searchOperations(ops(), "get workflow")[0]).toEqual({
+      endpoint: "GET /api/apps/{app_id}/workflows/{workflow_id}",
+      summary: "Get workflow",
+    });
+  });
+
+  it("puts reads first among equally exact summaries", () => {
+    expect(searchOperations(ops(), "workflow")[0]?.endpoint).toBe(
+      "GET /api/apps/{app_id}/workflows/{workflow_id}",
+    );
+  });
+
+  it("ignores one-letter words and id", () => {
+    expect(searchOperations(ops(), "x")).toEqual([]);
+    expect(searchOperations(ops(), "id")).toEqual([]);
+  });
+
   it("returns nothing for words the spec does not hold", () => {
     expect(searchOperations(ops(), "zebra")).toEqual([]);
   });

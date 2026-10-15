@@ -29,7 +29,7 @@ async function findOperation(
   ctx: CLIContext,
   method: string,
   path: string,
-  refresh?: boolean,
+  { refresh, flag }: { refresh?: boolean; flag: "--help" | "--read-only" },
 ) {
   const { spec } = await loadSpecTask(ctx, refresh);
   const op = matchOperation(listOperations(spec), method, path);
@@ -40,7 +40,7 @@ async function findOperation(
         hints: [
           {
             message: "The cached spec may predate this route; fetch it again",
-            command: "base44 api fetch <METHOD> <path> --help --refresh",
+            command: `base44 api fetch ${method} ${path} ${flag} --refresh`,
           },
           {
             message: "Find the operation and its path template",
@@ -123,18 +123,19 @@ async function fetchAction(
   const method = methodArg.toUpperCase();
 
   if (options.help) {
-    const { spec, op } = await findOperation(
-      ctx,
-      method,
-      path,
-      options.refresh,
-    );
+    const { spec, op } = await findOperation(ctx, method, path, {
+      refresh: options.refresh,
+      flag: "--help",
+    });
     return { stdout: formatJson(getOperationContract(spec, op)) };
   }
 
   // --help and the --read-only refusal send nothing, so they need no login.
   if (options.readOnly) {
-    const { op } = await findOperation(ctx, method, path, options.refresh);
+    const { op } = await findOperation(ctx, method, path, {
+      refresh: options.refresh,
+      flag: "--read-only",
+    });
     if (!op.readOnly) {
       throw new InvalidInputError(
         `Refused under --read-only: ${op.method} ${op.path} is not a read-only operation. Nothing was sent.`,
