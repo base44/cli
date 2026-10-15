@@ -35,6 +35,12 @@ export function groupByArea(
   return new Map([...areas].sort(([a], [b]) => byCodePoint(a, b)));
 }
 
+// A sample of reads says what an area holds; a sorted list starts with DELETEs.
+function readsFirst(ops: ApiOperation[]): ApiOperation[] {
+  const isRead = (op: ApiOperation) => (op.method === "GET" ? 0 : 1);
+  return [...ops].sort((a, b) => isRead(a) - isRead(b));
+}
+
 type AreaEntry =
   | { area: string; operations: OperationSummary[] }
   | { area: string; operationCount: number; sample: string[] };
@@ -51,7 +57,9 @@ export function catalogIndex(operations: ApiOperation[]): {
         : {
             area,
             operationCount: ops.length,
-            sample: ops.slice(0, AREA_SAMPLE_MAX).map((op) => op.summary),
+            sample: readsFirst(ops)
+              .slice(0, AREA_SAMPLE_MAX)
+              .map((op) => op.summary),
           },
   );
   return { areas, total: operations.length };

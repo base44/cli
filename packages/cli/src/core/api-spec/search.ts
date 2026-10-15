@@ -8,19 +8,12 @@ const MIN_RELATIVE_SCORE = 0.2;
 const TOKEN_SEPARATOR = /[\n\r\p{Z}\p{P}\p{S}]+/u;
 
 export interface OperationSummary {
-  method: string;
-  path: string;
+  endpoint: string;
   summary: string;
-  readOnly: boolean;
 }
 
 export function toOperationSummary(op: ApiOperation): OperationSummary {
-  return {
-    method: op.method,
-    path: op.path,
-    summary: op.summary,
-    readOnly: op.readOnly,
-  };
+  return { endpoint: op.endpoint, summary: op.summary };
 }
 
 function buildSearchIndex(operations: ApiOperation[]): MiniSearch {

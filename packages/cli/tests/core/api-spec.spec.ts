@@ -68,38 +68,36 @@ describe("searchOperations", () => {
   it("ranks the operation whose path and summary match first", () => {
     const [top] = searchOperations(ops(), "workflow runs");
     expect(top).toEqual({
-      method: "GET",
-      path: "/api/apps/{app_id}/workflows/runs",
+      endpoint: "GET /api/apps/{app_id}/workflows/runs",
       summary: "List workflow runs for an app",
-      readOnly: true,
     });
   });
 
   it("matches word prefixes and light typos", () => {
-    expect(searchOperations(ops(), "secr")[0]?.path).toBe(
+    expect(searchOperations(ops(), "secr")[0]?.endpoint).toContain(
       "/api/apps/{app_id}/secrets",
     );
-    expect(searchOperations(ops(), "secrts")[0]?.path).toBe(
+    expect(searchOperations(ops(), "secrts")[0]?.endpoint).toContain(
       "/api/apps/{app_id}/secrets",
     );
   });
 
   it("finds an operation by a parameter description", () => {
-    expect(searchOperations(ops(), "failed")[0]?.path).toBe(
-      "/api/apps/{app_id}/workflows/runs",
+    expect(searchOperations(ops(), "failed")[0]?.endpoint).toBe(
+      "GET /api/apps/{app_id}/workflows/runs",
     );
   });
 
   it("returns only read-only operations under readOnly", () => {
     const results = searchOperations(ops(), "workflow", { readOnly: true });
     expect(results.length).toBeGreaterThan(0);
-    expect(results.every((r) => r.readOnly)).toBe(true);
+    expect(results.every((r) => r.endpoint.startsWith("GET "))).toBe(true);
     expect(results.map((r) => r.summary)).not.toContain("Delete workflow");
   });
 
   it("drops results far below the best score", () => {
     const results = searchOperations(ops(), "secrets", { limit: 20 });
-    expect(results.every((r) => r.path.includes("secrets"))).toBe(true);
+    expect(results.every((r) => r.endpoint.includes("secrets"))).toBe(true);
   });
 
   it("returns at most limit results, 5 by default", () => {
@@ -155,30 +153,67 @@ describe("matchOperation", () => {
 });
 
 describe("getOperationContract", () => {
-  it("returns the contract with every referenced schema, transitively", () => {
-    const op = find("GET", "/api/apps");
+  const contractOf = (method: string, path: string) => {
+    const op = find(method, path);
     if (!op) throw new Error("fixture changed");
-    const contract = getOperationContract(spec, op);
+    return getOperationContract(spec, op);
+  };
+
+  it("keeps the success response schema with its refs inlined", () => {
+    const contract = contractOf("GET", "/api/apps");
     expect(contract).toMatchObject({
+      endpoint: "GET /api/apps",
       method: "GET",
       path: "/api/apps",
-      readOnly: true,
-      requestBody: null,
+      summary: "List apps",
+      parameters: [],
+      requestBodySchema: null,
     });
-    expect(Object.keys(contract.refs).sort()).toEqual([
-      "#/components/schemas/App",
-      "#/components/schemas/AppList",
-    ]);
+    expect(contract.responseSchema).toMatchObject({
+      properties: {
+        apps: { items: { properties: { id: { type: "string" } } } },
+      },
+    });
   });
 
-  it("includes the request body schema", () => {
-    const op = find("POST", "/api/apps/{app_id}/workflows");
-    if (!op) throw new Error("fixture changed");
-    const contract = getOperationContract(spec, op);
-    expect(contract.requestBody).toBeTruthy();
-    expect(contract.refs["#/components/schemas/WorkflowCreate"]).toMatchObject({
-      properties: { trigger_status: { type: "string" } },
+  it("stops at a cycle and lets keys beside a $ref win", () => {
+    const parent = (
+      contractOf("GET", "/api/apps").responseSchema as {
+        properties: { apps: { items: { properties: { parent: unknown } } } };
+      }
+    ).properties.apps.items.properties.parent;
+    expect(parent).toEqual({
+      $ref: "#/components/schemas/App",
+      description: "The app this one was remixed from.",
     });
+  });
+
+  it("keeps error descriptions, without the framework's validation error", () => {
+    expect(contractOf("GET", "/api/apps").errors).toEqual({
+      "403": "You can't open this workspace.",
+    });
+  });
+
+  it("returns the request body schema and trimmed parameters", () => {
+    const contract = contractOf("GET", "/api/apps/{app_id}/workflows/runs");
+    expect(contract.parameters).toEqual([
+      {
+        name: "app_id",
+        in: "path",
+        required: true,
+        schema: { type: "string" },
+      },
+      {
+        name: "status",
+        in: "query",
+        required: false,
+        schema: { type: "string" },
+        description: "Keep only runs in this state, for example `failed`.",
+      },
+    ]);
+    expect(
+      contractOf("POST", "/api/apps/{app_id}/workflows").requestBodySchema,
+    ).toMatchObject({ properties: { trigger_status: { type: "string" } } });
   });
 });
 
@@ -194,19 +229,38 @@ describe("grepSpec", () => {
   });
 
   it("searches only one area's operations, and no schemas, with area", () => {
-    expect(grepSpec(spec, ops(), "name", { area: "apps" })).toEqual([]);
+    expect(grepSpec(spec, ops(), "remixed", { area: "apps" })).toEqual([]);
     const hits = grepSpec(spec, ops(), "workflow", { area: "workflows" });
     expect(hits.length).toBe(4);
     expect(
-      hits.every((hit) => "path" in hit && hit.path.includes("/workflows")),
+      hits.every(
+        (hit) => "endpoint" in hit && hit.endpoint.includes("/workflows"),
+      ),
     ).toBe(true);
   });
 
-  it("matches the method and path, case-insensitively when asked", () => {
+  it("returns only read-only operations with readOnly", () => {
+    const hits = grepSpec(spec, ops(), "workflow", { readOnly: true });
+    expect(hits.map((hit) => ("endpoint" in hit ? hit.endpoint : ""))).toEqual([
+      "GET /api/apps/{app_id}/workflows/runs",
+      "GET /api/apps/{app_id}/workflows/{workflow_id}",
+    ]);
+  });
+
+  it("does not search the generated operationId", () => {
+    expect(grepSpec(spec, ops(), "list_app_runs")).toEqual([]);
+  });
+
+  it("prints snippets without JSON escapes", () => {
+    const [hit] = grepSpec(spec, ops(), "never");
+    expect(hit?.matches[0]).toContain('secrets.  Values are never "returned".');
+  });
+
+  it("matches the endpoint, case-insensitively when asked", () => {
     expect(grepSpec(spec, ops(), "DEPLOY AN APP")).toEqual([]);
     const hits = grepSpec(spec, ops(), "DEPLOY AN APP", { ignoreCase: true });
     expect(hits).toMatchObject([
-      { method: "POST", path: "/api/apps/{app_id}/deploy", readOnly: false },
+      { endpoint: "POST /api/apps/{app_id}/deploy", summary: "Deploy an app" },
     ]);
   });
 });
@@ -252,17 +306,17 @@ describe("catalog", () => {
     expect(areas.find((a) => a.area === "secrets")).toEqual({
       area: "secrets",
       operations: [
-        expect.objectContaining({ method: "GET", readOnly: true }),
-        expect.objectContaining({ method: "POST", readOnly: false }),
+        { endpoint: "GET /api/apps/{app_id}/secrets", summary: "List secrets" },
+        { endpoint: "POST /api/apps/{app_id}/secrets", summary: "Set secret" },
       ],
     });
     expect(areas.find((a) => a.area === "workflows")).toEqual({
       area: "workflows",
       operationCount: 4,
       sample: [
-        "Delete workflow",
         "List workflow runs for an app",
         "Get workflow",
+        "Delete workflow",
       ],
     });
   });

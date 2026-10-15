@@ -10,16 +10,19 @@ import {
   formatJson,
   loadSpecTask,
   operationsInArea,
+  READ_ONLY_FILTER_HELP,
   REFRESH_OPTION_HELP,
 } from "./shared.js";
 
 async function catalogAction(
   ctx: CLIContext,
   area: string | undefined,
-  options: { refresh?: boolean },
+  options: { readOnly?: boolean; refresh?: boolean },
 ): Promise<RunCommandResult> {
   const { spec } = await loadSpecTask(ctx, options.refresh);
-  const operations = listOperations(spec);
+  const operations = listOperations(spec).filter(
+    (op) => !options.readOnly || op.readOnly,
+  );
   if (area === undefined) {
     return { stdout: formatJson(catalogIndex(operations)) };
   }
@@ -40,6 +43,7 @@ export function getApiCatalogCommand(): Command {
   })
     .description("List the API's areas, or every operation in one area")
     .argument("[area]", 'An area from the list, e.g. "workflows"')
+    .option("--read-only", READ_ONLY_FILTER_HELP)
     .option("--refresh", REFRESH_OPTION_HELP)
     .action(catalogAction);
 }

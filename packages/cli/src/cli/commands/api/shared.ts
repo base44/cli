@@ -14,18 +14,6 @@ export function formatJson(value: unknown): string {
   return `${JSON.stringify(value, null, process.stdout.isTTY ? 2 : undefined)}\n`;
 }
 
-/** A response body re-formatted as JSON when it is JSON, else as is. */
-export function formatResponseBody(text: string): string {
-  if (!text) {
-    return "";
-  }
-  try {
-    return formatJson(JSON.parse(text));
-  } catch {
-    return text.endsWith("\n") ? text : `${text}\n`;
-  }
-}
-
 export function parseLimit(value: string | undefined): number | undefined {
   if (value === undefined) {
     return undefined;
@@ -36,6 +24,8 @@ export function parseLimit(value: string | undefined): number | undefined {
   }
   return n;
 }
+
+export const READ_ONLY_FILTER_HELP = "Only read-only operations";
 
 export const REFRESH_OPTION_HELP =
   "Fetch the API spec again instead of using the cached copy (kept 1 hour)";

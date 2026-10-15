@@ -37,10 +37,12 @@ Omitting the flag preserves existing main-app behavior.
 `src/cli/commands/api/` (`catalog`, `search`, `grep`, `fetch`) is built from the server's OpenAPI spec at runtime, not per endpoint; the logic lives in `src/core/api-spec/`.
 
 - The spec is `GET /api/openapi.json` from `getBase44ApiUrl()`, saved as is to `~/.base44/cache/<server>/openapi.json` and reused for one hour (`--refresh` forces a fetch). It is parsed on every run; there is no index file.
-- Read-only per operation comes from its `security` list: `PersonalAccessTokenAuth: ["read_only"]` (the backend's `@read_safe`). `fetch --read-only` refuses anything else locally, before sending; the server stays the real guard for a read-only token.
+- Read-only per operation comes from its `security` list: `PersonalAccessTokenAuth: ["read_only"]` (the backend's `@read_safe`). It is not printed: `--read-only` on `catalog`, `search` and `grep` filters by it, and `fetch --read-only` refuses anything else locally, before sending; the server stays the real guard for a read-only token.
+- Every listing identifies an operation as `{endpoint, summary}`, where `endpoint` is `METHOD /path/template`.
 - `fetch` sends the concrete path as is through `base44Client`, so every auth mode works, and does no local validation of method or path. It reads the spec only for `--help` and `--read-only`, so a route newer than the cache still works. Those two send nothing, so they run before the login check.
 - An area (`catalog`, `grep --area`) is the path segment after `{app_id}`, else the one after `/api`.
-- `fetch` disables Commander's help option: `--help` after a method and path prints that operation's contract.
+- `fetch` disables Commander's help option: `--help` after a method and path prints that operation's contract: parameters, `requestBodySchema` and the success `responseSchema` with `$ref`s inlined (to depth 4, cycles left as `$ref`), and an `errors` map of status to description without FastAPI's generic 422.
+- `fetch` prints a JSON body as JSON, other text as is, `{"status": N}` for an empty body, and refuses to print a binary body; `--output <file>` saves any body as is.
 
 ## Command File Template
 

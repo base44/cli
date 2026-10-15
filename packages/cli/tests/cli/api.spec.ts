@@ -52,10 +52,8 @@ describe("api command", () => {
 
       t.expectResult(result).toSucceed();
       expect(JSON.parse(result.stdout)[0]).toEqual({
-        method: "GET",
-        path: "/api/apps/{app_id}/workflows/runs",
+        endpoint: "GET /api/apps/{app_id}/workflows/runs",
         summary: "List workflow runs for an app",
-        readOnly: true,
       });
     });
 
@@ -65,9 +63,11 @@ describe("api command", () => {
       t.expectResult(result).toSucceed();
       const results = JSON.parse(result.stdout);
       expect(results.length).toBeGreaterThan(0);
-      expect(results.every((r: { readOnly: boolean }) => r.readOnly)).toBe(
-        true,
-      );
+      expect(
+        results.every((r: { endpoint: string }) =>
+          r.endpoint.startsWith("GET "),
+        ),
+      ).toBe(true);
     });
 
     it("rejects a malformed --limit", async () => {
@@ -134,16 +134,26 @@ describe("api command", () => {
       expect(JSON.parse(result.stdout)).toEqual({
         area: "secrets",
         operations: [
-          expect.objectContaining({
-            method: "GET",
-            path: "/api/apps/{app_id}/secrets",
-          }),
-          expect.objectContaining({
-            method: "POST",
-            path: "/api/apps/{app_id}/secrets",
-          }),
+          {
+            endpoint: "GET /api/apps/{app_id}/secrets",
+            summary: "List secrets",
+          },
+          {
+            endpoint: "POST /api/apps/{app_id}/secrets",
+            summary: "Set secret",
+          },
         ],
         total: 2,
+      });
+    });
+
+    it("lists only read-only operations with --read-only", async () => {
+      const result = await t.run("api", "catalog", "secrets", "--read-only");
+
+      t.expectResult(result).toSucceed();
+      expect(JSON.parse(result.stdout)).toMatchObject({
+        operations: [{ endpoint: "GET /api/apps/{app_id}/secrets" }],
+        total: 1,
       });
     });
 
@@ -170,7 +180,9 @@ describe("api command", () => {
       const hits = JSON.parse(result.stdout);
       expect(hits).toHaveLength(4);
       expect(
-        hits.every((h: { path: string }) => h.path.includes("/workflows")),
+        hits.every((h: { endpoint: string }) =>
+          h.endpoint.includes("/workflows"),
+        ),
       ).toBe(true);
     });
 
@@ -213,6 +225,14 @@ describe("api command", () => {
         .mockRoute("POST", "/api/apps/:appId/secrets", record(200))
         .mockRoute("DELETE", "/api/apps/:appId/workflows/:id", record(200))
         .mockRoute("GET", "/api/brand-new-route", record(200))
+        .mockRoute("DELETE", "/api/apps/:appId/secrets", (_req, res) => {
+          res.status(204).end();
+        })
+        .mockRoute("GET", "/api/apps/:appId/export", (_req, res) => {
+          res
+            .type("application/zip")
+            .send(Buffer.from([0x50, 0x4b, 0xff, 0x00]));
+        })
         .mockRoute("GET", "/api/apps/:appId/forbidden", (_req, res) => {
           res.status(403).json({ detail: "You cannot open this app" });
         });
@@ -324,6 +344,55 @@ describe("api command", () => {
       expect(sent[0]?.url).toBe("/api/brand-new-route");
     });
 
+    it("prints the status when the response has no body", async () => {
+      const result = await t.run(
+        "api",
+        "fetch",
+        "DELETE",
+        "/api/apps/68a1/secrets",
+      );
+
+      t.expectResult(result).toSucceed();
+      expect(JSON.parse(result.stdout)).toEqual({ status: 204 });
+    });
+
+    it("refuses to print a binary response", async () => {
+      const result = await t.run(
+        "api",
+        "fetch",
+        "GET",
+        "/api/apps/68a1/export",
+      );
+
+      t.expectResult(result).toFail();
+      t.expectResult(result).toContain(
+        "The response is binary (application/zip, 4 bytes)",
+      );
+      t.expectResult(result).toContain("--output <file>");
+    });
+
+    it("saves the response as is with --output", async () => {
+      const file = join(t.getTempDir(), "export.zip");
+
+      const result = await t.run(
+        "api",
+        "fetch",
+        "GET",
+        "/api/apps/68a1/export",
+        "--output",
+        file,
+      );
+
+      t.expectResult(result).toSucceed();
+      expect(JSON.parse(result.stdout)).toEqual({
+        status: 200,
+        contentType: "application/zip",
+        bytes: 4,
+        output: file,
+      });
+      expect([...(await readFile(file))]).toEqual([0x50, 0x4b, 0xff, 0x00]);
+    });
+
     it("reports the server's error", async () => {
       const result = await t.run(
         "api",
@@ -403,14 +472,13 @@ describe("api command", () => {
         t.expectResult(result).toSucceed();
         const contract = JSON.parse(result.stdout);
         expect(contract).toMatchObject({
-          method: "POST",
-          path: "/api/apps/{app_id}/workflows",
-          readOnly: false,
+          endpoint: "POST /api/apps/{app_id}/workflows",
           parameters: [expect.objectContaining({ name: "app_id" })],
+          requestBodySchema: {
+            properties: { trigger_status: { type: "string" } },
+          },
         });
-        expect(contract.refs).toHaveProperty(
-          "#/components/schemas/WorkflowCreate",
-        );
+        expect(contract).not.toHaveProperty("readOnly");
         expect(sent).toEqual([]);
       });
 
@@ -436,6 +504,8 @@ describe("api fetch when logged out", () => {
     const result = await t.run("api", "fetch", "GET", "/api/apps", "--help");
 
     t.expectResult(result).toSucceed();
-    expect(JSON.parse(result.stdout)).toMatchObject({ path: "/api/apps" });
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      endpoint: "GET /api/apps",
+    });
   });
 });

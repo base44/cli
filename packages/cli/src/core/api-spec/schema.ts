@@ -17,6 +17,21 @@ const ParameterSchema = z.looseObject({
   required: z.boolean().optional(),
   description: z.string().optional(),
   schema: z.unknown().optional(),
+  example: z.unknown().optional(),
+});
+
+const MediaTypesSchema = z.record(
+  z.string(),
+  z.looseObject({ schema: z.unknown().optional() }),
+);
+
+export const RequestBodySchema = z.looseObject({
+  content: MediaTypesSchema.optional(),
+});
+
+export const ResponseObjectSchema = z.looseObject({
+  description: z.string().optional(),
+  content: MediaTypesSchema.optional(),
 });
 
 const SecurityRequirementSchema = z.record(z.string(), z.array(z.string()));

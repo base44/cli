@@ -8,6 +8,7 @@ import {
   loadSpecTask,
   operationsInArea,
   parseLimit,
+  READ_ONLY_FILTER_HELP,
   REFRESH_OPTION_HELP,
 } from "./shared.js";
 
@@ -15,6 +16,7 @@ interface GrepOptions {
   area?: string;
   ignoreCase?: boolean;
   limit?: string;
+  readOnly?: boolean;
   refresh?: boolean;
 }
 
@@ -44,6 +46,7 @@ async function grepAction(
     area: options.area,
     ignoreCase: options.ignoreCase,
     limit,
+    readOnly: options.readOnly,
   });
   return { stdout: formatJson(hits) };
 }
@@ -63,6 +66,7 @@ export function getApiGrepCommand(): Command {
     )
     .option("-i, --ignore-case", "Case-insensitive match")
     .option("--limit <n>", "Most operations or schemas to return (default 20)")
+    .option("--read-only", READ_ONLY_FILTER_HELP)
     .option("--refresh", REFRESH_OPTION_HELP)
     .action(grepAction);
 }

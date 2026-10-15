@@ -6,6 +6,7 @@ import {
   formatJson,
   loadSpecTask,
   parseLimit,
+  READ_ONLY_FILTER_HELP,
   REFRESH_OPTION_HELP,
 } from "./shared.js";
 
@@ -40,7 +41,7 @@ export function getApiSearchCommand(): Command {
       'What you are looking for, e.g. "failed workflow runs"',
     )
     .option("--limit <n>", "Most results to return (default 5)")
-    .option("--read-only", "Return only read-only operations")
+    .option("--read-only", READ_ONLY_FILTER_HELP)
     .option("--refresh", REFRESH_OPTION_HELP)
     .action(searchAction);
 }
