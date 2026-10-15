@@ -4,6 +4,7 @@ import {
   type OpenApiSpec,
   ParameterSchema,
 } from "./schema.js";
+import { cleanText } from "./text.js";
 
 const PERSONAL_ACCESS_TOKEN_SCHEME = "PersonalAccessTokenAuth";
 const READ_ONLY_SCOPE = "read_only";
@@ -34,7 +35,7 @@ function parameterText(operation: OpenApiOperation): string {
     .flatMap((parameter) => {
       const parsed = ParameterSchema.safeParse(parameter);
       return parsed.success
-        ? [parsed.data.name, parsed.data.description ?? ""]
+        ? [parsed.data.name, cleanText(parsed.data.description ?? "")]
         : [];
     })
     .join(" ");
@@ -76,7 +77,8 @@ export function listOperations(spec: OpenApiSpec): ApiOperation[] {
           method: method.toUpperCase(),
           path,
           summary: operation.summary ?? "",
-          description: operation.description ?? "",
+          // Without docs links and callout tags, which search would read as words.
+          description: cleanText(operation.description ?? ""),
           parameterText: parameterText(operation),
           readOnly: isReadOnly(operation, spec),
           operation,

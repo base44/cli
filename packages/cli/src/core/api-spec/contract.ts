@@ -5,6 +5,7 @@ import {
   ParameterSchema,
   ResponseObjectSchema,
 } from "./schema.js";
+import { cleanText } from "./text.js";
 
 const SCHEMA_REF_PREFIX = "#/components/schemas/";
 const MAX_REF_DEPTH = 4;
@@ -107,19 +108,6 @@ const SCHEMA_DATA_KEYS = new Set([
   "const",
 ]);
 
-// Docs-site markup: Mintlify callouts and links relative to the docs site.
-const DOCS_CALLOUT = /<(Info|Note|Tip|Check|Warning)>([\s\S]*?)<\/\1>/g;
-const RELATIVE_LINK = /\[([^\]]+)\]\(\/[^)]*\)/g;
-
-/** Description text without docs-site markup an agent can't use. */
-function cleanText(text: string): string {
-  return text
-    .replace(DOCS_CALLOUT, (_, kind: string, body: string) =>
-      kind === "Warning" ? `Warning: ${body}` : body,
-    )
-    .replace(RELATIVE_LINK, "$1");
-}
-
 /**
  * A schema without FastAPI's generated `title`s, with `anyOf: [X, null]`
  * written as `type: [X, "null"]`, and with cleaned descriptions. Keys inside
@@ -201,7 +189,7 @@ export function getOperationContract(spec: OpenApiSpec, op: ApiOperation) {
     method: op.method,
     path: op.path,
     summary: op.summary,
-    description: cleanText(op.description),
+    description: op.description,
     parameters: (op.operation.parameters ?? []).flatMap((parameter) => {
       const parsed = ParameterSchema.safeParse(parameter);
       if (!parsed.success) {

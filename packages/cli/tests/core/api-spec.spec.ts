@@ -140,6 +140,12 @@ describe("searchOperations", () => {
     expect(searchOperations(ops(), "id")).toEqual([]);
   });
 
+  it("does not read words from docs link targets or callout tags", () => {
+    // "guides" is only in a link target, "Warning" only a tag name.
+    expect(searchOperations(ops(), "guides")).toEqual([]);
+    expect(searchOperations(ops(), "info")).toEqual([]);
+  });
+
   it("returns nothing for words the spec does not hold", () => {
     expect(searchOperations(ops(), "zebra")).toEqual([]);
   });
