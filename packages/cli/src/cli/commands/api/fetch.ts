@@ -15,6 +15,7 @@ import {
   loadSpecTask,
   REFRESH_OPTION_HELP,
   readRequestBody,
+  reportedFetchCommand,
 } from "./shared.js";
 
 interface FetchOptions {
@@ -145,11 +146,7 @@ async function fetchAction(
 
   // Any endpoint's body or query can carry secrets; report neither on failure.
   ctx.errorReporter.setContext({
-    command: {
-      name: "api fetch",
-      args: [method, path.split("?", 1)[0] ?? ""],
-      options: { ...options, body: options.body && "[not reported]" },
-    },
+    command: reportedFetchCommand(method, path, { ...options }),
   });
   await ensureAuth(ctx);
   const body = await readRequestBody(options.body, ctx.log);

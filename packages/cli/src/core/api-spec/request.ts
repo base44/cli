@@ -45,23 +45,34 @@ export async function sendApiRequest(
       error,
       `calling ${method} ${path}`,
     );
-    // Any endpoint can carry secrets, so neither body goes to error reporting;
-    // the server's raw reply is shown to the caller instead.
     const raw =
       error instanceof HTTPError ? await readBody(error.response) : undefined;
-    // With the raw reply in the details, the message names only the status,
-    // so the server's words are printed once.
-    const message =
-      raw && apiError.statusCode !== undefined
-        ? `Error calling ${method} ${path}: HTTP ${apiError.statusCode}`
-        : apiError.message;
-    throw new ApiError(message, {
-      statusCode: apiError.statusCode,
-      requestUrl: apiError.requestUrl,
-      requestMethod: apiError.requestMethod,
-      requestId: apiError.requestId,
-      hints: apiError.hints,
-      details: raw ? [`Response body: ${raw}`] : apiError.details,
-    });
+    throw redactedApiError(apiError, raw, method, path);
   }
+}
+
+/**
+ * The error a failed call reports and shows. Any endpoint can carry secrets,
+ * so neither body nor the query string goes to error reporting; the server's
+ * raw reply goes to the caller in the details, and the message names only the
+ * status so that reply is printed once.
+ */
+export function redactedApiError(
+  apiError: ApiError,
+  raw: string | undefined,
+  method: string,
+  path: string,
+): ApiError {
+  const message =
+    raw && apiError.statusCode !== undefined
+      ? `Error calling ${method} ${path.split("?", 1)[0]}: HTTP ${apiError.statusCode}`
+      : apiError.message;
+  return new ApiError(message, {
+    statusCode: apiError.statusCode,
+    requestUrl: apiError.requestUrl?.split("?", 1)[0],
+    requestMethod: apiError.requestMethod,
+    requestId: apiError.requestId,
+    hints: apiError.hints,
+    details: raw ? [`Response body: ${raw}`] : apiError.details,
+  });
 }

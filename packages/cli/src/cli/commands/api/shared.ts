@@ -86,3 +86,22 @@ export async function readRequestBody(
   }
   return flag;
 }
+
+/**
+ * The command as error reporting records it: the path without its query
+ * string, and `--body` masked, since either can carry secrets.
+ */
+export function reportedFetchCommand(
+  method: string,
+  path: string,
+  options: Record<string, unknown>,
+) {
+  return {
+    name: "api fetch",
+    args: [method, path.split("?", 1)[0] ?? ""],
+    options: {
+      ...options,
+      ...(options.body === undefined ? {} : { body: "[not reported]" }),
+    },
+  };
+}
