@@ -1,4 +1,3 @@
-import { areaOf } from "./catalog.js";
 import type { ApiOperation } from "./operations.js";
 import type { OpenApiSpec } from "./schema.js";
 import { type OperationSummary, toOperationSummary } from "./search.js";
@@ -34,25 +33,17 @@ function snippets(text: string, pattern: RegExp): string[] {
 /**
  * Regex over the spec's JSON text. The served spec is one minified line, so
  * matches are grouped by the operation or component schema they fall in.
- * `area` and `readOnly` narrow it to those operations, without schemas.
+ * Pass `schemas: false` to search only the given operations.
  */
 export function grepSpec(
   spec: OpenApiSpec,
   operations: ApiOperation[],
   pattern: string,
-  options: {
-    ignoreCase?: boolean;
-    limit?: number;
-    area?: string;
-    readOnly?: boolean;
-  } = {},
+  options: { ignoreCase?: boolean; limit?: number; schemas?: boolean } = {},
 ): GrepHit[] {
   const regex = new RegExp(pattern, options.ignoreCase ? "gi" : "g");
   const hits: GrepHit[] = [];
-  const selected = (op: ApiOperation) =>
-    (options.area === undefined || areaOf(op.path) === options.area) &&
-    (!options.readOnly || op.readOnly);
-  for (const op of operations.filter(selected)) {
+  for (const op of operations) {
     // operationId and security are generated noise, not what anyone greps for.
     const { summary, description, parameters, requestBody, responses } =
       op.operation;
@@ -64,11 +55,7 @@ export function grepSpec(
       hits.push({ ...toOperationSummary(op), matches });
     }
   }
-  // Component schemas belong to no area and are not operations to filter.
-  const schemas =
-    options.area === undefined && !options.readOnly
-      ? spec.components?.schemas
-      : {};
+  const schemas = options.schemas === false ? {} : spec.components?.schemas;
   for (const [schema, definition] of Object.entries(schemas ?? {})) {
     const matches = snippets(JSON.stringify(definition), regex);
     if (matches.length > 0) {

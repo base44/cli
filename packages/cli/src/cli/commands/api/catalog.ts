@@ -20,15 +20,15 @@ async function catalogAction(
   options: { readOnly?: boolean; refresh?: boolean },
 ): Promise<RunCommandResult> {
   const { spec } = await loadSpecTask(ctx, options.refresh);
-  const operations = listOperations(spec).filter(
-    (op) => !options.readOnly || op.readOnly,
-  );
+  const operations = listOperations(spec);
+  const readOnly = (ops: typeof operations) =>
+    options.readOnly ? ops.filter((op) => op.readOnly) : ops;
   if (area === undefined) {
-    return { stdout: formatJson(catalogIndex(operations)) };
+    return { stdout: formatJson(catalogIndex(readOnly(operations))) };
   }
-  return {
-    stdout: formatJson(areaListing(area, operationsInArea(operations, area))),
-  };
+  // Look the area up before filtering, so an area with no reads is empty, not unknown.
+  const inArea = readOnly(operationsInArea(operations, area));
+  return { stdout: formatJson(areaListing(area, inArea)) };
 }
 
 export function getApiCatalogCommand(): Command {

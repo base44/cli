@@ -1,5 +1,6 @@
+import { fstatSync } from "node:fs";
 import type { CLIContext } from "@/cli/types.js";
-import { readStdin } from "@/cli/utils/index.js";
+import { readStdin, toJsonStdout } from "@/cli/utils/index.js";
 import {
   type ApiOperation,
   groupByArea,
@@ -11,7 +12,7 @@ import { readTextFile } from "@/core/utils/fs.js";
 
 /** JSON for stdout: pretty-printed in a terminal, compact when piped. */
 export function formatJson(value: unknown): string {
-  return `${JSON.stringify(value, null, process.stdout.isTTY ? 2 : undefined)}\n`;
+  return toJsonStdout(value, { compact: !process.stdout.isTTY });
 }
 
 export function parseLimit(value: string | undefined): number | undefined {
@@ -56,6 +57,19 @@ export function operationsInArea(
 }
 
 /**
+ * Stdin is a shell pipe or a redirected file. Not a terminal, `/dev/null`, or
+ * the socket a harness may hold open forever, which would hang the read.
+ */
+function isPipedStdin(): boolean {
+  try {
+    const stats = fstatSync(0);
+    return stats.isFIFO() || stats.isFile();
+  } catch {
+    return false;
+  }
+}
+
+/**
  * The body from `--body '<json>'`, `--body @file.json` or `--body @-`, else
  * piped stdin for methods that carry one.
  */
@@ -72,7 +86,7 @@ export async function readRequestBody(
   if (flag !== undefined) {
     return flag;
   }
-  if (method === "GET" || method === "HEAD" || process.stdin.isTTY) {
+  if (method === "GET" || method === "HEAD" || !isPipedStdin()) {
     return undefined;
   }
   const piped = await readStdin("--body", { trim: false });

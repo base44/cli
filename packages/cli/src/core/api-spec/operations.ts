@@ -42,13 +42,36 @@ function parameterText(operation: OpenApiOperation): string {
     .join(" ");
 }
 
+/** Path-level parameters apply to every method; the operation's own win by name and location. */
+function mergeParameters(
+  shared: unknown[] | undefined,
+  own: unknown[] | undefined,
+): unknown[] | undefined {
+  if (!shared?.length) {
+    return own;
+  }
+  const key = (parameter: unknown) => {
+    const parsed = ParameterSchema.safeParse(parameter);
+    return parsed.success ? `${parsed.data.in}:${parsed.data.name}` : undefined;
+  };
+  const ownKeys = new Set((own ?? []).map(key));
+  return [
+    ...shared.filter((parameter) => !ownKeys.has(key(parameter))),
+    ...(own ?? []),
+  ];
+}
+
 export function listOperations(spec: OpenApiSpec): ApiOperation[] {
   return Object.entries(spec.paths).flatMap(([path, item]) =>
     HTTP_METHODS.flatMap((method) => {
-      const operation = item[method];
-      if (!operation) {
+      const declared = item[method];
+      if (!declared) {
         return [];
       }
+      const operation = {
+        ...declared,
+        parameters: mergeParameters(item.parameters, declared.parameters),
+      };
       return [
         {
           endpoint: `${method.toUpperCase()} ${path}`,
@@ -178,6 +201,51 @@ function jsonSchemaOf(value: unknown): unknown {
     : undefined;
 }
 
+/** The body's media type and schema: JSON when offered, else the first (e.g. a multipart upload). */
+function requestBodyOf(value: unknown): {
+  contentType?: string;
+  schema?: unknown;
+} {
+  const parsed = RequestBodySchema.safeParse(value);
+  const content = parsed.success ? (parsed.data.content ?? {}) : {};
+  const contentType =
+    "application/json" in content
+      ? "application/json"
+      : Object.keys(content)[0];
+  return contentType
+    ? { contentType, schema: content[contentType]?.schema }
+    : {};
+}
+
+/** Schemas still referenced after inlining (cycles, depth), so every `$ref` resolves. */
+function leftoverRefs(
+  node: unknown,
+  schemas: Record<string, unknown>,
+  found: Map<string, unknown> = new Map(),
+): Map<string, unknown> {
+  if (Array.isArray(node)) {
+    for (const item of node) {
+      leftoverRefs(item, schemas, found);
+    }
+  } else if (node !== null && typeof node === "object") {
+    for (const [key, value] of Object.entries(node)) {
+      if (
+        key === "$ref" &&
+        typeof value === "string" &&
+        value.startsWith(SCHEMA_REF_PREFIX) &&
+        !found.has(value)
+      ) {
+        const schema = schemas[value.slice(SCHEMA_REF_PREFIX.length)];
+        found.set(value, schema);
+        leftoverRefs(schema, schemas, found);
+      } else {
+        leftoverRefs(value, schemas, found);
+      }
+    }
+  }
+  return found;
+}
+
 /**
  * The operation's contract: what a caller needs to build the request and read
  * the result. Error responses keep only their descriptions.
@@ -202,7 +270,8 @@ export function getOperationContract(spec: OpenApiSpec, op: ApiOperation) {
       !status.startsWith("2") &&
       response.description !== FRAMEWORK_VALIDATION_ERROR,
   );
-  return {
+  const requestBody = requestBodyOf(op.operation.requestBody);
+  const contract = {
     endpoint: op.endpoint,
     method: op.method,
     path: op.path,
@@ -230,10 +299,19 @@ export function getOperationContract(spec: OpenApiSpec, op: ApiOperation) {
         },
       ];
     }),
-    requestBodySchema: inline(jsonSchemaOf(op.operation.requestBody)),
+    ...(requestBody.contentType &&
+    requestBody.contentType !== "application/json"
+      ? { requestBodyContentType: requestBody.contentType }
+      : {}),
+    requestBodySchema: inline(requestBody.schema),
     responseSchema: inline(success),
     errors: Object.fromEntries(
       errors.map(([status, response]) => [status, response.description ?? ""]),
     ),
+  };
+  const refs = leftoverRefs(contract, schemas);
+  return {
+    ...contract,
+    ...(refs.size > 0 ? { refs: Object.fromEntries(refs) } : {}),
   };
 }

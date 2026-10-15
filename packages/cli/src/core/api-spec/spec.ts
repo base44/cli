@@ -1,4 +1,4 @@
-import { stat } from "node:fs/promises";
+import { rename, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { base44Client } from "@/core/clients/index.js";
 import { getBase44ApiUrl, getBase44GlobalDir } from "@/core/config.js";
@@ -37,10 +37,17 @@ export function parseSpec(text: string): OpenApiSpec {
   return result.data;
 }
 
-async function readFreshCache(path: string): Promise<string | null> {
+const SPEC_DOWNLOAD_TIMEOUT_MS = 60_000;
+
+/** A fresh cached spec, or null when it is missing, stale or unreadable. */
+async function readFreshCache(path: string): Promise<LoadedSpec | null> {
   try {
     const { mtimeMs } = await stat(path);
-    return isSpecCacheFresh(mtimeMs) ? await readTextFile(path) : null;
+    if (!isSpecCacheFresh(mtimeMs)) {
+      return null;
+    }
+    const text = await readTextFile(path);
+    return { text, spec: parseSpec(text) };
   } catch {
     return null;
   }
@@ -48,7 +55,9 @@ async function readFreshCache(path: string): Promise<string | null> {
 
 async function downloadSpec(): Promise<string> {
   try {
-    const response = await base44Client.get("api/openapi.json");
+    const response = await base44Client.get("api/openapi.json", {
+      timeout: SPEC_DOWNLOAD_TIMEOUT_MS,
+    });
     return await response.text();
   } catch (error) {
     throw await ApiError.fromHttpError(error, "fetching the API spec");
@@ -62,10 +71,13 @@ export async function loadSpec(
   const path = getSpecCachePath();
   const cached = options.refresh ? null : await readFreshCache(path);
   if (cached !== null) {
-    return { text: cached, spec: parseSpec(cached) };
+    return cached;
   }
   const text = await downloadSpec();
   const spec = parseSpec(text);
-  await writeFile(path, text);
+  // Write then rename, so a concurrent run never reads a half-written file.
+  const partial = `${path}.${process.pid}.tmp`;
+  await writeFile(partial, text);
+  await rename(partial, path);
   return { text, spec };
 }

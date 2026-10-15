@@ -47,14 +47,15 @@ const OperationSchema = z.looseObject({
 });
 
 /** Path items also hold non-operation keys (`parameters`, `summary`, ...). */
-const PathItemSchema = z.looseObject(
-  Object.fromEntries(
+const PathItemSchema = z.looseObject({
+  ...(Object.fromEntries(
     HTTP_METHODS.map((method) => [method, OperationSchema.optional()]),
   ) as Record<
     (typeof HTTP_METHODS)[number],
     z.ZodOptional<typeof OperationSchema>
-  >,
-);
+  >),
+  parameters: z.array(z.unknown()).optional(),
+});
 
 export const OpenApiSpecSchema = z.looseObject({
   openapi: z.string(),

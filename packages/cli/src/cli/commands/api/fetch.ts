@@ -39,6 +39,10 @@ async function findOperation(
       {
         hints: [
           {
+            message: "The cached spec may predate this route; fetch it again",
+            command: "base44 api fetch <METHOD> <path> --help --refresh",
+          },
+          {
             message: "Find the operation and its path template",
             command: 'base44 api search "<what you want to do>"',
           },
@@ -65,12 +69,14 @@ function isText(contentType: string): boolean {
 }
 
 /**
- * The body as JSON when it is JSON, else as text. An empty body prints its
- * status, and a binary one is saved only with --output (decoding it would corrupt it).
+ * The body as JSON when it is JSON, else as text (wrapped in JSON under
+ * --json). An empty body prints its status; a binary one is described, and
+ * saved only with --output, since decoding it would corrupt it.
  */
 async function formatResponse(
   { status, contentType, body }: ApiResponse,
   output: string | undefined,
+  jsonMode: boolean,
 ): Promise<string> {
   if (output !== undefined) {
     await writeFile(output, body);
@@ -80,14 +86,20 @@ async function formatResponse(
     return formatJson({ status });
   }
   if (!isText(contentType)) {
-    throw new InvalidInputError(
-      `The response is binary (${contentType}, ${body.length} bytes), so it was not printed. The request was sent; add --output <file> to save the response.`,
-    );
+    return formatJson({
+      status,
+      contentType,
+      bytes: body.length,
+      note: "Binary body not printed; add --output <file> to save it.",
+    });
   }
   const text = new TextDecoder().decode(body);
   try {
     return formatJson(JSON.parse(text));
   } catch {
+    if (jsonMode) {
+      return formatJson({ status, contentType, body: text });
+    }
     return text.endsWith("\n") ? text : `${text}\n`;
   }
 }
@@ -101,7 +113,8 @@ async function fetchAction(
 ): Promise<RunCommandResult> {
   if (!methodArg || !path) {
     if (options.help) {
-      return { stdout: command.helpInformation() };
+      const usage = command.helpInformation();
+      return { stdout: ctx.jsonMode ? formatJson({ usage }) : usage };
     }
     throw new InvalidInputError(
       "Provide a method and a path, e.g. GET /api/apps.",
@@ -129,6 +142,14 @@ async function fetchAction(
     }
   }
 
+  // Any endpoint's body or query can carry secrets; report neither on failure.
+  ctx.errorReporter.setContext({
+    command: {
+      name: "api fetch",
+      args: [method, path.split("?", 1)[0] ?? ""],
+      options: { ...options, body: options.body && "[not reported]" },
+    },
+  });
   await ensureAuth(ctx);
   const body = await readRequestBody(method, options.body);
   const response = await ctx.runTask(
@@ -139,7 +160,9 @@ async function fetchAction(
       errorMessage: "Request failed",
     },
   );
-  return { stdout: await formatResponse(response, options.output) };
+  return {
+    stdout: await formatResponse(response, options.output, ctx.jsonMode),
+  };
 }
 
 export function getApiFetchCommand(): Command {

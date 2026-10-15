@@ -38,15 +38,19 @@ async function grepAction(
   const limit = parseLimit(options.limit);
   assertValidRegex(pattern);
   const { spec } = await loadSpecTask(ctx, options.refresh);
-  const operations = listOperations(spec);
+  let operations = listOperations(spec);
   if (options.area !== undefined) {
-    operationsInArea(operations, options.area);
+    operations = operationsInArea(operations, options.area);
   }
+  if (options.readOnly) {
+    operations = operations.filter((op) => op.readOnly);
+  }
+  // Component schemas belong to no area and are not operations to filter.
+  const narrowed = options.area !== undefined || options.readOnly === true;
   const hits = grepSpec(spec, operations, pattern, {
-    area: options.area,
     ignoreCase: options.ignoreCase,
     limit,
-    readOnly: options.readOnly,
+    schemas: !narrowed,
   });
   return { stdout: formatJson(hits) };
 }
