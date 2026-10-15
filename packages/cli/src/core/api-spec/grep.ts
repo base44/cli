@@ -1,4 +1,5 @@
-import { type ApiOperation, getOperationContract } from "./operations.js";
+import { getOperationContract } from "./contract.js";
+import type { ApiOperation } from "./operations.js";
 import type { OpenApiSpec } from "./schema.js";
 import { type OperationSummary, toOperationSummary } from "./search.js";
 

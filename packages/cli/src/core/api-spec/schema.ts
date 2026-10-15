@@ -25,7 +25,8 @@ const MediaTypesSchema = z.record(
   z.looseObject({ schema: z.unknown().optional() }),
 );
 
-export const RequestBodySchema = z.looseObject({
+/** A request body or a response: both carry `content` keyed by media type. */
+export const MediaContentSchema = z.looseObject({
   content: MediaTypesSchema.optional(),
 });
 
