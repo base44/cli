@@ -1,7 +1,7 @@
 import type { Command } from "commander";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command } from "@/cli/utils/index.js";
-import { grepSpec, listOperations } from "@/core/api-spec/index.js";
+import { grepOperations, listOperations } from "@/core/api-spec/index.js";
 import { InvalidInputError } from "@/core/errors.js";
 import {
   formatJson,
@@ -45,12 +45,9 @@ async function grepAction(
   if (options.readOnly) {
     operations = operations.filter((op) => op.readOnly);
   }
-  // Component schemas belong to no area and are not operations to filter.
-  const narrowed = options.area !== undefined || options.readOnly === true;
-  const hits = grepSpec(spec, operations, pattern, {
+  const hits = grepOperations(spec, operations, pattern, {
     ignoreCase: options.ignoreCase,
     limit,
-    schemas: !narrowed,
   });
   return { stdout: formatJson(hits) };
 }
@@ -69,7 +66,7 @@ export function getApiGrepCommand(): Command {
       "Search only one area's operations (see base44 api catalog)",
     )
     .option("-i, --ignore-case", "Case-insensitive match")
-    .option("--limit <n>", "Most operations or schemas to return (default 20)")
+    .option("--limit <n>", "Most operations to return (default 20)")
     .option("--read-only", READ_ONLY_FILTER_HELP)
     .option("--refresh", REFRESH_OPTION_HELP)
     .action(grepAction);

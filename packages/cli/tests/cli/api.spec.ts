@@ -230,14 +230,14 @@ describe("api command", () => {
       t.expectResult(result).toContain("Unknown API area: nope");
     });
 
-    it("returns regex matches grouped by operation or schema", async () => {
+    it("returns the operations whose contract matches", async () => {
       const result = await t.run("api", "grep", "trigger_\\w+");
 
       t.expectResult(result).toSucceed();
       expect(JSON.parse(result.stdout)).toEqual([
         {
-          schema: "WorkflowCreate",
-          matches: [expect.stringContaining("trigger_status")],
+          endpoint: "POST /api/apps/{app_id}/workflows",
+          summary: "Create workflow",
         },
       ]);
     });

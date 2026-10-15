@@ -8,7 +8,7 @@ import {
   catalogIndex,
   getOperationContract,
   getSpecCachePath,
-  grepSpec,
+  grepOperations,
   groupByArea,
   isSpecCacheFresh,
   listOperations,
@@ -279,37 +279,30 @@ describe("getOperationContract", () => {
   });
 });
 
-describe("grepSpec", () => {
-  it("groups regex matches by operation and component schema", () => {
-    const hits = grepSpec(spec, ops(), "trigger_\\w+");
-    expect(hits).toEqual([
+describe("grepOperations", () => {
+  it("finds the operation whose inlined schema holds the field", () => {
+    expect(grepOperations(spec, ops(), "trigger_\\w+")).toEqual([
       {
-        schema: "WorkflowCreate",
-        matches: [expect.stringContaining("trigger_status")],
+        endpoint: "POST /api/apps/{app_id}/workflows",
+        summary: "Create workflow",
       },
     ]);
   });
 
-  it("searches only the operations given, without schemas when asked", () => {
+  it("searches only the operations given", () => {
     const workflows = ops().filter((op) => op.path.includes("/workflows"));
-    const hits = grepSpec(spec, workflows, "workflow", { schemas: false });
-    expect(hits.length).toBe(4);
-    expect(hits.every((hit) => "endpoint" in hit)).toBe(true);
+    expect(grepOperations(spec, workflows, "workflow")).toHaveLength(4);
   });
 
   it("does not search the generated operationId", () => {
-    expect(grepSpec(spec, ops(), "list_app_runs")).toEqual([]);
-  });
-
-  it("prints snippets without JSON escapes", () => {
-    const [hit] = grepSpec(spec, ops(), "never");
-    expect(hit?.matches[0]).toContain('secrets.  Values are never "returned".');
+    expect(grepOperations(spec, ops(), "list_app_runs")).toEqual([]);
   });
 
   it("matches the endpoint, case-insensitively when asked", () => {
-    expect(grepSpec(spec, ops(), "DEPLOY AN APP")).toEqual([]);
-    const hits = grepSpec(spec, ops(), "DEPLOY AN APP", { ignoreCase: true });
-    expect(hits).toMatchObject([
+    expect(grepOperations(spec, ops(), "DEPLOY AN APP")).toEqual([]);
+    expect(
+      grepOperations(spec, ops(), "DEPLOY AN APP", { ignoreCase: true }),
+    ).toEqual([
       { endpoint: "POST /api/apps/{app_id}/deploy", summary: "Deploy an app" },
     ]);
   });
