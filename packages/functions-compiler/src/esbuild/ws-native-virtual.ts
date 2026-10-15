@@ -18,6 +18,7 @@ const WS_SPECIFIER = /^(npm:)?ws(@[^/]+)?$/;
 const ADAPTER = `"use strict";
 const toBuffer = (value) => (globalThis.Buffer ? globalThis.Buffer.from(value) : value);
 const READY_STATES = ["CONNECTING", "OPEN", "CLOSING", "CLOSED"];
+const later = (fn, ...args) => queueMicrotask(() => fn(...args));
 const upgradeHeaders = (options) => {
   const headers = new Headers(options?.headers);
   for (const name of headers.keys()) if (name !== "user-agent") return headers;
@@ -32,6 +33,7 @@ class WebSocket {
   #state = 0;
   #url;
   #closeRequested = null;
+  #terminated = false;
   #listeners = new Map();
   constructor(address, protocols, options) {
     if (protocols && typeof protocols === "object" && !Array.isArray(protocols)) {
@@ -46,7 +48,10 @@ class WebSocket {
       this.#attach(new globalThis.WebSocket(this.#url, protocols));
     }
   }
-  get readyState() { return this.#socket ? this.#socket.readyState : this.#state; }
+  get readyState() {
+    if (this.#terminated) return 3;
+    return this.#socket ? this.#socket.readyState : this.#state;
+  }
   get url() { return this.#url; }
   get protocol() { return this.#socket ? this.#socket.protocol ?? "" : ""; }
   on(name, listener) { return this.#add(name, listener, false); }
@@ -90,7 +95,20 @@ class WebSocket {
       this.#state = 2;
     }
   }
-  terminate() { this.close(); }
+  // \`ws\` tears the connection down at once. workerd has no abrupt close, so the
+  // socket is closed normally and "close" is reported now, not on the reply.
+  terminate() {
+    if (this.#terminated || this.readyState === 3) return;
+    this.#terminated = true;
+    if (this.#socket) {
+      try { this.#socket.close(); } catch {}
+    } else {
+      // Upgrade still in flight: close it on arrival, without an "open".
+      this.#closeRequested = [];
+      this.#state = 3;
+    }
+    later(() => this.emit("close", 1006, toBuffer("")));
+  }
   #attach(socket) {
     this.#socket = socket;
     try { socket.binaryType = "arraybuffer"; } catch {}
@@ -100,7 +118,9 @@ class WebSocket {
       this.emit("message", toBuffer(isBinary ? new Uint8Array(event.data) : event.data), isBinary);
     });
     socket.addEventListener("error", (event) => this.emit("error", event.error ?? new Error(event.message || "WebSocket error")));
-    socket.addEventListener("close", (event) => this.emit("close", event.code, toBuffer(event.reason ?? "")));
+    socket.addEventListener("close", (event) => {
+      if (!this.#terminated) this.emit("close", event.code, toBuffer(event.reason ?? ""));
+    });
   }
   #upgrade(headers, protocols) {
     headers.set("Upgrade", "websocket");
@@ -108,6 +128,7 @@ class WebSocket {
     const httpUrl = this.#url.replace(/^ws(s?):/i, "http$1:");
     const fail = (error) => {
       this.#state = 3;
+      if (this.#terminated) return;
       this.emit("error", error);
       this.emit("close", 1006, toBuffer(""));
     };
