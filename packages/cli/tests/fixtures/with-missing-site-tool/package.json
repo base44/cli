@@ -1,0 +1,9 @@
+{
+  "name": "missing-site-tool-fixture",
+  "private": true,
+  "scripts": {
+    "postinstall": "node -e \"require('fs').writeFileSync('install-marker.txt', 'installed')\"",
+    "build": "node -e \"require('fs').writeFileSync('build-env.txt', 'BUILD_APP=' + process.env.VITE_BASE44_APP_ID)\"",
+    "dev": "node serve.js"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "Missing Site Tool Project",
+  // Names a package manager this machine does not have, the way a pnpm project
+  // looks to an npm-only sandbox.
+  "site": {
+    "installCommand": "base44-missing-tool install --frozen-lockfile",
+    "buildCommand": "base44-missing-tool build",
+    "serveCommand": "base44-missing-tool dev"
+  }
+}

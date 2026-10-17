@@ -103,6 +103,55 @@ export function siteOrDefault(project: ProjectWithPaths): SiteConfig {
   return DEFAULT_SITE;
 }
 
+/**
+ * A POSIX shell's exit status when the program it was told to run does not
+ * exist. `cmd /c` exits 1 for that, which nothing distinguishes from a failure.
+ */
+const COMMAND_NOT_FOUND_EXIT_CODE = 127;
+
+/**
+ * Runs a site command from the config, and `fallback` when its program is not
+ * installed (a pnpm config where only npm exists). Anything else that fails,
+ * including the fallback, fails as it would have.
+ */
+export async function runSiteCommandOrDefault<T>(
+  command: string,
+  fallback: string,
+  run: (command: string) => Promise<T>,
+): Promise<T> {
+  try {
+    return await run(command);
+  } catch (error) {
+    if (command === fallback || !isCommandNotFound(error)) {
+      throw error;
+    }
+    warnSiteCommandFallback(command, fallback);
+    return run(fallback);
+  }
+}
+
+export function warnSiteCommandFallback(
+  command: string,
+  fallback: string,
+): void {
+  warnConfigFallback(
+    `'${command}' could not start because its program is not installed; running '${fallback}' instead.`,
+  );
+}
+
+export function isCommandNotFoundExit(code: unknown): boolean {
+  return code === COMMAND_NOT_FOUND_EXIT_CODE && process.platform !== "win32";
+}
+
+function isCommandNotFound(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "exitCode" in error &&
+    isCommandNotFoundExit(error.exitCode)
+  );
+}
+
 function withoutKey(
   record: Record<string, unknown>,
   key: string,
