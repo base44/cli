@@ -26,7 +26,7 @@ export async function pathExists(path: string): Promise<boolean> {
 
 export async function writeFile(
   filePath: string,
-  content: string,
+  content: string | Uint8Array,
 ): Promise<void> {
   const dir = dirname(filePath);
   if (!(await pathExists(dir))) {
