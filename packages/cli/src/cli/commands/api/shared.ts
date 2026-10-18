@@ -1,7 +1,6 @@
-import { fstatSync } from "node:fs";
 import { basename } from "node:path";
 import type { CLIContext } from "@/cli/types.js";
-import { type Logger, readStdin, toJsonStdout } from "@/cli/utils/index.js";
+import { readStdin, toJsonStdout } from "@/cli/utils/index.js";
 import {
   type ApiOperation,
   groupByArea,
@@ -57,16 +56,6 @@ export function operationsInArea(
   return inArea;
 }
 
-/** Stdin is a shell pipe or a redirected file; checking reads nothing from it. */
-function isPipedStdin(): boolean {
-  try {
-    const stats = fstatSync(0);
-    return stats.isFIFO() || stats.isFile();
-  } catch {
-    return false;
-  }
-}
-
 /**
  * The body from `--body '<json>'`, `--body @file.json` or `--body @-`. Stdin
  * is read only for `@-`: a harness can hold stdin open forever, so reading it
@@ -74,16 +63,12 @@ function isPipedStdin(): boolean {
  */
 export async function readRequestBody(
   flag: string | undefined,
-  log: Logger,
 ): Promise<string | undefined> {
   if (flag === "@-") {
     return readStdin("--body @-", { trim: false });
   }
   if (flag?.startsWith("@")) {
     return readTextFile(flag.slice(1));
-  }
-  if (flag === undefined && isPipedStdin()) {
-    log.warn("stdin is ignored; pass --body @- to send it as the body.");
   }
   return flag;
 }

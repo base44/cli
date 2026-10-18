@@ -626,6 +626,48 @@ describe("api command", () => {
       expect(sent).toHaveLength(1);
     });
 
+    describe("{app_id}", () => {
+      const runsPath = "/api/apps/{app_id}/workflows/runs";
+
+      it("fills it from the project", async () => {
+        await t.givenProject(fixture("with-entities"));
+
+        const result = await t.run("api", "fetch", "GET", runsPath);
+
+        t.expectResult(result).toSucceed();
+        expect(sent[0]?.url).toBe("/api/apps/test-app-id/workflows/runs");
+      });
+
+      it("fills it from --app-id", async () => {
+        const result = await t.run(
+          "--app-id",
+          "68a1",
+          "api",
+          "fetch",
+          "GET",
+          runsPath,
+        );
+
+        t.expectResult(result).toSucceed();
+        expect(sent[0]?.url).toBe("/api/apps/68a1/workflows/runs");
+      });
+
+      it("refuses any other placeholder without sending", async () => {
+        const result = await t.run(
+          "--app-id",
+          "68a1",
+          "api",
+          "fetch",
+          "DELETE",
+          "/api/apps/{app_id}/workflows/{workflow_id}",
+        );
+
+        t.expectResult(result).toFail();
+        t.expectResult(result).toContain("Replace {workflow_id}");
+        expect(sent).toEqual([]);
+      });
+    });
+
     describe("--read-only", () => {
       it("refuses an unsafe operation without sending it", async () => {
         const result = await t.run(
@@ -657,6 +699,21 @@ describe("api command", () => {
         t.expectResult(result).toContain(
           "No operation in the API spec matches GET /api/apps/68a1/workflows/.",
         );
+        expect(sent).toEqual([]);
+      });
+
+      it("refuses an encoded separator the server would decode", async () => {
+        // Matches "Get workflow" as typed, but the server routes /workflows/wf_9/x.
+        const result = await t.run(
+          "api",
+          "fetch",
+          "GET",
+          "/api/apps/68a1/workflows/wf_9%2Fx",
+          "--read-only",
+        );
+
+        t.expectResult(result).toFail();
+        t.expectResult(result).toContain("encoded /");
         expect(sent).toEqual([]);
       });
 

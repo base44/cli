@@ -39,7 +39,7 @@ async function grepAction(
   assertValidRegex(pattern);
   const { spec } = await loadSpecTask(ctx, options.refresh);
   let operations = listOperations(spec);
-  if (options.area !== undefined) {
+  if (options.area) {
     operations = operationsInArea(operations, options.area);
   }
   if (options.readOnly) {

@@ -37,7 +37,10 @@ describe("api fetch error reporting", () => {
   it("gives the caller the server's raw reply in the details", () => {
     const reported = redactedApiError(failed, '{"detail":"x"}', "POST", "/p");
 
-    expect(reported.details).toEqual(['Response body: {"detail":"x"}']);
+    expect(reported.details).toEqual([
+      'Response body: {"detail":"x"}',
+      "Request ID: req-1",
+    ]);
   });
 
   it("names only the status when the error body is empty", () => {

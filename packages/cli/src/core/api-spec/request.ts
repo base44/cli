@@ -97,6 +97,9 @@ export function redactedApiError(
     requestMethod: apiError.requestMethod,
     requestId: apiError.requestId,
     hints: apiError.hints,
-    details: raw ? [`Response body: ${raw}`] : apiError.details,
+    details: [
+      ...(raw ? [`Response body: ${raw}`] : (apiError.details ?? [])),
+      ...(apiError.requestId ? [`Request ID: ${apiError.requestId}`] : []),
+    ],
   });
 }

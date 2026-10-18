@@ -1,6 +1,12 @@
 import type { Command } from "commander";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
-import { Base44Command, ensureAuth } from "@/cli/utils/index.js";
+import {
+  type AppIdOptions,
+  Base44Command,
+  ensureAppContext,
+  ensureAuth,
+  requireApp,
+} from "@/cli/utils/index.js";
 import {
   type ApiResponse,
   getOperationContract,
@@ -58,11 +64,34 @@ async function findOperation(
   return { spec, op };
 }
 
+const ENCODED_SEPARATOR = /%(2f|5c|2e)/i;
+
+/** Fills `{app_id}` from `--app-id` or the project; any other placeholder must be filled by hand. */
+async function fillAppId(
+  ctx: CLIContext,
+  path: string,
+  command: Command,
+): Promise<string> {
+  let filled = path;
+  if (withoutQuery(path).includes("{app_id}")) {
+    const { appId } = command.optsWithGlobals<AppIdOptions>();
+    await ensureAppContext(ctx, { appId });
+    filled = path.replaceAll("{app_id}", requireApp(ctx).id);
+  }
+  const placeholder = withoutQuery(filled).match(/\{[^}/]*\}/);
+  if (placeholder) {
+    throw new InvalidInputError(
+      `Replace ${placeholder[0]} in the path with a real value; only {app_id} is filled in.`,
+    );
+  }
+  return filled;
+}
+
 const MULTIPART_HINT =
   "Send this body with --form name=value, and --form name=@path for files.";
 
 const CONTRACT_HELP =
-  "\nThe contract is JSON; cut it down with e.g. | jq '.parameters, .requestBodySchema'";
+  "The contract is JSON; cut it down with e.g. | jq '.parameters, .requestBodySchema'";
 
 const TEXT_CONTENT_TYPES = [
   "json",
@@ -99,7 +128,7 @@ async function formatResponse(
   output: string | undefined,
   jsonMode: boolean,
 ): Promise<string> {
-  if (output !== undefined) {
+  if (output) {
     await writeFile(output, body);
     return formatJson({ status, contentType, bytes: body.length, output });
   }
@@ -139,7 +168,7 @@ async function fetchAction(
   if (!methodArg || !path) {
     if (options.help) {
       // helpInformation() leaves out addHelpText, so add the line here too.
-      const usage = `${command.helpInformation()}${CONTRACT_HELP}\n`;
+      const usage = `${command.helpInformation()}\n${CONTRACT_HELP}\n`;
       return { stdout: ctx.jsonMode ? formatJson({ usage }) : usage };
     }
     throw new InvalidInputError(
@@ -147,10 +176,9 @@ async function fetchAction(
     );
   }
   const method = methodArg.toUpperCase();
-  const target = normalizePath(path);
 
   if (options.help) {
-    const { spec, op } = await findOperation(ctx, method, target, {
+    const { spec, op } = await findOperation(ctx, method, normalizePath(path), {
       refresh: options.refresh,
       flag: "--help",
     });
@@ -164,8 +192,16 @@ async function fetchAction(
     };
   }
 
+  const target = normalizePath(await fillAppId(ctx, path, command));
+
   // --help and the --read-only refusal send nothing, so they need no login.
   if (options.readOnly) {
+    // The server routes the decoded path, which this check would not see.
+    if (ENCODED_SEPARATOR.test(withoutQuery(target))) {
+      throw new InvalidInputError(
+        "Refused under --read-only: the path has an encoded /, \\ or ., so it can't be checked. Nothing was sent.",
+      );
+    }
     const { op } = await findOperation(ctx, method, target, {
       refresh: options.refresh,
       flag: "--read-only",
@@ -184,7 +220,7 @@ async function fetchAction(
   const body =
     options.form.length > 0
       ? await readFormBody(options.form)
-      : await readRequestBody(options.body, ctx.log);
+      : await readRequestBody(options.body);
   const response = await ctx.runTask(
     `Calling ${method} ${target}`,
     () => sendApiRequest(method, target, body),
@@ -210,7 +246,7 @@ export function getApiFetchCommand(): Command {
     .argument("[method]", "HTTP method, e.g. GET or POST")
     .argument(
       "[path]",
-      'Concrete path with any query string, e.g. "/api/apps/<app-id>/workflows/runs?status=failed"',
+      'Path with any query string; {app_id} is filled from --app-id or the project, e.g. "/api/apps/{app_id}/workflows/runs?status=failed"',
     )
     .option(
       "--body <json>",
@@ -232,6 +268,6 @@ export function getApiFetchCommand(): Command {
       "-h, --help",
       "With a method and path, print that operation's contract; otherwise this help",
     )
-    .addHelpText("after", CONTRACT_HELP)
+    .addHelpText("after", `\n${CONTRACT_HELP}`)
     .action(fetchAction);
 }

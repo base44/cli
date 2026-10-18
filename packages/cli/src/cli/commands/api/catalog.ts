@@ -21,13 +21,13 @@ async function catalogAction(
 ): Promise<RunCommandResult> {
   const { spec } = await loadSpecTask(ctx, options.refresh);
   const operations = listOperations(spec);
-  const readOnly = (ops: typeof operations) =>
+  const filterReadOnly = (ops: typeof operations) =>
     options.readOnly ? ops.filter((op) => op.readOnly) : ops;
-  if (area === undefined) {
-    return { stdout: formatJson(catalogIndex(readOnly(operations))) };
+  if (!area) {
+    return { stdout: formatJson(catalogIndex(filterReadOnly(operations))) };
   }
   // Look the area up before filtering, so an area with no reads is empty, not unknown.
-  const inArea = readOnly(operationsInArea(operations, area));
+  const inArea = filterReadOnly(operationsInArea(operations, area));
   return { stdout: formatJson(areaListing(area, inArea)) };
 }
 
