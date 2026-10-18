@@ -1,0 +1,3 @@
+{"timestamp": "2026-10-18T09:45:00.000Z", "type": "session_meta", "payload": {"id": "019a2b3c-4d5e-7f60-8a91-b2c3d4e5f609", "cwd": "__CWD__", "source": {"subagent": {"other": "guardian"}}}}
+{"timestamp": "2026-10-18T09:45:01.000Z", "type": "response_item", "payload": {"type": "message", "role": "user", "content": [{"type": "input_text", "text": "Review the pending command."}]}}
+{"timestamp": "2026-10-18T09:45:02.000Z", "type": "response_item", "payload": {"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "Approved."}]}}
