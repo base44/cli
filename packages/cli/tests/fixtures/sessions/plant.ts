@@ -36,7 +36,7 @@ export async function plantClaudeSession(
     home,
     ".claude",
     "projects",
-    cwd.replace(/[/.]/g, "-"),
+    cwd.replace(/[^a-zA-Z0-9]/g, "-"),
     `${id}.jsonl`,
   );
   await place(filePath, text, options.mtime ?? new Date());
