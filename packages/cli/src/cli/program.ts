@@ -2,6 +2,7 @@ import { Command, Option } from "commander";
 import { getActorsCommand } from "@/cli/commands/actors/index.js";
 import { getAgentSkillsCommand } from "@/cli/commands/agent-skills/index.js";
 import { getAgentsCommand } from "@/cli/commands/agents/index.js";
+import { getApiCommand } from "@/cli/commands/api/index.js";
 import { getAuthCommand } from "@/cli/commands/auth/index.js";
 import { getLoginCommand } from "@/cli/commands/auth/login.js";
 import { getLogoutCommand } from "@/cli/commands/auth/logout.js";
@@ -114,6 +115,9 @@ export function createProgram(context: CLIContext): Command {
   // Register sandbox (remote development) commands
   program.addCommand(getSandboxCommand());
   program.addCommand(getBranchesCommand());
+
+  // Register API commands, driven by the server's OpenAPI spec
+  program.addCommand(getApiCommand());
 
   // Register auth config commands
   program.addCommand(getAuthCommand());
