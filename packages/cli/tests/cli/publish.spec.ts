@@ -284,6 +284,11 @@ describe.skipIf(process.env.CLI_TEST_RUNNER === "binary")(
 
     /** with-actors builds no site of its own; publish needs one to enter. */
     async function givenActorApp(): Promise<void> {
+      // An actor's runtime imports npm:@base44/sdk, so the compile caches npm
+      // packages. On Windows @deno/loader caches under USERPROFILE and the
+      // compiler allows reads under LOCALAPPDATA; the testkit moves only the
+      // first, so name the cache explicitly, as production does.
+      t.givenEnv({ DENO_DIR: join(t.getTempDir(), "deno") });
       await t.givenLoggedInWithProject(fixture("with-actors"));
       const dist = join(t.getTempDir(), "project", "dist");
       await mkdir(dist, { recursive: true });
