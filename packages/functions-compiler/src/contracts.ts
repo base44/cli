@@ -6,10 +6,16 @@ const fileMapSchema = z
     message: "must contain at least one file",
   });
 
+// The function's real stored path, for when `entry` is the name it was
+// submitted under (a flat function sent as `main.ts`). Only the source map
+// reads it; compilation still uses `entry`.
+const entryPathSchema = z.string().min(1).max(200);
+
 export const bundleRequestSchema = z
   .object({
     entry: z.string().min(1),
     files: fileMapSchema,
+    entryPath: entryPathSchema.optional(),
     // Backend-evaluated post-response-telemetry flag: bake the
     // detached-work telemetry prelude into the generated Worker entry.
     postResponseTelemetry: z.boolean().optional(),
@@ -17,6 +23,9 @@ export const bundleRequestSchema = z
     // handshake into the generated Worker entry (secrets arrive per isolate
     // instead of as secret_text bindings).
     runtimeSecrets: z.boolean().optional(),
+    // Return an external source map whose sources name the app's own files.
+    // Off by default; only Base44's bundler service sets it.
+    sourceMap: z.boolean().optional(),
   })
   .refine((body) => body.entry in body.files, {
     message: "`entry` must be a key in `files`",
@@ -27,6 +36,7 @@ export const appFunctionSchema = z
     name: z.string().min(1),
     entry: z.string().min(1),
     files: fileMapSchema,
+    entryPath: entryPathSchema.optional(),
   })
   .refine((fn) => fn.entry in fn.files, {
     message: "`entry` must be a key in `files`",
@@ -37,6 +47,7 @@ export const bundleAppRequestSchema = z
     functions: z.array(appFunctionSchema).min(1),
     postResponseTelemetry: z.boolean().optional(),
     runtimeSecrets: z.boolean().optional(),
+    sourceMap: z.boolean().optional(),
   })
   .refine(
     (body) =>

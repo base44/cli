@@ -119,6 +119,32 @@ if (result.ok) console.log(result.module);
 per-function status; a successful response can still contain failed functions,
 so a caller that needs a whole-app build must reject those itself.
 
+### Source maps
+
+`sourceMap: true` on either request returns `source_map` beside `module`: an
+external source map, so a stack frame from a deployed Worker can name the file a
+user wrote. It is off by default, the public CLI never sets it, and with it off the
+output is unchanged. With it on, the module differs only by the trailing
+`//# sourceMappingURL=_bundled.mjs.map` comment, which Cloudflare reads to
+remap stack traces; upload the map beside the module under that name.
+
+The map carries no `sourcesContent` and no `sourceRoot`. Its `sources` are
+rewritten:
+
+- a request file keeps its path; in a per-app bundle the `fn_<index>/` prefix
+  is stripped, and the path is checked against that function's own files;
+- a function's entry becomes its `entryPath`, when the request sends one — the
+  real stored path of a function that was submitted as `main.ts`;
+- everything else (the shim, the generated entry and wrappers, the virtual
+  runtime modules, npm and remote modules) stays in the list, because the
+  mappings index into it, and is prefixed `base44-internal:`.
+
+The per-function probe compiles `bundleApp` runs to attribute errors skip the
+map, as they skip telemetry; actor entries and `compileFunctionShards` never
+ask for one. Two functions in one per-app
+bundle can both list a `main.ts`, so a consumer that needs to know which
+function a frame belongs to reads that from the log line, not the map.
+
 ### Process isolation
 
 `installFetchGuard()` blocks outbound `fetch` other than the dependency
