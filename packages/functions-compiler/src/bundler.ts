@@ -125,6 +125,7 @@ export async function bundle(req: BundleRequest): Promise<BundleResponse> {
       req.files,
       req.postResponseTelemetry,
       req.runtimeSecrets,
+      req.errorRecords,
     );
   } catch (e) {
     return denoCompatErrorOrThrow(e);
@@ -169,6 +170,7 @@ async function assembleApp(req: BundleAppRequest): Promise<BundleAppResponse> {
   const build: AppBuild = {
     telemetry: req.postResponseTelemetry ?? false,
     runtimeSecrets: req.runtimeSecrets ?? false,
+    errorRecords: req.errorRecords ?? false,
     sourceMap: req.sourceMap ?? false,
   };
   const entries: AppFunctionEntry[] = req.functions.map((fn, index) => ({
@@ -218,11 +220,13 @@ async function assembleApp(req: BundleAppRequest): Promise<BundleAppResponse> {
   return bundleAppPerFunction(entries, build);
 }
 
-/** How a per-app build is wrapped and emitted. `telemetry` and `runtimeSecrets`
- *  change the generated entry; `sourceMap` only adds a map beside the module. */
+/** How a per-app build is wrapped and emitted. `telemetry`, `runtimeSecrets`
+ *  and `errorRecords` change the generated entry; `sourceMap` only adds a map
+ *  beside the module. */
 interface AppBuild {
   telemetry: boolean;
   runtimeSecrets: boolean;
+  errorRecords: boolean;
   sourceMap: boolean;
 }
 
@@ -235,7 +239,12 @@ async function compileApp(
   build: AppBuild,
 ): Promise<CombinedOutcome> {
   const outcome = await installAndCompile(
-    prepareApp(entries, build.telemetry, build.runtimeSecrets),
+    prepareApp(
+      entries,
+      build.telemetry,
+      build.runtimeSecrets,
+      build.errorRecords,
+    ),
     build.sourceMap,
   );
   if (!outcome.ok) return { ok: false, errors: outcome.errors };
@@ -427,7 +436,7 @@ type FunctionProbe =
  *  Compiles in the real `runtimeSecrets` mode so a mode-dependent failure (a
  *  user file named the reserved activation filename) is attributed to its
  *  function instead of leaking out of the final assembly as a 500. Its module
- *  is discarded, so it skips telemetry and the source map. */
+ *  is discarded, so it skips telemetry, error records and the source map. */
 async function probeFunction(
   entry: AppFunctionEntry,
   runtimeSecrets = false,
@@ -437,6 +446,7 @@ async function probeFunction(
     outcome = await compileApp([entry], {
       telemetry: false,
       runtimeSecrets,
+      errorRecords: false,
       sourceMap: false,
     });
   } catch (e) {

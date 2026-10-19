@@ -19,6 +19,57 @@ describe("binding-mode entries", () => {
   });
 });
 
+describe("error-records entries", () => {
+  const files = { "main.ts": serve("a") };
+  const app = (errorRecords: boolean, telemetry = false) =>
+    prepareApp([{ index: 0, fn: { name: "alpha", entry: "main.ts", files } }], telemetry, false, errorRecords);
+
+  it.each([
+    [false, false],
+    [false, true],
+    [true, false],
+    [true, true],
+  ])("leave the entry and banner unchanged when off (telemetry=%s, runtimeSecrets=%s)", async (telemetry, runtimeSecrets) => {
+    const before = await prepareFunction("main.ts", files, telemetry, runtimeSecrets);
+    const off = await prepareFunction("main.ts", files, telemetry, runtimeSecrets, false);
+    expect(off.files).toEqual(before.files);
+    const appBefore = prepareApp([{ index: 0, fn: { name: "alpha", entry: "main.ts", files } }], telemetry, runtimeSecrets);
+    const appOff = prepareApp([{ index: 0, fn: { name: "alpha", entry: "main.ts", files } }], telemetry, runtimeSecrets, false);
+    expect(appOff).toEqual(appBefore);
+    expect(off.files[off.entry]).not.toContain("_b44RecordError");
+    expect(appOff.banner).not.toContain("errorRecords");
+  });
+
+  it("are pinned when on", async () => {
+    const single = await prepareFunction("main.ts", files, false, false, true);
+    expect(single.files[single.entry]).toMatchSnapshot("single function");
+    expect(app(true).files["__base44_entry.mjs"]).toMatchSnapshot("per-app");
+  });
+
+  it("record the handler's own response, inside telemetry and invocation logs", async () => {
+    const single = (await prepareFunction("main.ts", files, true, false, true)).files["__base44_entry.mjs"];
+    expect(single).toContain("_b44AttachTelemetry(_b44RecordError(await handler(request, info)))");
+    expect(single).toContain("..._b44ErrorStore(request)");
+    expect(app(true, true).files["__base44_entry.mjs"]).toContain(
+      "_b44AttachInvocationLogs(_b44AttachTelemetry(_b44RecordError(await handler(request, info))))",
+    );
+  });
+
+  it("leave the crash path exactly as it is", () => {
+    // The uncaught throw is Cloudflare's to record; the record is only for a
+    // returned 5xx.
+    const on = app(true).files["__base44_entry.mjs"];
+    const off = app(false).files["__base44_entry.mjs"];
+    const crash = (entry: string) => entry.slice(entry.indexOf("} catch (e) {\n        console.error(e);"));
+    expect(crash(on)).toBe(crash(off));
+    expect(crash(on)).toContain("throw e;");
+  });
+
+  it("say so in the per-app banner only when on", () => {
+    expect(JSON.parse(app(true).banner!.replace(/^\/\/!b44:1 /, "")).errorRecords).toBe(true);
+  });
+});
+
 describe("prepareFunction", () => {
   it("injects a shim and a wrapper entry that delegates to the Deno.serve handler", async () => {
     const result = await prepareFunction("main.ts", { "main.ts": serve("ok") });

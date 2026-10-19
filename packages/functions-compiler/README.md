@@ -71,7 +71,9 @@ byte-comparable with the engine apper still runs.
 
 `functions` is sorted whatever order the shard was built in. `telemetry` and
 `runtimeSecrets` are there because they change the emitted bytes and a deploy has
-to pair its secrets delivery with them. `compiler` is this package's version.
+to pair its secrets delivery with them. `errorRecords` changes the bytes too, but
+appears only when it is on, so a flag-off banner keeps its bytes. `compiler` is
+this package's version.
 
 Nothing volatile may be added: a timestamp or build id would re-mint a version
 for unchanged code, the app id would make the same functions compile differently
@@ -89,7 +91,7 @@ code that did not change, and all of these do:
 - the order the caller hands functions over in, for a single shard: that path
   builds in caller order, while a multi-shard plan sorts by name. Both branches
   are as apper has them, and `shard-build.e2e.test.ts` pins the difference;
-- either wrapper flag.
+- any wrapper flag (`postResponseTelemetry`, `runtimeSecrets`, `errorRecords`).
 
 Two behaviours differ from apper's Python on purpose, and both are tested:
 
@@ -158,6 +160,38 @@ map, as they skip telemetry; actor entries and `compileFunctionShards` never
 ask for one. Two functions in one per-app
 bundle can both list a `main.ts`, so a consumer that needs to know which
 function a frame belongs to reads that from the log line, not the map.
+
+### Error records for a handled 5xx
+
+A function that catches its own error and returns a 500 leaves Cloudflare
+nothing to record. `errorRecords: true` on either request bakes a small
+recorder into the generated entry (single-function and per-app; not actors).
+It is off by default, the public CLI never sets it, and with it off the entry
+is unchanged.
+
+At runtime the recorder does nothing unless the request carries
+`x-b44-feed-context`. When the handler then returns a `Response` with status
+≥ 500, that same response goes back at once: never rebuilt, never delayed, no
+header set. On a clone, inside `ctx.waitUntil`, the recorder:
+
+- picks the message, in this order: an Error logged during the request whose
+  message the JSON body repeats; else the body (JSON of at most 2,048 bytes read
+  within 50 ms; the first non-empty `error`, `message`, `detail`, `details` or
+  `error.message`, skipping `error` when it is exactly `"Internal server error"`
+  and `details` is present); else the last Error logged during the request.
+  No message means no record;
+- takes the stack only from the logged Error that supplied the message;
+- replaces every env-binding and runtime-secret string of 8+ characters with
+  `[secret]`, longest first, before cutting anything. This includes the strings
+  nested in JSON-valued ones, such as the private-data-sources manifest;
+- caps `name` at 64 characters, `message` at 500 UTF-8 bytes (well-formed, cut
+  on a code point) and `stack` at 4 KB (cut at a line end);
+- logs exactly one line through the console patch, so it carries
+  `_b44_function`:
+  `{ _b44_error: { v: 1, kind: "response", status, name?, message, stack? } }`.
+
+Any failure writes nothing and never reaches the request. An uncaught throw is
+untouched: the entry still logs it and rethrows, and Cloudflare records it.
 
 ### Process isolation
 

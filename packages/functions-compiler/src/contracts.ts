@@ -26,6 +26,10 @@ export const bundleRequestSchema = z
     // Return an external source map whose sources name the app's own files.
     // Off by default; only Base44's bundler service sets it.
     sourceMap: z.boolean().optional(),
+    // Bake the handled-5xx `_b44_error` log line into the generated Worker
+    // entry (src/error-records.ts). Off by default; only Base44's bundler
+    // service sets it.
+    errorRecords: z.boolean().optional(),
   })
   .refine((body) => body.entry in body.files, {
     message: "`entry` must be a key in `files`",
@@ -48,6 +52,7 @@ export const bundleAppRequestSchema = z
     postResponseTelemetry: z.boolean().optional(),
     runtimeSecrets: z.boolean().optional(),
     sourceMap: z.boolean().optional(),
+    errorRecords: z.boolean().optional(),
   })
   .refine(
     (body) =>

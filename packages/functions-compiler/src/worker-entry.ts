@@ -7,6 +7,7 @@
 
 import { asset } from "./assets.js";
 import type { AppFunctionInput } from "./contracts.js";
+import { ERROR_RECORDS_PATCH } from "./error-records.js";
 import { DenoCompatError } from "./errors.js";
 import { RUNTIME_CONTEXT_SPECIFIER } from "./esbuild/runtime-context-virtual.js";
 import {
@@ -122,6 +123,7 @@ export async function prepareFunction(
   files: Record<string, string>,
   postResponseTelemetry = false,
   runtimeSecrets = false,
+  errorRecords = false,
 ): Promise<PreparedWorker> {
   assertNoReservedFilenames(files);
   return {
@@ -136,6 +138,7 @@ export async function prepareFunction(
         entry,
         postResponseTelemetry,
         runtimeSecrets,
+        errorRecords,
       ),
     },
   };
@@ -162,11 +165,14 @@ function buildBanner(
   entries: AppFunctionEntry[],
   telemetry: boolean,
   runtimeSecrets: boolean,
+  errorRecords: boolean,
 ): string {
   return `//!b44:${BANNER_FORMAT} ${JSON.stringify({
     functions: entries.map(({ fn }) => fn.name).sort(),
     telemetry,
     runtimeSecrets,
+    // Present only when on, so a flag-off banner keeps its bytes.
+    ...(errorRecords ? { errorRecords } : {}),
     compiler: COMPILER_VERSION,
   })}`;
 }
@@ -188,6 +194,7 @@ export function prepareApp(
   entries: AppFunctionEntry[],
   postResponseTelemetry = false,
   runtimeSecrets = false,
+  errorRecords = false,
 ): PreparedWorker {
   const files: Record<string, string> = {
     ...workerRuntimeFiles(),
@@ -209,11 +216,17 @@ export function prepareApp(
     moduleFiles,
     postResponseTelemetry,
     runtimeSecrets,
+    errorRecords,
   );
   return {
     entry: ENTRY_FILENAME,
     files,
-    banner: buildBanner(entries, postResponseTelemetry, runtimeSecrets),
+    banner: buildBanner(
+      entries,
+      postResponseTelemetry,
+      runtimeSecrets,
+      errorRecords,
+    ),
   };
 }
 
@@ -241,6 +254,23 @@ function activationGuard(runtimeSecrets: boolean): (expr: string) => string {
     runtimeSecrets ? `withoutActivationHeaders(${expr}, _b44Activation)` : expr;
 }
 
+// Error records (src/error-records.ts) see the handler's own response, before
+// telemetry or invocation logs re-wrap it. Each piece is empty with the flag
+// off, so those entries keep their bytes.
+function handlerCall(errorRecords: boolean): string {
+  return errorRecords
+    ? "_b44RecordError(await handler(request, info))"
+    : "await handler(request, info)";
+}
+
+function errorRecordsPatch(errorRecords: boolean): string {
+  return errorRecords ? `${ERROR_RECORDS_PATCH}\n` : "";
+}
+
+function errorRecordsStore(errorRecords: boolean): string {
+  return errorRecords ? ", ..._b44ErrorStore(request)" : "";
+}
+
 function activationImport(runtimeSecrets: boolean): string {
   return runtimeSecrets
     ? `\nimport { ensureActivation, takeActivationChallenge, withoutActivationHeaders } from "./${ACTIVATION_FILENAME}";`
@@ -254,15 +284,17 @@ function buildEntrySource(
   userEntry: string,
   telemetry: boolean,
   runtimeSecrets = false,
+  errorRecords = false,
 ): string {
   const userImport = `./${userEntry.replace(/^\.\//, "")}`;
   // Handler responses get the shim's headers stripped (a forged error header
   // after side effects would read as a non-billable failed activation) and the
   // installing request's marker added.
+  const call = handlerCall(errorRecords);
   const handlerExpr = telemetry
-    ? "_b44AttachTelemetry(await handler(request, info))"
-    : runtimeSecrets
-      ? "await handler(request, info)"
+    ? `_b44AttachTelemetry(${call})`
+    : runtimeSecrets || errorRecords
+      ? call
       : "handler(request, info)";
   const guard = activationGuard(runtimeSecrets);
   const returnExpr = guard(handlerExpr);
@@ -272,7 +304,7 @@ import { currentWorkerRuntimeContext as _b44Context, runWithWorkerEnvironment as
 import { getRegisteredHandler, installStaticEgressFetch } from "./${SHIM_FILENAME}";${activationImport(runtimeSecrets)}
 
 ${consolePatch(runtimeSecrets)}
-// Static egress reads workerEnv from the active request store. Install it
+${errorRecordsPatch(errorRecords)}// Static egress reads workerEnv from the active request store. Install it
 // before telemetry so telemetry remains the outermost fetch wrapper.
 installStaticEgressFetch();
 ${telemetry ? TELEMETRY_PATCH : ""}
@@ -281,7 +313,7 @@ let _b44Init = null;
 export default {
   async fetch(request, env, ctx) {
 ${runtimeSecrets ? ACTIVATION_TAKE : ""}    const _b44Env = (request.headers.get('base44-functions-version') ?? '') === 'prod' ? 'prod' : 'preview';
-    return _b44Run({ env: _b44Env, secrets: ${runtimeSecrets ? "process.env" : "env"}, workerEnv: env, waitUntil: (p) => ctx.waitUntil(p)${telemetry ? `, ${TELEMETRY_STORE_FIELDS}` : ""} }, async () => {
+    return _b44Run({ env: _b44Env, secrets: ${runtimeSecrets ? "process.env" : "env"}, workerEnv: env, waitUntil: (p) => ctx.waitUntil(p)${errorRecordsStore(errorRecords)}${telemetry ? `, ${TELEMETRY_STORE_FIELDS}` : ""} }, async () => {
 ${runtimeSecrets ? ACTIVATION_GATE : ""}      if (!_b44Init) _b44Init = import(${JSON.stringify(userImport)}).catch(e => { _b44Init = null; throw e; });
       const _b44Mod = await _b44Init;
       // Deno.serve capture wins (legacy contract, zero behavior change);
@@ -322,14 +354,14 @@ function buildAppEntrySource(
   functionModules: string[],
   telemetry: boolean,
   runtimeSecrets = false,
+  errorRecords = false,
 ): string {
   const moduleImports = functionModules
     .map((file) => `import "./${file}";`)
     .join("\n");
+  const call = handlerCall(errorRecords);
   const handlerExpr = `_b44AttachInvocationLogs(${
-    telemetry
-      ? "_b44AttachTelemetry(await handler(request, info))"
-      : "await handler(request, info)"
+    telemetry ? `_b44AttachTelemetry(${call})` : call
   })`;
   const guard = activationGuard(runtimeSecrets);
   const returnExpr = guard(handlerExpr);
@@ -341,7 +373,7 @@ ${moduleImports}
 
 ${consolePatch(runtimeSecrets)}
 ${INVOCATION_LOGS_PATCH}
-// Static egress reads workerEnv from the active request store. Install it
+${errorRecordsPatch(errorRecords)}// Static egress reads workerEnv from the active request store. Install it
 // before telemetry so telemetry remains the outermost fetch wrapper.
 installStaticEgressFetch();
 ${telemetry ? TELEMETRY_PATCH : ""}
@@ -350,7 +382,7 @@ export default {
   async fetch(request, env, ctx) {
 ${runtimeSecrets ? ACTIVATION_TAKE : ""}    const _b44Env = (request.headers.get('base44-functions-version') ?? '') === 'prod' ? 'prod' : 'preview';
     const functionName = request.headers.get("Base44-Function-Name");
-    return _b44Run({ env: _b44Env, fn: functionName ?? '', secrets: ${runtimeSecrets ? "process.env" : "env"}, workerEnv: env, waitUntil: (p) => ctx.waitUntil(p), ..._b44CaptureStore(request)${telemetry ? `, ${TELEMETRY_STORE_FIELDS}` : ""} }, async () => {
+    return _b44Run({ env: _b44Env, fn: functionName ?? '', secrets: ${runtimeSecrets ? "process.env" : "env"}, workerEnv: env, waitUntil: (p) => ctx.waitUntil(p), ..._b44CaptureStore(request)${errorRecordsStore(errorRecords)}${telemetry ? `, ${TELEMETRY_STORE_FIELDS}` : ""} }, async () => {
 ${runtimeSecrets ? ACTIVATION_GATE : ""}      // Each early return below logs through the patch first: per-function log
       // queries on per-app scripts keep only stamped lines, so a bare return
       // would leave the failing invocation with no trace in its own logs.
