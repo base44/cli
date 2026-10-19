@@ -7,6 +7,7 @@ import {
 } from "@/cli/commands/connectors/oauth-prompt.js";
 import { formatDeployResult } from "@/cli/commands/functions/formatDeployResult.js";
 import { maybeBuildBeforeDeploy } from "@/cli/commands/project/site-build.js";
+import { CLIExitError } from "@/cli/errors.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import {
   Base44Command,
@@ -166,6 +167,16 @@ export async function deployAction(
     log.message(
       `${theme.styles.header("App URL")}: ${theme.colors.links(result.appUrl)}`,
     );
+  }
+
+  const failedFunctions = result.functionResults.filter(
+    (functionResult) => functionResult.status === "error",
+  ).length;
+  if (failedFunctions > 0) {
+    log.warn(
+      `${failedFunctions} ${failedFunctions === 1 ? "function" : "functions"} failed to deploy`,
+    );
+    throw new CLIExitError(1);
   }
 
   return { outroMessage: "App deployed successfully" };
