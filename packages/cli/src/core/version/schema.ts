@@ -65,6 +65,24 @@ export interface BackendBundleArtifact {
   wrapper: ShardWrapper;
 }
 
+/**
+ * One actor, compiled on its own: a Durable Object Worker of its own, never a
+ * shard. Its name is its folder's, and also the class the module exports.
+ */
+export interface ActorArtifact {
+  name: string;
+  /** Always `base44/actors/<name>/entry.ts`, an `entry.js` included: the path
+   * is how the compiler knows the entry is an actor. */
+  entry: string;
+  /** The entry file as written, not as compiled. */
+  source: string;
+  module: Uint8Array;
+  size: number;
+  digest: string;
+  /** The static-egress contract the module was compiled for. */
+  staticEgress: string;
+}
+
 /** Everything one build produced, as the create-version call describes it. */
 export interface ArtifactSet {
   /** The app's files. Who serves them is what `siteWorker` says. */
@@ -75,6 +93,8 @@ export interface ArtifactSet {
    * platform this producer cannot describe functions, and it refuses that for
    * an app that has them. */
   backendBundles: BackendBundleArtifact[];
+  /** Always sent, empty when the app has none, for the same reason. */
+  actors: ActorArtifact[];
   /** Raw payloads by name. The server normalizes and hashes them. */
   entities: Record<string, unknown>;
   agents: Record<string, unknown>;

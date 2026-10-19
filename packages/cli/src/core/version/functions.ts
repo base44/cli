@@ -34,12 +34,14 @@ const COMPILE_MODES = { runtimeSecrets: false, postResponseTelemetry: false };
  * runtime packages the standalone binary cannot carry, which the compiler
  * itself imports only when it compiles.
  */
-async function requireCompilerRuntime(): Promise<void> {
+export async function requireCompilerRuntime(
+  what = "Backend functions",
+): Promise<void> {
   try {
     await Promise.all([import("esbuild"), import("@deno/loader")]);
   } catch (error) {
     throw new DependencyNotFoundError(
-      "Backend functions cannot be compiled by this installation of the CLI.",
+      `${what} cannot be compiled by this installation of the CLI.`,
       {
         hints: [{ message: "Install the CLI from npm: npm install -g base44" }],
         cause: error instanceof Error ? error : undefined,
@@ -73,7 +75,7 @@ async function compilerInput(
   return { input: { name: fn.name, entry, files }, source };
 }
 
-function describeFailure(failure: ShardBuildFailure): string {
+export function describeFailure(failure: ShardBuildFailure): string {
   const where = failure.function ? `${failure.function}: ` : "";
   const errors = (failure.errors ?? []).map((e) =>
     e.file ? `${e.file}:${e.line ?? 0} ${e.message}` : e.message,
@@ -81,7 +83,7 @@ function describeFailure(failure: ShardBuildFailure): string {
   return [`${where}${failure.message}`, ...errors].join("\n  ");
 }
 
-function sha256(bytes: Uint8Array): string {
+export function sha256(bytes: Uint8Array): string {
   return `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
 }
 

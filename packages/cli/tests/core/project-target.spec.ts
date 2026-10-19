@@ -44,6 +44,7 @@ describe("resolveBuildTarget", () => {
       entitiesDir: "entities",
       agentsDir: "agents",
       functionsDir: "functions",
+      actorsDir: "actors",
     });
   });
 
