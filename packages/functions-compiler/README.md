@@ -122,11 +122,25 @@ so a caller that needs a whole-app build must reject those itself.
 ### Source maps
 
 `sourceMap: true` on either request returns `source_map` beside `module`: an
-external source map, so a stack frame from a deployed Worker can name the file a
-user wrote. It is off by default, the public CLI never sets it, and with it off the
-output is unchanged. With it on, the module differs only by the trailing
-`//# sourceMappingURL=_bundled.mjs.map` comment, which Cloudflare reads to
-remap stack traces; upload the map beside the module under that name.
+external source map whose sources name the files a user wrote. It is off by
+default, the public CLI never sets it, and with it off the output is unchanged.
+With it on, the module differs only by the trailing
+`//# sourceMappingURL=_bundled.mjs.map` comment; keep it, and upload the map
+beside the module under that name.
+
+What gets remapped, and by whom:
+
+- **An uncaught exception** — the stack in a Tail Worker's `exceptions`.
+  Cloudflare remaps it with the uploaded map, after the invocation and outside
+  the Worker.
+- **A stack the Worker logs itself stays minified**, because the map is not
+  available at runtime. That covers the per-app entry's `console.error(e)`
+  before it rethrows, and any Error user code logs. A consumer that reads those
+  lines remaps them itself with the same version's `source_map`.
+
+Local workerd does no remapping. So the tests here map a Tail exception's
+frames through the map by hand, which shows the positions the runtime reports
+line up with the map. Cloudflare's own remapping needs a deployed check.
 
 The map carries no `sourcesContent` and no `sourceRoot`. Its `sources` are
 rewritten:

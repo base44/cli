@@ -1,17 +1,19 @@
 /**
  * `sourceMap: true` — an external map beside the module whose `sources` name
- * the app's own files, so the backend can remap a stack frame to the file a
- * user wrote. Everything the compiler adds stays in the list (the mappings
+ * the app's own files, so a stack frame can be remapped to the file a user
+ * wrote (by Cloudflare for an uncaught exception, by the consumer for a
+ * logged stack). Everything the compiler adds stays in the list (the mappings
  * index into it) behind a `base44-internal:` prefix.
  */
 
 import { SourceMap } from "node:module";
 
+import { Miniflare } from "miniflare";
 import { describe, expect, it } from "vitest";
 
 import { bundle, bundleApp } from "../src/bundler";
 import { INTERNAL_SOURCE_PREFIX } from "../src/source-map";
-import { runInWorkerd } from "./workerd";
+import { runInWorkerd, WFP_COMPAT_DATE } from "./workerd";
 
 const MAP_COMMENT = "\n//# sourceMappingURL=_bundled.mjs.map\n";
 
@@ -203,5 +205,113 @@ describe("rewritten sources are pinned", () => {
     });
     if (!r.ok) throw new Error("bundleApp failed");
     expect(parse(r.source_map).sources).toMatchSnapshot();
+  });
+});
+
+describe("a crash's stack, as a Tail Worker receives it", () => {
+  // Cloudflare remaps an uncaught exception's stack with the uploaded map,
+  // after the invocation; local workerd does not. So this maps the runtime's
+  // own frames through `source_map` by hand: it proves the positions workerd
+  // reports line up with the map. Cloudflare's remapping itself needs a
+  // deployed check.
+  const files = {
+    "main.ts": 'import { fail } from "./lib/fail.ts";\nDeno.serve(() => fail());\n',
+    "lib/fail.ts": 'export function fail(): Response {\n  throw new Error("kaboom-from-lib");\n}\n',
+  };
+
+  interface TailEvent {
+    exceptions: { message: string; stack?: string }[];
+    logs: { message: unknown[] }[];
+  }
+
+  async function crash(module: string, headers: Record<string, string>): Promise<TailEvent[]> {
+    const events: TailEvent[] = [];
+    const mf = new Miniflare({
+      workers: [
+        {
+          name: "fn",
+          modules: [{ type: "ESModule", path: "_bundled.mjs", contents: module }],
+          compatibilityDate: WFP_COMPAT_DATE,
+          compatibilityFlags: ["nodejs_compat"],
+          tails: ["tail"],
+        },
+        {
+          name: "tail",
+          modules: true,
+          compatibilityDate: WFP_COMPAT_DATE,
+          script: `export default {
+            async tail(events, env) {
+              await env.SINK.fetch("http://sink/", { method: "POST", body: JSON.stringify(events) });
+            },
+          };`,
+          serviceBindings: {
+            SINK: async (req) => {
+              events.push(...((await req.json()) as TailEvent[]));
+              return new Response("ok");
+            },
+          },
+        },
+      ],
+    });
+    try {
+      await (await mf.dispatchFetch("http://localhost/", { headers })).text();
+      const until = Date.now() + 5000;
+      while (events.length === 0 && Date.now() < until) {
+        await new Promise((r) => setTimeout(r, 20));
+      }
+    } finally {
+      await mf.dispose();
+    }
+    return events;
+  }
+
+  /** Each `_bundled.mjs:line:col` frame, mapped to its original file and line. */
+  function remap(stack: string, map: string): { source?: string; line: number }[] {
+    const sm = new SourceMap(JSON.parse(map));
+    return [...stack.matchAll(/_bundled\.mjs:(\d+):(\d+)/g)].map((m) => {
+      const e = sm.findEntry(Number(m[1]) - 1, Number(m[2]) - 1) as {
+        originalSource?: string;
+        originalLine?: number;
+      };
+      return { source: e.originalSource, line: (e.originalLine ?? -1) + 1 };
+    });
+  }
+
+  it.each([
+    ["single function", () => bundle({ entry: "main.ts", files, sourceMap: true }), {}],
+    [
+      "per-app",
+      () => bundleApp({ functions: [{ name: "alpha", entry: "main.ts", files }], sourceMap: true }),
+      { "Base44-Function-Name": "alpha" },
+    ],
+  ] as const)("maps back to the app's files through source_map (%s)", async (_label, build, headers) => {
+    const r = await build();
+    if (!r.ok) throw new Error("bundle failed");
+    const exceptions = (await crash(r.module, headers)).flatMap((e) => e.exceptions);
+    expect(exceptions.map((x) => x.message)).toEqual(["kaboom-from-lib"]);
+    const stack = exceptions[0].stack ?? "";
+    // Minified as it leaves the runtime.
+    expect(stack).not.toContain("fail.ts");
+    // The throw, then the handler that called it. The per-app banner shifts
+    // every line, so this also checks the map accounts for it.
+    expect(remap(stack, r.source_map as string).slice(0, 2)).toEqual([
+      { source: "lib/fail.ts", line: 2 },
+      { source: "main.ts", line: 2 },
+    ]);
+  });
+
+  it("leaves the stack the per-app entry logs before rethrowing minified", async () => {
+    // Cloudflare does not remap a stack string the Worker logs itself: a
+    // consumer reading this line has to remap it with `source_map`.
+    const r = await bundleApp({ functions: [{ name: "alpha", entry: "main.ts", files }], sourceMap: true });
+    if (!r.ok) throw new Error("bundleApp failed");
+    const events = await crash(r.module, { "Base44-Function-Name": "alpha" });
+    const line = events
+      .flatMap((e) => e.logs)
+      .map((l) => (l.message[0] as { message?: string } | undefined)?.message ?? "")
+      .find((m) => m.includes("kaboom-from-lib"));
+    expect(line).toMatch(/_bundled\.mjs:\d+:\d+/);
+    expect(line).not.toContain("fail.ts");
+    expect(remap(line as string, r.source_map as string)[0]).toEqual({ source: "lib/fail.ts", line: 2 });
   });
 });
