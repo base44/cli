@@ -516,16 +516,16 @@ const _b44CrashResponse = (e) => {
   if (m.includes('cpu time limit') || m.includes('too many subrequests')) return null;
   return _b44AttachInvocationLogs(new Response(JSON.stringify({ error: 'user-exception', detail: 'user worker threw an exception' }), { status: 500, headers: { 'Content-Type': 'application/json' } }));
 };
-const _b44ErrorStore = (request) => request.headers.has("x-b44-feed-context") ? { errorRecord: { logged: null } } : {};
+const _b44ErrorStore = (request) => request.headers.has("x-b44-feed-context") ? { errorRecord: { logged: [] } } : {};
 const _b44NoteError = (a) => {
   const c = _b44Context();
   if (!c || !c.errorRecord) return;
-  for (let i = a.length - 1; i >= 0; i--) {
-    const x = a[i];
+  for (const x of a) {
     if (!(x instanceof Error)) continue;
     const r = (k) => { try { const v = x[k]; return typeof v === 'string' ? v : undefined; } catch (e) { return undefined; } };
-    c.errorRecord.logged = { name: r('name'), message: r('message'), stack: r('stack') };
-    return;
+    const logged = c.errorRecord.logged;
+    logged.push({ name: r('name'), message: r('message'), stack: r('stack') });
+    if (logged.length > 8) logged.shift();
   }
 };
 for (const _l of ['log', 'info', 'warn', 'error', 'debug']) { const _f = console[_l]; console[_l] = (...a) => { try { _b44NoteError(a); } catch (e) {} return _f(...a); }; }
@@ -574,7 +574,8 @@ const _b44SecretValues = (c) => {
     if (--budget < 0) return;
     if (typeof v === 'string') {
       if (v.length >= 8) out.add(v);
-      if (d < 2 && (v[0] === '{' || v[0] === '[')) { try { add(JSON.parse(v), d + 1); } catch (e) {} }
+      const t = v.trimStart();
+      if (d < 2 && (t[0] === '{' || t[0] === '[')) { try { add(JSON.parse(v), d + 1); } catch (e) {} }
     } else if (d > 0 && d < 16 && v && typeof v === 'object') {
       for (const k of Object.keys(v)) add(v[k], d + 1);
     }
@@ -616,19 +617,21 @@ const _b44CutLines = (s, max) => {
 const _b44WriteErrorRecord = async (c, status, copy, logged) => {
   try {
     const body = await _b44ReadJson(copy);
-    const lm = logged && logged.message ? logged.message : undefined;
-    let message;
-    let fromLogged = false;
-    if (lm !== undefined && body !== undefined && _b44HasString(body, lm)) { message = lm; fromLogged = true; }
-    else { message = _b44BodyMessage(body); if (message === undefined && lm !== undefined) { message = lm; fromLogged = true; } }
+    const usable = logged.filter((e) => e.message);
+    let chosen;
+    if (body !== undefined) {
+      for (let i = usable.length - 1; i >= 0; i--) if (_b44HasString(body, usable[i].message)) { chosen = usable[i]; break; }
+    }
+    let message = chosen ? chosen.message : _b44BodyMessage(body);
+    if (message === undefined && usable.length > 0) { chosen = usable[usable.length - 1]; message = chosen.message; }
     if (message === undefined) return;
     const secrets = _b44SecretValues(c);
     const clean = (s) => _b44Well(_b44Scrub(s, secrets));
     const rec = { v: 1, kind: 'response', status };
-    const name = fromLogged && logged.name ? Array.from(clean(logged.name)).slice(0, 64).join('') : '';
+    const name = chosen && chosen.name ? Array.from(clean(chosen.name)).slice(0, 64).join('') : '';
     if (name) rec.name = name;
     rec.message = _b44CutBytes(clean(message), 500);
-    const stack = fromLogged && logged.stack ? _b44CutLines(clean(logged.stack), 4096) : '';
+    const stack = chosen && chosen.stack ? _b44CutLines(clean(chosen.stack), 4096) : '';
     if (stack) rec.stack = stack;
     console.error({ _b44_error: rec });
   } catch (e) {}
@@ -637,7 +640,7 @@ const _b44RecordError = (res) => {
   try {
     const c = _b44Context();
     if (!c || !c.errorRecord || !c.waitUntil || !(res instanceof Response) || !(res.status >= 500)) return res;
-    c.waitUntil(_b44WriteErrorRecord(c, res.status, res.clone(), c.errorRecord.logged));
+    c.waitUntil(_b44WriteErrorRecord(c, res.status, res.clone(), c.errorRecord.logged.slice()));
   } catch (e) {}
   return res;
 };
@@ -741,16 +744,16 @@ console.debug = (...a) => _b44Wrap('debug', a);
 const _b44ReservedSecrets = new Set(['BASE44_ACTOR_PRIVATE_KEY', 'BASE44_ACTOR_PUBLIC_KEY', 'BASE44_ACTOR_SCRIPT_ID', 'BASE44_PRIVATE_DATA_SOURCES']);
 globalThis.Base44 = Object.assign(globalThis.Base44 ?? {}, { waitUntil: (p) => { const _c = _b44Context(); if (_c?.waitUntil) { _c.waitUntil(p); } else { Promise.resolve(p).catch(() => {}); } }, secrets: { get: (n) => { const _k = String(n); if (_b44ReservedSecrets.has(_k)) return undefined; const _v = _b44Context()?.secrets?.[_k]; return typeof _v === 'string' ? _v : undefined; } } });
 globalThis.EdgeRuntime = globalThis.EdgeRuntime ?? { waitUntil: (p) => globalThis.Base44.waitUntil(p) };
-const _b44ErrorStore = (request) => request.headers.has("x-b44-feed-context") ? { errorRecord: { logged: null } } : {};
+const _b44ErrorStore = (request) => request.headers.has("x-b44-feed-context") ? { errorRecord: { logged: [] } } : {};
 const _b44NoteError = (a) => {
   const c = _b44Context();
   if (!c || !c.errorRecord) return;
-  for (let i = a.length - 1; i >= 0; i--) {
-    const x = a[i];
+  for (const x of a) {
     if (!(x instanceof Error)) continue;
     const r = (k) => { try { const v = x[k]; return typeof v === 'string' ? v : undefined; } catch (e) { return undefined; } };
-    c.errorRecord.logged = { name: r('name'), message: r('message'), stack: r('stack') };
-    return;
+    const logged = c.errorRecord.logged;
+    logged.push({ name: r('name'), message: r('message'), stack: r('stack') });
+    if (logged.length > 8) logged.shift();
   }
 };
 for (const _l of ['log', 'info', 'warn', 'error', 'debug']) { const _f = console[_l]; console[_l] = (...a) => { try { _b44NoteError(a); } catch (e) {} return _f(...a); }; }
@@ -799,7 +802,8 @@ const _b44SecretValues = (c) => {
     if (--budget < 0) return;
     if (typeof v === 'string') {
       if (v.length >= 8) out.add(v);
-      if (d < 2 && (v[0] === '{' || v[0] === '[')) { try { add(JSON.parse(v), d + 1); } catch (e) {} }
+      const t = v.trimStart();
+      if (d < 2 && (t[0] === '{' || t[0] === '[')) { try { add(JSON.parse(v), d + 1); } catch (e) {} }
     } else if (d > 0 && d < 16 && v && typeof v === 'object') {
       for (const k of Object.keys(v)) add(v[k], d + 1);
     }
@@ -841,19 +845,21 @@ const _b44CutLines = (s, max) => {
 const _b44WriteErrorRecord = async (c, status, copy, logged) => {
   try {
     const body = await _b44ReadJson(copy);
-    const lm = logged && logged.message ? logged.message : undefined;
-    let message;
-    let fromLogged = false;
-    if (lm !== undefined && body !== undefined && _b44HasString(body, lm)) { message = lm; fromLogged = true; }
-    else { message = _b44BodyMessage(body); if (message === undefined && lm !== undefined) { message = lm; fromLogged = true; } }
+    const usable = logged.filter((e) => e.message);
+    let chosen;
+    if (body !== undefined) {
+      for (let i = usable.length - 1; i >= 0; i--) if (_b44HasString(body, usable[i].message)) { chosen = usable[i]; break; }
+    }
+    let message = chosen ? chosen.message : _b44BodyMessage(body);
+    if (message === undefined && usable.length > 0) { chosen = usable[usable.length - 1]; message = chosen.message; }
     if (message === undefined) return;
     const secrets = _b44SecretValues(c);
     const clean = (s) => _b44Well(_b44Scrub(s, secrets));
     const rec = { v: 1, kind: 'response', status };
-    const name = fromLogged && logged.name ? Array.from(clean(logged.name)).slice(0, 64).join('') : '';
+    const name = chosen && chosen.name ? Array.from(clean(chosen.name)).slice(0, 64).join('') : '';
     if (name) rec.name = name;
     rec.message = _b44CutBytes(clean(message), 500);
-    const stack = fromLogged && logged.stack ? _b44CutLines(clean(logged.stack), 4096) : '';
+    const stack = chosen && chosen.stack ? _b44CutLines(clean(chosen.stack), 4096) : '';
     if (stack) rec.stack = stack;
     console.error({ _b44_error: rec });
   } catch (e) {}
@@ -862,7 +868,7 @@ const _b44RecordError = (res) => {
   try {
     const c = _b44Context();
     if (!c || !c.errorRecord || !c.waitUntil || !(res instanceof Response) || !(res.status >= 500)) return res;
-    c.waitUntil(_b44WriteErrorRecord(c, res.status, res.clone(), c.errorRecord.logged));
+    c.waitUntil(_b44WriteErrorRecord(c, res.status, res.clone(), c.errorRecord.logged.slice()));
   } catch (e) {}
   return res;
 };

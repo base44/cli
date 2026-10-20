@@ -249,6 +249,57 @@ describe("a logged Error", () => {
     expect(r.stack?.split("\n").length).toBeGreaterThan(1);
   });
 
+  it("still matches when an unrelated Error is logged after it", async () => {
+    const records = await recordFor(
+      await compile(`
+        class DbError extends Error { name = "DbError"; }
+        Deno.serve(() => {
+          const db = new DbError("db down");
+          console.error("query failed:", db);
+          console.warn(new Error("cleanup warning"));
+          return Response.json({ error: db.message }, { status: 500 });
+        });
+      `),
+    );
+    expect(records).toHaveLength(1);
+    expect(records[0]).toMatchObject({ name: "DbError", message: "db down" });
+    expect(records[0].stack?.split("\n")[0]).toBe("DbError: db down");
+  });
+
+  it.each([
+    [7, { name: "DbError", hasStack: true }],
+    [8, { name: undefined, hasStack: false }],
+  ])("remembers the last 8 Errors: %i unrelated ones after the match", async (unrelated, expected) => {
+    // With 8 later Errors the match has been dropped, so the message comes
+    // from the body alone, with no name or stack.
+    const [r] = await recordFor(
+      await compile(`
+        class DbError extends Error { name = "DbError"; }
+        Deno.serve(() => {
+          console.error(new DbError("db down"));
+          for (let i = 0; i < ${unrelated}; i++) console.warn(new Error("noise " + i));
+          return Response.json({ error: "db down" }, { status: 500 });
+        });
+      `),
+    );
+    expect(r.message).toBe("db down");
+    expect(r.name).toBe(expected.name);
+    expect(r.stack !== undefined).toBe(expected.hasStack);
+  });
+
+  it("falls back to the newest logged Error", async () => {
+    const [r] = await recordFor(
+      await compile(`
+        Deno.serve(() => {
+          console.error(new Error("older"));
+          console.error(new RangeError("newest"));
+          return new Response("oops", { status: 500 });
+        });
+      `),
+    );
+    expect(r).toMatchObject({ name: "RangeError", message: "newest" });
+  });
+
   it("is ignored when the body says something else, and gives no stack", async () => {
     const records = await recordFor(
       await compile(`
@@ -342,6 +393,18 @@ describe("bounds and scrubbing", () => {
     expect(r.stack?.split("\n")[0]).toBe(`Error: ${r.message}`);
     const json = JSON.stringify(r);
     for (const secret of ["sk_live_0123", "hunter2-hunter2"]) expect(json).not.toContain(secret);
+  });
+
+  it.each([
+    ["an object after a newline", '\n{"db":{"password":"private-password-123"}}'],
+    ["an array after spaces", '  [ "private-password-123" ]'],
+    ["an object after mixed whitespace", '\r\n\t {"nested":{"deeper":"private-password-123"}}'],
+  ])("scrubs a JSON binding that starts with whitespace (%s)", async (_label, binding) => {
+    const records = await recordFor(
+      await compile('Deno.serve(() => Response.json({ error: "login failed with private-password-123" }, { status: 500 }));'),
+      { PDS: binding },
+    );
+    expect(records.map((r) => r.message)).toEqual(["login failed with [secret]"]);
   });
 
   it("keeps the stack under 4 KB, cut at a line end", async () => {

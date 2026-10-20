@@ -175,10 +175,12 @@ At runtime the recorder does nothing unless the request carries
 header set. On a clone, inside `ctx.waitUntil`, the recorder:
 
 - picks the message, in this order: an Error logged during the request whose
-  message the JSON body repeats; else the body (JSON of at most 2,048 bytes read
-  within 50 ms; the first non-empty `error`, `message`, `detail`, `details` or
-  `error.message`, skipping `error` when it is exactly `"Internal server error"`
-  and `details` is present); else the last Error logged during the request.
+  message the JSON body repeats (the newest such among the last 8 Errors
+  logged, so a later unrelated warning doesn't hide it); else the body (JSON of
+  at most 2,048 bytes read within 50 ms; the first non-empty `error`,
+  `message`, `detail`, `details` or `error.message`, skipping `error` when it
+  is exactly `"Internal server error"` and `details` is present); else the last
+  Error logged during the request.
   No message means no record;
 - takes the stack only from the logged Error that supplied the message. It is
   that Error's raw `stack`, read inside the Worker, so it is **minified**:
@@ -186,7 +188,8 @@ header set. On a clone, inside `ctx.waitUntil`, the recorder:
   consumer remaps it with the same version's `source_map` (see Source maps);
 - replaces every env-binding and runtime-secret string of 8+ characters with
   `[secret]`, longest first, before cutting anything. This includes the strings
-  nested in JSON-valued ones, such as the private-data-sources manifest;
+  nested in JSON-valued ones (leading whitespace allowed), such as the
+  private-data-sources manifest;
 - caps `name` at 64 characters, `message` at 500 UTF-8 bytes (well-formed, cut
   on a code point) and `stack` at 4 KB (cut at a line end);
 - logs exactly one line through the console patch, so it carries

@@ -15,12 +15,13 @@
  * `ctx.waitUntil` (a line logged there still belongs to the invocation's tail
  * event) picks a message:
  *
- *   1. an Error logged during this request whose message the JSON body repeats;
+ *   1. an Error logged during this request whose message the JSON body repeats
+ *      (the newest such, among the last 8 logged);
  *   2. otherwise the body: JSON of at most 2,048 bytes read within 50 ms, first
  *      non-empty string among `error`, `message`, `detail`, `details` and
  *      `error.message` — skipping `error` when it is exactly
  *      "Internal server error" and `details` is present (the SSO examples);
- *   3. otherwise the last Error logged during this request.
+ *   3. otherwise the last Error logged during this request (with a message).
  *
  * The stack comes only from the logged Error that supplied the message, and is
  * minified: Cloudflare remaps the exceptions it captures, never a stack string
@@ -47,23 +48,26 @@ const ERROR_RECORD_LIMITS = {
   messageBytes: 500,
   stackBytes: 4096,
   minSecretChars: 8,
+  loggedErrors: 8,
 } as const;
 
 const L = ERROR_RECORD_LIMITS;
 
 export const ERROR_RECORDS_PATCH = [
-  `const _b44ErrorStore = (request) => request.headers.has(${JSON.stringify(FEED_CONTEXT_HEADER)}) ? { errorRecord: { logged: null } } : {};`,
-  // The last Error passed to any console method during the request, read once
-  // at log time (a later mutation of the Error must not change the record).
+  `const _b44ErrorStore = (request) => request.headers.has(${JSON.stringify(FEED_CONTEXT_HEADER)}) ? { errorRecord: { logged: [] } } : {};`,
+  // The last few Errors passed to any console method during the request,
+  // oldest first, each read once at log time (a later mutation of the Error
+  // must not change the record). More than one: a handler that logs the real
+  // failure and then an unrelated warning must still match the first.
   "const _b44NoteError = (a) => {",
   "  const c = _b44Context();",
   "  if (!c || !c.errorRecord) return;",
-  "  for (let i = a.length - 1; i >= 0; i--) {",
-  "    const x = a[i];",
+  "  for (const x of a) {",
   "    if (!(x instanceof Error)) continue;",
   "    const r = (k) => { try { const v = x[k]; return typeof v === 'string' ? v : undefined; } catch (e) { return undefined; } };",
-  "    c.errorRecord.logged = { name: r('name'), message: r('message'), stack: r('stack') };",
-  "    return;",
+  "    const logged = c.errorRecord.logged;",
+  "    logged.push({ name: r('name'), message: r('message'), stack: r('stack') });",
+  `    if (logged.length > ${L.loggedErrors}) logged.shift();`,
   "  }",
   "};",
   "for (const _l of ['log', 'info', 'warn', 'error', 'debug']) { const _f = console[_l]; console[_l] = (...a) => { try { _b44NoteError(a); } catch (e) {} return _f(...a); }; }",
@@ -115,7 +119,10 @@ export const ERROR_RECORDS_PATCH = [
   "    if (--budget < 0) return;",
   "    if (typeof v === 'string') {",
   `      if (v.length >= ${L.minSecretChars}) out.add(v);`,
-  "      if (d < 2 && (v[0] === '{' || v[0] === '[')) { try { add(JSON.parse(v), d + 1); } catch (e) {} }",
+  // JSON.parse accepts leading whitespace, so the detection must too; the
+  // original string stays a candidate either way.
+  "      const t = v.trimStart();",
+  "      if (d < 2 && (t[0] === '{' || t[0] === '[')) { try { add(JSON.parse(v), d + 1); } catch (e) {} }",
   "    } else if (d > 0 && d < 16 && v && typeof v === 'object') {",
   "      for (const k of Object.keys(v)) add(v[k], d + 1);",
   "    }",
@@ -154,22 +161,25 @@ export const ERROR_RECORDS_PATCH = [
   "  }",
   "  return out;",
   "};",
+  // `logged` is the request's Errors at response time, oldest first.
   "const _b44WriteErrorRecord = async (c, status, copy, logged) => {",
   "  try {",
   "    const body = await _b44ReadJson(copy);",
-  "    const lm = logged && logged.message ? logged.message : undefined;",
-  "    let message;",
-  "    let fromLogged = false;",
-  "    if (lm !== undefined && body !== undefined && _b44HasString(body, lm)) { message = lm; fromLogged = true; }",
-  "    else { message = _b44BodyMessage(body); if (message === undefined && lm !== undefined) { message = lm; fromLogged = true; } }",
+  "    const usable = logged.filter((e) => e.message);",
+  "    let chosen;",
+  "    if (body !== undefined) {",
+  "      for (let i = usable.length - 1; i >= 0; i--) if (_b44HasString(body, usable[i].message)) { chosen = usable[i]; break; }",
+  "    }",
+  "    let message = chosen ? chosen.message : _b44BodyMessage(body);",
+  "    if (message === undefined && usable.length > 0) { chosen = usable[usable.length - 1]; message = chosen.message; }",
   "    if (message === undefined) return;",
   "    const secrets = _b44SecretValues(c);",
   "    const clean = (s) => _b44Well(_b44Scrub(s, secrets));",
   "    const rec = { v: 1, kind: 'response', status };",
-  `    const name = fromLogged && logged.name ? Array.from(clean(logged.name)).slice(0, ${L.nameChars}).join('') : '';`,
+  `    const name = chosen && chosen.name ? Array.from(clean(chosen.name)).slice(0, ${L.nameChars}).join('') : '';`,
   "    if (name) rec.name = name;",
   `    rec.message = _b44CutBytes(clean(message), ${L.messageBytes});`,
-  `    const stack = fromLogged && logged.stack ? _b44CutLines(clean(logged.stack), ${L.stackBytes}) : '';`,
+  `    const stack = chosen && chosen.stack ? _b44CutLines(clean(chosen.stack), ${L.stackBytes}) : '';`,
   "    if (stack) rec.stack = stack;",
   "    console.error({ _b44_error: rec });",
   "  } catch (e) {}",
@@ -179,7 +189,7 @@ export const ERROR_RECORDS_PATCH = [
   "  try {",
   "    const c = _b44Context();",
   "    if (!c || !c.errorRecord || !c.waitUntil || !(res instanceof Response) || !(res.status >= 500)) return res;",
-  "    c.waitUntil(_b44WriteErrorRecord(c, res.status, res.clone(), c.errorRecord.logged));",
+  "    c.waitUntil(_b44WriteErrorRecord(c, res.status, res.clone(), c.errorRecord.logged.slice()));",
   "  } catch (e) {}",
   "  return res;",
   "};",
