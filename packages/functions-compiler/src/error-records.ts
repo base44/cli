@@ -22,7 +22,10 @@
  *      "Internal server error" and `details` is present (the SSO examples);
  *   3. otherwise the last Error logged during this request.
  *
- * The stack comes only from the logged Error that supplied the message. Every
+ * The stack comes only from the logged Error that supplied the message, and is
+ * minified: Cloudflare remaps the exceptions it captures, never a stack string
+ * logged from inside the Worker, so a consumer remaps it with the version's
+ * `source_map`. Every
  * env-binding and runtime-secret string of 8+ characters (and the strings
  * nested in JSON-valued ones, such as the private-data-sources manifest) is
  * replaced with `[secret]`, longest first, before anything is cut. Then it logs

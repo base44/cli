@@ -180,7 +180,10 @@ header set. On a clone, inside `ctx.waitUntil`, the recorder:
   `error.message`, skipping `error` when it is exactly `"Internal server error"`
   and `details` is present); else the last Error logged during the request.
   No message means no record;
-- takes the stack only from the logged Error that supplied the message;
+- takes the stack only from the logged Error that supplied the message. It is
+  that Error's raw `stack`, read inside the Worker, so it is **minified**:
+  Cloudflare remaps only the exceptions it captures, never a logged string. A
+  consumer remaps it with the same version's `source_map` (see Source maps);
 - replaces every env-binding and runtime-secret string of 8+ characters with
   `[secret]`, longest first, before cutting anything. This includes the strings
   nested in JSON-valued ones, such as the private-data-sources manifest;
