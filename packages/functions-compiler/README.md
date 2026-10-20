@@ -65,15 +65,17 @@ The first line of a compiled shard is its own manifest:
 
 `//!b44:<format>` is a fixed sentinel, so `head -1` on a script pulled from
 Cloudflare answers "what is in this?" without executing or parsing anything, and
-the payload is JSON so a tool parses it in one call. Only the app path emits it;
-the legacy single-function `bundle()` stays bannerless, which keeps that lane
-byte-comparable with the engine apper still runs.
+the payload is JSON so a tool parses it in one call. Only the app path emits it.
+The legacy single-function `bundle()` stays bannerless: it compiles one function,
+so "which functions are inside" already has its answer. apper's bundler service
+now runs this package (it no longer keeps its own engine), and nothing compares
+that lane's output byte for byte across engines.
 
 `functions` is sorted whatever order the shard was built in. `telemetry` and
 `runtimeSecrets` are there because they change the emitted bytes and a deploy has
-to pair its secrets delivery with them. `errorRecords` changes the bytes too, but
-appears only when it is on, so a flag-off banner keeps its bytes. `compiler` is
-this package's version.
+to pair its secrets delivery with them. `compiler` is this package's version; it
+also tells a consumer which wrapper features a build carries, such as the
+`_b44_error` record (see "Error records for a handled 5xx").
 
 Nothing volatile may be added: a timestamp or build id would re-mint a version
 for unchanged code, the app id would make the same functions compile differently
@@ -91,7 +93,9 @@ code that did not change, and all of these do:
 - the order the caller hands functions over in, for a single shard: that path
   builds in caller order, while a multi-shard plan sorts by name. Both branches
   are as apper has them, and `shard-build.e2e.test.ts` pins the difference;
-- any wrapper flag (`postResponseTelemetry`, `runtimeSecrets`, `errorRecords`).
+- either wrapper flag (`postResponseTelemetry`, `runtimeSecrets`). The
+  `_b44_error` recorder is not a flag: every build carries it, so it moves the
+  bytes only when this package's version does.
 
 Two behaviours differ from apper's Python on purpose, and both are tested:
 
@@ -164,13 +168,19 @@ function a frame belongs to reads that from the log line, not the map.
 ### Error records for a handled 5xx
 
 A function that catches its own error and returns a 500 leaves Cloudflare
-nothing to record. `errorRecords: true` on either request bakes a small
-recorder into the generated entry (single-function and per-app; not actors).
-It is off by default, the public CLI never sets it, and with it off the entry
-is unchanged.
+nothing to record. **Every build** carries a small recorder in its generated
+entry (single-function and per-app; not actors), with no build option. That
+includes the public CLI's own builds, so an app is ready the moment it opts in,
+with no rebuild. It adds about 3 KB to a module (about 1.2 KB gzipped).
 
-At runtime the recorder does nothing unless the request carries
-`x-b44-feed-context`. When the handler then returns a `Response` with status
+The off switch is the request, not the build: the recorder does nothing unless
+the request carries `x-b44-feed-context`. The backend sends that header only for
+production calls of apps that opted in, while its tail switch is on; turning the
+switch off silences the record in every bundle, whatever built it. Without the
+header the recorder costs one header check per request and one context lookup
+per `console.*` call.
+
+When the header is present and the handler returns a `Response` with status
 ≥ 500, that same response goes back at once: never rebuilt, never delayed, no
 header set. On a clone, inside `ctx.waitUntil`, the recorder:
 

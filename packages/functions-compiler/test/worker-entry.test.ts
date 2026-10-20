@@ -9,7 +9,8 @@ const serve = (body: string) =>
 
 describe("binding-mode entries", () => {
   // Every app without the pull flag runs these bytes, so any change to them has
-  // to show up in review as a snapshot diff.
+  // to show up in review as a snapshot diff. They include the error recorder,
+  // which every build carries.
   it.each([false, true])("are pinned (telemetry=%s)", async (telemetry) => {
     const files = { "main.ts": serve("a") };
     const single = await prepareFunction("main.ts", files, telemetry, false);
@@ -19,54 +20,47 @@ describe("binding-mode entries", () => {
   });
 });
 
-describe("error-records entries", () => {
+describe("the error recorder", () => {
+  // Part of every build, with no option: the request header is the switch.
   const files = { "main.ts": serve("a") };
-  const app = (errorRecords: boolean, telemetry = false) =>
-    prepareApp([{ index: 0, fn: { name: "alpha", entry: "main.ts", files } }], telemetry, false, errorRecords);
+  const app = (telemetry = false, runtimeSecrets = false) =>
+    prepareApp([{ index: 0, fn: { name: "alpha", entry: "main.ts", files } }], telemetry, runtimeSecrets);
 
   it.each([
     [false, false],
     [false, true],
     [true, false],
     [true, true],
-  ])("leave the entry and banner unchanged when off (telemetry=%s, runtimeSecrets=%s)", async (telemetry, runtimeSecrets) => {
-    const before = await prepareFunction("main.ts", files, telemetry, runtimeSecrets);
-    const off = await prepareFunction("main.ts", files, telemetry, runtimeSecrets, false);
-    expect(off.files).toEqual(before.files);
-    const appBefore = prepareApp([{ index: 0, fn: { name: "alpha", entry: "main.ts", files } }], telemetry, runtimeSecrets);
-    const appOff = prepareApp([{ index: 0, fn: { name: "alpha", entry: "main.ts", files } }], telemetry, runtimeSecrets, false);
-    expect(appOff).toEqual(appBefore);
-    expect(off.files[off.entry]).not.toContain("_b44RecordError");
-    expect(appOff.banner).not.toContain("errorRecords");
+  ])("is in both entries (telemetry=%s, runtimeSecrets=%s)", async (telemetry, runtimeSecrets) => {
+    const single = (await prepareFunction("main.ts", files, telemetry, runtimeSecrets)).files["__base44_entry.mjs"];
+    for (const entry of [single, app(telemetry, runtimeSecrets).files["__base44_entry.mjs"]]) {
+      expect(entry).toContain("const _b44RecordError = (res) =>");
+      expect(entry).toContain("..._b44ErrorStore(request)");
+      expect(entry).toContain("_b44RecordError(await handler(request, info))");
+    }
   });
 
-  it("are pinned when on", async () => {
-    const single = await prepareFunction("main.ts", files, false, false, true);
-    expect(single.files[single.entry]).toMatchSnapshot("single function");
-    expect(app(true).files["__base44_entry.mjs"]).toMatchSnapshot("per-app");
-  });
-
-  it("record the handler's own response, inside telemetry and invocation logs", async () => {
-    const single = (await prepareFunction("main.ts", files, true, false, true)).files["__base44_entry.mjs"];
+  it("records the handler's own response, inside telemetry and invocation logs", async () => {
+    const single = (await prepareFunction("main.ts", files, true)).files["__base44_entry.mjs"];
     expect(single).toContain("_b44AttachTelemetry(_b44RecordError(await handler(request, info)))");
-    expect(single).toContain("..._b44ErrorStore(request)");
-    expect(app(true, true).files["__base44_entry.mjs"]).toContain(
+    expect(app(true).files["__base44_entry.mjs"]).toContain(
       "_b44AttachInvocationLogs(_b44AttachTelemetry(_b44RecordError(await handler(request, info))))",
     );
   });
 
-  it("leave the crash path exactly as it is", () => {
+  it("leaves the crash path exactly as it is", () => {
     // The uncaught throw is Cloudflare's to record; the record is only for a
-    // returned 5xx.
-    const on = app(true).files["__base44_entry.mjs"];
-    const off = app(false).files["__base44_entry.mjs"];
-    const crash = (entry: string) => entry.slice(entry.indexOf("} catch (e) {\n        console.error(e);"));
-    expect(crash(on)).toBe(crash(off));
-    expect(crash(on)).toContain("throw e;");
+    // returned 5xx. The per-app entry still logs it and rethrows.
+    const entry = app().files["__base44_entry.mjs"];
+    expect(entry).toContain(
+      "      } catch (e) {\n        console.error(e);\n        const crash = _b44CrashResponse(e);\n        if (crash) return crash;\n        throw e;\n      }",
+    );
   });
 
-  it("say so in the per-app banner only when on", () => {
-    expect(JSON.parse(app(true).banner!.replace(/^\/\/!b44:1 /, "")).errorRecords).toBe(true);
+  it("adds nothing to the banner", () => {
+    // The banner's `compiler` version is what tells a build that carries it.
+    const payload = JSON.parse(app().banner!.replace(/^\/\/!b44:1 /, ""));
+    expect(Object.keys(payload)).toEqual(["functions", "telemetry", "runtimeSecrets", "compiler"]);
   });
 });
 
@@ -188,7 +182,7 @@ describe("prepareApp", () => {
 
     expect(entry).toContain("..._b44CaptureStore(request)");
     expect(entry).toContain("_b44Capture(_c, lvl, _m)");
-    expect(entry).toContain("_b44AttachInvocationLogs(await handler(request, info))");
+    expect(entry).toContain("_b44AttachInvocationLogs(_b44RecordError(await handler(request, info)))");
     // The 404 / init-500 / 503 early returns and the crash path answer through
     // the same attach: an import error is the test tool's most common failure.
     expect(entry.match(/_b44AttachInvocationLogs\(/g)).toHaveLength(5);
@@ -202,7 +196,7 @@ describe("prepareApp", () => {
     );
 
     expect(result.files["__base44_entry.mjs"]).toContain(
-      "_b44AttachInvocationLogs(_b44AttachTelemetry(await handler(request, info)))",
+      "_b44AttachInvocationLogs(_b44AttachTelemetry(_b44RecordError(await handler(request, info))))",
     );
   });
 

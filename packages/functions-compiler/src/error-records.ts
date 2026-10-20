@@ -3,13 +3,14 @@
  *
  * A function that catches its own error and returns a 500 leaves Cloudflare
  * nothing to record: no exception reaches the runtime, so the Tail Worker sees
- * a status and no reason. When the bundle request carries `errorRecords: true`
- * (only Base44's bundler sets it), the generated entry appends this prelude and
- * routes the handler's response through `_b44RecordError`. Flag off appends
- * nothing — the generated entry stays byte-identical.
+ * a status and no reason. Every generated entry (single-function and per-app;
+ * not actors) appends this prelude and routes the handler's response through
+ * `_b44RecordError`, with no build flag: an app is ready the moment it opts in,
+ * whatever compiled it.
  *
- * At runtime it does nothing unless the request carries `x-b44-feed-context`,
- * which the backend sends only for production calls of apps that opted in;
+ * The off switch is the request, not the build: it does nothing unless the
+ * request carries `x-b44-feed-context`, which the backend sends only for
+ * production calls of apps that opted in while its tail switch is on;
  * presence is enough. For a `Response` with status >= 500 it returns that same
  * response at once — never rebuilt, never delayed, no header set — and inside
  * `ctx.waitUntil` (a line logged there still belongs to the invocation's tail

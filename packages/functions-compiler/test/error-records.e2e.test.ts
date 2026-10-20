@@ -1,7 +1,8 @@
 /**
- * `errorRecords: true` — one `_b44_error` log line for a returned 5xx, read the
- * way production reads it: through a Tail Worker attached to the function.
- * Every case runs in real workerd, with and without `x-b44-feed-context`.
+ * The `_b44_error` record every build carries: one log line for a returned 5xx,
+ * read the way production reads it, through a Tail Worker attached to the
+ * function. Every case runs in real workerd, and the request header is the only
+ * switch, so each one is checked with and without `x-b44-feed-context`.
  */
 
 import { Miniflare } from "miniflare";
@@ -107,16 +108,15 @@ async function invoke(
   }
 }
 
-async function compile(source: string, errorRecords = true): Promise<string> {
-  const r = await bundle({ entry: "main.ts", files: { "main.ts": source }, errorRecords });
+async function compile(source: string): Promise<string> {
+  const r = await bundle({ entry: "main.ts", files: { "main.ts": source } });
   if (!r.ok) throw new Error(`bundle failed: ${JSON.stringify(r.errors)}`);
   return r.module;
 }
 
-async function compileApp(source: string, errorRecords = true): Promise<string> {
+async function compileApp(source: string): Promise<string> {
   const r = await bundleApp({
     functions: [{ name: "alpha", entry: "main.ts", files: { "main.ts": source } }],
-    errorRecords,
   });
   if (!r.ok) throw new Error(`bundleApp failed: ${JSON.stringify(r.functions)}`);
   return r.module;
@@ -446,8 +446,9 @@ describe("the response", () => {
   `;
 
   it("is the same response, with or without the record", async () => {
-    const off = await invoke(await compile(source, false), { headers: FEED });
-    const on = await invoke(await compile(source), { headers: FEED });
+    const module = await compile(source);
+    const off = await invoke(module);
+    const on = await invoke(module, { headers: FEED });
     expect(on.records).toHaveLength(1);
     expect(off.records).toEqual([]);
     expect({ status: on.status, headers: on.headers, text: on.text }).toEqual({
@@ -460,8 +461,8 @@ describe("the response", () => {
   it("is not held back while the record is written", async () => {
     // The response must reach the client while the handler's stream is still
     // open: nothing waits on the recorder's read of the clone. (Miniflare's
-    // dispatchFetch hands over this body only once it closes, flag on or off,
-    // so the headers are what can be timed here.)
+    // dispatchFetch hands over this body only once it closes, with or without
+    // the recorder, so the headers are what can be timed here.)
     const module = await compile(`
       Deno.serve(() => {
         const enc = new TextEncoder();
@@ -502,8 +503,9 @@ describe("an uncaught throw", () => {
     ["single function", compile, {}],
     ["per-app", compileApp, { "Base44-Function-Name": "alpha" }],
   ] as const)("still rethrows exactly as today (%s)", async (_label, build, headers) => {
-    const off = await invoke(await build(source, false), { headers: { ...headers, ...FEED } });
-    const on = await invoke(await build(source, true), { headers: { ...headers, ...FEED } });
+    const module = await build(source);
+    const off = await invoke(module, { headers });
+    const on = await invoke(module, { headers: { ...headers, ...FEED } });
     // Cloudflare records the exception; the record is only for returned 5xx.
     expect(on.events.flatMap((e) => e.exceptions).map((x) => x.message)).toEqual(["kaboom"]);
     expect(off.events.flatMap((e) => e.exceptions).map((x) => x.message)).toEqual(["kaboom"]);
