@@ -586,7 +586,7 @@ const _b44SecretValues = (c) => {
   }
   return [...out].sort((x, y) => y.length - x.length);
 };
-const _b44Scrub = (s, secrets) => { let out = s; for (const v of secrets) if (out.includes(v)) out = out.split(v).join('[secret]'); return out; };
+const _b44Scrub = (s, secrets) => { let out = s; for (const v of secrets) if (out.includes(v)) out = out.split(v).join('[redacted]'); return out; };
 const _b44Well = (s) => (typeof s.toWellFormed === 'function' ? s.toWellFormed() : s);
 const _b44Bytes = (s) => new TextEncoder().encode(s).length;
 const _b44CutBytes = (s, max) => {
@@ -814,7 +814,7 @@ const _b44SecretValues = (c) => {
   }
   return [...out].sort((x, y) => y.length - x.length);
 };
-const _b44Scrub = (s, secrets) => { let out = s; for (const v of secrets) if (out.includes(v)) out = out.split(v).join('[secret]'); return out; };
+const _b44Scrub = (s, secrets) => { let out = s; for (const v of secrets) if (out.includes(v)) out = out.split(v).join('[redacted]'); return out; };
 const _b44Well = (s) => (typeof s.toWellFormed === 'function' ? s.toWellFormed() : s);
 const _b44Bytes = (s) => new TextEncoder().encode(s).length;
 const _b44CutBytes = (s, max) => {

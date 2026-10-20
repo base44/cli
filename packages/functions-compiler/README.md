@@ -187,7 +187,7 @@ header set. On a clone, inside `ctx.waitUntil`, the recorder:
   Cloudflare remaps only the exceptions it captures, never a logged string. A
   consumer remaps it with the same version's `source_map` (see Source maps);
 - replaces every env-binding and runtime-secret string of 8+ characters with
-  `[secret]`, longest first, before cutting anything. This includes the strings
+  `[redacted]`, longest first, before cutting anything. This includes the strings
   nested in JSON-valued ones (leading whitespace allowed), such as the
   private-data-sources manifest;
 - caps `name` at 64 characters, `message` at 500 UTF-8 bytes (well-formed, cut

@@ -389,7 +389,7 @@ describe("bounds and scrubbing", () => {
     );
     expect(records).toHaveLength(1);
     const [r] = records;
-    expect(r.message).toBe("auth failed for [secret] and [secret] (tiny) pw [secret]");
+    expect(r.message).toBe("auth failed for [redacted] and [redacted] (tiny) pw [redacted]");
     expect(r.stack?.split("\n")[0]).toBe(`Error: ${r.message}`);
     const json = JSON.stringify(r);
     for (const secret of ["sk_live_0123", "hunter2-hunter2"]) expect(json).not.toContain(secret);
@@ -404,7 +404,7 @@ describe("bounds and scrubbing", () => {
       await compile('Deno.serve(() => Response.json({ error: "login failed with private-password-123" }, { status: 500 }));'),
       { PDS: binding },
     );
-    expect(records.map((r) => r.message)).toEqual(["login failed with [secret]"]);
+    expect(records.map((r) => r.message)).toEqual(["login failed with [redacted]"]);
   });
 
   it("keeps the stack under 4 KB, cut at a line end", async () => {

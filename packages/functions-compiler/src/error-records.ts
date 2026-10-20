@@ -29,7 +29,7 @@
  * `source_map`. Every
  * env-binding and runtime-secret string of 8+ characters (and the strings
  * nested in JSON-valued ones, such as the private-data-sources manifest) is
- * replaced with `[secret]`, longest first, before anything is cut. Then it logs
+ * replaced with `[redacted]`, longest first, before anything is cut. Then it logs
  * one `{ _b44_error: { v: 1, kind: "response", status, name?, message, stack? } }`
  * through the console patch, so the line carries function attribution. Any
  * failure writes nothing and never reaches the request.
@@ -133,7 +133,7 @@ export const ERROR_RECORDS_PATCH = [
   "  }",
   "  return [...out].sort((x, y) => y.length - x.length);",
   "};",
-  "const _b44Scrub = (s, secrets) => { let out = s; for (const v of secrets) if (out.includes(v)) out = out.split(v).join('[secret]'); return out; };",
+  "const _b44Scrub = (s, secrets) => { let out = s; for (const v of secrets) if (out.includes(v)) out = out.split(v).join('[redacted]'); return out; };",
   "const _b44Well = (s) => (typeof s.toWellFormed === 'function' ? s.toWellFormed() : s);",
   "const _b44Bytes = (s) => new TextEncoder().encode(s).length;",
   "const _b44CutBytes = (s, max) => {",
