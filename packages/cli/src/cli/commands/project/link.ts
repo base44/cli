@@ -9,6 +9,7 @@ import {
   onPromptCancel,
   theme,
 } from "@/cli/utils/index.js";
+import { hasWorkspaceApiKeyAuth } from "@/core/auth/config.js";
 import {
   ConfigExistsError,
   ConfigNotFoundError,
@@ -179,38 +180,44 @@ async function link(
       : await promptForLinkAction();
 
   if (action === "choose") {
-    const projects = await runTask(
-      "Fetching projects...",
-      async () => listProjects(),
-      {
-        successMessage: "Projects fetched",
-        errorMessage: "Failed to fetch projects",
-      },
-    );
-
-    if (!projects.length) {
-      return { outroMessage: "No projects available for linking" };
-    }
-
     let linkedAppId: string;
 
-    if (appId) {
-      const project = projects.find((p) => p.id === appId);
-      if (!project) {
-        throw new InvalidInputError(`App with ID "${appId}" not found.`, {
-          hints: [
-            { message: "Check the app ID is correct" },
-            {
-              message:
-                "Use 'base44 link' without --app-id to see available projects",
-            },
-          ],
-        });
-      }
+    // A workspace API key can't list apps; it is checked against this app on
+    // the first request that addresses it.
+    if (appId && hasWorkspaceApiKeyAuth()) {
       linkedAppId = appId;
     } else {
-      const selectedProject = await promptForExistingProject(projects);
-      linkedAppId = selectedProject.id;
+      const projects = await runTask(
+        "Fetching projects...",
+        async () => listProjects(),
+        {
+          successMessage: "Projects fetched",
+          errorMessage: "Failed to fetch projects",
+        },
+      );
+
+      if (!projects.length) {
+        return { outroMessage: "No projects available for linking" };
+      }
+
+      if (appId) {
+        const project = projects.find((p) => p.id === appId);
+        if (!project) {
+          throw new InvalidInputError(`App with ID "${appId}" not found.`, {
+            hints: [
+              { message: "Check the app ID is correct" },
+              {
+                message:
+                  "Use 'base44 link' without --app-id to see available projects",
+              },
+            ],
+          });
+        }
+        linkedAppId = appId;
+      } else {
+        const selectedProject = await promptForExistingProject(projects);
+        linkedAppId = selectedProject.id;
+      }
     }
 
     await runTask(

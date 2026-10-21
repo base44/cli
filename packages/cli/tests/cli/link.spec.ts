@@ -65,6 +65,27 @@ describe("link command", () => {
     expect(appConfig).toContain("existing-app-id");
   });
 
+  it("links --app-id with a workspace API key, which can't list apps", async () => {
+    await t.givenProject(fixture("no-app-config"));
+    t.givenEnv({
+      BASE44_API_KEY:
+        "b44k_dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    });
+    t.api.mockError("get", "/api/apps", {
+      status: 401,
+      body: { detail: "Unauthorized. ['api_key'] -> Object not found" },
+    });
+
+    const result = await t.run("link", "--app-id", "existing-app-id");
+
+    t.expectResult(result).toSucceed();
+    const appConfig = await readFile(
+      join(t.getTempDir(), "project", "base44", ".app.jsonc"),
+      "utf-8",
+    );
+    expect(appConfig).toContain("existing-app-id");
+  });
+
   it("links an editor-created app (managed source code)", async () => {
     await t.givenLoggedInWithProject(fixture("no-app-config"));
     t.api.mockListProjects([
