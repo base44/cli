@@ -276,10 +276,207 @@ describe.skipIf(process.env.CLI_TEST_RUNNER === "binary")(
   },
 );
 
+describe.skipIf(process.env.CLI_TEST_RUNNER === "binary")(
+  "publish command, for an app with actors",
+  () => {
+    const t = setupCLITests();
+    const ACTOR_SLOTS = ["/actors/ChatRoom.mjs", "/actors/Counter.mjs"];
+
+    /** with-actors builds no site of its own; publish needs one to enter. */
+    async function givenActorApp(): Promise<void> {
+      // An actor's runtime imports npm:@base44/sdk, so the compile caches npm
+      // packages. On Windows @deno/loader caches under USERPROFILE and the
+      // compiler allows reads under LOCALAPPDATA; the testkit moves only the
+      // first, so name the cache explicitly, as production does.
+      t.givenEnv({ DENO_DIR: join(t.getTempDir(), "deno") });
+      await t.givenLoggedInWithProject(fixture("with-actors"));
+      const dist = join(t.getTempDir(), "project", "dist");
+      await mkdir(dist, { recursive: true });
+      await writeFile(join(dist, "index.html"), INDEX);
+    }
+
+    const mockActorsApi = (...extraSlots: string[]) => {
+      t.api.mockVersionDeclare(SESSION).mockPresignedUpload("/index.html");
+      for (const slot of [...extraSlots, ...ACTOR_SLOTS]) {
+        t.api.mockPresignedUpload(slot);
+      }
+      t.api
+        .mockVersionFinalize({
+          version_id: "ver-1",
+          manifest_hash: "sha256:abc",
+        })
+        .mockEnvironmentSet({
+          name: "production",
+          version_id: "ver-1",
+          manifest_hash: "sha256:abc",
+          deployment_id: "dep-1",
+        });
+    };
+
+    const uploaded = (path: string) =>
+      t.api.presignedUploadRequests.find((u) => u.path === path)?.data;
+
+    it("declares each actor at its folder's entry, with the source as written", async () => {
+      // Counter is an entry.js, keyed entry.ts all the same: that path is how
+      // the compiler, and the platform, know an entry is an actor. ChatRoom
+      // imports base44/shared, so it compiles only if that module came along.
+      t.givenEnv({ BASE44_VERSIONS_API: "1" });
+      await givenActorApp();
+      mockActorsApi();
+
+      const result = await t.run("publish", "--no-build");
+
+      t.expectResult(result).toSucceed();
+      const declared = t.api.versionDeclareRequests[0] as {
+        actors: { name: string; module: { size: number; digest: string } }[];
+      };
+      expect(declared.actors).toEqual([
+        {
+          name: "ChatRoom",
+          entry: "base44/actors/ChatRoom/entry.ts",
+          source: await t.readProjectFile("base44/actors/ChatRoom/entry.ts"),
+          module: { size: expect.any(Number), digest: expect.any(String) },
+          static_egress: "base44.static-egress.request-env.v2",
+        },
+        {
+          name: "Counter",
+          entry: "base44/actors/Counter/entry.ts",
+          source: await t.readProjectFile("base44/actors/Counter/entry.js"),
+          module: { size: expect.any(Number), digest: expect.any(String) },
+          static_egress: "base44.static-egress.request-env.v2",
+        },
+      ]);
+      expect(declared).toMatchObject({ backend_bundles: [] });
+    });
+
+    it("uploads each actor's module at its own slot, after every other file", async () => {
+      t.givenEnv({ BASE44_VERSIONS_API: "1" });
+      await givenActorApp();
+      mockActorsApi();
+
+      const result = await t.run("publish", "--no-build");
+
+      t.expectResult(result).toSucceed();
+      const declared = t.api.versionDeclareRequests[0] as {
+        actors: { name: string; module: { size: number; digest: string } }[];
+      };
+      for (const actor of declared.actors) {
+        const module = uploaded(`/actors/${actor.name}.mjs`);
+        expect(actor.module).toEqual({
+          size: module?.length,
+          digest: sha256(module ?? ""),
+        });
+      }
+    });
+
+    it("stages actors after the bundles, so neither moves the other's slot", async () => {
+      t.givenEnv({ BASE44_VERSIONS_API: "1" });
+      await givenActorApp();
+      const greet = join(
+        t.getTempDir(),
+        "project",
+        "base44",
+        "functions",
+        "greet",
+      );
+      await mkdir(greet, { recursive: true });
+      await writeFile(
+        join(greet, "entry.ts"),
+        'Deno.serve(() => new Response("hi"));\n',
+      );
+      mockActorsApi("/backend-bundles/0.mjs");
+
+      const result = await t.run("publish", "--no-build");
+
+      t.expectResult(result).toSucceed();
+      const declared = t.api.versionDeclareRequests[0] as {
+        backend_bundles: { module: { digest: string } }[];
+        actors: { name: string; module: { digest: string } }[];
+      };
+      expect(sha256(uploaded("/backend-bundles/0.mjs") ?? "")).toBe(
+        declared.backend_bundles[0].module.digest,
+      );
+      expect(sha256(uploaded("/actors/ChatRoom.mjs") ?? "")).toBe(
+        declared.actors[0].module.digest,
+      );
+    });
+
+    it("declares an app with no actors as having none", async () => {
+      // Not an absent field: that is what an older CLI sends, and the platform
+      // refuses it for an app whose actors it would then drop.
+      t.givenEnv({ BASE44_VERSIONS_API: "1" });
+      await t.givenLoggedInWithProject(fixture("publishable"));
+      t.api
+        .mockVersionDeclare(SESSION)
+        .mockPresignedUpload("/index.html")
+        .mockPresignedUpload("/assets/app.js")
+        .mockVersionFinalize({
+          version_id: "ver-1",
+          manifest_hash: "sha256:abc",
+        })
+        .mockEnvironmentSet({
+          name: "production",
+          version_id: "ver-1",
+          manifest_hash: "sha256:abc",
+          deployment_id: "dep-1",
+        });
+
+      const result = await t.run("publish", "--no-build");
+
+      t.expectResult(result).toSucceed();
+      expect(t.api.versionDeclareRequests[0]).toMatchObject({ actors: [] });
+    });
+
+    it("names the build step when an actor does not compile, before declaring", async () => {
+      t.givenEnv({ BASE44_VERSIONS_API: "1" });
+      await givenActorApp();
+      const broken = join(
+        t.getTempDir(),
+        "project",
+        "base44",
+        "actors",
+        "Broken",
+      );
+      await mkdir(broken, { recursive: true });
+      await writeFile(
+        join(broken, "entry.ts"),
+        "export default class Broken {\n",
+      );
+      mockActorsApi();
+
+      const result = await t.run("publish", "--no-build", "--json");
+
+      t.expectResult(result).toFail();
+      const envelope = JSON.parse(result.stdout);
+      expect(envelope).toMatchObject({ step: "build", code: "INVALID_INPUT" });
+      expect(envelope.details.join("\n")).toContain("Broken");
+      expect(t.api.versionDeclareRequests).toEqual([]);
+    });
+  },
+);
+
 describe.runIf(process.env.CLI_TEST_RUNNER === "binary")(
   "publish command, from the standalone binary",
   () => {
     const t = setupCLITests();
+
+    it("refuses an app with actors before declaring anything", async () => {
+      t.givenEnv({ BASE44_VERSIONS_API: "1" });
+      await t.givenLoggedInWithProject(fixture("with-actors"));
+      const dist = join(t.getTempDir(), "project", "dist");
+      await mkdir(dist, { recursive: true });
+      await writeFile(join(dist, "index.html"), INDEX);
+      t.api.mockVersionDeclare(SESSION);
+
+      const result = await t.run("publish", "--no-build", "--json");
+
+      t.expectResult(result).toFail();
+      expect(JSON.parse(result.stdout)).toMatchObject({
+        step: "build",
+        code: "DEPENDENCY_NOT_FOUND",
+      });
+      expect(t.api.versionDeclareRequests).toEqual([]);
+    });
 
     it("refuses an app with backend functions before declaring anything", async () => {
       t.givenEnv({ BASE44_VERSIONS_API: "1" });

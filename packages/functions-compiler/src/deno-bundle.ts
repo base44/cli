@@ -22,6 +22,7 @@ import { privateDataSourcesVirtualPlugin } from "./esbuild/private-data-sources-
 import { runtimeContextVirtualPlugin } from "./esbuild/runtime-context-virtual.js";
 import { runtimeVirtualPlugin } from "./esbuild/runtime-virtual.js";
 import { USER_NAMESPACE, userFilesPlugin } from "./esbuild/user-files.js";
+import { wsNativeVirtualPlugin } from "./esbuild/ws-native-virtual.js";
 import { lazyEsbuild } from "./lazy-deps.js";
 import type { PreparedWorker } from "./worker-entry.js";
 
@@ -82,6 +83,8 @@ export async function bundleToModule(
         // esbuild from dumping diagnostics to the service's stderr.
         logLevel: "silent",
         plugins: [
+          // `ws` → native-WebSocket client; claims the import before any resolver.
+          wsNativeVirtualPlugin(),
           // CJS require() of a node builtin → static re-export (workerd throws
           // on esbuild's lowered __require). Runs before the Deno resolver.
           nodeBuiltinRequirePlugin(),

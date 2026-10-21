@@ -10,7 +10,7 @@ import {
   TestOverridesSchema,
 } from "@/core/project/schema.js";
 
-function getBase44GlobalDir(): string {
+export function getBase44GlobalDir(): string {
   return join(homedir(), ".base44");
 }
 

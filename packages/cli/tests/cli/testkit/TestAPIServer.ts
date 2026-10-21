@@ -887,17 +887,25 @@ export class TestAPIServer {
             assets: Array<{ path: string; size: number; digest: string }>;
           };
           backend_bundles?: Array<{ module: { size: number; digest: string } }>;
+          actors?: Array<{
+            name: string;
+            module: { size: number; digest: string };
+          }>;
         };
         this.versionDeclareRequests.push(body);
         // The app's assets, then the Worker's modules, then each bundle's module
-        // at a path the server names — the slot order the server signs them in,
-        // which is what the client pairs uploads against.
+        // at a path the server names, then each actor's — the slot order the
+        // server signs them in, which is what the client pairs uploads against.
         const declared = [
           ...body.assets,
           ...(body.site_worker?.modules ?? []),
           ...(body.backend_bundles ?? []).map((bundle, index) => ({
             path: `backend-bundles/${index}.mjs`,
             ...bundle.module,
+          })),
+          ...(body.actors ?? []).map((actor) => ({
+            path: `actors/${actor.name}.mjs`,
+            ...actor.module,
           })),
         ];
         res.status(200).json({

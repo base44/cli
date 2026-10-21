@@ -8,6 +8,7 @@
 interface Base44Bridge {
   waitUntil(promise: Promise<unknown>): void;
   secrets: { get(name: string): string | undefined };
+  staticEgress?: { connect(address: StaticEgressAddress, options?: StaticEgressOptions): Promise<StaticEgressSocket> };
 }
 
 function bridge(): Base44Bridge {
@@ -28,3 +29,28 @@ export const secrets: { get(name: string): string | undefined } = {
     return bridge().secrets.get(name);
   },
 };
+
+export interface StaticEgressAddress {
+  hostname: string;
+  port: number;
+}
+
+export interface StaticEgressOptions {
+  secureTransport?: "off";
+}
+
+export interface StaticEgressSocket {
+  readable: ReadableStream<Uint8Array>;
+  writable: WritableStream<Uint8Array>;
+  opened: Promise<{ remoteAddress?: string | null; localAddress?: string | null }>;
+  closed: Promise<void>;
+  close(): Promise<void>;
+}
+
+export const staticEgress = Object.freeze({
+  async connect(address: StaticEgressAddress, options?: StaticEgressOptions): Promise<StaticEgressSocket> {
+    const api = bridge()?.staticEgress;
+    if (!api) throw new Error("Static egress TCP is unavailable; rebuild and redeploy with a supported runtime");
+    return api.connect(address, options);
+  },
+});

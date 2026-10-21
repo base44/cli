@@ -32,6 +32,20 @@ To add support, set `supportsBranch: true` on the command and consume
 accepting the query parameter alone is not proof of branch isolation.
 Omitting the flag preserves existing main-app behavior.
 
+## API commands (spec-driven)
+
+`src/cli/commands/api/` (`catalog`, `search`, `grep`, `fetch`) is driven by the server's OpenAPI spec at runtime, with no per-endpoint code. The logic lives in `src/core/api-spec/`.
+
+- The spec (`GET /api/openapi.json`) is cached per server under `~/.base44/cache/<server>/` for one hour; `--refresh` forces a download.
+- Read-only comes from each operation's `security` list: `PersonalAccessTokenAuth: ["read_only"]` (the backend's `@read_safe`). `--read-only` filters or refuses by it; the server stays the real guard.
+- `fetch` sends the path as is through `base44Client`, so every auth mode works. Don't add local validation; the server validates.
+- `fetch` fills only `{app_id}`, from `--app-id` or the project, so an endpoint from `search` or `catalog` can be passed as is. Any other placeholder fails before sending, and `--read-only` checks the filled path.
+- `fetch` reads the spec only for `--help` and `--read-only`, so a route newer than the cache still works. Both send nothing, so they run before the login check.
+- `fetch` disables Commander's help option, so `--help` after a method and path can print that operation's contract.
+- `fetch` has no timeout: a call such as a deploy can take minutes.
+- `fetch` reads stdin only for `--body @-`. An agent harness can hold stdin open forever, so reading it unasked would hang the call.
+- A failed `fetch` reports to telemetry without the request or response body, `--body`, `--form`, or the query string: any endpoint can carry secrets.
+
 ## Command File Template
 
 ```typescript
