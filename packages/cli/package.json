@@ -1,6 +1,6 @@
 {
     "name": "base44",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "description": "Base44 CLI - Unified interface for managing Base44 applications",
     "type": "module",
     "bin": {
