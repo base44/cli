@@ -14,7 +14,9 @@ import {
 import type { ProjectWithPaths } from "@/core/project/types.js";
 import {
   DEFAULT_UPLOAD_CONCURRENCY,
+  deploySite,
   deployToDeployments,
+  detectFullStackArtifact,
   MAX_UPLOAD_CONCURRENCY,
   publishDeployment,
   resolveGitHash,
@@ -68,7 +70,17 @@ async function deployToDeploymentsApi(
   const projectRoot = project.root;
   // First, so a defaulted site block is reported before anything can fail.
   const outputDir = siteOutputDir(project);
-  const gitHash = await resolveGitHash(projectRoot, options.gitHash);
+  // A static build with no commit behind it keeps the archive upload; a worker
+  // build has no archive form, so there the resolver's error stands.
+  const gitHash = await resolveGitHash(projectRoot, options.gitHash).catch(
+    async (error) => {
+      if (await detectFullStackArtifact(projectRoot)) throw error;
+      return undefined;
+    },
+  );
+  if (!gitHash) {
+    return deployArchive(ctx, outputDir);
+  }
   const progressLines: string[] = [];
   const warnings: string[] = [];
 
@@ -125,12 +137,40 @@ async function deployToDeploymentsApi(
     log.message(
       `${theme.styles.header("App URL")}: ${theme.colors.links(published.appUrl)}`,
     );
+  } else {
+    log.info(
+      "Not published: production still serves its previous build. Run again with --publish to serve this one.",
+    );
   }
 
   return {
     outroMessage: `Deployment ${deploymentId} (commit ${gitHash.slice(0, 12)})`,
     stdout: jsonMode
       ? `${JSON.stringify({ deploymentId, gitHash, published: Boolean(published) }, null, 2)}\n`
+      : undefined,
+  };
+}
+
+async function deployArchive(
+  { runTask, log, jsonMode }: CLIContext,
+  outputDir: string,
+): Promise<RunCommandResult> {
+  const { appUrl } = await runTask(
+    "Creating archive and deploying site...",
+    async () => await deploySite(outputDir),
+    {
+      successMessage: "Site deployed successfully",
+      errorMessage: "Deployment failed",
+    },
+  );
+  log.warn(
+    "No commit found for this build, so it was deployed and published without one. Commit your work to address deployments by it.",
+  );
+
+  return {
+    outroMessage: `Visit your site at: ${appUrl}`,
+    stdout: jsonMode
+      ? `${JSON.stringify({ appUrl, published: true }, null, 2)}\n`
       : undefined,
   };
 }

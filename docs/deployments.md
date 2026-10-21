@@ -13,7 +13,7 @@ Everything downstream follows from the server's answer rather than from a decisi
 Which command publishes is therefore not a style choice:
 
 - **`base44 deploy` always publishes.** It is the door a developer uses on their own project, where the archive upload it replaces always left the app live.
-- **`base44 site deploy` does not** (`--publish` asks for it). Its main caller is the platform's own build step, which builds a builder-managed app and repoints production itself; publishing there would fail those apps outright.
+- **`base44 site deploy` does not** (`--publish` asks for it, and the command says so when it leaves production alone). Its main caller is the platform's own build step, which builds a builder-managed app and repoints production itself; publishing there would fail those apps outright.
 
 There is still no promote/rollback surface: rolling back is publishing an earlier commit.
 
@@ -74,9 +74,7 @@ The primary automated consumer is the platform's build/deploy sandbox, which run
 
 ## The Commit Address, and What Is Left of the Archive Upload
 
-The commit comes from `--git-hash` when passed, otherwise `git rev-parse HEAD`. `site deploy` with neither fails asking for the flag: its build has no address, so nothing could publish it later.
-
-`base44 deploy` is softer, in the one case where a project legitimately has no history: with a `site.outputDirectory` and no commit, it warns and ships that directory through the legacy tar.gz upload (`deploySite()`), which publishes as it always did. A **worker** build has no archive form, so there a missing commit is fatal. The archive upload's other caller is the scaffold deploy in `base44 create`, which runs before a new project has any history at all. Those two are the whole of what is left on it — everything else is the lane.
+The commit comes from `--git-hash` when passed, otherwise `git rev-parse HEAD`. A project can legitimately have no history, so a **static** build with no commit warns and ships its output directory through the legacy tar.gz upload (`deploySite()`), which publishes as it always did — from `base44 deploy` and `site deploy` alike. A **worker** build has no archive form, so there a missing commit is fatal. The archive upload's other caller is the scaffold deploy in `base44 create`, which runs before a new project has any history at all. Those are the whole of what is left on it — everything else is the lane.
 
 With no worker, the output directory becomes the asset manifest (index.html included — it is only ever excluded from uploads), and the create request carries **no `config`**, which the server answers with the `s3` arm. The CLI PUTs each requested file directly to its presigned URL and finalizes with the index.html bytes.
 
@@ -95,4 +93,4 @@ With no worker, the output directory becomes the asset manifest (index.html incl
 - **One `createDeployment()` call site** — a worker changes its parameters, never the flow around it; do not fork the code path on "full-stack vs static"
 - **Say "site" to the user** — never "full-stack app"; the presence of a worker is not a distinction user-facing copy makes
 - **`site deploy` never publishes on its own** — the platform's build step runs it against builder-managed apps, where a publish is both wrong and fatal
-- **The archive upload is for builds with no commit only** — `base44 create`'s scaffold deploy and a `base44 deploy` in a non-git project; never add a third caller
+- **The archive upload is for builds with no commit only** — `base44 create`'s scaffold deploy and a `deploy` / `site deploy` of a static build in a non-git project; never add a third caller

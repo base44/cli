@@ -192,8 +192,9 @@ describe("site deploy command (static site through the deployments API)", () => 
     });
   });
 
-  it("requires a commit hash outside a git checkout", async () => {
-    await t.givenLoggedInWithProject(fixture("with-site"));
+  it("requires a commit hash for a worker build outside a git checkout", async () => {
+    // A static build falls back to the archive upload; a worker build has no archive form.
+    await t.givenLoggedInWithProject(fixture("fullstack-project"));
 
     const result = await t.run("site", "deploy", "-y");
 

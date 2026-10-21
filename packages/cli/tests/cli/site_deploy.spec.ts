@@ -73,7 +73,21 @@ describe("site deploy command", () => {
     const result = await t.run("site", "deploy", "-y", "--git-hash", GIT_HASH);
 
     t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Run again with --publish");
     expect(t.api.publishedCommits).toEqual([]);
+  });
+
+  it("falls back to the archive upload, which goes live, when the build has no commit", async () => {
+    // The fixture is not a git checkout, so there is no address to deploy to.
+    await t.givenLoggedInWithProject(fixture("with-site"));
+    t.api.mockSiteDeploy({ app_url: "https://with-site.base44.app" });
+
+    const result = await t.run("site", "deploy", "-y");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("No commit found for this build");
+    t.expectResult(result).toContain("https://with-site.base44.app");
+    expect(t.api.deploymentCreateRequests).toHaveLength(0);
   });
 
   it("--publish serves the deployed commit", async () => {
