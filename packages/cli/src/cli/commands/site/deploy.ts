@@ -4,7 +4,7 @@ import type { Command } from "commander";
 import { InvalidArgumentError, Option } from "commander";
 import { maybeBuildBeforeDeploy } from "@/cli/commands/project/site-build.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
-import { Base44Command, theme } from "@/cli/utils/index.js";
+import { Base44Command, parseGitHash, theme } from "@/cli/utils/index.js";
 import { InvalidInputError } from "@/core/errors.js";
 import {
   DEFAULT_SITE,
@@ -14,19 +14,20 @@ import {
 import type { ProjectWithPaths } from "@/core/project/types.js";
 import {
   DEFAULT_UPLOAD_CONCURRENCY,
-  deploymentsApiEnabled,
   deploySite,
   deployToDeployments,
+  detectFullStackArtifact,
   MAX_UPLOAD_CONCURRENCY,
-  resolveGitHash,
+  publishDeployment,
+  workerBuildNeedsGitHashError,
 } from "@/core/site/index.js";
-import { isGitCommitHash } from "@/core/utils/git.js";
 
 interface DeployOptions {
   yes?: boolean;
   build?: boolean;
   gitHash?: string;
   concurrency?: number;
+  publish?: boolean;
 }
 
 async function deployAction(
@@ -57,9 +58,7 @@ async function deployAction(
     }
   }
 
-  return deploymentsApiEnabled()
-    ? await deployToDeploymentsApi(ctx, project, options)
-    : await deployTarball(ctx, project);
+  return deployToDeploymentsApi(ctx, project, options);
 }
 
 async function deployToDeploymentsApi(
@@ -69,7 +68,16 @@ async function deployToDeploymentsApi(
 ): Promise<RunCommandResult> {
   const { runTask, log, jsonMode } = ctx;
   const projectRoot = project.root;
-  const gitHash = await resolveGitHash(projectRoot, options.gitHash);
+  // First, so a defaulted site block is reported before anything can fail.
+  const outputDir = siteOutputDir(project);
+  // Without a commit, a static build keeps the archive upload, live as before.
+  const gitHash = options.gitHash;
+  if (!gitHash) {
+    if (await detectFullStackArtifact(projectRoot)) {
+      throw workerBuildNeedsGitHashError();
+    }
+    return deployArchive(ctx, outputDir);
+  }
   const progressLines: string[] = [];
   const warnings: string[] = [];
 
@@ -79,7 +87,7 @@ async function deployToDeploymentsApi(
       await deployToDeployments({
         projectRoot,
         // A build carrying a worker brings its own assets directory instead.
-        outputDir: siteOutputDir(project),
+        outputDir,
         gitHash,
         concurrency: options.concurrency,
         progress: {
@@ -109,22 +117,41 @@ async function deployToDeploymentsApi(
     log.warn(warning);
   }
 
-  // No URL: what production serves is decided when the app is published from
-  // the builder, not by this deploy.
+  // Deploying is not publishing: this command builds an app's commit, and the
+  // platform's own build step is its main caller — for an app the builder
+  // manages, production is repointed there, and publishing here would fail it.
+  // `base44 deploy` is the door that puts a build live; `--publish` is the same
+  // step on demand.
+  const published = options.publish
+    ? await runTask(
+        "Publishing site...",
+        async () => await publishDeployment(gitHash),
+        { successMessage: "Site published", errorMessage: "Publish failed" },
+      )
+    : undefined;
+
+  if (published) {
+    log.message(
+      `${theme.styles.header("App URL")}: ${theme.colors.links(published.appUrl)}`,
+    );
+  } else {
+    log.info(
+      "Not published: production still serves its previous build. Run again with --publish to serve this one.",
+    );
+  }
+
   return {
     outroMessage: `Deployment ${deploymentId} (commit ${gitHash.slice(0, 12)})`,
     stdout: jsonMode
-      ? `${JSON.stringify({ deploymentId, gitHash }, null, 2)}\n`
+      ? `${JSON.stringify({ deploymentId, gitHash, published: Boolean(published) }, null, 2)}\n`
       : undefined,
   };
 }
 
-async function deployTarball(
-  { runTask }: CLIContext,
-  project: ProjectWithPaths,
+async function deployArchive(
+  { runTask, jsonMode }: CLIContext,
+  outputDir: string,
 ): Promise<RunCommandResult> {
-  const outputDir = siteOutputDir(project);
-
   const { appUrl } = await runTask(
     "Creating archive and deploying site...",
     async () => await deploySite(outputDir),
@@ -133,8 +160,12 @@ async function deployTarball(
       errorMessage: "Deployment failed",
     },
   );
-
-  return { outroMessage: `Visit your site at: ${appUrl}` };
+  return {
+    outroMessage: `Visit your site at: ${appUrl}`,
+    stdout: jsonMode
+      ? `${JSON.stringify({ appUrl, published: true }, null, 2)}\n`
+      : undefined,
+  };
 }
 
 function siteOutputDir(project: ProjectWithPaths): string {
@@ -144,39 +175,24 @@ function siteOutputDir(project: ProjectWithPaths): string {
 }
 
 export function getSiteDeployCommand(): Command {
-  const command = new Base44Command("deploy")
+  return new Base44Command("deploy")
     .description("Deploy built site files to Base44 hosting")
     .option("-y, --yes", "Skip confirmation prompt")
     .option("--build", "Build the site before deploying (skips the prompt)")
-    .option("--no-build", "Deploy without building (skips the prompt)");
-
-  // Registered on the enabled lane only: with the gate off they are absent from
-  // --help and rejected as unknown options, rather than accepted by a tar.gz
-  // upload that can honor neither.
-  if (deploymentsApiEnabled()) {
-    command.addOption(
+    .option("--no-build", "Deploy without building (skips the prompt)")
+    .option("--publish", "Serve this build in production once it is deployed")
+    .addOption(
       new Option(
         "--git-hash <hash>",
-        "Commit the build came from (defaults to the checkout's HEAD)",
+        "Deploy by the commit the build came from, through the deployments API",
       ).argParser(parseGitHash),
-    );
-    command.addOption(
+    )
+    .addOption(
       new Option("--concurrency <n>", "Parallel asset uploads")
         .default(DEFAULT_UPLOAD_CONCURRENCY)
         .argParser(parseConcurrency),
-    );
-  }
-
-  return command.action(deployAction);
-}
-
-function parseGitHash(value: string): string {
-  if (!isGitCommitHash(value)) {
-    throw new InvalidArgumentError(
-      "Expected a git commit hash (7-64 hex chars).",
-    );
-  }
-  return value;
+    )
+    .action(deployAction);
 }
 
 function parseConcurrency(value: string): number {

@@ -1,12 +1,14 @@
 import type { KyResponse } from "ky";
 import { getAppClient } from "@/core/clients/index.js";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";
+import { getSiteUrl } from "@/core/project/api.js";
 import type {
   CreateDeploymentRequest,
   CreateDeploymentResponse,
   DeployResponse,
   FinalizeDeploymentResponse,
   ModuleType,
+  PublishedDeployment,
   WorkerModule,
 } from "@/core/site/schema.js";
 import {
@@ -152,4 +154,32 @@ export async function finalizeDeployment(
     );
   }
   return result.data;
+}
+
+/**
+ * Serve a deployed commit's build in production.
+ *
+ * Deploying and publishing are separate acts server-side — a build lands at its
+ * commit's address and only a publish repoints production at it — so this is a
+ * second call rather than a flag on finalize. It is the builder's own publish,
+ * given the commit instead of a saved version: the platform holds no source for
+ * an app the CLI deploys, so the commit is how it names what to put live.
+ */
+export async function publishDeployment(
+  gitHash: string,
+): Promise<PublishedDeployment> {
+  const appClient = getAppClient();
+
+  try {
+    // The body is the editor's full app for a logged-in user and a slim record
+    // for an API key; neither carries anything the CLI doesn't already know.
+    await appClient.post("deploy", {
+      json: { git_commit_hash: gitHash },
+      timeout: 120_000,
+    });
+  } catch (error) {
+    throw await ApiError.fromHttpError(error, "publishing deployment");
+  }
+
+  return { gitHash, appUrl: await getSiteUrl() };
 }
