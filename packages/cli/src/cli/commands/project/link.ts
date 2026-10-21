@@ -10,6 +10,7 @@ import {
   theme,
 } from "@/cli/utils/index.js";
 import {
+  ApiError,
   ConfigExistsError,
   ConfigNotFoundError,
   InvalidInputError,
@@ -19,6 +20,7 @@ import {
   appConfigExists,
   createProject,
   findProjectRoot,
+  getApp,
   listProjects,
   setAppContext,
   writeAppConfig,
@@ -134,6 +136,76 @@ async function promptForExistingProject(projects: Project[]): Promise<Project> {
   return selectedProject;
 }
 
+/**
+ * Validate an explicit `--app-id` by fetching the app directly, so linking
+ * works for any app the user can access — not just ones in their personal
+ * workspace. Editor-created (managed-source) apps are linkable too (#577).
+ */
+async function resolveExplicitAppId(
+  ctx: CLIContext,
+  appId: string,
+): Promise<string> {
+  await ctx
+    .runTask("Validating app...", () => getApp(appId), {
+      errorMessage: "Could not validate app",
+    })
+    .catch((error) => {
+      if (
+        error instanceof ApiError &&
+        (error.statusCode === 404 || error.statusCode === 403)
+      ) {
+        throw new InvalidInputError(
+          `App "${appId}" not found, or you don't have access to it.`,
+          {
+            hints: [
+              { message: "Check the app ID is correct" },
+              {
+                message:
+                  "Run 'base44 link' without --app-id to browse apps by workspace",
+              },
+            ],
+          },
+        );
+      }
+      throw error;
+    });
+
+  return appId;
+}
+
+/**
+ * Interactive existing-app selection: pick a workspace (skipped when you're in
+ * only one), then pick an app scoped to that workspace. Returns undefined when
+ * the chosen workspace has no apps.
+ */
+async function chooseProjectInteractively(
+  ctx: CLIContext,
+  options: LinkOptions,
+): Promise<string | undefined> {
+  const workspaceId = await resolveWorkspaceId(
+    ctx,
+    options.workspace ?? options.org,
+    !ctx.isNonInteractive,
+    { promptMessage: "Which workspace is the app in?" },
+  );
+
+  const projects = await ctx.runTask(
+    "Fetching projects...",
+    () => listProjects({ workspaceId }),
+    {
+      successMessage: "Projects fetched",
+      errorMessage: "Failed to fetch projects",
+    },
+  );
+
+  if (!projects.length) {
+    return undefined;
+  }
+
+  const selectedProject = await promptForExistingProject(projects);
+  return selectedProject.id;
+}
+
 async function link(
   ctx: CLIContext,
   options: LinkOptions,
@@ -179,38 +251,14 @@ async function link(
       : await promptForLinkAction();
 
   if (action === "choose") {
-    const projects = await runTask(
-      "Fetching projects...",
-      async () => listProjects(),
-      {
-        successMessage: "Projects fetched",
-        errorMessage: "Failed to fetch projects",
-      },
-    );
+    // Explicit --app-id links any app you can access (validated directly),
+    // regardless of workspace. Otherwise pick a workspace, then an app in it.
+    const linkedAppId = appId
+      ? await resolveExplicitAppId(ctx, appId)
+      : await chooseProjectInteractively(ctx, options);
 
-    if (!projects.length) {
+    if (!linkedAppId) {
       return { outroMessage: "No projects available for linking" };
-    }
-
-    let linkedAppId: string;
-
-    if (appId) {
-      const project = projects.find((p) => p.id === appId);
-      if (!project) {
-        throw new InvalidInputError(`App with ID "${appId}" not found.`, {
-          hints: [
-            { message: "Check the app ID is correct" },
-            {
-              message:
-                "Use 'base44 link' without --app-id to see available projects",
-            },
-          ],
-        });
-      }
-      linkedAppId = appId;
-    } else {
-      const selectedProject = await promptForExistingProject(projects);
-      linkedAppId = selectedProject.id;
     }
 
     await runTask(
@@ -281,7 +329,7 @@ export function getLinkCommand(): Command {
       .option("-d, --description <description>", "Project description")
       .option(
         "-w, --workspace <id>",
-        "Workspace (organization) ID to create the app in when using --create (defaults to your personal workspace)",
+        "Workspace (organization) ID to scope the app picker to (or create the app in, with --create). Defaults to your personal workspace",
       )
       .addOption(
         new CommanderOption("--org <id>", "Alias for --workspace").hideHelp(),

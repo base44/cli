@@ -44,13 +44,11 @@ describe("link command", () => {
 
   it("links an existing app with --app-id", async () => {
     await t.givenLoggedInWithProject(fixture("no-app-config"));
-    t.api.mockListProjects([
-      {
-        id: "existing-app-id",
-        name: "Existing App",
-        is_managed_source_code: false,
-      },
-    ]);
+    t.api.mockGetApp({
+      id: "existing-app-id",
+      name: "Existing App",
+      is_managed_source_code: false,
+    });
 
     const result = await t.run("link", "--app-id", "existing-app-id");
 
@@ -67,13 +65,11 @@ describe("link command", () => {
 
   it("links an editor-created app (managed source code)", async () => {
     await t.givenLoggedInWithProject(fixture("no-app-config"));
-    t.api.mockListProjects([
-      {
-        id: "editor-app-id",
-        name: "Editor App",
-        is_managed_source_code: true,
-      },
-    ]);
+    t.api.mockGetApp({
+      id: "editor-app-id",
+      name: "Editor App",
+      is_managed_source_code: true,
+    });
 
     const result = await t.run("link", "--app-id", "editor-app-id");
 
@@ -82,15 +78,42 @@ describe("link command", () => {
     t.expectResult(result).toContain("editor-app-id");
   });
 
+  it("links an app that lives in another workspace via --app-id", async () => {
+    await t.givenLoggedInWithProject(fixture("no-app-config"));
+    // An app whose organization_id is a workspace other than the caller's
+    // personal one — previously unreachable because the picker was
+    // personal-scoped. Now validated directly via getApp.
+    t.api.mockGetApp({
+      id: "other-ws-app",
+      name: "Team App",
+      organization_id: "ws-team",
+      is_managed_source_code: false,
+    });
+
+    const result = await t.run("link", "--app-id", "other-ws-app");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Project linked");
+    t.expectResult(result).toContain("other-ws-app");
+  });
+
+  it("fails with a clear message when --app-id is not found", async () => {
+    await t.givenLoggedInWithProject(fixture("no-app-config"));
+    // No mockGetApp registered → server 404.
+
+    const result = await t.run("link", "--app-id", "does-not-exist");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("not found");
+  });
+
   it("links an existing app with legacy --project-id", async () => {
     await t.givenLoggedInWithProject(fixture("no-app-config"));
-    t.api.mockListProjects([
-      {
-        id: "legacy-app-id",
-        name: "Legacy App",
-        is_managed_source_code: false,
-      },
-    ]);
+    t.api.mockGetApp({
+      id: "legacy-app-id",
+      name: "Legacy App",
+      is_managed_source_code: false,
+    });
 
     const result = await t.run("link", "--project-id", "legacy-app-id");
 
@@ -101,13 +124,11 @@ describe("link command", () => {
 
   it("links an existing app with legacy --projectId", async () => {
     await t.givenLoggedInWithProject(fixture("no-app-config"));
-    t.api.mockListProjects([
-      {
-        id: "camel-legacy-app-id",
-        name: "Camel Legacy App",
-        is_managed_source_code: false,
-      },
-    ]);
+    t.api.mockGetApp({
+      id: "camel-legacy-app-id",
+      name: "Camel Legacy App",
+      is_managed_source_code: false,
+    });
 
     const result = await t.run("link", "--projectId", "camel-legacy-app-id");
 
