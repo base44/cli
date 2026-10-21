@@ -348,9 +348,12 @@ describe("deploy command (unified)", () => {
       mockProjectResources();
       mockDeployment();
       t.api.mockDeploymentPublishError(400, {
-        message:
-          "This app is published from the Base44 builder, not from a deployment.",
-        extra_data: { code: "app_publishes_from_builder" },
+        error: {
+          code: "git_commit_hash_not_supported",
+          message:
+            "This app's source is managed by Base44. Deploy a saved version with checkpoint_id instead.",
+          details: {},
+        },
       });
 
       const result = await t.run("deploy", "-y", "--git-hash", GIT_HASH);

@@ -1,6 +1,7 @@
 import type { KyResponse } from "ky";
 import { getAppClient } from "@/core/clients/index.js";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";
+import { getSiteUrl } from "@/core/project/api.js";
 import type {
   CreateDeploymentRequest,
   CreateDeploymentResponse,
@@ -161,9 +162,9 @@ export async function finalizeDeployment(
  *
  * Deploying and publishing are separate acts server-side — a build lands at its
  * commit's address and only a publish repoints production at it — so this is a
- * second call rather than a flag on finalize. Addressed by the commit, not the
- * deployment id: the id is the short form the server derives, while the build
- * itself is addressed by the full hash.
+ * second call rather than a flag on finalize. It is the builder's own publish,
+ * given the commit instead of a saved version: the platform holds no source for
+ * an app the CLI deploys, so the commit is how it names what to put live.
  */
 export async function publishDeployment(
   gitHash: string,
@@ -172,7 +173,8 @@ export async function publishDeployment(
 
   let response: KyResponse;
   try {
-    response = await appClient.post(`deployments/${gitHash}/publish`, {
+    response = await appClient.post("deploy", {
+      json: { git_commit_hash: gitHash },
       timeout: 120_000,
     });
   } catch (error) {
@@ -188,5 +190,5 @@ export async function publishDeployment(
       result.error,
     );
   }
-  return result.data;
+  return { ...result.data, appUrl: await getSiteUrl() };
 }

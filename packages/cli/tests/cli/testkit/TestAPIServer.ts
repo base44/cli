@@ -262,8 +262,8 @@ interface DeploymentFinalizeResponse {
 }
 
 interface DeploymentPublishResponse {
-  git_hash: string;
   deployed_at: string;
+  /** Served by the published-url route the CLI reads after publishing. */
   app_url: string;
 }
 
@@ -980,36 +980,39 @@ export class TestAPIServer {
   }
 
   /**
-   * Serves the publish that puts a deployed commit live, capturing the commits
-   * it was called with in `publishedCommits`.
+   * Serves the publish that puts a deployed commit live (`/deploy` given a
+   * `git_commit_hash`), capturing the commits it was called with in
+   * `publishedCommits`, and the published URL the CLI reads after it.
    */
   mockDeploymentPublish(
     response: Partial<DeploymentPublishResponse> = {},
   ): this {
+    const { app_url = `https://${this.appId}.base44.app`, ...rest } = response;
     this.pendingRoutes.push({
       method: "POST",
-      path: `/api/apps/${this.appId}/deployments/:gitHash/publish`,
+      path: `/api/apps/${this.appId}/deploy`,
       handler: (req, res) => {
-        const gitHash = String(req.params.gitHash);
+        const gitHash = String(req.body?.git_commit_hash);
         this.publishedCommits.push(gitHash);
         res.status(200).json({
-          git_hash: gitHash,
+          app_id: this.appId,
+          checkpoint_id: null,
+          git_commit_hash: gitHash,
           deployed_at: "2026-09-28T12:00:00Z",
-          app_url: `https://${this.appId}.base44.app`,
-          ...response,
+          ...rest,
         });
       },
     });
-    return this;
+    return this.mockSiteUrl({ url: app_url });
   }
 
   /** Answers a publish with an error, e.g. a commit whose build is missing. */
   mockDeploymentPublishError(status: number, body: unknown): this {
     this.pendingRoutes.push({
       method: "POST",
-      path: `/api/apps/${this.appId}/deployments/:gitHash/publish`,
+      path: `/api/apps/${this.appId}/deploy`,
       handler: (req, res) => {
-        this.publishedCommits.push(String(req.params.gitHash));
+        this.publishedCommits.push(String(req.body?.git_commit_hash));
         res.status(status).json(body);
       },
     });

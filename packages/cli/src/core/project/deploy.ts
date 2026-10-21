@@ -261,13 +261,11 @@ async function shipCommit(
   }
 }
 
-/** The server's stable code for "this app does not publish through the CLI". */
+/** The server's stable code for "this app does not publish by commit". */
 function publishesFromBuilder(error: unknown): boolean {
   if (!(error instanceof ApiError)) {
     return false;
   }
-  const body = error.responseBody as
-    | { extra_data?: { code?: unknown } }
-    | undefined;
-  return body?.extra_data?.code === "app_publishes_from_builder";
+  const body = error.responseBody as { error?: { code?: unknown } } | undefined;
+  return body?.error?.code === "git_commit_hash_not_supported";
 }
