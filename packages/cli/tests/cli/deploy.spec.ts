@@ -342,6 +342,27 @@ describe("deploy command (unified)", () => {
       t.expectResult(result).toContain("published from the Base44 builder");
     });
 
+    it("still succeeds when the app URL can't be looked up after publishing", async () => {
+      // A workspace API key is refused on the published-url route.
+      await t.givenLoggedInWithProject(fixture("full-project"));
+      mockProjectResources();
+      mockDeployment();
+      t.api.mockError(
+        "get",
+        `/api/apps/platform/${t.api.appId}/published-url`,
+        {
+          status: 401,
+          body: { message: "Unauthorized", detail: "Object not found" },
+        },
+      );
+      t.api.mockDeploymentPublish();
+
+      const result = await t.run("deploy", "-y", "--git-hash", GIT_HASH);
+
+      t.expectResult(result).toSucceed();
+      expect(t.api.publishedCommits).toEqual([GIT_HASH]);
+    });
+
     it("fails when the publish itself fails", async () => {
       await t.givenLoggedInWithProject(fixture("full-project"));
       mockProjectResources();

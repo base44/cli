@@ -181,5 +181,8 @@ export async function publishDeployment(
     throw await ApiError.fromHttpError(error, "publishing deployment");
   }
 
-  return { gitHash, appUrl: await getSiteUrl() };
+  // Best effort: the publish already went through, and the URL lookup is a
+  // platform route a workspace API key is refused on.
+  const appUrl = await getSiteUrl().catch(() => undefined);
+  return { gitHash, appUrl };
 }

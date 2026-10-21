@@ -130,11 +130,11 @@ async function deployToDeploymentsApi(
       )
     : undefined;
 
-  if (published) {
+  if (published?.appUrl) {
     log.message(
       `${theme.styles.header("App URL")}: ${theme.colors.links(published.appUrl)}`,
     );
-  } else {
+  } else if (!published) {
     log.info(
       "Not published: production still serves its previous build. Run again with --publish to serve this one.",
     );
