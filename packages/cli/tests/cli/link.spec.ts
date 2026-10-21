@@ -44,13 +44,6 @@ describe("link command", () => {
 
   it("links an existing app with --app-id", async () => {
     await t.givenLoggedInWithProject(fixture("no-app-config"));
-    t.api.mockListProjects([
-      {
-        id: "existing-app-id",
-        name: "Existing App",
-        is_managed_source_code: false,
-      },
-    ]);
 
     const result = await t.run("link", "--app-id", "existing-app-id");
 
@@ -65,7 +58,7 @@ describe("link command", () => {
     expect(appConfig).toContain("existing-app-id");
   });
 
-  it("links --app-id with a workspace API key, which can't list apps", async () => {
+  it("links --app-id without listing apps, which a workspace API key can't do", async () => {
     await t.givenProject(fixture("no-app-config"));
     t.givenEnv({
       BASE44_API_KEY:
@@ -88,13 +81,6 @@ describe("link command", () => {
 
   it("links an editor-created app (managed source code)", async () => {
     await t.givenLoggedInWithProject(fixture("no-app-config"));
-    t.api.mockListProjects([
-      {
-        id: "editor-app-id",
-        name: "Editor App",
-        is_managed_source_code: true,
-      },
-    ]);
 
     const result = await t.run("link", "--app-id", "editor-app-id");
 
@@ -105,13 +91,6 @@ describe("link command", () => {
 
   it("links an existing app with legacy --project-id", async () => {
     await t.givenLoggedInWithProject(fixture("no-app-config"));
-    t.api.mockListProjects([
-      {
-        id: "legacy-app-id",
-        name: "Legacy App",
-        is_managed_source_code: false,
-      },
-    ]);
 
     const result = await t.run("link", "--project-id", "legacy-app-id");
 
@@ -122,13 +101,6 @@ describe("link command", () => {
 
   it("links an existing app with legacy --projectId", async () => {
     await t.givenLoggedInWithProject(fixture("no-app-config"));
-    t.api.mockListProjects([
-      {
-        id: "camel-legacy-app-id",
-        name: "Camel Legacy App",
-        is_managed_source_code: false,
-      },
-    ]);
 
     const result = await t.run("link", "--projectId", "camel-legacy-app-id");
 

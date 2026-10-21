@@ -9,7 +9,6 @@ import {
   onPromptCancel,
   theme,
 } from "@/cli/utils/index.js";
-import { hasWorkspaceApiKeyAuth } from "@/core/auth/config.js";
 import {
   ConfigExistsError,
   ConfigNotFoundError,
@@ -180,13 +179,10 @@ async function link(
       : await promptForLinkAction();
 
   if (action === "choose") {
-    let linkedAppId: string;
-
-    // A workspace API key can't list apps; it is checked against this app on
-    // the first request that addresses it.
-    if (appId && hasWorkspaceApiKeyAuth()) {
-      linkedAppId = appId;
-    } else {
+    // An explicit id needs no listing: the first request that addresses the app
+    // checks it, and a workspace API key can't list apps at all.
+    let linkedAppId = appId;
+    if (!linkedAppId) {
       const projects = await runTask(
         "Fetching projects...",
         async () => listProjects(),
@@ -200,24 +196,7 @@ async function link(
         return { outroMessage: "No projects available for linking" };
       }
 
-      if (appId) {
-        const project = projects.find((p) => p.id === appId);
-        if (!project) {
-          throw new InvalidInputError(`App with ID "${appId}" not found.`, {
-            hints: [
-              { message: "Check the app ID is correct" },
-              {
-                message:
-                  "Use 'base44 link' without --app-id to see available projects",
-              },
-            ],
-          });
-        }
-        linkedAppId = appId;
-      } else {
-        const selectedProject = await promptForExistingProject(projects);
-        linkedAppId = selectedProject.id;
-      }
+      linkedAppId = (await promptForExistingProject(projects)).id;
     }
 
     await runTask(
