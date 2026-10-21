@@ -262,7 +262,6 @@ interface DeploymentFinalizeResponse {
 }
 
 interface DeploymentPublishResponse {
-  deployed_at: string;
   /** Served by the published-url route the CLI reads after publishing. */
   app_url: string;
 }
@@ -1002,11 +1001,12 @@ export class TestAPIServer {
       handler: (req, res) => {
         const gitHash = String(req.body?.git_commit_hash);
         this.publishedCommits.push(gitHash);
+        // What a logged-in user gets: the editor's full app, not the slim
+        // record an API key gets, so it names neither the commit nor the time.
         res.status(200).json({
-          app_id: this.appId,
-          checkpoint_id: null,
-          git_commit_hash: gitHash,
-          deployed_at: "2026-09-28T12:00:00Z",
+          id: this.appId,
+          last_deployed_git_commit_hash: gitHash,
+          last_deployed_source_type: "git",
           ...rest,
         });
       },

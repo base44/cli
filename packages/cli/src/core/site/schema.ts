@@ -203,16 +203,8 @@ export type FinalizeDeploymentResponse = z.infer<
   typeof FinalizeDeploymentResponseSchema
 >;
 
-export const PublishDeploymentResponseSchema = z
-  .object({
-    git_commit_hash: z.string(),
-    deployed_at: z.string(),
-  })
-  .transform((data) => ({
-    gitHash: data.git_commit_hash,
-    deployedAt: data.deployed_at,
-  }));
-
-export type PublishDeploymentResponse = z.infer<
-  typeof PublishDeploymentResponseSchema
-> & { appUrl: string };
+/** A commit's build now serving production, and where. */
+export interface PublishedDeployment {
+  gitHash: string;
+  appUrl: string;
+}

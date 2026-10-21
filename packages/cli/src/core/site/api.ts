@@ -8,14 +8,13 @@ import type {
   DeployResponse,
   FinalizeDeploymentResponse,
   ModuleType,
-  PublishDeploymentResponse,
+  PublishedDeployment,
   WorkerModule,
 } from "@/core/site/schema.js";
 import {
   CreateDeploymentResponseSchema,
   DeployResponseSchema,
   FinalizeDeploymentResponseSchema,
-  PublishDeploymentResponseSchema,
 } from "@/core/site/schema.js";
 import { readFile } from "@/core/utils/fs.js";
 
@@ -168,12 +167,13 @@ export async function finalizeDeployment(
  */
 export async function publishDeployment(
   gitHash: string,
-): Promise<PublishDeploymentResponse> {
+): Promise<PublishedDeployment> {
   const appClient = getAppClient();
 
-  let response: KyResponse;
   try {
-    response = await appClient.post("deploy", {
+    // The body is the editor's full app for a logged-in user and a slim record
+    // for an API key; neither carries anything the CLI doesn't already know.
+    await appClient.post("deploy", {
       json: { git_commit_hash: gitHash },
       timeout: 120_000,
     });
@@ -181,14 +181,5 @@ export async function publishDeployment(
     throw await ApiError.fromHttpError(error, "publishing deployment");
   }
 
-  const result = PublishDeploymentResponseSchema.safeParse(
-    await response.json(),
-  );
-  if (!result.success) {
-    throw new SchemaValidationError(
-      "Invalid response from server",
-      result.error,
-    );
-  }
-  return { ...result.data, appUrl: await getSiteUrl() };
+  return { gitHash, appUrl: await getSiteUrl() };
 }
