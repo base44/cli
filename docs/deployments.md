@@ -1,6 +1,6 @@
 # Deployments
 
-**Keywords:** deployments, full-stack, Cloudflare Workers, wrangler, no_bundle, asset manifest, hash, git hash, commit, buckets, presigned, S3, upload session, finalize, .assetsignore, negation, concurrency, .wrangler/deploy/config.json, static site, publish, --publish, --no-publish, target
+**Keywords:** deployments, full-stack, Cloudflare Workers, wrangler, no_bundle, asset manifest, hash, git hash, commit, buckets, presigned, S3, upload session, finalize, .assetsignore, negation, concurrency, .wrangler/deploy/config.json, static site, publish, --publish, target
 
 Deployments ship an app's built output addressed by the commit that produced it. This is a transport of the site module, not a module of its own, so it lives directly in `src/core/site/`: `deployment.ts` (the flow), `wrangler-config.ts` (artifact detection), `modules.ts` (worker module collection), `manifest.ts` (asset walk + hashing), `upload.ts` (bucket and presigned uploads), `git-hash.ts` (the commit address), with the requests and responses in the shared `api.ts` / `schema.ts` next to the legacy tar.gz upload.
 
@@ -12,7 +12,7 @@ Everything downstream follows from the server's answer rather than from a decisi
 
 Which command publishes is therefore not a style choice:
 
-- **`base44 deploy` publishes by default** (`--no-publish` opts out). It is the door a developer uses on their own project, where the archive upload it replaces always left the app live.
+- **`base44 deploy` always publishes.** It is the door a developer uses on their own project, where the archive upload it replaces always left the app live.
 - **`base44 site deploy` does not** (`--publish` asks for it). Its main caller is the platform's own build step, which builds a builder-managed app and repoints production itself; publishing there would fail those apps outright.
 
 There is still no promote/rollback surface: rolling back is publishing an earlier commit.
@@ -68,7 +68,7 @@ Entry = `main` from the wrangler config. With `no_bundle: true`, every file unde
 
 **Config only, no resources.** `site deploy` reads the project config through `readProjectSettings()`, not `readProjectConfig()`: it ships the built output and touches none of the project's resource files, so an invalid one must not fail it. It used to — builder apps carry entity schemas the CLI's `EntitySchema` rejects, and every publish through this lane failed with `SCHEMA_INVALID` before reaching a single asset. Commands that do consume those resources keep using `readProjectConfig()`.
 
-**`base44 deploy [--git-hash <hash>] [--no-publish]`** ships the project's resources and then its site, through this same lane, and publishes what it deployed. It takes `--git-hash` because a deployment needs the address it is made at; it takes no `--concurrency`, since the caller uploading at scale is `site deploy`.
+**`base44 deploy [--git-hash <hash>]`** ships the project's resources and then its site, through this same lane, and publishes what it deployed. It takes `--git-hash` because a deployment needs the address it is made at; it takes no `--concurrency`, since the caller uploading at scale is `site deploy`.
 
 The primary automated consumer is the platform's build/deploy sandbox, which runs `base44 site deploy -y --json --git-hash <commit>` with a scoped `apps:deploy` workspace key — so the sandbox and a human at a terminal go through the exact same door.
 

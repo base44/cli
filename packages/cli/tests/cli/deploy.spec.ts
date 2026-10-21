@@ -67,7 +67,6 @@ describe("deploy command (unified)", () => {
     t.expectResult(concurrency).toFail();
     t.expectResult(concurrency).toContain("unknown option");
     t.expectResult(help).toContain("--git-hash");
-    t.expectResult(help).toContain("--no-publish");
     t.expectResult(help).toNotContain("--concurrency");
   });
 
@@ -321,25 +320,6 @@ describe("deploy command (unified)", () => {
       t.expectResult(result).toSucceed();
       t.expectResult(result).toContain("https://full-project.base44.app");
       expect(t.api.publishedCommits).toEqual([GIT_HASH]);
-    });
-
-    it("--no-publish leaves production where it was", async () => {
-      await t.givenLoggedInWithProject(fixture("full-project"));
-      mockProjectResources();
-      mockDeployment();
-      t.api.mockDeploymentPublish();
-
-      const result = await t.run(
-        "deploy",
-        "-y",
-        "--git-hash",
-        GIT_HASH,
-        "--no-publish",
-      );
-
-      t.expectResult(result).toSucceed();
-      expect(t.api.deploymentCreateRequests).toHaveLength(1);
-      expect(t.api.publishedCommits).toEqual([]);
     });
 
     it("still succeeds when the app is published from the builder", async () => {

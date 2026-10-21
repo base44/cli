@@ -32,7 +32,6 @@ interface DeployOptions {
   build?: boolean;
   projectRoot?: string;
   gitHash?: string;
-  publish?: boolean;
 }
 
 export async function deployAction(
@@ -125,7 +124,6 @@ export async function deployAction(
 
   const result = await deployAll(projectData, {
     gitHash: options.gitHash,
-    publish: options.publish,
     onSiteProgress: (message) => {
       log.message(theme.styles.dim(message));
     },
@@ -188,10 +186,6 @@ export function getDeployCommand(): Command {
     .option("-y, --yes", "Skip confirmation prompt")
     .option("--build", "Build the site before deploying (skips the prompt)")
     .option("--no-build", "Deploy without building (skips the prompt)")
-    .option(
-      "--no-publish",
-      "Deploy the site without serving it in production yet",
-    )
     .addOption(
       new Option(
         "--git-hash <hash>",

@@ -92,8 +92,6 @@ interface DeployAllResult {
 interface DeployAllOptions {
   /** The commit the built output came from; resolved from the checkout if omitted. */
   gitHash?: string;
-  /** Serve the deployed build in production. Defaults to true. */
-  publish?: boolean;
   onSiteProgress?: (message: string) => void;
   onActorStart?: (name: string) => void;
   onActorResult?: (result: SingleActorDeployResult) => void;
@@ -241,9 +239,6 @@ async function shipCommit(
     },
   });
 
-  if (options?.publish === false) {
-    return undefined;
-  }
   try {
     const { appUrl } = await publishDeployment(gitHash);
     return appUrl;
