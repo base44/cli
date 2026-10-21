@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { fixture, setupCLITests } from "./testkit/index.js";
 
-/** The fullstack fixture is not a git repo, so these deploys pass --git-hash. */
+/** The deployments API is used only for an explicit --git-hash. */
 const GIT_HASH = "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0";
 const DEPLOYMENT_ID = "test-app-git-a1b2c3d4e5f6";
 const SESSION_ID = "3f9a1c07b8e44d2f";
@@ -77,15 +77,13 @@ describe("site deploy command", () => {
     expect(t.api.publishedCommits).toEqual([]);
   });
 
-  it("falls back to the archive upload, which goes live, when the build has no commit", async () => {
-    // The fixture is not a git checkout, so there is no address to deploy to.
+  it("keeps the archive upload, which goes live, without --git-hash", async () => {
     await t.givenLoggedInWithProject(fixture("with-site"));
     t.api.mockSiteDeploy({ app_url: "https://with-site.base44.app" });
 
     const result = await t.run("site", "deploy", "-y");
 
     t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain("No commit found for this build");
     t.expectResult(result).toContain("https://with-site.base44.app");
     expect(t.api.deploymentCreateRequests).toHaveLength(0);
   });

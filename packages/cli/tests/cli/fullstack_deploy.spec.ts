@@ -15,7 +15,7 @@ function assetHash(appId: string, content: string): string {
 const INDEX_HTML = "<h1>Hello</h1>\n";
 const APP_JS = 'console.log("app");\n';
 
-/** The fixture is not a git repo, so every deploy passes --git-hash. */
+/** A worker build deploys only by an explicit --git-hash. */
 const GIT_HASH = "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0";
 const DEPLOYMENT_ID = "test-app-git-a1b2c3d4e5f6";
 const SESSION_ID = "3f9a1c07b8e44d2f";
@@ -51,6 +51,16 @@ describe("site deploy command (full-stack)", () => {
     t.api.mockDeploymentFinalize({ deployment_id: DEPLOYMENT_ID });
     return { htmlHash, jsHash };
   }
+
+  it("base44 deploy refuses a worker build without --git-hash before shipping anything", async () => {
+    await t.givenLoggedInWithProject(fixture("fullstack-project"));
+
+    const result = await t.run("deploy", "-y");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("--git-hash");
+    expect(t.api.deploymentCreateRequests).toHaveLength(0);
+  });
 
   it("deploys a full-stack artifact: manifest hashes, bucket relay, finalize modules", async () => {
     await t.givenLoggedInWithProject(fixture("fullstack-project"));

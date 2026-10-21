@@ -19,7 +19,7 @@ import {
   detectFullStackArtifact,
   MAX_UPLOAD_CONCURRENCY,
   publishDeployment,
-  resolveGitHash,
+  workerBuildNeedsGitHashError,
 } from "@/core/site/index.js";
 
 interface DeployOptions {
@@ -70,15 +70,12 @@ async function deployToDeploymentsApi(
   const projectRoot = project.root;
   // First, so a defaulted site block is reported before anything can fail.
   const outputDir = siteOutputDir(project);
-  // A static build with no commit behind it keeps the archive upload; a worker
-  // build has no archive form, so there the resolver's error stands.
-  const gitHash = await resolveGitHash(projectRoot, options.gitHash).catch(
-    async (error) => {
-      if (await detectFullStackArtifact(projectRoot)) throw error;
-      return undefined;
-    },
-  );
+  // Without a commit, a static build keeps the archive upload, live as before.
+  const gitHash = options.gitHash;
   if (!gitHash) {
+    if (await detectFullStackArtifact(projectRoot)) {
+      throw workerBuildNeedsGitHashError();
+    }
     return deployArchive(ctx, outputDir);
   }
   const progressLines: string[] = [];
@@ -152,7 +149,7 @@ async function deployToDeploymentsApi(
 }
 
 async function deployArchive(
-  { runTask, log, jsonMode }: CLIContext,
+  { runTask, jsonMode }: CLIContext,
   outputDir: string,
 ): Promise<RunCommandResult> {
   const { appUrl } = await runTask(
@@ -163,10 +160,6 @@ async function deployArchive(
       errorMessage: "Deployment failed",
     },
   );
-  log.warn(
-    "No commit found for this build, so it was deployed and published without one. Commit your work to address deployments by it.",
-  );
-
   return {
     outroMessage: `Visit your site at: ${appUrl}`,
     stdout: jsonMode
@@ -191,7 +184,7 @@ export function getSiteDeployCommand(): Command {
     .addOption(
       new Option(
         "--git-hash <hash>",
-        "Commit the build came from (defaults to the checkout's HEAD)",
+        "Deploy by the commit the build came from, through the deployments API",
       ).argParser(parseGitHash),
     )
     .addOption(

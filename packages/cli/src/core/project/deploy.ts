@@ -26,7 +26,7 @@ import {
   deployToDeployments,
   detectFullStackArtifact,
   publishDeployment,
-  resolveGitHash,
+  workerBuildNeedsGitHashError,
 } from "@/core/site/index.js";
 
 /**
@@ -122,6 +122,11 @@ export async function deployAll(
     authConfig,
   } = projectData;
 
+  // Before anything ships: a worker build cannot go without its commit.
+  if (!options?.gitHash && (await detectFullStackArtifact(project.root))) {
+    throw workerBuildNeedsGitHashError();
+  }
+
   await setAppVisibility(project.visibility);
   if (project.visibility) {
     options?.onVisibilitySet?.(project.visibility);
@@ -182,11 +187,10 @@ export async function deployAll(
 /**
  * Ship the built output, then serve it.
  *
- * Through the deployments API, so a full-stack build's worker ships like any
- * other build and what went live is addressed by the commit that produced it.
- * A project with no commit behind it has no such address, so it keeps the
- * archive upload — the one caller left on it, along with the scaffold deploy in
- * `base44 create`, which runs before a project has any history at all.
+ * A commit given with `--git-hash` ships through the deployments API, addressed
+ * by it, so a full-stack build's worker ships too. Without one the static output
+ * keeps the archive upload, which publishes as it always did; a worker build has
+ * no archive form, so there the commit is required.
  */
 async function deployProjectSite(
   project: ProjectData["project"],
@@ -196,28 +200,16 @@ async function deployProjectSite(
   const outputDir = outputDirectory
     ? resolve(project.root, outputDirectory)
     : null;
+  const gitHash = options?.gitHash;
 
+  if (gitHash && (outputDir || (await detectFullStackArtifact(project.root)))) {
+    return shipCommit(project.root, outputDir, gitHash, options);
+  }
   if (!outputDir) {
-    // A worker build has no archive form, so a missing commit is fatal here and
-    // the resolver's own guidance is the error.
-    if (!(await detectFullStackArtifact(project.root))) {
-      return undefined;
-    }
-    const gitHash = await resolveGitHash(project.root, options?.gitHash);
-    return shipCommit(project.root, null, gitHash, options);
+    return undefined;
   }
-
-  const gitHash = await resolveGitHash(project.root, options?.gitHash).catch(
-    () => undefined,
-  );
-  if (!gitHash) {
-    options?.onSiteProgress?.(
-      "No commit found for this build, so it was deployed without one. Commit your work to address deployments by it.",
-    );
-    const { appUrl } = await deploySite(outputDir);
-    return appUrl;
-  }
-  return shipCommit(project.root, outputDir, gitHash, options);
+  const { appUrl } = await deploySite(outputDir);
+  return appUrl;
 }
 
 async function shipCommit(

@@ -189,7 +189,7 @@ export function getDeployCommand(): Command {
     .addOption(
       new Option(
         "--git-hash <hash>",
-        "Commit the built site came from (defaults to the checkout's HEAD)",
+        "Deploy by the commit the build came from, through the deployments API",
       ).argParser(parseGitHash),
     )
     .action(deployAction);

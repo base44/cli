@@ -356,8 +356,7 @@ describe("deploy command (unified)", () => {
       t.expectResult(result).toFail();
     });
 
-    it("falls back to the archive upload when the build has no commit", async () => {
-      // The fixture is not a git checkout, so there is no address to deploy to.
+    it("keeps the archive upload, which goes live, without --git-hash", async () => {
       await t.givenLoggedInWithProject(fixture("full-project"));
       mockProjectResources();
       t.api.mockSiteDeploy({ app_url: "https://full-project.base44.app" });
@@ -365,7 +364,6 @@ describe("deploy command (unified)", () => {
       const result = await t.run("deploy", "-y");
 
       t.expectResult(result).toSucceed();
-      t.expectResult(result).toContain("No commit found for this build");
       t.expectResult(result).toContain("https://full-project.base44.app");
       expect(t.api.deploymentCreateRequests).toHaveLength(0);
     });

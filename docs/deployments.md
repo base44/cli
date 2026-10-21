@@ -10,16 +10,16 @@ Everything downstream follows from the server's answer rather than from a decisi
 
 **Deploying and publishing are separate acts.** A deployment is addressed by the commit that produced the build: the server derives the deployment id from `git_hash`, so one commit means one deployment and re-deploying a commit is idempotent. Making a commit's build the one production serves is a second call: the builder's own publish, `POST /deploy` with `{ git_commit_hash }` instead of a saved version (`publishDeployment()` in `api.ts`, which then reads the app's URL from `published-url`). The server takes a commit only for an app whose source Base44 does not manage, and refuses it with `error.code` `git_commit_hash_not_supported` otherwise: a builder-managed app is published from the builder, where checkpoints and branch rules live.
 
-Which command publishes is therefore not a style choice:
+**This lane is opted into with `--git-hash`, and only with it.** Nothing is inferred from the local checkout: without the flag both commands keep the legacy tar.gz upload, which goes live as it always did. With it, which command publishes is not a style choice:
 
-- **`base44 deploy` always publishes.** It is the door a developer uses on their own project, where the archive upload it replaces always left the app live.
-- **`base44 site deploy` does not** (`--publish` asks for it, and the command says so when it leaves production alone). Its main caller is the platform's own build step, which builds a builder-managed app and repoints production itself; publishing there would fail those apps outright.
+- **`base44 deploy --git-hash` always publishes.** It is the door a developer uses on their own project, where the archive upload always left the app live.
+- **`base44 site deploy --git-hash` does not** (`--publish` asks for it, and the command says so when it leaves production alone). Its main caller is the platform's own build step, which builds a builder-managed app and repoints production itself; publishing there would fail those apps outright.
 
 There is still no promote/rollback surface: rolling back is publishing an earlier commit.
 
-## Git Hash Resolution
+## The Git Hash
 
-`resolveGitHash(projectRoot, explicit?)` — an explicit `--git-hash` wins; otherwise `git rev-parse HEAD` in the project root. No hash (not a git checkout, no flag) fails fast with guidance. A non-hex value is rejected by the option's `argParser` before the action even runs — `isGitCommitHash()` in `src/core/utils/git.ts`, pattern `^[a-fA-F0-9]{7,64}$`, the same validation as the server.
+Only `--git-hash` supplies it; `git rev-parse HEAD` is never consulted for a deployment (versions still read it, as provenance — `resolveProvenanceCommit()`). A non-hex value is rejected by the option's `argParser` before the action even runs — `isGitCommitHash()` in `src/core/utils/git.ts`, pattern `^[a-fA-F0-9]{7,64}$`, the same validation as the server.
 
 ## Artifact Detection
 
@@ -68,19 +68,19 @@ Entry = `main` from the wrangler config. With `no_bundle: true`, every file unde
 
 **Config only, no resources.** `site deploy` reads the project config through `readProjectSettings()`, not `readProjectConfig()`: it ships the built output and touches none of the project's resource files, so an invalid one must not fail it. It used to — builder apps carry entity schemas the CLI's `EntitySchema` rejects, and every publish through this lane failed with `SCHEMA_INVALID` before reaching a single asset. Commands that do consume those resources keep using `readProjectConfig()`.
 
-**`base44 deploy [--git-hash <hash>]`** ships the project's resources and then its site, through this same lane, and publishes what it deployed. It takes `--git-hash` because a deployment needs the address it is made at; it takes no `--concurrency`, since the caller uploading at scale is `site deploy`.
+**`base44 deploy [--git-hash <hash>]`** ships the project's resources and then its site, through this same lane, and publishes what it deployed. Without `--git-hash` it ships the site through the archive upload instead; it takes no `--concurrency`, since the caller uploading at scale is `site deploy`.
 
 The primary automated consumer is the platform's build/deploy sandbox, which runs `base44 site deploy -y --json --git-hash <commit>` with a scoped `apps:deploy` workspace key — so the sandbox and a human at a terminal go through the exact same door.
 
 ## The Commit Address, and What Is Left of the Archive Upload
 
-The commit comes from `--git-hash` when passed, otherwise `git rev-parse HEAD`. A project can legitimately have no history, so a **static** build with no commit warns and ships its output directory through the legacy tar.gz upload (`deploySite()`), which publishes as it always did — from `base44 deploy` and `site deploy` alike. A **worker** build has no archive form, so there a missing commit is fatal. The archive upload's other caller is the scaffold deploy in `base44 create`, which runs before a new project has any history at all. Those are the whole of what is left on it — everything else is the lane.
+Without `--git-hash`, a **static** build ships its output directory through the legacy tar.gz upload (`deploySite()`), which publishes as it always did — from `base44 deploy` and `site deploy` alike. A **worker** build has no archive form, so there the flag is required (`workerBuildNeedsGitHashError()`); `base44 deploy` checks that before shipping any resource. The archive upload's other caller is the scaffold deploy in `base44 create`, which runs before a new project has any history at all. Those are the whole of what is left on it — everything else is the lane.
 
 With no worker, the output directory becomes the asset manifest (index.html included — it is only ever excluded from uploads), and the create request carries **no `config`**, which the server answers with the `s3` arm. The CLI PUTs each requested file directly to its presigned URL and finalizes with the index.html bytes.
 
 ## Testing
 
-`TestAPIServer` mocks: `mockDeploymentCreate` (captures the JSON body in `deploymentCreateRequests`; echoes whatever response shape you pass — `asset_uploads` selects the arm: `{type: "cf", ...}`, `{type: "s3", ...}` or `null`), `mockAssetUpload` (serves a Cloudflare-style `POST /cf-assets/upload` target, captures the Authorization header, `?base64=true` query and multipart fields in `assetUploadRequests`, responds 201 with the completion jwt), `mockPresignedUpload(path)` (serves a presigned-style `PUT /presigned{path}` target, captures body/Content-Type/Authorization in `presignedUploadRequests`), `mockDeploymentFinalize` (captures multipart fields in `finalizeRequests` and query strings in `finalizeQueries`). Fixtures: `tests/fixtures/fullstack-project/` (redirect file + `build/server` worker + `build/client` assets with `.assetsignore`) and `tests/fixtures/with-site/` (static output dir) — not git repos, so specs pass `--git-hash`. Unit tests live in `tests/core/site-*.spec.ts`.
+`TestAPIServer` mocks: `mockDeploymentCreate` (captures the JSON body in `deploymentCreateRequests`; echoes whatever response shape you pass — `asset_uploads` selects the arm: `{type: "cf", ...}`, `{type: "s3", ...}` or `null`), `mockAssetUpload` (serves a Cloudflare-style `POST /cf-assets/upload` target, captures the Authorization header, `?base64=true` query and multipart fields in `assetUploadRequests`, responds 201 with the completion jwt), `mockPresignedUpload(path)` (serves a presigned-style `PUT /presigned{path}` target, captures body/Content-Type/Authorization in `presignedUploadRequests`), `mockDeploymentFinalize` (captures multipart fields in `finalizeRequests` and query strings in `finalizeQueries`). Fixtures: `tests/fixtures/fullstack-project/` (redirect file + `build/server` worker + `build/client` assets with `.assetsignore`) and `tests/fixtures/with-site/` (static output dir) — specs pass `--git-hash` to take this lane. Unit tests live in `tests/core/site-*.spec.ts`.
 
 ## Rules (Deployments-Specific)
 
@@ -93,4 +93,4 @@ With no worker, the output directory becomes the asset manifest (index.html incl
 - **One `createDeployment()` call site** — a worker changes its parameters, never the flow around it; do not fork the code path on "full-stack vs static"
 - **Say "site" to the user** — never "full-stack app"; the presence of a worker is not a distinction user-facing copy makes
 - **`site deploy` never publishes on its own** — the platform's build step runs it against builder-managed apps, where a publish is both wrong and fatal
-- **The archive upload is for builds with no commit only** — `base44 create`'s scaffold deploy and a `deploy` / `site deploy` of a static build in a non-git project; never add a third caller
+- **The archive upload is for static builds deployed without `--git-hash` only** — `base44 create`'s scaffold deploy and `deploy` / `site deploy` without the flag; never add a third caller
