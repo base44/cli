@@ -1,7 +1,7 @@
 import type { Logger } from "@base44-cli/logger";
 import { confirm, isCancel } from "@clack/prompts";
 import type { Command } from "commander";
-import { InvalidArgumentError, Option } from "commander";
+import { Option } from "commander";
 import {
   filterPendingOAuth,
   promptOAuthFlows,
@@ -13,6 +13,7 @@ import {
   Base44Command,
   getConnectorsUrl,
   getDashboardUrl,
+  parseGitHash,
   theme,
 } from "@/cli/utils/index.js";
 import { InvalidInputError } from "@/core/errors.js";
@@ -25,7 +26,6 @@ import type {
   ConnectorSyncResult,
   StripeSyncResult,
 } from "@/core/resources/connector/index.js";
-import { isGitCommitHash } from "@/core/utils/git.js";
 
 interface DeployOptions {
   yes?: boolean;
@@ -230,13 +230,4 @@ function printStripeResult(r: StripeSyncResult, log: Logger): void {
     log.info(`  Claim your Stripe sandbox: ${theme.colors.links(r.claimUrl)}`);
   }
   log.info(`  Connectors dashboard: ${theme.colors.links(getConnectorsUrl())}`);
-}
-
-function parseGitHash(value: string): string {
-  if (!isGitCommitHash(value)) {
-    throw new InvalidArgumentError(
-      "Expected a git commit hash (7-64 hex chars).",
-    );
-  }
-  return value;
 }

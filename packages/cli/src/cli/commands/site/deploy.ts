@@ -4,7 +4,7 @@ import type { Command } from "commander";
 import { InvalidArgumentError, Option } from "commander";
 import { maybeBuildBeforeDeploy } from "@/cli/commands/project/site-build.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
-import { Base44Command, theme } from "@/cli/utils/index.js";
+import { Base44Command, parseGitHash, theme } from "@/cli/utils/index.js";
 import { InvalidInputError } from "@/core/errors.js";
 import {
   DEFAULT_SITE,
@@ -19,7 +19,6 @@ import {
   publishDeployment,
   resolveGitHash,
 } from "@/core/site/index.js";
-import { isGitCommitHash } from "@/core/utils/git.js";
 
 interface DeployOptions {
   yes?: boolean;
@@ -161,15 +160,6 @@ export function getSiteDeployCommand(): Command {
         .argParser(parseConcurrency),
     )
     .action(deployAction);
-}
-
-function parseGitHash(value: string): string {
-  if (!isGitCommitHash(value)) {
-    throw new InvalidArgumentError(
-      "Expected a git commit hash (7-64 hex chars).",
-    );
-  }
-  return value;
 }
 
 function parseConcurrency(value: string): number {
