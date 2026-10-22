@@ -43,6 +43,8 @@ The `base44Client` automatically handles token refresh:
 2. If expired, refreshes token and saves new tokens
 3. On 401 response, attempts refresh and retries once
 
+Refresh tokens rotate on use, so `refreshAndSaveTokens()` holds a lock file (`~/.base44/auth/auth.json.lock`) across processes. A process that waited for the lock and finds a new refresh token in `auth.json` uses it instead of refreshing again. Auth is deleted only when the server rejects the refresh token (400/401), not on network or server errors.
+
 ## Environment-Supplied Credentials
 
 ### Workspace API keys
@@ -72,7 +74,7 @@ validates), pairs it with `BASE44_REFRESH_TOKEN`, and writes a standard
 
 This overwrites an existing login when env vars are present, and no-ops when
 they can't form a complete record. The seeded file looks like a normal login, so
-a 401 refresh applies to it too; if refresh fails it deletes the file, which
+a 401 refresh applies to it too; if the refresh token is rejected it deletes the file, which
 self-heals on the next command (re-seeded from the still-present env vars). See
 `seedAuthFromEnv()` in `core/auth/config.js`.
 

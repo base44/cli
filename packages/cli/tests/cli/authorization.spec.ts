@@ -1,4 +1,4 @@
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { fixture, setupCLITests } from "./testkit/index.js";
 
 const APP_ID = "test-app-id";
@@ -63,6 +63,57 @@ describe("token refresh on 401", () => {
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Entities pushed");
+  });
+
+  it("keeps parallel commands logged in when they refresh with the same rotating token", async () => {
+    await t.givenLoggedInWithProject(fixture("with-agents"));
+
+    // The server rotates refresh tokens: the original works once, then is rejected.
+    const tokenRequests: Array<() => void> = [];
+    let refreshTokenUsed = false;
+    t.api.mockRoute("POST", "/oauth/token", (_req, res) => {
+      const respond = () => {
+        if (refreshTokenUsed) {
+          res.status(400).json({ error: "invalid_grant" });
+          return;
+        }
+        refreshTokenUsed = true;
+        res.json({
+          access_token: "rotated-access-token",
+          refresh_token: "rotated-refresh-token",
+          expires_in: 3600,
+          token_type: "Bearer",
+        });
+      };
+      const releaseAll = () => {
+        for (const held of tokenRequests.splice(0)) held();
+      };
+      // Hold the first refresh until the second process asks too (or 2s pass).
+      tokenRequests.push(respond);
+      if (tokenRequests.length === 1) {
+        setTimeout(releaseAll, 2000);
+      } else {
+        releaseAll();
+      }
+    });
+    t.api.mockRoute("PUT", `/api/apps/${APP_ID}/agent-configs`, (req, res) => {
+      if (req.headers.authorization !== "Bearer rotated-access-token") {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+      res.json({ created: [], updated: [], deleted: [] });
+    });
+
+    const results = await Promise.all([
+      t.run("agents", "push", "--yes"),
+      t.run("agents", "push", "--yes"),
+    ]);
+
+    for (const result of results) {
+      t.expectResult(result).toSucceed();
+    }
+    const auth = await t.readAuthFile();
+    expect(auth?.refreshToken).toBe("rotated-refresh-token");
   });
 
   it("fails with actual error when token refresh also fails", async () => {

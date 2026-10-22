@@ -1,16 +1,27 @@
+import { mkdir, open, stat, unlink } from "node:fs/promises";
+import { dirname } from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 import jwt, { type JwtPayload } from "jsonwebtoken";
 import { renewAccessToken } from "@/core/auth/api.js";
 import type { AuthData } from "@/core/auth/schema.js";
 import { AuthDataSchema } from "@/core/auth/schema.js";
 import { getAuthFilePath } from "@/core/config.js";
-import { FileReadError, SchemaValidationError } from "@/core/errors.js";
+import {
+  ApiError,
+  FileReadError,
+  SchemaValidationError,
+} from "@/core/errors.js";
 import { deleteFile, readJsonFile, writeJsonFile } from "@/core/utils/fs.js";
 
 // Buffer time before expiration to trigger proactive refresh (60 seconds)
 const TOKEN_REFRESH_BUFFER_MS = 60 * 1000;
 const WORKSPACE_API_KEY_PREFIX = "b44k_";
 
-// Lock to prevent concurrent token refreshes
+// A lock older than this belongs to a process that died mid-refresh
+const REFRESH_LOCK_STALE_MS = 30 * 1000;
+const REFRESH_LOCK_RETRY_MS = 50;
+
+// Lock to prevent concurrent token refreshes within this process
 let refreshPromise: Promise<string | null> | null = null;
 
 export function getWorkspaceApiKeyFromEnv(): string | null {
@@ -131,6 +142,34 @@ export function isTokenExpired(auth: AuthData): boolean {
   return Date.now() >= auth.expiresAt - TOKEN_REFRESH_BUFFER_MS;
 }
 
+// Refresh tokens rotate on use, so parallel CLI processes must not refresh
+// with the same one: the losers would be rejected and log the user out.
+async function withRefreshLock<T>(fn: () => Promise<T>): Promise<T> {
+  const lockPath = `${getAuthFilePath()}.lock`;
+  await mkdir(dirname(lockPath), { recursive: true });
+  for (;;) {
+    try {
+      await (await open(lockPath, "wx")).close();
+      break;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
+        throw error;
+      }
+      const lock = await stat(lockPath).catch(() => null);
+      if (lock && Date.now() - lock.mtimeMs > REFRESH_LOCK_STALE_MS) {
+        await unlink(lockPath).catch(() => {});
+      } else {
+        await sleep(REFRESH_LOCK_RETRY_MS);
+      }
+    }
+  }
+  try {
+    return await fn();
+  } finally {
+    await unlink(lockPath).catch(() => {});
+  }
+}
+
 export async function refreshAndSaveTokens(): Promise<string | null> {
   // If a refresh is already in progress, wait for it
   if (refreshPromise) {
@@ -139,20 +178,32 @@ export async function refreshAndSaveTokens(): Promise<string | null> {
 
   refreshPromise = (async () => {
     try {
-      const auth = await readAuth();
-      const tokenResponse = await renewAccessToken(auth.refreshToken);
+      const staleRefreshToken = (await readAuth()).refreshToken;
+      return await withRefreshLock(async () => {
+        const auth = await readAuth();
+        if (auth.refreshToken !== staleRefreshToken) {
+          // Another process refreshed while we waited for the lock
+          return auth.accessToken;
+        }
 
-      await writeAuth({
-        ...auth,
-        accessToken: tokenResponse.accessToken,
-        refreshToken: tokenResponse.refreshToken,
-        expiresAt: Date.now() + tokenResponse.expiresIn * 1000,
+        const tokenResponse = await renewAccessToken(auth.refreshToken);
+        await writeAuth({
+          ...auth,
+          accessToken: tokenResponse.accessToken,
+          refreshToken: tokenResponse.refreshToken,
+          expiresAt: Date.now() + tokenResponse.expiresIn * 1000,
+        });
+        return tokenResponse.accessToken;
       });
-
-      return tokenResponse.accessToken;
-    } catch {
-      // Refresh failed - delete auth, user needs to login again
-      await deleteAuth();
+    } catch (error) {
+      // Only a rejected refresh token means the user must log in again;
+      // keep auth on network or server errors.
+      if (
+        error instanceof ApiError &&
+        (error.statusCode === 400 || error.statusCode === 401)
+      ) {
+        await deleteAuth();
+      }
       return null;
     } finally {
       refreshPromise = null;
