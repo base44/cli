@@ -98,9 +98,23 @@ describe("deploy --build", () => {
 
   it("site deploy --build builds before uploading", async () => {
     await t.givenLoggedInWithProject(fixture("with-buildable-site"));
-    t.api.mockSiteDeploy({ app_url: "https://buildable.base44.app" });
+    t.api.mockDeploymentCreate({
+      deployment_id: "test-app-git-a1b2c3d4e5f6",
+      session_id: "3f9a1c07b8e44d2f",
+      asset_uploads: null,
+    });
+    t.api.mockDeploymentFinalize({
+      deployment_id: "test-app-git-a1b2c3d4e5f6",
+    });
 
-    const result = await t.run("site", "deploy", "--yes", "--build");
+    const result = await t.run(
+      "site",
+      "deploy",
+      "--yes",
+      "--build",
+      "--git-hash",
+      "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0",
+    );
 
     t.expectResult(result).toSucceed();
     expect(await t.readProjectFile("build-env.txt")).toBe(

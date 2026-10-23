@@ -15,7 +15,7 @@ function assetHash(appId: string, content: string): string {
 const INDEX_HTML = "<h1>Hello</h1>\n";
 const APP_JS = 'console.log("app");\n';
 
-/** The fixture is not a git repo, so every deploy passes --git-hash. */
+/** A worker build deploys only by an explicit --git-hash. */
 const GIT_HASH = "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0";
 const DEPLOYMENT_ID = "test-app-git-a1b2c3d4e5f6";
 const SESSION_ID = "3f9a1c07b8e44d2f";
@@ -52,9 +52,18 @@ describe("site deploy command (full-stack)", () => {
     return { htmlHash, jsHash };
   }
 
+  it("base44 deploy refuses a worker build without --git-hash before shipping anything", async () => {
+    await t.givenLoggedInWithProject(fixture("fullstack-project"));
+
+    const result = await t.run("deploy", "-y");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("--git-hash");
+    expect(t.api.deploymentCreateRequests).toHaveLength(0);
+  });
+
   it("deploys a full-stack artifact: manifest hashes, bucket relay, finalize modules", async () => {
     await t.givenLoggedInWithProject(fixture("fullstack-project"));
-    t.givenEnv({ BASE44_DEPLOYMENTS_API: "1" });
     const { htmlHash, jsHash } = mockHappyPath();
 
     const result = await t.run("site", "deploy", "-y", "--git-hash", GIT_HASH);
@@ -124,7 +133,6 @@ describe("site deploy command (full-stack)", () => {
 
   it("finalizes with a null completion token when every asset is already stored", async () => {
     await t.givenLoggedInWithProject(fixture("fullstack-project"));
-    t.givenEnv({ BASE44_DEPLOYMENTS_API: "1" });
     t.api.mockDeploymentCreate({
       deployment_id: DEPLOYMENT_ID,
       session_id: SESSION_ID,
@@ -146,7 +154,6 @@ describe("site deploy command (full-stack)", () => {
 
   it("normalizes and requires a commit hash", async () => {
     await t.givenLoggedInWithProject(fixture("fullstack-project"));
-    t.givenEnv({ BASE44_DEPLOYMENTS_API: "1" });
 
     const noHash = await t.run("site", "deploy", "-y");
     t.expectResult(noHash).toFail();
@@ -168,7 +175,6 @@ describe("site deploy command (full-stack)", () => {
 
   it("outputs a single JSON document with --json", async () => {
     await t.givenLoggedInWithProject(fixture("fullstack-project"));
-    t.givenEnv({ BASE44_DEPLOYMENTS_API: "1" });
     mockHappyPath();
 
     const result = await t.run(
@@ -185,12 +191,12 @@ describe("site deploy command (full-stack)", () => {
     expect(parsed).toEqual({
       deploymentId: DEPLOYMENT_ID,
       gitHash: GIT_HASH,
+      published: false,
     });
   });
 
   it("forwards a config with no nodejs_compat flag as-is (e.g. Astro 6)", async () => {
     await t.givenLoggedInWithProject(fixture("fullstack-project"));
-    t.givenEnv({ BASE44_DEPLOYMENTS_API: "1" });
     const configPath = join(
       t.getTempDir(),
       "project",
@@ -212,7 +218,6 @@ describe("site deploy command (full-stack)", () => {
 
   it("retries a bucket upload after a transient failure, resending the body", async () => {
     await t.givenLoggedInWithProject(fixture("fullstack-project"));
-    t.givenEnv({ BASE44_DEPLOYMENTS_API: "1" });
     const htmlHash = assetHash(t.api.appId, INDEX_HTML);
     t.api.mockDeploymentCreate({
       deployment_id: DEPLOYMENT_ID,
@@ -248,7 +253,6 @@ describe("site deploy command (full-stack)", () => {
 
   it("surfaces a session-expired error when Cloudflare rejects the session jwt", async () => {
     await t.givenLoggedInWithProject(fixture("fullstack-project"));
-    t.givenEnv({ BASE44_DEPLOYMENTS_API: "1" });
     t.api.mockDeploymentCreate({
       deployment_id: DEPLOYMENT_ID,
       session_id: SESSION_ID,
@@ -269,7 +273,6 @@ describe("site deploy command (full-stack)", () => {
 
   it("fails when the deployment API rejects the create call", async () => {
     await t.givenLoggedInWithProject(fixture("fullstack-project"));
-    t.givenEnv({ BASE44_DEPLOYMENTS_API: "1" });
     t.api.mockError("post", `/api/apps/${t.api.appId}/deployments`, {
       status: 422,
       body: { message: "unsupported artifact" },
