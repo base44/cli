@@ -202,9 +202,26 @@ header set. On a clone, inside `ctx.waitUntil`, the recorder:
   private-data-sources manifest;
 - caps `name` at 64 characters, `message` at 500 UTF-8 bytes (well-formed, cut
   on a code point) and `stack` at 4 KB (cut at a line end);
-- logs exactly one line through the console patch, so it carries
-  `_b44_function`:
-  `{ _b44_error: { v: 1, kind: "response", status, name?, message, stack? } }`.
+- logs exactly one line, with `console.error({ _b44_error: record })`.
+
+That call goes through the console patch, so **the object is not what a
+consumer sees.** A Tail Worker gets one log entry shaped like this:
+
+| Field | Value |
+|---|---|
+| the TailItem log's `level` | `"log"`. The patch writes every level through the original `console.log` |
+| the log's `message` | an array with **one** argument: the patch's wrapper object |
+| the wrapper's keys | `_b44_env`, `_b44_function` (per-app bundles only), `level`, `message` |
+| the wrapper's `level` | `"error"` |
+| the wrapper's `message` | the **JSON string** of `{ "_b44_error": { v: 1, kind: "response", status, name?, message, stack? } }` |
+
+So a consumer keeps logs whose wrapper `level` is `"error"`, then reads
+`JSON.parse(wrapper.message)._b44_error`. apper's error tail
+(`workers/base44-log-tail/src/error-tail.ts`) is that consumer, and
+`error-records.e2e.test.ts` pins this shape for both entries. The record is
+logged inside `waitUntil`, after the response has gone back, so it never lands
+in the `X-B44-Invocation-Logs` header. It is still an ordinary stamped line, so
+views built on stamped Workers log lines show it as an error line.
 
 Any failure writes nothing and never reaches the request. An uncaught throw is
 untouched: the entry still logs it and rethrows, and Cloudflare records it.

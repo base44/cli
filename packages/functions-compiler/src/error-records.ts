@@ -30,10 +30,20 @@
  * `source_map`. Every
  * env-binding and runtime-secret string of 8+ characters (and the strings
  * nested in JSON-valued ones, such as the private-data-sources manifest) is
- * replaced with `[redacted]`, longest first, before anything is cut. Then it logs
- * one `{ _b44_error: { v: 1, kind: "response", status, name?, message, stack? } }`
- * through the console patch, so the line carries function attribution. Any
- * failure writes nothing and never reaches the request.
+ * replaced with `[redacted]`, longest first, before anything is cut. Then it
+ * calls `console.error({ _b44_error: record })` once. Any failure writes
+ * nothing and never reaches the request.
+ *
+ * What a consumer sees is NOT that object: the call goes through the console
+ * patch. A Tail Worker gets one log entry whose `level` is "log" (the patch
+ * writes every level through the original console.log) and whose `message` is
+ * one argument, the patch's wrapper:
+ *   { _b44_env, _b44_function?, level: "error", message: "<JSON string>" }
+ * `_b44_function` is present only in per-app bundles, and `message` is the JSON
+ * string of `{ "_b44_error": { v: 1, kind: "response", status, name?, message,
+ * stack? } }`. apper's error tail (workers/base44-log-tail/src/error-tail.ts)
+ * parses exactly this; test/error-records.e2e.test.ts pins it. Change the
+ * console patch and that test must fail.
  *
  * Must be self-contained JS (no imports) — inlined into the generated entry
  * after CONSOLE_PATCH. The entry provides `_b44Context` and the patched console.

@@ -132,6 +132,41 @@ async function recordFor(module: string, env?: Record<string, string>): Promise<
   return (await invoke(module, { headers: FEED, env })).records;
 }
 
+describe("the raw Tail log entry", () => {
+  // The contract with apper's error tail (workers/base44-log-tail/src/
+  // error-tail.ts), which parses exactly this shape in production. The record
+  // goes through the console patch, so it is NOT logged as a raw object: a
+  // change to the patch must fail here, not silently drop every record.
+  const source = 'Deno.serve(() => Response.json({ error: "db down" }, { status: 500 }));';
+  const record = { v: 1, kind: "response", status: 500, message: "db down" };
+
+  it.each([
+    ["single function", compile, {}, ["_b44_env", "level", "message"], undefined],
+    [
+      "per-app",
+      compileApp,
+      { "Base44-Function-Name": "alpha" },
+      ["_b44_env", "_b44_function", "level", "message"],
+      "alpha",
+    ],
+  ] as const)("is one 'log' entry wrapping the record as JSON (%s)", async (_label, build, headers, keys, fn) => {
+    const run = await invoke(await build(source), { headers: { ...headers, ...FEED } });
+    const entries = run.events.flatMap((e) => e.logs).filter((l) => JSON.stringify(l).includes("_b44_error"));
+    expect(entries).toHaveLength(1);
+    const [entry] = entries;
+    // The patch writes every level through the original console.log.
+    expect(entry.level).toBe("log");
+    expect(entry.message).toHaveLength(1);
+    const wrapper = entry.message[0] as Record<string, unknown>;
+    expect(Object.keys(wrapper)).toEqual(keys);
+    expect(wrapper.level).toBe("error");
+    expect(typeof wrapper.message).toBe("string");
+    expect(JSON.parse(wrapper.message as string)._b44_error).toEqual(record);
+    // Present only in per-app bundles, where one script serves every function.
+    expect(wrapper._b44_function).toBe(fn);
+  });
+});
+
 describe("a 5xx JSON body", () => {
   it.each([
     ["error", { error: "boom-error" }, "boom-error"],
