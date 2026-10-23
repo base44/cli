@@ -202,3 +202,9 @@ export const FinalizeDeploymentResponseSchema = z
 export type FinalizeDeploymentResponse = z.infer<
   typeof FinalizeDeploymentResponseSchema
 >;
+
+/** A commit's build now serving production, and where when it could be looked up. */
+export interface PublishedDeployment {
+  gitHash: string;
+  appUrl?: string;
+}
