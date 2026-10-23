@@ -36,6 +36,7 @@ import type {
   OnResolveResult,
   Plugin,
 } from "esbuild";
+import { installDependencyFetchRetry } from "../dependency-fetch-retry.js";
 import { lazyDenoLoader } from "../lazy-deps.js";
 import { logEvent } from "../log.js";
 import { USER_NAMESPACE } from "./user-files.js";
@@ -61,6 +62,7 @@ export function denoResolverPlugin(options: DenoResolverOptions = {}): Plugin {
   return {
     name: "deno-resolver",
     async setup(build) {
+      installDependencyFetchRetry();
       deno = await lazyDenoLoader();
       // Security: stop a dependency or data: module from reading host files.
       // Allow file: reads only from where deps live — the global cache, or this
