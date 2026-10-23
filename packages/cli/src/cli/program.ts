@@ -22,6 +22,7 @@ import { getVisibilityCommand } from "@/cli/commands/project/visibility.js";
 import { getPublishCommand } from "@/cli/commands/publish.js";
 import { getSandboxCommand } from "@/cli/commands/sandbox/index.js";
 import { getSecretsCommand } from "@/cli/commands/secrets/index.js";
+import { getSessionCommand } from "@/cli/commands/session/index.js";
 import { getSiteCommand } from "@/cli/commands/site/index.js";
 import { getTypesCommand } from "@/cli/commands/types/index.js";
 import { getVersionsCommand } from "@/cli/commands/versions/index.js";
@@ -115,6 +116,9 @@ export function createProgram(context: CLIContext): Command {
   // Register sandbox (remote development) commands
   program.addCommand(getSandboxCommand());
   program.addCommand(getBranchesCommand());
+
+  // Experimental while the endpoint is flag-gated: hidden from --help and the README.
+  program.addCommand(getSessionCommand(), { hidden: true });
 
   // Register API commands, driven by the server's OpenAPI spec
   program.addCommand(getApiCommand());

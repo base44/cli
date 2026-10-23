@@ -17,3 +17,7 @@ export function getConnectorsUrl(projectId?: string): string {
   const id = projectId ?? getAppContext().id;
   return `${getBase44ApiUrl()}/apps/${id}/editor/workspace/app-connections`;
 }
+
+export function getBaseCodeUrl(appId: string, branchName: string): string {
+  return `${getBase44ApiUrl()}/apps/${appId}/editor/workspace/code?branch=${encodeURIComponent(branchName)}`;
+}
