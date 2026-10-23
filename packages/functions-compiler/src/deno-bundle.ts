@@ -30,18 +30,35 @@ import type { PreparedWorker } from "./worker-entry.js";
 // "none" is the fast default and "auto" the fallback.
 export type NodeModulesMode = "none" | "auto";
 
+// The single-module output is uploaded to Workers-for-Platforms under this
+// name. Keep stable: the Python `BundlerClient`'s caller persists this in
+// the script metadata's `main_module`. A source-mapped build also writes it as
+// esbuild's `outfile`, so the appended `//# sourceMappingURL=` comment names
+// `_bundled.mjs.map` — the module name the backend uploads the map under.
+export const MAIN_MODULE = "_bundled.mjs";
+
 type EngineResult =
-  | { ok: true; module: string; warnings: string[] }
+  | {
+      ok: true;
+      module: string;
+      /** Raw esbuild map (sources not yet rewritten); only when requested. */
+      map?: string;
+      warnings: string[];
+    }
   | { ok: false; errors: BundleErrorItem[] };
 
 /**
  * Compile `prepared` to a single ESM module string. Resolution/compile failures
  * (user-attributable) return `{ ok: false }`; infrastructure failures (temp dir,
  * missing output) throw.
+ *
+ * `sourceMap` adds an external map beside the module. It changes nothing else
+ * about the module except the trailing `//# sourceMappingURL=` comment.
  */
 export async function bundleToModule(
   prepared: PreparedWorker,
   nodeModulesDir: NodeModulesMode = "none",
+  sourceMap = false,
 ): Promise<EngineResult> {
   const dir = await mkdtemp(path.join(tmpdir(), "b44-bundle-"));
   try {
@@ -78,7 +95,14 @@ export async function bundleToModule(
         // Prepended verbatim and not minified away, which is the point: it is
         // the one place a compiled module says what is inside it.
         ...(prepared.banner ? { banner: { js: prepared.banner } } : {}),
-        sourcemap: false,
+        // A separate map file, named after the outfile. "linked", not
+        // "external": esbuild's "external" writes the same map but drops the
+        // `//# sourceMappingURL=` comment, which Cloudflare reads to remap
+        // stack traces. No sourcesContent: the backend already holds the
+        // sources, and shipping them would double the map.
+        ...(sourceMap
+          ? { sourcemap: "linked", sourcesContent: false, outfile: MAIN_MODULE }
+          : { sourcemap: false }),
         // Errors are surfaced structurally (return value / BuildFailure); keep
         // esbuild from dumping diagnostics to the service's stderr.
         logLevel: "silent",
@@ -101,20 +125,27 @@ export async function bundleToModule(
       throw e;
     }
 
+    // bundle:true with code-splitting off yields exactly one module (plus its
+    // map when asked); anything else means a plugin claimed the entry or
+    // emitted extra files — a bug.
     const outputs = result.outputFiles ?? [];
-    if (outputs.length !== 1) {
-      // bundle:true with code-splitting off yields exactly one module; anything
-      // else means a plugin claimed the entry or emitted extra files — a bug.
+    const warnings = result.warnings.map((w) => w.text);
+    if (!sourceMap) {
+      if (outputs.length !== 1) {
+        throw new Error(
+          `expected single-module output, got ${outputs.length} file(s)`,
+        );
+      }
+      return { ok: true, module: outputs[0].text, warnings };
+    }
+    const module = outputs.find((o) => o.path.endsWith(".mjs"));
+    const map = outputs.find((o) => o.path.endsWith(".map"));
+    if (outputs.length !== 2 || !module || !map) {
       throw new Error(
-        `expected single-module output, got ${outputs.length} file(s)`,
+        `expected a module and its source map, got ${outputs.map((o) => path.basename(o.path)).join(", ") || "no files"}`,
       );
     }
-
-    return {
-      ok: true,
-      module: outputs[0].text,
-      warnings: result.warnings.map((w) => w.text),
-    };
+    return { ok: true, module: module.text, map: map.text, warnings };
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
