@@ -20,12 +20,13 @@ import {
   teleportSession,
 } from "@/core/session-import/sessions.js";
 import { readFile } from "@/core/utils/fs.js";
-import { hasUnpushedWork } from "@/core/utils/git.js";
+import { readGitState } from "@/core/utils/git.js";
 
 interface ImportOptions {
   current?: boolean;
   file?: string;
   token?: string;
+  skipPushCheck?: boolean;
 }
 
 const TOOL_LABELS: Record<LocalSession["tool"], string> = {
@@ -119,22 +120,39 @@ async function importAction(
       { hints: [] },
     );
   }
-  if (await hasUnpushedWork(process.cwd())) {
-    ctx.log.warn(
-      "Base Code only sees what's on GitHub. Push your changes so the new branch has them.",
+  // A link's changes live in the cloud session and --file may come from
+  // anywhere, so only a session from this checkout is held to its git state.
+  const git =
+    link || options.file ? undefined : await readGitState(process.cwd());
+  if (git?.unpushed && !options.skipPushCheck) {
+    throw new InvalidInputError(
+      "Your changes aren't on GitHub yet. Ask the user whether to commit and push them (to a new branch if on main or master), then run this again. If they don't want to, run it again with --skip-push-check.",
+      { hints: [] },
     );
   }
+  const note = git?.unpushed
+    ? "Base Code started from what's on GitHub; your local changes aren't included."
+    : undefined;
 
   if (!options.token) await ensureAuth(ctx);
 
   ctx.log.info("This uploads the full conversation to Base Code.");
   const imported = await ctx.runTask("Importing session", () =>
-    uploadSession(appId, content, options.token),
+    uploadSession(appId, content, {
+      token: options.token,
+      sourceBranch: git?.branch,
+    }),
   );
   const url = `${getBase44ApiUrl()}${imported.branchUrl}`;
   return {
-    outroMessage: `✓ Imported ${imported.turnCount} messages from ${TOOL_LABELS[imported.source]} into branch "${imported.branchName}".\nOpen it: ${url}`,
-    stdout: ctx.jsonMode ? toJsonStdout({ ...imported, url }) : undefined,
+    outroMessage: [
+      `✓ Imported ${imported.turnCount} messages from ${TOOL_LABELS[imported.source]} into branch "${imported.branchName}".`,
+      ...(note ? [note] : []),
+      `Open it: ${url}`,
+    ].join("\n"),
+    stdout: ctx.jsonMode
+      ? toJsonStdout({ ...imported, url, ...(note ? { note } : {}) })
+      : undefined,
   };
 }
 
@@ -149,6 +167,10 @@ export function getImportCommand(): Command {
     )
     .option("--current", "Import the session this command runs inside")
     .option("--file <path>", "Import this session file as is")
+    .option(
+      "--skip-push-check",
+      "Import even though local changes aren't on GitHub (they won't be included)",
+    )
     .option(
       "--token <key>",
       "One-time import key from Base Code (no login needed)",

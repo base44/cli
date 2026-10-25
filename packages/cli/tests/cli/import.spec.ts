@@ -306,6 +306,146 @@ describe("import command", () => {
     );
   });
 
+  describe("git state of the checkout", () => {
+    const git = (...args: string[]) =>
+      execa(
+        "git",
+        [
+          "-c",
+          "user.name=t",
+          "-c",
+          "user.email=t@t",
+          "-c",
+          "commit.gpgsign=false",
+          ...args,
+        ],
+        { cwd: home() },
+      );
+    const SOURCE_BRANCH = /name="source_branch"\r\n\r\nfeature\r\n/;
+
+    /** HOME is the checkout; ignoring everything keeps the planted sessions out of git status. */
+    async function givenPushedBranch() {
+      await git("init", "--quiet", "--bare", "origin.git");
+      await git("init", "--quiet", "-b", "feature");
+      await writeFile(join(home(), ".gitignore"), "*\n");
+      await git("commit", "--quiet", "--allow-empty", "-m", "init");
+      await git("remote", "add", "origin", join(home(), "origin.git"));
+      await git("push", "--quiet", "-u", "origin", "feature");
+    }
+
+    async function runCurrent(...extra: string[]) {
+      await plant(
+        ".claude/projects/-f/abc-123.jsonl",
+        claudeLines("/f", "Add coupon codes"),
+      );
+      t.givenEnv({ CLAUDE_CODE_SESSION_ID: "abc-123" });
+      return t.run(
+        "import",
+        "--current",
+        "--app-id",
+        APP_ID,
+        "--token",
+        TOKEN,
+        ...extra,
+      );
+    }
+
+    it("sends the pushed branch to start from", async () => {
+      await givenPushedBranch();
+      mockUpload();
+
+      const result = await runCurrent();
+
+      t.expectResult(result).toSucceed();
+      expect(uploads[0]?.body).toMatch(SOURCE_BRANCH);
+      t.expectResult(result).toNotContain("local changes aren't included");
+    });
+
+    it("stops before uploading when there are uncommitted changes", async () => {
+      await givenPushedBranch();
+      await writeFile(join(home(), "dirty.txt"), "x");
+      await git("add", "-f", "dirty.txt");
+      mockUpload();
+
+      const result = await runCurrent();
+
+      t.expectResult(result).toFail();
+      t.expectResult(result).toContain(
+        "Your changes aren't on GitHub yet. Ask the user whether to commit and push them",
+      );
+      t.expectResult(result).toContain("--skip-push-check");
+      expect(uploads).toHaveLength(0);
+    });
+
+    it("stops when the branch was never pushed", async () => {
+      await givenPushedBranch();
+      await git("checkout", "--quiet", "-b", "local-only");
+      mockUpload();
+
+      const result = await runCurrent();
+
+      t.expectResult(result).toFail();
+      t.expectResult(result).toContain("Your changes aren't on GitHub yet.");
+      expect(uploads).toHaveLength(0);
+    });
+
+    it("stops when the branch has commits GitHub lacks", async () => {
+      await givenPushedBranch();
+      await git("commit", "--quiet", "--allow-empty", "-m", "local");
+      mockUpload();
+
+      const result = await runCurrent();
+
+      t.expectResult(result).toFail();
+      expect(uploads).toHaveLength(0);
+    });
+
+    it("imports without the local changes under --skip-push-check, and says so", async () => {
+      await givenPushedBranch();
+      await git("commit", "--quiet", "--allow-empty", "-m", "local");
+      mockUpload();
+
+      const result = await runCurrent("--skip-push-check", "--json");
+
+      t.expectResult(result).toSucceed();
+      expect(JSON.parse(result.stdout).note).toBe(
+        "Base Code started from what's on GitHub; your local changes aren't included.",
+      );
+      expect(uploads[0]?.body).toMatch(SOURCE_BRANCH);
+    });
+
+    it("leaves out the branch when HEAD is detached", async () => {
+      await givenPushedBranch();
+      await git("checkout", "--quiet", "--detach");
+      mockUpload();
+
+      const result = await runCurrent();
+
+      t.expectResult(result).toSucceed();
+      expect(uploads[0]?.body).not.toContain('name="source_branch"');
+    });
+
+    it("doesn't check git for --file", async () => {
+      await givenPushedBranch();
+      await git("commit", "--quiet", "--allow-empty", "-m", "local");
+      const file = await plant("s.jsonl", claudeLines("/x", "hi"));
+      mockUpload();
+
+      const result = await t.run(
+        "import",
+        "--file",
+        file,
+        "--app-id",
+        APP_ID,
+        "--token",
+        TOKEN,
+      );
+
+      t.expectResult(result).toSucceed();
+      expect(uploads[0]?.body).not.toContain('name="source_branch"');
+    });
+  });
+
   it("teleports a claude.ai session, drops the teleport exchange, and cleans up", async () => {
     // The run's folder is a checkout whose origin is a local bare repo.
     await execa("git", ["init", "--quiet", "--bare", "origin.git"], {
@@ -360,6 +500,8 @@ writeFileSync(join(dir, "local-id.jsonl"), lines.map((l) => JSON.stringify(l)).j
     expect(body).toContain("Cloud answer");
     expect(body).not.toContain("Reply with OK.");
     expect(body).not.toContain("continued from another machine");
+    // The checkout here is dirty, but a link's changes live in the cloud.
+    expect(body).not.toContain('name="source_branch"');
     // The teleported project folder is gone.
     expect(await readdir(join(home(), ".claude", "projects"))).toEqual([]);
   });

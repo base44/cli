@@ -101,10 +101,12 @@ async function toImportError(
 export async function uploadSession(
   appId: string,
   content: Uint8Array,
-  token?: string,
+  { token, sourceBranch }: { token?: string; sourceBranch?: string } = {},
 ): Promise<SessionImport> {
   const form = new FormData();
   form.append("file", new Blob([content]), "session.jsonl");
+  // The backend starts the new branch from this one when it's on GitHub.
+  if (sourceBranch) form.append("source_branch", sourceBranch);
 
   let response: KyResponse;
   try {
