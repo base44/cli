@@ -1,7 +1,7 @@
 import path from "node:path";
 import type { Plugin } from "esbuild";
 import { asset } from "../assets.js";
-import { ACTIVATION_FILENAME } from "../worker-entry.js";
+import { ACTIVATION_FILENAME, SHIM_FILENAME } from "../worker-entry.js";
 import { USER_NAMESPACE } from "./user-files.js";
 
 const PREFIX = "base44:private-data-sources";
@@ -29,10 +29,10 @@ function publicModulePath(specifier: string): string | null {
 // Internal, NOT user-importable: the activation shim writes the handshake
 // manifest into this store and manifest.ts reads it. Resolving it for user code
 // would let it read/forge the manifest (plaintext VPC/DB credentials). Gated by
-// an ALLOW-list — the ONLY legitimate importer is the injected activation shim.
+// an ALLOW-list — only the injected activation and runtime shims may import it.
 //
-// The shim is always injected at the bundle-ROOT key ACTIVATION_FILENAME (see
-// prepareFunction/prepareApp), so its esbuild importer is EXACTLY that string in
+// Both shims are injected at bundle-ROOT keys (see prepareFunction/prepareApp),
+// so their esbuild importers are EXACTLY those strings in
 // the user namespace — the same trusted-platform-basename shape main uses for
 // base44:internal/runtime-context (see runtime-context-virtual). Match the
 // namespace AND the exact key: a suffix/segment match (`.../x/__base44_activation.mjs`,
@@ -44,11 +44,11 @@ function publicModulePath(specifier: string): string | null {
 // instance in the final bundle.
 const INTERNAL_STORE_SPECIFIER = `${PREFIX}/runtime-manifest-store`;
 
-function isActivationShimImporter(
-  namespace: string,
-  importer: string,
-): boolean {
-  return namespace === USER_NAMESPACE && importer === ACTIVATION_FILENAME;
+function isRuntimeShimImporter(namespace: string, importer: string): boolean {
+  return (
+    namespace === USER_NAMESPACE &&
+    (importer === ACTIVATION_FILENAME || importer === SHIM_FILENAME)
+  );
 }
 
 function relativeModulePath(
@@ -83,7 +83,7 @@ export function privateDataSourcesVirtualPlugin(): Plugin {
         { filter: /^base44:private-data-sources(?:\/.*)?$/ },
         (args) => {
           if (args.path === INTERNAL_STORE_SPECIFIER) {
-            if (!isActivationShimImporter(args.namespace, args.importer)) {
+            if (!isRuntimeShimImporter(args.namespace, args.importer)) {
               return {
                 errors: [
                   {

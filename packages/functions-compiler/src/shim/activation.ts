@@ -322,7 +322,7 @@ async function installFromDataKey(dataKeyBytes: BufferSource, env: unknown): Pro
       ? (payload as { secrets: Record<string, unknown> }).secrets
       : {};
   });
-  // The manifest goes to the private store (read only by manifest.ts), NOT
+  // The manifest goes to the private store (read by trusted PDS/TCP code), NOT
   // process.env or a global — keep it off every user-reachable surface.
   const manifestValue = secrets[MANIFEST_KEY];
   // `""`, never `undefined`, when the payload carries no manifest: manifest.ts

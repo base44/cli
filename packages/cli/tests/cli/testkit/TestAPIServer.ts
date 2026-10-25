@@ -261,6 +261,11 @@ interface DeploymentFinalizeResponse {
   deployment_id: string;
 }
 
+interface DeploymentPublishResponse {
+  /** Served by the published-url route the CLI reads after publishing. */
+  app_url: string;
+}
+
 /** A parsed part of a multipart/form-data request body. */
 interface MultipartField {
   name: string;
@@ -773,6 +778,9 @@ export class TestAPIServer {
   /** Captured query strings of finalize requests, for the session id. */
   readonly finalizeQueries: Record<string, unknown>[] = [];
 
+  /** Commits whose builds a publish was asked to serve, in call order. */
+  readonly publishedCommits: string[] = [];
+
   /**
    * Mock POST /api/apps/{appId}/deployments. Captures the JSON request body
    * in `deploymentCreateRequests`.
@@ -878,17 +886,25 @@ export class TestAPIServer {
             assets: Array<{ path: string; size: number; digest: string }>;
           };
           backend_bundles?: Array<{ module: { size: number; digest: string } }>;
+          actors?: Array<{
+            name: string;
+            module: { size: number; digest: string };
+          }>;
         };
         this.versionDeclareRequests.push(body);
         // The app's assets, then the Worker's modules, then each bundle's module
-        // at a path the server names — the slot order the server signs them in,
-        // which is what the client pairs uploads against.
+        // at a path the server names, then each actor's — the slot order the
+        // server signs them in, which is what the client pairs uploads against.
         const declared = [
           ...body.assets,
           ...(body.site_worker?.modules ?? []),
           ...(body.backend_bundles ?? []).map((bundle, index) => ({
             path: `backend-bundles/${index}.mjs`,
             ...bundle.module,
+          })),
+          ...(body.actors ?? []).map((actor) => ({
+            path: `actors/${actor.name}.mjs`,
+            ...actor.module,
           })),
         ];
         res.status(200).json({
@@ -965,6 +981,47 @@ export class TestAPIServer {
         );
         this.finalizeQueries.push({ ...req.query });
         res.status(200).json(response);
+      },
+    });
+    return this;
+  }
+
+  /**
+   * Serves the publish that puts a deployed commit live (`/deploy` given a
+   * `git_commit_hash`), capturing the commits it was called with in
+   * `publishedCommits`, and the published URL the CLI reads after it.
+   */
+  mockDeploymentPublish(
+    response: Partial<DeploymentPublishResponse> = {},
+  ): this {
+    const { app_url = `https://${this.appId}.base44.app`, ...rest } = response;
+    this.pendingRoutes.push({
+      method: "POST",
+      path: `/api/apps/${this.appId}/deploy`,
+      handler: (req, res) => {
+        const gitHash = String(req.body?.git_commit_hash);
+        this.publishedCommits.push(gitHash);
+        // What a logged-in user gets: the editor's full app, not the slim
+        // record an API key gets, so it names neither the commit nor the time.
+        res.status(200).json({
+          id: this.appId,
+          last_deployed_git_commit_hash: gitHash,
+          last_deployed_source_type: "git",
+          ...rest,
+        });
+      },
+    });
+    return this.mockSiteUrl({ url: app_url });
+  }
+
+  /** Answers a publish with an error, e.g. a commit whose build is missing. */
+  mockDeploymentPublishError(status: number, body: unknown): this {
+    this.pendingRoutes.push({
+      method: "POST",
+      path: `/api/apps/${this.appId}/deploy`,
+      handler: (req, res) => {
+        this.publishedCommits.push(String(req.body?.git_commit_hash));
+        res.status(status).json(body);
       },
     });
     return this;
@@ -1092,10 +1149,10 @@ export class TestAPIServer {
     );
   }
 
-  mockSiteDeployError(error: ErrorResponse): this {
+  mockDeploymentCreateError(error: ErrorResponse): this {
     return this.addErrorRoute(
       "POST",
-      `/api/apps/${this.appId}/deploy-dist`,
+      `/api/apps/${this.appId}/deployments`,
       error,
     );
   }

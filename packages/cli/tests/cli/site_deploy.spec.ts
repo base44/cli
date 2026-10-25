@@ -1,9 +1,9 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { fixture, setupCLITests } from "./testkit/index.js";
 
-/** The fullstack fixture is not a git repo, so these deploys pass --git-hash. */
+/** The deployments API is used only for an explicit --git-hash. */
 const GIT_HASH = "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0";
 const DEPLOYMENT_ID = "test-app-git-a1b2c3d4e5f6";
 const SESSION_ID = "3f9a1c07b8e44d2f";
@@ -26,10 +26,11 @@ describe("site deploy command", () => {
     // Nothing is built in the fixture, so ./dist is missing and the deploy fails there.
     await t.givenLoggedInWithProject(fixture("basic"));
 
-    const result = await t.run("site", "deploy", "-y");
+    const result = await t.run("site", "deploy", "-y", "--git-hash", GIT_HASH);
 
     t.expectResult(result).toFail();
     t.expectResult(result).toContain("using the default site commands");
+    t.expectResult(result).toContain("dist");
     t.expectResult(result).toNotContain("No site configuration found");
   });
 
@@ -44,18 +45,75 @@ describe("site deploy command", () => {
 
   it("deploys site successfully", async () => {
     await t.givenLoggedInWithProject(fixture("with-site"));
-    t.api.mockSiteDeploy({ app_url: "https://my-app.base44.app" });
+    t.api.mockDeploymentCreate({
+      deployment_id: DEPLOYMENT_ID,
+      session_id: SESSION_ID,
+      asset_uploads: null,
+    });
+    t.api.mockDeploymentFinalize({ deployment_id: DEPLOYMENT_ID });
+
+    const result = await t.run("site", "deploy", "-y", "--git-hash", GIT_HASH);
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain(`Deployment ${DEPLOYMENT_ID}`);
+  });
+
+  it("deploys without publishing, so the platform's build step is unaffected", async () => {
+    // The platform builds a builder-managed app with this command and repoints
+    // production itself; publishing here would fail that app outright.
+    await t.givenLoggedInWithProject(fixture("with-site"));
+    t.api.mockDeploymentCreate({
+      deployment_id: DEPLOYMENT_ID,
+      session_id: SESSION_ID,
+      asset_uploads: null,
+    });
+    t.api.mockDeploymentFinalize({ deployment_id: DEPLOYMENT_ID });
+    t.api.mockDeploymentPublish();
+
+    const result = await t.run("site", "deploy", "-y", "--git-hash", GIT_HASH);
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Run again with --publish");
+    expect(t.api.publishedCommits).toEqual([]);
+  });
+
+  it("keeps the archive upload, which goes live, without --git-hash", async () => {
+    await t.givenLoggedInWithProject(fixture("with-site"));
+    t.api.mockSiteDeploy({ app_url: "https://with-site.base44.app" });
 
     const result = await t.run("site", "deploy", "-y");
 
     t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain("Site deployed successfully");
+    t.expectResult(result).toContain("https://with-site.base44.app");
+    expect(t.api.deploymentCreateRequests).toHaveLength(0);
+  });
+
+  it("--publish serves the deployed commit", async () => {
+    await t.givenLoggedInWithProject(fixture("with-site"));
+    t.api.mockDeploymentCreate({
+      deployment_id: DEPLOYMENT_ID,
+      session_id: SESSION_ID,
+      asset_uploads: null,
+    });
+    t.api.mockDeploymentFinalize({ deployment_id: DEPLOYMENT_ID });
+    t.api.mockDeploymentPublish({ app_url: "https://my-app.base44.app" });
+
+    const result = await t.run(
+      "site",
+      "deploy",
+      "-y",
+      "--git-hash",
+      GIT_HASH,
+      "--publish",
+    );
+
+    t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("https://my-app.base44.app");
+    expect(t.api.publishedCommits).toEqual([GIT_HASH]);
   });
 
   it("deploys the Workers build for a full-stack project", async () => {
     await t.givenLoggedInWithProject(fixture("fullstack-project"));
-    t.givenEnv({ BASE44_DEPLOYMENTS_API: "1" });
     t.api.mockDeploymentCreate({
       deployment_id: DEPLOYMENT_ID,
       session_id: SESSION_ID,
@@ -70,11 +128,10 @@ describe("site deploy command", () => {
     t.expectResult(result).toContain(DEPLOYMENT_ID);
   });
 
-  it("prefers the Workers build over the tar.gz upload when both are possible", async () => {
-    // A full-stack artifact carries the server too, so uploading the static
+  it("prefers the Workers build over the configured output directory", async () => {
+    // A full-stack artifact carries the server too, so deploying the static
     // output directory instead would silently drop the worker.
     await t.givenLoggedInWithProject(fixture("fullstack-project"));
-    t.givenEnv({ BASE44_DEPLOYMENTS_API: "1" });
     await writeFile(
       join(t.getTempDir(), "project", "base44", "config.jsonc"),
       JSON.stringify({
@@ -82,7 +139,6 @@ describe("site deploy command", () => {
         site: { outputDirectory: "build/client" },
       }),
     );
-    t.api.mockSiteDeploy({ app_url: "https://legacy.base44.app" });
     t.api.mockDeploymentCreate({
       deployment_id: DEPLOYMENT_ID,
       session_id: SESSION_ID,
@@ -93,19 +149,22 @@ describe("site deploy command", () => {
     const result = await t.run("site", "deploy", "-y", "--git-hash", GIT_HASH);
 
     t.expectResult(result).toSucceed();
-    // The deployment id is the tell: only the deployments API reports one.
     t.expectResult(result).toContain(DEPLOYMENT_ID);
-    t.expectResult(result).toNotContain("https://legacy.base44.app");
+    // The worker's config is what makes the server store the assets on
+    // Cloudflare; a static create would carry none.
+    expect(
+      (t.api.deploymentCreateRequests[0] as { config?: unknown }).config,
+    ).toBeDefined();
   });
 
   it("fails when API returns error", async () => {
     await t.givenLoggedInWithProject(fixture("with-site"));
-    t.api.mockSiteDeployError({
+    t.api.mockDeploymentCreateError({
       status: 413,
       body: { error: "Site too large" },
     });
 
-    const result = await t.run("site", "deploy", "-y");
+    const result = await t.run("site", "deploy", "-y", "--git-hash", GIT_HASH);
 
     t.expectResult(result).toFail();
   });

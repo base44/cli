@@ -139,6 +139,54 @@ setLogSink((level, event, fields) => myLogger[level](event, fields));
 
 Without a sink, `logEvent` writes the Datadog-shaped JSON line it always has.
 
+## Static-egress TCP runtime
+
+Compiled functions expose `staticEgress` from `base44:runtime`:
+
+```ts
+import { staticEgress } from "base44:runtime";
+
+const socket = await staticEgress.connect({ hostname: "sftp.example.com", port: 2222 });
+```
+
+The API reads the current trusted Worker environment, calls only
+`STATIC_EGRESS.connect`, and rejects when the workspace gate or binding is
+unavailable. It never falls back to direct TCP. The optional second argument
+supports only `{ secureTransport: "off" }`; SSH supplies its own encryption.
+TLS/STARTTLS and unknown options reject. Callers own authentication, timeouts,
+stream locks and socket cleanup. The public socket exposes streams, `opened`,
+`closed`, and `close()`.
+
+`src/static-egress-tcp-core.mjs` matches apper's
+`backend/app/static_egress/tcp.mjs`, which its bundler and full-stack uploader
+share. Keep the source and contract tests aligned until the in-repo compiler is
+retired. `build:shim` embeds this core in the runtime shim; it is not a runtime
+filesystem dependency. The internal manifest-store importer allowlist includes
+the exact injected runtime shim so activation-delivered PDS exclusions are
+enforced without making the manifest user-importable.
+
+Release this package before bumping apper's compiler pin. Existing compiled
+Workers need rebuilding; the workspace toggle does not install new code.
+
+## Workers compatibility for npm clients
+
+Two gaps in workerd break common Node-targeted npm packages, Stagehand among
+them, and the compiler closes both for every function and actor:
+
+- **`ws`.** Its exports map sends the `browser` condition to a stub that throws
+  on use. `src/esbuild/ws-native-virtual.ts` resolves bare `ws` and
+  `npm:ws[@version]` to a `ws`-shaped client over workerd's native WebSocket
+  (`on`/`once`/`off`, `send`, `close`, `terminate`, `readyState`). It covers
+  what Stagehand uses, not the whole `ws` API. When the options carry headers
+  beyond `User-Agent` (Stagehand's `cdpHeaders`), the socket is opened with a
+  `fetch` upgrade so they reach the server, and that connection follows the
+  function's egress routing. Other connection options are ignored, and
+  `WebSocketServer` throws: a function can open sockets but not listen.
+- **`AsyncLocalStorage.enterWith()`.** workerd's version throws. The Deno shim
+  replaces it with a no-op, so the store is never seeded. That suits libraries
+  that also pass their context explicitly and re-enter it with `run()`. The
+  shim probes first and keeps a working native implementation.
+
 ## Layout
 
 | Path | What it is |
@@ -168,7 +216,8 @@ whether it compiles or not.
 **Do not reformat an asset.** Their text goes into the user's bundle, so
 whitespace is part of the emitted worker bytes — running Biome over
 `src/shim/`, `src/private-data-sources/`, `src/runtime/`, `runtime-context.ts`,
-`static-egress.ts` or `static-egress-marker.ts` changes what every compiled
+`static-egress.ts`, `static-egress-tcp.ts`, `static-egress-tcp-core.mjs`
+or `static-egress-marker.ts` changes what every compiled
 function hashes to. `biome.json` excludes those paths for that reason. The
 `test/` directory is likewise held byte-identical to apper's copy until that
 copy is deleted; it sits outside the repo's `packages/*/src` lint glob.

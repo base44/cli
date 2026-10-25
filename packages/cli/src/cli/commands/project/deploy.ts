@@ -1,6 +1,7 @@
 import type { Logger } from "@base44-cli/logger";
 import { confirm, isCancel } from "@clack/prompts";
 import type { Command } from "commander";
+import { Option } from "commander";
 import {
   filterPendingOAuth,
   promptOAuthFlows,
@@ -12,6 +13,7 @@ import {
   Base44Command,
   getConnectorsUrl,
   getDashboardUrl,
+  parseGitHash,
   theme,
 } from "@/cli/utils/index.js";
 import { InvalidInputError } from "@/core/errors.js";
@@ -29,6 +31,7 @@ interface DeployOptions {
   yes?: boolean;
   build?: boolean;
   projectRoot?: string;
+  gitHash?: string;
 }
 
 export async function deployAction(
@@ -42,7 +45,7 @@ export async function deployAction(
 
   const projectData = await readProjectConfig(options.projectRoot);
 
-  if (!hasResourcesToDeploy(projectData)) {
+  if (!(await hasResourcesToDeploy(projectData))) {
     return {
       outroMessage: "No resources found to deploy",
     };
@@ -120,6 +123,10 @@ export async function deployAction(
   let actorCompleted = 0;
 
   const result = await deployAll(projectData, {
+    gitHash: options.gitHash,
+    onSiteProgress: (message) => {
+      log.message(theme.styles.dim(message));
+    },
     onVisibilitySet: (level) => {
       log.success(`App visibility set to ${level}`);
     },
@@ -179,6 +186,12 @@ export function getDeployCommand(): Command {
     .option("-y, --yes", "Skip confirmation prompt")
     .option("--build", "Build the site before deploying (skips the prompt)")
     .option("--no-build", "Deploy without building (skips the prompt)")
+    .addOption(
+      new Option(
+        "--git-hash <hash>",
+        "Deploy by the commit the build came from, through the deployments API",
+      ).argParser(parseGitHash),
+    )
     .action(deployAction);
 }
 

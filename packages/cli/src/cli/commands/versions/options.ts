@@ -1,5 +1,5 @@
 import { InvalidArgumentError, Option } from "commander";
-import { isGitCommitHash } from "@/core/utils/git.js";
+import { parseGitHash } from "@/cli/utils/index.js";
 import {
   DEFAULT_VERSION_UPLOAD_CONCURRENCY,
   MAX_VERSION_UPLOAD_CONCURRENCY,
@@ -25,14 +25,7 @@ export function gitHashOption(): Option {
   return new Option(
     "--git-hash <hash>",
     "Commit the build came from (defaults to the checkout's HEAD)",
-  ).argParser((value) => {
-    if (!isGitCommitHash(value)) {
-      throw new InvalidArgumentError(
-        "Expected a git commit hash (7-64 hex chars).",
-      );
-    }
-    return value;
-  });
+  ).argParser(parseGitHash);
 }
 
 export function concurrencyOption(): Option {

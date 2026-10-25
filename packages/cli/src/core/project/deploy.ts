@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import { hasWorkspaceApiKeyAuth } from "@/core/auth/config.js";
-import { ResourceDeploymentError } from "@/core/errors.js";
+import { ApiError, ResourceDeploymentError } from "@/core/errors.js";
 import { setAppVisibility } from "@/core/project/api.js";
 import type { Visibility } from "@/core/project/schema.js";
 import type { ProjectData } from "@/core/project/types.js";
@@ -21,7 +21,13 @@ import {
   deployFunctionsSequentially,
   type SingleFunctionDeployResult,
 } from "@/core/resources/function/deploy.js";
-import { deploySite } from "@/core/site/index.js";
+import {
+  deploySite,
+  deployToDeployments,
+  detectFullStackArtifact,
+  publishDeployment,
+  workerBuildNeedsGitHashError,
+} from "@/core/site/index.js";
 
 /**
  * Checks if there are any resources to deploy in the project.
@@ -29,7 +35,9 @@ import { deploySite } from "@/core/site/index.js";
  * @param projectData - The project configuration and resources
  * @returns true if there are entities, functions, agents, connectors, or a configured site to deploy
  */
-export function hasResourcesToDeploy(projectData: ProjectData): boolean {
+export async function hasResourcesToDeploy(
+  projectData: ProjectData,
+): Promise<boolean> {
   const {
     project,
     entities,
@@ -40,7 +48,11 @@ export function hasResourcesToDeploy(projectData: ProjectData): boolean {
     connectors,
     authConfig,
   } = projectData;
-  const hasSite = Boolean(project.site?.outputDirectory);
+  // A full-stack build brings its own assets directory, so it is a site to
+  // deploy even with no site.outputDirectory configured.
+  const hasSite =
+    Boolean(project.site?.outputDirectory) ||
+    Boolean(await detectFullStackArtifact(project.root));
   const hasEntities = entities.length > 0;
   const hasFunctions = functions.length > 0;
   const hasActors = actors.length > 0;
@@ -78,6 +90,9 @@ interface DeployAllResult {
 }
 
 interface DeployAllOptions {
+  /** The commit the built output came from; resolved from the checkout if omitted. */
+  gitHash?: string;
+  onSiteProgress?: (message: string) => void;
   onActorStart?: (name: string) => void;
   onActorResult?: (result: SingleActorDeployResult) => void;
   onFunctionStart?: (names: string[]) => void;
@@ -106,6 +121,11 @@ export async function deployAll(
     connectors,
     authConfig,
   } = projectData;
+
+  // Before anything ships: a worker build cannot go without its commit.
+  if (!options?.gitHash && (await detectFullStackArtifact(project.root))) {
+    throw workerBuildNeedsGitHashError();
+  }
 
   await setAppVisibility(project.visibility);
   if (project.visibility) {
@@ -160,11 +180,79 @@ export async function deployAll(
     ? []
     : (await pushConnectors(connectors)).results;
 
-  if (project.site?.outputDirectory) {
-    const outputDir = resolve(project.root, project.site.outputDirectory);
-    const { appUrl } = await deploySite(outputDir);
-    return { appUrl, connectorResults };
-  }
+  const appUrl = await deployProjectSite(project, options);
+  return appUrl ? { appUrl, connectorResults } : { connectorResults };
+}
 
-  return { connectorResults };
+/**
+ * Ship the built output, then serve it.
+ *
+ * A commit given with `--git-hash` ships through the deployments API, addressed
+ * by it, so a full-stack build's worker ships too. Without one the static output
+ * keeps the archive upload, which publishes as it always did; a worker build has
+ * no archive form, so there the commit is required.
+ */
+async function deployProjectSite(
+  project: ProjectData["project"],
+  options?: DeployAllOptions,
+): Promise<string | undefined> {
+  const outputDirectory = project.site?.outputDirectory;
+  const outputDir = outputDirectory
+    ? resolve(project.root, outputDirectory)
+    : null;
+  const gitHash = options?.gitHash;
+
+  if (gitHash && (outputDir || (await detectFullStackArtifact(project.root)))) {
+    return shipCommit(project.root, outputDir, gitHash, options);
+  }
+  if (!outputDir) {
+    return undefined;
+  }
+  const { appUrl } = await deploySite(outputDir);
+  return appUrl;
+}
+
+async function shipCommit(
+  projectRoot: string,
+  outputDir: string | null,
+  gitHash: string,
+  options?: DeployAllOptions,
+): Promise<string | undefined> {
+  await deployToDeployments({
+    projectRoot,
+    outputDir,
+    gitHash,
+    progress: {
+      onWarning: (message) => options?.onSiteProgress?.(message),
+      onAssets: ({ totalAssets, newAssets }) =>
+        options?.onSiteProgress?.(
+          `Found ${totalAssets} static assets (${newAssets} new)`,
+        ),
+    },
+  });
+
+  try {
+    const { appUrl } = await publishDeployment(gitHash);
+    return appUrl;
+  } catch (error) {
+    // An app Base44 builds is published from the builder, where checkpoints and
+    // branch rules live. Its resources and its build did deploy, so reporting
+    // that as a failed deploy would be wrong.
+    if (!publishesFromBuilder(error)) {
+      throw error;
+    }
+    options?.onSiteProgress?.(
+      "Site deployed. This app is published from the Base44 builder, so production was left where it was.",
+    );
+    return undefined;
+  }
+}
+
+/** The server's stable code for "this app does not publish by commit". */
+function publishesFromBuilder(error: unknown): boolean {
+  if (!(error instanceof ApiError)) {
+    return false;
+  }
+  const body = error.responseBody as { error?: { code?: unknown } } | undefined;
+  return body?.error?.code === "git_commit_hash_not_supported";
 }

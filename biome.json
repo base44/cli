@@ -29,6 +29,9 @@
       "!packages/functions-compiler/src/runtime/**",
       "!packages/functions-compiler/src/runtime-context.ts",
       "!packages/functions-compiler/src/static-egress.ts",
+      "!packages/functions-compiler/src/static-egress-tcp.ts",
+      "!packages/functions-compiler/src/static-egress-tcp-core.mjs",
+      "!packages/functions-compiler/src/static-egress-tcp-core.d.mts",
       "!packages/functions-compiler/src/static-egress-marker.ts",
       "!packages/functions-compiler/src/generated/**"
     ]
