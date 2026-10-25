@@ -159,4 +159,43 @@ describe("agents pull command", () => {
     expect(parsed.description).toBe("Updated description");
     expect(parsed.instructions).toBe("Updated instructions");
   });
+
+  it("pushes a pulled server route tool back unchanged", async () => {
+    const remoteAgent = {
+      name: "time_agent",
+      description: "Tells the time",
+      instructions: "Use the route",
+      tool_configs: [
+        { entity_name: "Task", allowed_operations: ["read"] },
+        {
+          tool_name: "convert_time",
+          route_path: "/api/zuri/convert-time",
+          method: "post",
+          description: "Converts a time between zones",
+        },
+      ],
+      selected_skill_names: [],
+    };
+    await t.givenLoggedInWithProject(fixture("basic"));
+    t.api.mockAgentsFetch({ items: [remoteAgent], total: 1 });
+    let pushedBody: unknown;
+    t.api.mockRoute(
+      "PUT",
+      `/api/apps/${t.api.appId}/agent-configs`,
+      (req, res) => {
+        pushedBody = req.body;
+        res
+          .status(200)
+          .json({ created: [], updated: ["time_agent"], deleted: [] });
+      },
+    );
+
+    const pull = await t.run("agents", "pull");
+    const push = await t.run("agents", "push", "--yes");
+
+    t.expectResult(pull).toSucceed();
+    t.expectResult(push).toSucceed();
+    t.expectResult(push).toContain("Updated: time_agent");
+    expect(pushedBody).toEqual([remoteAgent]);
+  });
 });
