@@ -33,6 +33,7 @@ import { versionsApiEnabled } from "@/core/version/gate.js";
 import packageJson from "../../package.json";
 import { getDevCommand } from "./commands/dev.js";
 import { getExecCommand } from "./commands/exec.js";
+import { getImportCommand } from "./commands/import.js";
 import { getEjectCommand } from "./commands/project/eject.js";
 import type { CLIContext } from "./types.js";
 
@@ -143,6 +144,9 @@ export function createProgram(context: CLIContext): Command {
 
   // Register logs command
   program.addCommand(getLogsCommand());
+
+  // Register Base Code session import
+  program.addCommand(getImportCommand());
 
   return program;
 }

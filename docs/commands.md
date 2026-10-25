@@ -46,6 +46,16 @@ Omitting the flag preserves existing main-app behavior.
 - `fetch` reads stdin only for `--body @-`. An agent harness can hold stdin open forever, so reading it unasked would hang the call.
 - A failed `fetch` reports to telemetry without the request or response body, `--body`, `--form`, or the query string: any endpoint can carry secrets.
 
+## Session import (`base44 import`)
+
+`src/cli/commands/import.ts` uploads one Claude Code or Codex session file to `POST /api/apps/{app_id}/imported/session-imports`; the logic is in `src/core/session-import/`. The backend parses the file and creates the branch, so the CLI sends it unchanged.
+
+- `--current` finds the running session: `CLAUDE_CODE_SESSION_ID` names `~/.claude/projects/*/<id>.jsonl`; otherwise `CODEX_THREAD_ID` (set by Codex; the rollout file name ends with it), else the newest `~/.codex/sessions/*/*/*/rollout-*.jsonl` whose `session_meta` cwd is this folder.
+- A claude.ai link runs `claude --teleport <session_id> -p "Reply with OK."` in a temp clone of this checkout's `origin`, strips that exchange, then deletes the clone and its `~/.claude/projects` folder. Tests swap the binary with the `claudeBin` test override.
+- **Per-command key auth.** `--token` is a one-time `b44imp_` key. The command is `requireAuth: false` and calls `ensureAuth` only without a key. The key goes through a bare `ky` call, never `base44Client`: its auth hook would replace the header, and its 401 handler would refresh and retry as the stored login.
+- Errors are rebuilt as plain messages an agent can relay, with no request or response body (the body is the conversation). The action replaces the reported command context so the link and `--token` never reach telemetry.
+- Inside claude.ai (`CLAUDE_CODE_REMOTE`), a failed connection or a non-JSON 403 means the environment's network allowlist blocks Base44; the message says how to allow it.
+
 ## Command File Template
 
 ```typescript

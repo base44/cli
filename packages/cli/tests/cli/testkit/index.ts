@@ -38,6 +38,9 @@ export interface TestContext {
 
   givenLatestVersion: (version: string | null | undefined) => void;
 
+  /** Run this executable in place of `claude` (session teleport) */
+  givenClaudeBin: (path: string) => void;
+
   /** Simulate piped stdin for the next run() call */
   givenStdin: (content: string) => void;
 
@@ -131,6 +134,7 @@ export function setupCLITests(): TestContext {
       await getKit().givenProject(fixturePath);
     },
     givenLatestVersion: (version) => getKit().givenLatestVersion(version),
+    givenClaudeBin: (path) => getKit().givenClaudeBin(path),
     givenStdin: (content) => getKit().givenStdin(content),
     givenEnv: (vars) => getKit().givenEnv(vars),
 
