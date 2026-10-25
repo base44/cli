@@ -40,23 +40,28 @@ const PROXY_LOOP_MESSAGE = [
 
 /** What a request into app code carries, in place of any copies of its own. */
 function sdkHeaders(
-  appId: string,
+  target: AppServerTarget,
   host: string | undefined,
 ): Record<string, string> {
   return {
-    "Base44-App-Id": appId,
+    "Base44-App-Id": target.appId,
     // The front door is plain HTTP on localhost, so its origin is the host the
     // request reached.
     "Base44-Api-Url": `http://${host}`,
     // Production injects a service-role token on every request into app code,
-    // so `asServiceRole` works server-side for anonymous visitors too.
-    "Base44-Service-Authorization": createServiceAuthorizationHeader(),
+    // so `asServiceRole` works server-side for anonymous visitors too. Only the
+    // local backend accepts one minted here.
+    ...(target.serviceRole === false
+      ? {}
+      : { "Base44-Service-Authorization": createServiceAuthorizationHeader() }),
     [FORWARDED_HEADER]: "1",
   };
 }
 
 export interface AppServerTarget {
   appId: string;
+  /** Inject a locally minted service-role token. Defaults to true. */
+  serviceRole?: boolean;
   /** Resolves with the app dev server's origin once it announces itself. */
   waitForOrigin: () => Promise<string>;
 }
@@ -88,7 +93,7 @@ export function createAppServerProxy(
           proxyReq.removeHeader(header);
         }
         for (const [name, value] of Object.entries(
-          sdkHeaders(target.appId, req.headers.host),
+          sdkHeaders(target, req.headers.host),
         )) {
           proxyReq.setHeader(name, value);
         }
@@ -172,7 +177,7 @@ export function createAppServerProxy(
       {
         headers: {
           ...forwarded,
-          ...sdkHeaders(target.appId, req.headers.host),
+          ...sdkHeaders(target, req.headers.host),
         },
       },
     );

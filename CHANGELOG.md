@@ -5,6 +5,8 @@
 ### Changed
 
 - `base44 dev` now fronts the app's own dev server: it serves the whole app on one origin, answers `/api/apps` and `/api/app-logs` itself and forwards everything else — the app's own `/api` routes included — to the dev server, carrying `Base44-App-Id`, `Base44-Api-Url` and a service-role credential, and dropping the caller's copies of those headers. Full-stack apps (SSR pages, server functions) can build an SDK client with `createClientFromRequest` locally, the way they do in production. Open the URL the command prints instead of the frontend dev server's own.
+- `base44 dev` signs you in to a private or workspace app the way the platform does: page loads without a session go to the CLI's own `/login`, which signs you in as the account the CLI is logged in with, hands the app its access token and keeps the session in a cookie, so pages the app renders on the server act as you too. A public app keeps handling `/login` itself.
+- `base44 dev --remote` now runs the same front door, answering the platform's paths from your live app, so a private app gets the same sign-in, with a token for your live app's data. It also takes `--port`.
 - `base44 exec` loads an SDK released in the last 24 hours instead of Deno's default minimum dependency age silently holding scripts on the previous one. Other npm packages a script imports keep the default.
 
 ### Added

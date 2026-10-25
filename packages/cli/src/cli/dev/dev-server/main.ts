@@ -13,9 +13,14 @@ import {
   createAppServerProxy,
 } from "@/cli/dev/dev-server/routes/app-server.js";
 import { createFunctionRouter } from "@/cli/dev/dev-server/routes/functions.js";
+import {
+  createLoginGate,
+  type LoginGateOptions,
+} from "@/cli/dev/dev-server/routes/login-gate.js";
 import { theme } from "@/cli/utils/index.js";
 import type { ProjectData } from "@/core/project/types.js";
 import { Database } from "./db/database.js";
+import { PLATFORM_PATH_PATTERN } from "./platform-paths.js";
 import {
   type BroadcastEntityEvent,
   broadcastEntityEvent,
@@ -34,16 +39,14 @@ import { WatchBase44 } from "./watcher.js";
 const DEFAULT_PORT = 4400;
 const BASE44_APP_URL = "https://base44.app";
 
-// Paths the platform owns. Everything else belongs to the app's own server —
-// including its server routes, which frameworks conventionally put under /api.
-const PLATFORM_PATH_PATTERN = /^\/api\/(apps|app-logs)(\/|$)/;
-
 interface DevServerOptions {
   log: Logger;
   port?: number;
   denoWrapperPath: string;
   /** The app's own dev server, fronted by this one when the project has a site. */
   appServer?: AppServerTarget;
+  /** Set for a private or workspace app: the CLI signs the developer in. */
+  loginGate?: LoginGateOptions;
   loadResources: () => Promise<{
     functions: ProjectData["functions"];
     entities: ProjectData["entities"];
@@ -88,6 +91,12 @@ export async function createDevServer(
     }),
   );
 
+  const devLogger = createDevLogger("backend", theme.styles.info);
+
+  if (options.loginGate) {
+    app.use(createLoginGate(options.loginGate, devLogger));
+  }
+
   // Redirect OAuth routes to base44.app directly — proxying breaks the
   // redirect flow and session cookies set by the provider.
   const AUTH_ROUTE_PATTERN = /^\/api\/apps\/auth(\/|$)/;
@@ -98,8 +107,6 @@ export async function createDevServer(
     }
     next();
   });
-
-  const devLogger = createDevLogger("backend", theme.styles.info);
 
   app.use("/api/apps/:appId/actors", (_req, res) => {
     const message = "Actors are not available in local development";

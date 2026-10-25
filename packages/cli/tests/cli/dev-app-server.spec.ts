@@ -155,3 +155,102 @@ describe("dev command fronting the app dev server", () => {
     t.expectResult(result).toSucceed();
   });
 });
+
+describe("dev command in front of a private app", () => {
+  const t = setupCLITests();
+  const email = "dev@example.com";
+
+  const startDevServer = async (fixtureName = "with-private-app-server") => {
+    await t.givenLoggedInWithProject(fixture(fixtureName), {
+      email,
+      name: "Dev",
+    });
+    const handle = await t.runLive("dev");
+    const url = await waitForDevServer(handle);
+    return { handle, url };
+  };
+
+  const page = { Accept: "text/html" };
+
+  it("sends a page load without a session to the CLI's sign-in page", async () => {
+    const { handle, url } = await startDevServer();
+
+    const response = await fetch(`${url}/notes`, {
+      headers: page,
+      redirect: "manual",
+    });
+
+    expect(response.status).toBe(302);
+    const login = new URL(response.headers.get("location") ?? "");
+    expect(login.pathname).toBe("/login");
+    expect(login.searchParams.get("from_url")).toBe(`${url}/notes`);
+
+    const loginPage = await fetch(login, { headers: page });
+    expect(await loginPage.text()).toContain(`Continue as ${email}`);
+
+    const result = await handle.stop();
+    t.expectResult(result).toSucceed();
+  });
+
+  it("signs the developer in, hands the app a token, and sends it with later requests", async () => {
+    const { handle, url } = await startDevServer();
+
+    const signIn = await fetch(`${url}/login`, {
+      method: "POST",
+      body: new URLSearchParams({ from_url: `${url}/notes` }),
+      redirect: "manual",
+    });
+
+    expect(signIn.status).toBe(303);
+    const back = new URL(signIn.headers.get("location") ?? "");
+    expect(back.pathname).toBe("/notes");
+    const token = back.searchParams.get("access_token") ?? "";
+    expect(jwt.decode(token)?.sub).toBe(email);
+    const cookie = (signIn.headers.get("set-cookie") ?? "").split(";")[0];
+    expect(cookie).toMatch(/^base44_dev_session=/);
+
+    const response = await fetch(`${url}/notes`, {
+      headers: { ...page, Cookie: cookie },
+    });
+    expect(response.status).toBe(200);
+    const { headers } = (await response.json()) as EchoedRequest;
+    expect(headers.authorization).toBe(`Bearer ${token}`);
+
+    const result = await handle.stop();
+    t.expectResult(result).toSucceed();
+  });
+
+  it("ends the session on the SDK's logout", async () => {
+    const { handle, url } = await startDevServer();
+
+    const response = await fetch(
+      `${url}/api/apps/auth/logout?from_url=${encodeURIComponent(`${url}/`)}`,
+      { redirect: "manual" },
+    );
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe(`${url}/`);
+    expect(response.headers.get("set-cookie")).toMatch(
+      /^base44_dev_session=;.*Max-Age=0/,
+    );
+
+    const result = await handle.stop();
+    t.expectResult(result).toSucceed();
+  });
+
+  it("leaves sign-in to a public app", async () => {
+    const { handle, url } = await startDevServer("with-app-server");
+
+    const response = await fetch(`${url}/login`, {
+      headers: page,
+      redirect: "manual",
+    });
+
+    expect(response.status).toBe(200);
+    const { url: forwardedUrl } = (await response.json()) as EchoedRequest;
+    expect(forwardedUrl).toBe("/login");
+
+    const result = await handle.stop();
+    t.expectResult(result).toSucceed();
+  });
+});
