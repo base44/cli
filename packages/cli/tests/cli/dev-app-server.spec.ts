@@ -139,4 +139,19 @@ describe("dev command fronting the app dev server", () => {
     const result = await handle.stop();
     t.expectResult(result).toSucceed();
   });
+
+  it("keeps the SDK's /api/app-logs off the app dev server", async () => {
+    const { handle, url } = await startDevServer();
+
+    const response = await fetch(
+      `${url}/api/app-logs/${t.api.appId}/log-user-in-app/Home`,
+      { method: "POST" },
+    );
+
+    // The app dev server would echo the request back.
+    expect(await response.text()).not.toContain("log-user-in-app");
+
+    const result = await handle.stop();
+    t.expectResult(result).toSucceed();
+  });
 });

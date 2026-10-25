@@ -34,8 +34,8 @@ const FORWARDED_HEADER = "base44-dev-forwarded";
 
 const PROXY_LOOP_MESSAGE = [
   "The app dev server sent this request back to the Base44 dev server instead of handling it.",
-  "Its Vite proxy is forwarding all of /api; only /api/apps belongs to the backend.",
-  "Update @base44/vite-plugin, or narrow the proxy in vite.config.js to /api/apps.",
+  "Its Vite proxy is forwarding all of /api; only /api/apps and /api/app-logs belong to the backend.",
+  "Update @base44/vite-plugin, or narrow the proxy in vite.config.js to those paths.",
 ].join(" ");
 
 /** What a request into app code carries, in place of any copies of its own. */

@@ -36,7 +36,7 @@ const BASE44_APP_URL = "https://base44.app";
 
 // Paths the platform owns. Everything else belongs to the app's own server —
 // including its server routes, which frameworks conventionally put under /api.
-const PLATFORM_PATH_PATTERN = /^\/api\/apps(\/|$)/;
+const PLATFORM_PATH_PATTERN = /^\/api\/(apps|app-logs)(\/|$)/;
 
 interface DevServerOptions {
   log: Logger;

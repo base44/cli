@@ -11,8 +11,8 @@ origin the user opens — the same shape the platform serves in production.
 One express server (`src/cli/dev/dev-server/main.ts`, port 4400 by default)
 answers everything:
 
-- `/api/apps/**` — the platform's own surface: entities, functions, auth, media,
-  integrations, falling back to a proxy to base44.app for what the local server
+- `/api/apps/**` and `/api/app-logs/**` — the platform's own surface: entities,
+  functions, auth, media, integrations, app logs, falling back to a proxy to base44.app for what the local server
   does not implement.
 - everything else — forwarded to the app's dev server, **including the app's own
   routes under `/api`** (`/api/time` is the app's; `/api/apps/...` is not).
@@ -49,7 +49,7 @@ wait for it.
 
 A request that comes back carrying `Base44-Dev-Forwarded` means the app dev
 server bounced it instead of serving it — almost always a Vite proxy forwarding
-all of `/api` rather than just `/api/apps`. That answers 508 with the fix rather
+all of `/api` rather than just `/api/apps` and `/api/app-logs`. That answers 508 with the fix rather
 than looping.
 
 ## Testing
