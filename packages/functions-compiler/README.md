@@ -65,13 +65,17 @@ The first line of a compiled shard is its own manifest:
 
 `//!b44:<format>` is a fixed sentinel, so `head -1` on a script pulled from
 Cloudflare answers "what is in this?" without executing or parsing anything, and
-the payload is JSON so a tool parses it in one call. Only the app path emits it;
-the legacy single-function `bundle()` stays bannerless, which keeps that lane
-byte-comparable with the engine apper still runs.
+the payload is JSON so a tool parses it in one call. Only the app path emits it.
+The legacy single-function `bundle()` stays bannerless: it compiles one function,
+so "which functions are inside" already has its answer. apper's bundler service
+now runs this package (it no longer keeps its own engine), and nothing compares
+that lane's output byte for byte across engines.
 
 `functions` is sorted whatever order the shard was built in. `telemetry` and
 `runtimeSecrets` are there because they change the emitted bytes and a deploy has
-to pair its secrets delivery with them. `compiler` is this package's version.
+to pair its secrets delivery with them. `compiler` is this package's version; it
+also tells a consumer which wrapper features a build carries, such as the
+`_b44_error` record (see "Error records for a handled 5xx").
 
 Nothing volatile may be added: a timestamp or build id would re-mint a version
 for unchanged code, the app id would make the same functions compile differently
@@ -89,7 +93,9 @@ code that did not change, and all of these do:
 - the order the caller hands functions over in, for a single shard: that path
   builds in caller order, while a multi-shard plan sorts by name. Both branches
   are as apper has them, and `shard-build.e2e.test.ts` pins the difference;
-- either wrapper flag.
+- either wrapper flag (`postResponseTelemetry`, `runtimeSecrets`). The
+  `_b44_error` recorder is not a flag: every build carries it, so it moves the
+  bytes only when this package's version does.
 
 Two behaviours differ from apper's Python on purpose, and both are tested:
 
@@ -158,6 +164,67 @@ map, as they skip telemetry; actor entries and `compileFunctionShards` never
 ask for one. Two functions in one per-app
 bundle can both list a `main.ts`, so a consumer that needs to know which
 function a frame belongs to reads that from the log line, not the map.
+
+### Error records for a handled 5xx
+
+A function that catches its own error and returns a 500 leaves Cloudflare
+nothing to record. **Every build** carries a small recorder in its generated
+entry (single-function and per-app; not actors), with no build option. That
+includes the public CLI's own builds, so an app is ready the moment it opts in,
+with no rebuild. It adds about 3 KB to a module (about 1.2 KB gzipped).
+
+The off switch is the request, not the build: the recorder does nothing unless
+the request carries `x-b44-feed-context`. The backend sends that header only for
+production calls of apps that opted in, while its tail switch is on; turning the
+switch off silences the record in every bundle, whatever built it. Without the
+header the recorder costs one header check per request and one context lookup
+per `console.*` call.
+
+When the header is present and the handler returns a `Response` with status
+≥ 500, that same response goes back at once: never rebuilt, never delayed, no
+header set. On a clone, inside `ctx.waitUntil`, the recorder:
+
+- picks the message, in this order: an Error logged during the request whose
+  message the JSON body repeats (the newest such among the last 8 Errors
+  logged, so a later unrelated warning doesn't hide it); else the body (JSON of
+  at most 2,048 bytes read within 50 ms; the first non-empty `error`,
+  `message`, `detail`, `details` or `error.message`, skipping `error` when it
+  is exactly `"Internal server error"` and `details` is present); else the last
+  Error logged during the request.
+  No message means no record;
+- takes the stack only from the logged Error that supplied the message. It is
+  that Error's raw `stack`, read inside the Worker, so it is **minified**:
+  Cloudflare remaps only the exceptions it captures, never a logged string. A
+  consumer remaps it with the same version's `source_map` (see Source maps);
+- replaces every env-binding and runtime-secret string of 8+ characters with
+  `[redacted]`, longest first, before cutting anything. This includes the strings
+  nested in JSON-valued ones (leading whitespace allowed), such as the
+  private-data-sources manifest;
+- caps `name` at 64 characters, `message` at 500 UTF-8 bytes (well-formed, cut
+  on a code point) and `stack` at 4 KB (cut at a line end);
+- logs exactly one line, with `console.error({ _b44_error: record })`.
+
+That call goes through the console patch, so **the object is not what a
+consumer sees.** A Tail Worker gets one log entry shaped like this:
+
+| Field | Value |
+|---|---|
+| the TailItem log's `level` | `"log"`. The patch writes every level through the original `console.log` |
+| the log's `message` | an array with **one** argument: the patch's wrapper object |
+| the wrapper's keys | `_b44_env`, `_b44_function` (per-app bundles only), `level`, `message` |
+| the wrapper's `level` | `"error"` |
+| the wrapper's `message` | the **JSON string** of `{ "_b44_error": { v: 1, kind: "response", status, name?, message, stack? } }` |
+
+So a consumer keeps logs whose wrapper `level` is `"error"`, then reads
+`JSON.parse(wrapper.message)._b44_error`. apper's error tail
+(`workers/base44-log-tail/src/error-tail.ts`) is that consumer, and
+`error-records.e2e.test.ts` pins this shape for both entries. The record is
+logged inside `waitUntil`, after the response has gone back, so it never lands
+in the `X-B44-Invocation-Logs` header. It is still an ordinary stamped line, so
+views built on stamped Workers log lines show it as an error line.
+
+Any failure writes nothing and never reaches the request. An uncaught throw is
+untouched: the entry still logs it and rethrows, and Cloudflare records it.
 
 ### Process isolation
 
