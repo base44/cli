@@ -106,7 +106,15 @@ export async function findCurrentSession(
   const codexId = process.env.CODEX_THREAD_ID;
   if (codexId) {
     const rollouts = await codexRollouts();
-    return rollouts.find((path) => path.endsWith(`-${codexId}.jsonl`));
+    const rollout = rollouts.find((path) => path.endsWith(`-${codexId}.jsonl`));
+    // Codex cloud sets the id but keeps the conversation on OpenAI's side.
+    if (!rollout) {
+      throw new InvalidInputError(
+        "Codex cloud sessions can't be imported yet. Run this from the Codex app or CLI on your computer.",
+        { hints: [] },
+      );
+    }
+    return rollout;
   }
   return newest(await codexRolloutsIn(cwd));
 }

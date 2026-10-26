@@ -146,7 +146,9 @@ async function importAction(
   const url = `${getBase44ApiUrl()}${imported.branchUrl}`;
   return {
     outroMessage: [
-      `✓ Imported ${imported.turnCount} messages from ${TOOL_LABELS[imported.source]} into branch "${imported.branchName}".`,
+      imported.continued
+        ? `✓ Imported ${imported.turnCount} messages from ${TOOL_LABELS[imported.source]}. Continued on "${imported.branchName}".`
+        : `✓ Imported ${imported.turnCount} messages from ${TOOL_LABELS[imported.source]} into branch "${imported.branchName}".`,
       ...(note ? [note] : []),
       `Open it: ${url}`,
     ].join("\n"),

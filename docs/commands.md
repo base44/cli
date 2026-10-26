@@ -56,6 +56,8 @@ Omitting the flag preserves existing main-app behavior.
 - **`source_branch`.** The current branch (`git rev-parse --abbrev-ref HEAD`, left out when detached) goes with the upload as a multipart field. The backend starts the new branch from it when it's on GitHub, otherwise from the branch recorded in the file, then the repo default.
 - **Per-command key auth.** `--token` is a one-time `b44imp_` key. The command is `requireAuth: false` and calls `ensureAuth` only without a key. The key goes through a bare `ky` call, never `base44Client`: its auth hook would replace the header, and its 401 handler would refresh and retry as the stored login.
 - Errors are rebuilt as plain messages an agent can relay, with no request or response body (the body is the conversation). The action replaces the reported command context so the link and `--token` never reach telemetry.
+- When the session's pushed branch already exists in Base Code, the upload answers 409 `branch_exists` with `details.branch_url`, and the command prints that link. A success with `continued: true` means Base Code continued on the session's own branch rather than creating one.
+- Codex cloud sets `CODEX_THREAD_ID` but keeps the conversation on OpenAI's side, so a thread id with no rollout file means Codex cloud, which can't be imported.
 - Inside claude.ai (`CLAUDE_CODE_REMOTE`), a failed connection or a non-JSON 403 means the environment's network allowlist blocks Base44; the message says how to allow it.
 
 ## Command File Template

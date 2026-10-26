@@ -13,6 +13,8 @@ const SessionImportResponseSchema = z
     source: z.enum(["claude_code", "codex"]),
     turn_count: z.number(),
     branch_url: z.string(),
+    continued: z.boolean(),
+    source_ref: z.string(),
   })
   .transform((data) => ({
     branchId: data.branch_id,
@@ -20,22 +22,39 @@ const SessionImportResponseSchema = z
     source: data.source,
     turnCount: data.turn_count,
     branchUrl: data.branch_url,
+    continued: data.continued,
+    sourceRef: data.source_ref,
   }));
 
 type SessionImport = z.infer<typeof SessionImportResponseSchema>;
 
 const ErrorEnvelopeSchema = z.object({
-  error: z.object({ code: z.string().optional() }),
+  error: z.object({
+    code: z.string().optional(),
+    details: z
+      .object({ branch_name: z.string(), branch_url: z.string() })
+      .partial()
+      .optional(),
+  }),
 });
 
+type ErrorDetails = z.infer<typeof ErrorEnvelopeSchema>["error"]["details"];
+
 const NETWORK_BLOCKED =
-  "claude.ai is blocking Base44. In this session's environment settings, open Network access, add `app.base44.com` to Allowed domains, save, and try again.";
+  "Your Claude cloud environment can't reach Base44 yet. In the environment's settings, open Network access, add `app.base44.com` to Allowed domains, and try again.";
 
 function messageFor(
   status: number,
   code: string | undefined,
+  details: ErrorDetails,
   viaToken: boolean,
 ): string | undefined {
+  if (code === "branch_exists" && details?.branch_url) {
+    return `Base Code already has ${details.branch_name ?? "a branch for this session"}. Open it: ${new URL(details.branch_url, getBase44ApiUrl())}`;
+  }
+  if (code === "repository_not_connected") {
+    return "Connect this app to its GitHub repository in Base Code first.";
+  }
   if (status === 401 && viaToken) {
     return "This import key expired or was already used. In Base Code, open Import session and copy a new prompt.";
   }
@@ -76,13 +95,15 @@ async function toImportError(
   const { status } = error.response;
   const fallback = await ApiError.fromHttpError(error, "importing session");
   const envelope = ErrorEnvelopeSchema.safeParse(fallback.responseBody);
-  const code = envelope.success ? envelope.data.error.code : undefined;
+  const { code, details } = envelope.success ? envelope.data.error : {};
   // The claude.ai egress proxy answers a blocked host with its own non-JSON 403.
   const blocked =
     process.env.CLAUDE_CODE_REMOTE &&
     status === 403 &&
     typeof fallback.responseBody !== "object";
-  const known = blocked ? NETWORK_BLOCKED : messageFor(status, code, viaToken);
+  const known = blocked
+    ? NETWORK_BLOCKED
+    : messageFor(status, code, details, viaToken);
   return new ApiError(known ?? fallback.message, {
     statusCode: status,
     requestUrl: error.request.url,

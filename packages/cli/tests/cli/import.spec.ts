@@ -14,6 +14,8 @@ const SUCCESS = {
   source: "claude_code",
   turn_count: 14,
   branch_url: `/apps/${APP_ID}/editor/preview?branch=add-coupon-codes`,
+  continued: false,
+  source_ref: "main",
 };
 
 const claudeLines = (cwd: string, text: string) =>
@@ -240,6 +242,11 @@ describe("import command", () => {
       "This session is from a different repository than the app.",
     ],
     [429, "rate_limited", "Too many imports. Wait a minute and try again."],
+    [
+      409,
+      "repository_not_connected",
+      "Connect this app to its GitHub repository in Base Code first.",
+    ],
   ])("maps HTTP %i %s to a plain message", async (status, code, message) => {
     const file = await plant("s.jsonl", claudeLines("/x", "hi"));
     mockUpload(status, { error: { code, message: "server words" } });
@@ -256,6 +263,76 @@ describe("import command", () => {
 
     t.expectResult(result).toFail();
     t.expectResult(result).toContain(message);
+  });
+
+  it("links to the existing branch when Base Code already has one", async () => {
+    const file = await plant("s.jsonl", claudeLines("/x", "hi"));
+    mockUpload(409, {
+      error: {
+        code: "branch_exists",
+        message: "Base Code already has a branch for feature/x.",
+        details: {
+          branch_name: "feature/x",
+          branch_url: `/apps/${APP_ID}/editor/preview?branch=feature%2Fx`,
+        },
+      },
+    });
+
+    const result = await t.run(
+      "import",
+      "--file",
+      file,
+      "--app-id",
+      APP_ID,
+      "--token",
+      TOKEN,
+    );
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain(
+      "Base Code already has feature/x. Open it: http",
+    );
+    t.expectResult(result).toContain(
+      `/apps/${APP_ID}/editor/preview?branch=feature%2Fx`,
+    );
+  });
+
+  it("says it continued on the session's branch when Base Code adopted it", async () => {
+    const file = await plant("s.jsonl", claudeLines("/x", "hi"));
+    mockUpload(200, {
+      ...SUCCESS,
+      branch_name: "feature/x",
+      continued: true,
+      source_ref: "feature/x",
+    });
+
+    const result = await t.run(
+      "import",
+      "--file",
+      file,
+      "--app-id",
+      APP_ID,
+      "--token",
+      TOKEN,
+    );
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain(
+      'Imported 14 messages from Claude Code. Continued on "feature/x".',
+    );
+  });
+
+  it("explains that Codex cloud sessions can't be imported", async () => {
+    // Codex cloud sets the thread id but writes no rollout file.
+    t.givenEnv({ CODEX_THREAD_ID: "cloud-thread" });
+
+    const result = await t.run("import", "--current", "--app-id", APP_ID);
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain(
+      "Codex cloud sessions can't be imported yet. Run this from the Codex app or CLI on your computer.",
+    );
+    expect(uploads).toHaveLength(0);
   });
 
   it("uses the stored login when no key is given", async () => {
