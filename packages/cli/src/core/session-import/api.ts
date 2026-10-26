@@ -29,7 +29,7 @@ const ErrorEnvelopeSchema = z.object({
 });
 
 const NETWORK_BLOCKED =
-  "claude.ai is blocking Base44. In this session's environment settings, open Network access, add `app.base44.com` and `base44.app` to Allowed domains, save, and try again.";
+  "claude.ai is blocking Base44. In this session's environment settings, open Network access, add `app.base44.com` to Allowed domains, save, and try again.";
 
 function messageFor(
   status: number,
