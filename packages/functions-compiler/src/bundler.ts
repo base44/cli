@@ -5,8 +5,17 @@ import {
   type BundleAppRequest,
   type BundleRequest,
 } from "./contracts.js";
-import { bundleToModule, type NodeModulesMode } from "./deno-bundle.js";
+import {
+  bundleToModule,
+  MAIN_MODULE,
+  type NodeModulesMode,
+} from "./deno-bundle.js";
 import { type BundleErrorItem, DenoCompatError } from "./errors.js";
+import {
+  appSourceMap,
+  functionSourceMap,
+  type SourceMapFunction,
+} from "./source-map.js";
 import { setSpanTags, withSpan } from "./tracing.js";
 import {
   type AppFunctionEntry,
@@ -23,10 +32,13 @@ export type BundleErrorStage = "deno_compat" | "esbuild";
 
 // Response for /v1/bundle (single function).
 // handler_name / do_class_name are set only when the entry extends Actor.
+// `source_map` is set only when the request asked for `sourceMap` (never for
+// actors).
 export type BundleResponse =
   | {
       ok: true;
       module: string;
+      source_map?: string;
       main_module: string;
       warnings: string[];
       handler_name?: string;
@@ -45,11 +57,13 @@ export type AppFunctionStatus =
 
 // Response for /v1/bundle-app. `module` carries the assembled Worker (only the
 // functions that compiled); `functions` reports per-function status so the
-// backend deploys the good ones and attributes the failures.
+// backend deploys the good ones and attributes the failures. `source_map` is
+// set only when the request asked for `sourceMap`.
 export type BundleAppResponse =
   | {
       ok: true;
       module: string;
+      source_map?: string;
       main_module: string;
       functions: AppFunctionStatus[];
       activation?: ActivationMode;
@@ -59,11 +73,6 @@ export type BundleAppResponse =
       module: null;
       functions: AppFunctionStatus[];
     };
-
-// The single-module output is uploaded to Workers-for-Platforms under this
-// name. Keep stable: the Python `BundlerClient`'s caller persists this in
-// the script metadata's `main_module`.
-const NORMALIZED_MAIN_MODULE = "_bundled.mjs";
 
 // Per-function compiles run concurrently; each materializes its own temp dir
 // and esbuild build, so peak memory scales with how many run at once — bound it.
@@ -100,7 +109,7 @@ export async function bundle(req: BundleRequest): Promise<BundleResponse> {
       return {
         ok: true,
         module: outcome.module,
-        main_module: NORMALIZED_MAIN_MODULE,
+        main_module: MAIN_MODULE,
         warnings: outcome.warnings,
         handler_name: actor.handlerName,
         do_class_name: actor.doClassName,
@@ -120,12 +129,15 @@ export async function bundle(req: BundleRequest): Promise<BundleResponse> {
   } catch (e) {
     return denoCompatErrorOrThrow(e);
   }
-  const outcome = await installAndCompile(prepared);
+  const outcome = await installAndCompile(prepared, req.sourceMap ?? false);
   if (outcome.ok) {
     return {
       ok: true,
       module: outcome.module,
-      main_module: NORMALIZED_MAIN_MODULE,
+      ...(outcome.map
+        ? { source_map: functionSourceMap(outcome.map, req) }
+        : {}),
+      main_module: MAIN_MODULE,
       warnings: outcome.warnings,
       ...activationField(req.runtimeSecrets ?? false),
     };
@@ -154,8 +166,11 @@ export async function bundleApp(
 // esbuild fails the whole build on any unresolved import, so on failure we map
 // each error to the function it came from, drop those, and rebuild the rest.
 async function assembleApp(req: BundleAppRequest): Promise<BundleAppResponse> {
-  const telemetry = req.postResponseTelemetry ?? false;
-  const runtimeSecrets = req.runtimeSecrets ?? false;
+  const build: AppBuild = {
+    telemetry: req.postResponseTelemetry ?? false,
+    runtimeSecrets: req.runtimeSecrets ?? false,
+    sourceMap: req.sourceMap ?? false,
+  };
   const entries: AppFunctionEntry[] = req.functions.map((fn, index) => ({
     index,
     fn,
@@ -163,21 +178,21 @@ async function assembleApp(req: BundleAppRequest): Promise<BundleAppResponse> {
 
   let combined: CombinedOutcome;
   try {
-    combined = await compileApp(entries, telemetry, runtimeSecrets);
+    combined = await compileApp(entries, build);
   } catch (e) {
     if (e instanceof DenoCompatError)
-      return bundleAppPerFunction(entries, telemetry, runtimeSecrets);
+      return bundleAppPerFunction(entries, build);
     throw e;
   }
   if (combined.ok) {
-    return appResponse(combined.module, allOk(entries));
+    return appResponse(combined, allOk(entries));
   }
 
   const { byIndex, unattributable } = classifyAppErrors(combined.errors);
   // An error we can't pin to one function (deep in a shared dep, or no location)
   // means the combined build can't tell us what to drop — isolate per function.
   if (unattributable.length > 0) {
-    return bundleAppPerFunction(entries, telemetry, runtimeSecrets);
+    return bundleAppPerFunction(entries, build);
   }
 
   const functions: AppFunctionStatus[] = entries.map((e) =>
@@ -192,32 +207,48 @@ async function assembleApp(req: BundleAppRequest): Promise<BundleAppResponse> {
 
   let rebuilt: CombinedOutcome;
   try {
-    rebuilt = await compileApp(survivors, telemetry, runtimeSecrets);
+    rebuilt = await compileApp(survivors, build);
   } catch (e) {
     if (e instanceof DenoCompatError)
-      return bundleAppPerFunction(entries, telemetry, runtimeSecrets);
+      return bundleAppPerFunction(entries, build);
     throw e;
   }
-  if (rebuilt.ok) return appResponse(rebuilt.module, functions);
+  if (rebuilt.ok) return appResponse(rebuilt, functions);
   // Survivors still don't build — fall back rather than fail the whole app.
-  return bundleAppPerFunction(entries, telemetry, runtimeSecrets);
+  return bundleAppPerFunction(entries, build);
+}
+
+/** How a per-app build is wrapped and emitted. `telemetry` and `runtimeSecrets`
+ *  change the generated entry; `sourceMap` only adds a map beside the module. */
+interface AppBuild {
+  telemetry: boolean;
+  runtimeSecrets: boolean;
+  sourceMap: boolean;
 }
 
 type CombinedOutcome =
-  | { ok: true; module: string }
+  | { ok: true; module: string; map?: string }
   | { ok: false; errors: BundleErrorItem[] };
 
 async function compileApp(
   entries: AppFunctionEntry[],
-  telemetry = false,
-  runtimeSecrets = false,
+  build: AppBuild,
 ): Promise<CombinedOutcome> {
   const outcome = await installAndCompile(
-    prepareApp(entries, telemetry, runtimeSecrets),
+    prepareApp(entries, build.telemetry, build.runtimeSecrets),
+    build.sourceMap,
   );
-  return outcome.ok
-    ? { ok: true, module: outcome.module }
-    : { ok: false, errors: outcome.errors };
+  if (!outcome.ok) return { ok: false, errors: outcome.errors };
+  if (!outcome.map) return { ok: true, module: outcome.module };
+  // Sparse on purpose: the map's `fn_<index>/` keys are original positions,
+  // which survive an exclude-and-rebuild.
+  const functions: SourceMapFunction[] = [];
+  for (const { index, fn } of entries) functions[index] = fn;
+  return {
+    ok: true,
+    module: outcome.module,
+    map: appSourceMap(outcome.map, functions),
+  };
 }
 
 function allOk(entries: AppFunctionEntry[]): AppFunctionStatus[] {
@@ -225,10 +256,16 @@ function allOk(entries: AppFunctionEntry[]): AppFunctionStatus[] {
 }
 
 function appResponse(
-  module: string,
+  built: { module: string; map?: string },
   functions: AppFunctionStatus[],
 ): BundleAppResponse {
-  return { ok: true, module, main_module: NORMALIZED_MAIN_MODULE, functions };
+  return {
+    ok: true,
+    module: built.module,
+    ...(built.map ? { source_map: built.map } : {}),
+    main_module: MAIN_MODULE,
+    functions,
+  };
 }
 
 export interface AppErrorClassification {
@@ -265,13 +302,12 @@ export function classifyAppErrors(
  *  the same combined-build path, so there's no second bundling engine. */
 async function bundleAppPerFunction(
   entries: AppFunctionEntry[],
-  telemetry = false,
-  runtimeSecrets = false,
+  build: AppBuild,
 ): Promise<BundleAppResponse> {
   const probes = await mapWithConcurrency(
     entries,
     MAX_PARALLEL_COMPILES,
-    (entry) => probeFunction(entry, runtimeSecrets),
+    (entry) => probeFunction(entry, build.runtimeSecrets),
   );
 
   const functions: AppFunctionStatus[] = probes.map((p) =>
@@ -284,8 +320,8 @@ async function bundleAppPerFunction(
     return { ok: false, module: null, functions };
   }
 
-  const combined = await compileApp(survivors, telemetry, runtimeSecrets);
-  if (combined.ok) return appResponse(combined.module, functions);
+  const combined = await compileApp(survivors, build);
+  if (combined.ok) return appResponse(combined, functions);
   // Each survivor built alone but not together: the combined graph resolved a
   // shared npm package onto a version some importer can't use. Deterministic
   // user-dep breakage — a 500 here gets retried by the platform and surfaced
@@ -294,8 +330,7 @@ async function bundleAppPerFunction(
     survivors,
     functions,
     combined.errors,
-    telemetry,
-    runtimeSecrets,
+    build,
   );
 }
 
@@ -308,8 +343,7 @@ async function assembleWithoutConflicting(
   survivors: AppFunctionEntry[],
   functions: AppFunctionStatus[],
   errors: BundleErrorItem[],
-  telemetry: boolean,
-  runtimeSecrets = false,
+  build: AppBuild,
 ): Promise<BundleAppResponse> {
   const failWith = (entries: AppFunctionEntry[], items: BundleErrorItem[]) => {
     for (const e of entries) {
@@ -329,10 +363,10 @@ async function assembleWithoutConflicting(
   const blamed = survivors.filter((e) => importsConflictingPackage(e, errors));
   const rest = survivors.filter((e) => !blamed.includes(e));
   if (blamed.length > 0 && rest.length > 0) {
-    const rebuilt = await compileApp(rest, telemetry, runtimeSecrets);
+    const rebuilt = await compileApp(rest, build);
     if (rebuilt.ok) {
       failWith(blamed, conflictErrors);
-      return appResponse(rebuilt.module, functions);
+      return appResponse(rebuilt, functions);
     }
     // Removing the blamed functions exposed a further failure — no module was
     // produced, so every survivor must report it (ok:false means all failed).
@@ -392,14 +426,19 @@ type FunctionProbe =
  *  its own — the `fn_<index>/` ones stripped, the rest (deep deps) kept as-is.
  *  Compiles in the real `runtimeSecrets` mode so a mode-dependent failure (a
  *  user file named the reserved activation filename) is attributed to its
- *  function instead of leaking out of the final assembly as a 500. */
+ *  function instead of leaking out of the final assembly as a 500. Its module
+ *  is discarded, so it skips telemetry and the source map. */
 async function probeFunction(
   entry: AppFunctionEntry,
   runtimeSecrets = false,
 ): Promise<FunctionProbe> {
   let outcome: CombinedOutcome;
   try {
-    outcome = await compileApp([entry], false, runtimeSecrets);
+    outcome = await compileApp([entry], {
+      telemetry: false,
+      runtimeSecrets,
+      sourceMap: false,
+    });
   } catch (e) {
     if (e instanceof DenoCompatError) {
       return { ok: false, entry, errors: [denoCompatErrorItem(e)] };
@@ -435,7 +474,7 @@ async function mapWithConcurrency<T, R>(
 }
 
 type CompileOutcome =
-  | { ok: true; module: string; warnings: string[] }
+  | { ok: true; module: string; map?: string; warnings: string[] }
   | { ok: false; stage: BundleErrorStage; errors: BundleErrorItem[] };
 
 // The resolution failures that only happen in "none" mode and that "auto" fixes.
@@ -443,9 +482,12 @@ const NODE_MODULES_FALLBACK =
   /ERR_MODULE_NOT_FOUND|Could not find referrer npm package/;
 
 /** Compile the prepared tree to a single module via the Deno resolver engine.
- *  Shared by the single-function path and the combined app build. */
+ *  Shared by the single-function path and the combined app build. With
+ *  `sourceMap`, the outcome carries esbuild's raw map; the caller rewrites its
+ *  sources, since only it knows which keys are the request's files. */
 async function installAndCompile(
   prepared: PreparedWorker,
+  sourceMap = false,
 ): Promise<CompileOutcome> {
   return withSpan("base44.bundler.compile", async () => {
     // The problem this solves: we resolve npm from the shared cache without a
@@ -456,13 +498,13 @@ async function installAndCompile(
     // whole app fails to bundle. Retry just that failure with "auto", which writes
     // a real node_modules where the phantom copy becomes a real directory.
     let mode: NodeModulesMode = "none";
-    let result = await bundleToModule(prepared, mode);
+    let result = await bundleToModule(prepared, mode, sourceMap);
     if (
       !result.ok &&
       result.errors.some((e) => NODE_MODULES_FALLBACK.test(e.message))
     ) {
       mode = "auto";
-      result = await bundleToModule(prepared, mode);
+      result = await bundleToModule(prepared, mode, sourceMap);
     }
     // node_modules_mode:auto marks the fallback firing; with outcome it shows how
     // often the edge case hits and whether "auto" then rescued it.
@@ -471,7 +513,12 @@ async function installAndCompile(
       outcome: result.ok ? "ok" : "failed",
     });
     if (result.ok) {
-      return { ok: true, module: result.module, warnings: result.warnings };
+      return {
+        ok: true,
+        module: result.module,
+        ...(result.map ? { map: result.map } : {}),
+        warnings: result.warnings,
+      };
     }
     return { ok: false, stage: "esbuild", errors: result.errors };
   });
