@@ -67,6 +67,8 @@ const deno = Object.freeze({
 
 (globalThis as unknown as { Deno: unknown }).Deno = deno;
 (globalThis as unknown as { Buffer: typeof Buffer }).Buffer = Buffer;
+// workerd reports a fixed v22.19.0, which SDKs forward (Stripe in its user agent).
+if (typeof process !== "undefined") (process as { version: string }).version = "v22.23.4";
 // workerd's enterWith() is a stub that throws; libraries such as Stagehand
 // call it to seed a context they also pass explicitly, so a no-op keeps them
 // working. Probed on a throwaway instance so a future native implementation is

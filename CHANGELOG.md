@@ -29,6 +29,7 @@
 
 ### Fixed
 
+- Agent files accept server route tools (`{ "tool_name", "route_path", "method", "description" }`), the tool type that lets an in-app agent call one of a full-stack app's own server routes. `base44 agents pull` wrote them, but every later command that reads the project — `agents push`, `deploy`, and most others — refused the file at `tool_configs[N]`. `method` defaults to `post` and `description` to `agent server route`, as on the server.
 - `base44 link --app-id` links directly instead of first listing your apps to confirm the ID. The listing only covered the 50 most recently updated apps, and a workspace API key (`BASE44_API_KEY`) is refused on it, so `link --app-id` failed in CI. A wrong ID now fails on the first request that addresses the app.
 - `base44 deploy --git-hash` (and `site deploy --publish`) no longer fails after a successful publish when the app's URL can't be looked up, as happened with a workspace API key (`BASE44_API_KEY`). It reports the deploy and leaves out the URL.
 - An app id passed with `--app-id` or `BASE44_APP_ID` no longer discards the project the command runs in. Commands that need a project — `site dev`, `dev`, `connectors pull`/`push` — refused as if there were none. A checkout with `base44/config.jsonc` but no `.app.jsonc`, such as a hosted sandbox, can now run them.
