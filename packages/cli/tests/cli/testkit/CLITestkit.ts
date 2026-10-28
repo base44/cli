@@ -49,6 +49,7 @@ export interface RunLiveHandle {
 interface TestOverrides {
   appConfig?: { id: string; projectRoot: string };
   latestVersion?: string | null;
+  claudeBin?: string;
 }
 
 export class CLITestkit {
@@ -138,6 +139,11 @@ export class CLITestkit {
    */
   givenLatestVersion(version: string | null | undefined): void {
     this.testOverrides.latestVersion = version;
+  }
+
+  /** Run this executable in place of `claude` (session teleport) */
+  givenClaudeBin(path: string): void {
+    this.testOverrides.claudeBin = path;
   }
 
   /** Simulate piped stdin for the next run() call */
