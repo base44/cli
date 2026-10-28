@@ -97,7 +97,7 @@ async function importAction(
   // First: the transcript link and the key must never reach error reporting.
   ctx.errorReporter.setContext({
     command: {
-      name: "import",
+      name: "sessions import",
       args: link ? ["[not reported]"] : [],
       options: {
         ...command.opts(),
@@ -158,11 +158,9 @@ async function importAction(
   };
 }
 
-export function getImportCommand(): Command {
+export function getSessionsImportCommand(): Command {
   return new Base44Command("import", { requireAuth: false })
-    .description(
-      "Continue a Claude Code or Codex session in a new Base Code branch",
-    )
+    .description("Continue a Claude Code or Codex session in Base Code")
     .argument(
       "[session-link]",
       "A claude.ai session address (https://claude.ai/code/session_…)",

@@ -35,7 +35,7 @@ interface Upload {
   body: string;
 }
 
-describe("import command", () => {
+describe("sessions import command", () => {
   const t = setupCLITests();
   let uploads: Upload[];
 
@@ -83,6 +83,7 @@ describe("import command", () => {
     mockUpload();
 
     const result = await t.run(
+      "sessions",
       "import",
       "--current",
       "--app-id",
@@ -125,6 +126,7 @@ describe("import command", () => {
     mockUpload(200, { ...SUCCESS, source: "codex" });
 
     const result = await t.run(
+      "sessions",
       "import",
       "--current",
       "--app-id",
@@ -151,6 +153,7 @@ describe("import command", () => {
     mockUpload(200, { ...SUCCESS, source: "codex" });
 
     const result = await t.run(
+      "sessions",
       "import",
       "--current",
       "--app-id",
@@ -164,7 +167,13 @@ describe("import command", () => {
   });
 
   it("explains how to proceed when there is no current session", async () => {
-    const result = await t.run("import", "--current", "--app-id", APP_ID);
+    const result = await t.run(
+      "sessions",
+      "import",
+      "--current",
+      "--app-id",
+      APP_ID,
+    );
 
     t.expectResult(result).toFail();
     t.expectResult(result).toContain(
@@ -178,6 +187,7 @@ describe("import command", () => {
     mockUpload();
 
     const result = await t.run(
+      "sessions",
       "import",
       "--file",
       file,
@@ -208,6 +218,7 @@ describe("import command", () => {
     });
 
     const result = await t.run(
+      "sessions",
       "import",
       "--file",
       file,
@@ -252,6 +263,7 @@ describe("import command", () => {
     mockUpload(status, { error: { code, message: "server words" } });
 
     const result = await t.run(
+      "sessions",
       "import",
       "--file",
       file,
@@ -279,6 +291,7 @@ describe("import command", () => {
     });
 
     const result = await t.run(
+      "sessions",
       "import",
       "--file",
       file,
@@ -307,6 +320,7 @@ describe("import command", () => {
     });
 
     const result = await t.run(
+      "sessions",
       "import",
       "--file",
       file,
@@ -326,7 +340,13 @@ describe("import command", () => {
     // Codex cloud sets the thread id but writes no rollout file.
     t.givenEnv({ CODEX_THREAD_ID: "cloud-thread" });
 
-    const result = await t.run("import", "--current", "--app-id", APP_ID);
+    const result = await t.run(
+      "sessions",
+      "import",
+      "--current",
+      "--app-id",
+      APP_ID,
+    );
 
     t.expectResult(result).toFail();
     t.expectResult(result).toContain(
@@ -340,7 +360,14 @@ describe("import command", () => {
     const file = await plant("s.jsonl", claudeLines("/x", "hi"));
     mockUpload();
 
-    const result = await t.run("import", "--file", file, "--app-id", APP_ID);
+    const result = await t.run(
+      "sessions",
+      "import",
+      "--file",
+      file,
+      "--app-id",
+      APP_ID,
+    );
 
     t.expectResult(result).toSucceed();
     expect(uploads[0]?.authorization).toMatch(/^Bearer /);
@@ -351,6 +378,7 @@ describe("import command", () => {
     const file = await plant("big.jsonl", "x".repeat(25 * 1024 * 1024 + 1));
 
     const result = await t.run(
+      "sessions",
       "import",
       "--file",
       file,
@@ -369,6 +397,7 @@ describe("import command", () => {
 
   it("rejects a claude.ai 'Copy link' address", async () => {
     const result = await t.run(
+      "sessions",
       "import",
       "https://claude.ai/code/cshk_abc123",
       "--app-id",
@@ -417,6 +446,7 @@ describe("import command", () => {
       );
       t.givenEnv({ CLAUDE_CODE_SESSION_ID: "abc-123" });
       return t.run(
+        "sessions",
         "import",
         "--current",
         "--app-id",
@@ -509,6 +539,7 @@ describe("import command", () => {
       mockUpload();
 
       const result = await t.run(
+        "sessions",
         "import",
         "--file",
         file,
@@ -563,6 +594,7 @@ writeFileSync(join(dir, "local-id.jsonl"), lines.map((l) => JSON.stringify(l)).j
     mockUpload();
 
     const result = await t.run(
+      "sessions",
       "import",
       "https://claude.ai/code/session_01AbC?from=cli&m=0",
       "--app-id",
@@ -598,6 +630,7 @@ writeFileSync(join(dir, "local-id.jsonl"), lines.map((l) => JSON.stringify(l)).j
     t.givenClaudeBin(join(home(), "no-such-claude"));
 
     const result = await t.run(
+      "sessions",
       "import",
       "claude --teleport session_01AbC",
       "--app-id",
