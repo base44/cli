@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import ky, { HTTPError, type KyResponse } from "ky";
 import { z } from "zod";
 import { getAppClient } from "@/core/clients/index.js";
@@ -51,6 +52,9 @@ function messageFor(
 ): string | undefined {
   if (code === "branch_exists" && details?.branch_url) {
     return `Base Code already has ${details.branch_name ?? "a branch for this session"}. Open it: ${new URL(details.branch_url, getBase44ApiUrl())}`;
+  }
+  if (code === "idempotency_key_in_use") {
+    return "An import of this session is still running. Wait a moment and try again.";
   }
   if (code === "repository_not_connected") {
     return "Connect this app to its GitHub repository in Base Code first.";
@@ -128,6 +132,9 @@ export async function uploadSession(
   form.append("file", new Blob([content]), "session.jsonl");
   // The backend starts the new branch from this one when it's on GitHub.
   if (sourceBranch) form.append("source_branch", sourceBranch);
+  // One key per run, shared by any retry of it: a retried upload gets the first
+  // response back instead of creating a second branch.
+  const idempotencyKey = randomUUID();
 
   let response: KyResponse;
   try {
@@ -142,12 +149,14 @@ export async function uploadSession(
             headers: {
               Authorization: `Bearer ${token}`,
               "User-Agent": "Base44 CLI",
+              "Idempotency-Key": idempotencyKey,
             },
             timeout: 180_000,
           },
         )
       : await getAppClient().post("imported/session-imports", {
           body: form,
+          headers: { "Idempotency-Key": idempotencyKey },
           timeout: 180_000,
         });
   } catch (error) {

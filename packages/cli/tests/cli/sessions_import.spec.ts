@@ -32,6 +32,7 @@ const claudeLines = (cwd: string, text: string) =>
 
 interface Upload {
   authorization?: string;
+  idempotencyKey?: string;
   body: string;
 }
 
@@ -52,6 +53,7 @@ describe("sessions import command", () => {
     t.api.mockRoute("POST", ROUTE, (req, res) => {
       uploads.push({
         authorization: req.headers.authorization,
+        idempotencyKey: req.headers["idempotency-key"] as string | undefined,
         body: (req.body as Buffer).toString("utf8"),
       });
       res.status(status).json(body);
@@ -255,6 +257,11 @@ describe("sessions import command", () => {
     [429, "rate_limited", "Too many imports. Wait a minute and try again."],
     [
       409,
+      "idempotency_key_in_use",
+      "An import of this session is still running. Wait a moment and try again.",
+    ],
+    [
+      409,
       "repository_not_connected",
       "Connect this app to its GitHub repository in Base Code first.",
     ],
@@ -353,6 +360,21 @@ describe("sessions import command", () => {
       "Codex cloud sessions can't be imported yet. Run this from the Codex app or CLI on your computer.",
     );
     expect(uploads).toHaveLength(0);
+  });
+
+  it("sends a fresh Idempotency-Key on each run", async () => {
+    const file = await plant("s.jsonl", claudeLines("/x", "hi"));
+    mockUpload();
+    const args = ["sessions", "import", "--file", file, "--app-id", APP_ID];
+
+    await t.run(...args, "--token", TOKEN);
+    await t.givenLoggedIn({ email: "me@example.com", name: "Me" });
+    await t.run(...args);
+
+    const [first, second] = uploads.map((upload) => upload.idempotencyKey);
+    expect(first).toMatch(/^[0-9a-f-]{36}$/);
+    expect(second).toMatch(/^[0-9a-f-]{36}$/);
+    expect(first).not.toBe(second);
   });
 
   it("uses the stored login when no key is given", async () => {
