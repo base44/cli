@@ -12,6 +12,7 @@ import {
 import { getBase44ApiUrl } from "@/core/config.js";
 import { InvalidInputError } from "@/core/errors.js";
 import { MAX_SESSION_BYTES, uploadSession } from "@/core/session-import/api.js";
+import { prepareSessionImages } from "@/core/session-import/images.js";
 import {
   findCurrentSession,
   type LocalSession,
@@ -113,10 +114,12 @@ async function importAction(
   }
 
   const appId = requireApp(ctx).id;
-  const content = await readSession(ctx, link, options);
+  const content = await prepareSessionImages(
+    await readSession(ctx, link, options),
+  );
   if (content.length > MAX_SESSION_BYTES) {
     throw new InvalidInputError(
-      "This session is over 25 MB and can't be imported.",
+      "This session is over 50 MB and can't be imported.",
       { hints: [] },
     );
   }

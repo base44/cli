@@ -396,8 +396,8 @@ describe("sessions import command", () => {
     expect(uploads[0]?.authorization).not.toBe(`Bearer ${TOKEN}`);
   });
 
-  it("refuses a file over 25 MB before uploading", async () => {
-    const file = await plant("big.jsonl", "x".repeat(25 * 1024 * 1024 + 1));
+  it("refuses a file over 50 MB before uploading", async () => {
+    const file = await plant("big.jsonl", "x".repeat(50 * 1024 * 1024 + 1));
 
     const result = await t.run(
       "sessions",
@@ -412,9 +412,122 @@ describe("sessions import command", () => {
 
     t.expectResult(result).toFail();
     t.expectResult(result).toContain(
-      "This session is over 25 MB and can't be imported.",
+      "This session is over 50 MB and can't be imported.",
     );
     expect(uploads).toHaveLength(0);
+  });
+
+  const importFile = (file: string) =>
+    t.run(
+      "sessions",
+      "import",
+      "--file",
+      file,
+      "--app-id",
+      APP_ID,
+      "--token",
+      TOKEN,
+    );
+
+  it("uploads pasted images but not the ones the agent's tools produced", async () => {
+    const image = (data: string) => ({
+      type: "image",
+      source: { type: "base64", media_type: "image/png", data },
+    });
+    const file = await plant(
+      "pasted.jsonl",
+      [
+        {
+          type: "user",
+          message: {
+            role: "user",
+            content: [{ type: "text", text: "Fix this" }, image("UEFTVEVE")],
+          },
+        },
+        {
+          type: "assistant",
+          message: {
+            role: "assistant",
+            content: [
+              {
+                type: "tool_use",
+                id: "t1",
+                name: "Read",
+                input: { file_path: "/a.png" },
+              },
+            ],
+          },
+        },
+        {
+          type: "user",
+          message: {
+            role: "user",
+            content: [
+              {
+                type: "tool_result",
+                tool_use_id: "t1",
+                content: [image("VE9PTA==")],
+              },
+            ],
+          },
+          toolUseResult: { type: "image", file: { base64: "VE9PTA==" } },
+        },
+      ]
+        .map((line) => JSON.stringify(line))
+        .join("\n"),
+    );
+    mockUpload();
+
+    t.expectResult(await importFile(file)).toSucceed();
+
+    expect(uploads[0]?.body).toContain("UEFTVEVE");
+    expect(uploads[0]?.body).toContain('"tool_use_id":"t1"');
+    expect(uploads[0]?.body).not.toContain("VE9PTA==");
+  });
+
+  it("adds an image attached as a file path once the agent opened it", async () => {
+    const opened = await plant("attachments/shot.png", "opened-image");
+    const mentioned = await plant("attachments/other.png", "mentioned-only");
+    const message = (role: string, text: string) => ({
+      type: "response_item",
+      payload: {
+        type: "message",
+        role,
+        content: [
+          { type: role === "user" ? "input_text" : "output_text", text },
+        ],
+      },
+    });
+    const file = await plant(
+      "rollout-attached.jsonl",
+      [
+        { type: "session_meta", payload: { cwd: "/repo" } },
+        message(
+          "user",
+          `What's in this image?\n\n# Attached files\n\n- ${opened}\n- ${mentioned}`,
+        ),
+        {
+          type: "response_item",
+          payload: {
+            type: "custom_tool_call",
+            name: "exec",
+            input: `tools.view_image({path:"${opened}"})`,
+          },
+        },
+        message("assistant", "A screenshot."),
+      ]
+        .map((line) => JSON.stringify(line))
+        .join("\n"),
+    );
+    mockUpload();
+
+    t.expectResult(await importFile(file)).toSucceed();
+
+    const base64 = (text: string) => Buffer.from(text).toString("base64");
+    expect(uploads[0]?.body).toContain(
+      `"image_url":"data:image/png;base64,${base64("opened-image")}"`,
+    );
+    expect(uploads[0]?.body).not.toContain(base64("mentioned-only"));
   });
 
   it("rejects a claude.ai 'Copy link' address", async () => {
