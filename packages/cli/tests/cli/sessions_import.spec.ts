@@ -265,6 +265,11 @@ describe("sessions import command", () => {
       "repository_not_connected",
       "Connect this app to its GitHub repository in Base Code first.",
     ],
+    [
+      409,
+      "branch_busy",
+      "The session's branch is still working in Base Code. Wait for it to finish, then import again.",
+    ],
   ])("maps HTTP %i %s to a plain message", async (status, code, message) => {
     const file = await plant("s.jsonl", claudeLines("/x", "hi"));
     mockUpload(status, { error: { code, message: "server words" } });
@@ -341,6 +346,34 @@ describe("sessions import command", () => {
     t.expectResult(result).toContain(
       'Imported 14 messages from Claude Code. Continued on "feature/x".',
     );
+  });
+
+  it.each([
+    [3, 'Added 3 new messages from Claude Code to "feature/x".'],
+    [0, 'Nothing new to import. "feature/x" already has every message.'],
+  ])("reports a re-import that added %i messages", async (turnCount, message) => {
+    const file = await plant("s.jsonl", claudeLines("/x", "hi"));
+    mockUpload(200, {
+      ...SUCCESS,
+      branch_name: "feature/x",
+      continued: true,
+      reimported: true,
+      turn_count: turnCount,
+    });
+
+    const result = await t.run(
+      "sessions",
+      "import",
+      "--file",
+      file,
+      "--app-id",
+      APP_ID,
+      "--token",
+      TOKEN,
+    );
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain(message);
   });
 
   it("explains that Codex cloud sessions can't be imported", async () => {

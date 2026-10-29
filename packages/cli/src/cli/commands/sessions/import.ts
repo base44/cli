@@ -149,9 +149,7 @@ async function importAction(
   const url = `${getBase44ApiUrl()}${imported.branchUrl}`;
   return {
     outroMessage: [
-      imported.continued
-        ? `✓ Imported ${imported.turnCount} messages from ${TOOL_LABELS[imported.source]}. Continued on "${imported.branchName}".`
-        : `✓ Imported ${imported.turnCount} messages from ${TOOL_LABELS[imported.source]} into branch "${imported.branchName}".`,
+      outcome(imported),
       ...(note ? [note] : []),
       `Open it: ${url}`,
     ].join("\n"),
@@ -159,6 +157,19 @@ async function importAction(
       ? toJsonStdout({ ...imported, url, ...(note ? { note } : {}) })
       : undefined,
   };
+}
+
+function outcome(imported: Awaited<ReturnType<typeof uploadSession>>): string {
+  const { turnCount, branchName } = imported;
+  const tool = TOOL_LABELS[imported.source];
+  if (imported.reimported) {
+    return turnCount
+      ? `✓ Added ${turnCount} new messages from ${tool} to "${branchName}".`
+      : `✓ Nothing new to import. "${branchName}" already has every message.`;
+  }
+  return imported.continued
+    ? `✓ Imported ${turnCount} messages from ${tool}. Continued on "${branchName}".`
+    : `✓ Imported ${turnCount} messages from ${tool} into branch "${branchName}".`;
 }
 
 export function getSessionsImportCommand(): Command {

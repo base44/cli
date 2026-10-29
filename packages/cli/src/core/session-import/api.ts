@@ -16,6 +16,8 @@ const SessionImportResponseSchema = z
     branch_url: z.string(),
     continued: z.boolean(),
     source_ref: z.string(),
+    // Servers before re-import support leave it out.
+    reimported: z.boolean().default(false),
   })
   .transform((data) => ({
     branchId: data.branch_id,
@@ -25,6 +27,7 @@ const SessionImportResponseSchema = z
     branchUrl: data.branch_url,
     continued: data.continued,
     sourceRef: data.source_ref,
+    reimported: data.reimported,
   }));
 
 type SessionImport = z.infer<typeof SessionImportResponseSchema>;
@@ -52,6 +55,12 @@ function messageFor(
 ): string | undefined {
   if (code === "branch_exists" && details?.branch_url) {
     return `Base Code already has ${details.branch_name ?? "a branch for this session"}. Open it: ${new URL(details.branch_url, getBase44ApiUrl())}`;
+  }
+  if (code === "session_changed" && details?.branch_url) {
+    return `This session changed since it was imported into ${details.branch_name ?? "its branch"}, so its newer messages can't be added there. In Base Code, open Import session and choose Import into a new branch: ${new URL(details.branch_url, getBase44ApiUrl())}`;
+  }
+  if (code === "branch_busy") {
+    return `${details?.branch_name ?? "The session's branch"} is still working in Base Code. Wait for it to finish, then import again.`;
   }
   if (code === "idempotency_key_in_use") {
     return "An import of this session is still running. Wait a moment and try again.";
