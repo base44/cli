@@ -70,8 +70,15 @@ app's credentials via the environment, the `ensureAuth` middleware calls
 validates), pairs it with `BASE44_REFRESH_TOKEN`, and writes a standard
 `~/.base44/auth/auth.json`, so everything downstream uses one file-based path.
 
-This overwrites an existing login when env vars are present, and no-ops when
-they can't form a complete record. The seeded file looks like a normal login, so
+When `BASE44_ACCESS_TOKEN` is set **without** `BASE44_REFRESH_TOKEN` (e.g. the
+MCP `run_command` tool injecting a short-lived token into a shared app sandbox
+for one command), it is held in memory for the current process only:
+`readAuth()` returns it ahead of `auth.json`, it is never written to disk, and
+`refreshAndSaveTokens()` returns `null` without refreshing, writing or deleting
+anything, so on expiry the 401 surfaces and any stored login is left untouched.
+
+The paired path overwrites an existing login when env vars are present; seeding
+no-ops when the token lacks `sub`/`exp`. The seeded file looks like a normal login, so
 a 401 refresh applies to it too; if refresh fails it deletes the file, which
 self-heals on the next command (re-seeded from the still-present env vars). See
 `seedAuthFromEnv()` in `core/auth/config.js`.

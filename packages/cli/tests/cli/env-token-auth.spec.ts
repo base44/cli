@@ -232,16 +232,71 @@ describe("env credential seeding", () => {
     expect(authHeader).toBe("Bearer test-access-token");
   });
 
-  it("does not overwrite a stored login when env credentials are incomplete", async () => {
-    await t.givenLoggedIn({ email: "real@example.com", name: "Real User" });
-    // Access token present but no refresh token → can't form a standard record,
-    // so seeding is skipped and the existing login is left untouched.
+  it("does not seed auth.json from a lone access token", async () => {
+    // Access token without a refresh token is a per-process credential (e.g.
+    // injected into a shared sandbox for one command): it must never persist.
     t.givenEnv({
       BASE44_ACCESS_TOKEN: makeJwt({
         sub: "alice@example.com",
         exp: futureExp(),
       }),
     });
+
+    const result = await t.run("whoami");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("alice@example.com");
+    expect(await t.readAuthFile()).toBeNull();
+  });
+
+  it("uses a lone access token as the bearer without touching a stored login", async () => {
+    await t.givenLoggedInWithProject(fixture("with-entities"));
+    const authBefore = await t.readAuthFile();
+    const jwt = makeJwt({ sub: "alice@example.com", exp: futureExp() });
+    t.givenEnv({ BASE44_ACCESS_TOKEN: jwt });
+
+    let authHeader: string | undefined;
+    t.api.mockRoute("PUT", `/api/apps/${APP_ID}/entity-schemas`, (req, res) => {
+      authHeader = req.headers.authorization;
+      res.status(200).json({ created: ["customer"], updated: [], deleted: [] });
+    });
+
+    const result = await t.run("entities", "push", "--yes");
+
+    t.expectResult(result).toSucceed();
+    expect(authHeader).toBe(`Bearer ${jwt}`);
+    expect(await t.readAuthFile()).toEqual(authBefore);
+  });
+
+  it("does not refresh or delete a stored login when a lone access token is rejected", async () => {
+    await t.givenLoggedInWithProject(fixture("with-entities"));
+    const authBefore = await t.readAuthFile();
+    t.givenEnv({
+      BASE44_ACCESS_TOKEN: makeJwt({
+        sub: "alice@example.com",
+        exp: futureExp(),
+      }),
+    });
+    t.api.mockEntitiesPushError({
+      status: 401,
+      body: { error: "Unauthorized", detail: "Token expired" },
+    });
+    let refreshCalled = false;
+    t.api.mockRoute("POST", "/oauth/token", (_req, res) => {
+      refreshCalled = true;
+      res.status(500).json({ error: "Unexpected refresh" });
+    });
+
+    const result = await t.run("entities", "push", "--yes");
+
+    t.expectResult(result).toFail();
+    expect(refreshCalled).toBe(false);
+    expect(await t.readAuthFile()).toEqual(authBefore);
+  });
+
+  it("does not use an access token without sub or exp claims", async () => {
+    await t.givenLoggedIn({ email: "real@example.com", name: "Real User" });
+    t.givenEnv({ BASE44_ACCESS_TOKEN: makeJwt({ foo: "bar" }) });
 
     const result = await t.run("whoami");
 

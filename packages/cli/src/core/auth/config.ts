@@ -13,6 +13,11 @@ const WORKSPACE_API_KEY_PREFIX = "b44k_";
 // Lock to prevent concurrent token refreshes
 let refreshPromise: Promise<string | null> | null = null;
 
+// Process-scoped auth from a lone BASE44_ACCESS_TOKEN. Held in memory only and
+// never written to auth.json: it may be injected into a shared sandbox for a
+// single command, so persisting it would let the next command run as this user.
+let envAccessTokenAuth: AuthData | null = null;
+
 export function getWorkspaceApiKeyFromEnv(): string | null {
   const key = process.env.BASE44_API_KEY?.trim();
   return key ? key : null;
@@ -41,7 +46,20 @@ export async function seedAuthFromEnv(): Promise<void> {
   const sub = typeof payload?.sub === "string" ? payload.sub : undefined;
   const exp = typeof payload?.exp === "number" ? payload.exp : undefined;
 
-  if (!refreshToken || !sub || !exp) {
+  if (!sub || !exp) {
+    return;
+  }
+
+  if (!refreshToken) {
+    // No refresh token: use the access token for this process only and let a
+    // 401 surface on expiry.
+    envAccessTokenAuth = {
+      accessToken,
+      refreshToken: "",
+      expiresAt: exp * 1000,
+      email: sub,
+      name: sub,
+    };
     return;
   }
 
@@ -56,6 +74,7 @@ export async function seedAuthFromEnv(): Promise<void> {
 
 /**
  * Reads and validates the stored authentication data.
+ * An in-memory env access token (see seedAuthFromEnv) takes precedence.
  *
  * @returns The parsed authentication data (tokens, user info).
  * @throws {Error} If not logged in or if auth data is corrupted.
@@ -65,6 +84,10 @@ export async function seedAuthFromEnv(): Promise<void> {
  * console.log(`Logged in as: ${auth.email}`);
  */
 export async function readAuth(): Promise<AuthData> {
+  if (envAccessTokenAuth) {
+    return envAccessTokenAuth;
+  }
+
   try {
     const authData = await readJsonFile(getAuthFilePath());
     const result = AuthDataSchema.safeParse(authData);
@@ -132,6 +155,12 @@ export function isTokenExpired(auth: AuthData): boolean {
 }
 
 export async function refreshAndSaveTokens(): Promise<string | null> {
+  // An env access token has nothing to refresh with, and auth.json belongs to
+  // someone else: never refresh, write, or delete it.
+  if (envAccessTokenAuth) {
+    return null;
+  }
+
   // If a refresh is already in progress, wait for it
   if (refreshPromise) {
     return refreshPromise;
