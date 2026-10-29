@@ -1043,8 +1043,19 @@ export class TestAPIServer {
 
   // ─── GENERAL ENDPOINTS ───────────────────────────────────
 
+  /** Captured JSON bodies of POST /api/apps requests. */
+  readonly createAppRequests: unknown[] = [];
+
   mockCreateApp(response: CreateAppResponse): this {
-    return this.addRoute("POST", "/api/apps", response);
+    this.pendingRoutes.push({
+      method: "POST",
+      path: "/api/apps",
+      handler: (req, res) => {
+        this.createAppRequests.push(req.body);
+        res.status(200).json(response);
+      },
+    });
+    return this;
   }
 
   mockListProjects(response: ListProjectsResponse[]): this {
