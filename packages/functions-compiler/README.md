@@ -232,6 +232,12 @@ untouched: the entry still logs it and rethrows, and Cloudflare records it.
 resolution the compiler itself performs. Install it in the worker or child
 process that runs a compile — not in a process that later needs the network.
 
+`@deno/loader` downloads dependencies through the global `fetch` and never
+retries, so the first compile in a process wraps `globalThis.fetch` once: GETs
+to those same dependency hosts are retried on a network error, 429 or 5xx, and
+each failure is logged as `base44.bundler.dependency_fetch_failed`. Every other
+request passes through untouched.
+
 ### Diagnostics
 
 The compiler ships no tracer and no service credentials. Hosts that want spans

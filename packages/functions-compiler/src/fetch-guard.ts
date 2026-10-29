@@ -46,7 +46,7 @@ export function createGuardedFetch(
   // `preconnect`), and the guard wraps only the call.
   return (async (input: FetchInput, init?: RequestInit) => {
     const url = requestUrl(input);
-    if (!isAllowedHost(url.hostname)) {
+    if (!isDependencyHost(url.hostname)) {
       logEvent("warn", "base44.bundler.fetch_blocked", { host: url.hostname });
       throw new Error(
         `Blocked fetch to disallowed host "${url.hostname}". Allowed: the npm and jsr registries and the esm.sh / deno.land CDNs — import dependencies via npm:, jsr:, or an https: URL on one of those hosts.`,
@@ -71,15 +71,15 @@ export function createGuardedFetch(
   }) as typeof fetch;
 }
 
-type FetchInput = Parameters<typeof fetch>[0];
+export type FetchInput = Parameters<typeof fetch>[0];
 
-function requestUrl(input: FetchInput): URL {
+export function requestUrl(input: FetchInput): URL {
   if (input instanceof URL) return input;
   if (typeof input === "string") return new URL(input);
   return new URL(input.url);
 }
 
-function isAllowedHost(hostname: string): boolean {
+export function isDependencyHost(hostname: string): boolean {
   return ALLOWED_HOST_SUFFIXES.some(
     (suffix) => hostname === suffix || hostname.endsWith(`.${suffix}`),
   );
