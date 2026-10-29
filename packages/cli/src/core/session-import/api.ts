@@ -5,7 +5,7 @@ import { getAppClient } from "@/core/clients/index.js";
 import { getBase44ApiUrl } from "@/core/config.js";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";
 
-export const MAX_SESSION_BYTES = 25 * 1024 * 1024;
+export const MAX_SESSION_BYTES = 50 * 1024 * 1024;
 
 const SessionImportResponseSchema = z
   .object({
@@ -67,7 +67,7 @@ function messageFor(
   }
   if (status === 404) return "Session import isn't available for this app.";
   if (status === 413)
-    return "This session is over 25 MB and can't be imported.";
+    return "This session is over 50 MB and can't be imported.";
   if (code === "unsupported_file") {
     return "That file isn't a Claude Code or Codex session.";
   }
