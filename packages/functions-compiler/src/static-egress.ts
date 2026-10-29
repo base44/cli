@@ -130,11 +130,56 @@ function isExcludedHostname(
   return false;
 }
 
+// stripe-node before its workerd build reports workerd's fixed process.version
+// as lang_version, and Stripe then warns the account about an outdated Node.
+const STRIPE_CLIENT_USER_AGENT_HEADER = "X-Stripe-Client-User-Agent";
+
+function withoutLangVersion(value: string | null): string | null {
+  if (value === null) return null;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (
+      parsed === null ||
+      typeof parsed !== "object" ||
+      Array.isArray(parsed) ||
+      !("lang_version" in parsed)
+    ) {
+      return null;
+    }
+    delete (parsed as Record<string, unknown>).lang_version;
+    return JSON.stringify(parsed);
+  } catch {
+    return null;
+  }
+}
+
+export function stripStripeLangVersion(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): [RequestInfo | URL, RequestInit | undefined] {
+  if (init?.headers !== undefined) {
+    const headers = new Headers(init.headers);
+    const value = withoutLangVersion(headers.get(STRIPE_CLIENT_USER_AGENT_HEADER));
+    if (value === null) return [input, init];
+    headers.set(STRIPE_CLIENT_USER_AGENT_HEADER, value);
+    return [input, { ...init, headers }];
+  }
+  if (input instanceof Request) {
+    const value = withoutLangVersion(input.headers.get(STRIPE_CLIENT_USER_AGENT_HEADER));
+    if (value === null) return [input, init];
+    const headers = new Headers(input.headers);
+    headers.set(STRIPE_CLIENT_USER_AGENT_HEADER, value);
+    return [new Request(input, { headers }), init];
+  }
+  return [input, init];
+}
+
 export function createRequestScopedStaticEgressFetch(
   originalFetch: typeof fetch,
   readEnvironment: () => Record<string, unknown>,
 ): typeof fetch {
-  return (input: RequestInfo | URL, init?: RequestInit) => {
+  return (rawInput: RequestInfo | URL, rawInit?: RequestInit) => {
+    const [input, init] = stripStripeLangVersion(rawInput, rawInit);
     const env = readEnvironment();
     const binding = env[STATIC_EGRESS_BINDING_NAME];
     const enableSecret = env[STATIC_EGRESS_ENABLED_ENV];

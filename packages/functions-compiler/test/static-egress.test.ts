@@ -284,3 +284,70 @@ describe("createRequestScopedStaticEgressFetch", () => {
     }
   });
 });
+
+describe("stripStripeLangVersion", () => {
+  const header = "X-Stripe-Client-User-Agent";
+  const agent = { bindings_version: "20.4.1", lang: "node", lang_version: "v22.19.0", platform: "linux" };
+  const stripped = { bindings_version: "20.4.1", lang: "node", platform: "linux" };
+  const noEgress = () => ({});
+
+  it("drops only lang_version from init headers", async () => {
+    const ordinaryFetch = vi.fn<typeof fetch>().mockResolvedValue(new Response());
+    const routedFetch = createRequestScopedStaticEgressFetch(ordinaryFetch, noEgress);
+
+    await routedFetch("https://api.stripe.com/v1/customers", {
+      method: "POST",
+      headers: { [header]: JSON.stringify(agent), Authorization: "Bearer sk_test" },
+    });
+
+    const [, init] = ordinaryFetch.mock.calls[0];
+    const headers = new Headers(init?.headers);
+    expect(JSON.parse(headers.get(header)!)).toEqual(stripped);
+    expect(headers.get("Authorization")).toBe("Bearer sk_test");
+    expect(init?.method).toBe("POST");
+  });
+
+  it("drops lang_version from a Request's own headers", async () => {
+    const ordinaryFetch = vi.fn<typeof fetch>().mockResolvedValue(new Response());
+    const routedFetch = createRequestScopedStaticEgressFetch(ordinaryFetch, noEgress);
+
+    await routedFetch(
+      new Request("https://stripe.internal.example/v1/charges", {
+        headers: { [header]: JSON.stringify(agent) },
+      }),
+    );
+
+    const [input] = ordinaryFetch.mock.calls[0];
+    expect(JSON.parse((input as Request).headers.get(header)!)).toEqual(stripped);
+  });
+
+  it.each(["not json", JSON.stringify(stripped), JSON.stringify(["lang_version"])])(
+    "passes %s through untouched",
+    async (value) => {
+      const ordinaryFetch = vi.fn<typeof fetch>().mockResolvedValue(new Response());
+      const routedFetch = createRequestScopedStaticEgressFetch(ordinaryFetch, noEgress);
+      const init = { headers: { [header]: value } };
+
+      await routedFetch("https://api.stripe.com/v1/customers", init);
+
+      expect(ordinaryFetch).toHaveBeenCalledWith("https://api.stripe.com/v1/customers", init);
+    },
+  );
+
+  it("strips before routing through dedicated egress", async () => {
+    const ordinaryFetch = vi.fn<typeof fetch>();
+    const bindingFetch = vi.fn().mockResolvedValue(new Response());
+    const routedFetch = createRequestScopedStaticEgressFetch(ordinaryFetch, () => ({
+      STATIC_EGRESS: { fetch: bindingFetch },
+      BASE44_STATIC_EGRESS_ENABLED: "1",
+    }));
+
+    await routedFetch("https://api.stripe.com/v1/customers", {
+      headers: { [header]: JSON.stringify(agent) },
+    });
+
+    const [, init] = bindingFetch.mock.calls[0];
+    expect(JSON.parse(new Headers(init.headers).get(header)!)).toEqual(stripped);
+    expect(ordinaryFetch).not.toHaveBeenCalled();
+  });
+});
