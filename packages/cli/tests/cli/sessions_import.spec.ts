@@ -694,11 +694,11 @@ describe("sessions import command", () => {
           { type: "session_meta", payload: { cwd: "/repo" } },
           exec(
             "call_1",
-            `text(await tools.mcp__codex_app__open_in_codex({target:{type:"file",path:"${page}"}}));`,
+            `text(await tools.mcp__codex_app__open_in_codex({target:{type:"file",path:${JSON.stringify(page)}}}));`,
           ),
           exec(
             "call_2",
-            `text(await tools.mcp__codex_app__open_in_codex({ "target": { "path": "${page}", "type": "file" } }));`,
+            `text(await tools.mcp__codex_app__open_in_codex({ "target": { "path": ${JSON.stringify(page)}, "type": "file" } }));`,
           ),
           exec(
             "call_3",
