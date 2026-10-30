@@ -209,6 +209,7 @@ describe("sessions import command", () => {
         new RegExp(`/apps/${APP_ID}/editor/preview\\?branch=add-coupon-codes$`),
       ),
     });
+    expect(uploads[0]?.body).not.toContain('name="artifact_manifest"');
   });
 
   it("tells a reused key to copy a new prompt, and leaves the stored login alone", async () => {
@@ -561,6 +562,160 @@ describe("sessions import command", () => {
       `"image_url":"data:image/png;base64,${base64("opened-image")}"`,
     );
     expect(uploads[0]?.body).not.toContain(base64("mentioned-only"));
+  });
+
+  describe("artifacts", () => {
+    const lines = (entries: unknown[]) =>
+      entries.map((entry) => JSON.stringify(entry)).join("\n");
+    const assistant = (...content: unknown[]) => ({
+      type: "assistant",
+      cwd: "/repo",
+      message: { role: "assistant", content },
+    });
+    const toolUse = (id: string, name: string, input: unknown) => ({
+      type: "tool_use",
+      id,
+      name,
+      input,
+    });
+    const publish = (id: string, file_path: string, extra = {}) =>
+      toolUse(id, "Artifact", {
+        file_path,
+        description: "The checkout redesign.",
+        icon: "design",
+        ...extra,
+      });
+    const user = {
+      type: "user",
+      cwd: "/repo",
+      message: { role: "user", content: "Design the checkout page" },
+    };
+
+    it("sends a published file with its images inlined, and reports the counts", async () => {
+      const page = await plant(
+        "scratchpad/checkout.html",
+        '<h1>Checkout</h1><img src="hero.png">',
+      );
+      const hero = await plant("scratchpad/hero.png", "hero-bytes");
+      const file = await plant(
+        "s.jsonl",
+        lines([
+          user,
+          assistant(
+            toolUse("toolu_01Q", "Artifact", { action: "quickstart" }),
+            publish("toolu_01A", page, { files: { "hero.png": hero } }),
+          ),
+        ]),
+      );
+      mockUpload(200, { ...SUCCESS, imported_artifacts: 1 });
+
+      const result = await t.run(
+        "sessions",
+        "import",
+        "--file",
+        file,
+        "--app-id",
+        APP_ID,
+        "--token",
+        TOKEN,
+        "--json",
+      );
+
+      t.expectResult(result).toSucceed();
+      expect(result.stderr).toContain("Sending 1 artifact: checkout.html");
+      const body = uploads[0]?.body ?? "";
+      expect(body).toContain('name="artifacts"; filename="checkout.html"');
+      expect(body).toContain(
+        `<img src="data:image/png;base64,${Buffer.from("hero-bytes").toString("base64")}">`,
+      );
+      expect(body).toContain(
+        '[{"tool_use_id":"toolu_01A","file_name":"checkout.html"}]',
+      );
+      expect(JSON.parse(result.stdout)).toMatchObject({
+        importedArtifacts: 1,
+        skippedArtifacts: 0,
+        sentArtifacts: ["checkout.html"],
+        unsentArtifacts: [],
+      });
+    });
+
+    it("falls back to the last Write of a deleted file, but not to one edited after", async () => {
+      const written = join(home(), "gone/pricing.html");
+      const edited = join(home(), "gone/plan.html");
+      const file = await plant(
+        "s.jsonl",
+        lines([
+          user,
+          assistant(
+            toolUse("w1", "Write", { file_path: written, content: "old" }),
+            toolUse("w2", "Write", {
+              file_path: written,
+              content: "<p>v2</p>",
+            }),
+            toolUse("w3", "Write", { file_path: edited, content: "draft" }),
+            toolUse("e1", "Edit", {
+              file_path: edited,
+              old_string: "draft",
+              new_string: "final",
+            }),
+            publish("toolu_pricing", written),
+            publish("toolu_plan", edited),
+          ),
+        ]),
+      );
+      mockUpload();
+
+      const result = await importFile(file);
+
+      t.expectResult(result).toSucceed();
+      t.expectResult(result).toContain(
+        "Not sending plan.html: the file isn't on disk anymore.",
+      );
+      const body = uploads[0]?.body ?? "";
+      expect(body).toContain("<p>v2</p>");
+      expect(body).not.toContain('filename="plan.html"');
+      expect(body).toContain(
+        '[{"tool_use_id":"toolu_pricing","file_name":"pricing.html"}]',
+      );
+    });
+
+    it("sends a file the Codex app opened, once, with the last call's id", async () => {
+      const page = await plant(
+        ".codex/visualizations/2026/10/30/thread-a/mcp-connections/index.html",
+        "<h1>MCP connections</h1>",
+      );
+      const exec = (call_id: string, input: string) => ({
+        type: "response_item",
+        payload: { type: "custom_tool_call", name: "exec", call_id, input },
+      });
+      const file = await plant(
+        "rollout-artifacts.jsonl",
+        lines([
+          { type: "session_meta", payload: { cwd: "/repo" } },
+          exec(
+            "call_1",
+            `text(await tools.mcp__codex_app__open_in_codex({target:{type:"file",path:${JSON.stringify(page)}}}));`,
+          ),
+          exec(
+            "call_2",
+            `text(await tools.mcp__codex_app__open_in_codex({ "target": { "path": ${JSON.stringify(page)}, "type": "file" } }));`,
+          ),
+          exec(
+            "call_3",
+            `text(await tools.mcp__codex_app__open_in_codex({target:{type:"browser",url:"http://localhost:3000"}}));`,
+          ),
+        ]),
+      );
+      mockUpload(200, { ...SUCCESS, source: "codex" });
+
+      t.expectResult(await importFile(file)).toSucceed();
+
+      const body = uploads[0]?.body ?? "";
+      expect(body).toContain("<h1>MCP connections</h1>");
+      expect(body).toContain(
+        '[{"tool_use_id":"call_2","file_name":"index.html"}]',
+      );
+    });
   });
 
   it("rejects a claude.ai 'Copy link' address", async () => {

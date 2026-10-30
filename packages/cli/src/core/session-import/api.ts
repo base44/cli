@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getAppClient } from "@/core/clients/index.js";
 import { getBase44ApiUrl } from "@/core/config.js";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";
+import type { SessionArtifact } from "@/core/session-import/artifacts.js";
 
 export const MAX_SESSION_BYTES = 50 * 1024 * 1024;
 
@@ -18,6 +19,8 @@ const SessionImportResponseSchema = z
     source_ref: z.string(),
     // Servers before re-import support leave it out.
     reimported: z.boolean().default(false),
+    imported_artifacts: z.number().default(0),
+    skipped_artifacts: z.number().default(0),
   })
   .transform((data) => ({
     branchId: data.branch_id,
@@ -28,6 +31,8 @@ const SessionImportResponseSchema = z
     continued: data.continued,
     sourceRef: data.source_ref,
     reimported: data.reimported,
+    importedArtifacts: data.imported_artifacts,
+    skippedArtifacts: data.skipped_artifacts,
   }));
 
 type SessionImport = z.infer<typeof SessionImportResponseSchema>;
@@ -135,12 +140,34 @@ async function toImportError(
 export async function uploadSession(
   appId: string,
   content: Uint8Array,
-  { token, sourceBranch }: { token?: string; sourceBranch?: string } = {},
+  {
+    token,
+    sourceBranch,
+    artifacts = [],
+  }: {
+    token?: string;
+    sourceBranch?: string;
+    artifacts?: SessionArtifact[];
+  } = {},
 ): Promise<SessionImport> {
   const form = new FormData();
   form.append("file", new Blob([content]), "session.jsonl");
   // The backend starts the new branch from this one when it's on GitHub.
   if (sourceBranch) form.append("source_branch", sourceBranch);
+  for (const { data, fileName } of artifacts) {
+    form.append("artifacts", new Blob([data]), fileName);
+  }
+  if (artifacts.length) {
+    form.append(
+      "artifact_manifest",
+      JSON.stringify(
+        artifacts.map((a) => ({
+          tool_use_id: a.toolUseId,
+          file_name: a.fileName,
+        })),
+      ),
+    );
+  }
   // One key per run, shared by any retry of it: a retried upload gets the first
   // response back instead of creating a second branch.
   const idempotencyKey = randomUUID();
