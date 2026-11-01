@@ -83,7 +83,8 @@ interface Base44CommandOptions {
   supportsBranch?: boolean;
   /**
    * Require user authentication before running this command.
-   * If the user is not logged in, they will be prompted to login.
+   * If the user is not logged in, an interactive run starts the login and a
+   * non-interactive run fails with AuthRequiredError.
    * @default true
    */
   requireAuth?: boolean;

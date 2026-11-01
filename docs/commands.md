@@ -132,7 +132,7 @@ new Base44Command("my-cmd", { requireAuth: false, requireAppContext: false })
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `requireAuth` | `true` | Check authentication before running, auto-triggers login if needed |
+| `requireAuth` | `true` | Check authentication before running. Logged out: an interactive run starts the login; a non-interactive run (no TTY, or `--json`) fails with `AuthRequiredError`, since nobody may see the code. `base44 login` itself runs the device flow either way |
 | `requireAppContext` | `true` | Resolve the app ID from `--app-id`, `BASE44_APP_ID`, or `.app.jsonc`, then cache it for sync access via `getAppContext()` |
 | `fullBanner` | `false` | Show ASCII art banner instead of simple intro tag |
 

@@ -41,6 +41,26 @@ describe("login command", () => {
     expect(authData?.expiresAt).toBeGreaterThan(Date.now());
   });
 
+  it("prints the verification code and URL when there's no terminal", async () => {
+    // Tests run without a TTY: an agent runs `base44 login` in a pane a human
+    // watches, so the code and URL must reach the output even with no approval.
+    t.api.mockDeviceCode({
+      device_code: "test-device-code",
+      user_code: "WXYZ-9876",
+      verification_uri: "https://app.base44.com/device",
+      expires_in: 1,
+      interval: 1,
+    });
+    t.api.mockRoute("POST", "/oauth/token", (_req, res) => {
+      res.status(403).json({ error: "authorization_pending" });
+    });
+
+    const result = await t.run("login");
+
+    expect(result.stderr).toContain("WXYZ-9876");
+    expect(result.stderr).toContain("https://app.base44.com/device");
+  });
+
   it("fails with AuthExpiredError when user does not complete login in time", async () => {
     t.api.mockDeviceCode({
       device_code: "test-device-code",

@@ -6,12 +6,27 @@ import {
   readAuth,
   seedAuthFromEnv,
 } from "@/core/auth/index.js";
-import { InternalError } from "@/core/errors.js";
+import {
+  AuthRequiredError,
+  type ErrorHint,
+  InternalError,
+} from "@/core/errors.js";
 import type { AppContext } from "@/core/project/index.js";
 import { initAppContext } from "@/core/project/index.js";
 
+const NON_INTERACTIVE_LOGIN_HINTS: ErrorHint[] = [
+  {
+    message:
+      "Run 'base44 login' first: it prints a code to approve in the browser and works without a terminal",
+    command: "base44 login",
+  },
+  { message: "Or set BASE44_API_KEY to a workspace API key" },
+  { message: "Or set BASE44_ACCESS_TOKEN and BASE44_REFRESH_TOKEN" },
+];
+
 /**
  * Check authentication status and trigger login flow if needed.
+ * A non-interactive run fails with AuthRequiredError instead of logging in.
  * Sets user context on the error reporter after successful auth.
  */
 export async function ensureAuth(ctx: CLIContext): Promise<void> {
@@ -29,6 +44,13 @@ export async function ensureAuth(ctx: CLIContext): Promise<void> {
   const loggedIn = await isLoggedIn();
 
   if (!loggedIn) {
+    if (ctx.isNonInteractive) {
+      // A device-code login here would wait on a code nobody may see.
+      throw new AuthRequiredError(
+        "This command needs you to be logged in, and a login can't be shown in a non-interactive run",
+        { hints: NON_INTERACTIVE_LOGIN_HINTS },
+      );
+    }
     ctx.log.info("You need to login first to continue.");
     await login(ctx);
   }
