@@ -594,7 +594,7 @@ describe("sessions import command", () => {
     it("sends a published file with its images inlined, and reports the counts", async () => {
       const page = await plant(
         "scratchpad/checkout.html",
-        '<h1>Checkout</h1><img src="hero.png">',
+        '<h1>Checkout</h1><img src="hero.png"><img src="gone.png">',
       );
       const hero = await plant("scratchpad/hero.png", "hero-bytes");
       const file = await plant(
@@ -603,7 +603,9 @@ describe("sessions import command", () => {
           user,
           assistant(
             toolUse("toolu_01Q", "Artifact", { action: "quickstart" }),
-            publish("toolu_01A", page, { files: { "hero.png": hero } }),
+            publish("toolu_01A", page, {
+              files: { "hero.png": hero, "gone.png": `${hero}.deleted` },
+            }),
           ),
         ]),
       );
@@ -623,6 +625,9 @@ describe("sessions import command", () => {
 
       t.expectResult(result).toSucceed();
       expect(result.stderr).toContain("Sending 1 artifact: checkout.html");
+      expect(result.stderr).toContain(
+        "Not sending gone.png: this image in checkout.html isn't on disk anymore.",
+      );
       const body = uploads[0]?.body ?? "";
       expect(body).toContain('name="artifacts"; filename="checkout.html"');
       expect(body).toContain(
@@ -635,7 +640,12 @@ describe("sessions import command", () => {
         importedArtifacts: 1,
         skippedArtifacts: 0,
         sentArtifacts: ["checkout.html"],
-        unsentArtifacts: [],
+        unsentArtifacts: [
+          {
+            fileName: "gone.png",
+            reason: "this image in checkout.html isn't on disk anymore",
+          },
+        ],
       });
     });
 

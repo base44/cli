@@ -127,6 +127,7 @@ const readRegularFile = (path: string) =>
 async function inlineImages(
   html: Buffer,
   files: Record<string, string>,
+  missing: string[],
 ): Promise<Buffer> {
   const text = html.toString("utf8");
   const uris = new Map<string, string>();
@@ -136,6 +137,7 @@ async function inlineImages(
     const data = mediaType && (await readRegularFile(local));
     if (data)
       uris.set(src, `data:${mediaType};base64,${data.toString("base64")}`);
+    else if (local) missing.push(src);
   }
   if (!uris.size) return html;
   return Buffer.from(
@@ -194,7 +196,13 @@ export async function collectArtifacts(
       continue;
     }
     if (found.files && /\.html?$/i.test(fileName)) {
-      data = await inlineImages(data, found.files);
+      const missing: string[] = [];
+      data = await inlineImages(data, found.files, missing);
+      for (const src of new Set(missing))
+        skipped.push({
+          fileName: src,
+          reason: `this image in ${fileName} isn't on disk anymore`,
+        });
     }
     if (data.length > MAX_BYTES) {
       skipped.push({ fileName, reason: "it's larger than 10 MB" });
