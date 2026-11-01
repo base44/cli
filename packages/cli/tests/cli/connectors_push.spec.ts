@@ -70,20 +70,24 @@ describe("connectors push command", () => {
   });
 
   it("displays removed connectors", async () => {
-    await t.givenLoggedInWithProject(fixture("basic"));
+    await t.givenLoggedInWithProject(fixture("with-connectors"));
     t.api.mockConnectorsList({
       integrations: [
-        { integration_type: "slack", status: "active", scopes: ["chat:write"] },
+        { integration_type: "gmail", status: "active", scopes: [] },
       ],
     });
     t.api.mockStripeStatus({ stripe_mode: null });
-    t.api.mockConnectorRemove({ status: "removed", integration_type: "slack" });
+    t.api.mockConnectorSet({
+      redirect_url: null,
+      connection_id: null,
+      already_authorized: true,
+    });
+    t.api.mockConnectorRemove({ status: "removed", integration_type: "gmail" });
 
     const result = await t.run("connectors", "push", "--yes");
 
     t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain("slack");
-    t.expectResult(result).toContain("Removed:");
+    t.expectResult(result).toContain("Removed: gmail");
   });
 
   it("displays error when sync fails", async () => {

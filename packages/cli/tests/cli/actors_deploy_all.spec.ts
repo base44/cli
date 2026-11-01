@@ -43,6 +43,12 @@ describe("actors in unified deploy", () => {
       join(t.getTempDir(), "project/base44/functions"),
       { recursive: true },
     );
+    // Connectors only sync when some are configured locally.
+    await cp(
+      fixture("with-connectors/connectors"),
+      join(t.getTempDir(), "project/base44/connectors"),
+      { recursive: true },
+    );
     const stages: string[] = [];
     t.api.mockEntitiesPush({ created: ["Task"], updated: [], deleted: [] });
     t.api.mockRoute(
@@ -74,6 +80,11 @@ describe("actors in unified deploy", () => {
       },
     );
     t.api.mockStripeStatus({ stripe_mode: null });
+    t.api.mockConnectorSet({
+      redirect_url: null,
+      connection_id: null,
+      already_authorized: true,
+    });
     t.api.mockSiteDeploy({ app_url: "https://test.base44.app" });
 
     const result = await t.run("deploy", "-y", "--json");
