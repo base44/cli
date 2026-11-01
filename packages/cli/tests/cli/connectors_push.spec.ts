@@ -70,24 +70,20 @@ describe("connectors push command", () => {
   });
 
   it("displays removed connectors", async () => {
-    await t.givenLoggedInWithProject(fixture("with-connectors"));
+    await t.givenLoggedInWithProject(fixture("basic"));
     t.api.mockConnectorsList({
       integrations: [
-        { integration_type: "gmail", status: "active", scopes: [] },
+        { integration_type: "slack", status: "active", scopes: ["chat:write"] },
       ],
     });
     t.api.mockStripeStatus({ stripe_mode: null });
-    t.api.mockConnectorSet({
-      redirect_url: null,
-      connection_id: null,
-      already_authorized: true,
-    });
-    t.api.mockConnectorRemove({ status: "removed", integration_type: "gmail" });
+    t.api.mockConnectorRemove({ status: "removed", integration_type: "slack" });
 
     const result = await t.run("connectors", "push", "--yes");
 
     t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain("Removed: gmail");
+    t.expectResult(result).toContain("slack");
+    t.expectResult(result).toContain("Removed:");
   });
 
   it("displays error when sync fails", async () => {
@@ -183,14 +179,9 @@ describe("connectors push command", () => {
     });
 
     it("shows removed when Stripe is removed locally", async () => {
-      await t.givenLoggedInWithProject(fixture("with-connectors"));
+      await t.givenLoggedInWithProject(fixture("basic"));
       t.api.mockConnectorsList({ integrations: [] });
       t.api.mockStripeStatus({ stripe_mode: "sandbox" });
-      t.api.mockConnectorSet({
-        redirect_url: null,
-        connection_id: null,
-        already_authorized: true,
-      });
       t.api.mockStripeRemove({ success: true });
 
       const result = await t.run("connectors", "push", "--yes");

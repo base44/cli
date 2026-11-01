@@ -123,7 +123,9 @@ async function pushConnectorsAction(
 
   if (!jsonMode) {
     if (connectors.length === 0) {
-      log.info("No local connectors found - nothing to push");
+      log.info(
+        "No local connectors found - checking for remote connectors to remove",
+      );
     } else {
       const connectorNames = connectors.map((c) => c.type).join(", ");
       log.info(

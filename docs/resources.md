@@ -174,7 +174,7 @@ What it deploys (in order):
 5. Agent skills (via `agentSkillResource.push()`)
 6. Agents (via `agentResource.push()`)
 7. Auth config (via `authConfigResource.push()`)
-8. Connectors (via `pushConnectors()`) -- may return OAuth redirect URLs. Like entities, agents and agent skills, an empty local list skips the sync, so remote connectors are only removed when at least one connector is configured locally
+8. Connectors (via `pushConnectors(connectors, { prune: false })`) -- may return OAuth redirect URLs. Like functions, `deploy` only adds and updates connectors and never removes remote ones missing locally; `connectors push` is the command that makes the app match the folder
 9. Site (if `site.outputDirectory` is configured) — the legacy tar.gz upload. The deployments-API transport is not reachable from here; see [deployments.md](deployments.md).
 
 Function and actor batches collect each item's result. `deployAll()` must inspect

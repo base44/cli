@@ -165,10 +165,6 @@ export async function deployAction(
   if (stripeResult?.action === "provisioned") {
     printStripeResult(stripeResult as StripeSyncResult, log);
   }
-  const removed = connectorResults.filter((r) => r.action === "removed");
-  if (removed.length > 0) {
-    log.warn(`Removed connectors: ${removed.map((r) => r.type).join(", ")}`);
-  }
   for (const r of connectorResults) {
     if (r.action === "error") log.error(`Failed: ${r.type} - ${r.error}`);
   }

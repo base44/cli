@@ -147,33 +147,54 @@ describe("deploy command (unified)", () => {
     expect(stripeRemoved).toBe(false);
   });
 
-  it("reports removed and failed connectors", async () => {
+  it("never removes remote-only connectors, even with some configured locally", async () => {
     await t.givenLoggedInWithProject(fixture("with-connectors"));
-    t.api.mockConnectorsList({
-      integrations: [
-        { integration_type: "gmail", status: "active", scopes: [] },
-      ],
-    });
     t.api.mockConnectorSet({
       redirect_url: null,
       connection_id: null,
       already_authorized: true,
     });
-    t.api.mockConnectorRemove({ status: "removed", integration_type: "gmail" });
-    t.api.mockStripeStatus({ stripe_mode: "sandbox" });
+    const removed: string[] = [];
+    t.api.mockRoute(
+      "DELETE",
+      `/api/apps/${t.api.appId}/external-auth/integrations/:type/remove`,
+      (req, res) => {
+        removed.push(String(req.params.type));
+        res.json({ status: "removed", integration_type: req.params.type });
+      },
+    );
     t.api.mockRoute(
       "DELETE",
       `/api/apps/${t.api.appId}/payments/stripe`,
       (_req, res) => {
-        res.status(500).json({ detail: "boom" });
+        removed.push("stripe");
+        res.json({ success: true });
       },
     );
 
     const result = await t.run("deploy", "-y");
 
     t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain("Removed connectors: gmail");
-    t.expectResult(result).toContain("Failed: stripe");
+    expect(removed).toEqual([]);
+  });
+
+  it("reports connectors that failed to sync", async () => {
+    await t.givenLoggedInWithProject(fixture("with-connectors"));
+    t.api.mockConnectorSet({
+      redirect_url: null,
+      connection_id: null,
+      already_authorized: false,
+      error: "different_user",
+      error_message: "Already connected by another user",
+      other_user_email: "other@example.com",
+    });
+
+    const result = await t.run("deploy", "-y");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain(
+      "Failed: slack - Already connected by another user",
+    );
   });
 
   it("deploys entities successfully with --yes flag", async () => {
