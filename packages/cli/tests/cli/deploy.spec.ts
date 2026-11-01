@@ -126,6 +126,27 @@ describe("deploy command (unified)", () => {
     t.expectResult(result).toContain("App deployed successfully");
   });
 
+  it("keeps remote connectors when the project has none locally", async () => {
+    await t.givenLoggedInWithProject(fixture("with-entities"));
+    t.api.mockEntitiesPush({ created: [], updated: [], deleted: [] });
+    t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
+    t.api.mockStripeStatus({ stripe_mode: "sandbox" });
+    let stripeRemoved = false;
+    t.api.mockRoute(
+      "DELETE",
+      `/api/apps/${t.api.appId}/payments/stripe`,
+      (_req, res) => {
+        stripeRemoved = true;
+        res.status(200).json({ success: true });
+      },
+    );
+
+    const result = await t.run("deploy", "-y");
+
+    t.expectResult(result).toSucceed();
+    expect(stripeRemoved).toBe(false);
+  });
+
   it("deploys entities successfully with --yes flag", async () => {
     await t.givenLoggedInWithProject(fixture("with-entities"));
     t.api.mockEntitiesPush({

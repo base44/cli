@@ -179,9 +179,14 @@ describe("connectors push command", () => {
     });
 
     it("shows removed when Stripe is removed locally", async () => {
-      await t.givenLoggedInWithProject(fixture("basic"));
+      await t.givenLoggedInWithProject(fixture("with-connectors"));
       t.api.mockConnectorsList({ integrations: [] });
       t.api.mockStripeStatus({ stripe_mode: "sandbox" });
+      t.api.mockConnectorSet({
+        redirect_url: null,
+        connection_id: null,
+        already_authorized: true,
+      });
       t.api.mockStripeRemove({ success: true });
 
       const result = await t.run("connectors", "push", "--yes");

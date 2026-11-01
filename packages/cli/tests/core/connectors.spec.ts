@@ -295,9 +295,21 @@ const mockGetStripeStatus = vi.mocked(api.getStripeStatus);
 const mockInstallStripe = vi.mocked(api.installStripe);
 const mockRemoveStripe = vi.mocked(api.removeStripe);
 
+// Removal only happens during a sync, which needs at least one local connector.
+const localGmail: ConnectorResource[] = [{ type: "gmail", scopes: [] }];
+const gmailSynced = { type: "gmail", action: "synced" };
+
 describe("pushConnectors", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    mockSetConnector.mockResolvedValue({
+      redirectUrl: null,
+      connectionId: null,
+      alreadyAuthorized: true,
+      error: null,
+      errorMessage: null,
+      otherUserEmail: null,
+    });
     mockListConnectors.mockResolvedValue({ integrations: [] });
     mockGetStripeStatus.mockResolvedValue({
       stripeMode: null,
@@ -305,10 +317,28 @@ describe("pushConnectors", () => {
     });
   });
 
-  it("returns empty results when no local or upstream connectors", async () => {
+  it("skips the sync entirely when there are no local connectors", async () => {
+    mockListConnectors.mockResolvedValue({
+      integrations: [
+        {
+          integrationType: "slack",
+          status: "active",
+          scopes: ["chat:write"],
+          userEmail: undefined,
+        },
+      ],
+    });
+    mockGetStripeStatus.mockResolvedValue({
+      stripeMode: "sandbox",
+      sandboxClaimUrl: null,
+    });
+
     const result = await pushConnectors([]);
+
     expect(result.results).toEqual([]);
-    expect(mockListConnectors).toHaveBeenCalledOnce();
+    expect(mockListConnectors).not.toHaveBeenCalled();
+    expect(mockRemoveConnector).not.toHaveBeenCalled();
+    expect(mockRemoveStripe).not.toHaveBeenCalled();
   });
 
   it("syncs local connectors", async () => {
@@ -348,10 +378,13 @@ describe("pushConnectors", () => {
       integrationType: "slack",
     });
 
-    const result = await pushConnectors([]);
+    const result = await pushConnectors(localGmail);
 
     expect(mockRemoveConnector).toHaveBeenCalledWith("slack");
-    expect(result.results).toEqual([{ type: "slack", action: "removed" }]);
+    expect(result.results).toEqual([
+      gmailSynced,
+      { type: "slack", action: "removed" },
+    ]);
   });
 
   it("syncs local and removes upstream-only", async () => {
@@ -521,9 +554,10 @@ describe("pushConnectors", () => {
     });
     mockRemoveConnector.mockRejectedValue(new Error("Remove failed"));
 
-    const result = await pushConnectors([]);
+    const result = await pushConnectors(localGmail);
 
     expect(result.results).toEqual([
+      gmailSynced,
       { type: "slack", action: "error", error: "Remove failed" },
     ]);
   });
@@ -566,10 +600,13 @@ describe("pushConnectors", () => {
       integrationType: "custom-crm",
     });
 
-    const result = await pushConnectors([]);
+    const result = await pushConnectors(localGmail);
 
     expect(mockRemoveConnector).toHaveBeenCalledWith("custom-crm");
-    expect(result.results).toEqual([{ type: "custom-crm", action: "removed" }]);
+    expect(result.results).toEqual([
+      gmailSynced,
+      { type: "custom-crm", action: "removed" },
+    ]);
   });
 
   it("processes multiple local connectors", async () => {
@@ -649,10 +686,13 @@ describe("pushConnectors", () => {
       });
       mockRemoveStripe.mockResolvedValue({ success: true });
 
-      const result = await pushConnectors([]);
+      const result = await pushConnectors(localGmail);
 
       expect(mockRemoveStripe).toHaveBeenCalledOnce();
-      expect(result.results).toEqual([{ type: "stripe", action: "removed" }]);
+      expect(result.results).toEqual([
+        gmailSynced,
+        { type: "stripe", action: "removed" },
+      ]);
     });
 
     it("returns error when Stripe install fails", async () => {
@@ -673,9 +713,10 @@ describe("pushConnectors", () => {
       });
       mockRemoveStripe.mockRejectedValue(new Error("Stripe remove failed"));
 
-      const result = await pushConnectors([]);
+      const result = await pushConnectors(localGmail);
 
       expect(result.results).toEqual([
+        gmailSynced,
         { type: "stripe", action: "error", error: "Stripe remove failed" },
       ]);
     });
@@ -698,17 +739,17 @@ describe("pushConnectors", () => {
     it("returns no Stripe result when getStripeStatus fails and no local Stripe", async () => {
       mockGetStripeStatus.mockRejectedValue(new Error("Status check failed"));
 
-      const result = await pushConnectors([]);
+      const result = await pushConnectors(localGmail);
 
-      expect(result.results).toEqual([]);
+      expect(result.results).toEqual([gmailSynced]);
     });
 
     it("returns no Stripe result when no local and no remote Stripe", async () => {
-      const result = await pushConnectors([]);
+      const result = await pushConnectors(localGmail);
 
       expect(mockInstallStripe).not.toHaveBeenCalled();
       expect(mockRemoveStripe).not.toHaveBeenCalled();
-      expect(result.results).toEqual([]);
+      expect(result.results).toEqual([gmailSynced]);
     });
 
     it("handles OAuth and Stripe connectors together", async () => {
