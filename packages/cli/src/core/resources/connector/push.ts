@@ -37,9 +37,6 @@ interface PushConnectorsResponse {
 export async function pushConnectors(
   connectors: ConnectorResource[],
 ): Promise<PushConnectorsResponse> {
-  // Like entities and agents: no local connectors means nothing to sync, so a
-  // project without a connectors folder never wipes remote ones (e.g. Stripe
-  // installed through the API or MCP).
   if (connectors.length === 0) {
     return { results: [] };
   }
