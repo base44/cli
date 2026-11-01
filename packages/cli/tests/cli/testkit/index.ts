@@ -21,11 +21,8 @@ export interface TestContext {
 
   // ─── GIVEN METHODS ─────────────────────────────────────────
 
-  /** Set up authenticated user state; `expired` stores an access token past its expiry */
-  givenLoggedIn: (
-    user: { email: string; name: string },
-    options?: { expired?: boolean },
-  ) => Promise<void>;
+  /** Set up authenticated user state */
+  givenLoggedIn: (user: { email: string; name: string }) => Promise<void>;
 
   /** Set up project directory by copying fixture to temp dir */
   givenProject: (fixturePath: string) => Promise<void>;
@@ -128,7 +125,7 @@ export function setupCLITests(): TestContext {
     },
 
     // Given methods
-    givenLoggedIn: (user, options) => getKit().givenLoggedIn(user, options),
+    givenLoggedIn: (user) => getKit().givenLoggedIn(user),
     givenProject: (fixturePath) => getKit().givenProject(fixturePath),
     givenUnlinkedProject: (fixturePath) =>
       getKit().givenUnlinkedProject(fixturePath),

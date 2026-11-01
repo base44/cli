@@ -137,9 +137,6 @@ await t.givenLoggedInWithProject(fixture("with-entities"), {
 await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
 await t.givenProject(fixture("with-entities"));
 
-// Store an access token that is already past its expiry (exercises refresh)
-await t.givenLoggedIn({ email: "test@example.com", name: "Test User" }, { expired: true });
-
 // Mock the npm version check (null = no upgrade available, string = upgrade available)
 t.givenLatestVersion(null);           // Default: no upgrade notification
 t.givenLatestVersion("2.0.0");        // Simulate upgrade available

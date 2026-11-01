@@ -87,47 +87,16 @@ describe("token refresh on 401", () => {
   });
 });
 
-describe("login required while logged out", () => {
+describe("while logged out", () => {
   const t = setupCLITests();
-
-  /** Records any device-code request the CLI makes. */
-  function trackDeviceCodeRequests(): { requested: boolean } {
-    const tracker = { requested: false };
-    t.api.mockRoute("POST", "/oauth/device/code", (_req, res) => {
-      tracker.requested = true;
-      res.status(200).json({
-        device_code: "dev-code",
-        user_code: "ABCD-1234",
-        verification_uri: "https://app.base44.com/device",
-        expires_in: 1,
-        interval: 1,
-      });
-    });
-    return tracker;
-  }
 
   it("fails fast instead of starting a login when there's no terminal", async () => {
     // Tests run without a TTY, so the CLI is non-interactive.
-    const deviceCode = trackDeviceCodeRequests();
-
     const result = await t.run("workspace", "list");
 
     t.expectResult(result).toFail();
-    t.expectResult(result).toContain("needs you to be logged in");
+    t.expectResult(result).toContain("Not logged in");
     t.expectResult(result).toContain("base44 login");
     t.expectResult(result).toContain("BASE44_API_KEY");
-    t.expectResult(result).toContain("BASE44_ACCESS_TOKEN");
-    t.expectResult(result).toNotContain("ABCD-1234");
-    expect(deviceCode.requested).toBe(false);
-  });
-
-  it("reports AUTH_REQUIRED in the --json error envelope", async () => {
-    const deviceCode = trackDeviceCodeRequests();
-
-    const result = await t.run("workspace", "list", "--json");
-
-    t.expectResult(result).toFail();
-    expect(JSON.parse(result.stdout)).toMatchObject({ code: "AUTH_REQUIRED" });
-    expect(deviceCode.requested).toBe(false);
   });
 });

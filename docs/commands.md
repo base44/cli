@@ -65,15 +65,7 @@ Omitting the flag preserves existing main-app behavior.
 
 ## Auth status (`base44 whoami`)
 
-`whoami` reports the session's state; it never starts a login (`requireAuth: false`, like `gh auth status`). It calls `seedAuthFromEnv()` itself so env tokens count, then `getSessionUser()` (`src/core/auth/api.ts`) asks `GET oauth/userinfo` through `base44Client`, which refreshes an expired token and retries a 401 once, as every command does.
-
-| State | Result |
-|-------|--------|
-| Server accepts the session | `Logged in as: <email>` (email from the server) |
-| No `auth.json` and no env tokens | `AuthRequiredError` "Not logged in" |
-| Refresh refused, or still 401 after it | `AuthExpiredError`; the refused refresh already deleted `auth.json` |
-| Network error or 5xx | `ApiError` "Error verifying the session…"; `auth.json` is kept |
-| `BASE44_API_KEY` workspace key | Prints the key prefix, with no server call |
+`whoami` never starts a login (`requireAuth: false`). It asks `GET oauth/userinfo` through `base44Client`, so an expired token is refreshed as in any command. A refused session fails with `AuthExpiredError`; any other failure is reported as an `ApiError`, not as logged out.
 
 ## Command File Template
 
@@ -132,7 +124,7 @@ new Base44Command("my-cmd", { requireAuth: false, requireAppContext: false })
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `requireAuth` | `true` | Check authentication before running. Logged out: an interactive run starts the login; a non-interactive run (no TTY, or `--json`) fails with `AuthRequiredError`, since nobody may see the code. `base44 login` itself runs the device flow either way |
+| `requireAuth` | `true` | Check authentication before running, auto-triggers login if needed. A non-interactive run (no TTY, or `--json`) fails with `AuthRequiredError` instead |
 | `requireAppContext` | `true` | Resolve the app ID from `--app-id`, `BASE44_APP_ID`, or `.app.jsonc`, then cache it for sync access via `getAppContext()` |
 | `fullBanner` | `false` | Show ASCII art banner instead of simple intro tag |
 
