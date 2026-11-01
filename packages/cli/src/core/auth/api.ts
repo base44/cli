@@ -1,3 +1,4 @@
+import { HTTPError, type KyResponse } from "ky";
 import type {
   DeviceCodeResponse,
   TokenResponse,
@@ -9,9 +10,13 @@ import {
   TokenResponseSchema,
   UserInfoSchema,
 } from "@/core/auth/schema.js";
-import { oauthClient } from "@/core/clients/index.js";
+import { base44Client, oauthClient } from "@/core/clients/index.js";
 import { AUTH_CLIENT_ID } from "@/core/consts.js";
-import { ApiError, SchemaValidationError } from "@/core/errors.js";
+import {
+  ApiError,
+  AuthExpiredError,
+  SchemaValidationError,
+} from "@/core/errors.js";
 
 export async function generateDeviceCode(): Promise<DeviceCodeResponse> {
   const response = await oauthClient.post("oauth/device/code", {
@@ -153,6 +158,38 @@ export async function getUserInfo(
     throw new ApiError(`Failed to fetch user info: ${response.status}`, {
       statusCode: response.status,
     });
+  }
+
+  const result = UserInfoSchema.safeParse(await response.json());
+
+  if (!result.success) {
+    throw new SchemaValidationError(
+      "Invalid UserInfo response from server",
+      result.error,
+    );
+  }
+
+  return result.data;
+}
+
+/**
+ * Asks the server who the stored session belongs to. Goes through base44Client,
+ * so an expired token is refreshed and a 401 retried once, like any command.
+ */
+export async function getSessionUser(): Promise<UserInfoResponse> {
+  let response: KyResponse;
+  try {
+    response = await base44Client.get("oauth/userinfo");
+  } catch (error) {
+    if (error instanceof HTTPError && error.response.status === 401) {
+      throw new AuthExpiredError("Your session has expired or was revoked", {
+        cause: error,
+      });
+    }
+    throw await ApiError.fromHttpError(
+      error,
+      "verifying the session with the server",
+    );
   }
 
   const result = UserInfoSchema.safeParse(await response.json());

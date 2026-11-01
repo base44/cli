@@ -63,6 +63,18 @@ Omitting the flag preserves existing main-app behavior.
 - Codex cloud sets `CODEX_THREAD_ID` but keeps the conversation on OpenAI's side, so a thread id with no rollout file means Codex cloud, which can't be imported.
 - Inside claude.ai (`CLAUDE_CODE_REMOTE`), a failed connection or a non-JSON 403 means the environment's network allowlist blocks Base44; the message says how to allow it.
 
+## Auth status (`base44 whoami`)
+
+`whoami` reports the session's state; it never starts a login (`requireAuth: false`, like `gh auth status`). It calls `seedAuthFromEnv()` itself so env tokens count, then `getSessionUser()` (`src/core/auth/api.ts`) asks `GET oauth/userinfo` through `base44Client`, which refreshes an expired token and retries a 401 once, as every command does.
+
+| State | Result |
+|-------|--------|
+| Server accepts the session | `Logged in as: <email>` (email from the server) |
+| No `auth.json` and no env tokens | `AuthRequiredError` "Not logged in" |
+| Refresh refused, or still 401 after it | `AuthExpiredError`; the refused refresh already deleted `auth.json` |
+| Network error or 5xx | `ApiError` "Error verifying the session…"; `auth.json` is kept |
+| `BASE44_API_KEY` workspace key | Prints the key prefix, with no server call |
+
 ## Command File Template
 
 ```typescript

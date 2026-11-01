@@ -25,6 +25,7 @@ describe("env credential seeding", () => {
       BASE44_ACCESS_TOKEN: jwt,
       BASE44_REFRESH_TOKEN: "refresh-xyz",
     });
+    t.api.mockUserInfo({ email: "alice@example.com", name: "Alice" });
 
     const result = await t.run("whoami");
 
@@ -40,19 +41,23 @@ describe("env credential seeding", () => {
     });
   });
 
-  it("shows the seeded identity in whoami", async () => {
+  it("verifies the seeded identity in whoami", async () => {
+    const jwt = makeJwt({ sub: "alice@example.com", exp: futureExp() });
     t.givenEnv({
-      BASE44_ACCESS_TOKEN: makeJwt({
-        sub: "alice@example.com",
-        exp: futureExp(),
-      }),
+      BASE44_ACCESS_TOKEN: jwt,
       BASE44_REFRESH_TOKEN: "refresh-xyz",
+    });
+    let authHeader: string | undefined;
+    t.api.mockRoute("GET", "/oauth/userinfo", (req, res) => {
+      authHeader = req.headers.authorization;
+      res.status(200).json({ email: "alice@example.com", name: "Alice" });
     });
 
     const result = await t.run("whoami");
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("alice@example.com");
+    expect(authHeader).toBe(`Bearer ${jwt}`);
   });
 
   it("uses the seeded token as the bearer for API calls", async () => {
@@ -242,6 +247,7 @@ describe("env credential seeding", () => {
         exp: futureExp(),
       }),
     });
+    t.api.mockUserInfo({ email: "real@example.com", name: "Real User" });
 
     const result = await t.run("whoami");
 
