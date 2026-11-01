@@ -43,6 +43,8 @@ The `base44Client` automatically handles token refresh:
 2. If expired, refreshes token and saves new tokens
 3. On 401 response, attempts refresh and retries once
 
+When the token endpoint refuses the refresh token (400/401/403), `refreshAndSaveTokens()` deletes `~/.base44/auth/auth.json`: the session is over. A network or server failure keeps the file, so a blip doesn't log the user out.
+
 ## Environment-Supplied Credentials
 
 ### Workspace API keys

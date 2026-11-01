@@ -1,4 +1,4 @@
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { fixture, setupCLITests } from "./testkit/index.js";
 
 const APP_ID = "test-app-id";
@@ -84,5 +84,23 @@ describe("token refresh on 401", () => {
     // Assert the real auth-failure reason, not just a non-zero exit — otherwise
     // an unrelated early failure (e.g. a missing --yes guard) would pass this.
     t.expectResult(result).toContain("Unauthorized");
+    // The server refused the refresh token, so the stored login is gone.
+    expect(await t.readAuthFile()).toBeNull();
+  });
+
+  it("keeps the stored login when the token endpoint fails with a server error", async () => {
+    await t.givenLoggedInWithProject(fixture("with-agents"));
+    const authBefore = await t.readAuthFile();
+    t.api.mockRoute("POST", "/oauth/token", (_req, res) => {
+      res.status(503).json({ error: "temporarily_unavailable" });
+    });
+    t.api.mockRoute("PUT", `/api/apps/${APP_ID}/agent-configs`, (_req, res) => {
+      res.status(401).json({ error: "Unauthorized" });
+    });
+
+    const result = await t.run("agents", "push", "--yes");
+
+    t.expectResult(result).toFail();
+    expect(await t.readAuthFile()).toEqual(authBefore);
   });
 });
