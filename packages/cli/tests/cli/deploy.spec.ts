@@ -147,6 +147,35 @@ describe("deploy command (unified)", () => {
     expect(stripeRemoved).toBe(false);
   });
 
+  it("reports removed and failed connectors", async () => {
+    await t.givenLoggedInWithProject(fixture("with-connectors"));
+    t.api.mockConnectorsList({
+      integrations: [
+        { integration_type: "gmail", status: "active", scopes: [] },
+      ],
+    });
+    t.api.mockConnectorSet({
+      redirect_url: null,
+      connection_id: null,
+      already_authorized: true,
+    });
+    t.api.mockConnectorRemove({ status: "removed", integration_type: "gmail" });
+    t.api.mockStripeStatus({ stripe_mode: "sandbox" });
+    t.api.mockRoute(
+      "DELETE",
+      `/api/apps/${t.api.appId}/payments/stripe`,
+      (_req, res) => {
+        res.status(500).json({ detail: "boom" });
+      },
+    );
+
+    const result = await t.run("deploy", "-y");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Removed connectors: gmail");
+    t.expectResult(result).toContain("Failed: stripe");
+  });
+
   it("deploys entities successfully with --yes flag", async () => {
     await t.givenLoggedInWithProject(fixture("with-entities"));
     t.api.mockEntitiesPush({
