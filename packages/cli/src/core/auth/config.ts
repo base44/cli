@@ -3,18 +3,12 @@ import { renewAccessToken } from "@/core/auth/api.js";
 import type { AuthData } from "@/core/auth/schema.js";
 import { AuthDataSchema } from "@/core/auth/schema.js";
 import { getAuthFilePath } from "@/core/config.js";
-import {
-  ApiError,
-  FileReadError,
-  SchemaValidationError,
-} from "@/core/errors.js";
+import { FileReadError, SchemaValidationError } from "@/core/errors.js";
 import { deleteFile, readJsonFile, writeJsonFile } from "@/core/utils/fs.js";
 
 // Buffer time before expiration to trigger proactive refresh (60 seconds)
 const TOKEN_REFRESH_BUFFER_MS = 60 * 1000;
 const WORKSPACE_API_KEY_PREFIX = "b44k_";
-// OAuth token-endpoint statuses for a refused grant or client (RFC 6749 §5.2)
-const REFRESH_REJECTED_STATUSES = new Set([400, 401, 403]);
 
 // Lock to prevent concurrent token refreshes
 let refreshPromise: Promise<string | null> | null = null;
@@ -137,15 +131,6 @@ export function isTokenExpired(auth: AuthData): boolean {
   return Date.now() >= auth.expiresAt - TOKEN_REFRESH_BUFFER_MS;
 }
 
-/** The token endpoint answered and refused the refresh token (e.g. invalid_grant). */
-function isRefreshRejected(error: unknown): boolean {
-  return (
-    error instanceof ApiError &&
-    error.statusCode !== undefined &&
-    REFRESH_REJECTED_STATUSES.has(error.statusCode)
-  );
-}
-
 export async function refreshAndSaveTokens(): Promise<string | null> {
   // If a refresh is already in progress, wait for it
   if (refreshPromise) {
@@ -165,12 +150,9 @@ export async function refreshAndSaveTokens(): Promise<string | null> {
       });
 
       return tokenResponse.accessToken;
-    } catch (error) {
-      // Only a refresh token the server refused ends the session; a network or
-      // server failure keeps auth.json so a later command can try again.
-      if (isRefreshRejected(error)) {
-        await deleteAuth();
-      }
+    } catch {
+      // Refresh failed - delete auth, user needs to login again
+      await deleteAuth();
       return null;
     } finally {
       refreshPromise = null;
