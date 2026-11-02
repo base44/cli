@@ -170,11 +170,7 @@ export async function deployAll(
   await agentSkillResource.push(agentSkills);
   await agentResource.push(agents);
   await authConfigResource.push(authConfig);
-  // Like functions, deploy only adds and updates connectors; removing the ones
-  // missing locally is left to `connectors push`.
-  const { results: connectorResults } = await pushConnectors(connectors, {
-    prune: false,
-  });
+  const { results: connectorResults } = await pushConnectors(connectors);
 
   const appUrl = await deployProjectSite(project, options);
   return appUrl ? { appUrl, connectorResults } : { connectorResults };

@@ -23,6 +23,7 @@ import {
 interface PushOptions {
   dir?: string;
   yes?: boolean;
+  force?: boolean;
 }
 
 /**
@@ -121,34 +122,35 @@ async function pushConnectorsAction(
 ): Promise<RunCommandResult> {
   const connectors = await readConnectorsToPush(options);
 
-  if (!jsonMode) {
-    if (connectors.length === 0) {
-      log.info(
-        "No local connectors found - checking for remote connectors to remove",
-      );
-    } else {
-      const connectorNames = connectors.map((c) => c.type).join(", ");
-      log.info(
-        `Found ${connectors.length} connectors to push: ${connectorNames}`,
-      );
-    }
+  // Like `functions deploy`: an empty folder never prunes, even with --force.
+  if (connectors.length === 0) {
+    return { outroMessage: "No local connectors found - nothing to push" };
   }
 
-  const proceed = await confirmPush({
-    isNonInteractive,
-    yes: options.yes,
-    log,
-    warning:
-      "This will overwrite your app's connectors with your local copy and remove any not present locally.",
-  });
-  if (!proceed) {
-    return { outroMessage: "Push cancelled" };
+  if (!jsonMode) {
+    const connectorNames = connectors.map((c) => c.type).join(", ");
+    log.info(
+      `Found ${connectors.length} connectors to push: ${connectorNames}`,
+    );
+  }
+
+  if (options.force) {
+    const proceed = await confirmPush({
+      isNonInteractive,
+      yes: options.yes,
+      log,
+      warning:
+        "This will remove any connectors on Base44 that are not present locally.",
+    });
+    if (!proceed) {
+      return { outroMessage: "Push cancelled" };
+    }
   }
 
   const { results } = await runTask(
     "Pushing connectors to Base44",
     async () => {
-      return await pushConnectors(connectors);
+      return await pushConnectors(connectors, { prune: options.force });
     },
   );
 
@@ -186,12 +188,13 @@ async function pushConnectorsAction(
 export function getConnectorsPushCommand(): Command {
   return new Base44Command("push")
     .description(
-      "Push local connectors to Base44 (overwrites connectors on Base44)",
+      "Push local connectors to Base44 (adds and updates; --force also removes the rest)",
     )
     .option(
       "--dir <path>",
       "Directory to read connector files from (default: ./connectors when using --app-id)",
     )
-    .option("-y, --yes", "Skip confirmation prompt")
+    .option("--force", "Remove connectors on Base44 not found locally")
+    .option("-y, --yes", "Skip the --force confirmation prompt")
     .action(pushConnectorsAction);
 }

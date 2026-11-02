@@ -178,7 +178,7 @@ describe("deploy command (unified)", () => {
     expect(removed).toEqual([]);
   });
 
-  it("reports connectors that failed to sync", async () => {
+  it("fails the deploy when a connector fails to sync", async () => {
     await t.givenLoggedInWithProject(fixture("with-connectors"));
     t.api.mockConnectorSet({
       redirect_url: null,
@@ -191,9 +191,10 @@ describe("deploy command (unified)", () => {
 
     const result = await t.run("deploy", "-y");
 
-    t.expectResult(result).toSucceed();
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("Some connectors failed to sync");
     t.expectResult(result).toContain(
-      "Failed: slack - Already connected by another user",
+      "Connector slack: Already connected by another user",
     );
   });
 

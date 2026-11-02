@@ -306,7 +306,7 @@ describe("pushConnectors", () => {
   });
 
   it("returns empty results when no local or upstream connectors", async () => {
-    const result = await pushConnectors([]);
+    const result = await pushConnectors([], { prune: true });
     expect(result.results).toEqual([]);
     expect(mockListConnectors).toHaveBeenCalledOnce();
   });
@@ -348,13 +348,13 @@ describe("pushConnectors", () => {
       integrationType: "slack",
     });
 
-    const result = await pushConnectors([]);
+    const result = await pushConnectors([], { prune: true });
 
     expect(mockRemoveConnector).toHaveBeenCalledWith("slack");
     expect(result.results).toEqual([{ type: "slack", action: "removed" }]);
   });
 
-  it("never lists or removes upstream connectors with prune: false", async () => {
+  it("never lists or removes upstream connectors by default", async () => {
     mockListConnectors.mockResolvedValue({
       integrations: [
         {
@@ -378,9 +378,7 @@ describe("pushConnectors", () => {
       otherUserEmail: null,
     });
 
-    const result = await pushConnectors([{ type: "gmail", scopes: [] }], {
-      prune: false,
-    });
+    const result = await pushConnectors([{ type: "gmail", scopes: [] }]);
 
     expect(result.results).toEqual([{ type: "gmail", action: "synced" }]);
     expect(mockListConnectors).not.toHaveBeenCalled();
@@ -416,7 +414,7 @@ describe("pushConnectors", () => {
       integrationType: "slack",
     });
 
-    const result = await pushConnectors(local);
+    const result = await pushConnectors(local, { prune: true });
 
     expect(mockSetConnector).toHaveBeenCalledWith("gmail", [
       "https://mail.google.com/",
@@ -451,7 +449,7 @@ describe("pushConnectors", () => {
       otherUserEmail: null,
     });
 
-    const result = await pushConnectors(local);
+    const result = await pushConnectors(local, { prune: true });
 
     expect(mockRemoveConnector).not.toHaveBeenCalled();
     expect(result.results).toEqual([{ type: "gmail", action: "synced" }]);
@@ -556,7 +554,7 @@ describe("pushConnectors", () => {
     });
     mockRemoveConnector.mockRejectedValue(new Error("Remove failed"));
 
-    const result = await pushConnectors([]);
+    const result = await pushConnectors([], { prune: true });
 
     expect(result.results).toEqual([
       { type: "slack", action: "error", error: "Remove failed" },
@@ -601,7 +599,7 @@ describe("pushConnectors", () => {
       integrationType: "custom-crm",
     });
 
-    const result = await pushConnectors([]);
+    const result = await pushConnectors([], { prune: true });
 
     expect(mockRemoveConnector).toHaveBeenCalledWith("custom-crm");
     expect(result.results).toEqual([{ type: "custom-crm", action: "removed" }]);
@@ -638,7 +636,7 @@ describe("pushConnectors", () => {
         claimUrl: null,
       });
 
-      const result = await pushConnectors(local);
+      const result = await pushConnectors(local, { prune: true });
 
       expect(mockInstallStripe).toHaveBeenCalledOnce();
       expect(result.results).toEqual([
@@ -653,7 +651,7 @@ describe("pushConnectors", () => {
         claimUrl: "https://connect.stripe.com/setup/claim/xxx",
       });
 
-      const result = await pushConnectors(local);
+      const result = await pushConnectors(local, { prune: true });
 
       expect(result.results).toEqual([
         {
@@ -671,7 +669,7 @@ describe("pushConnectors", () => {
         sandboxClaimUrl: null,
       });
 
-      const result = await pushConnectors(local);
+      const result = await pushConnectors(local, { prune: true });
 
       expect(mockInstallStripe).not.toHaveBeenCalled();
       expect(result.results).toEqual([{ type: "stripe", action: "synced" }]);
@@ -684,7 +682,7 @@ describe("pushConnectors", () => {
       });
       mockRemoveStripe.mockResolvedValue({ success: true });
 
-      const result = await pushConnectors([]);
+      const result = await pushConnectors([], { prune: true });
 
       expect(mockRemoveStripe).toHaveBeenCalledOnce();
       expect(result.results).toEqual([{ type: "stripe", action: "removed" }]);
@@ -694,7 +692,7 @@ describe("pushConnectors", () => {
       const local: ConnectorResource[] = [{ type: "stripe", scopes: [] }];
       mockInstallStripe.mockRejectedValue(new Error("Stripe install timeout"));
 
-      const result = await pushConnectors(local);
+      const result = await pushConnectors(local, { prune: true });
 
       expect(result.results).toEqual([
         { type: "stripe", action: "error", error: "Stripe install timeout" },
@@ -708,7 +706,7 @@ describe("pushConnectors", () => {
       });
       mockRemoveStripe.mockRejectedValue(new Error("Stripe remove failed"));
 
-      const result = await pushConnectors([]);
+      const result = await pushConnectors([], { prune: true });
 
       expect(result.results).toEqual([
         { type: "stripe", action: "error", error: "Stripe remove failed" },
@@ -719,7 +717,7 @@ describe("pushConnectors", () => {
       const local: ConnectorResource[] = [{ type: "stripe", scopes: [] }];
       mockGetStripeStatus.mockRejectedValue(new Error("Status check failed"));
 
-      const result = await pushConnectors(local);
+      const result = await pushConnectors(local, { prune: true });
 
       expect(result.results).toEqual([
         {
@@ -733,13 +731,13 @@ describe("pushConnectors", () => {
     it("returns no Stripe result when getStripeStatus fails and no local Stripe", async () => {
       mockGetStripeStatus.mockRejectedValue(new Error("Status check failed"));
 
-      const result = await pushConnectors([]);
+      const result = await pushConnectors([], { prune: true });
 
       expect(result.results).toEqual([]);
     });
 
     it("returns no Stripe result when no local and no remote Stripe", async () => {
-      const result = await pushConnectors([]);
+      const result = await pushConnectors([], { prune: true });
 
       expect(mockInstallStripe).not.toHaveBeenCalled();
       expect(mockRemoveStripe).not.toHaveBeenCalled();
@@ -764,7 +762,7 @@ describe("pushConnectors", () => {
         claimUrl: "https://connect.stripe.com/setup/claim/xxx",
       });
 
-      const result = await pushConnectors(local);
+      const result = await pushConnectors(local, { prune: true });
 
       expect(mockSetConnector).toHaveBeenCalledWith("gmail", [
         "https://mail.google.com/",

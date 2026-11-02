@@ -16,7 +16,7 @@ import {
   parseGitHash,
   theme,
 } from "@/cli/utils/index.js";
-import { InvalidInputError } from "@/core/errors.js";
+import { InvalidInputError, ResourceDeploymentError } from "@/core/errors.js";
 import {
   deployAll,
   hasResourcesToDeploy,
@@ -165,9 +165,6 @@ export async function deployAction(
   if (stripeResult?.action === "provisioned") {
     printStripeResult(stripeResult as StripeSyncResult, log);
   }
-  for (const r of connectorResults) {
-    if (r.action === "error") log.error(`Failed: ${r.type} - ${r.error}`);
-  }
 
   log.message(
     `${theme.styles.header("Dashboard")}: ${theme.colors.links(getDashboardUrl())}`,
@@ -176,6 +173,17 @@ export async function deployAction(
     log.message(
       `${theme.styles.header("App URL")}: ${theme.colors.links(result.appUrl)}`,
     );
+  }
+
+  // Like a failed function, a failed connector fails the deploy, but only
+  // after everything else has shipped.
+  const failedConnectors = connectorResults.flatMap((r) =>
+    r.action === "error" ? [`Connector ${r.type}: ${r.error}`] : [],
+  );
+  if (failedConnectors.length > 0) {
+    throw new ResourceDeploymentError("Some connectors failed to sync", {
+      details: failedConnectors,
+    });
   }
 
   return { outroMessage: "App deployed successfully" };

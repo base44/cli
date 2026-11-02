@@ -35,13 +35,12 @@ interface PushConnectorsResponse {
 }
 
 /**
- * Sync local connectors to the app. With `prune` (the default) it also removes
- * remote connectors missing locally, so the app matches the folder; without it
- * connectors are only added or updated, the way `deploy` treats functions.
+ * Add and update local connectors on the app. With `prune` it also removes
+ * remote connectors missing locally (`connectors push --force`).
  */
 export async function pushConnectors(
   connectors: ConnectorResource[],
-  { prune = true }: { prune?: boolean } = {},
+  { prune = false }: { prune?: boolean } = {},
 ): Promise<PushConnectorsResponse> {
   const stripeConnector = connectors.find(
     (c) => c.type === STRIPE_CONNECTOR_TYPE,

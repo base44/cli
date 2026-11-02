@@ -74,7 +74,14 @@ describe("actors in unified deploy", () => {
       `/api/apps/${t.api.appId}/external-auth/integrations/:type`,
       (_req, res) => {
         stages.push("connectors");
-        res.json({ already_authorized: true });
+        res.json({
+          error: null,
+          error_message: null,
+          redirect_url: null,
+          connection_id: null,
+          already_authorized: true,
+          other_user_email: null,
+        });
       },
     );
     t.api.mockStripeStatus({ stripe_mode: null });
