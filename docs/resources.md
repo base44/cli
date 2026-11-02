@@ -1,6 +1,6 @@
 # Working with Resources
 
-**Keywords:** resource, entity, function, actor, agent, agent skill, connector, push, readAll, deploy, site, tar.gz, deployAll, ProjectData
+**Keywords:** resource, entity, function, actor, agent, agent skill, connector, push, readAll, deploy, site, tar.gz, deployAll, ProjectData, explicit-delete, mirrored, prune, --force
 
 Resources are project-specific collections (entities, functions, actors, agents, agent skills, connectors) that can be read from the filesystem and pushed to the Base44 API.
 
@@ -16,6 +16,17 @@ export interface Resource<T> {
 ```
 
 The `push` method handles empty arrays gracefully (returns early without making an API call).
+
+## Removing remote items: explicit-delete vs mirrored
+
+Every resource falls into one of two groups, by what happens to a remote item that is missing locally:
+
+| Group | Resources | `deploy` | Removal |
+|---|---|---|---|
+| **Explicit-delete** | functions, actors, connectors | Adds and updates; never removes | `functions deploy --force`, `actors delete`, `connectors push --force` |
+| **Mirrored** | entities, agents, agent skills | Makes the remote match the folder | Delete the local file, then `deploy` or `<resource> push` |
+
+In both groups an empty local list removes nothing, even with `--force`. Put a new resource in the explicit-delete group when its remote copy holds something the folder can't restore (credentials, a Stripe sandbox, durable storage) or when it can be created outside the folder.
 
 ## Resource Implementation
 
@@ -174,7 +185,7 @@ What it deploys (in order):
 5. Agent skills (via `agentSkillResource.push()`)
 6. Agents (via `agentResource.push()`)
 7. Auth config (via `authConfigResource.push()`)
-8. Connectors (via `pushConnectors()`) -- may return OAuth redirect URLs
+8. Connectors (via `pushConnectors()`, which only adds and updates; see [explicit-delete](#removing-remote-items-explicit-delete-vs-mirrored)) -- may return OAuth redirect URLs. A connector that fails to sync fails the deploy with `ResourceDeploymentError`, but only after the site has shipped
 9. Site (if `site.outputDirectory` is configured) — the legacy tar.gz upload. The deployments-API transport is not reachable from here; see [deployments.md](deployments.md).
 
 Function and actor batches collect each item's result. `deployAll()` must inspect

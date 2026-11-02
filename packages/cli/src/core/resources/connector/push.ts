@@ -34,8 +34,13 @@ interface PushConnectorsResponse {
   results: ConnectorSyncResult[];
 }
 
+/**
+ * Add and update local connectors on the app. With `prune` it also removes
+ * remote connectors missing locally (`connectors push --force`).
+ */
 export async function pushConnectors(
   connectors: ConnectorResource[],
+  { prune = false }: { prune?: boolean } = {},
 ): Promise<PushConnectorsResponse> {
   const stripeConnector = connectors.find(
     (c) => c.type === STRIPE_CONNECTOR_TYPE,
@@ -44,8 +49,11 @@ export async function pushConnectors(
     (c) => c.type !== STRIPE_CONNECTOR_TYPE,
   );
 
-  const oauthResults = await syncOAuthConnectors(oauthConnectors);
-  const stripeResult = await syncStripeConnector(stripeConnector);
+  const oauthResults = await syncOAuthConnectors(oauthConnectors, prune);
+  const stripeResult =
+    stripeConnector || prune
+      ? await syncStripeConnector(stripeConnector)
+      : null;
 
   const results = [...oauthResults];
   if (stripeResult) {
@@ -57,10 +65,9 @@ export async function pushConnectors(
 
 async function syncOAuthConnectors(
   connectors: ConnectorResource[],
+  prune: boolean,
 ): Promise<ConnectorSyncResult[]> {
   const results: ConnectorSyncResult[] = [];
-  const upstream = await listConnectors();
-  const localTypes = new Set(connectors.map((c) => c.type));
 
   // 1. Sync local connectors to remote
   for (const connector of connectors) {
@@ -79,7 +86,13 @@ async function syncOAuthConnectors(
     }
   }
 
+  if (!prune) {
+    return results;
+  }
+
   // 2. Remove remote connectors that are not in the local project
+  const upstream = await listConnectors();
+  const localTypes = new Set(connectors.map((c) => c.type));
   for (const upstreamConnector of upstream.integrations) {
     if (!localTypes.has(upstreamConnector.integrationType)) {
       try {
