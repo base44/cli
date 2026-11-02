@@ -12,6 +12,9 @@ JSON error envelope. Successful results use `RunCommandResult.stdout`; progress
 and server warnings use the context logger. Deployment reads project resources;
 deletion only needs the selected app context.
 
+Function and actor deploy responses carry non-fatal server `warnings`. Keep them
+in the response schema; `formatDeployResult` prints them under each result line.
+
 ## Branch targeting
 
 Discover names with `base44 branches list --app-id <app-id> --json`.

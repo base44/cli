@@ -152,9 +152,6 @@ export async function deployAction(
     onActorResult: (result) => {
       actorCompleted++;
       formatDeployResult(result, log);
-      if (result.status !== "error")
-        for (const warning of result.warnings)
-          log.warn(`${result.name}: ${warning}`);
     },
   });
 

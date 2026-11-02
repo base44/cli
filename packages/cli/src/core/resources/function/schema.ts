@@ -152,6 +152,8 @@ const BackendFunctionSchema = FunctionConfigSchema.extend({
 
 export const DeploySingleFunctionResponseSchema = z.object({
   status: z.enum(["deployed", "unchanged"]),
+  // Non-fatal notices, e.g. function.jsonc automations the server no longer creates.
+  warnings: z.array(z.string()).optional().default([]),
 });
 
 const FunctionInfoSchema = z
