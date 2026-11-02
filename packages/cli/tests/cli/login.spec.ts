@@ -28,6 +28,7 @@ describe("login command", () => {
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("Device code generated");
     t.expectResult(result).toContain("ABCD-1234");
+    t.expectResult(result).toContain("https://app.base44.com/device");
     t.expectResult(result).toContain("Successfully logged in");
     t.expectResult(result).toContain("logged-in@example.com");
 

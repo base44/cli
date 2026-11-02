@@ -25,6 +25,7 @@ describe("env credential seeding", () => {
       BASE44_ACCESS_TOKEN: jwt,
       BASE44_REFRESH_TOKEN: "refresh-xyz",
     });
+    t.api.mockUserInfo({ email: "alice@example.com", name: "Alice" });
 
     const result = await t.run("whoami");
 
@@ -48,6 +49,7 @@ describe("env credential seeding", () => {
       }),
       BASE44_REFRESH_TOKEN: "refresh-xyz",
     });
+    t.api.mockUserInfo({ email: "alice@example.com", name: "Alice" });
 
     const result = await t.run("whoami");
 
@@ -242,6 +244,7 @@ describe("env credential seeding", () => {
         exp: futureExp(),
       }),
     });
+    t.api.mockUserInfo({ email: "real@example.com", name: "Real User" });
 
     const result = await t.run("whoami");
 

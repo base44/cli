@@ -63,6 +63,10 @@ Omitting the flag preserves existing main-app behavior.
 - Codex cloud sets `CODEX_THREAD_ID` but keeps the conversation on OpenAI's side, so a thread id with no rollout file means Codex cloud, which can't be imported.
 - Inside claude.ai (`CLAUDE_CODE_REMOTE`), a failed connection or a non-JSON 403 means the environment's network allowlist blocks Base44; the message says how to allow it.
 
+## Auth status (`base44 whoami`)
+
+`whoami` never starts a login (`requireAuth: false`). It asks `GET oauth/userinfo` through `base44Client`, so an expired token is refreshed as in any command. A refused session fails with `AuthExpiredError`; any other failure is reported as an `ApiError`, not as logged out.
+
 ## Command File Template
 
 ```typescript
@@ -120,7 +124,7 @@ new Base44Command("my-cmd", { requireAuth: false, requireAppContext: false })
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `requireAuth` | `true` | Check authentication before running, auto-triggers login if needed |
+| `requireAuth` | `true` | Check authentication before running, auto-triggers login if needed. A non-interactive run (no TTY, or `--json`) fails with `AuthRequiredError` instead |
 | `requireAppContext` | `true` | Resolve the app ID from `--app-id`, `BASE44_APP_ID`, or `.app.jsonc`, then cache it for sync access via `getAppContext()` |
 | `fullBanner` | `false` | Show ASCII art banner instead of simple intro tag |
 
