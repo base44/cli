@@ -29,7 +29,6 @@ export async function ensureAuth(ctx: CLIContext): Promise<void> {
   const loggedIn = await isLoggedIn();
 
   if (!loggedIn) {
-    // Nobody may see a device code without a terminal, so don't wait on one.
     if (ctx.isNonInteractive) {
       throw new AuthRequiredError("Not logged in", {
         hints: [

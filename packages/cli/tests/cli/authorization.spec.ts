@@ -91,7 +91,6 @@ describe("while logged out", () => {
   const t = setupCLITests();
 
   it("fails fast instead of starting a login when there's no terminal", async () => {
-    // Tests run without a TTY, so the CLI is non-interactive.
     const result = await t.run("workspace", "list");
 
     t.expectResult(result).toFail();

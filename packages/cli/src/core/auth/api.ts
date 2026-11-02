@@ -172,10 +172,6 @@ export async function getUserInfo(
   return result.data;
 }
 
-/**
- * Asks the server who the stored session belongs to. Goes through base44Client,
- * so an expired token is refreshed and a 401 retried once, like any command.
- */
 export async function getSessionUser(): Promise<UserInfoResponse> {
   let response: KyResponse;
   try {

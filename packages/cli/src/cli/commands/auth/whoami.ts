@@ -18,7 +18,6 @@ async function whoami(_ctx: CLIContext): Promise<RunCommandResult> {
     };
   }
 
-  // whoami skips ensureAuth so it never starts a login; env credentials still count.
   await seedAuthFromEnv();
   if (!(await isLoggedIn())) {
     throw new AuthRequiredError("Not logged in");
