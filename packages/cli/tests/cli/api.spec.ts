@@ -14,6 +14,7 @@ import { fixture, setupCLITests } from "./testkit/index.js";
 interface CapturedRequest {
   url: string;
   authorization?: string;
+  apiKey?: string;
   contentType?: string;
   body: string;
 }
@@ -319,7 +320,6 @@ describe("api command", () => {
         }),
       ]);
       expect(JSON.parse(result.stdout)).toMatchObject({ ok: true });
-      expect(specFetches).toBe(0);
     });
 
     it("prints the response compact when piped", async () => {
@@ -624,6 +624,79 @@ describe("api command", () => {
 
       t.expectResult(result).toSucceed();
       expect(sent).toHaveLength(1);
+      expect(specFetches).toBe(0);
+    });
+
+    describe("app user token", () => {
+      const entitiesPath = "/api/apps/68a1/entities/Task";
+      let exchanges: number;
+
+      beforeEach(() => {
+        exchanges = 0;
+        const spec = JSON.parse(specText);
+        spec.paths["/api/apps/{app_id}/entities/{entity_name}"] = {
+          get: {
+            summary: "List entity records",
+            responses: { "200": { description: "OK" } },
+            security: [{ AppUserTokenAuth: [] }, { WorkspaceApiKeyAuth: [] }],
+          },
+        };
+        specText = JSON.stringify(spec);
+        t.api
+          .mockRoute("GET", "/api/apps/:appId/entities/:name", (req, res) => {
+            sent.push({
+              ...capture(req),
+              apiKey: req.headers.api_key as string | undefined,
+            });
+            res.json([]);
+          })
+          .mockRoute("GET", "/api/apps/:appId/auth/token", (req, res) => {
+            exchanges++;
+            expect(req.params.appId).toBe("68a1");
+            expect(req.headers.authorization).toBe("Bearer test-access-token");
+            res.json({ token: "app-user-token" });
+          });
+      });
+
+      it("exchanges the login for an operation marked for app users", async () => {
+        const result = await t.run("api", "fetch", "GET", entitiesPath);
+
+        t.expectResult(result).toSucceed();
+        expect(exchanges).toBe(1);
+        expect(sent).toEqual([
+          expect.objectContaining({
+            url: entitiesPath,
+            authorization: "Bearer app-user-token",
+          }),
+        ]);
+        expect(result.stdout + result.stderr).not.toContain("app-user-token");
+      });
+
+      it("sends the login to an operation not marked for app users", async () => {
+        const result = await t.run(
+          "api",
+          "fetch",
+          "GET",
+          "/api/apps/68a1/workflows/runs",
+        );
+
+        t.expectResult(result).toSucceed();
+        expect(exchanges).toBe(0);
+        expect(sent[0]?.authorization).toBe("Bearer test-access-token");
+      });
+
+      it("sends a workspace API key as is", async () => {
+        const apiKey = `b44k_${"e".repeat(64)}`;
+        t.givenEnv({ BASE44_API_KEY: apiKey });
+
+        const result = await t.run("api", "fetch", "GET", entitiesPath);
+
+        t.expectResult(result).toSucceed();
+        expect(exchanges).toBe(0);
+        expect(sent).toEqual([
+          expect.objectContaining({ apiKey, authorization: undefined }),
+        ]);
+      });
     });
 
     describe("{app_id}", () => {

@@ -133,6 +133,28 @@ export const base44Client = ky.create({
 });
 
 /**
+ * A client that sends an app-user token instead of the login. No refresh on
+ * 401: retrying with the platform token would run the call as anonymous.
+ */
+export function getAppUserClient(token: string) {
+  return ky.create({
+    prefixUrl: getBase44ApiUrl(),
+    headers: {
+      "User-Agent": "Base44 CLI",
+      Authorization: `Bearer ${token}`,
+    },
+    hooks: {
+      beforeRequest: [
+        (request) => {
+          request.headers.set("X-Request-ID", randomUUID());
+        },
+        captureRequestBody,
+      ],
+    },
+  });
+}
+
+/**
  * Returns an HTTP client scoped to the current app.
  * Requires app context to be initialized first via initAppContext() or setAppContext().
  * Use this for API calls to app-specific endpoints (entities, functions, etc.).

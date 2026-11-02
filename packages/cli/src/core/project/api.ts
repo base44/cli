@@ -2,7 +2,7 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { KyResponse } from "ky";
 import { extract } from "tar";
-import { base44Client, getAppClient } from "@/core/clients/index.js";
+import { base44Client } from "@/core/clients/index.js";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";
 import { getAppContext } from "@/core/project/app-config.js";
 import type {
@@ -147,10 +147,12 @@ export async function downloadProject(projectId: string, projectPath: string) {
   await pipeline(nodeStream, extract({ cwd: projectPath }));
 }
 
-export async function getAppUserToken(): Promise<string> {
+export async function getAppUserToken(
+  appId = getAppContext().id,
+): Promise<string> {
   try {
-    const response = await getAppClient()
-      .get("auth/token")
+    const response = await base44Client
+      .get(`api/apps/${appId}/auth/token`)
       .json<{ token: string }>();
     return response.token;
   } catch (error) {

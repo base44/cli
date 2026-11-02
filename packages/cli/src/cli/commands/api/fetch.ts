@@ -9,6 +9,7 @@ import {
 } from "@/cli/utils/index.js";
 import {
   type ApiResponse,
+  appUserTokenFor,
   getOperationContract,
   listOperations,
   matchOperation,
@@ -223,7 +224,13 @@ async function fetchAction(
       : await readRequestBody(options.body);
   const response = await ctx.runTask(
     `Calling ${method} ${target}`,
-    () => sendApiRequest(method, target, body),
+    async () => {
+      const appUserToken = await appUserTokenFor(method, target, {
+        // --read-only already fetched it again.
+        refresh: options.refresh && !options.readOnly,
+      });
+      return sendApiRequest(method, target, body, appUserToken);
+    },
     {
       successMessage: `Called ${method} ${target}`,
       errorMessage: "Request failed",

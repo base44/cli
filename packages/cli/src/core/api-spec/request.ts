@@ -1,6 +1,10 @@
 import { HTTPError } from "ky";
-import { base44Client } from "@/core/clients/index.js";
+import { hasWorkspaceApiKeyAuth } from "@/core/auth/config.js";
+import { base44Client, getAppUserClient } from "@/core/clients/index.js";
 import { ApiError } from "@/core/errors.js";
+import { getAppUserToken } from "@/core/project/api.js";
+import { listOperations, matchOperation, pathParameter } from "./operations.js";
+import { loadSpec } from "./spec.js";
 
 const MAX_ERROR_BODY_CHARS = 4000;
 const QUERY_STRING = /\?\S*/g;
@@ -32,14 +36,45 @@ export function normalizePath(path: string): string {
   return `${url.pathname}${url.search}`;
 }
 
-/** Send a request as is through the authenticated client; the server validates it. */
+const APP_PATH = /^\/api\/apps\/[^/?#]+\//;
+
+/**
+ * An app-user token for an operation the spec marks as taking one, exchanged
+ * for the platform login; undefined when the login is sent as is. A workspace
+ * API key already works on those routes. An unreadable spec means an old
+ * server, so the login is sent as before.
+ */
+export async function appUserTokenFor(
+  method: string,
+  path: string,
+  options: { refresh?: boolean } = {},
+): Promise<string | undefined> {
+  if (hasWorkspaceApiKeyAuth() || !APP_PATH.test(path)) {
+    return undefined;
+  }
+  const loaded = await loadSpec(options).catch(() => null);
+  const op = loaded
+    ? matchOperation(listOperations(loaded.spec), method, path)
+    : undefined;
+  const appId = op?.appUserToken
+    ? pathParameter(op, path, "app_id")
+    : undefined;
+  return appId ? getAppUserToken(appId) : undefined;
+}
+
+/**
+ * Send a request as is through the authenticated client, or with `appUserToken`
+ * instead of the login; the server validates it.
+ */
 export async function sendApiRequest(
   method: string,
   path: string,
   body?: string | FormData,
+  appUserToken?: string,
 ): Promise<ApiResponse> {
+  const client = appUserToken ? getAppUserClient(appUserToken) : base44Client;
   try {
-    const response = await base44Client(path.replace(/^\/+/, ""), {
+    const response = await client(path.replace(/^\/+/, ""), {
       method,
       body,
       // A FormData body sets its own multipart Content-Type and boundary.

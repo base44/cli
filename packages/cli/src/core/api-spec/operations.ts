@@ -10,6 +10,7 @@ import { cleanText } from "./text.js";
 
 const PERSONAL_ACCESS_TOKEN_SCHEME = "PersonalAccessTokenAuth";
 const READ_ONLY_SCOPE = "read_only";
+const APP_USER_TOKEN_SCHEME = "AppUserTokenAuth";
 
 export interface ApiOperation {
   /** `METHOD /path/template`, the operation's identity in every command's output. */
@@ -21,6 +22,8 @@ export interface ApiOperation {
   /** Parameter names and descriptions, for search. */
   parameterText: string;
   readOnly: boolean;
+  /** Takes an app user's token, not the platform login (app runtime routes). */
+  appUserToken: boolean;
   operation: OpenApiOperation;
 }
 
@@ -30,6 +33,14 @@ function isReadOnly(operation: OpenApiOperation, spec: OpenApiSpec): boolean {
   return security.some((requirement) =>
     requirement[PERSONAL_ACCESS_TOKEN_SCHEME]?.includes(READ_ONLY_SCOPE),
   );
+}
+
+function takesAppUserToken(
+  operation: OpenApiOperation,
+  spec: OpenApiSpec,
+): boolean {
+  const security = operation.security ?? spec.security ?? [];
+  return security.some((requirement) => APP_USER_TOKEN_SCHEME in requirement);
 }
 
 function parameterText(operation: OpenApiOperation): string {
@@ -114,6 +125,7 @@ export function listOperations(spec: OpenApiSpec): ApiOperation[] {
           description: cleanText(operation.description ?? ""),
           parameterText: parameterText(operation),
           readOnly: isReadOnly(operation, spec),
+          appUserToken: takesAppUserToken(operation, spec),
           operation,
         },
       ];
@@ -167,4 +179,14 @@ export function matchOperation(
   return candidates.sort((a, b) =>
     literalSegments(b.path).localeCompare(literalSegments(a.path)),
   )[0];
+}
+
+/** The concrete path's value for a `{name}` segment of the operation's template. */
+export function pathParameter(
+  op: ApiOperation,
+  concretePath: string,
+  name: string,
+): string | undefined {
+  const index = pathSegments(op.path).indexOf(`{${name}}`);
+  return index < 0 ? undefined : pathSegments(concretePath)[index];
 }

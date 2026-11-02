@@ -4,6 +4,7 @@
 
 ### Changed
 
+- `base44 api fetch` calls an app runtime route (entities, the app's users and the like) as your app user: when the API spec marks the operation as taking an app user's token, the CLI exchanges your login for one, as `base44 exec` does, and sends that instead. Before, the server read the login as an anonymous visitor and answered with wrong or empty results. A workspace API key is sent as before.
 - `base44 exec` loads an SDK released in the last 24 hours instead of Deno's default minimum dependency age silently holding scripts on the previous one. Other npm packages a script imports keep the default.
 
 ### Added
