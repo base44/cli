@@ -98,6 +98,10 @@ export interface ArtifactSet {
   /** Raw payloads by name. The server normalizes and hashes them. */
   entities: Record<string, unknown>;
   agents: Record<string, unknown>;
+  /** Always sent, `{}` when the app has none: an absent field says this
+   * producer cannot describe workflows, and the platform refuses that for an
+   * app that has them. */
+  workflows: Record<string, unknown>;
 }
 
 export interface CreateVersionProgress {

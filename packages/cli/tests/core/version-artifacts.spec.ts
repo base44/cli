@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { InvalidInputError } from "@/core/errors.js";
+import { ConfigInvalidError, InvalidInputError } from "@/core/errors.js";
 import { hashAsset } from "@/core/site/manifest.js";
 import {
   collectArtifacts,
@@ -126,7 +126,11 @@ describe("collectResources", () => {
     await rm(configDir, { recursive: true, force: true });
   });
 
-  const dirs = { entitiesDir: "entities", agentsDir: "agents" };
+  const dirs = {
+    entitiesDir: "entities",
+    agentsDir: "agents",
+    workflowsDir: "workflows",
+  };
 
   it("keys a payload by its path with the schema extension stripped", async () => {
     // The same name the platform derives from the same file, so a version made
@@ -166,7 +170,73 @@ describe("collectResources", () => {
     expect(await collectResources(configDir, dirs)).toEqual({
       entities: {},
       agents: {},
+      workflows: {},
     });
+  });
+
+  it("keys a workflow by its path under the workflows directory", async () => {
+    // The platform's `workflow_files_key`: `workflows/daily-digest.jsonc` is
+    // `daily-digest`, and a nested file keeps its relative path.
+    await mkdir(join(configDir, "workflows", "sub"), { recursive: true });
+    await writeFile(
+      join(configDir, "workflows", "daily-digest.jsonc"),
+      '{ "name": "Daily digest", "steps": [] }',
+    );
+    await writeFile(join(configDir, "workflows", "sub", "x.jsonc"), "{}");
+
+    const { workflows } = await collectResources(configDir, dirs);
+
+    expect(workflows).toEqual({
+      "daily-digest": { name: "Daily digest", steps: [] },
+      "sub/x": {},
+    });
+  });
+
+  it("reads a workflow as JSONC and sends it raw", async () => {
+    await mkdir(join(configDir, "workflows"));
+    await writeFile(
+      join(configDir, "workflows", "w.jsonc"),
+      '{\n  // a comment\n  "anything": { "goes": [1, 2,] },\n}',
+    );
+
+    const { workflows } = await collectResources(configDir, dirs);
+
+    expect(workflows).toEqual({ w: { anything: { goes: [1, 2] } } });
+  });
+
+  it("takes only .jsonc files as workflows", async () => {
+    // Unlike entities and agents: to the platform a `.json` file in the
+    // workflows directory is an ordinary file, not a workflow.
+    await mkdir(join(configDir, "workflows"));
+    await writeFile(join(configDir, "workflows", "real.jsonc"), "{}");
+    await writeFile(join(configDir, "workflows", "notes.json"), "{}");
+
+    const { workflows } = await collectResources(configDir, dirs);
+
+    expect(workflows).toEqual({ real: {} });
+  });
+
+  it("fails on a workflow that does not parse, naming the file", async () => {
+    await mkdir(join(configDir, "workflows"));
+    const broken = join(configDir, "workflows", "broken.jsonc");
+    await writeFile(broken, "{ not json");
+
+    const failure = collectResources(configDir, dirs);
+
+    await expect(failure).rejects.toBeInstanceOf(ConfigInvalidError);
+    await expect(failure).rejects.toThrow(broken);
+  });
+
+  it("reads workflows from the configured directory", async () => {
+    await mkdir(join(configDir, "flows"));
+    await writeFile(join(configDir, "flows", "w.jsonc"), "{}");
+
+    const { workflows } = await collectResources(configDir, {
+      ...dirs,
+      workflowsDir: "flows",
+    });
+
+    expect(workflows).toEqual({ w: {} });
   });
 });
 
@@ -378,6 +448,7 @@ describe("collectArtifacts", () => {
       outputDir: join(projectRoot, "dist", "client"),
       entitiesDir: "entities",
       agentsDir: "agents",
+      workflowsDir: "workflows",
       functionsDir: "functions",
       actorsDir: "actors",
     };

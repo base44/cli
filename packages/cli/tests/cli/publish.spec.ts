@@ -68,6 +68,31 @@ describe("publish command", () => {
     });
   });
 
+  it("sends the app's workflows raw, keyed by their path under workflows/", async () => {
+    t.givenEnv({ BASE44_VERSIONS_API: "1" });
+    await t.givenLoggedInWithProject(fixture("publishable"));
+    mockPublishApi();
+
+    const result = await t.run("publish", "--no-build");
+
+    t.expectResult(result).toSucceed();
+    // `notes.json` beside it is not a workflow: the platform takes `.jsonc` only.
+    expect(t.api.versionDeclareRequests[0]).toMatchObject({
+      workflows: {
+        "daily-digest": {
+          name: "Daily digest",
+          trigger: { type: "schedule", cron: "0 9 * * *" },
+          steps: [],
+        },
+      },
+    });
+    expect(
+      Object.keys(
+        (t.api.versionDeclareRequests[0] as { workflows: object }).workflows,
+      ),
+    ).toEqual(["daily-digest"]);
+  });
+
   it("declares an app with no functions as having none", async () => {
     // Not an absent field: that is what an older CLI sends, and the platform
     // refuses it for an app whose functions it would then remove.
@@ -604,6 +629,15 @@ describe("publish command, for an app with a server of its own", () => {
         compatibility_flags: ["nodejs_compat"],
       },
     });
+  });
+
+  it("declares an app with no workflows as having none", async () => {
+    // Not an absent field: that is what an older CLI sends, and the platform
+    // refuses it for an app that has workflows.
+    const result = await publish();
+
+    t.expectResult(result).toSucceed();
+    expect(t.api.versionDeclareRequests[0]).toMatchObject({ workflows: {} });
   });
 
   it("takes the assets from the Worker's own directory", async () => {

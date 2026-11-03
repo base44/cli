@@ -195,6 +195,7 @@ export async function createVersion(
           actors: artifacts.actors.map(declaredActor),
           entities: artifacts.entities,
           agents: artifacts.agents,
+          workflows: artifacts.workflows,
           source_commit: options.sourceCommit,
         },
         "declaring a version",
