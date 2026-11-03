@@ -216,6 +216,17 @@ describe("collectResources", () => {
     expect(workflows).toEqual({ real: {} });
   });
 
+  it("takes a hidden .jsonc file as a workflow", async () => {
+    // The platform counts `.draft.jsonc` as the workflow `.draft`; skipping it
+    // here would leave the version without one the app has.
+    await mkdir(join(configDir, "workflows"));
+    await writeFile(join(configDir, "workflows", ".draft.jsonc"), "{}");
+
+    const { workflows } = await collectResources(configDir, dirs);
+
+    expect(workflows).toEqual({ ".draft": {} });
+  });
+
   it("fails on a workflow that does not parse, naming the file", async () => {
     await mkdir(join(configDir, "workflows"));
     const broken = join(configDir, "workflows", "broken.jsonc");

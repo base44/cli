@@ -144,15 +144,17 @@ async function describeSiteWorker(
  */
 async function readRawResources(
   dir: string,
-  extensions: string = CONFIG_FILE_EXTENSION_GLOB,
+  options: { extensions?: string; dot?: boolean } = {},
 ): Promise<Record<string, unknown>> {
   if (!(await pathExists(dir))) {
     return {};
   }
+  const extensions = options.extensions ?? CONFIG_FILE_EXTENSION_GLOB;
   const files = await globby(`**/*.${extensions}`, {
     cwd: dir,
     onlyFiles: true,
     followSymbolicLinks: false,
+    dot: options.dot ?? false,
   });
   const payloads: Record<string, unknown> = {};
   for (const relativePath of files.sort()) {
@@ -169,9 +171,12 @@ export async function collectResources(
   const [entities, agents, workflows] = await Promise.all([
     readRawResources(join(configDir, dirs.entitiesDir)),
     readRawResources(join(configDir, dirs.agentsDir)),
-    // `.jsonc` only: to the platform a `.json` file in the workflows directory
-    // is an ordinary file, not a workflow, and sending it would declare one.
-    readRawResources(join(configDir, dirs.workflowsDir), CONFIG_FILE_EXTENSION),
+    // As the platform reads the same directory: a `.json` file there is an
+    // ordinary file, not a workflow, while a dot-file is one (`.draft`).
+    readRawResources(join(configDir, dirs.workflowsDir), {
+      extensions: CONFIG_FILE_EXTENSION,
+      dot: true,
+    }),
   ]);
   return { entities, agents, workflows };
 }
