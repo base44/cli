@@ -2,10 +2,13 @@ import type { Command } from "commander";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, theme } from "@/cli/utils/index.js";
 import {
+  getSessionUser,
   getWorkspaceApiKeyFromEnv,
+  isLoggedIn,
   isWorkspaceApiKey,
-  readAuth,
+  seedAuthFromEnv,
 } from "@/core/auth/index.js";
+import { AuthRequiredError } from "@/core/errors.js";
 
 async function whoami(_ctx: CLIContext): Promise<RunCommandResult> {
   const workspaceApiKey = getWorkspaceApiKeyFromEnv();
@@ -15,12 +18,20 @@ async function whoami(_ctx: CLIContext): Promise<RunCommandResult> {
     };
   }
 
-  const auth = await readAuth();
-  return { outroMessage: `Logged in as: ${theme.styles.bold(auth.email)}` };
+  await seedAuthFromEnv();
+  if (!(await isLoggedIn())) {
+    throw new AuthRequiredError("Not logged in");
+  }
+
+  const user = await getSessionUser();
+  return { outroMessage: `Logged in as: ${theme.styles.bold(user.email)}` };
 }
 
 export function getWhoamiCommand(): Command {
-  return new Base44Command("whoami", { requireAppContext: false })
+  return new Base44Command("whoami", {
+    requireAuth: false,
+    requireAppContext: false,
+  })
     .description("Display current authenticated user")
     .action(whoami);
 }

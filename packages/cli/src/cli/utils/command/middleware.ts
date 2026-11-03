@@ -6,7 +6,7 @@ import {
   readAuth,
   seedAuthFromEnv,
 } from "@/core/auth/index.js";
-import { InternalError } from "@/core/errors.js";
+import { AuthRequiredError, InternalError } from "@/core/errors.js";
 import type { AppContext } from "@/core/project/index.js";
 import { initAppContext } from "@/core/project/index.js";
 
@@ -29,6 +29,17 @@ export async function ensureAuth(ctx: CLIContext): Promise<void> {
   const loggedIn = await isLoggedIn();
 
   if (!loggedIn) {
+    if (ctx.isNonInteractive) {
+      throw new AuthRequiredError("Not logged in", {
+        hints: [
+          { message: "Run 'base44 login' first", command: "base44 login" },
+          {
+            message:
+              "Or set BASE44_API_KEY, or BASE44_ACCESS_TOKEN and BASE44_REFRESH_TOKEN",
+          },
+        ],
+      });
+    }
     ctx.log.info("You need to login first to continue.");
     await login(ctx);
   }

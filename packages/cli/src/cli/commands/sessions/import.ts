@@ -12,6 +12,7 @@ import {
 import { getBase44ApiUrl } from "@/core/config.js";
 import { InvalidInputError } from "@/core/errors.js";
 import { MAX_SESSION_BYTES, uploadSession } from "@/core/session-import/api.js";
+import { collectArtifacts } from "@/core/session-import/artifacts.js";
 import { prepareSessionImages } from "@/core/session-import/images.js";
 import {
   findCurrentSession,
@@ -139,22 +140,44 @@ async function importAction(
 
   if (!options.token) await ensureAuth(ctx);
 
+  const { artifacts, skipped } = await collectArtifacts(content);
   ctx.log.info("This uploads the full conversation to Base Code.");
+  if (artifacts.length) {
+    ctx.log.info(
+      `Sending ${artifacts.length} artifact${artifacts.length === 1 ? "" : "s"}: ${artifacts.map((a) => a.fileName).join(", ")}`,
+    );
+  }
+  for (const { fileName, reason } of skipped) {
+    ctx.log.warn(`Not sending ${fileName}: ${reason}.`);
+  }
   const imported = await ctx.runTask("Importing session", () =>
     uploadSession(appId, content, {
       token: options.token,
       sourceBranch: git?.branch,
+      artifacts,
     }),
   );
   const url = `${getBase44ApiUrl()}${imported.branchUrl}`;
+  const { importedArtifacts: saved, skippedArtifacts: refused } = imported;
+  const artifactLine =
+    saved || refused
+      ? `Artifacts: ${saved} saved${refused ? `, ${refused} not saved` : ""}.`
+      : undefined;
   return {
     outroMessage: [
       outcome(imported),
+      ...(artifactLine ? [artifactLine] : []),
       ...(note ? [note] : []),
       `Open it: ${url}`,
     ].join("\n"),
     stdout: ctx.jsonMode
-      ? toJsonStdout({ ...imported, url, ...(note ? { note } : {}) })
+      ? toJsonStdout({
+          ...imported,
+          url,
+          sentArtifacts: artifacts.map((a) => a.fileName),
+          unsentArtifacts: skipped,
+          ...(note ? { note } : {}),
+        })
       : undefined,
   };
 }

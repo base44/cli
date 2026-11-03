@@ -86,3 +86,16 @@ describe("token refresh on 401", () => {
     t.expectResult(result).toContain("Unauthorized");
   });
 });
+
+describe("while logged out", () => {
+  const t = setupCLITests();
+
+  it("fails fast instead of starting a login when there's no terminal", async () => {
+    const result = await t.run("workspace", "list");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("Not logged in");
+    t.expectResult(result).toContain("base44 login");
+    t.expectResult(result).toContain("BASE44_API_KEY");
+  });
+});

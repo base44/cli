@@ -1,18 +1,49 @@
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { fixture, setupCLITests } from "./testkit/index.js";
 
 describe("connectors push command", () => {
   const t = setupCLITests();
 
-  it("shows message when no local connectors found", async () => {
+  it("never prunes with no local connectors, even with --force", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
-    t.api.mockConnectorsList({ integrations: [] });
-    t.api.mockStripeStatus({ stripe_mode: null });
+    let listed = false;
+    t.api.mockRoute(
+      "GET",
+      `/api/apps/${t.api.appId}/external-auth/list`,
+      (_req, res) => {
+        listed = true;
+        res.json({ integrations: [] });
+      },
+    );
 
-    const result = await t.run("connectors", "push", "--yes");
+    const result = await t.run("connectors", "push", "--force", "--yes");
 
     t.expectResult(result).toSucceed();
     t.expectResult(result).toContain("No local connectors found");
+    expect(listed).toBe(false);
+  });
+
+  it("keeps remote-only connectors without --force", async () => {
+    await t.givenLoggedInWithProject(fixture("with-connectors"));
+    t.api.mockConnectorSet({
+      redirect_url: null,
+      connection_id: null,
+      already_authorized: true,
+    });
+    let removed = false;
+    t.api.mockRoute(
+      "DELETE",
+      `/api/apps/${t.api.appId}/external-auth/integrations/:type/remove`,
+      (_req, res) => {
+        removed = true;
+        res.json({ status: "removed", integration_type: "gmail" });
+      },
+    );
+
+    const result = await t.run("connectors", "push");
+
+    t.expectResult(result).toSucceed();
+    expect(removed).toBe(false);
   });
 
   it("fails when not in a project directory", async () => {
@@ -24,10 +55,10 @@ describe("connectors push command", () => {
     t.expectResult(result).toContain("No Base44 app ID found");
   });
 
-  it("fails when --yes is not provided in non-interactive mode", async () => {
+  it("fails when --force is used without --yes in non-interactive mode", async () => {
     await t.givenLoggedInWithProject(fixture("with-connectors"));
 
-    const result = await t.run("connectors", "push");
+    const result = await t.run("connectors", "push", "--force");
 
     t.expectResult(result).toFail();
     t.expectResult(result).toContain(
@@ -69,21 +100,25 @@ describe("connectors push command", () => {
     t.expectResult(result).toContain("notion");
   });
 
-  it("displays removed connectors", async () => {
-    await t.givenLoggedInWithProject(fixture("basic"));
+  it("removes remote-only connectors with --force", async () => {
+    await t.givenLoggedInWithProject(fixture("with-connectors"));
     t.api.mockConnectorsList({
       integrations: [
-        { integration_type: "slack", status: "active", scopes: ["chat:write"] },
+        { integration_type: "gmail", status: "active", scopes: [] },
       ],
     });
     t.api.mockStripeStatus({ stripe_mode: null });
-    t.api.mockConnectorRemove({ status: "removed", integration_type: "slack" });
+    t.api.mockConnectorSet({
+      redirect_url: null,
+      connection_id: null,
+      already_authorized: true,
+    });
+    t.api.mockConnectorRemove({ status: "removed", integration_type: "gmail" });
 
-    const result = await t.run("connectors", "push", "--yes");
+    const result = await t.run("connectors", "push", "--force", "--yes");
 
     t.expectResult(result).toSucceed();
-    t.expectResult(result).toContain("slack");
-    t.expectResult(result).toContain("Removed:");
+    t.expectResult(result).toContain("Removed: gmail");
   });
 
   it("displays error when sync fails", async () => {
@@ -178,13 +213,18 @@ describe("connectors push command", () => {
       t.expectResult(result).toContain("Synced: slack, stripe");
     });
 
-    it("shows removed when Stripe is removed locally", async () => {
-      await t.givenLoggedInWithProject(fixture("basic"));
+    it("removes Stripe with --force when it's not configured locally", async () => {
+      await t.givenLoggedInWithProject(fixture("with-connectors"));
       t.api.mockConnectorsList({ integrations: [] });
       t.api.mockStripeStatus({ stripe_mode: "sandbox" });
+      t.api.mockConnectorSet({
+        redirect_url: null,
+        connection_id: null,
+        already_authorized: true,
+      });
       t.api.mockStripeRemove({ success: true });
 
-      const result = await t.run("connectors", "push", "--yes");
+      const result = await t.run("connectors", "push", "--force", "--yes");
 
       t.expectResult(result).toSucceed();
       t.expectResult(result).toContain("Removed:");
