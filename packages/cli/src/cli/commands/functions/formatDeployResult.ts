@@ -22,7 +22,6 @@ export function formatDeployResult(
     log.error(`${label} error: ${result.error}`);
     return;
   }
-  // Some server warnings already name the function; don't repeat it.
   for (const warning of result.warnings ?? []) {
     const prefix = `${result.name}: `;
     log.warn(warning.startsWith(prefix) ? warning : `${prefix}${warning}`);
