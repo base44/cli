@@ -45,9 +45,6 @@ async function deployActorsAction(
     onResult: (result) => {
       completed++;
       formatDeployResult(result, log);
-      if (result.status !== "error")
-        for (const warning of result.warnings)
-          log.warn(`${result.name}: ${warning}`);
     },
   });
   const summary = {

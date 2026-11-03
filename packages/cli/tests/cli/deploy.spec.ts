@@ -229,6 +229,26 @@ describe("deploy command (unified)", () => {
     t.expectResult(result).toContain("App deployed successfully");
   });
 
+  it("prints function deploy warnings", async () => {
+    await t.givenLoggedInWithProject(fixture("with-functions-and-entities"));
+    t.api.mockEntitiesPush({ created: ["Order"], updated: [], deleted: [] });
+    t.api.mockSingleFunctionDeploy({
+      status: "deployed",
+      warnings: ["process-order: automations not created (nightly)."],
+    });
+    t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
+    t.api.mockConnectorsList({ integrations: [] });
+    t.api.mockStripeStatus({ stripe_mode: null });
+
+    const result = await t.run("deploy", "-y");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain(
+      "process-order: automations not created (nightly).",
+    );
+    t.expectResult(result).toContain("App deployed successfully");
+  });
+
   it("deploys zero-config functions (path-based names) with unified deploy", async () => {
     await t.givenLoggedInWithProject(fixture("with-zero-config-functions"));
     t.api.mockEntitiesPush({ created: [], updated: [], deleted: [] });
