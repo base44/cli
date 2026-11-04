@@ -116,9 +116,21 @@ describe("dev command", () => {
     expect(output).not.toContain("Backend running on");
   });
 
-  it("--remote fails when the app has no published URL", async () => {
+  it("--remote serves an unpublished app through its preview URL", async () => {
     await t.givenLoggedInWithProject(fixture("with-serve-command"));
     t.api.mockSiteUrlError({ status: 404, body: { detail: "App not found" } });
+
+    const handle = await t.runLive("dev", "--remote");
+    await handle.waitForOutput(/SERVE_APP=/);
+    await handle.stop();
+
+    const output = handle.stdout.join("");
+    expect(output).toContain(`URL=https://preview--${t.api.appId}.base44.app`);
+  });
+
+  it("--remote fails when the site URL lookup fails for another reason", async () => {
+    await t.givenLoggedInWithProject(fixture("with-serve-command"));
+    t.api.mockSiteUrlError({ status: 500, body: { detail: "Server error" } });
 
     const result = await t.run("dev", "--remote");
 

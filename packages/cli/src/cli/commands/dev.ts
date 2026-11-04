@@ -13,6 +13,7 @@ import { getDenoWrapperPath } from "@/core/assets.js";
 import { BASE44_APP_ID_ENV_VAR } from "@/core/consts.js";
 import { ConfigInvalidError } from "@/core/errors.js";
 import { getSiteUrl } from "@/core/project/api.js";
+import { resolveAppBaseUrl } from "@/core/project/app-base-url.js";
 import { readProjectConfig } from "@/core/project/config.js";
 
 interface DevOptions {
@@ -91,7 +92,7 @@ async function remoteDevAction(app: LinkedApp): Promise<RunCommandResult> {
     );
   }
 
-  const appBaseUrl = await getSiteUrl();
+  const appBaseUrl = await resolveAppBaseUrl(app.id);
   const runner = createServeCommandRunner({
     ...site,
     appId: app.id,

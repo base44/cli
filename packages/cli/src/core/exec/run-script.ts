@@ -3,13 +3,13 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { dir, file } from "tmp-promise";
 import { getExecWrapperPath } from "@/core/assets.js";
-import { ApiError } from "@/core/errors.js";
 import {
   DATA_ENV_ENV_VAR,
   EXEC_ENV_VARS,
   PRIVILEGED_ENV_VAR,
 } from "@/core/exec/env-target.js";
-import { getAppUserToken, getSiteUrl } from "@/core/project/api.js";
+import { getAppUserToken } from "@/core/project/api.js";
+import { resolveAppBaseUrl } from "@/core/project/app-base-url.js";
 import { verifyDenoInstalled } from "@/core/utils/index.js";
 
 interface RunScriptOptions {
@@ -56,19 +56,6 @@ function inheritedEnv(): NodeJS.ProcessEnv {
     delete env[name];
   }
   return env;
-}
-
-const appPreviewUrl = (appId: string) => `https://preview--${appId}.base44.app`;
-
-async function resolveAppBaseUrl(appId: string) {
-  try {
-    return await getSiteUrl();
-  } catch (error) {
-    if (error instanceof ApiError && error.statusCode === 404) {
-      return appPreviewUrl(appId);
-    }
-    throw error;
-  }
 }
 
 interface RunScriptResult {
