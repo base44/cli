@@ -427,8 +427,8 @@ describe.skipIf(process.env.CLI_TEST_RUNNER === "binary")(
     });
 
     it("declares an app with no actors as having none", async () => {
-      // Not an absent field: that is what an older CLI sends, and the platform
-      // refuses it for an app whose actors it would then drop.
+      // Not an absent field: the platform refuses a declare without `actors`,
+      // for any app.
       t.givenEnv({ BASE44_VERSIONS_API: "1" });
       await t.givenLoggedInWithProject(fixture("publishable"));
       t.api
@@ -632,8 +632,8 @@ describe("publish command, for an app with a server of its own", () => {
   });
 
   it("declares an app with no workflows as having none", async () => {
-    // Not an absent field: that is what an older CLI sends, and the platform
-    // refuses it for an app that has workflows.
+    // Not an absent field: the platform refuses a declare without `workflows`,
+    // for any app.
     const result = await publish();
 
     t.expectResult(result).toSucceed();
