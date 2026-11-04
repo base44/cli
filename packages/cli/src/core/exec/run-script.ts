@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { dir, file } from "tmp-promise";
 import { getExecWrapperPath } from "@/core/assets.js";
+import { ApiError } from "@/core/errors.js";
 import {
   DATA_ENV_ENV_VAR,
   EXEC_ENV_VARS,
@@ -57,6 +58,19 @@ function inheritedEnv(): NodeJS.ProcessEnv {
   return env;
 }
 
+const appPreviewUrl = (appId: string) => `https://preview--${appId}.base44.app`;
+
+async function resolveAppBaseUrl(appId: string) {
+  try {
+    return await getSiteUrl();
+  } catch (error) {
+    if (error instanceof ApiError && error.statusCode === 404) {
+      return appPreviewUrl(appId);
+    }
+    throw error;
+  }
+}
+
 interface RunScriptResult {
   exitCode: number;
 }
@@ -77,10 +91,11 @@ export async function runScript(
   const scriptPath = `file://${tempScript.path}`;
 
   // Local mode uses the caller-provided token + local server URL; remote mode
-  // fetches the app-user token and the published site URL.
+  // fetches the app-user token and the published site URL, or the preview URL
+  // for an unpublished app (its API already serves its editors there).
   const [appUserToken, appBaseUrl] = local
     ? [local.token, local.serverUrl]
-    : await Promise.all([getAppUserToken(), getSiteUrl()]);
+    : await Promise.all([getAppUserToken(), resolveAppBaseUrl(appId)]);
 
   // Copy the exec wrapper to a temp location outside node_modules.
   // This works with both Deno 1.x and 2.x, but is required for Deno 2.x
