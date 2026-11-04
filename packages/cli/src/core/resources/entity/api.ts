@@ -7,6 +7,17 @@ import type {
 } from "@/core/resources/entity/schema.js";
 import { SyncEntitiesResponseSchema } from "@/core/resources/entity/schema.js";
 
+/** Read the remote entity catalog without touching records or mutating resources. */
+export async function listEntitySchemas(): Promise<unknown> {
+  const appClient = getAppClient();
+  try {
+    const response = await appClient.get("entity-schemas");
+    return await response.json();
+  } catch (error) {
+    throw await ApiError.fromHttpError(error, "listing entity schemas");
+  }
+}
+
 export async function syncEntities(
   entities: Entity[],
 ): Promise<SyncEntitiesResponse> {
