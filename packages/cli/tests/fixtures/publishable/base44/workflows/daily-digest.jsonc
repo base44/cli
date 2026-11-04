@@ -1,0 +1,6 @@
+{
+  // Sent raw: the platform validates workflows, not the CLI.
+  "name": "Daily digest",
+  "trigger": { "type": "schedule", "cron": "0 9 * * *" },
+  "steps": [],
+}

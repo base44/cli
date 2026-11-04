@@ -2,7 +2,10 @@ import { createHash } from "node:crypto";
 import { join, resolve } from "node:path";
 import { globby } from "globby";
 import pMap from "p-map";
-import { CONFIG_FILE_EXTENSION_GLOB } from "@/core/consts.js";
+import {
+  CONFIG_FILE_EXTENSION,
+  CONFIG_FILE_EXTENSION_GLOB,
+} from "@/core/consts.js";
 import { InvalidInputError } from "@/core/errors.js";
 import type { BuildTarget } from "@/core/project/target.js";
 import type { FullStackBuild } from "@/core/site/full-stack.js";
@@ -132,20 +135,26 @@ async function describeSiteWorker(
 }
 
 /**
- * The app's declared entities and agents, raw — deliberately not the validated
- * resource readers, whose stricter entity schema refuses real Builder apps.
+ * The app's declared entities, agents and workflows, raw — deliberately not the
+ * validated resource readers, whose stricter entity schema refuses real Builder
+ * apps.
  *
  * Keyed the way the platform names the same file: `agents/support/triage.jsonc`
  * is `support/triage`.
  */
-async function readRawResources(dir: string): Promise<Record<string, unknown>> {
+async function readRawResources(
+  dir: string,
+  options: { extensions?: string; dot?: boolean } = {},
+): Promise<Record<string, unknown>> {
   if (!(await pathExists(dir))) {
     return {};
   }
-  const files = await globby(`**/*.${CONFIG_FILE_EXTENSION_GLOB}`, {
+  const extensions = options.extensions ?? CONFIG_FILE_EXTENSION_GLOB;
+  const files = await globby(`**/*.${extensions}`, {
     cwd: dir,
     onlyFiles: true,
     followSymbolicLinks: false,
+    dot: options.dot ?? false,
   });
   const payloads: Record<string, unknown> = {};
   for (const relativePath of files.sort()) {
@@ -157,13 +166,19 @@ async function readRawResources(dir: string): Promise<Record<string, unknown>> {
 
 export async function collectResources(
   configDir: string,
-  dirs: { entitiesDir: string; agentsDir: string },
-): Promise<Pick<ArtifactSet, "entities" | "agents">> {
-  const [entities, agents] = await Promise.all([
+  dirs: { entitiesDir: string; agentsDir: string; workflowsDir: string },
+): Promise<Pick<ArtifactSet, "entities" | "agents" | "workflows">> {
+  const [entities, agents, workflows] = await Promise.all([
     readRawResources(join(configDir, dirs.entitiesDir)),
     readRawResources(join(configDir, dirs.agentsDir)),
+    // As the platform reads the same directory: a `.json` file there is an
+    // ordinary file, not a workflow, while a dot-file is one (`.draft`).
+    readRawResources(join(configDir, dirs.workflowsDir), {
+      extensions: CONFIG_FILE_EXTENSION,
+      dot: true,
+    }),
   ]);
-  return { entities, agents };
+  return { entities, agents, workflows };
 }
 
 /**

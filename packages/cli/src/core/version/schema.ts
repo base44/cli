@@ -93,11 +93,15 @@ export interface ArtifactSet {
    * platform this producer cannot describe functions, and it refuses that for
    * an app that has them. */
   backendBundles: BackendBundleArtifact[];
-  /** Always sent, empty when the app has none, for the same reason. */
+  /** Always sent, empty when the app has none: the platform refuses a declare
+   * without it (422), for any app. */
   actors: ActorArtifact[];
   /** Raw payloads by name. The server normalizes and hashes them. */
   entities: Record<string, unknown>;
   agents: Record<string, unknown>;
+  /** Always sent, `{}` when the app has none: the platform refuses a declare
+   * without it (422), for any app. */
+  workflows: Record<string, unknown>;
 }
 
 export interface CreateVersionProgress {
