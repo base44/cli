@@ -3,7 +3,9 @@ import { execa } from "execa";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, theme } from "@/cli/utils/index.js";
 import {
+  DEFAULT_SITE,
   readProjectSettingsOrDefaults,
+  runSiteCommandOrDefault,
   siteOrDefault,
 } from "@/core/project/index.js";
 
@@ -14,10 +16,19 @@ async function installAction({
   // files, so an invalid one must not fail it.
   const project = await readProjectSettingsOrDefaults();
   const { installCommand } = siteOrDefault(project);
+  let ran = installCommand;
 
   await runTask(
     "Installing site dependencies...",
-    () => execa({ cwd: project.root, shell: true })`${installCommand}`,
+    () =>
+      runSiteCommandOrDefault(
+        installCommand,
+        DEFAULT_SITE.installCommand,
+        (command) => {
+          ran = command;
+          return execa({ cwd: project.root, shell: true })`${command}`;
+        },
+      ),
     {
       successMessage: "Dependencies installed",
       errorMessage: "Install failed",
@@ -25,7 +36,7 @@ async function installAction({
   );
 
   return {
-    outroMessage: `Installed with ${theme.styles.bold(installCommand)}`,
+    outroMessage: `Installed with ${theme.styles.bold(ran)}`,
   };
 }
 
