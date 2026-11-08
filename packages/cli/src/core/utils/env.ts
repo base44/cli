@@ -37,8 +37,19 @@ function findEnvDir(cwd: string): string {
     : configDir;
 }
 
+let accessTokenFromEnvFile = false;
+
+// True when BASE44_ACCESS_TOKEN came from a project env file rather than the
+// process environment.
+export function isAccessTokenFromEnvFile(): boolean {
+  return accessTokenFromEnvFile;
+}
+
 export function loadProjectEnvFiles(cwd: string = process.cwd()): void {
   const root = findEnvDir(cwd);
+  const ambientAccessToken =
+    process.env.BASE44_ACCESS_TOKEN ??
+    process.env[`${STRIPE_ENV_PREFIX}BASE44_ACCESS_TOKEN`];
   // `.env.local` first so it wins (dotenv keeps the first value set per key);
   // ambient `process.env` is never overridden (override defaults to false).
   config({
@@ -47,6 +58,9 @@ export function loadProjectEnvFiles(cwd: string = process.cwd()): void {
   });
 
   normalizeBase44Env();
+  accessTokenFromEnvFile =
+    ambientAccessToken === undefined &&
+    process.env.BASE44_ACCESS_TOKEN !== undefined;
 }
 
 function normalizeBase44Env(): void {

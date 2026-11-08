@@ -4,6 +4,7 @@ import type { AuthData } from "@/core/auth/schema.js";
 import { AuthDataSchema } from "@/core/auth/schema.js";
 import { getAuthFilePath } from "@/core/config.js";
 import { FileReadError, SchemaValidationError } from "@/core/errors.js";
+import { isAccessTokenFromEnvFile } from "@/core/utils/env.js";
 import { deleteFile, readJsonFile, writeJsonFile } from "@/core/utils/fs.js";
 
 // Buffer time before expiration to trigger proactive refresh (60 seconds)
@@ -52,7 +53,11 @@ export async function seedAuthFromEnv(): Promise<void> {
 
   if (!refreshToken) {
     // No refresh token: use the access token for this process only and let a
-    // 401 surface on expiry.
+    // 401 surface on expiry. Only the process env may grant it; a token left in
+    // a project .env would otherwise authenticate every later command.
+    if (isAccessTokenFromEnvFile()) {
+      return;
+    }
     envAccessTokenAuth = {
       accessToken,
       refreshToken: "",

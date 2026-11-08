@@ -294,6 +294,26 @@ describe("env credential seeding", () => {
     expect(await t.readAuthFile()).toEqual(authBefore);
   });
 
+  it("ignores a lone access token from a project .env file", async () => {
+    await t.givenLoggedInWithProject(fixture("with-entities"));
+    const jwt = makeJwt({ sub: "alice@example.com", exp: futureExp() });
+    await writeFile(
+      join(t.getTempDir(), "project", ".env"),
+      `BASE44_ACCESS_TOKEN=${jwt}\n`,
+    );
+
+    let authHeader: string | undefined;
+    t.api.mockRoute("PUT", `/api/apps/${APP_ID}/entity-schemas`, (req, res) => {
+      authHeader = req.headers.authorization;
+      res.status(200).json({ created: ["customer"], updated: [], deleted: [] });
+    });
+
+    const result = await t.run("entities", "push", "--yes");
+
+    t.expectResult(result).toSucceed();
+    expect(authHeader).toBe("Bearer test-access-token");
+  });
+
   it("does not use an access token without sub or exp claims", async () => {
     await t.givenLoggedIn({ email: "real@example.com", name: "Real User" });
     t.givenEnv({ BASE44_ACCESS_TOKEN: makeJwt({ foo: "bar" }) });
