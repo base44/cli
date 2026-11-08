@@ -243,7 +243,7 @@ describe("env credential seeding", () => {
         exp: futureExp(),
       }),
     });
-    t.api.mockUserInfo({ email: "real@example.com", name: "Real User" });
+    t.api.mockUserInfo({ email: "alice@example.com", name: "Alice" });
 
     const result = await t.run("whoami");
 
@@ -320,6 +320,7 @@ describe("env credential seeding", () => {
   it("does not use an access token without sub or exp claims", async () => {
     await t.givenLoggedIn({ email: "real@example.com", name: "Real User" });
     t.givenEnv({ BASE44_ACCESS_TOKEN: makeJwt({ foo: "bar" }) });
+    t.api.mockUserInfo({ email: "real@example.com", name: "Real User" });
 
     const result = await t.run("whoami");
 
