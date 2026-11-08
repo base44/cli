@@ -8,7 +8,7 @@
  * - SCRIPT_PATH: Absolute path (or file:// URL) to the user's script
  * - BASE44_APP_ID: App identifier from .app.jsonc
  * - BASE44_ACCESS_TOKEN: User's access token
- * - BASE44_APP_BASE_URL: App's published URL / subdomain (used for function calls)
+ * - BASE44_APP_BASE_URL: App's published URL, or its preview URL before the first publish (function calls need an app host)
  * - BASE44_PRIVILEGED: When "true", adds the X-Bypass-RLS header (bypass RLS)
  * - BASE44_DATA_ENV: When set, adds the X-Data-Env header (target data environment)
  * - BASE44_SERVICE_TOKEN: When set, passed as `serviceToken` (enables `base44.asServiceRole`)
