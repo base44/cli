@@ -20,5 +20,10 @@ export function formatDeployResult(
     log.success(`${label} unchanged`);
   } else {
     log.error(`${label} error: ${result.error}`);
+    return;
+  }
+  for (const warning of result.warnings ?? []) {
+    const prefix = `${result.name}: `;
+    log.warn(warning.startsWith(prefix) ? warning : `${prefix}${warning}`);
   }
 }

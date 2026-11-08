@@ -22,6 +22,7 @@ import { getVisibilityCommand } from "@/cli/commands/project/visibility.js";
 import { getPublishCommand } from "@/cli/commands/publish.js";
 import { getSandboxCommand } from "@/cli/commands/sandbox/index.js";
 import { getSecretsCommand } from "@/cli/commands/secrets/index.js";
+import { getSessionsCommand } from "@/cli/commands/sessions/index.js";
 import { getSiteCommand } from "@/cli/commands/site/index.js";
 import { getTypesCommand } from "@/cli/commands/types/index.js";
 import { getVersionsCommand } from "@/cli/commands/versions/index.js";
@@ -143,6 +144,9 @@ export function createProgram(context: CLIContext): Command {
 
   // Register logs command
   program.addCommand(getLogsCommand());
+
+  // Register Base Code session import
+  program.addCommand(getSessionsCommand());
 
   return program;
 }

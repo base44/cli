@@ -57,6 +57,41 @@ describe("functions deploy command", () => {
     t.expectResult(result).toContain("1 unchanged");
   });
 
+  it("prints server warnings for a deployed function", async () => {
+    await t.givenLoggedInWithProject(fixture("with-functions-and-entities"));
+    t.api.mockSingleFunctionDeploy({
+      status: "deployed",
+      warnings: [
+        "process-order: automations not created (nightly) and none removed.",
+        "Private data source warehouse is unavailable.",
+      ],
+    });
+
+    const result = await t.run("functions", "deploy");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain(
+      "process-order: automations not created (nightly) and none removed.",
+    );
+    t.expectResult(result).toNotContain("process-order: process-order:");
+    t.expectResult(result).toContain(
+      "process-order: Private data source warehouse is unavailable.",
+    );
+  });
+
+  it("prints server warnings for an unchanged function", async () => {
+    await t.givenLoggedInWithProject(fixture("with-functions-and-entities"));
+    t.api.mockSingleFunctionDeploy({
+      status: "unchanged",
+      warnings: ["Automations are retired."],
+    });
+
+    const result = await t.run("functions", "deploy");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("process-order: Automations are retired.");
+  });
+
   it("deploys zero-config and path-named functions successfully", async () => {
     await t.givenLoggedInWithProject(fixture("with-zero-config-functions"));
     t.api.mockSingleFunctionDeploy({ status: "deployed" });

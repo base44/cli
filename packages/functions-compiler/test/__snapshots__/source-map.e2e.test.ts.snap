@@ -1,0 +1,24 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`rewritten sources are pinned > for the per-app entry 1`] = `
+[
+  "lib/greet.ts",
+  "main.ts",
+  "base44-internal:base44-runtime-context:base44:internal/runtime-context",
+  "base44-internal:user:__base44_deno_shim.mjs",
+  "base44-internal:base44-private-data-sources:runtime-manifest-store.ts",
+  "base44-internal:user:__base44_fn_0.mjs",
+  "base44-internal:user:__base44_entry.mjs",
+]
+`;
+
+exports[`rewritten sources are pinned > for the single-function entry 1`] = `
+[
+  "lib/greet.ts",
+  "main.ts",
+  "base44-internal:base44-runtime-context:base44:internal/runtime-context",
+  "base44-internal:user:__base44_deno_shim.mjs",
+  "base44-internal:base44-private-data-sources:runtime-manifest-store.ts",
+  "base44-internal:user:__base44_entry.mjs",
+]
+`;
