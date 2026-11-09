@@ -11,6 +11,14 @@ export type ActorConnectionIdentity =
   | Readonly<{ type: "authenticated"; userId: string }>
   | Readonly<{ type: "anonymous"; anonymousId: string }>;
 
+/** An event the platform posts into a room (a generated video settling). The
+ *  `__` type prefix is the platform's namespace; `event_id` is the dedup key. */
+export interface PlatformEvent {
+  type: `__${string}`;
+  event_id: string;
+  [field: string]: unknown;
+}
+
 export interface Conn<Send = unknown> {
   /** Unique per-connection id (one per socket/tab). Identifies a distinct
    *  client, so multiple tabs are separate connections. */
@@ -424,6 +432,26 @@ export abstract class Actor<Incoming = unknown, Outgoing = unknown> extends Serv
   }
 
   protected handleWake(_key: string): void | Promise<void> {}
+
+  // Optional: the platform posted an event into this room. Delivery is
+  // at-least-once; a repeat of an event_id this instance already took is dropped
+  // here, so a room that must be exact across evictions dedups on event_id too.
+  protected handlePlatformEvent(_event: PlatformEvent): void | Promise<void> {}
+
+  private readonly takenPlatformEvents: string[] = [];
+  private static readonly REMEMBERED_PLATFORM_EVENTS = 64;
+
+  // Called by the generated wrapper for a verified POST .../events; never user-facing.
+  async _b44PlatformEvent(request: Request): Promise<Response> {
+    const event = (await request.json()) as PlatformEvent;
+    if (!this.takenPlatformEvents.includes(event.event_id)) {
+      await this.handlePlatformEvent(event);
+      this.takenPlatformEvents.push(event.event_id);
+      if (this.takenPlatformEvents.length > Actor.REMEMBERED_PLATFORM_EVENTS) this.takenPlatformEvents.shift();
+      await this.maintainTicker();
+    }
+    return new Response(null, { status: 204 });
+  }
 
   protected async schedule(key: string, at: number | Date): Promise<void> {
     const when = typeof at === "number" ? at : at.getTime();
