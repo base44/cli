@@ -11,8 +11,8 @@ export type ActorConnectionIdentity =
   | Readonly<{ type: "authenticated"; userId: string }>
   | Readonly<{ type: "anonymous"; anonymousId: string }>;
 
-/** An event the platform posts into a room (a generated video settling). The
- *  `__` type prefix is the platform's namespace; `event_id` is the dedup key. */
+/** An event the platform posts into a room, for example a generated video settling.
+ *  The `__` type prefix is the platform's namespace; `event_id` is the dedup key. */
 export interface PlatformEvent {
   type: `__${string}`;
   event_id: string;
