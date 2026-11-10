@@ -284,6 +284,26 @@ export class DependencyNotFoundError extends UserError {
   }
 }
 
+export class AppNotPublishedError extends UserError {
+  readonly code = "APP_NOT_PUBLISHED";
+
+  constructor(
+    message = "This app has not been published yet, so it has no site URL",
+    options?: CLIErrorOptions,
+  ) {
+    super(message, {
+      hints: options?.hints ?? [
+        {
+          message:
+            "Publish the app in the Base44 builder, or deploy its site with 'base44 deploy'",
+          command: "base44 deploy",
+        },
+      ],
+      cause: options?.cause,
+    });
+  }
+}
+
 // ============================================================================
 // System Errors
 // ============================================================================

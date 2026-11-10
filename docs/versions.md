@@ -1,6 +1,6 @@
 # Versions
 
-**Keywords:** versions, publish, deployment, rollback, artifact set, sha256, digest, staged upload, presigned, x-amz-checksum-sha256, entities, agents, backend functions, backend_bundles, actors, Durable Objects, functions-compiler, shards, raw payloads, provenance, commit, idempotency key, step, BASE44_VERSIONS_API, env gate, build sandbox
+**Keywords:** versions, publish, deployment, rollback, artifact set, sha256, digest, staged upload, presigned, x-amz-checksum-sha256, entities, agents, mcp config, backend functions, backend_bundles, actors, Durable Objects, functions-compiler, shards, raw payloads, provenance, commit, idempotency key, step, BASE44_VERSIONS_API, env gate, build sandbox
 
 A **version** is one immutable thing a build produced — every frontend file, plus the entity and agent payloads the app declares. A **deployment** is a version made live at an environment. Recording one and serving one are separate acts, which is what makes a rollback a deploy of an older version rather than a second code path.
 
@@ -20,7 +20,7 @@ It is **not** `src/core/site/` — see [Deployments](deployments.md). That lane 
 
 `createVersion(artifacts, options)` in `api.ts` — three calls, in this order and no other, so nothing is recorded until the bytes are in place:
 
-1. **Declare.** `POST versions` with `assets` (path, size, digest per file), optionally a `site_worker` beside it, the compiled `backend_bundles` and `actors`, plus the raw `entities` and `agents` payloads and `source_commit`. The response carries a `session_id` and one presigned PUT per declared file, in declared order: the assets, the Worker's modules, one per bundle, then one per actor. Each kind comes after the ones before it, so an app gaining one moves no existing slot.
+1. **Declare.** `POST versions` with `assets` (path, size, digest per file), optionally a `site_worker` beside it, the compiled `backend_bundles` and `actors`, plus the raw `entities` and `agents` payloads, the `mcp_config` text and `source_commit`. The response carries a `session_id` and one presigned PUT per declared file, in declared order: the assets, the Worker's modules, one per bundle, then one per actor. Each kind comes after the ones before it, so an app gaining one moves no existing slot.
 2. **Upload.** `putPresigned` per file — the same PUT the static deployments lane uses, same ky retry policy. Each PUT sends the server's `Content-Type` **and** its `x-amz-checksum-sha256` verbatim; deriving either locally would 403 on any mapping difference. Uploads are paired with declared files **by position**, not by path: the frontend and the Worker's modules are separate namespaces, so the same name can appear in both and mean two different files.
 3. **Finalize.** `POST versions/{session_id}/finalize`, no body. The set was fixed at declare, so there is nothing left for the caller to change.
 
@@ -88,6 +88,8 @@ The practical consequence for this CLI: **send the checksum the server gave you,
 ## Resources go up raw
 
 `collectResources` reads `entities/` and `agents/` with `readJsonFile` and sends the parsed payloads untouched, keyed by the file's path with the schema extension stripped — `entities/Todo.jsonc` → `Todo`, `agents/support/triage.jsonc` → `support/triage`. That is the same name the platform derives from the same file.
+
+`mcp/config.json` goes up as **text**, `mcp_config`, exactly as written, and `""` when the app has none. Not through `readJsonFile`: the platform parses that file as strict JSON, and a JSON5 parse here would accept a comment the platform reads as no config. It is always sent, for the reason `backend_bundles` is: an absent field says this producer does not describe the file.
 
 Deliberately **not** `entityResource.readAll` / `agentResource.readAll`. The platform's own extractor and validation are authoritative, and this CLI's stricter entity schema refuses real Builder apps — which is exactly why `site deploy` reads no resources at all. Re-introducing the strict parse here would reproduce that block.
 

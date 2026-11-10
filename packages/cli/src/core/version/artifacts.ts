@@ -8,7 +8,7 @@ import type { BuildTarget } from "@/core/project/target.js";
 import type { FullStackBuild } from "@/core/site/full-stack.js";
 import { resolveFullStackBuild } from "@/core/site/full-stack.js";
 import { describeBuildOutput, hashFileInto } from "@/core/site/manifest.js";
-import { pathExists, readJsonFile } from "@/core/utils/fs.js";
+import { pathExists, readJsonFile, readTextFile } from "@/core/utils/fs.js";
 import { compileActors } from "@/core/version/actors.js";
 import { compileBackendBundles } from "@/core/version/functions.js";
 import { tagStep } from "@/core/version/publish.js";
@@ -155,15 +155,26 @@ async function readRawResources(dir: string): Promise<Record<string, unknown>> {
   return payloads;
 }
 
+/**
+ * The app's MCP config as written, `""` when it has none. Text rather than parsed:
+ * the platform reads this file as strict JSON, and the JSON5 reader above would
+ * accept a file the platform reads as no config at all.
+ */
+async function readMcpConfig(configDir: string): Promise<string> {
+  const path = join(configDir, "mcp", "config.json");
+  return (await pathExists(path)) ? await readTextFile(path) : "";
+}
+
 export async function collectResources(
   configDir: string,
   dirs: { entitiesDir: string; agentsDir: string },
-): Promise<Pick<ArtifactSet, "entities" | "agents">> {
-  const [entities, agents] = await Promise.all([
+): Promise<Pick<ArtifactSet, "entities" | "agents" | "mcpConfig">> {
+  const [entities, agents, mcpConfig] = await Promise.all([
     readRawResources(join(configDir, dirs.entitiesDir)),
     readRawResources(join(configDir, dirs.agentsDir)),
+    readMcpConfig(configDir),
   ]);
-  return { entities, agents };
+  return { entities, agents, mcpConfig };
 }
 
 /**

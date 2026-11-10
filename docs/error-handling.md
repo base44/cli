@@ -109,6 +109,7 @@ See [api-patterns.md](api-patterns.md) for the full `ApiError.fromHttpError()` p
 | `CONFIG_EXISTS` | `ConfigExistsError` | Project already exists at location |
 | `SCHEMA_INVALID` | `SchemaValidationError` | Zod validation failed |
 | `INVALID_INPUT` | `InvalidInputError` | User provided invalid input |
+| `APP_NOT_PUBLISHED` | `AppNotPublishedError` | A command needs the app's published site and the app was never published |
 | `API_ERROR` | `ApiError` | API request failed |
 | `FILE_NOT_FOUND` | `FileNotFoundError` | File doesn't exist |
 | `FILE_READ_ERROR` | `FileReadError` | Can't read/write file |

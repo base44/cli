@@ -35,12 +35,26 @@ describe("site open command", () => {
     t.expectResult(result).toContain("No Base44 app ID found");
   });
 
-  it("fails when API returns error", async () => {
+  it("says the app is not published when it has no published URL", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
     t.api.mockSiteUrlError({ status: 404, body: { detail: "App not found" } });
 
     const result = await t.run("site", "open");
 
     t.expectResult(result).toFail();
+    t.expectResult(result).toContain("has not been published yet");
+    t.expectResult(result).toContain("base44 deploy");
+    t.expectResult(result).toNotContain("App not found");
+  });
+
+  it("fails with the server error when the URL lookup fails otherwise", async () => {
+    await t.givenLoggedInWithProject(fixture("basic"));
+    t.api.mockSiteUrlError({ status: 500, body: { detail: "Server error" } });
+
+    const result = await t.run("site", "open");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("Server error");
+    t.expectResult(result).toNotContain("has not been published yet");
   });
 });
