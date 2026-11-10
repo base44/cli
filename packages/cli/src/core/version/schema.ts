@@ -101,6 +101,9 @@ export interface ArtifactSet {
   /** The text of `mcp/config.json` as written, `""` when the app has none.
    * Always sent, for the reason `backendBundles` is. */
   mcpConfig: string;
+  /** Each `agent-skills/<name>.md` as written, by skill name, `{}` when the app
+   * has none. Always sent, for the reason `backendBundles` is. */
+  agentSkills: Record<string, string>;
 }
 
 export interface CreateVersionProgress {

@@ -126,7 +126,11 @@ describe("collectResources", () => {
     await rm(configDir, { recursive: true, force: true });
   });
 
-  const dirs = { entitiesDir: "entities", agentsDir: "agents" };
+  const dirs = {
+    entitiesDir: "entities",
+    agentsDir: "agents",
+    agentSkillsDir: "agent-skills",
+  };
 
   it("keys a payload by its path with the schema extension stripped", async () => {
     // The same name the platform derives from the same file, so a version made
@@ -174,11 +178,25 @@ describe("collectResources", () => {
     expect(mcpConfig).toBe(written);
   });
 
+  it("sends each skill file as written, keyed by its name", async () => {
+    // The platform parses it; only the folder's own `*.md` files are skills.
+    const written = "---\ndescription: Sort tickets\n---\n\n1. Read it\n";
+    await mkdir(join(configDir, "agent-skills", "notes"), { recursive: true });
+    await writeFile(join(configDir, "agent-skills", "triage.md"), written);
+    await writeFile(join(configDir, "agent-skills", "README.txt"), "x");
+    await writeFile(join(configDir, "agent-skills", "notes", "old.md"), "x");
+
+    const { agentSkills } = await collectResources(configDir, dirs);
+
+    expect(agentSkills).toEqual({ triage: written });
+  });
+
   it("reads an app that declares none as declaring none", async () => {
     expect(await collectResources(configDir, dirs)).toEqual({
       entities: {},
       agents: {},
       mcpConfig: "",
+      agentSkills: {},
     });
   });
 });
@@ -391,6 +409,7 @@ describe("collectArtifacts", () => {
       outputDir: join(projectRoot, "dist", "client"),
       entitiesDir: "entities",
       agentsDir: "agents",
+      agentSkillsDir: "agent-skills",
       functionsDir: "functions",
       actorsDir: "actors",
     };
