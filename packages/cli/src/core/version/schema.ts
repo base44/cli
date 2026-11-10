@@ -98,6 +98,9 @@ export interface ArtifactSet {
   /** Raw payloads by name. The server normalizes and hashes them. */
   entities: Record<string, unknown>;
   agents: Record<string, unknown>;
+  /** The text of `mcp/config.json` as written, `""` when the app has none.
+   * Always sent, for the reason `backendBundles` is. */
+  mcpConfig: string;
 }
 
 export interface CreateVersionProgress {

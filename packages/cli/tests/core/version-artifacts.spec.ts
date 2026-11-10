@@ -162,10 +162,23 @@ describe("collectResources", () => {
     });
   });
 
+  it("sends the MCP config as written, not parsed", async () => {
+    // The platform parses it as strict JSON; a JSON5 parse here would accept a
+    // comment the platform reads as no config.
+    const written = '{\n  "auth": "oauth" // comment\n}\n';
+    await mkdir(join(configDir, "mcp"));
+    await writeFile(join(configDir, "mcp", "config.json"), written);
+
+    const { mcpConfig } = await collectResources(configDir, dirs);
+
+    expect(mcpConfig).toBe(written);
+  });
+
   it("reads an app that declares none as declaring none", async () => {
     expect(await collectResources(configDir, dirs)).toEqual({
       entities: {},
       agents: {},
+      mcpConfig: "",
     });
   });
 });
