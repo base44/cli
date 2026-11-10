@@ -443,6 +443,10 @@ export abstract class Actor<Incoming = unknown, Outgoing = unknown> extends Serv
 
   // Called by the generated wrapper for a verified POST .../events; never user-facing.
   async _b44PlatformEvent(request: Request): Promise<Response> {
+    // The wrapper routes events ahead of partyserver's fetch, which is what names the
+    // room and runs onStart; a room an event wakes needs both before the user's hook.
+    const room = request.headers.get("x-partykit-room");
+    if (room) await this.setName(room);
     const event = (await request.json()) as PlatformEvent;
     if (!this.takenPlatformEvents.includes(event.event_id)) {
       await this.handlePlatformEvent(event);

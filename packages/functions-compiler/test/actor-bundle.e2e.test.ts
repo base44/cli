@@ -334,6 +334,60 @@ describe("actor bundling via base44:runtime/actors", () => {
     );
   });
 
+  it("a platform event that wakes a room names it and runs handleStart first", async () => {
+    const src = [
+      'import { Actor } from "base44:runtime/actors";',
+      "export default class GameRoom extends Actor {",
+      "  started = false;",
+      "  handleStart() { this.started = true; }",
+      "  async handlePlatformEvent() { await this.storage.put('seen', { room: this.name, started: this.started }); }",
+      "  async fetch() { return Response.json((await this.storage.get('seen')) ?? null); }",
+      "  handleConnect() {}",
+      "  handleMessage() {}",
+      "  handleClose() {}",
+      "}",
+    ].join("\n");
+    const module = await bundleOrThrow(src, "base44/actors/GameRoom/entry.ts");
+    const { sign, publicKey } = await actorKeypair();
+    const now = Math.floor(Date.now() / 1_000);
+    const token = await sign({
+      iss: "base44", aud: "base44-actor-event", purpose: "actor-platform-event", v: 1,
+      iat: now, nbf: now, exp: now + 60, jti: "jti-cold",
+      app_id: APP_ID, actor_name: "GameRoom", actor_script_id: SCRIPT_ID, room: "room-a", event_id: "video_1:completed",
+    });
+    const connectToken = await sign({
+      iss: "base44", aud: "base44-actor-connect", purpose: "actor-connect", v: 1,
+      iat: now, nbf: now, exp: now + 300, jti: "connect-cold",
+      app_id: APP_ID, actor_name: "GameRoom", actor_script_id: SCRIPT_ID, room: "room-a",
+      connection_id: "tab-1", runtime_mode: "prod",
+      principal: { type: "anonymous", anonymousId: "browser-1" },
+    });
+    const mf = new Miniflare({
+      modules: [{ type: "ESModule", path: "_bundled.mjs", contents: module }],
+      compatibilityDate: WFP_COMPAT_DATE,
+      compatibilityFlags: ["nodejs_compat"],
+      durableObjects: { GameRoom: "GameRoom" },
+      bindings: {
+        BASE44_APP_ID: APP_ID,
+        BASE44_ACTOR_SCRIPT_ID: SCRIPT_ID,
+        BASE44_ACTOR_PUBLIC_KEY: publicKey,
+        BASE44_FUNCTIONS_VERSION: "prod",
+      },
+    });
+    try {
+      const posted = await mf.dispatchFetch("http://localhost/rooms/room-a/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Base44-Actor-Event-Token": token },
+        body: '{"type":"__media_generation","event_id":"video_1:completed","status":"completed"}',
+      });
+      expect(posted.status).toBe(204);
+      const seen = await mf.dispatchFetch(`http://localhost/rooms/room-a?_pk=tab-1&token=${connectToken}`);
+      expect(await seen.json()).toEqual({ room: "room-a", started: true });
+    } finally {
+      await mf.dispose();
+    }
+  });
+
   it("delivers a verified platform event to handlePlatformEvent once per event_id", async () => {
     const src = [
       'import { Actor } from "base44:runtime/actors";',
