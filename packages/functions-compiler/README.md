@@ -275,6 +275,34 @@ enforced without making the manifest user-importable.
 Release this package before bumping apper's compiler pin. Existing compiled
 Workers need rebuilding; the workspace toggle does not install new code.
 
+## Platform events into an Actor room
+
+The backend can tell one room that something it waits for happened (today: a
+generated video settling). The generated Actor Worker answers
+`POST /rooms/{room}/events`, which the public Actor dispatcher forwards from
+`POST /v1/actors/{script}/rooms/{room}/events`:
+
+- **Token.** `X-Base44-Actor-Event-Token`, an EdDSA JWT under the same per-actor
+  key as connection tokens but with audience `base44-actor-event`, purpose
+  `actor-platform-event`, a 60 s TTL and the claims `app_id`, `actor_name`,
+  `actor_script_id`, `room` and `event_id`. A connection token is never accepted
+  as an event token, nor the reverse. 401 is a token this key did not mint or
+  that has lapsed; 403 is a good token for another app, actor, script or room.
+- **Body.** One JSON object of at most 64 KB whose `type` starts with `__` (the
+  platform's namespace) and whose `event_id` is the one the token names;
+  anything else is 400.
+- **Delivery.** The Worker forwards it into the Durable Object as
+  `POST /parties/<actor>/<room>/events`, a shape no client route can produce, and
+  the wrapper runs the room's `handlePlatformEvent(event)` (a no-op unless the
+  actor overrides it) ahead of any `fetch` override, then answers 204. The
+  backend retries a non-2xx, so delivery is at-least-once: an `event_id` the
+  instance already took is dropped while it stays resident, and a room that
+  must be exact across evictions dedups on `event_id` itself. A throw in the
+  hook is a 500, which the backend retries.
+
+The minting side is apper's `backend/app/user_apps/actors/actor_events.py`; the
+dispatcher route is `workers/base44-dispatcher/src/actor-routing.ts`.
+
 ## Workers compatibility for npm clients
 
 Two gaps in workerd break common Node-targeted npm packages, Stagehand among

@@ -2,7 +2,7 @@
 // Base class for Actors, injected into every deployed handler bundle.
 
 import { Server, routePartykitRequest, type Connection, type ConnectionContext } from "partyserver";
-import { createClient } from "npm:@base44/sdk@0.8.41";
+import { createClient } from "npm:@base44/sdk@0.8.54";
 import { TickLoop } from "./tick-loop";
 
 export { routePartykitRequest };
@@ -10,6 +10,14 @@ export { routePartykitRequest };
 export type ActorConnectionIdentity =
   | Readonly<{ type: "authenticated"; userId: string }>
   | Readonly<{ type: "anonymous"; anonymousId: string }>;
+
+/** An event the platform posts into a room, for example a generated video settling.
+ *  The `__` type prefix is the platform's namespace; `event_id` is the dedup key. */
+export interface PlatformEvent {
+  type: `__${string}`;
+  event_id: string;
+  [field: string]: unknown;
+}
 
 export interface Conn<Send = unknown> {
   /** Unique per-connection id (one per socket/tab). Identifies a distinct
@@ -424,6 +432,42 @@ export abstract class Actor<Incoming = unknown, Outgoing = unknown> extends Serv
   }
 
   protected handleWake(_key: string): void | Promise<void> {}
+
+  // Optional: the platform posted an event into this room. Delivery is
+  // at-least-once; a repeat of an event_id this instance already took is dropped
+  // here, so a room that must be exact across evictions dedups on event_id too.
+  protected handlePlatformEvent(_event: PlatformEvent): void | Promise<void> {}
+
+  private readonly takenPlatformEvents: string[] = [];
+  private readonly platformEventsInFlight = new Map<string, Promise<void>>();
+  private static readonly REMEMBERED_PLATFORM_EVENTS = 64;
+
+  // Called by the generated wrapper for a verified POST .../events; never user-facing.
+  async _b44PlatformEvent(request: Request): Promise<Response> {
+    // The wrapper routes events ahead of partyserver's fetch, which is what names the
+    // room and runs onStart; a room an event wakes needs both before the user's hook.
+    const room = request.headers.get("x-partykit-room");
+    if (room) await this.setName(room);
+    const event = (await request.json()) as PlatformEvent;
+    const eventId = event.event_id;
+    if (!this.takenPlatformEvents.includes(eventId)) {
+      // A retry that lands while the hook still runs shares that run and its outcome.
+      let delivery = this.platformEventsInFlight.get(eventId);
+      if (!delivery) {
+        delivery = this.takePlatformEvent(event).finally(() => this.platformEventsInFlight.delete(eventId));
+        this.platformEventsInFlight.set(eventId, delivery);
+      }
+      await delivery;
+    }
+    return new Response(null, { status: 204 });
+  }
+
+  private async takePlatformEvent(event: PlatformEvent): Promise<void> {
+    await this.handlePlatformEvent(event);
+    this.takenPlatformEvents.push(event.event_id);
+    if (this.takenPlatformEvents.length > Actor.REMEMBERED_PLATFORM_EVENTS) this.takenPlatformEvents.shift();
+    await this.maintainTicker();
+  }
 
   protected async schedule(key: string, at: number | Date): Promise<void> {
     const when = typeof at === "number" ? at : at.getTime();

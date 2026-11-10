@@ -12,7 +12,7 @@ export default defineConfig({
         new URL("./src/private-data-sources/runtime-manifest-store.ts", import.meta.url),
       ),
       // Resolved by the Deno bundler at deploy; stub it for vitest.
-      "npm:@base44/sdk@0.8.41": fileURLToPath(
+      "npm:@base44/sdk@0.8.54": fileURLToPath(
         new URL("./test/base44-sdk-stub.ts", import.meta.url),
       ),
     },
