@@ -12,4 +12,4 @@
  * drifts from `package.json`, so bumping the package still means editing two
  * files but cannot mean forgetting one.
  */
-export const COMPILER_VERSION = "0.3.0-beta.3";
+export const COMPILER_VERSION = "0.3.0";
