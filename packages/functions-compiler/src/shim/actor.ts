@@ -2,7 +2,7 @@
 // Base class for Actors, injected into every deployed handler bundle.
 
 import { Server, routePartykitRequest, type Connection, type ConnectionContext } from "partyserver";
-import { createClient } from "npm:@base44/sdk@0.8.41";
+import { createClient } from "npm:@base44/sdk@0.8.54";
 import { TickLoop } from "./tick-loop";
 
 export { routePartykitRequest };
