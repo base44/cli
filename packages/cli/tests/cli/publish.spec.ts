@@ -95,6 +95,18 @@ describe("publish command", () => {
     expect(t.api.versionDeclareRequests[0]).toMatchObject({ mcp_config: "" });
   });
 
+  it("declares an app with no agent skills as having none", async () => {
+    // Not an absent field, for the same reason as the functions above.
+    t.givenEnv({ BASE44_VERSIONS_API: "1" });
+    await t.givenLoggedInWithProject(fixture("publishable"));
+    mockPublishApi();
+
+    const result = await t.run("publish", "--no-build");
+
+    t.expectResult(result).toSucceed();
+    expect(t.api.versionDeclareRequests[0]).toMatchObject({ agent_skills: {} });
+  });
+
   it("uploads every declared file with the checksum the server signed in", async () => {
     t.givenEnv({ BASE44_VERSIONS_API: "1" });
     await t.givenLoggedInWithProject(fixture("publishable"));

@@ -196,6 +196,7 @@ export async function createVersion(
           entities: artifacts.entities,
           agents: artifacts.agents,
           mcp_config: artifacts.mcpConfig,
+          agent_skills: artifacts.agentSkills,
           source_commit: options.sourceCommit,
         },
         "declaring a version",

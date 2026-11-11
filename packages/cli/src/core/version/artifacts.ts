@@ -165,16 +165,43 @@ async function readMcpConfig(configDir: string): Promise<string> {
   return (await pathExists(path)) ? await readTextFile(path) : "";
 }
 
+/**
+ * Each agent skill file as written, keyed by skill name: `agent-skills/triage.md` is
+ * `triage`. Text rather than parsed, like the MCP config: the platform's reader
+ * decides what a skill file says, and this CLI's would sometimes read it differently.
+ * Only the folder's own `*.md` files are skills.
+ */
+async function readAgentSkillFiles(
+  dir: string,
+): Promise<Record<string, string>> {
+  if (!(await pathExists(dir))) {
+    return {};
+  }
+  const files = await globby("*.md", {
+    cwd: dir,
+    onlyFiles: true,
+    followSymbolicLinks: false,
+  });
+  const skills: Record<string, string> = {};
+  for (const file of files.sort()) {
+    skills[file.replace(/\.md$/, "")] = await readTextFile(join(dir, file));
+  }
+  return skills;
+}
+
 export async function collectResources(
   configDir: string,
-  dirs: { entitiesDir: string; agentsDir: string },
-): Promise<Pick<ArtifactSet, "entities" | "agents" | "mcpConfig">> {
-  const [entities, agents, mcpConfig] = await Promise.all([
+  dirs: { entitiesDir: string; agentsDir: string; agentSkillsDir: string },
+): Promise<
+  Pick<ArtifactSet, "entities" | "agents" | "mcpConfig" | "agentSkills">
+> {
+  const [entities, agents, mcpConfig, agentSkills] = await Promise.all([
     readRawResources(join(configDir, dirs.entitiesDir)),
     readRawResources(join(configDir, dirs.agentsDir)),
     readMcpConfig(configDir),
+    readAgentSkillFiles(join(configDir, dirs.agentSkillsDir)),
   ]);
-  return { entities, agents, mcpConfig };
+  return { entities, agents, mcpConfig, agentSkills };
 }
 
 /**
