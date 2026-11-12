@@ -11,12 +11,14 @@ export type ActorConnectionIdentity =
   | Readonly<{ type: "authenticated"; userId: string }>
   | Readonly<{ type: "anonymous"; anonymousId: string }>;
 
-/** An event the platform posts into a room, for example a generated video settling.
- *  The `__` type prefix is the platform's namespace; `event_id` is the dedup key. */
-export interface PlatformEvent {
-  type: `__${string}`;
-  event_id: string;
-  [field: string]: unknown;
+/** Who sent a request relayed into the room: the app's server code (`service`),
+ *  or the signed-in user or anonymous visitor whose client called `post()`. */
+export type ActorRequestIdentity =
+  | ActorConnectionIdentity
+  | Readonly<{ type: "service" }>;
+
+export interface ActorRequestContext {
+  identity: ActorRequestIdentity;
 }
 
 export interface Conn<Send = unknown> {
@@ -433,40 +435,53 @@ export abstract class Actor<Incoming = unknown, Outgoing = unknown> extends Serv
 
   protected handleWake(_key: string): void | Promise<void> {}
 
-  // Optional: the platform posted an event into this room. Delivery is
-  // at-least-once; a repeat of an event_id this instance already took is dropped
-  // here, so a room that must be exact across evictions dedups on event_id too.
-  protected handlePlatformEvent(_event: PlatformEvent): void | Promise<void> {}
+  /** Optional: answer a request sent into this room with `post()`, by the app's
+   *  server code or by a client. Check `identity` before acting on it: a client
+   *  can post into any room it can name. Return a Response; nothing means 204.
+   *  An actor without this method refuses every request with 404. */
+  protected handleRequest?(
+    request: Request,
+    context: ActorRequestContext,
+  ): Response | void | Promise<Response | void>;
 
-  private readonly takenPlatformEvents: string[] = [];
-  private readonly platformEventsInFlight = new Map<string, Promise<void>>();
-  private static readonly REMEMBERED_PLATFORM_EVENTS = 64;
-
-  // Called by the generated wrapper for a verified POST .../events; never user-facing.
-  async _b44PlatformEvent(request: Request): Promise<Response> {
-    // The wrapper routes events ahead of partyserver's fetch, which is what names the
-    // room and runs onStart; a room an event wakes needs both before the user's hook.
-    const room = request.headers.get("x-partykit-room");
-    if (room) await this.setName(room);
-    const event = (await request.json()) as PlatformEvent;
-    const eventId = event.event_id;
-    if (!this.takenPlatformEvents.includes(eventId)) {
-      // A retry that lands while the hook still runs shares that run and its outcome.
-      let delivery = this.platformEventsInFlight.get(eventId);
-      if (!delivery) {
-        delivery = this.takePlatformEvent(event).finally(() => this.platformEventsInFlight.delete(eventId));
-        this.platformEventsInFlight.set(eventId, delivery);
-      }
-      await delivery;
-    }
-    return new Response(null, { status: 204 });
+  private static parseRequestIdentity(value: string | null): ActorRequestIdentity | undefined {
+    if (value === '{"type":"service"}') return Object.freeze({ type: "service" });
+    return Actor.parseIdentity(value);
   }
 
-  private async takePlatformEvent(event: PlatformEvent): Promise<void> {
-    await this.handlePlatformEvent(event);
-    this.takenPlatformEvents.push(event.event_id);
-    if (this.takenPlatformEvents.length > Actor.REMEMBERED_PLATFORM_EVENTS) this.takenPlatformEvents.shift();
+  // Called by the generated wrapper for a verified POST .../requests; never user-facing.
+  async _b44ActorRequest(request: Request): Promise<Response> {
+    // The wrapper routes requests ahead of partyserver's fetch, which is what names
+    // the room and runs onStart; a room a request wakes needs both before the hook.
+    const room = request.headers.get("x-partykit-room");
+    if (room) await this.setName(room);
+    if (typeof this.handleRequest !== "function") {
+      return new Response("This actor does not accept requests", { status: 404 });
+    }
+    const identity = Actor.parseRequestIdentity(request.headers.get(Actor.IDENTITY_HEADER));
+    if (!identity) return new Response("Unauthorized", { status: 401 });
+    const forHandler = new Request(
+      `https://actor.base44/rooms/${encodeURIComponent(this.name)}/requests`,
+      {
+        method: "POST",
+        headers: { "Content-Type": request.headers.get("Content-Type") ?? "application/json" },
+        body: await request.arrayBuffer(),
+      },
+    );
+    let response: Response | void;
+    try {
+      response = await this.handleRequest(forHandler, { identity });
+    } catch (err) {
+      console.error("Actor.handleRequest threw:", err);
+      response = new Response("Actor request failed", { status: 500 });
+    }
     await this.maintainTicker();
+    if (response === undefined) return new Response(null, { status: 204 });
+    if (!(response instanceof Response)) {
+      console.error("Actor.handleRequest must return a Response or nothing");
+      return new Response("Actor request failed", { status: 500 });
+    }
+    return response;
   }
 
   protected async schedule(key: string, at: number | Date): Promise<void> {

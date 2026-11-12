@@ -334,34 +334,10 @@ describe("actor bundling via base44:runtime/actors", () => {
     );
   });
 
-  it("a platform event that wakes a room names it and runs handleStart first", async () => {
-    const src = [
-      'import { Actor } from "base44:runtime/actors";',
-      "export default class GameRoom extends Actor {",
-      "  started = false;",
-      "  handleStart() { this.started = true; }",
-      "  async handlePlatformEvent() { await this.storage.put('seen', { room: this.name, started: this.started }); }",
-      "  async fetch() { return Response.json((await this.storage.get('seen')) ?? null); }",
-      "  handleConnect() {}",
-      "  handleMessage() {}",
-      "  handleClose() {}",
-      "}",
-    ].join("\n");
+  async function actorWorker(src: string) {
     const module = await bundleOrThrow(src, "base44/actors/GameRoom/entry.ts");
     const { sign, publicKey } = await actorKeypair();
     const now = Math.floor(Date.now() / 1_000);
-    const token = await sign({
-      iss: "base44", aud: "base44-actor-event", purpose: "actor-platform-event", v: 1,
-      iat: now, nbf: now, exp: now + 60, jti: "jti-cold",
-      app_id: APP_ID, actor_name: "GameRoom", actor_script_id: SCRIPT_ID, room: "room-a", event_id: "video_1:completed",
-    });
-    const connectToken = await sign({
-      iss: "base44", aud: "base44-actor-connect", purpose: "actor-connect", v: 1,
-      iat: now, nbf: now, exp: now + 300, jti: "connect-cold",
-      app_id: APP_ID, actor_name: "GameRoom", actor_script_id: SCRIPT_ID, room: "room-a",
-      connection_id: "tab-1", runtime_mode: "prod",
-      principal: { type: "anonymous", anonymousId: "browser-1" },
-    });
     const mf = new Miniflare({
       modules: [{ type: "ESModule", path: "_bundled.mjs", contents: module }],
       compatibilityDate: WFP_COMPAT_DATE,
@@ -374,41 +350,13 @@ describe("actor bundling via base44:runtime/actors", () => {
         BASE44_FUNCTIONS_VERSION: "prod",
       },
     });
-    try {
-      const posted = await mf.dispatchFetch("http://localhost/rooms/room-a/events", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Base44-Actor-Event-Token": token },
-        body: '{"type":"__media_generation","event_id":"video_1:completed","status":"completed"}',
-      });
-      expect(posted.status).toBe(204);
-      const seen = await mf.dispatchFetch(`http://localhost/rooms/room-a?_pk=tab-1&token=${connectToken}`);
-      expect(await seen.json()).toEqual({ room: "room-a", started: true });
-    } finally {
-      await mf.dispose();
-    }
-  });
-
-  it("delivers a verified platform event to handlePlatformEvent once per event_id", async () => {
-    const src = [
-      'import { Actor } from "base44:runtime/actors";',
-      "export default class GameRoom extends Actor {",
-      "  taken = [];",
-      "  handlePlatformEvent(event) { this.taken.push(event); }",
-      "  fetch() { return Response.json(this.taken); }",
-      "  handleConnect() {}",
-      "  handleMessage() {}",
-      "  handleTick() {}",
-      "  handleClose() {}",
-      "}",
-    ].join("\n");
-    const module = await bundleOrThrow(src, "base44/actors/GameRoom/entry.ts");
-    const { sign, publicKey } = await actorKeypair();
-    const now = Math.floor(Date.now() / 1_000);
-    const eventToken = (room: string, eventId: string) =>
+    const requestToken = async (room: string, body: string, principal: object = { type: "service" }) =>
       sign({
-        iss: "base44", aud: "base44-actor-event", purpose: "actor-platform-event", v: 1,
-        iat: now, nbf: now, exp: now + 60, jti: `jti-${eventId}`,
-        app_id: APP_ID, actor_name: "GameRoom", actor_script_id: SCRIPT_ID, room, event_id: eventId,
+        iss: "base44", aud: "base44-actor-request", purpose: "actor-request", v: 1,
+        iat: now, nbf: now, exp: now + 60, jti: `jti-${room}`,
+        app_id: APP_ID, actor_name: "GameRoom", actor_script_id: SCRIPT_ID, room, runtime_mode: "prod",
+        principal,
+        body_sha256: Buffer.from(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(body))).toString("base64url"),
       });
     const connectToken = await sign({
       iss: "base44", aud: "base44-actor-connect", purpose: "actor-connect", v: 1,
@@ -417,121 +365,124 @@ describe("actor bundling via base44:runtime/actors", () => {
       connection_id: "tab-1", runtime_mode: "prod",
       principal: { type: "anonymous", anonymousId: "browser-1" },
     });
-    const mf = new Miniflare({
-      modules: [{ type: "ESModule", path: "_bundled.mjs", contents: module }],
-      compatibilityDate: WFP_COMPAT_DATE,
-      compatibilityFlags: ["nodejs_compat"],
-      durableObjects: { GameRoom: "GameRoom" },
-      bindings: {
-        BASE44_APP_ID: APP_ID,
-        BASE44_ACTOR_SCRIPT_ID: SCRIPT_ID,
-        BASE44_ACTOR_PUBLIC_KEY: publicKey,
-        BASE44_FUNCTIONS_VERSION: "prod",
-      },
-    });
-    const postEvent = (room: string, token: string, body: string) =>
-      mf.dispatchFetch(`http://localhost/rooms/${room}/events`, {
+    const post = (room: string, token: string, body: string) =>
+      mf.dispatchFetch(`http://localhost/rooms/${room}/requests`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-Base44-Actor-Event-Token": token },
+        headers: { "Content-Type": "application/json", "X-Base44-Actor-Request-Token": token },
         body,
       });
-    const completed = '{"type":"__media_generation","event_id":"video_1:completed","status":"completed"}';
+    const roomState = () => mf.dispatchFetch(`http://localhost/rooms/room-a?_pk=tab-1&token=${connectToken}`);
+    return { mf, sign, now, requestToken, connectToken, post, roomState };
+  }
 
+  it("a request that wakes a room names it and runs handleStart first", async () => {
+    const { mf, requestToken, post, roomState } = await actorWorker([
+      'import { Actor } from "base44:runtime/actors";',
+      "export default class GameRoom extends Actor {",
+      "  started = false;",
+      "  handleStart() { this.started = true; }",
+      "  async handleRequest() { await this.storage.put('seen', { room: this.name, started: this.started }); }",
+      "  async fetch() { return Response.json((await this.storage.get('seen')) ?? null); }",
+      "  handleConnect() {}",
+      "  handleMessage() {}",
+      "  handleClose() {}",
+      "}",
+    ].join("\n"));
     try {
-      const token = await eventToken("room-a", "video_1:completed");
-      expect((await postEvent("room-a", token, completed)).status).toBe(204);
-      // The finalizer retries on a lost acknowledgement: the room takes it once.
-      expect((await postEvent("room-a", token, completed)).status).toBe(204);
-      expect((await postEvent("room-b", token, completed)).status).toBe(403);
-      expect((await postEvent("room-a", token, '{"type":"chat","event_id":"video_1:completed"}')).status).toBe(400);
-      expect((await postEvent("room-a", connectToken, completed)).status).toBe(401);
-      expect((await mf.dispatchFetch("http://localhost/rooms/room-a/events")).status).toBe(404);
-      // The Durable Object trusts the internal event path by shape alone, so no
-      // client route may reach it.
-      const internalPath = await mf.dispatchFetch("http://localhost/parties/GameRoom/room-a/events", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Base44-Actor-Event-Token": token },
-        body: completed,
-      });
-      expect(internalPath.status).toBe(404);
-      const slashRoomToken = await sign({
-        iss: "base44", aud: "base44-actor-connect", purpose: "actor-connect", v: 1,
-        iat: now, nbf: now, exp: now + 300, jti: "connect-slash",
-        app_id: APP_ID, actor_name: "GameRoom", actor_script_id: SCRIPT_ID, room: "room-a/events",
-        connection_id: "tab-1", runtime_mode: "prod",
-        principal: { type: "anonymous", anonymousId: "browser-1" },
-      });
-      const slashRoom = await mf.dispatchFetch(
-        `http://localhost/rooms/room-a%2Fevents?_pk=tab-1&token=${slashRoomToken}`,
-        { method: "POST", headers: { "Content-Type": "application/json" }, body: completed },
-      );
-      expect(slashRoom.status).toBe(200);
-      expect(await slashRoom.json()).toEqual([]);
-
-      const roomState = await mf.dispatchFetch(`http://localhost/rooms/room-a?_pk=tab-1&token=${connectToken}`);
-      expect(roomState.status).toBe(200);
-      expect(await roomState.json()).toEqual([
-        { type: "__media_generation", event_id: "video_1:completed", status: "completed" },
-      ]);
+      const body = '{"type":"video_ready"}';
+      expect((await post("room-a", await requestToken("room-a", body), body)).status).toBe(204);
+      expect(await (await roomState()).json()).toEqual({ room: "room-a", started: true });
     } finally {
       await mf.dispose();
     }
   });
 
-  it("runs the hook once when a retry lands while it is still running", async () => {
-    const src = [
+  it("hands handleRequest the token's identity and the body, and returns its response", async () => {
+    const { mf, sign, now, requestToken, connectToken, post } = await actorWorker([
       'import { Actor } from "base44:runtime/actors";',
       "export default class GameRoom extends Actor {",
-      "  runs = 0;",
-      "  async handlePlatformEvent() { this.runs++; await new Promise((resolve) => setTimeout(resolve, 200)); }",
-      "  fetch() { return Response.json({ runs: this.runs }); }",
+      "  async handleRequest(request, { identity }) {",
+      "    return Response.json({ identity, body: await request.json(), url: request.url }, { status: 201 });",
+      "  }",
+      "  fetch() { return new Response('room'); }",
       "  handleConnect() {}",
       "  handleMessage() {}",
       "  handleClose() {}",
       "}",
-    ].join("\n");
-    const module = await bundleOrThrow(src, "base44/actors/GameRoom/entry.ts");
-    const { sign, publicKey } = await actorKeypair();
-    const now = Math.floor(Date.now() / 1_000);
-    const token = await sign({
-      iss: "base44", aud: "base44-actor-event", purpose: "actor-platform-event", v: 1,
-      iat: now, nbf: now, exp: now + 60, jti: "jti-slow",
-      app_id: APP_ID, actor_name: "GameRoom", actor_script_id: SCRIPT_ID, room: "room-a", event_id: "video_1:completed",
-    });
-    const connectToken = await sign({
-      iss: "base44", aud: "base44-actor-connect", purpose: "actor-connect", v: 1,
-      iat: now, nbf: now, exp: now + 300, jti: "connect-slow",
-      app_id: APP_ID, actor_name: "GameRoom", actor_script_id: SCRIPT_ID, room: "room-a",
-      connection_id: "tab-1", runtime_mode: "prod",
-      principal: { type: "anonymous", anonymousId: "browser-1" },
-    });
-    const mf = new Miniflare({
-      modules: [{ type: "ESModule", path: "_bundled.mjs", contents: module }],
-      compatibilityDate: WFP_COMPAT_DATE,
-      compatibilityFlags: ["nodejs_compat"],
-      durableObjects: { GameRoom: "GameRoom" },
-      bindings: {
-        BASE44_APP_ID: APP_ID,
-        BASE44_ACTOR_SCRIPT_ID: SCRIPT_ID,
-        BASE44_ACTOR_PUBLIC_KEY: publicKey,
-        BASE44_FUNCTIONS_VERSION: "prod",
-      },
-    });
-    const postEvent = () =>
-      mf.dispatchFetch("http://localhost/rooms/room-a/events", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Base44-Actor-Event-Token": token },
-        body: '{"type":"__media_generation","event_id":"video_1:completed","status":"completed"}',
-      });
-
+    ].join("\n"));
+    const body = '{"type":"video_ready","media_id":"video_1"}';
     try {
-      const [first, retry] = await Promise.all([postEvent(), postEvent()]);
-      expect(first.status).toBe(204);
-      expect(retry.status).toBe(204);
-      const roomState = await mf.dispatchFetch(`http://localhost/rooms/room-a?_pk=tab-1&token=${connectToken}`);
-      expect(await roomState.json()).toEqual({ runs: 1 });
+      const asService = await post("room-a", await requestToken("room-a", body), body);
+      expect(asService.status).toBe(201);
+      expect(await asService.json()).toEqual({
+        identity: { type: "service" },
+        body: { type: "video_ready", media_id: "video_1" },
+        url: "https://actor.base44/rooms/room-a/requests",
+      });
+      const user = { type: "authenticated", userId: "user-1" };
+      const asUser = await post("room-a", await requestToken("room-a", body, user), body);
+      expect((await asUser.json()).identity).toEqual(user);
+
+      const token = await requestToken("room-a", body);
+      expect((await post("room-b", token, body)).status).toBe(403);
+      // The token is bound to its body: a leaked token can't carry another one.
+      expect((await post("room-a", token, '{"type":"other"}')).status).toBe(401);
+      expect((await post("room-a", connectToken, body)).status).toBe(401);
+      const asOwner = await requestToken("room-a", body, { type: "owner" });
+      expect((await post("room-a", asOwner, body)).status).toBe(401);
+      const preview = await sign({
+        iss: "base44", aud: "base44-actor-request", purpose: "actor-request", v: 1,
+        iat: now, nbf: now, exp: now + 60, jti: "jti-preview",
+        app_id: APP_ID, actor_name: "GameRoom", actor_script_id: SCRIPT_ID, room: "room-a", runtime_mode: "preview",
+        principal: { type: "service" },
+        body_sha256: Buffer.from(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(body))).toString("base64url"),
+      });
+      expect((await post("room-a", preview, body)).status).toBe(403);
+      const tooLarge = JSON.stringify({ pad: "x".repeat(64 * 1024) });
+      expect((await post("room-a", await requestToken("room-a", tooLarge), tooLarge)).status).toBe(413);
+      expect((await mf.dispatchFetch("http://localhost/rooms/room-a/requests")).status).toBe(404);
+      // The Durable Object trusts the internal path and its identity header, so no
+      // client route may reach it.
+      const internalPath = await mf.dispatchFetch("http://localhost/parties/GameRoom/room-a/requests", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Base44-Actor-Request-Token": token,
+          "X-Base44-Actor-Identity": '{"type":"service"}',
+        },
+        body,
+      });
+      expect(internalPath.status).toBe(404);
     } finally {
       await mf.dispose();
+    }
+  });
+
+  it("an actor without handleRequest refuses requests, and a throw is a 500", async () => {
+    const plain = await actorWorker([
+      'import { Actor } from "base44:runtime/actors";',
+      "export default class GameRoom extends Actor {",
+      "  handleConnect() {}",
+      "  handleMessage() {}",
+      "  handleClose() {}",
+      "}",
+    ].join("\n"));
+    const throwing = await actorWorker([
+      'import { Actor } from "base44:runtime/actors";',
+      "export default class GameRoom extends Actor {",
+      "  handleRequest() { throw new Error('boom'); }",
+      "  handleConnect() {}",
+      "  handleMessage() {}",
+      "  handleClose() {}",
+      "}",
+    ].join("\n"));
+    const body = "{}";
+    try {
+      expect((await plain.post("room-a", await plain.requestToken("room-a", body), body)).status).toBe(404);
+      expect((await throwing.post("room-a", await throwing.requestToken("room-a", body), body)).status).toBe(500);
+    } finally {
+      await plain.mf.dispose();
+      await throwing.mf.dispose();
     }
   });
 });
