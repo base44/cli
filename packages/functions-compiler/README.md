@@ -275,32 +275,42 @@ enforced without making the manifest user-importable.
 Release this package before bumping apper's compiler pin. Existing compiled
 Workers need rebuilding; the workspace toggle does not install new code.
 
-## Platform events into an Actor room
+## Calling an Actor room's methods
 
-The backend can tell one room that something it waits for happened (today: a
-generated video settling). The generated Actor Worker answers
-`POST /rooms/{room}/events`, which the public Actor dispatcher forwards from
-`POST /v1/actors/{script}/rooms/{room}/events`:
+App code calls a method on one room with the SDK's
+`actors.<Name>(room).<method>(args)`: server code as the service role, or a client as
+its signed-in user or anonymous visitor. Only methods the actor lists in
+`static callable = ["notify", ...]` run; a hook-shaped name (`handle*`, `on*`, `_*`) or
+a base-class method never does, even when listed. Each runs as
+`method(args, { identity, request })`, where `request` carries the caller's own
+credential in `Authorization` plus `Base44-App-Id`, `Base44-Api-Url` and
+`Base44-Functions-Version`, so `createClientFromRequest(request)` acts as the caller,
+as in a backend function. Its return value is the JSON reply (nothing is a 204); a
+thrown `ActorError(status, message)` (from `base44:runtime/actors`) with a 4xx status
+refuses the call, and anything else thrown is a 500.
 
-- **Token.** `X-Base44-Actor-Event-Token`, an EdDSA JWT under the same per-actor
-  key as connection tokens but with audience `base44-actor-event`, purpose
-  `actor-platform-event`, a 60 s TTL and the claims `app_id`, `actor_name`,
-  `actor_script_id`, `room` and `event_id`. A connection token is never accepted
-  as an event token, nor the reverse. 401 is a token this key did not mint or
-  that has lapsed; 403 is a good token for another app, actor, script or room.
-- **Body.** One JSON object of at most 64 KB whose `type` starts with `__` (the
-  platform's namespace) and whose `event_id` is the one the token names;
-  anything else is 400.
+The backend authenticates the caller and relays the call; the generated Actor Worker
+answers `POST /rooms/{room}/requests`, which the public Actor dispatcher forwards from
+`POST /v1/actors/{script}/rooms/{room}/requests`:
+
+- **Token.** `X-Base44-Actor-Request-Token`, an EdDSA JWT under the same per-actor
+  key as connection tokens but with audience `base44-actor-request`, purpose
+  `actor-request`, a 60 s TTL and the claims `app_id`, `actor_name`,
+  `actor_script_id`, `room`, `runtime_mode`, `principal` (`service`,
+  `authenticated` or `anonymous`), `body_sha256` and `caller_token_sha256`
+  (base64url SHA-256 of the body `{"method", "args"}` and of the
+  `X-Base44-Actor-Caller-Authorization` header, or null when there is none). A
+  connection token is never accepted as a request token, nor the reverse. 401 is a
+  token this key did not mint, that has lapsed or whose hashes don't match; 403 is a
+  good token for another app, actor, script, room or runtime. The body is at most
+  64 KB (413).
 - **Delivery.** The Worker forwards it into the Durable Object as
-  `POST /parties/<actor>/<room>/events`, a shape no client route can produce, and
-  the wrapper runs the room's `handlePlatformEvent(event)` (a no-op unless the
-  actor overrides it) ahead of any `fetch` override, then answers 204. The
-  backend retries a non-2xx, so delivery is at-least-once: an `event_id` the
-  instance already took is dropped while it stays resident, and a room that
-  must be exact across evictions dedups on `event_id` itself. A throw in the
-  hook is a 500, which the backend retries.
+  `POST /parties/<actor>/<room>/requests`, a shape no client route can produce, with
+  the verified principal in `X-Base44-Actor-Identity` and the caller's credential.
+  Ahead of any `fetch` override, the wrapper names the room (running `handleStart`
+  on a cold wake), checks the method against `callable` (404 otherwise) and runs it.
 
-The minting side is apper's `backend/app/user_apps/actors/actor_events.py`; the
+The minting side is apper's `backend/app/user_apps/actors/actor_requests.py`; the
 dispatcher route is `workers/base44-dispatcher/src/actor-routing.ts`.
 
 ## Workers compatibility for npm clients
