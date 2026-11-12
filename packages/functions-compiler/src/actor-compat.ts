@@ -96,6 +96,7 @@ function buildActorAuth(): string {
 const TOKEN_HEADER = "X-Base44-Actor-Token";
 const IDENTITY_HEADER = "X-Base44-Actor-Identity";
 const REQUEST_TOKEN_HEADER = "X-Base44-Actor-Request-Token";
+const CALLER_AUTHORIZATION_HEADER = "X-Base44-Actor-Caller-Authorization";
 const CLOCK_SKEW_SECONDS = 30;
 const TOKEN_TTL_SECONDS = 300;
 const REQUEST_TOKEN_TTL_SECONDS = 60;
@@ -218,11 +219,12 @@ const sha256 = async (bytes) => {
   return btoa(String.fromCharCode(...digest)).replace(/\\+/g, "-").replace(/\\//g, "_").replace(/=+$/, "");
 };
 
-// A request the backend relays into one room for a caller it authenticated. Same
+// A method call the backend relays into one room for a caller it authenticated. Same
 // key as connection tokens, its own audience and purpose: neither is accepted as
-// the other. The token is bound to the body, so a leaked token can't carry another.
-// 401 is a token this key did not mint or that has lapsed; 403 is a good token for
-// another app, actor, script, room or runtime.
+// the other. The token is bound to the body and to the caller's forwarded
+// credential, so a leaked token can carry neither another call nor another caller.
+// 401 is a token this key did not mint, that has lapsed or whose hashes don't match;
+// 403 is a good token for another app, actor, script, room or runtime.
 export async function verifyActorRequest(request, env, actorName, room) {
   const publicKey = env.BASE44_ACTOR_PUBLIC_KEY;
   const scriptId = env.BASE44_ACTOR_SCRIPT_ID;
@@ -242,6 +244,7 @@ export async function verifyActorRequest(request, env, actorName, room) {
       typeof claims.jti !== "string" || !claims.jti || claims.jti.length > 64 ||
       !validTimes(claims, now, REQUEST_TOKEN_TTL_SECONDS) ||
       typeof claims.body_sha256 !== "string" ||
+      !(claims.caller_token_sha256 === null || typeof claims.caller_token_sha256 === "string") ||
       !validRequestPrincipal(claims.principal)
     ) return unauthorized();
     if (
@@ -255,11 +258,19 @@ export async function verifyActorRequest(request, env, actorName, room) {
     const body = new Uint8Array(await request.arrayBuffer());
     if (body.length > REQUEST_MAX_BYTES) return refused(413, "Request too large");
     if (await sha256(body) !== claims.body_sha256) return unauthorized();
+    const callerAuthorization = request.headers.get(CALLER_AUTHORIZATION_HEADER);
+    if (callerAuthorization === null) {
+      if (claims.caller_token_sha256 !== null) return unauthorized();
+    } else if (
+      callerAuthorization.length > 8192 ||
+      await sha256(new TextEncoder().encode(callerAuthorization)) !== claims.caller_token_sha256
+    ) return unauthorized();
     return {
       ok: true,
       identity: Object.freeze({ ...claims.principal }),
       runtimeMode: claims.runtime_mode,
       body,
+      callerAuthorization,
     };
   } catch {
     return unauthorized();
@@ -268,7 +279,8 @@ export async function verifyActorRequest(request, env, actorName, room) {
 
 // Into the room as POST /parties/<actor>/<room>/requests: a path no client route
 // forwards (the legacy route is exactly four segments, the direct route rewrites
-// the path), so the Durable Object can trust the shape and its identity header.
+// the path), so the Durable Object can trust the shape and its identity and caller
+// headers.
 export function actorRequestToRoom(request, actorName, room, verified) {
   const url = new URL(request.url);
   url.search = "";
@@ -279,6 +291,7 @@ export function actorRequestToRoom(request, actorName, room, verified) {
       "Content-Type": request.headers.get("Content-Type") ?? "application/json",
       [IDENTITY_HEADER]: JSON.stringify(verified.identity),
       "base44-functions-version": verified.runtimeMode,
+      ...(verified.callerAuthorization === null ? {} : { [CALLER_AUTHORIZATION_HEADER]: verified.callerAuthorization }),
     },
     body: verified.body,
   });
@@ -359,10 +372,10 @@ export class ${doClassName} extends Base44UserActor {
   }
 
   fetch(request) {
-    // Ahead of the user's own fetch override: a relayed request reaches the room
-    // only through the shim, which hands handleRequest the verified identity.
+    // Ahead of the user's own fetch override: a relayed call reaches the room only
+    // through the shim, which runs a callable method with the verified identity.
     if (_b44IsActorRequest(request)) {
-      return _b44RunActor(this, request, () => this._b44ActorRequest(request));
+      return _b44RunActor(this, request, () => this._b44ActorCall(request));
     }
     return _b44RunActor(this, request, () => super.fetch(request));
   }

@@ -334,6 +334,9 @@ describe("actor bundling via base44:runtime/actors", () => {
     );
   });
 
+  const sha = async (text: string) =>
+    Buffer.from(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text))).toString("base64url");
+
   async function actorWorker(src: string) {
     const module = await bundleOrThrow(src, "base44/actors/GameRoom/entry.ts");
     const { sign, publicKey } = await actorKeypair();
@@ -345,18 +348,24 @@ describe("actor bundling via base44:runtime/actors", () => {
       durableObjects: { GameRoom: "GameRoom" },
       bindings: {
         BASE44_APP_ID: APP_ID,
+        BASE44_API_URL: "https://api.example",
         BASE44_ACTOR_SCRIPT_ID: SCRIPT_ID,
         BASE44_ACTOR_PUBLIC_KEY: publicKey,
         BASE44_FUNCTIONS_VERSION: "prod",
       },
     });
-    const requestToken = async (room: string, body: string, principal: object = { type: "service" }) =>
+    const callToken = async (
+      room: string,
+      body: string,
+      { principal = { type: "service" } as object, callerAuthorization = null as string | null, runtimeMode = "prod" } = {},
+    ) =>
       sign({
         iss: "base44", aud: "base44-actor-request", purpose: "actor-request", v: 1,
         iat: now, nbf: now, exp: now + 60, jti: `jti-${room}`,
-        app_id: APP_ID, actor_name: "GameRoom", actor_script_id: SCRIPT_ID, room, runtime_mode: "prod",
+        app_id: APP_ID, actor_name: "GameRoom", actor_script_id: SCRIPT_ID, room, runtime_mode: runtimeMode,
         principal,
-        body_sha256: Buffer.from(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(body))).toString("base64url"),
+        body_sha256: await sha(body),
+        caller_token_sha256: callerAuthorization === null ? null : await sha(callerAuthorization),
       });
     const connectToken = await sign({
       iss: "base44", aud: "base44-actor-connect", purpose: "actor-connect", v: 1,
@@ -365,23 +374,32 @@ describe("actor bundling via base44:runtime/actors", () => {
       connection_id: "tab-1", runtime_mode: "prod",
       principal: { type: "anonymous", anonymousId: "browser-1" },
     });
-    const post = (room: string, token: string, body: string) =>
+    const post = (room: string, token: string, body: string, callerAuthorization?: string) =>
       mf.dispatchFetch(`http://localhost/rooms/${room}/requests`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-Base44-Actor-Request-Token": token },
+        headers: {
+          "Content-Type": "application/json",
+          "X-Base44-Actor-Request-Token": token,
+          ...(callerAuthorization ? { "X-Base44-Actor-Caller-Authorization": callerAuthorization } : {}),
+        },
         body,
       });
+    const call = async (method: string, args?: unknown) => {
+      const body = JSON.stringify({ method, args });
+      return post("room-a", await callToken("room-a", body), body);
+    };
     const roomState = () => mf.dispatchFetch(`http://localhost/rooms/room-a?_pk=tab-1&token=${connectToken}`);
-    return { mf, sign, now, requestToken, connectToken, post, roomState };
+    return { mf, callToken, connectToken, post, call, roomState };
   }
 
-  it("a request that wakes a room names it and runs handleStart first", async () => {
-    const { mf, requestToken, post, roomState } = await actorWorker([
+  it("a call that wakes a room names it and runs handleStart first", async () => {
+    const { mf, call, roomState } = await actorWorker([
       'import { Actor } from "base44:runtime/actors";',
       "export default class GameRoom extends Actor {",
+      "  static callable = ['seen'];",
       "  started = false;",
       "  handleStart() { this.started = true; }",
-      "  async handleRequest() { await this.storage.put('seen', { room: this.name, started: this.started }); }",
+      "  async seen() { await this.storage.put('seen', { room: this.name, started: this.started }); }",
       "  async fetch() { return Response.json((await this.storage.get('seen')) ?? null); }",
       "  handleConnect() {}",
       "  handleMessage() {}",
@@ -389,20 +407,26 @@ describe("actor bundling via base44:runtime/actors", () => {
       "}",
     ].join("\n"));
     try {
-      const body = '{"type":"video_ready"}';
-      expect((await post("room-a", await requestToken("room-a", body), body)).status).toBe(204);
+      expect((await call("seen")).status).toBe(204);
       expect(await (await roomState()).json()).toEqual({ room: "room-a", started: true });
     } finally {
       await mf.dispose();
     }
   });
 
-  it("hands handleRequest the token's identity and the body, and returns its response", async () => {
-    const { mf, sign, now, requestToken, connectToken, post } = await actorWorker([
+  it("runs a callable method with the args, the identity and a request carrying the caller's credential", async () => {
+    const { mf, callToken, connectToken, post } = await actorWorker([
       'import { Actor } from "base44:runtime/actors";',
       "export default class GameRoom extends Actor {",
-      "  async handleRequest(request, { identity }) {",
-      "    return Response.json({ identity, body: await request.json(), url: request.url }, { status: 201 });",
+      "  static callable = ['echo'];",
+      "  echo(args, { identity, request }) {",
+      "    return {",
+      "      args, identity, url: request.url,",
+      "      authorization: request.headers.get('Authorization'),",
+      "      appId: request.headers.get('Base44-App-Id'),",
+      "      apiUrl: request.headers.get('Base44-Api-Url'),",
+      "      version: request.headers.get('Base44-Functions-Version'),",
+      "    };",
       "  }",
       "  fetch() { return new Response('room'); }",
       "  handleConnect() {}",
@@ -410,45 +434,48 @@ describe("actor bundling via base44:runtime/actors", () => {
       "  handleClose() {}",
       "}",
     ].join("\n"));
-    const body = '{"type":"video_ready","media_id":"video_1"}';
+    const body = JSON.stringify({ method: "echo", args: { id: "video_1" } });
+    const user = { type: "authenticated", userId: "user-1" };
     try {
-      const asService = await post("room-a", await requestToken("room-a", body), body);
-      expect(asService.status).toBe(201);
-      expect(await asService.json()).toEqual({
-        identity: { type: "service" },
-        body: { type: "video_ready", media_id: "video_1" },
-        url: "https://actor.base44/rooms/room-a/requests",
+      const asUser = await post(
+        "room-a", await callToken("room-a", body, { principal: user, callerAuthorization: "Bearer user-tok" }), body, "Bearer user-tok",
+      );
+      expect(asUser.status).toBe(200);
+      expect(await asUser.json()).toEqual({
+        args: { id: "video_1" },
+        identity: user,
+        url: "https://actor.base44/rooms/room-a/methods/echo",
+        authorization: "Bearer user-tok",
+        appId: APP_ID,
+        apiUrl: "https://api.example",
+        version: "prod",
       });
-      const user = { type: "authenticated", userId: "user-1" };
-      const asUser = await post("room-a", await requestToken("room-a", body, user), body);
-      expect(await asUser.json()).toMatchObject({ identity: user });
+      const noCredential = await post("room-a", await callToken("room-a", body), body);
+      expect(await noCredential.json()).toMatchObject({ identity: { type: "service" }, authorization: null });
 
-      const token = await requestToken("room-a", body);
+      // The token binds the caller's credential: none can be swapped in, added or dropped.
+      const bound = await callToken("room-a", body, { principal: user, callerAuthorization: "Bearer user-tok" });
+      expect((await post("room-a", bound, body, "Bearer someone-else")).status).toBe(401);
+      expect((await post("room-a", bound, body)).status).toBe(401);
+      expect((await post("room-a", await callToken("room-a", body), body, "Bearer added")).status).toBe(401);
+
+      const token = await callToken("room-a", body);
       expect((await post("room-b", token, body)).status).toBe(403);
-      // The token is bound to its body: a leaked token can't carry another one.
-      expect((await post("room-a", token, '{"type":"other"}')).status).toBe(401);
+      expect((await post("room-a", token, JSON.stringify({ method: "echo", args: 2 }))).status).toBe(401);
       expect((await post("room-a", connectToken, body)).status).toBe(401);
-      const asOwner = await requestToken("room-a", body, { type: "owner" });
-      expect((await post("room-a", asOwner, body)).status).toBe(401);
-      const preview = await sign({
-        iss: "base44", aud: "base44-actor-request", purpose: "actor-request", v: 1,
-        iat: now, nbf: now, exp: now + 60, jti: "jti-preview",
-        app_id: APP_ID, actor_name: "GameRoom", actor_script_id: SCRIPT_ID, room: "room-a", runtime_mode: "preview",
-        principal: { type: "service" },
-        body_sha256: Buffer.from(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(body))).toString("base64url"),
-      });
-      expect((await post("room-a", preview, body)).status).toBe(403);
-      const tooLarge = JSON.stringify({ pad: "x".repeat(64 * 1024) });
-      expect((await post("room-a", await requestToken("room-a", tooLarge), tooLarge)).status).toBe(413);
+      expect((await post("room-a", await callToken("room-a", body, { principal: { type: "owner" } }), body)).status).toBe(401);
+      expect((await post("room-a", await callToken("room-a", body, { runtimeMode: "preview" }), body)).status).toBe(403);
+      const tooLarge = JSON.stringify({ method: "echo", args: "x".repeat(64 * 1024) });
+      expect((await post("room-a", await callToken("room-a", tooLarge), tooLarge)).status).toBe(413);
       expect((await mf.dispatchFetch("http://localhost/rooms/room-a/requests")).status).toBe(404);
-      // The Durable Object trusts the internal path and its identity header, so no
-      // client route may reach it.
+      // The Durable Object trusts the internal path and its identity and caller headers,
+      // so no client route may reach it.
       const internalPath = await mf.dispatchFetch("http://localhost/parties/GameRoom/room-a/requests", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Base44-Actor-Request-Token": token,
           "X-Base44-Actor-Identity": '{"type":"service"}',
+          "X-Base44-Actor-Caller-Authorization": "Bearer forged",
         },
         body,
       });
@@ -458,31 +485,44 @@ describe("actor bundling via base44:runtime/actors", () => {
     }
   });
 
-  it("an actor without handleRequest refuses requests, and a throw is a 500", async () => {
-    const plain = await actorWorker([
-      'import { Actor } from "base44:runtime/actors";',
+  it("runs only listed methods, never a hook, and maps a thrown ActorError to its status", async () => {
+    const { mf, call } = await actorWorker([
+      'import { Actor, ActorError } from "base44:runtime/actors";',
       "export default class GameRoom extends Actor {",
+      "  static callable = ['ok', 'refuse', 'crash', 'handleConnect', 'onboard'];",
+      "  ok() { return { ok: true }; }",
+      "  refuse() { throw new ActorError(403, 'not yours'); }",
+      "  crash() { throw new Error('boom'); }",
+      "  onboard() { return 'welcome'; }",
+      "  secret() { return 'leak'; }",
       "  handleConnect() {}",
       "  handleMessage() {}",
       "  handleClose() {}",
       "}",
     ].join("\n"));
-    const throwing = await actorWorker([
+    const unlisted = await actorWorker([
       'import { Actor } from "base44:runtime/actors";',
       "export default class GameRoom extends Actor {",
-      "  handleRequest() { throw new Error('boom'); }",
+      "  ok() { return { ok: true }; }",
       "  handleConnect() {}",
       "  handleMessage() {}",
       "  handleClose() {}",
       "}",
     ].join("\n"));
-    const body = "{}";
     try {
-      expect((await plain.post("room-a", await plain.requestToken("room-a", body), body)).status).toBe(404);
-      expect((await throwing.post("room-a", await throwing.requestToken("room-a", body), body)).status).toBe(500);
+      expect(await (await call("ok")).json()).toEqual({ ok: true });
+      expect(await (await call("onboard")).json()).toBe("welcome");
+      expect((await call("secret")).status).toBe(404);
+      expect((await call("handleConnect")).status).toBe(404);
+      expect((await call("broadcast")).status).toBe(404);
+      const refused = await call("refuse");
+      expect(refused.status).toBe(403);
+      expect(await refused.json()).toEqual({ message: "not yours" });
+      expect((await call("crash")).status).toBe(500);
+      expect((await unlisted.call("ok")).status).toBe(404);
     } finally {
-      await plain.mf.dispose();
-      await throwing.mf.dispose();
+      await mf.dispose();
+      await unlisted.mf.dispose();
     }
   });
 });

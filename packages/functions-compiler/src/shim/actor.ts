@@ -11,14 +11,25 @@ export type ActorConnectionIdentity =
   | Readonly<{ type: "authenticated"; userId: string }>
   | Readonly<{ type: "anonymous"; anonymousId: string }>;
 
-/** Who sent a request relayed into the room: the app's server code (`service`),
- *  or the signed-in user or anonymous visitor whose client called `post()`. */
-export type ActorRequestIdentity =
+/** Who called a room's method: the app's server code (`service`), or the signed-in
+ *  user or anonymous visitor whose client called it. */
+export type ActorCallIdentity =
   | ActorConnectionIdentity
   | Readonly<{ type: "service" }>;
 
-export interface ActorRequestContext {
-  identity: ActorRequestIdentity;
+export interface ActorCallContext {
+  identity: ActorCallIdentity;
+  /** Carries the caller's own credential, so `createClientFromRequest(request)`
+   *  acts as the caller, as in a backend function. Never store it. */
+  request: Request;
+}
+
+/** Throw from a callable method to refuse the call with a 4xx status. */
+export class ActorError extends Error {
+  constructor(readonly status: number, message: string) {
+    super(message);
+    this.name = "ActorError";
+  }
 }
 
 export interface Conn<Send = unknown> {
@@ -435,52 +446,69 @@ export abstract class Actor<Incoming = unknown, Outgoing = unknown> extends Serv
 
   protected handleWake(_key: string): void | Promise<void> {}
 
-  /** Optional: answer a request sent into this room with `post()`, by the app's
-   *  server code or by a client. Check `identity` before acting on it: a client
-   *  can post into any room it can name. Return a Response; nothing means 204.
-   *  An actor without this method refuses every request with 404. */
-  protected handleRequest?(
-    request: Request,
-    context: ActorRequestContext,
-  ): Response | void | Promise<Response | void>;
+  /** Methods a caller may run on this room, as `base44.actors.<Name>(room).<method>(args)`.
+   *  Nothing else is callable. Each is called as `method(args, { identity, request })`;
+   *  check `identity` before acting: a client can call any room it can name. */
+  static callable?: readonly string[];
 
-  private static parseRequestIdentity(value: string | null): ActorRequestIdentity | undefined {
+  private static readonly NOT_CALLABLE = /^(?:handle[A-Z]|on[A-Z]|_)|^(?:constructor|fetch|alarm|setName|broadcast|schedule|cancelSchedule|getConnections|webSocket[A-Z].*)$/;
+  private static readonly CALLER_AUTHORIZATION_HEADER = "X-Base44-Actor-Caller-Authorization";
+
+  private static parseCallIdentity(value: string | null): ActorCallIdentity | undefined {
     if (value === '{"type":"service"}') return Object.freeze({ type: "service" });
     return Actor.parseIdentity(value);
   }
 
   // Called by the generated wrapper for a verified POST .../requests; never user-facing.
-  async _b44ActorRequest(request: Request): Promise<Response> {
-    // The wrapper routes requests ahead of partyserver's fetch, which is what names
-    // the room and runs onStart; a room a request wakes needs both before the hook.
+  async _b44ActorCall(request: Request): Promise<Response> {
+    // The wrapper routes calls ahead of partyserver's fetch, which is what names the
+    // room and runs onStart; a room a call wakes needs both before the method runs.
     const room = request.headers.get("x-partykit-room");
     if (room) await this.setName(room);
-    if (typeof this.handleRequest !== "function") {
-      return new Response("This actor does not accept requests", { status: 404 });
-    }
-    const identity = Actor.parseRequestIdentity(request.headers.get(Actor.IDENTITY_HEADER));
+    const identity = Actor.parseCallIdentity(request.headers.get(Actor.IDENTITY_HEADER));
     if (!identity) return new Response("Unauthorized", { status: 401 });
-    const forHandler = new Request(
-      `https://actor.base44/rooms/${encodeURIComponent(this.name)}/requests`,
-      {
-        method: "POST",
-        headers: { "Content-Type": request.headers.get("Content-Type") ?? "application/json" },
-        body: await request.arrayBuffer(),
-      },
-    );
-    let response: Response | void;
+    let call: { method?: unknown; args?: unknown };
     try {
-      response = await this.handleRequest(forHandler, { identity });
+      call = JSON.parse(await request.text());
+    } catch {
+      return Response.json({ message: "Invalid call" }, { status: 400 });
+    }
+    const name = call?.method;
+    const callable = (this.constructor as { callable?: unknown }).callable;
+    if (
+      typeof name !== "string" ||
+      !Array.isArray(callable) || !callable.includes(name) ||
+      Actor.NOT_CALLABLE.test(name) ||
+      typeof (this as Record<string, unknown>)[name] !== "function"
+    ) {
+      return Response.json({ message: `No callable method "${String(name)}"` }, { status: 404 });
+    }
+    const headers = new Headers({
+      "Content-Type": "application/json",
+      "Base44-App-Id": String(this._b44Env.BASE44_APP_ID ?? ""),
+      "Base44-Api-Url": String(this._b44Env.BASE44_API_URL ?? ""),
+      "Base44-Functions-Version": String(this._b44Env.BASE44_FUNCTIONS_VERSION ?? ""),
+    });
+    const callerAuthorization = request.headers.get(Actor.CALLER_AUTHORIZATION_HEADER);
+    if (callerAuthorization) headers.set("Authorization", callerAuthorization);
+    const forMethod = new Request(
+      `https://actor.base44/rooms/${encodeURIComponent(this.name)}/methods/${encodeURIComponent(name)}`,
+      { method: "POST", headers, body: JSON.stringify(call.args ?? null) },
+    );
+    let response: Response;
+    try {
+      const result = await (this as Record<string, (...a: unknown[]) => unknown>)[name](call.args, { identity, request: forMethod });
+      response = result === undefined ? new Response(null, { status: 204 }) : Response.json(result);
     } catch (err) {
-      console.error("Actor.handleRequest threw:", err);
-      response = new Response("Actor request failed", { status: 500 });
+      const status = (err as { status?: unknown })?.status;
+      if (typeof status === "number" && status >= 400 && status < 500) {
+        response = Response.json({ message: (err as Error).message }, { status });
+      } else {
+        console.error(`Actor.${name} threw:`, err);
+        response = Response.json({ message: "Actor method failed" }, { status: 500 });
+      }
     }
     await this.maintainTicker();
-    if (response === undefined) return new Response(null, { status: 204 });
-    if (!(response instanceof Response)) {
-      console.error("Actor.handleRequest must return a Response or nothing");
-      return new Response("Actor request failed", { status: 500 });
-    }
     return response;
   }
 

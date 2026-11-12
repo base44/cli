@@ -206,13 +206,13 @@ describe("applyActorCompat", () => {
     );
   });
 
-  it("routes a relayed request past the user's fetch override into the room hook", () => {
+  it("routes a relayed call past the user's fetch override into the room", () => {
     const entry = "base44/actors/GameRoom/entry.ts";
     const wrapper = applyActorCompat(entry, { [entry]: ACTOR_HANDLER })!.files[ACTOR_ENTRY_FILENAME];
     expect(wrapper).toContain(
       'request.method === "POST" && parts[1] === "rooms" && parts.length === 4 && parts[3] === "requests"',
     );
-    expect(wrapper).toContain("this._b44ActorRequest(request)");
+    expect(wrapper).toContain("this._b44ActorCall(request)");
     expect(wrapper.indexOf("_b44VerifyActorRequest(request"))
       .toBeLessThan(wrapper.indexOf("_b44ActorRequestToRoom(request"));
   });
@@ -251,11 +251,16 @@ describe("applyActorCompat", () => {
       runtime_mode: "prod",
       principal: { type: "service" },
       body_sha256: await bodySha(body),
+      caller_token_sha256: null as string | null,
     };
-    const post = (token: string, text = body) =>
+    const post = (token: string, text = body, callerAuthorization?: string) =>
       new Request("https://worker.example/rooms/room-1/requests", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-Base44-Actor-Request-Token": token },
+        headers: {
+          "Content-Type": "application/json",
+          "X-Base44-Actor-Request-Token": token,
+          ...(callerAuthorization ? { "X-Base44-Actor-Caller-Authorization": callerAuthorization } : {}),
+        },
         body: text,
       });
     const requestToken = await signToken(claims, privateKey);
@@ -295,11 +300,24 @@ describe("applyActorCompat", () => {
     expect(await auth.verifyActorRequest(post(servicePlus), env, "GameRoom", "room-1"))
       .toMatchObject({ ok: false, response: { status: 401 } });
 
+    const withCaller = await signToken({ ...claims, caller_token_sha256: await bodySha("Bearer user-tok") }, privateKey);
+    const verifiedCaller = await auth.verifyActorRequest(post(withCaller, body, "Bearer user-tok"), env, "GameRoom", "room-1");
+    expect(verifiedCaller).toMatchObject({ ok: true, callerAuthorization: "Bearer user-tok" });
+    expect(await auth.verifyActorRequest(post(withCaller, body, "Bearer other"), env, "GameRoom", "room-1"))
+      .toMatchObject({ ok: false, response: { status: 401 } });
+    expect(await auth.verifyActorRequest(post(withCaller), env, "GameRoom", "room-1"))
+      .toMatchObject({ ok: false, response: { status: 401 } });
+    expect(await auth.verifyActorRequest(post(requestToken, body, "Bearer added"), env, "GameRoom", "room-1"))
+      .toMatchObject({ ok: false, response: { status: 401 } });
+    const callerForwarded = auth.actorRequestToRoom(post(withCaller, body, "Bearer user-tok"), "GameRoom", "room-1", verifiedCaller);
+    expect(callerForwarded.headers.get("X-Base44-Actor-Caller-Authorization")).toBe("Bearer user-tok");
+
     const forwarded = auth.actorRequestToRoom(post(requestToken), "GameRoom", "room-1", valid);
     expect(forwarded.method).toBe("POST");
     expect(new URL(forwarded.url).pathname).toBe("/parties/GameRoom/room-1/requests");
     expect(forwarded.headers.get("X-Base44-Actor-Request-Token")).toBeNull();
     expect(forwarded.headers.get("X-Base44-Actor-Identity")).toBe('{"type":"service"}');
+    expect(forwarded.headers.get("X-Base44-Actor-Caller-Authorization")).toBeNull();
     expect(forwarded.headers.get("base44-functions-version")).toBe("prod");
     expect(await forwarded.text()).toBe(body);
   });

@@ -275,31 +275,40 @@ enforced without making the manifest user-importable.
 Release this package before bumping apper's compiler pin. Existing compiled
 Workers need rebuilding; the workspace toggle does not install new code.
 
-## Requests into an Actor room
+## Calling an Actor room's methods
 
-App code sends a request into one room with the SDK's
-`actors.<Name>(room).post(body)`: server code as the service role, or a client as
-its signed-in user or anonymous visitor. The backend authenticates the caller and
-relays it; the generated Actor Worker answers `POST /rooms/{room}/requests`,
-which the public Actor dispatcher forwards from
+App code calls a method on one room with the SDK's
+`actors.<Name>(room).<method>(args)`: server code as the service role, or a client as
+its signed-in user or anonymous visitor. Only methods the actor lists in
+`static callable = ["notify", ...]` run; a hook-shaped name (`handle*`, `on*`, `_*`) or
+a base-class method never does, even when listed. Each runs as
+`method(args, { identity, request })`, where `request` carries the caller's own
+credential in `Authorization` plus `Base44-App-Id`, `Base44-Api-Url` and
+`Base44-Functions-Version`, so `createClientFromRequest(request)` acts as the caller,
+as in a backend function. Its return value is the JSON reply (nothing is a 204); a
+thrown `ActorError(status, message)` (from `base44:runtime/actors`) with a 4xx status
+refuses the call, and anything else thrown is a 500.
+
+The backend authenticates the caller and relays the call; the generated Actor Worker
+answers `POST /rooms/{room}/requests`, which the public Actor dispatcher forwards from
 `POST /v1/actors/{script}/rooms/{room}/requests`:
 
 - **Token.** `X-Base44-Actor-Request-Token`, an EdDSA JWT under the same per-actor
   key as connection tokens but with audience `base44-actor-request`, purpose
   `actor-request`, a 60 s TTL and the claims `app_id`, `actor_name`,
   `actor_script_id`, `room`, `runtime_mode`, `principal` (`service`,
-  `authenticated` or `anonymous`) and `body_sha256` (base64url SHA-256 of the
-  body). A connection token is never accepted as a request token, nor the
-  reverse. 401 is a token this key did not mint, that has lapsed or whose body
-  hash does not match; 403 is a good token for another app, actor, script, room
-  or runtime. The body is at most 64 KB (413).
+  `authenticated` or `anonymous`), `body_sha256` and `caller_token_sha256`
+  (base64url SHA-256 of the body `{"method", "args"}` and of the
+  `X-Base44-Actor-Caller-Authorization` header, or null when there is none). A
+  connection token is never accepted as a request token, nor the reverse. 401 is a
+  token this key did not mint, that has lapsed or whose hashes don't match; 403 is a
+  good token for another app, actor, script, room or runtime. The body is at most
+  64 KB (413).
 - **Delivery.** The Worker forwards it into the Durable Object as
-  `POST /parties/<actor>/<room>/requests`, a shape no client route can produce,
-  with the verified principal in `X-Base44-Actor-Identity`. Ahead of any `fetch`
-  override, the wrapper names the room (running `handleStart` on a cold wake) and
-  calls `handleRequest(request, { identity })` with a fresh request carrying only
-  the body and its `Content-Type`. Its Response goes back to the caller; nothing
-  is a 204, a throw is a 500, and an actor without `handleRequest` answers 404.
+  `POST /parties/<actor>/<room>/requests`, a shape no client route can produce, with
+  the verified principal in `X-Base44-Actor-Identity` and the caller's credential.
+  Ahead of any `fetch` override, the wrapper names the room (running `handleStart`
+  on a cold wake), checks the method against `callable` (404 otherwise) and runs it.
 
 The minting side is apper's `backend/app/user_apps/actors/actor_requests.py`; the
 dispatcher route is `workers/base44-dispatcher/src/actor-routing.ts`.
