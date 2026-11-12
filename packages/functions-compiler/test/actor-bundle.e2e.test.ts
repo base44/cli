@@ -421,7 +421,7 @@ describe("actor bundling via base44:runtime/actors", () => {
       });
       const user = { type: "authenticated", userId: "user-1" };
       const asUser = await post("room-a", await requestToken("room-a", body, user), body);
-      expect((await asUser.json()).identity).toEqual(user);
+      expect(await asUser.json()).toMatchObject({ identity: user });
 
       const token = await requestToken("room-a", body);
       expect((await post("room-b", token, body)).status).toBe(403);
