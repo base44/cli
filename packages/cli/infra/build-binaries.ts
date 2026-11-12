@@ -92,6 +92,9 @@ for (const { target, output } of TARGETS) {
 		ENTRY,
 		"--outfile",
 		outPath,
+		// The CLI loads project .env files itself; Bun's own autoload would hide
+		// which values came from a file (see isAccessTokenFromEnvFile).
+		"--no-compile-autoload-dotenv",
 		// The workerd function runtime cannot ship inside a compiled binary
 		// (native executables and WASM cannot be embedded), so its packages are
 		// excluded here; the runtime probe in function-runtime.ts fails to
