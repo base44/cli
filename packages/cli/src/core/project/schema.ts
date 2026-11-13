@@ -94,6 +94,10 @@ export const AppDetailSchema = z
 
 export type AppDetail = z.infer<typeof AppDetailSchema>;
 
+export const AppPublicSettingsSchema = z.looseObject({
+  public_settings: z.string().nullish(),
+});
+
 export const ProjectSchema = z
   .object({
     id: z.string(),

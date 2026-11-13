@@ -12,6 +12,7 @@ import type {
 } from "@/core/project/schema.js";
 import {
   AppDetailSchema,
+  AppPublicSettingsSchema,
   CreateProjectResponseSchema,
   ProjectsResponseSchema,
 } from "@/core/project/schema.js";
@@ -102,6 +103,33 @@ export async function listProjects(): Promise<ProjectsResponse> {
   }
 
   return result.data;
+}
+
+/** The app's visibility as the server has it, from its `public_settings`. */
+export async function getAppVisibility(appId: string): Promise<Visibility> {
+  let response: KyResponse;
+  try {
+    response = await base44Client.get(`api/apps/${appId}`, {
+      searchParams: { fields: "id,public_settings" },
+    });
+  } catch (error) {
+    throw await ApiError.fromHttpError(error, "fetching app visibility");
+  }
+
+  const result = AppPublicSettingsSchema.safeParse(await response.json());
+  if (!result.success) {
+    throw new SchemaValidationError(
+      "Invalid response from server",
+      result.error,
+    );
+  }
+
+  const settings = result.data.public_settings;
+  return (
+    (Object.keys(PUBLIC_SETTINGS) as Visibility[]).find(
+      (visibility) => PUBLIC_SETTINGS[visibility] === settings,
+    ) ?? "public"
+  );
 }
 
 /**

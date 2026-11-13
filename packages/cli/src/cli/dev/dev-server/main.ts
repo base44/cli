@@ -8,14 +8,24 @@ import { createProxyMiddleware } from "http-proxy-middleware";
 import { dir } from "tmp-promise";
 import { createDevLogger } from "@/cli/dev/createDevLogger.js";
 import { createFunctionRuntime } from "@/cli/dev/dev-server/function-runtime.js";
+import {
+  type AppServerTarget,
+  createAppServerProxy,
+} from "@/cli/dev/dev-server/routes/app-server.js";
 import { createFunctionRouter } from "@/cli/dev/dev-server/routes/functions.js";
+import {
+  createLoginGate,
+  type LoginGateOptions,
+} from "@/cli/dev/dev-server/routes/login-gate.js";
 import { theme } from "@/cli/utils/index.js";
 import type { ProjectData } from "@/core/project/types.js";
 import { Database } from "./db/database.js";
+import { PLATFORM_PATH_PATTERN } from "./platform-paths.js";
 import {
   type BroadcastEntityEvent,
   broadcastEntityEvent,
   createRealtimeServer,
+  REALTIME_PATH,
 } from "./realtime.js";
 import { createAuthRouter } from "./routes/auth-router.js";
 import { createEntityRoutes } from "./routes/entities/entities-router.js";
@@ -33,6 +43,10 @@ interface DevServerOptions {
   log: Logger;
   port?: number;
   denoWrapperPath: string;
+  /** The app's own dev server, fronted by this one when the project has a site. */
+  appServer?: AppServerTarget;
+  /** Set for a private or workspace app: the CLI signs the developer in. */
+  loginGate?: LoginGateOptions;
   loadResources: () => Promise<{
     functions: ProjectData["functions"];
     entities: ProjectData["entities"];
@@ -77,6 +91,12 @@ export async function createDevServer(
     }),
   );
 
+  const devLogger = createDevLogger("backend", theme.styles.info);
+
+  if (options.loginGate) {
+    app.use(createLoginGate(options.loginGate, devLogger));
+  }
+
   // Redirect OAuth routes to base44.app directly — proxying breaks the
   // redirect flow and session cookies set by the provider.
   const AUTH_ROUTE_PATTERN = /^\/api\/apps\/auth(\/|$)/;
@@ -87,8 +107,6 @@ export async function createDevServer(
     }
     next();
   });
-
-  const devLogger = createDevLogger("backend", theme.styles.info);
 
   app.use("/api/apps/:appId/actors", (_req, res) => {
     const message = "Actors are not available in local development";
@@ -164,7 +182,14 @@ export async function createDevServer(
   );
   app.use("/api/apps/:appId/integrations/custom", customIntegrationRoutes);
 
+  const appServerProxy = options.appServer
+    ? createAppServerProxy(options.appServer, devLogger)
+    : undefined;
+
   app.use((req, res, next) => {
+    if (appServerProxy && !PLATFORM_PATH_PATTERN.test(req.path)) {
+      return appServerProxy.middleware(req, res, next);
+    }
     if (siteUrl && (req.path === "/login" || req.path.startsWith("/login/"))) {
       const targetUrl = new URL(req.originalUrl, siteUrl);
       devLogger.warn(
@@ -199,6 +224,16 @@ export async function createDevServer(
       }
     });
   });
+
+  if (appServerProxy) {
+    // Every upgrade that is not the entity-events socket belongs to the app —
+    // its HMR client among them.
+    server.on("upgrade", (req, socket, head) => {
+      if (!req.url?.startsWith(REALTIME_PATH)) {
+        appServerProxy.upgrade(req, socket, head);
+      }
+    });
+  }
 
   const io = createRealtimeServer(server);
   emitEntityEvent = (appId, entityName, event) => {

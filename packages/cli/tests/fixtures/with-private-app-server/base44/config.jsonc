@@ -1,0 +1,7 @@
+{
+  "name": "Private App Server Project",
+  "visibility": "private",
+  "site": {
+    "serveCommand": "node app-server.cjs"
+  }
+}
