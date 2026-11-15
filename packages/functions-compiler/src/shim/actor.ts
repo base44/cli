@@ -11,12 +11,25 @@ export type ActorConnectionIdentity =
   | Readonly<{ type: "authenticated"; userId: string }>
   | Readonly<{ type: "anonymous"; anonymousId: string }>;
 
-/** An event the platform posts into a room, for example a generated video settling.
- *  The `__` type prefix is the platform's namespace; `event_id` is the dedup key. */
-export interface PlatformEvent {
-  type: `__${string}`;
-  event_id: string;
-  [field: string]: unknown;
+/** Who called a room's method: the app's server code (`service`), or the signed-in
+ *  user or anonymous visitor whose client called it. */
+export type ActorCallIdentity =
+  | ActorConnectionIdentity
+  | Readonly<{ type: "service" }>;
+
+export interface ActorCallContext {
+  identity: ActorCallIdentity;
+  /** Carries the caller's own credential, so `createClientFromRequest(request)`
+   *  acts as the caller, as in a backend function. Never store it. */
+  request: Request;
+}
+
+/** Throw from a callable method to refuse the call with a 4xx status. */
+export class ActorError extends Error {
+  constructor(readonly status: number, message: string) {
+    super(message);
+    this.name = "ActorError";
+  }
 }
 
 export interface Conn<Send = unknown> {
@@ -433,40 +446,70 @@ export abstract class Actor<Incoming = unknown, Outgoing = unknown> extends Serv
 
   protected handleWake(_key: string): void | Promise<void> {}
 
-  // Optional: the platform posted an event into this room. Delivery is
-  // at-least-once; a repeat of an event_id this instance already took is dropped
-  // here, so a room that must be exact across evictions dedups on event_id too.
-  protected handlePlatformEvent(_event: PlatformEvent): void | Promise<void> {}
+  /** Methods a caller may run on this room, as `base44.actors.<Name>(room).<method>(args)`.
+   *  Nothing else is callable. Each is called as `method(args, { identity, request })`;
+   *  check `identity` before acting: a client can call any room it can name. */
+  static callable?: readonly string[];
 
-  private readonly takenPlatformEvents: string[] = [];
-  private readonly platformEventsInFlight = new Map<string, Promise<void>>();
-  private static readonly REMEMBERED_PLATFORM_EVENTS = 64;
+  private static readonly NOT_CALLABLE = /^(?:handle[A-Z]|on[A-Z]|_)|^(?:constructor|fetch|alarm|setName|broadcast|schedule|cancelSchedule|getConnections|webSocket[A-Z].*)$/;
+  private static readonly CALLER_AUTHORIZATION_HEADER = "X-Base44-Actor-Caller-Authorization";
 
-  // Called by the generated wrapper for a verified POST .../events; never user-facing.
-  async _b44PlatformEvent(request: Request): Promise<Response> {
-    // The wrapper routes events ahead of partyserver's fetch, which is what names the
-    // room and runs onStart; a room an event wakes needs both before the user's hook.
-    const room = request.headers.get("x-partykit-room");
-    if (room) await this.setName(room);
-    const event = (await request.json()) as PlatformEvent;
-    const eventId = event.event_id;
-    if (!this.takenPlatformEvents.includes(eventId)) {
-      // A retry that lands while the hook still runs shares that run and its outcome.
-      let delivery = this.platformEventsInFlight.get(eventId);
-      if (!delivery) {
-        delivery = this.takePlatformEvent(event).finally(() => this.platformEventsInFlight.delete(eventId));
-        this.platformEventsInFlight.set(eventId, delivery);
-      }
-      await delivery;
-    }
-    return new Response(null, { status: 204 });
+  private static parseCallIdentity(value: string | null): ActorCallIdentity | undefined {
+    if (value === '{"type":"service"}') return Object.freeze({ type: "service" });
+    return Actor.parseIdentity(value);
   }
 
-  private async takePlatformEvent(event: PlatformEvent): Promise<void> {
-    await this.handlePlatformEvent(event);
-    this.takenPlatformEvents.push(event.event_id);
-    if (this.takenPlatformEvents.length > Actor.REMEMBERED_PLATFORM_EVENTS) this.takenPlatformEvents.shift();
+  // Called by the generated wrapper for a verified POST .../requests; never user-facing.
+  async _b44ActorCall(request: Request): Promise<Response> {
+    // The wrapper routes calls ahead of partyserver's fetch, which is what names the
+    // room and runs onStart; a room a call wakes needs both before the method runs.
+    const room = request.headers.get("x-partykit-room");
+    if (room) await this.setName(room);
+    const identity = Actor.parseCallIdentity(request.headers.get(Actor.IDENTITY_HEADER));
+    if (!identity) return new Response("Unauthorized", { status: 401 });
+    let call: { method?: unknown; args?: unknown };
+    try {
+      call = JSON.parse(await request.text());
+    } catch {
+      return Response.json({ message: "Invalid call" }, { status: 400 });
+    }
+    const name = call?.method;
+    const callable = (this.constructor as { callable?: unknown }).callable;
+    if (
+      typeof name !== "string" ||
+      !Array.isArray(callable) || !callable.includes(name) ||
+      Actor.NOT_CALLABLE.test(name) ||
+      typeof (this as Record<string, unknown>)[name] !== "function"
+    ) {
+      return Response.json({ message: `No callable method "${String(name)}"` }, { status: 404 });
+    }
+    const headers = new Headers({
+      "Content-Type": "application/json",
+      "Base44-App-Id": String(this._b44Env.BASE44_APP_ID ?? ""),
+      "Base44-Api-Url": String(this._b44Env.BASE44_API_URL ?? ""),
+      "Base44-Functions-Version": String(this._b44Env.BASE44_FUNCTIONS_VERSION ?? ""),
+    });
+    const callerAuthorization = request.headers.get(Actor.CALLER_AUTHORIZATION_HEADER);
+    if (callerAuthorization) headers.set("Authorization", callerAuthorization);
+    const forMethod = new Request(
+      `https://actor.base44/rooms/${encodeURIComponent(this.name)}/methods/${encodeURIComponent(name)}`,
+      { method: "POST", headers, body: JSON.stringify(call.args ?? null) },
+    );
+    let response: Response;
+    try {
+      const result = await (this as Record<string, (...a: unknown[]) => unknown>)[name](call.args, { identity, request: forMethod });
+      response = result === undefined ? new Response(null, { status: 204 }) : Response.json(result);
+    } catch (err) {
+      const status = (err as { status?: unknown })?.status;
+      if (typeof status === "number" && status >= 400 && status < 500) {
+        response = Response.json({ message: (err as Error).message }, { status });
+      } else {
+        console.error(`Actor.${name} threw:`, err);
+        response = Response.json({ message: "Actor method failed" }, { status: 500 });
+      }
+    }
     await this.maintainTicker();
+    return response;
   }
 
   protected async schedule(key: string, at: number | Date): Promise<void> {
