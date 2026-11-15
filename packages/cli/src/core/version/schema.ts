@@ -104,6 +104,19 @@ export interface ArtifactSet {
   /** Each `agent-skills/<name>.md` as written, by skill name, `{}` when the app
    * has none. Always sent, for the reason `backendBundles` is. */
   agentSkills: Record<string, string>;
+  /** The app's pages, home first. Absent when its routes are not files this
+   * CLI can read: the platform then has no account of them from this version. */
+  pages?: PageArtifact[];
+}
+
+/** One page of the app, as its route file declares it. */
+export interface PageArtifact {
+  /** The URL path, `:name` for a parameter: `/notes/:id`. */
+  path: string;
+  /** Unique among the app's pages. */
+  name: string;
+  /** The route file, from the project root: `src/routes/notes.$id.tsx`. */
+  file: string;
 }
 
 export interface CreateVersionProgress {

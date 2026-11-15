@@ -1,6 +1,6 @@
 # Versions
 
-**Keywords:** versions, publish, deployment, rollback, artifact set, sha256, digest, staged upload, presigned, x-amz-checksum-sha256, entities, agents, mcp config, agent skills, backend functions, backend_bundles, actors, Durable Objects, functions-compiler, shards, raw payloads, provenance, commit, idempotency key, step, BASE44_VERSIONS_API, env gate, build sandbox
+**Keywords:** versions, publish, deployment, rollback, artifact set, sha256, digest, staged upload, presigned, x-amz-checksum-sha256, entities, agents, mcp config, agent skills, pages, TanStack routes, backend functions, backend_bundles, actors, Durable Objects, functions-compiler, shards, raw payloads, provenance, commit, idempotency key, step, BASE44_VERSIONS_API, env gate, build sandbox
 
 A **version** is one immutable thing a build produced — every frontend file, plus the entity and agent payloads the app declares. A **deployment** is a version made live at an environment. Recording one and serving one are separate acts, which is what makes a rollback a deploy of an older version rather than a second code path.
 
@@ -20,7 +20,7 @@ It is **not** `src/core/site/` — see [Deployments](deployments.md). That lane 
 
 `createVersion(artifacts, options)` in `api.ts` — three calls, in this order and no other, so nothing is recorded until the bytes are in place:
 
-1. **Declare.** `POST versions` with `assets` (path, size, digest per file), optionally a `site_worker` beside it, the compiled `backend_bundles` and `actors`, plus the raw `entities` and `agents` payloads, the `mcp_config` text, the `agent_skills` texts and `source_commit`. The response carries a `session_id` and one presigned PUT per declared file, in declared order: the assets, the Worker's modules, one per bundle, then one per actor. Each kind comes after the ones before it, so an app gaining one moves no existing slot.
+1. **Declare.** `POST versions` with `assets` (path, size, digest per file), optionally a `site_worker` beside it, the compiled `backend_bundles` and `actors`, plus the raw `entities` and `agents` payloads, the `mcp_config` text, the `agent_skills` texts, the app's `pages` and `source_commit`. The response carries a `session_id` and one presigned PUT per declared file, in declared order: the assets, the Worker's modules, one per bundle, then one per actor. Each kind comes after the ones before it, so an app gaining one moves no existing slot.
 2. **Upload.** `putPresigned` per file — the same PUT the static deployments lane uses, same ky retry policy. Each PUT sends the server's `Content-Type` **and** its `x-amz-checksum-sha256` verbatim; deriving either locally would 403 on any mapping difference. Uploads are paired with declared files **by position**, not by path: the frontend and the Worker's modules are separate namespaces, so the same name can appear in both and mean two different files.
 3. **Finalize.** `POST versions/{session_id}/finalize`, no body. The set was fixed at declare, so there is nothing left for the caller to change.
 
@@ -92,6 +92,8 @@ The practical consequence for this CLI: **send the checksum the server gave you,
 `mcp/config.json` goes up as **text**, `mcp_config`, exactly as written, and `""` when the app has none. Not through `readJsonFile`: the platform parses that file as strict JSON, and a JSON5 parse here would accept a comment the platform reads as no config. It is always sent, for the reason `backend_bundles` is: an absent field says this producer does not describe the file.
 
 Each `agent-skills/<name>.md` goes up as **text** too, in `agent_skills`, keyed by skill name and `{}` when the app has none. The platform parses the frontmatter and body; only the folder's own `*.md` files are skills. Always sent, for the same reason.
+
+`pages` lists the app's pages, home first: each one's URL `path` (`:name` for a parameter), a `name` unique among them, and its route `file`. `collectPages` (`core/version/pages.ts`) reads them from the names of the files under `src/routes/`, by TanStack Router's file conventions, and only when the build left a `src/routeTree.gen.ts`, which the router writes for file routes alone. A route whose file declares `server` handlers and no `component` is an endpoint, not a page. Any other app sends no `pages`: its routes are code, and nothing here runs it. The names and their order follow the platform's own reading of the same files, which keys the app's SEO settings by them.
 
 Deliberately **not** `entityResource.readAll` / `agentResource.readAll`. The platform's own extractor and validation are authoritative, and this CLI's stricter entity schema refuses real Builder apps — which is exactly why `site deploy` reads no resources at all. Re-introducing the strict parse here would reproduce that block.
 

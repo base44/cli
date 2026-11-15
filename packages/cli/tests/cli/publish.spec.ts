@@ -107,6 +107,18 @@ describe("publish command", () => {
     expect(t.api.versionDeclareRequests[0]).toMatchObject({ agent_skills: {} });
   });
 
+  it("declares no pages for an app whose routes are not TanStack Router files", async () => {
+    // Absent, not empty: an empty list would say the app has no pages.
+    t.givenEnv({ BASE44_VERSIONS_API: "1" });
+    await t.givenLoggedInWithProject(fixture("publishable"));
+    mockPublishApi();
+
+    const result = await t.run("publish", "--no-build");
+
+    t.expectResult(result).toSucceed();
+    expect(t.api.versionDeclareRequests[0]).not.toHaveProperty("pages");
+  });
+
   it("uploads every declared file with the checksum the server signed in", async () => {
     t.givenEnv({ BASE44_VERSIONS_API: "1" });
     await t.givenLoggedInWithProject(fixture("publishable"));

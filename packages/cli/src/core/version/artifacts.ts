@@ -11,6 +11,7 @@ import { describeBuildOutput, hashFileInto } from "@/core/site/manifest.js";
 import { pathExists, readJsonFile, readTextFile } from "@/core/utils/fs.js";
 import { compileActors } from "@/core/version/actors.js";
 import { compileBackendBundles } from "@/core/version/functions.js";
+import { collectPages } from "@/core/version/pages.js";
 import { tagStep } from "@/core/version/publish.js";
 import type {
   ArtifactFile,
@@ -216,6 +217,7 @@ export async function collectArtifacts(
 ): Promise<ArtifactSet> {
   const built = await resolveFullStackBuild(target.root);
   const siteWorker = built ? await describeSiteWorker(built) : null;
+  const pages = await collectPages(target.root);
   return {
     // One set, from wherever this build put it. The entry rule applies only
     // when the PLATFORM serves it: a Worker's own asset settings answer an
@@ -240,5 +242,6 @@ export async function collectArtifacts(
       compileActors(join(target.configDir, target.actorsDir)),
     ),
     ...(await collectResources(target.configDir, target)),
+    ...(pages ? { pages } : {}),
   };
 }
