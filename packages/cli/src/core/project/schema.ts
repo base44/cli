@@ -123,6 +123,7 @@ export const TestOverridesSchema = z.object({
     .optional(),
   latestVersion: z.string().nullable().optional(),
   claudeBin: z.string().optional(),
+  skipRetryWait: z.boolean().optional(),
 });
 
 export type TestOverrides = z.infer<typeof TestOverridesSchema>;

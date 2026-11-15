@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import ky, { HTTPError, type KyResponse } from "ky";
 import { z } from "zod";
 import { getAppClient } from "@/core/clients/index.js";
-import { getBase44ApiUrl } from "@/core/config.js";
+import { getBase44ApiUrl, getTestOverrides } from "@/core/config.js";
 import { ApiError, SchemaValidationError } from "@/core/errors.js";
 import type { SessionArtifact } from "@/core/session-import/artifacts.js";
 
@@ -40,6 +40,7 @@ type SessionImport = z.infer<typeof SessionImportResponseSchema>;
 const ErrorEnvelopeSchema = z.object({
   error: z.object({
     code: z.string().optional(),
+    message: z.string().optional(),
     details: z
       .object({ branch_name: z.string(), branch_url: z.string() })
       .partial()
@@ -57,7 +58,9 @@ function messageFor(
   code: string | undefined,
   details: ErrorDetails,
   viaToken: boolean,
+  serverMessage: string | undefined,
 ): string | undefined {
+  if (code === "authority_unavailable" && serverMessage) return serverMessage;
   if (code === "branch_exists" && details?.branch_url) {
     return `Base Code already has ${details.branch_name ?? "a branch for this session"}. Open it: ${new URL(details.branch_url, getBase44ApiUrl())}`;
   }
@@ -113,7 +116,9 @@ async function toImportError(
   const { status } = error.response;
   const fallback = await ApiError.fromHttpError(error, "importing session");
   const envelope = ErrorEnvelopeSchema.safeParse(fallback.responseBody);
-  const { code, details } = envelope.success ? envelope.data.error : {};
+  const { code, details, message } = envelope.success
+    ? envelope.data.error
+    : {};
   // The claude.ai egress proxy answers a blocked host with its own non-JSON 403.
   const blocked =
     process.env.CLAUDE_CODE_REMOTE &&
@@ -121,7 +126,7 @@ async function toImportError(
     typeof fallback.responseBody !== "object";
   const known = blocked
     ? NETWORK_BLOCKED
-    : messageFor(status, code, details, viaToken);
+    : messageFor(status, code, details, viaToken, message);
   return new ApiError(known ?? fallback.message, {
     statusCode: status,
     requestUrl: error.request.url,
@@ -130,6 +135,30 @@ async function toImportError(
     // The CLI's default 401 hint says `base44 login`, which a key user doesn't need.
     hints: known ? [] : fallback.hints,
   });
+}
+
+const MAX_RETRIES = 3;
+// An import key lives 10 minutes from when the dialog minted it.
+const MAX_TOTAL_WAIT_SECONDS = 600;
+
+/** Seconds to wait before retrying, or undefined when a retry won't help. */
+async function retryDelay(error: unknown): Promise<number | undefined> {
+  if (!(error instanceof HTTPError)) return undefined;
+  const { status, headers } = error.response;
+  if (status !== 503 && status !== 429) return undefined;
+  const body = await error.response
+    .clone()
+    .json()
+    .catch(() => undefined);
+  const code = ErrorEnvelopeSchema.safeParse(body).data?.error.code;
+  if (
+    !(status === 503 && code === "authority_unavailable") &&
+    !(status === 429 && code === "rate_limited")
+  ) {
+    return undefined;
+  }
+  const seconds = Number(headers.get("Retry-After") ?? Number.NaN);
+  return Number.isFinite(seconds) && seconds >= 0 ? seconds : 60;
 }
 
 /**
@@ -144,10 +173,17 @@ export async function uploadSession(
     token,
     sourceBranch,
     artifacts = [],
+    onRetry,
   }: {
     token?: string;
     sourceBranch?: string;
     artifacts?: SessionArtifact[];
+    onRetry?: (info: {
+      status: number;
+      seconds: number;
+      attempt: number;
+      attempts: number;
+    }) => void;
   } = {},
 ): Promise<SessionImport> {
   const form = new FormData();
@@ -172,10 +208,11 @@ export async function uploadSession(
   // response back instead of creating a second branch.
   const idempotencyKey = randomUUID();
 
-  let response: KyResponse;
-  try {
-    response = token
-      ? await ky.post(
+  // Retries resend the same form, key and Idempotency-Key: the server hands both
+  // keys back when GitHub can't confirm access or the upload is rate limited.
+  const post = () =>
+    token
+      ? ky.post(
           new URL(
             `/api/apps/${appId}/imported/session-imports`,
             getBase44ApiUrl(),
@@ -190,13 +227,39 @@ export async function uploadSession(
             timeout: 180_000,
           },
         )
-      : await getAppClient().post("imported/session-imports", {
+      : getAppClient().post("imported/session-imports", {
           body: form,
           headers: { "Idempotency-Key": idempotencyKey },
           timeout: 180_000,
         });
-  } catch (error) {
-    throw await toImportError(error, Boolean(token));
+
+  let response: KyResponse;
+  let waited = 0;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      response = await post();
+      break;
+    } catch (error) {
+      const seconds = await retryDelay(error);
+      if (
+        seconds === undefined ||
+        attempt > MAX_RETRIES ||
+        waited + seconds > MAX_TOTAL_WAIT_SECONDS
+      ) {
+        throw await toImportError(error, Boolean(token));
+      }
+      waited += seconds;
+      onRetry?.({
+        status: (error as HTTPError).response.status,
+        seconds,
+        attempt: attempt + 1,
+        attempts: MAX_RETRIES + 1,
+      });
+      // ponytail: tests skip the wait rather than fake a clock in a child process.
+      if (!getTestOverrides()?.skipRetryWait) {
+        await new Promise((resolve) => setTimeout(resolve, seconds * 1000));
+      }
+    }
   }
 
   const result = SessionImportResponseSchema.safeParse(await response.json());

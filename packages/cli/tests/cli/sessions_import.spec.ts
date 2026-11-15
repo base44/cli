@@ -290,6 +290,101 @@ describe("sessions import command", () => {
     t.expectResult(result).toContain(message);
   });
 
+  describe("retries", () => {
+    const UNAVAILABLE = {
+      error: {
+        code: "authority_unavailable",
+        message:
+          "GitHub could not confirm repository access. Retry the import.",
+      },
+    };
+
+    /** Answers each upload with the next response; the last one repeats. */
+    function mockUploads(
+      ...responses: { status: number; body: unknown; retryAfter?: string }[]
+    ) {
+      t.api.mockRoute("POST", ROUTE, (req, res) => {
+        uploads.push({
+          authorization: req.headers.authorization,
+          idempotencyKey: req.headers["idempotency-key"] as string | undefined,
+          body: (req.body as Buffer).toString("utf8"),
+        });
+        const next = responses[Math.min(uploads.length, responses.length) - 1];
+        if (next?.retryAfter) res.set("Retry-After", next.retryAfter);
+        res.status(next?.status ?? 500).json(next?.body);
+      });
+    }
+
+    it("retries a 503 authority_unavailable with the same keys and body", async () => {
+      const file = await plant("s.jsonl", claudeLines("/x", "hi"));
+      mockUploads(
+        { status: 503, body: UNAVAILABLE, retryAfter: "42" },
+        { status: 200, body: SUCCESS },
+      );
+
+      const result = await importFile(file);
+
+      t.expectResult(result).toSucceed();
+      t.expectResult(result).toContain(
+        "GitHub is rate-limiting access checks. Retrying in 42s (attempt 2 of 4)",
+      );
+      expect(uploads).toHaveLength(2);
+      const [first, second] = uploads;
+      expect(second?.authorization).toBe(`Bearer ${TOKEN}`);
+      expect(second?.idempotencyKey).toBe(first?.idempotencyKey);
+      // Multipart boundaries differ per request; the session itself must not.
+      expect(second?.body).toContain("hi");
+      expect(second?.body.length).toBe(first?.body.length);
+    });
+
+    it("waits 60s when Retry-After is missing", async () => {
+      const file = await plant("s.jsonl", claudeLines("/x", "hi"));
+      mockUploads(
+        { status: 429, body: { error: { code: "rate_limited" } } },
+        { status: 200, body: SUCCESS },
+      );
+
+      const result = await importFile(file);
+
+      t.expectResult(result).toSucceed();
+      t.expectResult(result).toContain("Retrying in 60s (attempt 2 of 4)");
+    });
+
+    it("gives up after 3 retries with the server's message", async () => {
+      const file = await plant("s.jsonl", claudeLines("/x", "hi"));
+      mockUploads({ status: 503, body: UNAVAILABLE, retryAfter: "60" });
+
+      const result = await importFile(file);
+
+      t.expectResult(result).toFail();
+      t.expectResult(result).toContain(
+        "GitHub could not confirm repository access. Retry the import.",
+      );
+      expect(uploads).toHaveLength(4);
+    });
+
+    it("stops before the import key would expire", async () => {
+      const file = await plant("s.jsonl", claudeLines("/x", "hi"));
+      mockUploads({ status: 503, body: UNAVAILABLE, retryAfter: "400" });
+
+      const result = await importFile(file);
+
+      t.expectResult(result).toFail();
+      expect(uploads).toHaveLength(2);
+    });
+
+    it.each([
+      [422, { error: { code: "unsupported_file" } }],
+      [503, { error: { code: "maintenance" } }],
+    ])("doesn't retry a %i", async (status, body) => {
+      const file = await plant("s.jsonl", claudeLines("/x", "hi"));
+      mockUploads({ status, body, retryAfter: "1" });
+
+      t.expectResult(await importFile(file)).toFail();
+      expect(uploads).toHaveLength(1);
+    });
+  });
+
   it("links to the existing branch when Base Code already has one", async () => {
     const file = await plant("s.jsonl", claudeLines("/x", "hi"));
     mockUpload(409, {
