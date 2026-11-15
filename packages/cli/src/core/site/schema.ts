@@ -75,6 +75,11 @@ export interface CreateDeploymentRequest {
     } | null;
   };
   asset_manifest: Record<string, AssetManifestEntry>;
+  /**
+   * Replace the build the commit already has. Without it the server keeps that
+   * build: the same build deploys as a no-op, a different one is refused.
+   */
+  overwrite?: boolean;
 }
 
 export interface PresignedAssetUpload {
@@ -115,6 +120,14 @@ export interface S3AssetUploads {
   type: "s3";
   uploads: PresignedAssetUpload[];
 }
+
+/**
+ * The server's refusal of a static deploy for a commit that already has a
+ * different build, sent without `overwrite`.
+ */
+export const DeploymentExistsRefusalSchema = z.object({
+  error: z.object({ code: z.literal("deployment_already_exists") }),
+});
 
 /**
  * `asset_uploads` says where the assets still owed should go, discriminated on

@@ -31,6 +31,7 @@ interface CreateBody {
   git_hash: string;
   config?: { main?: string; compatibility_flags?: string[] };
   asset_manifest: Record<string, { hash: string; size: number }>;
+  overwrite?: boolean;
 }
 
 describe("site deploy command (static site through the deployments API)", () => {
@@ -81,6 +82,7 @@ describe("site deploy command (static site through the deployments API)", () => 
     const body = t.api.deploymentCreateRequests[0] as CreateBody;
     expect(body.git_hash).toBe(GIT_HASH);
     expect(body).not.toHaveProperty("config");
+    expect(body).not.toHaveProperty("overwrite");
     expect(Object.keys(body.asset_manifest).sort()).toEqual([
       "/index.html",
       "/main.js",
@@ -190,6 +192,54 @@ describe("site deploy command (static site through the deployments API)", () => 
       code: "API_ERROR",
       statusCode: 401,
     });
+  });
+
+  it("refuses a commit that already has a different build and says how to replace it", async () => {
+    await t.givenLoggedInWithProject(fixture("with-site"));
+    t.api.mockError("post", "/api/apps/test-app-id/deployments", {
+      status: 409,
+      body: {
+        error: {
+          code: "deployment_already_exists",
+          message: "This commit already has a different build.",
+          details: { git_hash: GIT_HASH },
+        },
+      },
+    });
+
+    const result = await t.run(
+      "site",
+      "deploy",
+      "-y",
+      "--git-hash",
+      GIT_HASH,
+      "--json",
+    );
+
+    t.expectResult(result).toFail();
+    const envelope = JSON.parse(result.stdout);
+    expect(envelope.code).toBe("DEPLOYMENT_EXISTS");
+    expect(envelope.hints[0].message).toContain("--overwrite");
+    expect(t.api.finalizeRequests).toHaveLength(0);
+  });
+
+  it("asks the server to replace the commit's build with --overwrite", async () => {
+    await t.givenLoggedInWithProject(fixture("with-site"));
+    mockStaticCreate(["/main.js", "/styles.css"]);
+    t.api.mockDeploymentFinalize({ deployment_id: DEPLOYMENT_ID });
+
+    const result = await t.run(
+      "site",
+      "deploy",
+      "-y",
+      "--git-hash",
+      GIT_HASH,
+      "--overwrite",
+    );
+
+    t.expectResult(result).toSucceed();
+    const body = t.api.deploymentCreateRequests[0] as CreateBody;
+    expect(body.overwrite).toBe(true);
   });
 
   it("requires --git-hash for a worker build", async () => {
