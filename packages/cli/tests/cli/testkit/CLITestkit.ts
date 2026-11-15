@@ -50,6 +50,7 @@ interface TestOverrides {
   appConfig?: { id: string; projectRoot: string };
   latestVersion?: string | null;
   claudeBin?: string;
+  skipRetryWait?: boolean;
 }
 
 export class CLITestkit {
@@ -57,8 +58,12 @@ export class CLITestkit {
   private env: Record<string, string> = {};
   private projectDir?: string;
   private projectLinked = true;
-  // Default latestVersion to null to skip npm version check in tests
-  private testOverrides: TestOverrides = { latestVersion: null };
+  // Default latestVersion to null to skip npm version check in tests,
+  // and skip retry waits so a retried request doesn't sleep for real
+  private testOverrides: TestOverrides = {
+    latestVersion: null,
+    skipRetryWait: true,
+  };
   private stdinContent: string | undefined = undefined;
   private liveHandles: RunLiveHandle[] = [];
 

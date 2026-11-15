@@ -150,11 +150,15 @@ async function importAction(
   for (const { fileName, reason } of skipped) {
     ctx.log.warn(`Not sending ${fileName}: ${reason}.`);
   }
-  const imported = await ctx.runTask("Importing session", () =>
+  const imported = await ctx.runTask("Importing session", (updateMessage) =>
     uploadSession(appId, content, {
       token: options.token,
       sourceBranch: git?.branch,
       artifacts,
+      onRetry: ({ status, seconds, attempt, attempts }) =>
+        updateMessage(
+          `${status === 503 ? "GitHub is rate-limiting access checks" : "Too many imports"}. Retrying in ${seconds}s (attempt ${attempt} of ${attempts})…`,
+        ),
     }),
   );
   const url = `${getBase44ApiUrl()}${imported.branchUrl}`;
