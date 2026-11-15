@@ -91,6 +91,8 @@ interface DeployAllResult {
 interface DeployAllOptions {
   /** The commit the built output came from; resolved from the checkout if omitted. */
   gitHash?: string;
+  /** Replace the build the commit already has (static builds only). */
+  overwrite?: boolean;
   onSiteProgress?: (message: string) => void;
   onActorStart?: (name: string) => void;
   onActorResult?: (result: SingleActorDeployResult) => void;
@@ -214,6 +216,7 @@ async function shipCommit(
     projectRoot,
     outputDir,
     gitHash,
+    overwrite: options?.overwrite,
     progress: {
       onWarning: (message) => options?.onSiteProgress?.(message),
       onAssets: ({ totalAssets, newAssets }) =>

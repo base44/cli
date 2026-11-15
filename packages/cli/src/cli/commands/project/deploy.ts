@@ -32,6 +32,7 @@ interface DeployOptions {
   build?: boolean;
   projectRoot?: string;
   gitHash?: string;
+  overwrite?: boolean;
 }
 
 export async function deployAction(
@@ -124,6 +125,7 @@ export async function deployAction(
 
   const result = await deployAll(projectData, {
     gitHash: options.gitHash,
+    overwrite: options.overwrite,
     onSiteProgress: (message) => {
       log.message(theme.styles.dim(message));
     },
@@ -199,6 +201,10 @@ export function getDeployCommand(): Command {
         "--git-hash <hash>",
         "Deploy by the commit the build came from, through the deployments API",
       ).argParser(parseGitHash),
+    )
+    .option(
+      "--overwrite",
+      "Replace the build the commit already has (with --git-hash)",
     )
     .action(deployAction);
 }

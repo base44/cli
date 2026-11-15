@@ -1,6 +1,10 @@
 import type { KyResponse } from "ky";
 import { getAppClient } from "@/core/clients/index.js";
-import { ApiError, SchemaValidationError } from "@/core/errors.js";
+import {
+  ApiError,
+  DeploymentExistsError,
+  SchemaValidationError,
+} from "@/core/errors.js";
 import { getSiteUrl } from "@/core/project/api.js";
 import type {
   CreateDeploymentRequest,
@@ -13,6 +17,7 @@ import type {
 } from "@/core/site/schema.js";
 import {
   CreateDeploymentResponseSchema,
+  DeploymentExistsRefusalSchema,
   DeployResponseSchema,
   FinalizeDeploymentResponseSchema,
 } from "@/core/site/schema.js";
@@ -74,7 +79,14 @@ export async function createDeployment(
       timeout: 120_000,
     });
   } catch (error) {
-    throw await ApiError.fromHttpError(error, "creating deployment");
+    const apiError = await ApiError.fromHttpError(error, "creating deployment");
+    if (
+      apiError.statusCode === 409 &&
+      DeploymentExistsRefusalSchema.safeParse(apiError.responseBody).success
+    ) {
+      throw new DeploymentExistsError(request.git_hash, { cause: apiError });
+    }
+    throw apiError;
   }
 
   const result = CreateDeploymentResponseSchema.safeParse(

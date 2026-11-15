@@ -28,6 +28,7 @@ interface DeployOptions {
   gitHash?: string;
   concurrency?: number;
   publish?: boolean;
+  overwrite?: boolean;
 }
 
 async function deployAction(
@@ -90,6 +91,7 @@ async function deployToDeploymentsApi(
         outputDir,
         gitHash,
         concurrency: options.concurrency,
+        overwrite: options.overwrite,
         progress: {
           onWarning: (message) => {
             warnings.push(message);
@@ -181,6 +183,10 @@ export function getSiteDeployCommand(): Command {
     .option("--build", "Build the site before deploying (skips the prompt)")
     .option("--no-build", "Deploy without building (skips the prompt)")
     .option("--publish", "Serve this build in production once it is deployed")
+    .option(
+      "--overwrite",
+      "Replace the build the commit already has (with --git-hash)",
+    )
     .addOption(
       new Option(
         "--git-hash <hash>",
