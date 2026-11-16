@@ -11,7 +11,7 @@
     },
     "packages/cli": {
       "name": "base44",
-      "version": "0.1.25",
+      "version": "0.3.5",
       "bin": {
         "base44": "./bin/run.js",
       },
@@ -79,7 +79,7 @@
     },
     "packages/functions-compiler": {
       "name": "@base44/functions-compiler",
-      "version": "0.1.5",
+      "version": "0.4.0",
       "dependencies": {
         "@deno/loader": "npm:@jsr/deno__loader@0.5.0",
         "esbuild": "0.28.0",
