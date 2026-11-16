@@ -2,7 +2,13 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { collectPages, pageOfRouteFile } from "@/core/version/pages.js";
+import { SchemaValidationError } from "@/core/errors.js";
+import {
+  collectPages,
+  collectRoutes,
+  pageOfRouteFile,
+} from "@/core/version/routes.js";
+import type { PageArtifact } from "@/core/version/schema.js";
 
 // The platform reads the same files into the names an app's SEO settings are
 // keyed by; each case here is one of its own, so the two readings agree.
@@ -103,7 +109,9 @@ describe("collectPages", () => {
       "foo/bar.jsx",
     ]);
 
-    expect((await collectPages(root))?.map((p) => [p.path, p.name])).toEqual([
+    expect(
+      (await collectPages(root))?.map((p: PageArtifact) => [p.path, p.name]),
+    ).toEqual([
       ["/", "Home"],
       ["/foo-bar", "FooBar"],
       ["/foo/bar", "FooBar2"],
@@ -120,10 +128,9 @@ describe("collectPages", () => {
         'export const Route = createFileRoute("/contact")({\n  server: { handlers: { POST } },\n  component: Contact,\n})',
     });
 
-    expect((await collectPages(root))?.map((p) => p.path)).toEqual([
-      "/",
-      "/contact",
-    ]);
+    expect(
+      (await collectPages(root))?.map((p: PageArtifact) => p.path),
+    ).toEqual(["/", "/contact"]);
   });
 
   it("invents no home page for a pathless layout", async () => {
@@ -141,15 +148,97 @@ describe("collectPages", () => {
   it("reads JS and TS route modules but not declaration files", async () => {
     await routes(["__root.ts", "index.ts", "about.js", "types.d.ts"]);
 
-    expect((await collectPages(root))?.map((p) => p.path)).toEqual([
-      "/",
-      "/about",
-    ]);
+    expect(
+      (await collectPages(root))?.map((p: PageArtifact) => p.path),
+    ).toEqual(["/", "/about"]);
   });
 
   it("is an empty list for file routes with no page", async () => {
     await routes(["__root.jsx", "api/time.js"]);
 
     expect(await collectPages(root)).toEqual([]);
+  });
+});
+
+describe("collectRoutes", () => {
+  let root: string;
+
+  beforeEach(async () => {
+    root = await mkdtemp(join(tmpdir(), "b44-routes-"));
+    await mkdir(join(root, "src", "routes"), { recursive: true });
+    await writeFile(join(root, "src", "routeTree.gen.ts"), "");
+    await writeFile(join(root, "src", "routes", "about.jsx"), "");
+  });
+
+  afterEach(async () => {
+    await rm(root, { recursive: true, force: true });
+  });
+
+  it("names the first page home when it reads the route files", async () => {
+    expect(await collectRoutes(root)).toEqual({
+      pages: [{ path: "/about", name: "About", file: "src/routes/about.jsx" }],
+      home: "About",
+    });
+  });
+
+  it("declares the file it is given as written, instead of reading any", async () => {
+    // The platform reads it from the commit with the editor's own reading, so
+    // the version names its pages exactly as the editor does.
+    const file = join(root, "routes.json");
+    await writeFile(
+      file,
+      JSON.stringify({
+        pages: [
+          { path: "/", name: "Home", file: "src/pages/Home.jsx" },
+          {
+            path: "/blog/:slug",
+            name: "Post",
+            file: "src/pages/Post.jsx",
+            requires_auth: true,
+            binding: {
+              entity: "Post",
+              param: "slug",
+              field: "slug",
+              extra_params: { page: "page_no" },
+            },
+            segment_values: { lang: ["en"] },
+          },
+        ],
+        home: "Home",
+        entity_pages: { Post: ["/"] },
+        entity_free_paths: [],
+      }),
+    );
+
+    expect(await collectRoutes(root, file)).toEqual({
+      pages: [
+        { path: "/", name: "Home", file: "src/pages/Home.jsx" },
+        {
+          path: "/blog/:slug",
+          name: "Post",
+          file: "src/pages/Post.jsx",
+          requiresAuth: true,
+          binding: {
+            entity: "Post",
+            param: "slug",
+            field: "slug",
+            extraParams: { page: "page_no" },
+          },
+          segmentValues: { lang: ["en"] },
+        },
+      ],
+      home: "Home",
+      entityPages: { Post: ["/"] },
+      entityFreePaths: [],
+    });
+  });
+
+  it("refuses a file that is not a routes file", async () => {
+    const file = join(root, "routes.json");
+    await writeFile(file, JSON.stringify({ pages: [{ path: "about" }] }));
+
+    await expect(collectRoutes(root, file)).rejects.toBeInstanceOf(
+      SchemaValidationError,
+    );
   });
 });

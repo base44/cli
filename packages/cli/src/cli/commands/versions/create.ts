@@ -3,6 +3,7 @@ import {
   concurrencyOption,
   gitHashOption,
   outputDirOption,
+  routesFileOption,
 } from "@/cli/commands/versions/options.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
 import { Base44Command, requireApp } from "@/cli/utils/index.js";
@@ -14,6 +15,7 @@ interface CreateOptions {
   outputDir?: string;
   gitHash?: string;
   concurrency?: number;
+  routesFile?: string;
 }
 
 /** Record a build that already exists. No build of its own, and no deploy. */
@@ -30,16 +32,19 @@ async function createAction(
   const version = await runTask(
     "Creating version...",
     async (updateMessage) =>
-      await createVersion(await collectArtifacts(target), {
-        sourceCommit: gitHash,
-        concurrency: options.concurrency,
-        progress: {
-          onDeclared: ({ fileCount }) =>
-            updateMessage(`Uploading ${fileCount} files`),
-          onUpload: ({ uploadedFiles, totalFiles }) =>
-            updateMessage(`Uploaded ${uploadedFiles} of ${totalFiles} files`),
+      await createVersion(
+        await collectArtifacts(target, { routesFile: options.routesFile }),
+        {
+          sourceCommit: gitHash,
+          concurrency: options.concurrency,
+          progress: {
+            onDeclared: ({ fileCount }) =>
+              updateMessage(`Uploading ${fileCount} files`),
+            onUpload: ({ uploadedFiles, totalFiles }) =>
+              updateMessage(`Uploaded ${uploadedFiles} of ${totalFiles} files`),
+          },
         },
-      }),
+      ),
     {
       successMessage: "Version created",
       errorMessage: "Create version failed",
@@ -58,5 +63,6 @@ export function getVersionCreateCommand(): Command {
     .addOption(outputDirOption())
     .addOption(gitHashOption())
     .addOption(concurrencyOption())
+    .addOption(routesFileOption())
     .action(createAction);
 }

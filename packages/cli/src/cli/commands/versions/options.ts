@@ -28,6 +28,13 @@ export function gitHashOption(): Option {
   ).argParser(parseGitHash);
 }
 
+export function routesFileOption(): Option {
+  return new Option(
+    "--routes-file <path>",
+    "The app's routes as JSON, instead of reading them from its route files",
+  );
+}
+
 export function concurrencyOption(): Option {
   return new Option("--concurrency <n>", "Parallel file uploads")
     .default(DEFAULT_VERSION_UPLOAD_CONCURRENCY)

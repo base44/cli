@@ -4,6 +4,7 @@ import {
   concurrencyOption,
   gitHashOption,
   outputDirOption,
+  routesFileOption,
   targetOption,
 } from "@/cli/commands/versions/options.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
@@ -22,6 +23,7 @@ interface PublishOptions {
   gitHash?: string;
   target?: string;
   concurrency?: number;
+  routesFile?: string;
 }
 
 /**
@@ -58,7 +60,7 @@ async function publishAction(
       // Inside the tag, so a missing output directory reports as a
       // create_version failure rather than an envelope with no step.
       const artifacts = await tagStep("create_version", () =>
-        collectArtifacts(target),
+        collectArtifacts(target, { routesFile: options.routesFile }),
       );
       return await publishVersion(artifacts, {
         sourceCommit: gitHash,
@@ -97,5 +99,6 @@ export function getPublishCommand(): Command {
     .addOption(targetOption())
     .addOption(gitHashOption())
     .addOption(concurrencyOption())
+    .addOption(routesFileOption())
     .action(publishAction);
 }

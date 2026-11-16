@@ -1,15 +1,94 @@
 import { join } from "node:path";
 import { globby } from "globby";
-import { pathExists, readTextFile } from "@/core/utils/fs.js";
-import type { PageArtifact } from "@/core/version/schema.js";
+import { z } from "zod";
+import { SchemaValidationError } from "@/core/errors.js";
+import { pathExists, readJsonFile, readTextFile } from "@/core/utils/fs.js";
+import type { PageArtifact, RoutesArtifact } from "@/core/version/schema.js";
 
 /**
- * The pages of an app routed by TanStack Router's files, read from `src/routes/`
- * with the router generator's own conventions — no code is run.
+ * The app's routes, as a version declares them: from a file the caller wrote
+ * (`--routes-file`), else read from an app routed by TanStack Router's files.
  *
  * Names and order match what Base44 shows for the app's pages, because its SEO
  * settings are keyed by them: a name read differently here would detach them.
  */
+
+/** The file `--routes-file` names: the same shape a version declares. */
+const RoutesFileSchema = z
+  .object({
+    pages: z.array(
+      z.object({
+        path: z.string().startsWith("/"),
+        name: z.string().min(1),
+        file: z.string().min(1),
+        requires_auth: z.boolean().optional(),
+        binding: z
+          .object({
+            entity: z.string().min(1),
+            param: z.string().min(1),
+            field: z.string().min(1),
+            extra_params: z.record(z.string(), z.string()).optional(),
+          })
+          .optional(),
+        segment_values: z.record(z.string(), z.array(z.string())).optional(),
+      }),
+    ),
+    home: z.string().nullable().optional(),
+    entity_pages: z.record(z.string(), z.array(z.string())).optional(),
+    entity_free_paths: z.array(z.string()).optional(),
+  })
+  .transform(
+    (data): RoutesArtifact => ({
+      pages: data.pages.map((page) => ({
+        path: page.path,
+        name: page.name,
+        file: page.file,
+        ...(page.requires_auth ? { requiresAuth: true } : {}),
+        ...(page.binding
+          ? {
+              binding: {
+                entity: page.binding.entity,
+                param: page.binding.param,
+                field: page.binding.field,
+                ...(page.binding.extra_params
+                  ? { extraParams: page.binding.extra_params }
+                  : {}),
+              },
+            }
+          : {}),
+        ...(page.segment_values ? { segmentValues: page.segment_values } : {}),
+      })),
+      home: data.home ?? null,
+      ...(data.entity_pages ? { entityPages: data.entity_pages } : {}),
+      ...(data.entity_free_paths
+        ? { entityFreePaths: data.entity_free_paths }
+        : {}),
+    }),
+  );
+
+/** The routes a file describes, refused when it is not that shape. */
+async function readRoutesFile(path: string): Promise<RoutesArtifact> {
+  const parsed = RoutesFileSchema.safeParse(await readJsonFile(path));
+  if (!parsed.success) {
+    throw new SchemaValidationError("Invalid routes file", parsed.error, path);
+  }
+  return parsed.data;
+}
+
+/**
+ * The routes this version declares: the file's when one is named, else what
+ * {@link collectPages} reads, else `null`: no account of them at all.
+ */
+export async function collectRoutes(
+  projectRoot: string,
+  routesFile?: string,
+): Promise<RoutesArtifact | null> {
+  if (routesFile) {
+    return await readRoutesFile(routesFile);
+  }
+  const pages = await collectPages(projectRoot);
+  return pages ? { pages, home: pages[0]?.name ?? null } : null;
+}
 
 const ROUTES_DIR = "src/routes";
 /** The router plugin writes it on every build, and only for file routes. */
