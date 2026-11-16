@@ -13,17 +13,18 @@ import type { PageArtifact, RoutesArtifact } from "@/core/version/schema.js";
  * settings are keyed by them: a name read differently here would detach them.
  */
 
-/** The file `--routes-file` names: the same shape a version declares. */
+/** The file `--routes-file` names: the same shape a version declares. Strict, so
+ * a field this CLI doesn't know fails the run instead of going undeclared. */
 const RoutesFileSchema = z
-  .object({
+  .strictObject({
     pages: z.array(
-      z.object({
+      z.strictObject({
         path: z.string().startsWith("/"),
         name: z.string().min(1),
         file: z.string().min(1),
         requires_auth: z.boolean().optional(),
         binding: z
-          .object({
+          .strictObject({
             entity: z.string().min(1),
             param: z.string().min(1),
             field: z.string().min(1),

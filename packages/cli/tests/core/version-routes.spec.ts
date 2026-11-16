@@ -233,9 +233,15 @@ describe("collectRoutes", () => {
     });
   });
 
-  it("refuses a file that is not a routes file", async () => {
+  it.each([
+    ["is not a routes file", { pages: [{ path: "about" }] }],
+    [
+      "names a field this CLI doesn't know",
+      { pages: [{ path: "/", name: "Home", file: "a.tsx", title: "Hi" }] },
+    ],
+  ])("refuses a file that %s", async (_, body) => {
     const file = join(root, "routes.json");
-    await writeFile(file, JSON.stringify({ pages: [{ path: "about" }] }));
+    await writeFile(file, JSON.stringify(body));
 
     await expect(collectRoutes(root, file)).rejects.toBeInstanceOf(
       SchemaValidationError,
