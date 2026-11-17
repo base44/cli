@@ -55,11 +55,6 @@ export function createProgram(context: CLIContext): Command {
         BASE44_APP_ID_ENV_VAR,
       ),
     )
-    // Applied in bootstrap-env.ts; declared here for --help and validation.
-    .option(
-      "--hostname <host>",
-      "Base44 host to send every request to (overrides BASE44_API_URL)",
-    )
     .addOption(
       new Option(
         "--json",

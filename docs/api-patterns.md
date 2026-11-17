@@ -90,9 +90,11 @@ ambient `process.env` > `.env.local` > `.env`. The Stripe Projects CLI namespace
 its vars (`BASE44_PROJECTS_BASE44_*`), so the loader also copies those to the
 bare `BASE44_*` names when the bare name is unset.
 
-The global `--hostname <host>` flag is read from `process.argv` in the same
+`base44 login --hostname <host>` is read from `process.argv` in the same
 bootstrap file and written to `BASE44_API_URL` before anything else, so it wins
-over the environment and env files. A bare hostname gets `https://`.
+over the environment and env files. A bare hostname gets `https://`. Only
+`login` takes the flag; a `--hostname` before `login` or on another command is
+ignored by bootstrap and rejected by commander.
 
 Login stores the host that issued the tokens as `apiUrl` in `auth.json`
 (paired env tokens store the current host too). At bootstrap,

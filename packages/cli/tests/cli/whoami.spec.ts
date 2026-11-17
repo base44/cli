@@ -16,17 +16,6 @@ describe("whoami command", () => {
     expect(parsed.output).toContain("test@example.com");
   });
 
-  it("--hostname overrides BASE44_API_URL", async () => {
-    await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
-    t.api.mockUserInfo({ email: "test@example.com", name: "Test User" });
-
-    const result = await t.run("whoami", "--hostname", "http://127.0.0.1:1");
-
-    t.expectResult(result).toFail();
-    expect(result.stderr).not.toContain("unknown option");
-    expect(result.stdout + result.stderr).not.toContain("test@example.com");
-  });
-
   it("doesn't use, or delete, a login saved for another host", async () => {
     await t.givenLoggedIn({
       email: "test@example.com",

@@ -83,8 +83,17 @@ These work with any command:
 | Flag | Description |
 | ---- | ----------- |
 | `--app-id <id>` | Target a Base44 app explicitly (overrides the linked project and `BASE44_APP_ID`) |
-| `--hostname <host>` | Send every request to this Base44 host instead of `app.base44.com`, e.g. `base44 login --hostname acme.base44.com` (overrides `BASE44_API_URL`; a full URL also works). `login` saves the host with the login, so later commands use it without the flag; `whoami` shows it and `logout` clears it |
 | `--json` | Emit machine-readable JSON to stdout and run in silent mode |
+
+### Another Base44 host
+
+To use a Base44 host other than `app.base44.com` (for example a dedicated tenant), log in with `--hostname`:
+
+```bash
+base44 login --hostname acme.base44.com
+```
+
+The host is saved with the login, so every later command goes there; `whoami` shows it and `logout` clears it. A hostname or a full URL both work. In CI, set `BASE44_API_URL` alongside the credential env vars instead.
 
 ### `--json`
 
