@@ -44,6 +44,7 @@ describe("resolveBuildTarget", () => {
       entitiesDir: "entities",
       agentsDir: "agents",
       agentSkillsDir: "agent-skills",
+      workflowsDir: "workflows",
       functionsDir: "functions",
       actorsDir: "actors",
     });

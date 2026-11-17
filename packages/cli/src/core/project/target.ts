@@ -8,7 +8,7 @@ import type { ProjectWithPaths } from "@/core/project/types.js";
 /** A project's resolved layout: where its build runs, and what it leaves behind. */
 export interface BuildTarget {
   root: string;
-  /** Where `entitiesDir`, `agentsDir`, `agentSkillsDir`, `functionsDir` and
+  /** Where `entitiesDir`, `agentsDir`, `agentSkillsDir`, `workflowsDir`, `functionsDir` and
    * `actorsDir` are resolved from. */
   configDir: string;
   buildCommand: string;
@@ -16,6 +16,7 @@ export interface BuildTarget {
   entitiesDir: string;
   agentsDir: string;
   agentSkillsDir: string;
+  workflowsDir: string;
   functionsDir: string;
   actorsDir: string;
 }
@@ -55,6 +56,7 @@ export async function resolveBuildTarget(
     entitiesDir: project?.entitiesDir ?? "entities",
     agentsDir: project?.agentsDir ?? "agents",
     agentSkillsDir: project?.agentSkillsDir ?? "agent-skills",
+    workflowsDir: project?.workflowsDir ?? "workflows",
     functionsDir: project?.functionsDir ?? "functions",
     actorsDir: project?.actorsDir ?? "actors",
   };

@@ -233,6 +233,7 @@ export async function createVersion(
           agents: artifacts.agents,
           mcp_config: artifacts.mcpConfig,
           agent_skills: artifacts.agentSkills,
+          workflows: artifacts.workflows,
           ...(artifacts.routes
             ? { routes: declaredRoutes(artifacts.routes) }
             : {}),
