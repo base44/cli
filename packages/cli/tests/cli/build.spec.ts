@@ -26,6 +26,22 @@ describe("build command", () => {
     );
   });
 
+  // cmd.exe has no "command not found" exit status: no fallback on Windows.
+  it.skipIf(process.platform === "win32")(
+    "builds with the default buildCommand when the configured program is not installed",
+    async () => {
+      await t.givenLoggedInWithProject(fixture("with-missing-site-tool"));
+
+      const result = await t.run("build");
+
+      t.expectResult(result).toSucceed();
+      t.expectResult(result).toContain("its program is not installed");
+      expect(await t.readProjectFile("build-env.txt")).toBe(
+        `BUILD_APP=${t.api.appId}`,
+      );
+    },
+  );
+
   it("fails when the buildCommand fails", async () => {
     await t.givenLoggedInWithProject(fixture("with-failing-build"));
 

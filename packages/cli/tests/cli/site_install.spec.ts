@@ -32,6 +32,20 @@ describe("site install command", () => {
     t.expectResult(result).toContain("Install failed");
   });
 
+  // cmd.exe has no "command not found" exit status: no fallback on Windows.
+  it.skipIf(process.platform === "win32")(
+    "installs with the default command when the configured program is not installed",
+    async () => {
+      await t.givenLoggedInWithProject(fixture("with-missing-site-tool"));
+
+      const result = await t.run("site", "install");
+
+      t.expectResult(result).toSucceed();
+      t.expectResult(result).toContain("its program is not installed");
+      expect(await t.readProjectFile("install-marker.txt")).toBe("installed");
+    },
+  );
+
   it("installs with the default command when the project has no site block", async () => {
     await t.givenLoggedInWithProject(fixture("basic"));
 
