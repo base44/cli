@@ -10,6 +10,7 @@ import { createDevLogger } from "@/cli/dev/createDevLogger.js";
 import { createFunctionRuntime } from "@/cli/dev/dev-server/function-runtime.js";
 import { createFunctionRouter } from "@/cli/dev/dev-server/routes/functions.js";
 import { theme } from "@/cli/utils/index.js";
+import { getAppsBackendUrl } from "@/core/config.js";
 import type { ProjectData } from "@/core/project/types.js";
 import { Database } from "./db/database.js";
 import {
@@ -27,7 +28,6 @@ import {
 import { WatchBase44 } from "./watcher.js";
 
 const DEFAULT_PORT = 4400;
-const BASE44_APP_URL = "https://base44.app";
 
 interface DevServerOptions {
   log: Logger;
@@ -66,7 +66,7 @@ export async function createDevServer(
   const app = express();
 
   const remoteProxy = createProxyMiddleware({
-    target: BASE44_APP_URL,
+    target: getAppsBackendUrl(),
     changeOrigin: true,
   });
 
@@ -77,12 +77,12 @@ export async function createDevServer(
     }),
   );
 
-  // Redirect OAuth routes to base44.app directly — proxying breaks the
+  // Redirect OAuth routes to the apps backend directly — proxying breaks the
   // redirect flow and session cookies set by the provider.
   const AUTH_ROUTE_PATTERN = /^\/api\/apps\/auth(\/|$)/;
   app.use((req, res, next) => {
     if (AUTH_ROUTE_PATTERN.test(req.path)) {
-      const targetUrl = new URL(req.originalUrl, BASE44_APP_URL);
+      const targetUrl = new URL(req.originalUrl, getAppsBackendUrl());
       return res.redirect(targetUrl.toString());
     }
     next();

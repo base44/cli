@@ -106,6 +106,11 @@ so a token only reaches the host that issued it, and a failed refresh leaves
 such a login in place. Logins saved before the field existed have no `apiUrl`
 and are used with whatever host is current.
 
+Apps' runtime API has its own host on the default platform (`https://base44.app`).
+`getAppsBackendUrl()` (`core/config.js`) returns it there and the configured host
+anywhere else; the dev server's remote proxy and `exec`'s unpublished-app fallback
+use it, so never hardcode `base44.app`.
+
 ## API Response Transformation (snake_case to camelCase)
 
 The Base44 API returns snake_case keys, but the CLI uses camelCase. Use Zod's `.transform()` to convert:
