@@ -17,6 +17,7 @@ import type {
   CreateVersionProgress,
   CreateVersionResponse,
   EnvironmentResponse,
+  RoutesArtifact,
   WorkerModuleArtifact,
 } from "@/core/version/schema.js";
 import {
@@ -73,6 +74,41 @@ function declaredActor({
     source,
     module: { size, digest },
     static_egress: staticEgress,
+  };
+}
+
+/** Back in the wire's snake_case, with nothing unstated filled in. */
+function declaredRoutes({
+  pages,
+  home,
+  entityPages,
+  entityFreePaths,
+}: RoutesArtifact) {
+  return {
+    pages: pages.map(
+      ({ path, name, file, requiresAuth, binding, segmentValues }) => ({
+        path,
+        name,
+        file,
+        ...(requiresAuth ? { requires_auth: true } : {}),
+        ...(binding
+          ? {
+              binding: {
+                entity: binding.entity,
+                param: binding.param,
+                field: binding.field,
+                ...(binding.extraParams
+                  ? { extra_params: binding.extraParams }
+                  : {}),
+              },
+            }
+          : {}),
+        ...(segmentValues ? { segment_values: segmentValues } : {}),
+      }),
+    ),
+    home,
+    ...(entityPages ? { entity_pages: entityPages } : {}),
+    ...(entityFreePaths ? { entity_free_paths: entityFreePaths } : {}),
   };
 }
 
@@ -197,6 +233,9 @@ export async function createVersion(
           agents: artifacts.agents,
           mcp_config: artifacts.mcpConfig,
           agent_skills: artifacts.agentSkills,
+          ...(artifacts.routes
+            ? { routes: declaredRoutes(artifacts.routes) }
+            : {}),
           source_commit: options.sourceCommit,
         },
         "declaring a version",

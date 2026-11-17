@@ -12,6 +12,7 @@ import { pathExists, readJsonFile, readTextFile } from "@/core/utils/fs.js";
 import { compileActors } from "@/core/version/actors.js";
 import { compileBackendBundles } from "@/core/version/functions.js";
 import { tagStep } from "@/core/version/publish.js";
+import { collectRoutes } from "@/core/version/routes.js";
 import type {
   ArtifactFile,
   ArtifactSet,
@@ -213,9 +214,11 @@ export async function collectResources(
  */
 export async function collectArtifacts(
   target: BuildTarget,
+  options: { routesFile?: string } = {},
 ): Promise<ArtifactSet> {
   const built = await resolveFullStackBuild(target.root);
   const siteWorker = built ? await describeSiteWorker(built) : null;
+  const routes = await collectRoutes(target.root, options.routesFile);
   return {
     // One set, from wherever this build put it. The entry rule applies only
     // when the PLATFORM serves it: a Worker's own asset settings answer an
@@ -240,5 +243,6 @@ export async function collectArtifacts(
       compileActors(join(target.configDir, target.actorsDir)),
     ),
     ...(await collectResources(target.configDir, target)),
+    ...(routes ? { routes } : {}),
   };
 }

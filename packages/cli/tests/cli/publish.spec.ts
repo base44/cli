@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { fixture, setupCLITests } from "./testkit/index.js";
@@ -105,6 +106,48 @@ describe("publish command", () => {
 
     t.expectResult(result).toSucceed();
     expect(t.api.versionDeclareRequests[0]).toMatchObject({ agent_skills: {} });
+  });
+
+  it("declares no routes for an app whose routes it cannot read", async () => {
+    // Absent, not empty: an empty list would say the app has no pages.
+    t.givenEnv({ BASE44_VERSIONS_API: "1" });
+    await t.givenLoggedInWithProject(fixture("publishable"));
+    mockPublishApi();
+
+    const result = await t.run("publish", "--no-build");
+
+    t.expectResult(result).toSucceed();
+    expect(t.api.versionDeclareRequests[0]).not.toHaveProperty("routes");
+  });
+
+  it("declares the routes file it is given", async () => {
+    t.givenEnv({ BASE44_VERSIONS_API: "1" });
+    await t.givenLoggedInWithProject(fixture("publishable"));
+    mockPublishApi();
+    const dir = await mkdtemp(join(tmpdir(), "b44-routes-file-"));
+    const routes = {
+      pages: [
+        {
+          path: "/blog/:slug",
+          name: "Post",
+          file: "src/pages/Post.jsx",
+          binding: { entity: "Post", param: "slug", field: "slug" },
+        },
+      ],
+      home: "Post",
+    };
+    await writeFile(join(dir, "routes.json"), JSON.stringify(routes));
+
+    const result = await t.run(
+      "publish",
+      "--no-build",
+      "--routes-file",
+      join(dir, "routes.json"),
+    );
+
+    t.expectResult(result).toSucceed();
+    expect(t.api.versionDeclareRequests[0]).toMatchObject({ routes });
+    await rm(dir, { recursive: true, force: true });
   });
 
   it("uploads every declared file with the checksum the server signed in", async () => {
