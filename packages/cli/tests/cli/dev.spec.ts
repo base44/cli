@@ -1,3 +1,4 @@
+import getPort from "get-port";
 import jwt from "jsonwebtoken";
 import { describe, expect, it } from "vitest";
 import {
@@ -102,17 +103,20 @@ describe("dev command", () => {
     expect(output).toContain("Backend running on http://localhost:");
   });
 
-  it("--remote runs the serveCommand against the app's published URL", async () => {
+  it("--remote fronts the serveCommand, with the live app answering the platform", async () => {
     await t.givenLoggedInWithProject(fixture("with-serve-command"));
     t.api.mockSiteUrl({ url: "https://my-app.base44.app" });
 
     const handle = await t.runLive("dev", "--remote");
+    const url = await waitForDevServer(handle);
     await handle.waitForOutput(/SERVE_APP=/);
     await handle.stop();
 
     const output = handle.stdout.join("");
     expect(output).toContain(`SERVE_APP=${t.api.appId}`);
-    expect(output).toContain("URL=https://my-app.base44.app");
+    // The app's SDK talks to the front door, which forwards to the live app.
+    expect(output).toContain(`URL=${url}`);
+    expect(output).toContain("on the data of https://my-app.base44.app");
     expect(output).not.toContain("Backend running on");
   });
 
@@ -126,15 +130,16 @@ describe("dev command", () => {
     t.expectResult(result).toContain("site URL");
   });
 
-  it("--remote rejects --port", async () => {
+  it("--remote serves its front door on --port", async () => {
     await t.givenLoggedInWithProject(fixture("with-serve-command"));
+    t.api.mockSiteUrl({ url: "https://my-app.base44.app" });
+    const port = await getPort();
 
-    const result = await t.run("dev", "--remote", "--port", "5000");
+    const handle = await t.runLive("dev", "--remote", "--port", String(port));
+    const url = await waitForDevServer(handle);
+    await handle.stop();
 
-    t.expectResult(result).toFail();
-    t.expectResult(result).toContain(
-      "--port applies to the local backend, which --remote does not start",
-    );
+    expect(url).toBe(`http://localhost:${port}`);
   });
 
   it("--remote fails without a site.serveCommand", async () => {
