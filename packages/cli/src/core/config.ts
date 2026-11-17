@@ -26,8 +26,10 @@ export function getTypesOutputPath(projectRoot: string): string {
   return join(projectRoot, PROJECT_SUBDIR, TYPES_OUTPUT_SUBDIR, TYPES_FILENAME);
 }
 
+export const DEFAULT_API_URL = "https://app.base44.com";
+
 export function getBase44ApiUrl(): string {
-  return process.env.BASE44_API_URL || "https://app.base44.com";
+  return process.env.BASE44_API_URL || DEFAULT_API_URL;
 }
 
 export function getTestOverrides(): TestOverrides | null {

@@ -94,6 +94,16 @@ The global `--hostname <host>` flag is read from `process.argv` in the same
 bootstrap file and written to `BASE44_API_URL` before anything else, so it wins
 over the environment and env files. A bare hostname gets `https://`.
 
+Login stores the host that issued the tokens as `apiUrl` in `auth.json`
+(paired env tokens store the current host too). At bootstrap,
+`loadSavedLoginApiUrl()` uses it as the base URL when neither the flag, the
+environment nor an env file set one, and when no credential comes from the
+environment (`BASE44_ACCESS_TOKEN`, `BASE44_API_KEY`). `readAuth()` throws
+`AuthRequiredError` when the stored `apiUrl` differs from the current base URL,
+so a token only reaches the host that issued it, and a failed refresh leaves
+such a login in place. Logins saved before the field existed have no `apiUrl`
+and are used with whatever host is current.
+
 ## API Response Transformation (snake_case to camelCase)
 
 The Base44 API returns snake_case keys, but the CLI uses camelCase. Use Zod's `.transform()` to convert:

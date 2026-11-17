@@ -6,6 +6,8 @@ export const AuthDataSchema = z.object({
   expiresAt: z.number().int().positive("Expires at must be a positive integer"),
   email: z.email(),
   name: z.string().min(1, "Name cannot be empty"),
+  // The host that issued the tokens. Absent on logins saved before this field.
+  apiUrl: z.string().optional(),
 });
 
 export type AuthData = z.infer<typeof AuthDataSchema>;

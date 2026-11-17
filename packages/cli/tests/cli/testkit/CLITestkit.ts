@@ -105,7 +105,11 @@ export class CLITestkit {
   // ─── GIVEN METHODS ────────────────────────────────────────────
 
   /** Set up authenticated user state */
-  async givenLoggedIn(user: { email: string; name: string }): Promise<void> {
+  async givenLoggedIn(user: {
+    email: string;
+    name: string;
+    apiUrl?: string;
+  }): Promise<void> {
     const authDir = join(this.tempDir, ".base44", "auth");
     await mkdir(authDir, { recursive: true });
     await writeFile(
@@ -116,6 +120,7 @@ export class CLITestkit {
         expiresAt: Date.now() + 3600000, // 1 hour from now
         email: user.email,
         name: user.name,
+        apiUrl: user.apiUrl,
       }),
     );
   }

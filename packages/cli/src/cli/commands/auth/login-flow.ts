@@ -14,6 +14,7 @@ import {
   getUserInfo,
   writeAuth,
 } from "@/core/auth/index.js";
+import { getBase44ApiUrl } from "@/core/config.js";
 import { AuthExpiredError, InternalError } from "@/core/errors.js";
 
 async function generateAndDisplayDeviceCode(
@@ -97,6 +98,7 @@ async function saveAuthData(
     expiresAt,
     email: userInfo.email,
     name: userInfo.name,
+    apiUrl: getBase44ApiUrl(),
   });
 }
 

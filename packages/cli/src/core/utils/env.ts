@@ -1,5 +1,8 @@
+import { readFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { config, parse } from "dotenv";
+import { AuthDataSchema } from "@/core/auth/schema.js";
+import { getAuthFilePath } from "@/core/config.js";
 import { BASE44_APP_ID_ENV_VAR, PROJECT_SUBDIR } from "@/core/consts.js";
 import { findProjectRoot } from "@/core/project/find-root.js";
 import { readTextFile } from "./fs.js";
@@ -73,5 +76,28 @@ function normalizeBase44Env(): void {
     if (prefixed !== undefined) {
       process.env[bareKey] = prefixed;
     }
+  }
+}
+
+// Commands after `base44 login --hostname <host>` go to that host without the
+// flag. Credentials supplied through the environment don't belong to the saved
+// login, so they keep the default host.
+export function loadSavedLoginApiUrl(authFilePath = getAuthFilePath()): void {
+  if (
+    process.env.BASE44_API_URL ||
+    process.env.BASE44_ACCESS_TOKEN ||
+    process.env.BASE44_API_KEY
+  ) {
+    return;
+  }
+  try {
+    const saved = AuthDataSchema.pick({ apiUrl: true }).safeParse(
+      JSON.parse(readFileSync(authFilePath, "utf8")),
+    );
+    if (saved.success && saved.data.apiUrl) {
+      process.env.BASE44_API_URL = saved.data.apiUrl;
+    }
+  } catch {
+    // Not logged in
   }
 }

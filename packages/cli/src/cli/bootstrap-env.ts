@@ -1,4 +1,4 @@
-import { loadProjectEnvFiles } from "@/core/utils/env.js";
+import { loadProjectEnvFiles, loadSavedLoginApiUrl } from "@/core/utils/env.js";
 
 // Read from argv, not commander: the HTTP clients capture the URL at import.
 function applyHostnameFlag(argv: string[]): void {
@@ -21,6 +21,7 @@ function applyHostnameFlag(argv: string[]): void {
 // Must run before any module reads env-derived config at import time — notably
 // the HTTP clients, which capture getBase44ApiUrl() when ky.create() runs at
 // module load. Imported first in cli/index.ts so it initializes ahead of them.
-// The flag is applied first so it wins over the environment and `.env` files.
+// Precedence: --hostname > environment > `.env` files > the saved login's host.
 applyHostnameFlag(process.argv);
 loadProjectEnvFiles();
+loadSavedLoginApiUrl();

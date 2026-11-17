@@ -40,6 +40,7 @@ describe("login command", () => {
     expect(authData?.email).toBe("logged-in@example.com");
     expect(authData?.name).toBe("Logged In User");
     expect(authData?.expiresAt).toBeGreaterThan(Date.now());
+    expect(authData?.apiUrl).toBe(t.api.baseUrl);
   });
 
   it("fails with AuthExpiredError when user does not complete login in time", async () => {

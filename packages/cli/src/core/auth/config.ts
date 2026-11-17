@@ -2,8 +2,12 @@ import jwt, { type JwtPayload } from "jsonwebtoken";
 import { renewAccessToken } from "@/core/auth/api.js";
 import type { AuthData } from "@/core/auth/schema.js";
 import { AuthDataSchema } from "@/core/auth/schema.js";
-import { getAuthFilePath } from "@/core/config.js";
-import { FileReadError, SchemaValidationError } from "@/core/errors.js";
+import { getAuthFilePath, getBase44ApiUrl } from "@/core/config.js";
+import {
+  AuthRequiredError,
+  FileReadError,
+  SchemaValidationError,
+} from "@/core/errors.js";
 import { isAccessTokenFromEnvFile } from "@/core/utils/env.js";
 import { deleteFile, readJsonFile, writeJsonFile } from "@/core/utils/fs.js";
 
@@ -74,6 +78,7 @@ export async function seedAuthFromEnv(): Promise<void> {
     expiresAt: exp * 1000, // exp is in seconds; expiresAt is milliseconds.
     email: sub,
     name: sub, // No name claim; use the identity.
+    apiUrl: getBase44ApiUrl(),
   });
 }
 
@@ -105,9 +110,27 @@ export async function readAuth(): Promise<AuthData> {
       );
     }
 
+    // A token is only ever sent to the host that issued it.
+    const { apiUrl } = result.data;
+    if (apiUrl && apiUrl !== getBase44ApiUrl()) {
+      throw new AuthRequiredError(
+        `Logged in to ${apiUrl}, not ${getBase44ApiUrl()}`,
+        {
+          hints: [
+            {
+              message: `Run 'base44 login --hostname ${getBase44ApiUrl()}' to log in there`,
+            },
+          ],
+        },
+      );
+    }
+
     return result.data;
   } catch (error) {
-    if (error instanceof SchemaValidationError) {
+    if (
+      error instanceof SchemaValidationError ||
+      error instanceof AuthRequiredError
+    ) {
       throw error;
     }
     throw new FileReadError(
@@ -184,9 +207,12 @@ export async function refreshAndSaveTokens(): Promise<string | null> {
       });
 
       return tokenResponse.accessToken;
-    } catch {
-      // Refresh failed - delete auth, user needs to login again
-      await deleteAuth();
+    } catch (error) {
+      // Refresh failed - delete auth, user needs to login again. A login for
+      // another host was never tried, so it is kept.
+      if (!(error instanceof AuthRequiredError)) {
+        await deleteAuth();
+      }
       return null;
     } finally {
       refreshPromise = null;
