@@ -22,7 +22,11 @@ export interface TestContext {
   // ─── GIVEN METHODS ─────────────────────────────────────────
 
   /** Set up authenticated user state */
-  givenLoggedIn: (user: { email: string; name: string }) => Promise<void>;
+  givenLoggedIn: (user: {
+    email: string;
+    name: string;
+    apiUrl?: string;
+  }) => Promise<void>;
 
   /** Set up project directory by copying fixture to temp dir */
   givenProject: (fixturePath: string) => Promise<void>;

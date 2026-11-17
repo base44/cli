@@ -40,6 +40,22 @@ describe("login command", () => {
     expect(authData?.email).toBe("logged-in@example.com");
     expect(authData?.name).toBe("Logged In User");
     expect(authData?.expiresAt).toBeGreaterThan(Date.now());
+    expect(authData?.apiUrl).toBe(t.api.baseUrl);
+  });
+
+  it("--hostname sends the login to that host instead of BASE44_API_URL", async () => {
+    const result = await t.run("login", "--hostname", "http://127.0.0.1:1");
+
+    t.expectResult(result).toFail();
+    expect(result.stderr).not.toContain("unknown option");
+    expect(await t.readAuthFile()).toBeNull();
+  });
+
+  it("takes --hostname on login only", async () => {
+    const result = await t.run("whoami", "--hostname", "http://127.0.0.1:1");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("unknown option '--hostname'");
   });
 
   it("fails with AuthExpiredError when user does not complete login in time", async () => {

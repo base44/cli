@@ -8,6 +8,7 @@ import {
   isWorkspaceApiKey,
   seedAuthFromEnv,
 } from "@/core/auth/index.js";
+import { DEFAULT_API_URL, getBase44ApiUrl } from "@/core/config.js";
 import { AuthRequiredError } from "@/core/errors.js";
 
 async function whoami(_ctx: CLIContext): Promise<RunCommandResult> {
@@ -24,7 +25,11 @@ async function whoami(_ctx: CLIContext): Promise<RunCommandResult> {
   }
 
   const user = await getSessionUser();
-  return { outroMessage: `Logged in as: ${theme.styles.bold(user.email)}` };
+  const apiUrl = getBase44ApiUrl();
+  const host = apiUrl === DEFAULT_API_URL ? "" : ` on ${new URL(apiUrl).host}`;
+  return {
+    outroMessage: `Logged in as: ${theme.styles.bold(user.email)}${host}`,
+  };
 }
 
 export function getWhoamiCommand(): Command {

@@ -16,6 +16,20 @@ describe("whoami command", () => {
     expect(parsed.output).toContain("test@example.com");
   });
 
+  it("doesn't use, or delete, a login saved for another host", async () => {
+    await t.givenLoggedIn({
+      email: "test@example.com",
+      name: "Test User",
+      apiUrl: "https://acme.example.com",
+    });
+    t.api.mockUserInfo({ email: "test@example.com", name: "Test User" });
+
+    const result = await t.run("whoami");
+
+    t.expectResult(result).toFail();
+    expect((await t.readAuthFile())?.apiUrl).toBe("https://acme.example.com");
+  });
+
   it("displays user email when logged in", async () => {
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
     t.api.mockUserInfo({ email: "test@example.com", name: "Test User" });

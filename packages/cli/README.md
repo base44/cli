@@ -85,6 +85,16 @@ These work with any command:
 | `--app-id <id>` | Target a Base44 app explicitly (overrides the linked project and `BASE44_APP_ID`) |
 | `--json` | Emit machine-readable JSON to stdout and run in silent mode |
 
+### Another Base44 host
+
+To use a Base44 host other than `app.base44.com` (for example a dedicated tenant), log in with `--hostname`:
+
+```bash
+base44 login --hostname acme.base44.com
+```
+
+The host is saved with the login, so every later command goes there; `whoami` shows it and `logout` clears it. A hostname or a full URL both work. In CI, set `BASE44_API_URL` alongside the credential env vars instead.
+
 ### `--json`
 
 Use `--json` for scripting and agent automation:

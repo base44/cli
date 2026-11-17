@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { loadProjectEnvFiles } from "@/core/utils/env.js";
+import { loadProjectEnvFiles, loadSavedLoginApiUrl } from "@/core/utils/env.js";
 
 // Keys this suite manipulates; saved and restored around each test so we never
 // leak into the real process environment.
@@ -13,6 +13,9 @@ const KEYS = [
   "BASE44_APP_ID",
   "BASE44_PROJECTS_BASE44_APP_ID",
   "ACME_BASE44_APP_ID",
+  "BASE44_API_URL",
+  "BASE44_ACCESS_TOKEN",
+  "BASE44_API_KEY",
 ];
 
 describe("loadProjectEnvFiles", () => {
@@ -37,6 +40,25 @@ describe("loadProjectEnvFiles", () => {
       }
     }
     await rm(dir, { recursive: true, force: true });
+  });
+
+  it("uses the saved login's host when nothing else sets one", async () => {
+    const authFile = join(dir, "auth.json");
+    await writeFile(authFile, '{"apiUrl":"https://acme.example.com"}');
+
+    loadSavedLoginApiUrl(authFile);
+
+    expect(process.env.BASE44_API_URL).toBe("https://acme.example.com");
+  });
+
+  it("ignores the saved login's host when credentials come from the environment", async () => {
+    const authFile = join(dir, "auth.json");
+    await writeFile(authFile, '{"apiUrl":"https://acme.example.com"}');
+    process.env.BASE44_ACCESS_TOKEN = "token";
+
+    loadSavedLoginApiUrl(authFile);
+
+    expect(process.env.BASE44_API_URL).toBeUndefined();
   });
 
   it("loads values from .env", async () => {
