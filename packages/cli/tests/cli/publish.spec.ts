@@ -108,6 +108,30 @@ describe("publish command", () => {
     expect(t.api.versionDeclareRequests[0]).toMatchObject({ agent_skills: {} });
   });
 
+  it("sends the app's workflow files as written, keyed by file name", async () => {
+    t.givenEnv({ BASE44_VERSIONS_API: "1" });
+    await t.givenLoggedInWithProject(fixture("publishable"));
+    mockPublishApi();
+
+    const result = await t.run("publish", "--no-build");
+
+    t.expectResult(result).toSucceed();
+    // `notes.json` beside it is not a workflow: the platform takes `.jsonc` only.
+    expect(t.api.versionDeclareRequests[0]).toMatchObject({
+      workflows: {
+        "daily-digest": {
+          name: "Daily digest",
+          trigger: { config: { trigger_type: "scheduled" } },
+        },
+      },
+    });
+    expect(
+      Object.keys(
+        (t.api.versionDeclareRequests[0] as { workflows: object }).workflows,
+      ),
+    ).toEqual(["daily-digest"]);
+  });
+
   it("declares no routes for an app whose routes it cannot read", async () => {
     // Absent, not empty: an empty list would say the app has no pages.
     t.givenEnv({ BASE44_VERSIONS_API: "1" });

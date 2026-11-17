@@ -2,7 +2,10 @@ import { createHash } from "node:crypto";
 import { join, resolve } from "node:path";
 import { globby } from "globby";
 import pMap from "p-map";
-import { CONFIG_FILE_EXTENSION_GLOB } from "@/core/consts.js";
+import {
+  CONFIG_FILE_EXTENSION,
+  CONFIG_FILE_EXTENSION_GLOB,
+} from "@/core/consts.js";
 import { InvalidInputError } from "@/core/errors.js";
 import type { BuildTarget } from "@/core/project/target.js";
 import type { FullStackBuild } from "@/core/site/full-stack.js";
@@ -157,6 +160,32 @@ async function readRawResources(dir: string): Promise<Record<string, unknown>> {
 }
 
 /**
+ * The app's workflow files, keyed by file name without `.jsonc`, the way the
+ * platform reads the same directory: only `.jsonc` directly in it is a workflow
+ * (a `.json` file or a nested one is an ordinary file), and a dot-file counts
+ * (`.draft.jsonc` is the workflow `.draft`). Parsed and sent as written.
+ */
+async function readWorkflowFiles(
+  dir: string,
+): Promise<Record<string, unknown>> {
+  if (!(await pathExists(dir))) {
+    return {};
+  }
+  const files = await globby(`*.${CONFIG_FILE_EXTENSION}`, {
+    cwd: dir,
+    onlyFiles: true,
+    followSymbolicLinks: false,
+    dot: true,
+  });
+  const workflows: Record<string, unknown> = {};
+  for (const file of files.sort()) {
+    workflows[file.slice(0, -`.${CONFIG_FILE_EXTENSION}`.length)] =
+      await readJsonFile(join(dir, file));
+  }
+  return workflows;
+}
+
+/**
  * The app's MCP config as written, `""` when it has none. Text rather than parsed:
  * the platform reads this file as strict JSON, and the JSON5 reader above would
  * accept a file the platform reads as no config at all.
@@ -192,17 +221,27 @@ async function readAgentSkillFiles(
 
 export async function collectResources(
   configDir: string,
-  dirs: { entitiesDir: string; agentsDir: string; agentSkillsDir: string },
+  dirs: {
+    entitiesDir: string;
+    agentsDir: string;
+    agentSkillsDir: string;
+    workflowsDir: string;
+  },
 ): Promise<
-  Pick<ArtifactSet, "entities" | "agents" | "mcpConfig" | "agentSkills">
+  Pick<
+    ArtifactSet,
+    "entities" | "agents" | "mcpConfig" | "agentSkills" | "workflows"
+  >
 > {
-  const [entities, agents, mcpConfig, agentSkills] = await Promise.all([
-    readRawResources(join(configDir, dirs.entitiesDir)),
-    readRawResources(join(configDir, dirs.agentsDir)),
-    readMcpConfig(configDir),
-    readAgentSkillFiles(join(configDir, dirs.agentSkillsDir)),
-  ]);
-  return { entities, agents, mcpConfig, agentSkills };
+  const [entities, agents, mcpConfig, agentSkills, workflows] =
+    await Promise.all([
+      readRawResources(join(configDir, dirs.entitiesDir)),
+      readRawResources(join(configDir, dirs.agentsDir)),
+      readMcpConfig(configDir),
+      readAgentSkillFiles(join(configDir, dirs.agentSkillsDir)),
+      readWorkflowFiles(join(configDir, dirs.workflowsDir)),
+    ]);
+  return { entities, agents, mcpConfig, agentSkills, workflows };
 }
 
 /**
