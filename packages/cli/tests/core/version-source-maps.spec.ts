@@ -285,6 +285,7 @@ describe("collectArtifacts, with private source maps", () => {
       agentSkillsDir: "agent-skills",
       functionsDir: "functions",
       actorsDir: "actors",
+      workflowsDir: "workflows",
     });
 
     expect(artifacts.assets.map((a) => a.path)).toEqual([

@@ -62,6 +62,7 @@ export const ProjectConfigSchema = z.object({
   actorsDir: z.string().optional().default("actors"),
   agentsDir: z.string().optional().default("agents"),
   agentSkillsDir: z.string().optional().default("agent-skills"),
+  workflowsDir: z.string().optional().default("workflows"),
   connectorsDir: z.string().optional().default("connectors"),
   authDir: z.string().optional().default("auth"),
   plugin: PluginMetadataSchema.optional(),
