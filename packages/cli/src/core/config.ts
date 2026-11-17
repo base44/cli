@@ -32,6 +32,14 @@ export function getBase44ApiUrl(): string {
   return process.env.BASE44_API_URL || DEFAULT_API_URL;
 }
 
+// The default platform serves apps' runtime API from its own host.
+// shortcut: any other host is assumed to serve that API itself; add an
+// override if a tenant splits the two.
+export function getAppsBackendUrl(): string {
+  const apiUrl = getBase44ApiUrl();
+  return apiUrl === DEFAULT_API_URL ? "https://base44.app" : apiUrl;
+}
+
 export function getTestOverrides(): TestOverrides | null {
   const raw = process.env.BASE44_CLI_TEST_OVERRIDES;
   if (!raw) {

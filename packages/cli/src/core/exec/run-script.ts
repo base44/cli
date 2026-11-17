@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { dir, file } from "tmp-promise";
 import { getExecWrapperPath } from "@/core/assets.js";
+import { DEFAULT_API_URL, getBase44ApiUrl } from "@/core/config.js";
 import { ApiError } from "@/core/errors.js";
 import {
   DATA_ENV_ENV_VAR,
@@ -58,7 +59,12 @@ function inheritedEnv(): NodeJS.ProcessEnv {
   return env;
 }
 
-const appPreviewUrl = (appId: string) => `https://preview--${appId}.base44.app`;
+// Preview subdomains exist on the default platform only; elsewhere the host
+// itself serves the app's API.
+const appPreviewUrl = (appId: string) =>
+  getBase44ApiUrl() === DEFAULT_API_URL
+    ? `https://preview--${appId}.base44.app`
+    : getBase44ApiUrl();
 
 async function resolveAppBaseUrl(appId: string) {
   try {
