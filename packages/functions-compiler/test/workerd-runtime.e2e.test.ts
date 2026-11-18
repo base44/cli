@@ -254,6 +254,60 @@ export default {
       }
     },
   );
+  it.each(["single-function", "per-app"] as const)(
+    "sends the final %s artifact's HEAD, ranged and no-store fetches to the platform binding",
+    async (mode) => {
+      const source = `
+        Deno.serve(async () => {
+          const responses = await Promise.all([
+            fetch("https://bucket.example.com/a.bin", { method: "HEAD" }),
+            fetch(new Request("https://bucket.example.com/a.bin", { headers: { Range: "bytes=0-9" } })),
+            fetch("https://bucket.example.com/a.bin", { cache: "no-store" }),
+            fetch("https://bucket.example.com/a.bin"),
+            fetch("https://dedicated.example.com/a.bin", { method: "HEAD" }),
+          ]);
+          return Response.json(responses.map((response) => response.headers.get("x-via")));
+        });
+      `;
+      const module =
+        mode === "single-function"
+          ? await bundled(source, "main.ts", true)
+          : await bundledApp([{ name: "probe", files: { "main.ts": source } }], true);
+      const via = (name: string) => async (request: Request) =>
+        new Response(null, {
+          headers: { "x-via": `${name}:${request.method}:${request.headers.get("range") ?? ""}` },
+        });
+      const mf = new Miniflare({
+        modules: [{ type: "ESModule", path: "_bundled.mjs", contents: module }],
+        compatibilityDate: WFP_COMPAT_DATE,
+        compatibilityFlags: ["nodejs_compat"],
+        bindings: {
+          BASE44_STATIC_EGRESS_ENABLED: "1",
+          BASE44_STATIC_EGRESS_EXCLUDED_HOSTS: JSON.stringify(["bucket.example.com"]),
+        },
+        serviceBindings: {
+          BASE44_PLATFORM_FETCH: via("platform"),
+          STATIC_EGRESS: via("static"),
+        },
+        outboundService: via("ordinary"),
+      });
+
+      try {
+        const headers = mode === "per-app" ? { "Base44-Function-Name": "probe" } : undefined;
+        const response = await mf.dispatchFetch("http://localhost/", { headers });
+        expect(await response.json()).toEqual([
+          "platform:HEAD:",
+          "platform:GET:bytes=0-9",
+          "platform:GET:",
+          "ordinary:GET:",
+          "static:HEAD:",
+        ]);
+      } finally {
+        await mf.dispose();
+      }
+    },
+  );
+
   // ── base44:runtime + export-default handler contract ──────────────────────
 
   it("uses native fetch for every input form when the final artifact has no binding", async () => {

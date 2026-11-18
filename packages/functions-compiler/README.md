@@ -246,6 +246,24 @@ setLogSink((level, event, fields) => myLogger[level](event, fields));
 
 Without a sink, `logEvent` writes the Datadog-shaped JSON line it always has.
 
+## Fetch routing
+
+Every entry wraps the global `fetch` before user code runs. When the
+workspace's static egress is on, a request goes through `STATIC_EGRESS` unless
+its host is excluded. Otherwise a `HEAD`, a request with a `Range` header, or
+one with `cache: "no-store"` goes through the `BASE44_PLATFORM_FETCH` service
+binding, and anything else keeps the global `fetch`.
+
+The binding exists because user Workers run in an untrusted dispatch
+namespace, which ignores their cache options: for a default-cached extension
+(`.bin`, `.png`, `.pdf` and so on), the cache turns `HEAD` into `GET` and drops
+`Range`, which breaks signed S3 `HEAD`s and ranged reads. The binding's target
+is a platform Worker outside the namespace (apper's
+`workers/base44-dispatcher/src/platform-fetch.ts`) that refetches with
+`cache: "no-store"` and its `cf` options cleared. Static egress keeps
+precedence because it bypasses that cache. A Worker without the binding keeps
+the global `fetch`.
+
 ## Static-egress TCP runtime
 
 Compiled functions expose `staticEgress` from `base44:runtime`:
@@ -339,7 +357,7 @@ them, and the compiler closes both for every function and actor:
 | `src/bundler.ts` | Single-function and combined-app compilation, error attribution |
 | `src/deno-bundle.ts`, `src/esbuild/` | esbuild execution and the resolver/virtual-module plugins |
 | `src/worker-entry.ts`, `src/actor-compat.ts` | Generated worker entry and the Actor wrapper |
-| `src/shim/`, `src/static-egress.ts` | Shim sources — esbuild inputs for `build:shim`, never imported |
+| `src/shim/`, `src/platform-fetch.ts`, `src/static-egress.ts` | Shim sources — esbuild inputs for `build:shim`, never imported |
 | `src/runtime/`, `src/runtime-context.ts`, `src/private-data-sources/` | Compile-time assets read as **text** and injected into the user bundle |
 
 The compile-time assets must stay TypeScript: the virtual plugins load them
@@ -361,7 +379,7 @@ whether it compiles or not.
 **Do not reformat an asset.** Their text goes into the user's bundle, so
 whitespace is part of the emitted worker bytes — running Biome over
 `src/shim/`, `src/private-data-sources/`, `src/runtime/`, `runtime-context.ts`,
-`static-egress.ts`, `static-egress-tcp.ts`, `static-egress-tcp-core.mjs`
+`platform-fetch.ts`, `static-egress.ts`, `static-egress-tcp.ts`, `static-egress-tcp-core.mjs`
 or `static-egress-marker.ts` changes what every compiled
 function hashes to. `biome.json` excludes those paths for that reason. The
 `test/` directory is likewise held byte-identical to apper's copy until that
