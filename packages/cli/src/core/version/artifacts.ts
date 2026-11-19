@@ -190,19 +190,48 @@ async function readAgentSkillFiles(
   return skills;
 }
 
+/**
+ * Each email template as written, keyed by its name: `emails/Welcome.html` is
+ * `Welcome`. Text rather than parsed: the platform compiles MJML and bounds the
+ * size. Only the folder's own `*.html` files are templates, and the folder is
+ * fixed, like the MCP config's, because it is the one the platform reads.
+ */
+async function readEmailFiles(
+  configDir: string,
+): Promise<Record<string, string>> {
+  const dir = join(configDir, "emails");
+  if (!(await pathExists(dir))) {
+    return {};
+  }
+  const files = await globby("*.html", {
+    cwd: dir,
+    onlyFiles: true,
+    followSymbolicLinks: false,
+  });
+  const emails: Record<string, string> = {};
+  for (const file of files.sort()) {
+    emails[file.replace(/\.html$/, "")] = await readTextFile(join(dir, file));
+  }
+  return emails;
+}
+
 export async function collectResources(
   configDir: string,
   dirs: { entitiesDir: string; agentsDir: string; agentSkillsDir: string },
 ): Promise<
-  Pick<ArtifactSet, "entities" | "agents" | "mcpConfig" | "agentSkills">
+  Pick<
+    ArtifactSet,
+    "entities" | "agents" | "mcpConfig" | "agentSkills" | "emails"
+  >
 > {
-  const [entities, agents, mcpConfig, agentSkills] = await Promise.all([
+  const [entities, agents, mcpConfig, agentSkills, emails] = await Promise.all([
     readRawResources(join(configDir, dirs.entitiesDir)),
     readRawResources(join(configDir, dirs.agentsDir)),
     readMcpConfig(configDir),
     readAgentSkillFiles(join(configDir, dirs.agentSkillsDir)),
+    readEmailFiles(configDir),
   ]);
-  return { entities, agents, mcpConfig, agentSkills };
+  return { entities, agents, mcpConfig, agentSkills, emails };
 }
 
 /**
