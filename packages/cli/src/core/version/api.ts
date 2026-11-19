@@ -241,6 +241,7 @@ export async function createVersion(
           agents: artifacts.agents,
           mcp_config: artifacts.mcpConfig,
           agent_skills: artifacts.agentSkills,
+          emails: artifacts.emails,
           ...(artifacts.routes
             ? { routes: declaredRoutes(artifacts.routes) }
             : {}),

@@ -104,6 +104,9 @@ export interface ArtifactSet {
   /** Each `agent-skills/<name>.md` as written, by skill name, `{}` when the app
    * has none. Always sent, for the reason `backendBundles` is. */
   agentSkills: Record<string, string>;
+  /** Each `emails/<Name>.html` as written, by name, `{}` when the app has none.
+   * Always sent, for the reason `backendBundles` is. */
+  emails: Record<string, string>;
   /** The app's routes. Absent when nothing named them and its routes are not
    * files this CLI can read: the platform then has no account of them. */
   routes?: RoutesArtifact;
