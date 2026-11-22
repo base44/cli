@@ -115,7 +115,7 @@ Rules:
 ## Rules
 
 - Plugins may contribute only entities and backend functions.
-- Plugin actors, agents, connectors, and auth config are ignored.
+- Plugin actors, agents, connectors, auth config, and MCP config are ignored.
 - A project that declares `plugin` cannot also define `plugins`.
 - Plugin entity names are global within the host project; they are not namespaced.
 - Entity extensions cannot add or merge top-level RLS rules yet.

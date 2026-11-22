@@ -1,0 +1,4 @@
+{
+  // The platform parses this file as strict JSON, so a comment is invalid.
+  "auth": "oauth",
+}

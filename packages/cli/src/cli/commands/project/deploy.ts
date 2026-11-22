@@ -26,6 +26,7 @@ import type {
   ConnectorSyncResult,
   StripeSyncResult,
 } from "@/core/resources/connector/index.js";
+import { mcpConfigNotes } from "@/core/resources/mcp/index.js";
 
 interface DeployOptions {
   yes?: boolean;
@@ -39,7 +40,7 @@ export async function deployAction(
   ctx: CLIContext,
   options: DeployOptions = {},
 ): Promise<RunCommandResult> {
-  const { isNonInteractive, log } = ctx;
+  const { isNonInteractive, jsonMode, log } = ctx;
   if (isNonInteractive && !options.yes) {
     throw new InvalidInputError("--yes is required in non-interactive mode");
   }
@@ -60,6 +61,7 @@ export async function deployAction(
     agents,
     connectors,
     authConfig,
+    mcpConfig,
   } = projectData;
 
   // Build summary of what will be deployed
@@ -91,6 +93,9 @@ export async function deployAction(
   }
   if (authConfig.length > 0) {
     summaryLines.push("  - Auth config");
+  }
+  if (mcpConfig.length > 0) {
+    summaryLines.push("  - MCP config");
   }
   if (project.visibility) {
     summaryLines.push(`  - Visibility: ${project.visibility}`);
@@ -173,6 +178,16 @@ export async function deployAction(
       `${theme.styles.header("App URL")}: ${theme.colors.links(result.appUrl)}`,
     );
   }
+  if (result.mcp && mcpConfig[0] && !jsonMode) {
+    log.success(
+      `MCP config is live (${result.mcp.tools.length} ${result.mcp.tools.length === 1 ? "tool" : "tools"})`,
+    );
+    for (const note of mcpConfigNotes(mcpConfig[0], {
+      siteDeployed: Boolean(result.appUrl),
+    })) {
+      log.info(note);
+    }
+  }
 
   // Like a failed function, a failed connector fails the deploy, but only
   // after everything else has shipped.
@@ -191,7 +206,7 @@ export async function deployAction(
 export function getDeployCommand(): Command {
   return new Base44Command("deploy")
     .description(
-      "Deploy all project resources (entities, functions, actors, agents, connectors, and site)",
+      "Deploy all project resources (entities, functions, actors, agents, MCP config, connectors, and site)",
     )
     .option("-y, --yes", "Skip confirmation prompt")
     .option("--build", "Build the site before deploying (skips the prompt)")

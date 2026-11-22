@@ -21,6 +21,10 @@ import {
   type SingleFunctionDeployResult,
 } from "@/core/resources/function/deploy.js";
 import {
+  type McpConfigState,
+  pushMcpConfig,
+} from "@/core/resources/mcp/index.js";
+import {
   deploySite,
   deployToDeployments,
   detectFullStackArtifact,
@@ -32,7 +36,7 @@ import {
  * Checks if there are any resources to deploy in the project.
  *
  * @param projectData - The project configuration and resources
- * @returns true if there are entities, functions, agents, connectors, or a configured site to deploy
+ * @returns true if there are entities, functions, agents, connectors, an MCP config, or a configured site to deploy
  */
 export async function hasResourcesToDeploy(
   projectData: ProjectData,
@@ -46,6 +50,7 @@ export async function hasResourcesToDeploy(
     agentSkills,
     connectors,
     authConfig,
+    mcpConfig,
   } = projectData;
   // A full-stack build brings its own assets directory, so it is a site to
   // deploy even with no site.outputDirectory configured.
@@ -59,6 +64,7 @@ export async function hasResourcesToDeploy(
   const hasAgentSkills = agentSkills.length > 0;
   const hasConnectors = connectors.length > 0;
   const hasAuthConfig = authConfig.length > 0;
+  const hasMcpConfig = mcpConfig.length > 0;
   const hasVisibility = Boolean(project.visibility);
 
   return (
@@ -69,6 +75,7 @@ export async function hasResourcesToDeploy(
     hasAgentSkills ||
     hasConnectors ||
     hasAuthConfig ||
+    hasMcpConfig ||
     hasVisibility ||
     hasSite
   );
@@ -86,6 +93,10 @@ interface DeployAllResult {
    * Results of connector push, including any that need OAuth.
    */
   connectorResults?: ConnectorSyncResult[];
+  /**
+   * The MCP surface the platform resolved, when an MCP config was pushed.
+   */
+  mcp?: McpConfigState;
 }
 
 interface DeployAllOptions {
@@ -102,7 +113,7 @@ interface DeployAllOptions {
 }
 
 /**
- * Deploys all project resources (entities, functions, agents, connectors, and site) to Base44.
+ * Deploys all project resources (entities, functions, agents, MCP config, connectors, and site) to Base44.
  *
  * @param projectData - The project configuration and resources to deploy
  * @param options - Optional progress callbacks for resource deployment
@@ -121,6 +132,7 @@ export async function deployAll(
     agentSkills,
     connectors,
     authConfig,
+    mcpConfig,
   } = projectData;
 
   // Before anything ships: a worker build cannot go without its commit.
@@ -172,10 +184,18 @@ export async function deployAll(
   await agentSkillResource.push(agentSkills);
   await agentResource.push(agents);
   await authConfigResource.push(authConfig);
+  // After entities, functions and agents: the platform resolves the MCP
+  // surface against what the app has at push time. No file, no step — a
+  // missing config never takes the server down (that is `mcp delete`).
+  const mcp = await pushMcpConfig(mcpConfig[0] ?? null);
   const { results: connectorResults } = await pushConnectors(connectors);
 
   const appUrl = await deployProjectSite(project, options);
-  return appUrl ? { appUrl, connectorResults } : { connectorResults };
+  return {
+    ...(appUrl ? { appUrl } : {}),
+    connectorResults,
+    ...(mcp ? { mcp } : {}),
+  };
 }
 
 /**

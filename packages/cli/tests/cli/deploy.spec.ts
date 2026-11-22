@@ -481,4 +481,116 @@ describe("deploy command (unified)", () => {
       expect(t.api.deploymentCreateRequests).toHaveLength(0);
     });
   });
+  it("pushes the MCP config after entities and agents", async () => {
+    // Given
+    await t.givenLoggedInWithProject(fixture("with-mcp"));
+    const order: string[] = [];
+    let mcpBody: unknown;
+    t.api.mockRoute(
+      "PUT",
+      `/api/apps/${t.api.appId}/entity-schemas`,
+      (_req, res) => {
+        order.push("entities");
+        res.status(200).json({ created: [], updated: [], deleted: [] });
+      },
+    );
+    t.api.mockRoute(
+      "PUT",
+      `/api/apps/${t.api.appId}/agent-configs`,
+      (_req, res) => {
+        order.push("agents");
+        res.status(200).json({ created: [], updated: [], deleted: [] });
+      },
+    );
+    t.api.mockRoute(
+      "PUT",
+      `/api/apps/platform/${t.api.appId}/mcp/config`,
+      (req, res) => {
+        order.push("mcp");
+        mcpBody = req.body;
+        res.status(200).json({
+          config: req.body.config,
+          tools: [{ name: "Customer_read" }],
+          pending_removal: [],
+        });
+      },
+    );
+    t.api.mockConnectorsList({ integrations: [] });
+    t.api.mockStripeStatus({ stripe_mode: null });
+
+    // When
+    const result = await t.run("deploy", "-y");
+
+    // Then
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("MCP config");
+    t.expectResult(result).toContain("MCP config is live (1 tool)");
+    expect(order).toEqual(["entities", "agents", "mcp"]);
+    expect(mcpBody).toMatchObject({ config: { auth: "oauth" } });
+  });
+
+  it("deploys an app whose only resource is its MCP config", async () => {
+    // Given
+    await t.givenLoggedInWithProject(fixture("with-mcp"));
+    t.api.mockEntitiesPush({ created: [], updated: [], deleted: [] });
+    t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
+    t.api.mockMcpConfigPush({ config: {}, tools: [], pending_removal: [] });
+    t.api.mockConnectorsList({ integrations: [] });
+    t.api.mockStripeStatus({ stripe_mode: null });
+
+    // When
+    const result = await t.run("deploy", "-y");
+
+    // Then
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("- MCP config");
+  });
+
+  it("skips the MCP step when the project has no MCP config", async () => {
+    // Given
+    await t.givenLoggedInWithProject(fixture("with-entities"));
+    t.api.mockEntitiesPush({ created: [], updated: [], deleted: [] });
+    t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
+    t.api.mockConnectorsList({ integrations: [] });
+    t.api.mockStripeStatus({ stripe_mode: null });
+    let mcpRequested = false;
+    t.api.mockRoute(
+      "PUT",
+      `/api/apps/platform/${t.api.appId}/mcp/config`,
+      (_req, res) => {
+        mcpRequested = true;
+        res.status(200).json({ config: null, tools: [], pending_removal: [] });
+      },
+    );
+
+    // When
+    const result = await t.run("deploy", "-y");
+
+    // Then
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toNotContain("MCP config");
+    expect(mcpRequested).toBe(false);
+  });
+
+  it("fails before deploying anything when the MCP config is not valid JSON", async () => {
+    // Given
+    await t.givenLoggedInWithProject(fixture("invalid-mcp-json"));
+    let requested = false;
+    t.api.mockRoute(
+      "PUT",
+      `/api/apps/platform/${t.api.appId}/mcp/config`,
+      (_req, res) => {
+        requested = true;
+        res.status(200).json({ config: null, tools: [], pending_removal: [] });
+      },
+    );
+
+    // When
+    const result = await t.run("deploy", "-y");
+
+    // Then
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("invalid JSON");
+    expect(requested).toBe(false);
+  });
 });

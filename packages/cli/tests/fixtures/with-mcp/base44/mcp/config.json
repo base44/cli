@@ -1,0 +1,9 @@
+{
+  "auth": "oauth",
+  "tools": {
+    "excluded_agents": ["internal_helper"],
+    "entity_overrides": {
+      "Customer": { "operations": ["read", "create"] }
+    }
+  }
+}

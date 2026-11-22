@@ -66,6 +66,7 @@ tests/
     ├── with-entities/             # Project with entities
     ├── with-agents/               # Project with agents
     ├── with-connectors/           # Project with connectors
+    ├── with-mcp/                  # Project with an MCP config (mcp/config.json)
     ├── with-functions-and-entities/
     ├── function-discovery/        # Zero-config + config-based functions (path names, config wins)
     ├── function-discovery-entry-at-root/  # Error: entry at root
@@ -248,6 +249,19 @@ t.api.mockConnectorsListError({ status: 500, body: { error: "Server error" } });
 t.api.mockConnectorSetError({ status: 401, body: { error: "Unauthorized" } });
 t.api.mockAvailableIntegrationsListError({ status: 500, body: { error: "Server error" } });
 ```
+
+### MCP Config Mocks
+
+```typescript
+t.api.mockMcpConfigPush({ config: { auth: "oauth" }, tools: [], pending_removal: [] });
+t.api.mockMcpConfigFetch({ config: null, tools: [], pending_removal: [] });
+t.api.mockMcpConfigPushError({
+  status: 400,
+  body: { error: { code: "invalid_mcp_config", message: "..." } },
+});
+```
+
+Fixtures: `with-mcp` (an entity, an agent and `mcp/config.json`), `invalid-mcp-json` (a commented file, which strict JSON rejects).
 
 ### Auth Mocks
 

@@ -1,0 +1,15 @@
+{
+  "name": "Customer",
+  "type": "object",
+  "properties": {
+    "company": {
+      "type": "string",
+      "description": "Company name"
+    },
+    "contact": {
+      "type": "string",
+      "description": "Contact person"
+    }
+  },
+  "required": ["company"]
+}

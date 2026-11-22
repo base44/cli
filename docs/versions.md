@@ -89,7 +89,7 @@ The practical consequence for this CLI: **send the checksum the server gave you,
 
 `collectResources` reads `entities/` and `agents/` with `readJsonFile` and sends the parsed payloads untouched, keyed by the file's path with the schema extension stripped — `entities/Todo.jsonc` → `Todo`, `agents/support/triage.jsonc` → `support/triage`. That is the same name the platform derives from the same file.
 
-`mcp/config.json` goes up as **text**, `mcp_config`, exactly as written, and `""` when the app has none. Not through `readJsonFile`: the platform parses that file as strict JSON, and a JSON5 parse here would accept a comment the platform reads as no config. It is always sent, for the reason `backend_bundles` is: an absent field says this producer does not describe the file.
+`mcp/config.json` goes up as **text**, `mcp_config`, exactly as written, and `""` when the app has none. Not through `readJsonFile`: the platform parses that file as strict JSON, and a JSON5 parse here would accept a comment the platform reads as no config. It is always sent, for the reason `backend_bundles` is: an absent field says this producer does not describe the file. The legacy lane's `base44 mcp push` / `deploy` parse the same file (strictly) and send it as JSON instead; see [resources.md](resources.md#mcp-config).
 
 Each `agent-skills/<name>.md` goes up as **text** too, in `agent_skills`, keyed by skill name and `{}` when the app has none. The platform parses the frontmatter and body; only the folder's own `*.md` files are skills. Always sent, for the same reason.
 

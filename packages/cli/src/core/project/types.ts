@@ -6,6 +6,7 @@ import type { AuthConfig } from "@/core/resources/auth-config/index.js";
 import type { ConnectorResource } from "@/core/resources/connector/index.js";
 import type { Entity } from "@/core/resources/entity/index.js";
 import type { BackendFunction } from "@/core/resources/function/index.js";
+import type { McpConfig } from "@/core/resources/mcp/index.js";
 
 export interface ProjectWithPaths extends ProjectConfig {
   root: string;
@@ -26,4 +27,6 @@ export interface ProjectData {
   agentSkills: AgentSkill[];
   connectors: ConnectorResource[];
   authConfig: AuthConfig[];
+  /** The app's MCP config (`mcp/config.json`): one item, or none without the file. */
+  mcpConfig: McpConfig[];
 }

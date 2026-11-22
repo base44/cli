@@ -62,6 +62,9 @@ The CLI will guide you through project setup. For step-by-step tutorials, see th
 | [`connectors push`](https://docs.base44.com/developers/references/cli/commands/connectors-push) | Push local connectors to Base44 |
 | [`entities push`](https://docs.base44.com/developers/references/cli/commands/entities-push) | Push local entities to Base44 |
 | [`functions deploy`](https://docs.base44.com/developers/references/cli/commands/functions-deploy) | Deploy local functions to Base44 |
+| `mcp push` | Push the app's MCP config (`base44/mcp/config.json`) to Base44; live immediately |
+| `mcp pull` | Pull the app's MCP config from Base44 to `base44/mcp/config.json` |
+| `mcp delete` | Delete the app's MCP config and take its MCP server down |
 | [`secrets list`](https://docs.base44.com/developers/references/cli/commands/secrets-list) | List project secret names |
 | [`secrets set`](https://docs.base44.com/developers/references/cli/commands/secrets-set) | Set one or more project secrets |
 | [`secrets delete`](https://docs.base44.com/developers/references/cli/commands/secrets-delete) | Delete a project secret |

@@ -42,6 +42,7 @@ import {
   type BackendFunction,
   functionResource,
 } from "@/core/resources/function/index.js";
+import { MCP_DIR, mcpConfigResource } from "@/core/resources/mcp/index.js";
 import { readJsonFile } from "@/core/utils/fs.js";
 
 type ProjectResources = Omit<ProjectData, "project">;
@@ -120,6 +121,7 @@ class ProjectConfigReader {
       agentSkills: localResources.agentSkills,
       connectors: localResources.connectors,
       authConfig: localResources.authConfig,
+      mcpConfig: localResources.mcpConfig,
     };
   }
 
@@ -206,6 +208,7 @@ class ProjectConfigReader {
       agentSkills,
       connectors,
       authConfig,
+      mcpConfig,
     ] = await Promise.all([
       entityResource.readAll(join(configDir, project.entitiesDir)),
       functionResource.readAll(join(configDir, project.functionsDir)),
@@ -216,6 +219,7 @@ class ProjectConfigReader {
       agentSkillResource.readAll(join(configDir, project.agentSkillsDir)),
       connectorResource.readAll(join(configDir, project.connectorsDir)),
       authConfigResource.readAll(join(configDir, project.authDir)),
+      mcpConfigResource.readAll(join(configDir, MCP_DIR)),
     ]);
 
     return {
@@ -226,6 +230,7 @@ class ProjectConfigReader {
       agentSkills,
       connectors,
       authConfig,
+      mcpConfig,
     };
   }
 
@@ -305,6 +310,7 @@ class ProjectConfigReader {
       agentSkills: [],
       connectors: [],
       authConfig: [],
+      mcpConfig: [],
     };
   }
 
@@ -363,6 +369,7 @@ class ProjectConfigReader {
       agentSkills: [],
       connectors: [],
       authConfig: [],
+      mcpConfig: [],
     };
   }
 

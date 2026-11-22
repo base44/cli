@@ -175,6 +175,12 @@ interface FunctionsListResponse {
   }>;
 }
 
+interface McpConfigResponse {
+  config: Record<string, unknown> | null;
+  tools: unknown[];
+  pending_removal: unknown[];
+}
+
 interface ConnectorsListResponse {
   integrations: Array<{
     integration_type: string;
@@ -679,6 +685,24 @@ export class TestAPIServer {
     );
   }
 
+  /** Mock PUT /api/apps/platform/{appId}/mcp/config - Push (or with null, remove) the MCP config */
+  mockMcpConfigPush(response: McpConfigResponse): this {
+    return this.addRoute(
+      "PUT",
+      `/api/apps/platform/${this.appId}/mcp/config`,
+      response,
+    );
+  }
+
+  /** Mock GET /api/apps/platform/{appId}/mcp/config - Fetch the MCP config */
+  mockMcpConfigFetch(response: McpConfigResponse): this {
+    return this.addRoute(
+      "GET",
+      `/api/apps/platform/${this.appId}/mcp/config`,
+      response,
+    );
+  }
+
   mockStripeStatus(response: StripeStatusResponse): this {
     return this.addRoute(
       "GET",
@@ -1162,6 +1186,14 @@ export class TestAPIServer {
     return this.addErrorRoute(
       "GET",
       `/api/apps/platform/${this.appId}/published-url`,
+      error,
+    );
+  }
+
+  mockMcpConfigPushError(error: ErrorResponse): this {
+    return this.addErrorRoute(
+      "PUT",
+      `/api/apps/platform/${this.appId}/mcp/config`,
       error,
     );
   }

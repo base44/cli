@@ -1,8 +1,8 @@
 # Working with Resources
 
-**Keywords:** resource, entity, function, actor, agent, agent skill, connector, push, readAll, deploy, site, tar.gz, deployAll, ProjectData, explicit-delete, mirrored, prune, --force
+**Keywords:** resource, entity, function, actor, agent, agent skill, connector, push, readAll, deploy, site, tar.gz, deployAll, ProjectData, explicit-delete, mirrored, prune, --force, mcp config, mcp push, mcp pull, mcp delete
 
-Resources are project-specific collections (entities, functions, actors, agents, agent skills, connectors) that can be read from the filesystem and pushed to the Base44 API.
+Resources are project-specific collections (entities, functions, actors, agents, agent skills, connectors) that can be read from the filesystem and pushed to the Base44 API. Auth config and MCP config are single files that use the same interface, as a list of zero or one item.
 
 ## Resource Interface
 
@@ -23,7 +23,7 @@ Every resource falls into one of two groups, by what happens to a remote item th
 
 | Group | Resources | `deploy` | Removal |
 |---|---|---|---|
-| **Explicit-delete** | functions, actors, connectors | Adds and updates; never removes | `functions deploy --force`, `actors delete`, `connectors push --force` |
+| **Explicit-delete** | functions, actors, connectors, MCP config | Adds and updates; never removes | `functions deploy --force`, `actors delete`, `connectors push --force`, `mcp delete` |
 | **Mirrored** | entities, agents, agent skills | Makes the remote match the folder | Delete the local file, then `deploy` or `<resource> push` |
 
 In both groups an empty local list removes nothing, even with `--force`. Put a new resource in the explicit-delete group when its remote copy holds something the folder can't restore (credentials, a Stripe sandbox, durable storage) or when it can be created outside the folder.
@@ -116,6 +116,19 @@ the local checkout.
 
 Agent skills are app-scoped instruction snippets shared across the app's agents. Unlike other resources they are stored as one markdown file per skill under the agent-skills directory (`base44/agent-skills/`, or `agentSkillsDir` in `config.jsonc`): the filename (without `.md`) is the skill name, the frontmatter `description` is the summary, and the body is the instruction text. Agents reference skills by name via `selected_skill_names`; `selected_workspace_skill_ids` (org-shared workspace skills) is not managed here and is passed through pull/push/deploy untouched.
 
+## MCP config
+
+The app's MCP server config is one file, `base44/mcp/config.json` (`src/core/resources/mcp/`). Its path is fixed (`MCP_DIR`, not a `config.jsonc` field) because the platform reads the same path from an app's source. `mcpConfigResource.readAll` returns `[config]` or `[]`, like auth config.
+
+- **Strict JSON.** Read with `JSON.parse`, not `readJsonFile`: the platform parses the file strictly, so a comment that JSON5 accepts is a config it rejects. Invalid JSON fails `readProjectConfig()`, before any request.
+- **Loose locally.** The only local check is "a JSON object". Every field is optional (`{"auth": "oauth"}` is a complete config exposing every entity and agent); keys are `auth` (`oauth` | `none`), `login_path`, `consent_path`, `tools` (`excluded_agents`, `entity_overrides.<Entity>.operations`, `functions[]`), `profiles`. The platform validates and its message is surfaced as-is.
+- **API.** `PUT`/`GET api/apps/platform/{app_id}/mcp/config` through `base44Client` (the `platform` segment is outside the app client's prefix). The body is `{config}`; the response is `{config, tools, pending_removal}`. The push is live immediately. Errors come in the `{error: {code, message}}` envelope; `toMcpApiError` turns it into the message (the generic reader would print the envelope as JSON), and the older shape falls back to `ApiError.fromHttpError`.
+- **Explicit-delete.** A missing file pushes nothing, in `mcp push` and in `deploy`. `base44 mcp delete` sends `{config: null}`, which deletes the config and takes the server down. `mcp pull` with no remote config leaves the local file alone.
+- **No re-push after entities or agents.** The platform re-resolves the surface after each bulk entity or agent sync.
+- **What users are told** (`mcpConfigNotes`, in push and deploy output, and as `notes` under `--json`): the MCP server answers only once the site has been deployed at least once, and OAuth mode (any `auth` but `"none"`) needs a consent page routed at `consent_path`, `/oauth/consent` by default, in the app's site.
+
+The versions lane (`base44 publish`) uploads the same file as text instead; see [versions.md](versions.md).
+
 ## Workflow Module (Read-Only, Not a Resource)
 
 The workflow module at `packages/cli/src/core/resources/workflow/` is read-only — workflows are authored in the builder, not pulled/pushed from local files, so there is no `Resource<T>` implementation. It exposes `listWorkflows()` and `listWorkflowRuns(filters)` over `GET /api/apps/{app_id}/workflows[/runs]`, consumed by the `workflows list` / `workflows runs` commands. Apps that predate the Workflows system return 403 from these endpoints; the commands translate that into an explanation.
@@ -185,8 +198,9 @@ What it deploys (in order):
 5. Agent skills (via `agentSkillResource.push()`)
 6. Agents (via `agentResource.push()`)
 7. Auth config (via `authConfigResource.push()`)
-8. Connectors (via `pushConnectors()`, which only adds and updates; see [explicit-delete](#removing-remote-items-explicit-delete-vs-mirrored)) -- may return OAuth redirect URLs. A connector that fails to sync fails the deploy with `ResourceDeploymentError`, but only after the site has shipped
-9. Site (if `site.outputDirectory` is configured) — the legacy tar.gz upload. The deployments-API transport is not reachable from here; see [deployments.md](deployments.md).
+8. MCP config (via `pushMcpConfig()`), when `mcp/config.json` exists; skipped otherwise, never a takedown
+9. Connectors (via `pushConnectors()`, which only adds and updates; see [explicit-delete](#removing-remote-items-explicit-delete-vs-mirrored)) -- may return OAuth redirect URLs. A connector that fails to sync fails the deploy with `ResourceDeploymentError`, but only after the site has shipped
+10. Site (if `site.outputDirectory` is configured) — the legacy tar.gz upload. The deployments-API transport is not reachable from here; see [deployments.md](deployments.md).
 
 Function and actor batches collect each item's result. `deployAll()` must inspect
 those results: any failure raises `ResourceDeploymentError` before the next stage.

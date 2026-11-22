@@ -12,6 +12,7 @@ import { getConnectorsCommand } from "@/cli/commands/connectors/index.js";
 import { getDashboardCommand } from "@/cli/commands/dashboard/index.js";
 import { getEntitiesPushCommand } from "@/cli/commands/entities/push.js";
 import { getFunctionsCommand } from "@/cli/commands/functions/index.js";
+import { getMcpCommand } from "@/cli/commands/mcp/index.js";
 import { getBuildCommand } from "@/cli/commands/project/build.js";
 import { getCreateCommand } from "@/cli/commands/project/create.js";
 import { getDeployCommand } from "@/cli/commands/project/deploy.js";
@@ -102,6 +103,9 @@ export function createProgram(context: CLIContext): Command {
 
   // Register connectors commands
   program.addCommand(getConnectorsCommand());
+
+  // Register MCP config commands
+  program.addCommand(getMcpCommand());
 
   // Register functions commands
   program.addCommand(getFunctionsCommand());
