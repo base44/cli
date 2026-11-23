@@ -48,7 +48,8 @@ export function createProgram(context: CLIContext): Command {
     .version(packageJson.version)
     .option(
       "--branch <name>",
-      "Target an app branch by exact name (sandbox commands only)",
+      "Target an app branch by exact name (sandbox commands; sessions import takes several)",
+      (value: string, previous: string[] = []) => [...previous, value],
     )
     .addOption(
       new Option("--app-id <id>", "Base44 app ID to use").env(

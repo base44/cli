@@ -271,6 +271,11 @@ describe("sessions import command", () => {
       "branch_busy",
       "The session's branch is still working in Base Code. Wait for it to finish, then import again.",
     ],
+    [
+      409,
+      "session_has_import",
+      "This Base Code session already has an imported session. Import this one into a new session instead.",
+    ],
   ])("maps HTTP %i %s to a plain message", async (status, code, message) => {
     const file = await plant("s.jsonl", claudeLines("/x", "hi"));
     mockUpload(status, { error: { code, message: "server words" } });
@@ -288,6 +293,31 @@ describe("sessions import command", () => {
 
     t.expectResult(result).toFail();
     t.expectResult(result).toContain(message);
+  });
+
+  it("names the branch that isn't on GitHub", async () => {
+    const file = await plant("s.jsonl", claudeLines("/x", "hi"));
+    mockUpload(422, {
+      error: { code: "branch_not_on_github", details: { branch_name: "web" } },
+    });
+
+    const result = await t.run(
+      "sessions",
+      "import",
+      "--file",
+      file,
+      "--app-id",
+      APP_ID,
+      "--token",
+      TOKEN,
+      "--branch",
+      "web",
+    );
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain(
+      "Branch 'web' isn't on GitHub. Push it, or leave it out, and run the import again.",
+    );
   });
 
   describe("retries", () => {
@@ -896,57 +926,28 @@ describe("sessions import command", () => {
       t.expectResult(result).toNotContain("local changes aren't included");
     });
 
-    it("stops before uploading when there are uncommitted changes", async () => {
+    it("imports unpushed work, and still accepts --skip-push-check", async () => {
       await givenPushedBranch();
+      await git("commit", "--quiet", "--allow-empty", "-m", "local");
       await writeFile(join(home(), "dirty.txt"), "x");
       await git("add", "-f", "dirty.txt");
       mockUpload();
 
-      const result = await runCurrent();
-
-      t.expectResult(result).toFail();
-      t.expectResult(result).toContain(
-        "Your changes aren't on GitHub yet. Ask the user whether to commit and push them",
-      );
-      t.expectResult(result).toContain("--skip-push-check");
-      expect(uploads).toHaveLength(0);
-    });
-
-    it("stops when the branch was never pushed", async () => {
-      await givenPushedBranch();
-      await git("checkout", "--quiet", "-b", "local-only");
-      mockUpload();
-
-      const result = await runCurrent();
-
-      t.expectResult(result).toFail();
-      t.expectResult(result).toContain("Your changes aren't on GitHub yet.");
-      expect(uploads).toHaveLength(0);
-    });
-
-    it("stops when the branch has commits GitHub lacks", async () => {
-      await givenPushedBranch();
-      await git("commit", "--quiet", "--allow-empty", "-m", "local");
-      mockUpload();
-
-      const result = await runCurrent();
-
-      t.expectResult(result).toFail();
-      expect(uploads).toHaveLength(0);
-    });
-
-    it("imports without the local changes under --skip-push-check, and says so", async () => {
-      await givenPushedBranch();
-      await git("commit", "--quiet", "--allow-empty", "-m", "local");
-      mockUpload();
-
-      const result = await runCurrent("--skip-push-check", "--json");
+      const result = await runCurrent("--skip-push-check");
 
       t.expectResult(result).toSucceed();
-      expect(JSON.parse(result.stdout).note).toBe(
-        "Base Code started from what's on GitHub; your local changes aren't included.",
-      );
       expect(uploads[0]?.body).toMatch(SOURCE_BRANCH);
+    });
+
+    it("sends each --branch as a branches field", async () => {
+      await givenPushedBranch();
+      mockUpload();
+
+      const result = await runCurrent("--branch", "api", "--branch", "web");
+
+      t.expectResult(result).toSucceed();
+      expect(uploads[0]?.body).toMatch(/name="branches"\r\n\r\napi\r\n/);
+      expect(uploads[0]?.body).toMatch(/name="branches"\r\n\r\nweb\r\n/);
     });
 
     it("leaves out the branch when HEAD is detached", async () => {

@@ -80,7 +80,8 @@ function writeJsonError(error: unknown): void {
 }
 
 interface Base44CommandOptions {
-  supportsBranch?: boolean;
+  /** `"many"`: the command reads every global `--branch` itself; none is resolved. */
+  supportsBranch?: boolean | "many";
   /**
    * Require user authentication before running this command.
    * If the user is not logged in, an interactive run starts the login and a
@@ -189,15 +190,15 @@ export class Base44Command extends Command {
       const upgradeCheckPromise = startUpgradeCheck();
 
       try {
-        const { branch } = this.optsWithGlobals<{
-          branch?: string;
+        const { branch: branches } = this.optsWithGlobals<{
+          branch?: string[];
         }>();
-        if (branch !== undefined && !this._commandOptions.supportsBranch) {
+        if (branches !== undefined && !this._commandOptions.supportsBranch) {
           throw new InvalidInputError(
             "--branch is not supported by this command. Use sandbox commands to read or edit branch files; no app changes were made.",
           );
         }
-        if (branch !== undefined && !branch.trim()) {
+        if (branches?.some((branch) => !branch.trim())) {
           throw new InvalidInputError("--branch must not be empty.");
         }
         if (this._commandOptions.requireAuth) {
@@ -208,8 +209,11 @@ export class Base44Command extends Command {
           await ensureAppContext(this.context, { appId });
         }
 
+        const branch = branches?.at(-1);
         const resolvedBranchId =
-          branch !== undefined ? await resolveBranchName(branch) : undefined;
+          branch !== undefined && this._commandOptions.supportsBranch === true
+            ? await resolveBranchName(branch)
+            : undefined;
         const result = ((await fn(
           { ...this.context, branchId: resolvedBranchId },
           ...args,
