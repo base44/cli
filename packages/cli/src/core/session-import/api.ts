@@ -71,6 +71,9 @@ function messageFor(
   if (code === "session_changed" && details?.branch_url) {
     return `This session changed since it was imported into ${details.branch_name ?? "its branch"}, so its newer messages can't be added there. In Base Code, open Import session and choose Import into a new branch: ${new URL(details.branch_url, getBase44ApiUrl())}`;
   }
+  if (code === "session_has_import") {
+    return "This Base Code session already has an imported session. Import this one into a new session instead.";
+  }
   if (code === "branch_busy") {
     return `${details?.branch_name ?? "The session's branch"} is still working in Base Code. Wait for it to finish, then import again.`;
   }

@@ -271,6 +271,11 @@ describe("sessions import command", () => {
       "branch_busy",
       "The session's branch is still working in Base Code. Wait for it to finish, then import again.",
     ],
+    [
+      409,
+      "session_has_import",
+      "This Base Code session already has an imported session. Import this one into a new session instead.",
+    ],
   ])("maps HTTP %i %s to a plain message", async (status, code, message) => {
     const file = await plant("s.jsonl", claudeLines("/x", "hi"));
     mockUpload(status, { error: { code, message: "server words" } });
