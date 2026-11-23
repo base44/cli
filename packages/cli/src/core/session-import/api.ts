@@ -21,6 +21,8 @@ const SessionImportResponseSchema = z
     reimported: z.boolean().default(false),
     imported_artifacts: z.number().default(0),
     skipped_artifacts: z.number().default(0),
+    session_id: z.string().optional(),
+    session_url: z.string().optional(),
   })
   .transform((data) => ({
     branchId: data.branch_id,
@@ -33,6 +35,8 @@ const SessionImportResponseSchema = z
     reimported: data.reimported,
     importedArtifacts: data.imported_artifacts,
     skippedArtifacts: data.skipped_artifacts,
+    sessionId: data.session_id,
+    sessionUrl: data.session_url,
   }));
 
 type SessionImport = z.infer<typeof SessionImportResponseSchema>;
@@ -67,11 +71,17 @@ function messageFor(
   if (code === "session_changed" && details?.branch_url) {
     return `This session changed since it was imported into ${details.branch_name ?? "its branch"}, so its newer messages can't be added there. In Base Code, open Import session and choose Import into a new branch: ${new URL(details.branch_url, getBase44ApiUrl())}`;
   }
+  if (code === "session_has_import") {
+    return "This Base Code session already has an imported session. Import this one into a new session instead.";
+  }
   if (code === "branch_busy") {
     return `${details?.branch_name ?? "The session's branch"} is still working in Base Code. Wait for it to finish, then import again.`;
   }
   if (code === "idempotency_key_in_use") {
     return "An import of this session is still running. Wait a moment and try again.";
+  }
+  if (code === "branch_not_on_github") {
+    return `Branch '${details?.branch_name}' isn't on GitHub. Push it, or leave it out, and run the import again.`;
   }
   if (code === "repository_not_connected") {
     return "Connect this app to its GitHub repository in Base Code first.";
@@ -172,11 +182,13 @@ export async function uploadSession(
   {
     token,
     sourceBranch,
+    branches = [],
     artifacts = [],
     onRetry,
   }: {
     token?: string;
     sourceBranch?: string;
+    branches?: string[];
     artifacts?: SessionArtifact[];
     onRetry?: (info: {
       status: number;
@@ -190,6 +202,7 @@ export async function uploadSession(
   form.append("file", new Blob([content]), "session.jsonl");
   // The backend starts the new branch from this one when it's on GitHub.
   if (sourceBranch) form.append("source_branch", sourceBranch);
+  for (const branch of branches) form.append("branches", branch);
   for (const { data, fileName } of artifacts) {
     form.append("artifacts", new Blob([data]), fileName);
   }

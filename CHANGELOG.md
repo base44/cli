@@ -5,6 +5,7 @@
 ### Changed
 
 - On a Base44 host other than `app.base44.com` (`base44 login --hostname <host>` or `BASE44_API_URL`), `base44 dev` passes the calls it doesn't handle locally, and its app login redirects, to that host instead of `base44.app`, and `base44 exec` runs an unpublished app against that host instead of its `base44.app` preview address.
+- `base44 sessions import --branch <name>` sends a GitHub branch with the session's work; repeat it for several. A branch that isn't on GitHub fails with a message naming it. The command no longer stops when local work isn't pushed, and `--skip-push-check` is accepted and ignored. When the server answers with a session link, the command prints that instead of the branch link.
 - `base44 exec` loads an SDK released in the last 24 hours instead of Deno's default minimum dependency age silently holding scripts on the previous one. Other npm packages a script imports keep the default.
 
 ### Added

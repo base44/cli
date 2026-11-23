@@ -1,5 +1,5 @@
 import { cancel, isCancel, select } from "@clack/prompts";
-import type { Command } from "commander";
+import { type Command, Option } from "commander";
 import ms from "ms";
 import { CLIExitError } from "@/cli/errors.js";
 import type { CLIContext, RunCommandResult } from "@/cli/types.js";
@@ -22,13 +22,12 @@ import {
   teleportSession,
 } from "@/core/session-import/sessions.js";
 import { readFile } from "@/core/utils/fs.js";
-import { readGitState } from "@/core/utils/git.js";
+import { readGitBranch } from "@/core/utils/git.js";
 
 interface ImportOptions {
   current?: boolean;
   file?: string;
   token?: string;
-  skipPushCheck?: boolean;
 }
 
 const TOOL_LABELS: Record<LocalSession["tool"], string> = {
@@ -124,19 +123,11 @@ async function importAction(
       { hints: [] },
     );
   }
-  // A link's changes live in the cloud session and --file may come from
-  // anywhere, so only a session from this checkout is held to its git state.
-  const git =
-    link || options.file ? undefined : await readGitState(process.cwd());
-  if (git?.unpushed && !options.skipPushCheck) {
-    throw new InvalidInputError(
-      "Your changes aren't on GitHub yet. Ask the user whether to commit and push them (to a new branch if on main or master), then run this again. If they don't want to, run it again with --skip-push-check.",
-      { hints: [] },
-    );
-  }
-  const note = git?.unpushed
-    ? "Base Code started from what's on GitHub; your local changes aren't included."
-    : undefined;
+  // A link's changes live in the cloud session and --file may come from anywhere.
+  const sourceBranch =
+    link || options.file ? undefined : await readGitBranch(process.cwd());
+  const branches =
+    command.optsWithGlobals<{ branch?: string[] }>().branch ?? [];
 
   if (!options.token) await ensureAuth(ctx);
 
@@ -153,7 +144,8 @@ async function importAction(
   const imported = await ctx.runTask("Importing session", (updateMessage) =>
     uploadSession(appId, content, {
       token: options.token,
-      sourceBranch: git?.branch,
+      sourceBranch,
+      branches,
       artifacts,
       onRetry: ({ status, seconds, attempt, attempts }) =>
         updateMessage(
@@ -161,7 +153,7 @@ async function importAction(
         ),
     }),
   );
-  const url = `${getBase44ApiUrl()}${imported.branchUrl}`;
+  const url = `${getBase44ApiUrl()}${imported.sessionUrl ?? imported.branchUrl}`;
   const { importedArtifacts: saved, skippedArtifacts: refused } = imported;
   const artifactLine =
     saved || refused
@@ -171,7 +163,6 @@ async function importAction(
     outroMessage: [
       outcome(imported),
       ...(artifactLine ? [artifactLine] : []),
-      ...(note ? [note] : []),
       `Open it: ${url}`,
     ].join("\n"),
     stdout: ctx.jsonMode
@@ -180,7 +171,6 @@ async function importAction(
           url,
           sentArtifacts: artifacts.map((a) => a.fileName),
           unsentArtifacts: skipped,
-          ...(note ? { note } : {}),
         })
       : undefined,
   };
@@ -200,21 +190,28 @@ function outcome(imported: Awaited<ReturnType<typeof uploadSession>>): string {
 }
 
 export function getSessionsImportCommand(): Command {
-  return new Base44Command("import", { requireAuth: false })
-    .description("Continue a Claude Code or Codex session in Base Code")
-    .argument(
-      "[session-link]",
-      "A claude.ai session address (https://claude.ai/code/session_…)",
-    )
-    .option("--current", "Import the session this command runs inside")
-    .option("--file <path>", "Import this session file as is")
-    .option(
-      "--skip-push-check",
-      "Import even though local changes aren't on GitHub (they won't be included)",
-    )
-    .option(
-      "--token <key>",
-      "One-time import key from Base Code (no login needed)",
-    )
-    .action(importAction);
+  return (
+    new Base44Command("import", {
+      requireAuth: false,
+      supportsBranch: "many",
+    })
+      .description("Continue a Claude Code or Codex session in Base Code")
+      .argument(
+        "[session-link]",
+        "A claude.ai session address (https://claude.ai/code/session_…)",
+      )
+      .option("--current", "Import the session this command runs inside")
+      .option("--file <path>", "Import this session file as is")
+      // Accepted so prompts copied before the push check was removed still run.
+      .addOption(new Option("--skip-push-check").hideHelp())
+      .option(
+        "--token <key>",
+        "One-time import key from Base Code (no login needed)",
+      )
+      .addHelpText(
+        "after",
+        "\nThe global --branch <name> names a GitHub branch with this session's work; repeat it for each one.",
+      )
+      .action(importAction)
+  );
 }
