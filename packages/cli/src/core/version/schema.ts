@@ -98,6 +98,53 @@ export interface ArtifactSet {
   /** Raw payloads by name. The server normalizes and hashes them. */
   entities: Record<string, unknown>;
   agents: Record<string, unknown>;
+  /** The text of `mcp/config.json` as written, `""` when the app has none.
+   * Always sent, for the reason `backendBundles` is. */
+  mcpConfig: string;
+  /** Each `agent-skills/<name>.md` as written, by skill name, `{}` when the app
+   * has none. Always sent, for the reason `backendBundles` is. */
+  agentSkills: Record<string, string>;
+  /** The app's routes. Absent when nothing named them and its routes are not
+   * files this CLI can read: the platform then has no account of them. */
+  routes?: RoutesArtifact;
+}
+
+/** The app's routes, in its router's order: a tie between two matching routes
+ * goes to the first. */
+export interface RoutesArtifact {
+  pages: PageArtifact[];
+  /** The home page's name. */
+  home: string | null;
+  /** Entity name -> the paths of the parameter-free pages that read it.
+   * Absent: not scanned. */
+  entityPages?: Record<string, string[]>;
+  /** The paths of pages with URL params whose source reads no entity. Absent:
+   * not scanned. */
+  entityFreePaths?: string[];
+}
+
+/** One page of the app, as its router declares it. */
+export interface PageArtifact {
+  /** The URL path, `:name` for a parameter: `/notes/:id`. */
+  path: string;
+  /** The app's SEO settings are keyed by it. Two paths that render one
+   * component share it. */
+  name: string;
+  /** The page's file, from the project root: `src/routes/notes.$id.tsx`. */
+  file: string;
+  /** Proven to render behind a login. Absent: unproven, not public. */
+  requiresAuth?: boolean;
+  /** How the page loads its record. Absent: it loads none, or that's unknown. */
+  binding?: {
+    entity: string;
+    /** The URL param that selects the record, by `field`. */
+    param: string;
+    field: string;
+    /** Each other URL param -> the field of the same record it renders. */
+    extraParams?: Record<string, string>;
+  };
+  /** URL param -> the fixed values its segment takes. */
+  segmentValues?: Record<string, string[]>;
 }
 
 export interface CreateVersionProgress {

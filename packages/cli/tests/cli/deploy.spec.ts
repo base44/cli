@@ -126,6 +126,78 @@ describe("deploy command (unified)", () => {
     t.expectResult(result).toContain("App deployed successfully");
   });
 
+  it("keeps remote connectors when the project has none locally", async () => {
+    await t.givenLoggedInWithProject(fixture("with-entities"));
+    t.api.mockEntitiesPush({ created: [], updated: [], deleted: [] });
+    t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
+    t.api.mockStripeStatus({ stripe_mode: "sandbox" });
+    let stripeRemoved = false;
+    t.api.mockRoute(
+      "DELETE",
+      `/api/apps/${t.api.appId}/payments/stripe`,
+      (_req, res) => {
+        stripeRemoved = true;
+        res.status(200).json({ success: true });
+      },
+    );
+
+    const result = await t.run("deploy", "-y");
+
+    t.expectResult(result).toSucceed();
+    expect(stripeRemoved).toBe(false);
+  });
+
+  it("never removes remote-only connectors, even with some configured locally", async () => {
+    await t.givenLoggedInWithProject(fixture("with-connectors"));
+    t.api.mockConnectorSet({
+      redirect_url: null,
+      connection_id: null,
+      already_authorized: true,
+    });
+    const removed: string[] = [];
+    t.api.mockRoute(
+      "DELETE",
+      `/api/apps/${t.api.appId}/external-auth/integrations/:type/remove`,
+      (req, res) => {
+        removed.push(String(req.params.type));
+        res.json({ status: "removed", integration_type: req.params.type });
+      },
+    );
+    t.api.mockRoute(
+      "DELETE",
+      `/api/apps/${t.api.appId}/payments/stripe`,
+      (_req, res) => {
+        removed.push("stripe");
+        res.json({ success: true });
+      },
+    );
+
+    const result = await t.run("deploy", "-y");
+
+    t.expectResult(result).toSucceed();
+    expect(removed).toEqual([]);
+  });
+
+  it("fails the deploy when a connector fails to sync", async () => {
+    await t.givenLoggedInWithProject(fixture("with-connectors"));
+    t.api.mockConnectorSet({
+      redirect_url: null,
+      connection_id: null,
+      already_authorized: false,
+      error: "different_user",
+      error_message: "Already connected by another user",
+      other_user_email: "other@example.com",
+    });
+
+    const result = await t.run("deploy", "-y");
+
+    t.expectResult(result).toFail();
+    t.expectResult(result).toContain("Some connectors failed to sync");
+    t.expectResult(result).toContain(
+      "Connector slack: Already connected by another user",
+    );
+  });
+
   it("deploys entities successfully with --yes flag", async () => {
     await t.givenLoggedInWithProject(fixture("with-entities"));
     t.api.mockEntitiesPush({
@@ -154,6 +226,26 @@ describe("deploy command (unified)", () => {
     const result = await t.run("deploy", "-y");
 
     t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("App deployed successfully");
+  });
+
+  it("prints function deploy warnings", async () => {
+    await t.givenLoggedInWithProject(fixture("with-functions-and-entities"));
+    t.api.mockEntitiesPush({ created: ["Order"], updated: [], deleted: [] });
+    t.api.mockSingleFunctionDeploy({
+      status: "deployed",
+      warnings: ["process-order: automations not created (nightly)."],
+    });
+    t.api.mockAgentsPush({ created: [], updated: [], deleted: [] });
+    t.api.mockConnectorsList({ integrations: [] });
+    t.api.mockStripeStatus({ stripe_mode: null });
+
+    const result = await t.run("deploy", "-y");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain(
+      "process-order: automations not created (nightly).",
+    );
     t.expectResult(result).toContain("App deployed successfully");
   });
 

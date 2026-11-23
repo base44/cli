@@ -16,7 +16,7 @@ import {
   parseGitHash,
   theme,
 } from "@/cli/utils/index.js";
-import { InvalidInputError } from "@/core/errors.js";
+import { InvalidInputError, ResourceDeploymentError } from "@/core/errors.js";
 import {
   deployAll,
   hasResourcesToDeploy,
@@ -32,6 +32,7 @@ interface DeployOptions {
   build?: boolean;
   projectRoot?: string;
   gitHash?: string;
+  overwrite?: boolean;
 }
 
 export async function deployAction(
@@ -124,6 +125,7 @@ export async function deployAction(
 
   const result = await deployAll(projectData, {
     gitHash: options.gitHash,
+    overwrite: options.overwrite,
     onSiteProgress: (message) => {
       log.message(theme.styles.dim(message));
     },
@@ -152,9 +154,6 @@ export async function deployAction(
     onActorResult: (result) => {
       actorCompleted++;
       formatDeployResult(result, log);
-      if (result.status !== "error")
-        for (const warning of result.warnings)
-          log.warn(`${result.name}: ${warning}`);
     },
   });
 
@@ -175,6 +174,17 @@ export async function deployAction(
     );
   }
 
+  // Like a failed function, a failed connector fails the deploy, but only
+  // after everything else has shipped.
+  const failedConnectors = connectorResults.flatMap((r) =>
+    r.action === "error" ? [`Connector ${r.type}: ${r.error}`] : [],
+  );
+  if (failedConnectors.length > 0) {
+    throw new ResourceDeploymentError("Some connectors failed to sync", {
+      details: failedConnectors,
+    });
+  }
+
   return { outroMessage: "App deployed successfully" };
 }
 
@@ -191,6 +201,10 @@ export function getDeployCommand(): Command {
         "--git-hash <hash>",
         "Deploy by the commit the build came from, through the deployments API",
       ).argParser(parseGitHash),
+    )
+    .option(
+      "--overwrite",
+      "Replace the build the commit already has (with --git-hash)",
     )
     .action(deployAction);
 }

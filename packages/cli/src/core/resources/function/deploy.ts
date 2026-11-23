@@ -30,6 +30,7 @@ export interface SingleFunctionDeployResult {
   status: "deployed" | "unchanged" | "error";
   error?: string | null;
   durationMs?: number;
+  warnings?: string[];
 }
 
 async function deployOne(
@@ -47,6 +48,7 @@ async function deployOne(
       name: functionWithCode.name,
       status: response.status,
       durationMs: Date.now() - start,
+      warnings: response.warnings,
     };
   } catch (error) {
     return {

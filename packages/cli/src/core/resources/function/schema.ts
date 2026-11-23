@@ -152,6 +152,7 @@ const BackendFunctionSchema = FunctionConfigSchema.extend({
 
 export const DeploySingleFunctionResponseSchema = z.object({
   status: z.enum(["deployed", "unchanged"]),
+  warnings: z.array(z.string()).optional().default([]),
 });
 
 const FunctionInfoSchema = z

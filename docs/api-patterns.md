@@ -70,8 +70,15 @@ app's credentials via the environment, the `ensureAuth` middleware calls
 validates), pairs it with `BASE44_REFRESH_TOKEN`, and writes a standard
 `~/.base44/auth/auth.json`, so everything downstream uses one file-based path.
 
-This overwrites an existing login when env vars are present, and no-ops when
-they can't form a complete record. The seeded file looks like a normal login, so
+When `BASE44_ACCESS_TOKEN` is set **without** `BASE44_REFRESH_TOKEN` (e.g. the
+MCP `run_command` tool injecting a short-lived token into a shared app sandbox
+for one command), it is held in memory for the current process only:
+`readAuth()` returns it ahead of `auth.json`, it is never written to disk, and
+`refreshAndSaveTokens()` returns `null` without refreshing, writing or deleting
+anything, so on expiry the 401 surfaces and any stored login is left untouched.
+
+The paired path overwrites an existing login when env vars are present; seeding
+no-ops when the token lacks `sub`/`exp`. The seeded file looks like a normal login, so
 a 401 refresh applies to it too; if refresh fails it deletes the file, which
 self-heals on the next command (re-seeded from the still-present env vars). See
 `seedAuthFromEnv()` in `core/auth/config.js`.
@@ -82,6 +89,22 @@ so it runs before the HTTP clients capture `getBase44ApiUrl()`. Precedence:
 ambient `process.env` > `.env.local` > `.env`. The Stripe Projects CLI namespaces
 its vars (`BASE44_PROJECTS_BASE44_*`), so the loader also copies those to the
 bare `BASE44_*` names when the bare name is unset.
+
+`base44 login --hostname <host>` is read from `process.argv` in the same
+bootstrap file and written to `BASE44_API_URL` before anything else, so it wins
+over the environment and env files. A bare hostname gets `https://`. Only
+`login` takes the flag; a `--hostname` before `login` or on another command is
+ignored by bootstrap and rejected by commander.
+
+Login stores the host that issued the tokens as `apiUrl` in `auth.json`
+(paired env tokens store the current host too). At bootstrap,
+`loadSavedLoginApiUrl()` uses it as the base URL when neither the flag, the
+environment nor an env file set one, and when no credential comes from the
+environment (`BASE44_ACCESS_TOKEN`, `BASE44_API_KEY`). `readAuth()` throws
+`AuthRequiredError` when the stored `apiUrl` differs from the current base URL,
+so a token only reaches the host that issued it, and a failed refresh leaves
+such a login in place. Logins saved before the field existed have no `apiUrl`
+and are used with whatever host is current.
 
 ## API Response Transformation (snake_case to camelCase)
 

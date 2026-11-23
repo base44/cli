@@ -43,6 +43,10 @@ describe("actors in unified deploy", () => {
       join(t.getTempDir(), "project/base44/functions"),
       { recursive: true },
     );
+    await cp(
+      fixture("with-connectors/connectors/slack.jsonc"),
+      join(t.getTempDir(), "project/base44/connectors/slack.jsonc"),
+    );
     const stages: string[] = [];
     t.api.mockEntitiesPush({ created: ["Task"], updated: [], deleted: [] });
     t.api.mockRoute(
@@ -66,11 +70,18 @@ describe("actors in unified deploy", () => {
       },
     );
     t.api.mockRoute(
-      "GET",
-      `/api/apps/${t.api.appId}/external-auth/list`,
+      "PUT",
+      `/api/apps/${t.api.appId}/external-auth/integrations/:type`,
       (_req, res) => {
         stages.push("connectors");
-        res.json({ integrations: [] });
+        res.json({
+          error: null,
+          error_message: null,
+          redirect_url: null,
+          connection_id: null,
+          already_authorized: true,
+          other_user_email: null,
+        });
       },
     );
     t.api.mockStripeStatus({ stripe_mode: null });

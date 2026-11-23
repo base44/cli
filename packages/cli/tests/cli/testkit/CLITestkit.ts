@@ -49,6 +49,8 @@ export interface RunLiveHandle {
 interface TestOverrides {
   appConfig?: { id: string; projectRoot: string };
   latestVersion?: string | null;
+  claudeBin?: string;
+  skipRetryWait?: boolean;
 }
 
 export class CLITestkit {
@@ -56,8 +58,12 @@ export class CLITestkit {
   private env: Record<string, string> = {};
   private projectDir?: string;
   private projectLinked = true;
-  // Default latestVersion to null to skip npm version check in tests
-  private testOverrides: TestOverrides = { latestVersion: null };
+  // Default latestVersion to null to skip npm version check in tests,
+  // and skip retry waits so a retried request doesn't sleep for real
+  private testOverrides: TestOverrides = {
+    latestVersion: null,
+    skipRetryWait: true,
+  };
   private stdinContent: string | undefined = undefined;
   private liveHandles: RunLiveHandle[] = [];
 
@@ -99,7 +105,11 @@ export class CLITestkit {
   // ─── GIVEN METHODS ────────────────────────────────────────────
 
   /** Set up authenticated user state */
-  async givenLoggedIn(user: { email: string; name: string }): Promise<void> {
+  async givenLoggedIn(user: {
+    email: string;
+    name: string;
+    apiUrl?: string;
+  }): Promise<void> {
     const authDir = join(this.tempDir, ".base44", "auth");
     await mkdir(authDir, { recursive: true });
     await writeFile(
@@ -110,6 +120,7 @@ export class CLITestkit {
         expiresAt: Date.now() + 3600000, // 1 hour from now
         email: user.email,
         name: user.name,
+        apiUrl: user.apiUrl,
       }),
     );
   }
@@ -138,6 +149,11 @@ export class CLITestkit {
    */
   givenLatestVersion(version: string | null | undefined): void {
     this.testOverrides.latestVersion = version;
+  }
+
+  /** Run this executable in place of `claude` (session teleport) */
+  givenClaudeBin(path: string): void {
+    this.testOverrides.claudeBin = path;
   }
 
   /** Simulate piped stdin for the next run() call */

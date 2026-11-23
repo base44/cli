@@ -85,3 +85,58 @@ describe("AgentConfigSchema memory_config", () => {
     expect(parsed.selected_skill_names).toEqual([]);
   });
 });
+
+describe("AgentConfigSchema server route tools", () => {
+  const routeTool = {
+    tool_name: "convert_time",
+    route_path: "/api/zuri/convert-time",
+    method: "get",
+    description: "Converts a time between zones",
+  };
+
+  it("round-trips a route tool unchanged", () => {
+    const parsed = AgentConfigSchema.parse({
+      ...baseAgent,
+      tool_configs: [routeTool],
+    });
+
+    expect(parsed.tool_configs).toEqual([routeTool]);
+  });
+
+  it("fills backend-matching defaults when method and description are omitted", () => {
+    const parsed = AgentConfigSchema.parse({
+      ...baseAgent,
+      tool_configs: [{ tool_name: "sync", route_path: "/api/sync" }],
+    });
+
+    expect(parsed.tool_configs).toEqual([
+      {
+        tool_name: "sync",
+        route_path: "/api/sync",
+        method: "post",
+        description: "agent server route",
+      },
+    ]);
+  });
+
+  it.each([
+    ["a tool_name with a space", { tool_name: "convert time" }],
+    ["a tool_name over 64 characters", { tool_name: "a".repeat(65) }],
+    ["a blank route_path", { route_path: "  " }],
+    ["a route_path starting with //", { route_path: "//evil.example/x" }],
+    ["a route_path that is not app-relative", { route_path: "api/x" }],
+    ["a route_path with a query string", { route_path: "/api/x?y=1" }],
+    [
+      "a route_path over 2000 characters",
+      { route_path: `/${"a".repeat(2000)}` },
+    ],
+    ["a method the backend does not allow", { method: "head" }],
+  ])("rejects %s", (_label, override) => {
+    const result = AgentConfigSchema.safeParse({
+      ...baseAgent,
+      tool_configs: [{ ...routeTool, ...override }],
+    });
+
+    expect(result.success).toBe(false);
+  });
+});

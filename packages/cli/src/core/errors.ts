@@ -284,6 +284,51 @@ export class DependencyNotFoundError extends UserError {
   }
 }
 
+export class AppNotPublishedError extends UserError {
+  readonly code = "APP_NOT_PUBLISHED";
+
+  constructor(
+    message = "This app has not been published yet, so it has no site URL",
+    options?: CLIErrorOptions,
+  ) {
+    super(message, {
+      hints: options?.hints ?? [
+        {
+          message:
+            "Publish the app in the Base44 builder, or deploy its site with 'base44 deploy'",
+          command: "base44 deploy",
+        },
+      ],
+      cause: options?.cause,
+    });
+  }
+}
+
+/**
+ * A static deploy of a commit that already has a different build. The server
+ * keeps a commit's build unless the deploy asks to replace it, because two
+ * builds of one commit can differ and one's entry point cannot be served from
+ * the other's files.
+ */
+export class DeploymentExistsError extends UserError {
+  readonly code = "DEPLOYMENT_EXISTS";
+
+  constructor(gitHash: string, options?: CLIErrorOptions) {
+    super(
+      `Commit ${gitHash.slice(0, 12)} already has a different build, so this one was not deployed`,
+      {
+        hints: options?.hints ?? [
+          {
+            message:
+              "Run the same command again with --overwrite to replace that build, or commit your changes and deploy the new commit",
+          },
+        ],
+        cause: options?.cause,
+      },
+    );
+  }
+}
+
 // ============================================================================
 // System Errors
 // ============================================================================

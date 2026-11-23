@@ -8,10 +8,11 @@ import type { BuildTarget } from "@/core/project/target.js";
 import type { FullStackBuild } from "@/core/site/full-stack.js";
 import { resolveFullStackBuild } from "@/core/site/full-stack.js";
 import { describeBuildOutput, hashFileInto } from "@/core/site/manifest.js";
-import { pathExists, readJsonFile } from "@/core/utils/fs.js";
+import { pathExists, readJsonFile, readTextFile } from "@/core/utils/fs.js";
 import { compileActors } from "@/core/version/actors.js";
 import { compileBackendBundles } from "@/core/version/functions.js";
 import { tagStep } from "@/core/version/publish.js";
+import { collectRoutes } from "@/core/version/routes.js";
 import type {
   ArtifactFile,
   ArtifactSet,
@@ -155,15 +156,53 @@ async function readRawResources(dir: string): Promise<Record<string, unknown>> {
   return payloads;
 }
 
+/**
+ * The app's MCP config as written, `""` when it has none. Text rather than parsed:
+ * the platform reads this file as strict JSON, and the JSON5 reader above would
+ * accept a file the platform reads as no config at all.
+ */
+async function readMcpConfig(configDir: string): Promise<string> {
+  const path = join(configDir, "mcp", "config.json");
+  return (await pathExists(path)) ? await readTextFile(path) : "";
+}
+
+/**
+ * Each agent skill file as written, keyed by skill name: `agent-skills/triage.md` is
+ * `triage`. Text rather than parsed, like the MCP config: the platform's reader
+ * decides what a skill file says, and this CLI's would sometimes read it differently.
+ * Only the folder's own `*.md` files are skills.
+ */
+async function readAgentSkillFiles(
+  dir: string,
+): Promise<Record<string, string>> {
+  if (!(await pathExists(dir))) {
+    return {};
+  }
+  const files = await globby("*.md", {
+    cwd: dir,
+    onlyFiles: true,
+    followSymbolicLinks: false,
+  });
+  const skills: Record<string, string> = {};
+  for (const file of files.sort()) {
+    skills[file.replace(/\.md$/, "")] = await readTextFile(join(dir, file));
+  }
+  return skills;
+}
+
 export async function collectResources(
   configDir: string,
-  dirs: { entitiesDir: string; agentsDir: string },
-): Promise<Pick<ArtifactSet, "entities" | "agents">> {
-  const [entities, agents] = await Promise.all([
+  dirs: { entitiesDir: string; agentsDir: string; agentSkillsDir: string },
+): Promise<
+  Pick<ArtifactSet, "entities" | "agents" | "mcpConfig" | "agentSkills">
+> {
+  const [entities, agents, mcpConfig, agentSkills] = await Promise.all([
     readRawResources(join(configDir, dirs.entitiesDir)),
     readRawResources(join(configDir, dirs.agentsDir)),
+    readMcpConfig(configDir),
+    readAgentSkillFiles(join(configDir, dirs.agentSkillsDir)),
   ]);
-  return { entities, agents };
+  return { entities, agents, mcpConfig, agentSkills };
 }
 
 /**
@@ -175,9 +214,11 @@ export async function collectResources(
  */
 export async function collectArtifacts(
   target: BuildTarget,
+  options: { routesFile?: string } = {},
 ): Promise<ArtifactSet> {
   const built = await resolveFullStackBuild(target.root);
   const siteWorker = built ? await describeSiteWorker(built) : null;
+  const routes = await collectRoutes(target.root, options.routesFile);
   return {
     // One set, from wherever this build put it. The entry rule applies only
     // when the PLATFORM serves it: a Worker's own asset settings answer an
@@ -202,5 +243,6 @@ export async function collectArtifacts(
       compileActors(join(target.configDir, target.actorsDir)),
     ),
     ...(await collectResources(target.configDir, target)),
+    ...(routes ? { routes } : {}),
   };
 }

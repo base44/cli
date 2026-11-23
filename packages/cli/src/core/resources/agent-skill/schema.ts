@@ -13,7 +13,7 @@ export const AgentSkillSchema = z.object({
       "Skill name must be lowercase-hyphenated (a-z, 0-9, -)",
     ),
   description: z.string().trim().min(1, "Description is required").max(1024),
-  body: z.string().trim().min(1, "Body is required").max(15000),
+  body: z.string().trim().min(1, "Body is required").max(50000),
 });
 
 export type AgentSkill = z.infer<typeof AgentSkillSchema>;

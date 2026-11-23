@@ -268,6 +268,8 @@ t.api.mockToken({
 t.api.mockUserInfo({ email: "test@example.com", name: "Test User" });
 ```
 
+`base44 whoami` verifies the session with `GET /oauth/userinfo`, so a test that runs it while logged in needs `mockUserInfo`.
+
 ### Project Mocks
 
 ```typescript

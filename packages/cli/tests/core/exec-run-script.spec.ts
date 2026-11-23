@@ -2,6 +2,7 @@ import { EventEmitter } from "node:events";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiError } from "../../src/core/errors.js";
 import { runScript } from "../../src/core/exec/run-script.js";
 
 const spawnMock = vi.fn();
@@ -124,6 +125,36 @@ describe("runScript", () => {
     expect(env).not.toHaveProperty("BASE44_SERVICE_TOKEN");
     expect(env).not.toHaveProperty("BASE44_PRIVILEGED");
     expect(env).not.toHaveProperty("BASE44_DATA_ENV");
+  });
+
+  it("runs an unpublished app against its preview URL", async () => {
+    getSiteUrl.mockRejectedValue(
+      new ApiError("Error fetching site URL: App not found", {
+        statusCode: 404,
+      }),
+    );
+
+    const { exitCode } = await runScript({
+      appId: "app-1",
+      code: "console.log(1)",
+    });
+
+    expect(exitCode).toBe(0);
+    expect(spawnedEnv().BASE44_APP_BASE_URL).toBe(
+      "https://preview--app-1.base44.app",
+    );
+  });
+
+  it("fails when the site URL lookup fails for another reason", async () => {
+    const refused = new ApiError("Error fetching site URL: Unauthorized", {
+      statusCode: 401,
+    });
+    getSiteUrl.mockRejectedValue(refused);
+
+    await expect(
+      runScript({ appId: "app-1", code: "console.log(1)" }),
+    ).rejects.toBe(refused);
+    expect(spawnMock).not.toHaveBeenCalled();
   });
 
   it("imports the latest SDK unless a version is given", async () => {

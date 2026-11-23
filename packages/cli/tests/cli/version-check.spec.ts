@@ -7,6 +7,7 @@ describe("upgrade notification", () => {
   it("displays upgrade notification when newer version is available", async () => {
     t.givenLatestVersion("1.0.0");
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    t.api.mockUserInfo({ email: "test@example.com", name: "Test User" });
 
     const result = await t.run("whoami");
 
@@ -18,6 +19,7 @@ describe("upgrade notification", () => {
   it("does not display notification when version is current", async () => {
     // latestVersion defaults to null (no upgrade available)
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    t.api.mockUserInfo({ email: "test@example.com", name: "Test User" });
 
     const result = await t.run("whoami");
 
@@ -29,6 +31,7 @@ describe("upgrade notification", () => {
     // Opt into real npm version check (default is null which skips it)
     t.givenLatestVersion(undefined);
     await t.givenLoggedIn({ email: "test@example.com", name: "Test User" });
+    t.api.mockUserInfo({ email: "test@example.com", name: "Test User" });
 
     const result = await t.run("whoami");
 

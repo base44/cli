@@ -46,9 +46,12 @@ export async function deployToDeployments(options: {
   outputDir: string | null;
   gitHash: string;
   concurrency?: number;
+  /** Replace the build the commit already has (static builds only). */
+  overwrite?: boolean;
   progress?: DeploymentProgress;
 }): Promise<{ deploymentId: string; gitHash: string }> {
-  const { projectRoot, outputDir, gitHash, concurrency, progress } = options;
+  const { projectRoot, outputDir, gitHash, concurrency, overwrite, progress } =
+    options;
 
   const worker = await resolveWorkerBuild(projectRoot, progress);
   const assetsDir = worker ? worker.assetsDir : outputDir;
@@ -66,6 +69,7 @@ export async function deployToDeployments(options: {
     git_hash: gitHash,
     config: worker?.config,
     asset_manifest: assets.manifest,
+    overwrite,
   });
 
   const completionJwt = await uploadDeploymentAssets(

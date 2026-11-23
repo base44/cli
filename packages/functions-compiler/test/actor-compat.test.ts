@@ -205,4 +205,120 @@ describe("applyActorCompat", () => {
       valid.identity,
     );
   });
+
+  it("routes a relayed call past the user's fetch override into the room", () => {
+    const entry = "base44/actors/GameRoom/entry.ts";
+    const wrapper = applyActorCompat(entry, { [entry]: ACTOR_HANDLER })!.files[ACTOR_ENTRY_FILENAME];
+    expect(wrapper).toContain(
+      'request.method === "POST" && parts[1] === "rooms" && parts.length === 4 && parts[3] === "requests"',
+    );
+    expect(wrapper).toContain("this._b44ActorCall(request)");
+    expect(wrapper.indexOf("_b44VerifyActorRequest(request"))
+      .toBeLessThan(wrapper.indexOf("_b44ActorRequestToRoom(request"));
+  });
+
+  it("accepts only a request token minted for this app, actor, script, room, runtime and body", async () => {
+    const entry = "base44/actors/GameRoom/entry.ts";
+    const result = applyActorCompat(entry, { [entry]: ACTOR_HANDLER })!;
+    const authSource = result.files[ACTOR_AUTH_FILENAME];
+    const moduleUrl = `data:text/javascript;base64,${Buffer.from(authSource).toString("base64")}`;
+    const auth = await import(/* @vite-ignore */ moduleUrl);
+    const now = Math.floor(Date.now() / 1_000);
+    const scriptId = "actor-p-0123456789abcdef01234567-aaaaaaaaaaaaaaaaaaaaaaaaaa";
+    const { privateKey, publicKeyB64url } = await makeActorKeypair();
+    const env = {
+      BASE44_ACTOR_PUBLIC_KEY: publicKeyB64url,
+      BASE44_ACTOR_SCRIPT_ID: scriptId,
+      BASE44_APP_ID: "0123456789abcdef01234567",
+      BASE44_FUNCTIONS_VERSION: "prod",
+    };
+    const body = '{"type":"video_ready"}';
+    const bodySha = async (text: string) =>
+      Buffer.from(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text))).toString("base64url");
+    const claims = {
+      iss: "base44",
+      aud: "base44-actor-request",
+      purpose: "actor-request",
+      v: 1,
+      iat: now,
+      nbf: now,
+      exp: now + 60,
+      jti: "request-token-1",
+      app_id: env.BASE44_APP_ID,
+      actor_name: "GameRoom",
+      actor_script_id: scriptId,
+      room: "room-1",
+      runtime_mode: "prod",
+      principal: { type: "service" },
+      body_sha256: await bodySha(body),
+      caller_token_sha256: null as string | null,
+    };
+    const post = (token: string, text = body, callerAuthorization?: string) =>
+      new Request("https://worker.example/rooms/room-1/requests", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Base44-Actor-Request-Token": token,
+          ...(callerAuthorization ? { "X-Base44-Actor-Caller-Authorization": callerAuthorization } : {}),
+        },
+        body: text,
+      });
+    const requestToken = await signToken(claims, privateKey);
+
+    const valid = await auth.verifyActorRequest(post(requestToken), env, "GameRoom", "room-1");
+    expect(valid).toMatchObject({ ok: true, identity: { type: "service" }, runtimeMode: "prod" });
+    expect(new TextDecoder().decode(valid.body)).toBe(body);
+    expect(await auth.verifyActorRequest(post(requestToken), env, "GameRoom", "room-2"))
+      .toMatchObject({ ok: false, response: { status: 403 } });
+    expect(await auth.verifyActorRequest(post(requestToken), env, "Lobby", "room-1"))
+      .toMatchObject({ ok: false, response: { status: 403 } });
+    expect(await auth.verifyActorRequest(post(requestToken, '{"type":"other"}'), env, "GameRoom", "room-1"))
+      .toMatchObject({ ok: false, response: { status: 401 } });
+
+    // Same key, other purpose: neither token stands in for the other.
+    const asConnectToken = await signToken(
+      { ...claims, aud: "base44-actor-connect", purpose: "actor-connect", exp: now + 300 },
+      privateKey,
+    );
+    expect(await auth.verifyActorRequest(post(asConnectToken), env, "GameRoom", "room-1"))
+      .toMatchObject({ ok: false, response: { status: 401 } });
+    const connectRequest = new Request(`https://worker.example/rooms/room-1?_pk=tab-1&token=${requestToken}`);
+    expect(await auth.verifyActorConnection(connectRequest, env, "GameRoom", "room-1"))
+      .toMatchObject({ ok: false, response: { status: 401 } });
+    // The 0.3.0 platform-event purpose is retired.
+    const asEventToken = await signToken(
+      { ...claims, aud: "base44-actor-event", purpose: "actor-platform-event", event_id: "video_1:completed" },
+      privateKey,
+    );
+    expect(await auth.verifyActorRequest(post(asEventToken), env, "GameRoom", "room-1"))
+      .toMatchObject({ ok: false, response: { status: 401 } });
+
+    const longLived = await signToken({ ...claims, exp: now + 61 }, privateKey);
+    expect(await auth.verifyActorRequest(post(longLived), env, "GameRoom", "room-1"))
+      .toMatchObject({ ok: false, response: { status: 401 } });
+    const servicePlus = await signToken({ ...claims, principal: { type: "service", userId: "u" } }, privateKey);
+    expect(await auth.verifyActorRequest(post(servicePlus), env, "GameRoom", "room-1"))
+      .toMatchObject({ ok: false, response: { status: 401 } });
+
+    const withCaller = await signToken({ ...claims, caller_token_sha256: await bodySha("Bearer user-tok") }, privateKey);
+    const verifiedCaller = await auth.verifyActorRequest(post(withCaller, body, "Bearer user-tok"), env, "GameRoom", "room-1");
+    expect(verifiedCaller).toMatchObject({ ok: true, callerAuthorization: "Bearer user-tok" });
+    expect(await auth.verifyActorRequest(post(withCaller, body, "Bearer other"), env, "GameRoom", "room-1"))
+      .toMatchObject({ ok: false, response: { status: 401 } });
+    expect(await auth.verifyActorRequest(post(withCaller), env, "GameRoom", "room-1"))
+      .toMatchObject({ ok: false, response: { status: 401 } });
+    expect(await auth.verifyActorRequest(post(requestToken, body, "Bearer added"), env, "GameRoom", "room-1"))
+      .toMatchObject({ ok: false, response: { status: 401 } });
+    const callerForwarded = auth.actorRequestToRoom(post(withCaller, body, "Bearer user-tok"), "GameRoom", "room-1", verifiedCaller);
+    expect(callerForwarded.headers.get("X-Base44-Actor-Caller-Authorization")).toBe("Bearer user-tok");
+
+    const forwarded = auth.actorRequestToRoom(post(requestToken), "GameRoom", "room-1", valid);
+    expect(forwarded.method).toBe("POST");
+    expect(new URL(forwarded.url).pathname).toBe("/parties/GameRoom/room-1/requests");
+    expect(forwarded.headers.get("X-Base44-Actor-Request-Token")).toBeNull();
+    expect(forwarded.headers.get("X-Base44-Actor-Identity")).toBe('{"type":"service"}');
+    expect(forwarded.headers.get("X-Base44-Actor-Caller-Authorization")).toBeNull();
+    expect(forwarded.headers.get("base44-functions-version")).toBe("prod");
+    expect(await forwarded.text()).toBe(body);
+  });
 });

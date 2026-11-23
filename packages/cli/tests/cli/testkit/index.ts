@@ -22,7 +22,11 @@ export interface TestContext {
   // ─── GIVEN METHODS ─────────────────────────────────────────
 
   /** Set up authenticated user state */
-  givenLoggedIn: (user: { email: string; name: string }) => Promise<void>;
+  givenLoggedIn: (user: {
+    email: string;
+    name: string;
+    apiUrl?: string;
+  }) => Promise<void>;
 
   /** Set up project directory by copying fixture to temp dir */
   givenProject: (fixturePath: string) => Promise<void>;
@@ -37,6 +41,9 @@ export interface TestContext {
   ) => Promise<void>;
 
   givenLatestVersion: (version: string | null | undefined) => void;
+
+  /** Run this executable in place of `claude` (session teleport) */
+  givenClaudeBin: (path: string) => void;
 
   /** Simulate piped stdin for the next run() call */
   givenStdin: (content: string) => void;
@@ -131,6 +138,7 @@ export function setupCLITests(): TestContext {
       await getKit().givenProject(fixturePath);
     },
     givenLatestVersion: (version) => getKit().givenLatestVersion(version),
+    givenClaudeBin: (path) => getKit().givenClaudeBin(path),
     givenStdin: (content) => getKit().givenStdin(content),
     givenEnv: (vars) => getKit().givenEnv(vars),
 

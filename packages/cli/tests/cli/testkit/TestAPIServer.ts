@@ -113,6 +113,7 @@ interface SecretsDeleteResponse {
 
 interface SingleFunctionDeployResponse {
   status: "deployed" | "unchanged";
+  warnings?: string[];
 }
 
 interface AutomationBase {
