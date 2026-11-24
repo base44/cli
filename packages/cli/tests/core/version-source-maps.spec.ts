@@ -1,13 +1,35 @@
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  realpath,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { collectArtifacts } from "@/core/version/artifacts.js";
 import type { ArtifactFile } from "@/core/version/schema.js";
 import { collectSourceMaps } from "@/core/version/source-maps.js";
 
 const MAP = '{"version":3,"mappings":"AAAA"}';
+
+/** Paths whose read fails, as a map's would once it is gone or locked. */
+const unreadable = new Set<string>();
+vi.mock("@/core/version/digest.js", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/core/version/digest.js")>();
+  return {
+    digestFile: async (absolutePath: string) => {
+      if (unreadable.has(absolutePath)) {
+        throw new Error(`EACCES: permission denied, open '${absolutePath}'`);
+      }
+      return await actual.digestFile(absolutePath);
+    },
+  };
+});
 
 function sha256(content: string): string {
   return `sha256:${createHash("sha256").update(content).digest("hex")}`;
@@ -36,6 +58,7 @@ describe("collectSourceMaps", () => {
     await mkdir(join(mapsDir, "assets"), { recursive: true });
     await writeFile(join(mapsDir, "assets", "app.js.map"), MAP);
     warnings = [];
+    unreadable.clear();
   });
 
   afterEach(async () => {
@@ -57,7 +80,8 @@ describe("collectSourceMaps", () => {
       {
         bundle: "assets/app.js",
         file: "assets/app.js.map",
-        absolutePath: join(mapsDir, "assets", "app.js.map"),
+        // Resolved, so a temp folder reached through a link still compares.
+        absolutePath: await realpath(join(mapsDir, "assets", "app.js.map")),
         size: MAP.length,
         digest: sha256(MAP),
       },
@@ -91,6 +115,92 @@ describe("collectSourceMaps", () => {
 
     expect(await collect()).toBeUndefined();
     expect(warnings).toHaveLength(1);
+  });
+
+  it("does not follow a linked directory out of its folder", async () => {
+    // A link anywhere on the path, not just the last segment: `assets/` itself
+    // pointing elsewhere reaches the same files.
+    const elsewhere = join(projectRoot, "elsewhere");
+    await mkdir(elsewhere);
+    await writeFile(join(elsewhere, "app.js.map"), MAP);
+    await symlink(elsewhere, join(mapsDir, "linked"), "dir");
+    await givenManifest({
+      version: 1,
+      maps: [{ file: "linked/app.js.map", bundle: "assets/app.js" }],
+    });
+
+    expect(await collect()).toBeUndefined();
+    expect(warnings[0]).toContain("resolves outside");
+  });
+
+  it("skips a map it cannot read, and keeps the rest", async () => {
+    // Every other check passed, so only the read itself can fail: its
+    // permissions, or the file gone since it was listed. Never the publish.
+    await writeFile(join(mapsDir, "assets", "vendor.js.map"), MAP);
+    await givenManifest({
+      version: 1,
+      maps: [
+        { file: "assets/app.js.map", bundle: "assets/app.js" },
+        { file: "assets/vendor.js.map", bundle: "assets/vendor.js" },
+      ],
+    });
+    unreadable.add(await realpath(join(mapsDir, "assets", "app.js.map")));
+
+    const maps = await collect([
+      asset("assets/app.js"),
+      asset("assets/vendor.js"),
+    ]);
+
+    expect(maps?.map((m) => m.bundle)).toEqual(["assets/vendor.js"]);
+    expect(warnings).toEqual([
+      expect.stringContaining("assets/app.js.map: it could not be read"),
+    ]);
+  });
+
+  it("declares nothing when its only map cannot be read", async () => {
+    await givenManifest({
+      version: 1,
+      maps: [{ file: "assets/app.js.map", bundle: "assets/app.js" }],
+    });
+    unreadable.add(await realpath(join(mapsDir, "assets", "app.js.map")));
+
+    expect(await collect()).toBeUndefined();
+  });
+
+  it("says once that a manifest names nothing this build emitted", async () => {
+    // The folder sits outside the output, so a build's own clean leaves it:
+    // a manifest from an earlier build is one warning, not one per entry.
+    await givenManifest({
+      version: 1,
+      maps: ["a", "b", "c", "d"].map((name) => ({
+        file: `assets/${name}-old.js.map`,
+        bundle: `assets/${name}-old.js`,
+      })),
+    });
+
+    expect(await collect()).toBeUndefined();
+    expect(warnings).toEqual([
+      expect.stringContaining("may be left from an earlier build"),
+    ]);
+    expect(warnings[0]).toContain("and 1 more");
+  });
+
+  it("counts the unmatched bundles in one warning beside the maps it keeps", async () => {
+    await givenManifest({
+      version: 1,
+      maps: [
+        { file: "assets/app.js.map", bundle: "assets/app.js" },
+        { file: "assets/old.js.map", bundle: "assets/old.js" },
+        { file: "assets/older.js.map", bundle: "assets/older.js" },
+      ],
+    });
+
+    const maps = await collect();
+
+    expect(maps?.map((m) => m.bundle)).toEqual(["assets/app.js"]);
+    expect(warnings).toEqual([
+      expect.stringContaining("Skipping 2 source maps"),
+    ]);
   });
 
   it.each([

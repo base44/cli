@@ -802,6 +802,8 @@ describe("publish command, for a build with private source maps", () => {
     const result = await t.run("publish", "--no-build");
 
     t.expectResult(result).toSucceed();
+    // Said, as a count: otherwise a later unmapped error has no visible cause.
+    t.expectResult(result).toContain("1 of 1 source maps were not accepted");
     expect(t.api.presignedUploadRequests.map((u) => u.path).sort()).toEqual([
       "/assets/app.js",
       "/index.html",

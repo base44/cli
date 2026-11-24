@@ -288,6 +288,15 @@ export async function createVersion(
     return [{ upload, map }];
   });
 
+  // Said once, as a count: the platform already recorded why each was left
+  // out, and without this a later unmapped stack trace has no visible cause.
+  const leftOut = (artifacts.sourceMaps?.length ?? 0) - mapUploads.length;
+  if (leftOut > 0) {
+    options.onWarning?.(
+      `${leftOut} of ${artifacts.sourceMaps?.length} source maps were not accepted (too large, past the build's allowance, or a Worker version's), so their bundles have no map.`,
+    );
+  }
+
   options.progress?.onDeclared?.({
     fileCount: slotCount + mapUploads.length,
   });
@@ -345,6 +354,9 @@ export async function createVersion(
     ...mapUploads.map(({ upload, map }) => async () => {
       try {
         await putPresigned({ ...upload, path: map.bundle }, map.absolutePath);
+        // Counted only when it landed, so the count does not claim a map
+        // the warning below says is missing.
+        uploaded();
       } catch (error) {
         // Not fatal: the platform records a map that never landed as omitted,
         // and the app it maps is complete without it.
@@ -352,7 +364,6 @@ export async function createVersion(
           `Source map ${map.file} did not upload, so this version has none for ${map.bundle}: ${error instanceof Error ? error.message : String(error)}`,
         );
       }
-      uploaded();
     }),
   ];
   await pMap(tasks, (task) => task(), {

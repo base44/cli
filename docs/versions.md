@@ -92,11 +92,20 @@ With `BASE44_PRIVATE_SOURCE_MAPS=1`, `@base44/vite-plugin` writes a build's sour
 
 `collectSourceMaps` in `source-maps.ts` reads it during `collectArtifacts`. **No manifest, no field**: the declaration carries no `source_maps` at all, byte for byte what it sent before, because the server's request models forbid unknown fields and a platform that predates maps would refuse the version. With one, each map is declared as `{bundle, size, digest}` — the same streamed full sha256 as an asset — and that is the whole of it: a map is addressed by the asset it maps.
 
-Nothing about a map fails a publish. A manifest that is not JSON or not version 1 is skipped whole, with a warning; an entry is skipped on its own when its `file` is absolute, has a `..`, `.` or empty segment or a backslash, is not a regular file (a link is not followed), when its `bundle` is not among the declared assets, or when an earlier entry already named that bundle. If nothing survives, no field is sent. Warnings go through the commands' `log.warn` once the spinner stops, so to stderr under `--json`.
+Nothing about a map fails a publish. A manifest that is not JSON or not version 1 is skipped whole, with a warning. An entry is skipped on its own, with a warning, when:
 
-The response's `source_map_uploads` holds one presigned PUT per map the platform accepted — `bundle`, `url`, `content_type`, `content_length`, `checksum_sha256`, sent back verbatim exactly as for `uploads`. They are paired by `bundle`, not by position. A map with no entry was left out by the platform (it names no served file, repeats a bundle, is over the size limit, past the build's allowance, or belongs to a Worker version) and nothing is uploaded for it. A PUT that fails after its retries is a warning; the platform records that map as omitted.
+- its `file` is absolute, or has a `..`, `.` or empty segment or a backslash;
+- its `file` resolves outside `.base44/source-maps/` once every link on the path is resolved (`realpath`, so a linked directory is caught as well as a linked file), or is not a regular file;
+- an earlier entry already named its `bundle`;
+- the map cannot be read when it is hashed (its permissions, or gone since it was listed).
 
-The maps are **never** assets: any file under `.base44/source-maps/` is dropped from the asset walk, which only matters for an output folder that contains the project root's `.base44/`.
+An entry whose `bundle` is not among the declared assets is skipped too, but those are reported in **one** warning, not one each. The folder sits outside the output, so a build's own clean does not remove it, and a manifest left by an earlier build would otherwise warn once per map on every publish; when no entry matches, the warning says the folder may be stale. What the CLI cannot catch is a stale map whose bundle has an unhashed name that the new build still emits: nothing ties a map to its bundle's content, so keeping the folder current is the plugin's job.
+
+If nothing survives, no field is sent. Warnings go through the commands' `log.warn` once the spinner stops, so to stderr under `--json`.
+
+The response's `source_map_uploads` holds one presigned PUT per map the platform accepted — `bundle`, `url`, `content_type`, `content_length`, `checksum_sha256`, sent back verbatim exactly as for `uploads`. They are paired by `bundle`, not by position. A map with no entry was left out by the platform (it names no served file, repeats a bundle, is over the size limit, past the build's allowance, or belongs to a Worker version) and nothing is uploaded for it; how many were left out is one warning, so a later unmapped stack trace has a visible cause. A PUT that fails after its retries is a warning and is not counted as uploaded in the progress; the platform records that map as omitted.
+
+The maps are **never** assets: any file under `.base44/source-maps/` is dropped from the asset walk before it is counted or hashed, so maps cannot push a build past the file limit. This only matters for an output folder that contains the project root's `.base44/`.
 
 `site deploy` does not declare maps. Its `--git-hash` lane is the separate deployments API ([Deployments](deployments.md)), not this one, and both of its lanes upload only the output folder.
 

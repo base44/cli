@@ -43,9 +43,17 @@ const ENTRY = "index.html";
  */
 export async function collectBuildOutput(
   outputDir: string,
-  options: { entryFile?: string } = {},
+  options: {
+    entryFile?: string;
+    /** Left out before anything is counted or hashed. */
+    exclude?: (absolutePath: string) => boolean;
+  } = {},
 ): Promise<ArtifactFile[]> {
-  const found = await describeBuildOutput(outputDir);
+  const { exclude } = options;
+  const walked = await describeBuildOutput(outputDir);
+  const found = exclude
+    ? walked.filter((file) => !exclude(file.absolutePath))
+    : walked;
 
   if (found.length > MAX_FILE_COUNT) {
     throw new InvalidInputError(
@@ -220,21 +228,22 @@ export async function collectArtifacts(
   const built = await resolveFullStackBuild(target.root);
   const siteWorker = built ? await describeSiteWorker(built) : null;
   const routes = await collectRoutes(target.root, options.routesFile);
+  // Private maps are never assets, even when an output folder that is the
+  // project root walks straight into them — and are left out before the walk
+  // is counted or hashed, so they cannot push a build past the file limit.
+  const exclude = (absolutePath: string) =>
+    isInsideSourceMaps(target.root, absolutePath);
   // One set, from wherever this build put it. The entry rule applies only
   // when the PLATFORM serves it: a Worker's own asset settings answer an
   // unmatched path, and a Worker that serves nothing is a complete app.
-  const collected = built
+  const assets = built
     ? built.assetsDir
-      ? await collectBuildOutput(built.assetsDir)
+      ? await collectBuildOutput(built.assetsDir, { exclude })
       : []
     : await collectBuildOutput(target.outputDir, {
         entryFile: ENTRY,
+        exclude,
       });
-  // Private maps are never assets, even when an output folder that is the
-  // project root walks straight into them.
-  const assets = collected.filter(
-    (file) => !isInsideSourceMaps(target.root, file.absolutePath),
-  );
   const sourceMaps = await collectSourceMaps(target.root, assets, {
     onWarning: options.onWarning,
   });
