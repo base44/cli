@@ -113,7 +113,8 @@ describe("collectSourceMaps", () => {
       maps: [{ file: "assets/linked.js.map", bundle: "assets/app.js" }],
     });
 
-    expect(await collect()).toBeUndefined();
+    // The manifest is this build's, so it is declared, with no maps.
+    expect(await collect()).toEqual([]);
     expect(warnings).toHaveLength(1);
   });
 
@@ -129,7 +130,8 @@ describe("collectSourceMaps", () => {
       maps: [{ file: "linked/app.js.map", bundle: "assets/app.js" }],
     });
 
-    expect(await collect()).toBeUndefined();
+    // The manifest is this build's, so it is declared, with no maps.
+    expect(await collect()).toEqual([]);
     expect(warnings[0]).toContain("resolves outside");
   });
 
@@ -164,7 +166,8 @@ describe("collectSourceMaps", () => {
     });
     unreadable.add(await realpath(join(mapsDir, "assets", "app.js.map")));
 
-    expect(await collect()).toBeUndefined();
+    // The manifest is this build's, so it is declared, with no maps.
+    expect(await collect()).toEqual([]);
   });
 
   it("says once that a manifest names nothing this build emitted", async () => {
@@ -180,7 +183,7 @@ describe("collectSourceMaps", () => {
 
     expect(await collect()).toBeUndefined();
     expect(warnings).toEqual([
-      expect.stringContaining("may be left from an earlier build"),
+      expect.stringContaining("left from an earlier build"),
     ]);
     expect(warnings[0]).toContain("and 1 more");
   });
@@ -203,6 +206,15 @@ describe("collectSourceMaps", () => {
     ]);
   });
 
+  it("declares a manifest with no maps as having none", async () => {
+    // Written by the plugin on purpose: `[]` is "no maps", where no field at
+    // all is "this mode was off".
+    await givenManifest({ version: 1, maps: [] });
+
+    expect(await collect()).toEqual([]);
+    expect(warnings).toEqual([]);
+  });
+
   it.each([
     ["a parent segment", "assets/../../secret.txt"],
     ["an absolute path", "/etc/passwd"],
@@ -214,7 +226,8 @@ describe("collectSourceMaps", () => {
       maps: [{ file, bundle: "assets/app.js" }],
     });
 
-    expect(await collect()).toBeUndefined();
+    // The manifest is this build's, so it is declared, with no maps.
+    expect(await collect()).toEqual([]);
     expect(warnings).toHaveLength(1);
   });
 

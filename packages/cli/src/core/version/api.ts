@@ -244,9 +244,10 @@ export async function createVersion(
           ...(artifacts.routes
             ? { routes: declaredRoutes(artifacts.routes) }
             : {}),
-          // Only when the build left maps: the server forbids unknown fields,
-          // so a platform that predates them must never see this one.
-          ...(artifacts.sourceMaps?.length
+          // Only when the build left a manifest, even an empty one: the server
+          // forbids unknown fields, so a platform that predates maps must never
+          // see this one, and `[]` is how it tells "no maps" from "mode off".
+          ...(artifacts.sourceMaps
             ? { source_maps: artifacts.sourceMaps.map(declaredSourceMap) }
             : {}),
           source_commit: options.sourceCommit,

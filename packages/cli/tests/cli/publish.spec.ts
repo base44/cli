@@ -727,6 +727,7 @@ describe("publish command, for a build with private source maps", () => {
     files: Record<string, string> = { "assets/app.js.map": MAP },
   ) => {
     const dir = sourceMapsDir();
+    await mkdir(dir, { recursive: true });
     for (const [file, content] of Object.entries(files)) {
       await mkdir(join(dir, file, ".."), { recursive: true });
       await writeFile(join(dir, file), content);
@@ -878,6 +879,19 @@ describe("publish command, for a build with private source maps", () => {
     ).toEqual([
       { bundle: "assets/app.js", size: MAP.length, digest: sha256(MAP) },
     ]);
+  });
+
+  it("declares a manifest with no maps as having none", async () => {
+    // The plugin writes one so the platform can tell "no maps" from "off".
+    t.givenEnv({ BASE44_VERSIONS_API: "1" });
+    await t.givenLoggedInWithProject(fixture("publishable"));
+    await givenSourceMaps({ version: 1, maps: [] }, {});
+    mockPublishApi();
+
+    const result = await t.run("publish", "--no-build");
+
+    t.expectResult(result).toSucceed();
+    expect(t.api.versionDeclareRequests[0]).toMatchObject({ source_maps: [] });
   });
 
   it("declares nothing new without a manifest", async () => {

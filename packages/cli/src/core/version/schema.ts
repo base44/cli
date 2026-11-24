@@ -108,8 +108,9 @@ export interface ArtifactSet {
    * files this CLI can read: the platform then has no account of them. */
   routes?: RoutesArtifact;
   /** The build's private source maps, from `.base44/source-maps/manifest.json`.
-   * Absent when there is no manifest, or none of its maps could be declared —
-   * so a build without one sends exactly what it always did. */
+   * Absent when the build left no manifest of its own (none, unreadable, or an
+   * earlier build's), so a build without one sends exactly what it always did;
+   * empty when it did and no map could be declared. */
   sourceMaps?: SourceMapArtifact[];
 }
 

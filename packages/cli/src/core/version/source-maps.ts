@@ -81,10 +81,17 @@ function listNames(names: string[]): string {
 }
 
 /**
- * The build's private source maps, ready to declare — or `undefined` when there
- * are none to declare, so the declaration carries no `source_maps` at all. That
- * matters: the platform's request models forbid unknown fields, so a field this
- * CLI sent to a platform that predates it would refuse the whole version.
+ * The build's private source maps, ready to declare — or `undefined` when this
+ * build has no manifest of its own, so the declaration carries no `source_maps`
+ * at all. That matters: the platform's request models forbid unknown fields, so
+ * a field this CLI sent to a platform that predates it would refuse the whole
+ * version. A manifest of this build's is declared even with no maps (`[]`): the
+ * plugin writes one so the platform can tell "no maps" from "mode off".
+ *
+ * The plugin clears `.base44/source-maps/` only on a build it runs in, one with
+ * `BASE44_PRIVATE_SOURCE_MAPS=1`, so a later build without it leaves the last
+ * one's manifest in place. One naming no bundle this build emitted is read as
+ * no manifest.
  *
  * Nothing here fails a publish. A manifest that cannot be read, or an entry that
  * names a file outside the folder or an asset the build did not emit, is left
@@ -120,7 +127,9 @@ export async function collectSourceMaps(
     return undefined;
   }
 
-  const assetPaths = new Set(assets.map((asset) => asset.path));
+  const assetsByPath = new Map(assets.map((asset) => [asset.path, asset]));
+  /** Every entry's bundle this build emitted, whatever else is wrong with it. */
+  const matched = new Set<ArtifactFile>();
   const seenBundles = new Set<string>();
   /** Reported once, together: one per entry would be one per map per publish. */
   const unmatched: string[] = [];
@@ -144,10 +153,14 @@ export async function collectSourceMaps(
       );
       continue;
     }
-    if (!isPlainRelativePath(bundle) || !assetPaths.has(bundle)) {
+    const asset = isPlainRelativePath(bundle)
+      ? assetsByPath.get(bundle)
+      : undefined;
+    if (!asset) {
       unmatched.push(bundle);
       continue;
     }
+    matched.add(asset);
     if (seenBundles.has(bundle)) {
       warn(
         `Skipping source map ${file}: another map in ${manifestName} already names ${bundle}.`,
@@ -179,13 +192,17 @@ export async function collectSourceMaps(
     accepted.push({ bundle, file, absolutePath: resolved, size: stats.size });
   }
 
-  if (unmatched.length > 0) {
-    // The folder is outside the output, so a build's own clean leaves it: a
-    // manifest naming nothing this build emitted is most likely an old one.
+  if (unmatched.length > 0 && matched.size === 0) {
+    // Hashed names: an earlier build's manifest names files this one renamed.
     warn(
-      accepted.length === 0
-        ? `Skipping source maps: none of the ${unmatched.length} bundles ${manifestName} names (${listNames(unmatched)}) is a file this build declares. .base44/source-maps/ may be left from an earlier build.`
-        : `Skipping ${unmatched.length} source maps whose bundles this build does not declare: ${listNames(unmatched)}.`,
+      `Skipping source maps: none of the ${unmatched.length} bundles ${manifestName} names (${listNames(unmatched)}) is a file this build declares, so it is left from an earlier build.`,
+    );
+    return undefined;
+  }
+  if (unmatched.length > 0) {
+    // One warning, not one per entry.
+    warn(
+      `Skipping ${unmatched.length} source maps whose bundles this build does not declare: ${listNames(unmatched)}.`,
     );
   }
 
@@ -205,6 +222,5 @@ export async function collectSourceMaps(
     },
     { concurrency: HASH_CONCURRENCY },
   );
-  const maps = hashed.filter((map) => map !== null);
-  return maps.length > 0 ? maps : undefined;
+  return hashed.filter((map) => map !== null);
 }
