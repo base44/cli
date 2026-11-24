@@ -708,3 +708,192 @@ describe("publish command, for an app with a server of its own", () => {
     expect(uploaded.get("/index.html")).toBe(CLIENT_INDEX);
   });
 });
+
+describe("publish command, for a build with private source maps", () => {
+  const t = setupCLITests();
+
+  const MAP = '{"version":3,"sources":["src/app.ts"],"mappings":"AAAA"}';
+  const MANIFEST = {
+    version: 1,
+    maps: [{ file: "assets/app.js.map", bundle: "assets/app.js" }],
+  };
+
+  /** Where `@base44/vite-plugin` leaves them: beside the output, never in it. */
+  const sourceMapsDir = () =>
+    join(t.getTempDir(), "project", ".base44", "source-maps");
+
+  const givenSourceMaps = async (
+    manifest: unknown,
+    files: Record<string, string> = { "assets/app.js.map": MAP },
+  ) => {
+    const dir = sourceMapsDir();
+    for (const [file, content] of Object.entries(files)) {
+      await mkdir(join(dir, file, ".."), { recursive: true });
+      await writeFile(join(dir, file), content);
+    }
+    await writeFile(
+      join(dir, "manifest.json"),
+      typeof manifest === "string" ? manifest : JSON.stringify(manifest),
+    );
+  };
+
+  const mockPublishApi = (options: { leaveOutSourceMaps?: string[] } = {}) =>
+    t.api
+      .mockVersionDeclare(SESSION, options)
+      .mockPresignedUpload("/index.html")
+      .mockPresignedUpload("/assets/app.js")
+      .mockPresignedUpload("/source-maps/assets/app.js")
+      .mockVersionFinalize({ version_id: "ver-1", manifest_hash: "sha256:abc" })
+      .mockEnvironmentSet({
+        name: "production",
+        version_id: "ver-1",
+        manifest_hash: "sha256:abc",
+        deployment_id: "dep-1",
+      });
+
+  it("declares each map by the asset it maps, with its size and digest", async () => {
+    t.givenEnv({ BASE44_VERSIONS_API: "1" });
+    await t.givenLoggedInWithProject(fixture("publishable"));
+    await givenSourceMaps(MANIFEST);
+    mockPublishApi();
+
+    const result = await t.run("publish", "--no-build");
+
+    t.expectResult(result).toSucceed();
+    expect(t.api.versionDeclareRequests[0]).toMatchObject({
+      source_maps: [
+        { bundle: "assets/app.js", size: MAP.length, digest: sha256(MAP) },
+      ],
+    });
+  });
+
+  it("uploads each signed map to its own URL, and never as an asset", async () => {
+    t.givenEnv({ BASE44_VERSIONS_API: "1" });
+    await t.givenLoggedInWithProject(fixture("publishable"));
+    await givenSourceMaps(MANIFEST);
+    mockPublishApi();
+
+    const result = await t.run("publish", "--no-build");
+
+    t.expectResult(result).toSucceed();
+    const declared = t.api.versionDeclareRequests[0] as {
+      assets: { path: string }[];
+    };
+    expect(declared.assets.map((a) => a.path)).toEqual([
+      "assets/app.js",
+      "index.html",
+    ]);
+    const map = t.api.presignedUploadRequests.find(
+      (u) => u.path === "/source-maps/assets/app.js",
+    );
+    expect(map?.data.toString()).toBe(MAP);
+    // Echoed as the server signed it, never derived.
+    expect(map?.contentType).toBe("application/x-base44-source-map");
+  });
+
+  it("uploads nothing for a map the server left out", async () => {
+    // Dropped, too large, or past the build's allowance: the platform has
+    // already recorded why, and wants no bytes for it.
+    t.givenEnv({ BASE44_VERSIONS_API: "1" });
+    await t.givenLoggedInWithProject(fixture("publishable"));
+    await givenSourceMaps(MANIFEST);
+    mockPublishApi({ leaveOutSourceMaps: ["assets/app.js"] });
+
+    const result = await t.run("publish", "--no-build");
+
+    t.expectResult(result).toSucceed();
+    expect(t.api.presignedUploadRequests.map((u) => u.path).sort()).toEqual([
+      "/assets/app.js",
+      "/index.html",
+    ]);
+  });
+
+  it("still publishes when a map fails to upload", async () => {
+    // The platform records a map that never landed as omitted; the app it
+    // maps is complete without it.
+    t.givenEnv({ BASE44_VERSIONS_API: "1" });
+    await t.givenLoggedInWithProject(fixture("publishable"));
+    await givenSourceMaps(MANIFEST);
+    t.api.mockError("put", "/presigned/source-maps/assets/app.js", {
+      status: 403,
+      body: { message: "Request has expired" },
+    });
+    mockPublishApi();
+
+    const result = await t.run("publish", "--no-build", "--json");
+
+    t.expectResult(result).toSucceed();
+    expect(JSON.parse(result.stdout)).toMatchObject({ versionId: "ver-1" });
+    t.expectResult(result).toContain("did not upload");
+  });
+
+  it("skips a manifest it cannot read, and publishes without maps", async () => {
+    t.givenEnv({ BASE44_VERSIONS_API: "1" });
+    await t.givenLoggedInWithProject(fixture("publishable"));
+    await givenSourceMaps("{ not json");
+    mockPublishApi();
+
+    const result = await t.run("publish", "--no-build");
+
+    t.expectResult(result).toSucceed();
+    t.expectResult(result).toContain("Skipping source maps");
+    expect(t.api.versionDeclareRequests[0]).not.toHaveProperty("source_maps");
+  });
+
+  it("skips a manifest of a version it does not know", async () => {
+    t.givenEnv({ BASE44_VERSIONS_API: "1" });
+    await t.givenLoggedInWithProject(fixture("publishable"));
+    await givenSourceMaps({ ...MANIFEST, version: 2 });
+    mockPublishApi();
+
+    const result = await t.run("publish", "--no-build");
+
+    t.expectResult(result).toSucceed();
+    expect(t.api.versionDeclareRequests[0]).not.toHaveProperty("source_maps");
+  });
+
+  it("skips an entry that climbs out of its folder or names no built file", async () => {
+    t.givenEnv({ BASE44_VERSIONS_API: "1" });
+    await t.givenLoggedInWithProject(fixture("publishable"));
+    await givenSourceMaps({
+      version: 1,
+      maps: [
+        { file: "../../site-output/index.html", bundle: "index.html" },
+        { file: "/etc/passwd", bundle: "index.html" },
+        { file: "assets/gone.js.map", bundle: "assets/gone.js" },
+        { file: "assets/app.js.map" },
+        MANIFEST.maps[0],
+      ],
+    });
+    mockPublishApi();
+
+    const result = await t.run("publish", "--no-build");
+
+    t.expectResult(result).toSucceed();
+    expect(
+      (t.api.versionDeclareRequests[0] as { source_maps: unknown[] })
+        .source_maps,
+    ).toEqual([
+      { bundle: "assets/app.js", size: MAP.length, digest: sha256(MAP) },
+    ]);
+  });
+
+  it("declares nothing new without a manifest", async () => {
+    // The platform forbids unknown fields, so one that predates maps would
+    // refuse the version outright.
+    t.givenEnv({ BASE44_VERSIONS_API: "1" });
+    await t.givenLoggedInWithProject(fixture("publishable"));
+    await mkdir(join(sourceMapsDir(), "assets"), { recursive: true });
+    await writeFile(join(sourceMapsDir(), "assets", "app.js.map"), MAP);
+    mockPublishApi();
+
+    const result = await t.run("publish", "--no-build");
+
+    t.expectResult(result).toSucceed();
+    expect(t.api.versionDeclareRequests[0]).not.toHaveProperty("source_maps");
+    expect(t.api.presignedUploadRequests.map((u) => u.path).sort()).toEqual([
+      "/assets/app.js",
+      "/index.html",
+    ]);
+  });
+});

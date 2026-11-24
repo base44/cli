@@ -1,10 +1,10 @@
 # Versions
 
-**Keywords:** versions, publish, deployment, rollback, artifact set, sha256, digest, staged upload, presigned, x-amz-checksum-sha256, entities, agents, mcp config, agent skills, routes, routes file, TanStack routes, backend functions, backend_bundles, actors, Durable Objects, functions-compiler, shards, raw payloads, provenance, commit, idempotency key, step, BASE44_VERSIONS_API, env gate, build sandbox
+**Keywords:** versions, publish, source maps, source_maps, source_map_uploads, .base44/source-maps, deployment, rollback, artifact set, sha256, digest, staged upload, presigned, x-amz-checksum-sha256, entities, agents, mcp config, agent skills, routes, routes file, TanStack routes, backend functions, backend_bundles, actors, Durable Objects, functions-compiler, shards, raw payloads, provenance, commit, idempotency key, step, BASE44_VERSIONS_API, env gate, build sandbox
 
 A **version** is one immutable thing a build produced — every frontend file, plus the entity and agent payloads the app declares. A **deployment** is a version made live at an environment. Recording one and serving one are separate acts, which is what makes a rollback a deploy of an older version rather than a second code path.
 
-This lives in `src/core/version/`: `artifacts.ts` (the build-output walk and the raw resource reads), `functions.ts` (compiling the backend functions), `actors.ts` (compiling the actors), `api.ts` (the three HTTP calls), `publish.ts` (orchestration, and the step names behind the shared tagger in `core/errors.ts`), `gate.ts` (the env gate), `schema.ts` (wire types).
+This lives in `src/core/version/`: `artifacts.ts` (the build-output walk and the raw resource reads), `source-maps.ts` (the private source-map manifest), `digest.ts` (the sha256 every declared file carries), `functions.ts` (compiling the backend functions), `actors.ts` (compiling the actors), `api.ts` (the three HTTP calls), `publish.ts` (orchestration, and the step names behind the shared tagger in `core/errors.ts`), `gate.ts` (the env gate), `schema.ts` (wire types).
 
 Where to build and what to collect is **not** here — it is `core/project/target.ts`, because nothing it resolves is about a version and `base44 build` needs the same answer without importing this lane.
 
@@ -20,8 +20,9 @@ It is **not** `src/core/site/` — see [Deployments](deployments.md). That lane 
 
 `createVersion(artifacts, options)` in `api.ts` — three calls, in this order and no other, so nothing is recorded until the bytes are in place:
 
-1. **Declare.** `POST versions` with `assets` (path, size, digest per file), optionally a `site_worker` beside it, the compiled `backend_bundles` and `actors`, plus the raw `entities` and `agents` payloads, the `mcp_config` text, the `agent_skills` texts, the app's `routes` and `source_commit`. The response carries a `session_id` and one presigned PUT per declared file, in declared order: the assets, the Worker's modules, one per bundle, then one per actor. Each kind comes after the ones before it, so an app gaining one moves no existing slot.
+1. **Declare.** `POST versions` with `assets` (path, size, digest per file), optionally a `site_worker` beside it, the compiled `backend_bundles` and `actors`, plus the raw `entities` and `agents` payloads, the `mcp_config` text, the `agent_skills` texts, the app's `routes`, its private `source_maps` when the build left any, and `source_commit`. The response carries a `session_id` and one presigned PUT per declared file, in declared order: the assets, the Worker's modules, one per bundle, then one per actor. Each kind comes after the ones before it, so an app gaining one moves no existing slot. Source maps are signed apart, in `source_map_uploads` — see [Private source maps](#private-source-maps).
 2. **Upload.** `putPresigned` per file — the same PUT the static deployments lane uses, same ky retry policy. Each PUT sends the server's `Content-Type` **and** its `x-amz-checksum-sha256` verbatim; deriving either locally would 403 on any mapping difference. Uploads are paired with declared files **by position**, not by path: the frontend and the Worker's modules are separate namespaces, so the same name can appear in both and mean two different files.
+   The accepted source maps upload in the same queue, at the same concurrency and with the same retries; a map that fails is a warning, not a failed publish.
 3. **Finalize.** `POST versions/{session_id}/finalize`, no body. The set was fixed at declare, so there is nothing left for the caller to change.
 
 The response carries `version_id` and `manifest_hash`, and no flag for "this content already existed" — the hash **is** the identity, so a caller asking whether a rebuild changed anything compares it against the last one. An existing version is not necessarily the one being served, so such a flag would be misleading anyway.
@@ -78,6 +79,26 @@ The compiler is bundled like the rest of the CLI, and imports `esbuild` and `@de
 The entry is always `base44/actors/<name>/entry.ts`, an `entry.js` included, and that path is not cosmetic: it is how the compiler knows the entry is an actor. That is why this does not go through `cfwBundleInput`, which flattens an entry that reaches nothing to `main.ts`. The files are the ones the entry reaches among its own folder and the shared modules, keyed at `base44/actors/<name>/` and `base44/shared/` wherever the project keeps them — which is how apper assembles an actor, so `../../shared/x.ts` resolves and a reach into another actor or a function does not.
 
 `actors` is always sent, `[]` for an app with none, for the reason `backend_bundles` is: an absent field is what a CLI from before actors sends, and the platform refuses it (409 `actors_undeclared`) for an app that has them. One actor that fails to compile fails the publish at step `build`. The platform caps a version at 50 actors and the CLI refuses more before compiling any; the standalone binary refuses an app with actors as it does one with functions.
+
+## Private source maps
+
+With `BASE44_PRIVATE_SOURCE_MAPS=1`, `@base44/vite-plugin` writes a build's source maps to `.base44/source-maps/` at the project root — beside the output folder, never inside it, so nothing that does not know about them uploads or serves them — with a `manifest.json`:
+
+```json
+{"version": 1, "maps": [{"file": "assets/index-abc.js.map", "bundle": "assets/index-abc.js"}]}
+```
+
+`file` is relative to `.base44/source-maps/`, `bundle` to the output folder: forward slashes, no leading `/`. The contract is the platform's (base44-dev/apper#46073).
+
+`collectSourceMaps` in `source-maps.ts` reads it during `collectArtifacts`. **No manifest, no field**: the declaration carries no `source_maps` at all, byte for byte what it sent before, because the server's request models forbid unknown fields and a platform that predates maps would refuse the version. With one, each map is declared as `{bundle, size, digest}` — the same streamed full sha256 as an asset — and that is the whole of it: a map is addressed by the asset it maps.
+
+Nothing about a map fails a publish. A manifest that is not JSON or not version 1 is skipped whole, with a warning; an entry is skipped on its own when its `file` is absolute, has a `..`, `.` or empty segment or a backslash, is not a regular file (a link is not followed), when its `bundle` is not among the declared assets, or when an earlier entry already named that bundle. If nothing survives, no field is sent. Warnings go through the commands' `log.warn` once the spinner stops, so to stderr under `--json`.
+
+The response's `source_map_uploads` holds one presigned PUT per map the platform accepted — `bundle`, `url`, `content_type`, `content_length`, `checksum_sha256`, sent back verbatim exactly as for `uploads`. They are paired by `bundle`, not by position. A map with no entry was left out by the platform (it names no served file, repeats a bundle, is over the size limit, past the build's allowance, or belongs to a Worker version) and nothing is uploaded for it. A PUT that fails after its retries is a warning; the platform records that map as omitted.
+
+The maps are **never** assets: any file under `.base44/source-maps/` is dropped from the asset walk, which only matters for an output folder that contains the project root's `.base44/`.
+
+`site deploy` does not declare maps. Its `--git-hash` lane is the separate deployments API ([Deployments](deployments.md)), not this one, and both of its lanes upload only the output folder.
 
 ## Why the digest is signed into the URL
 

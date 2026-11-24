@@ -107,6 +107,26 @@ export interface ArtifactSet {
   /** The app's routes. Absent when nothing named them and its routes are not
    * files this CLI can read: the platform then has no account of them. */
   routes?: RoutesArtifact;
+  /** The build's private source maps, from `.base44/source-maps/manifest.json`.
+   * Absent when there is no manifest, or none of its maps could be declared —
+   * so a build without one sends exactly what it always did. */
+  sourceMaps?: SourceMapArtifact[];
+}
+
+/**
+ * A private source map the build left beside its output, never inside it. Stored
+ * by the platform and never served, so it is no asset: it is named by the asset
+ * it maps, and that asset is its whole address.
+ */
+export interface SourceMapArtifact {
+  /** The asset it maps, build-relative like {@link ArtifactFile.path}. */
+  bundle: string;
+  /** Where the map is, relative to `.base44/source-maps/` — for messages. */
+  file: string;
+  absolutePath: string;
+  size: number;
+  /** A full sha256, as for {@link ArtifactFile.digest}. */
+  digest: string;
 }
 
 /** The app's routes, in its router's order: a tie between two matching routes
@@ -152,23 +172,35 @@ export interface CreateVersionProgress {
   onUpload?: (progress: { uploadedFiles: number; totalFiles: number }) => void;
 }
 
+const PresignedPutSchema = z.object({
+  url: z.string(),
+  content_type: z.string(),
+  content_length: z.number(),
+  checksum_sha256: z.string(),
+});
+
 export const DeclareVersionResponseSchema = z
   .object({
     session_id: z.string(),
-    uploads: z.array(
-      z.object({
-        path: z.string(),
-        url: z.string(),
-        content_type: z.string(),
-        content_length: z.number(),
-        checksum_sha256: z.string(),
-      }),
-    ),
+    uploads: z.array(PresignedPutSchema.extend({ path: z.string() })),
+    /** One per source map the platform accepted. Absent from a server that
+     * predates them, and from any declaration that carried none. */
+    source_map_uploads: z
+      .array(PresignedPutSchema.extend({ bundle: z.string() }))
+      .optional()
+      .default([]),
   })
   .transform((data) => ({
     sessionId: data.session_id,
     uploads: data.uploads.map((upload) => ({
       path: upload.path,
+      url: upload.url,
+      contentType: upload.content_type,
+      contentLength: upload.content_length,
+      checksumSha256: upload.checksum_sha256,
+    })),
+    sourceMapUploads: data.source_map_uploads.map((upload) => ({
+      bundle: upload.bundle,
       url: upload.url,
       contentType: upload.content_type,
       contentLength: upload.content_length,

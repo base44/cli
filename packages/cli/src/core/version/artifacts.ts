@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { join, resolve } from "node:path";
 import { globby } from "globby";
 import pMap from "p-map";
@@ -7,9 +6,10 @@ import { InvalidInputError } from "@/core/errors.js";
 import type { BuildTarget } from "@/core/project/target.js";
 import type { FullStackBuild } from "@/core/site/full-stack.js";
 import { resolveFullStackBuild } from "@/core/site/full-stack.js";
-import { describeBuildOutput, hashFileInto } from "@/core/site/manifest.js";
+import { describeBuildOutput } from "@/core/site/manifest.js";
 import { pathExists, readJsonFile, readTextFile } from "@/core/utils/fs.js";
 import { compileActors } from "@/core/version/actors.js";
+import { digestFile } from "@/core/version/digest.js";
 import { compileBackendBundles } from "@/core/version/functions.js";
 import { tagStep } from "@/core/version/publish.js";
 import { collectRoutes } from "@/core/version/routes.js";
@@ -18,6 +18,10 @@ import type {
   ArtifactSet,
   SiteWorkerArtifact,
 } from "@/core/version/schema.js";
+import {
+  collectSourceMaps,
+  isInsideSourceMaps,
+} from "@/core/version/source-maps.js";
 
 /** Must match the server's ceiling: declaring more only earns a late rejection. */
 const MAX_FILE_COUNT = 50_000;
@@ -27,12 +31,6 @@ const HASH_CONCURRENCY = 32;
 
 /** Served for any unmatched path — but only when the platform is what serves. */
 const ENTRY = "index.html";
-
-/** Deliberately not `hashAsset` — see {@link ArtifactFile.digest}. */
-async function digestFile(absolutePath: string): Promise<string> {
-  const hash = await hashFileInto(createHash("sha256"), absolutePath);
-  return `sha256:${hash.digest("hex")}`;
-}
 
 /**
  * Every file a build emitted, addressed and hashed. An empty directory is an
@@ -211,25 +209,37 @@ export async function collectResources(
  * One reader, so `publish` and `versions create` cannot disagree about what a
  * build left behind — a second would eventually declare a Worker's own files as
  * a static bundle, which is the one thing the platform reads as "serve from S3".
+ *
+ * `onWarning` hears what was left out rather than failing the build: a source
+ * map is never a reason not to publish.
  */
 export async function collectArtifacts(
   target: BuildTarget,
-  options: { routesFile?: string } = {},
+  options: { routesFile?: string; onWarning?: (message: string) => void } = {},
 ): Promise<ArtifactSet> {
   const built = await resolveFullStackBuild(target.root);
   const siteWorker = built ? await describeSiteWorker(built) : null;
   const routes = await collectRoutes(target.root, options.routesFile);
+  // One set, from wherever this build put it. The entry rule applies only
+  // when the PLATFORM serves it: a Worker's own asset settings answer an
+  // unmatched path, and a Worker that serves nothing is a complete app.
+  const collected = built
+    ? built.assetsDir
+      ? await collectBuildOutput(built.assetsDir)
+      : []
+    : await collectBuildOutput(target.outputDir, {
+        entryFile: ENTRY,
+      });
+  // Private maps are never assets, even when an output folder that is the
+  // project root walks straight into them.
+  const assets = collected.filter(
+    (file) => !isInsideSourceMaps(target.root, file.absolutePath),
+  );
+  const sourceMaps = await collectSourceMaps(target.root, assets, {
+    onWarning: options.onWarning,
+  });
   return {
-    // One set, from wherever this build put it. The entry rule applies only
-    // when the PLATFORM serves it: a Worker's own asset settings answer an
-    // unmatched path, and a Worker that serves nothing is a complete app.
-    assets: built
-      ? built.assetsDir
-        ? await collectBuildOutput(built.assetsDir)
-        : []
-      : await collectBuildOutput(target.outputDir, {
-          entryFile: ENTRY,
-        }),
+    assets,
     ...(siteWorker ? { siteWorker } : {}),
     // Compiled here, not by `base44 build`: `--no-build` skips only the site's
     // own build command, and a version without its functions would remove them.
@@ -244,5 +254,6 @@ export async function collectArtifacts(
     ),
     ...(await collectResources(target.configDir, target)),
     ...(routes ? { routes } : {}),
+    ...(sourceMaps ? { sourceMaps } : {}),
   };
 }

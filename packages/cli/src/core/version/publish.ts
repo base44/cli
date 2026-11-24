@@ -45,6 +45,7 @@ export async function publishVersion(
     target?: string;
     concurrency?: number;
     progress?: CreateVersionProgress;
+    onWarning?: (message: string) => void;
   } = {},
 ): Promise<PublishResult> {
   const version = await tagStep("create_version", () =>
@@ -52,6 +53,7 @@ export async function publishVersion(
       sourceCommit: options.sourceCommit,
       concurrency: options.concurrency,
       progress: options.progress,
+      onWarning: options.onWarning,
     }),
   );
   const environment = await tagStep("deploy", () =>

@@ -874,8 +874,15 @@ export class TestAPIServer {
    * Mock POST /api/apps/{appId}/versions. `uploads` is built from the declared
    * files, pointed at this server's own presigned-style PUT targets, so a test
    * exercises the real declare -> upload -> finalize order.
+   *
+   * Declared `source_maps` are each signed a PUT at `/presigned/source-maps/<bundle>`,
+   * except the bundles in `options.leaveOutSourceMaps` — what the server does
+   * with a map it drops, or records as too large or omitted.
    */
-  mockVersionDeclare(sessionId: string): this {
+  mockVersionDeclare(
+    sessionId: string,
+    options: { leaveOutSourceMaps?: string[] } = {},
+  ): this {
     this.pendingRoutes.push({
       method: "POST",
       path: `/api/apps/${this.appId}/versions`,
@@ -891,6 +898,7 @@ export class TestAPIServer {
             name: string;
             module: { size: number; digest: string };
           }>;
+          source_maps?: Array<{ bundle: string; size: number; digest: string }>;
         };
         this.versionDeclareRequests.push(body);
         // The app's assets, then the Worker's modules, then each bundle's module
@@ -920,6 +928,25 @@ export class TestAPIServer {
               "hex",
             ).toString("base64"),
           })),
+          ...(body.source_maps
+            ? {
+                source_map_uploads: body.source_maps
+                  .filter(
+                    (map) => !options.leaveOutSourceMaps?.includes(map.bundle),
+                  )
+                  .map((map) => ({
+                    bundle: map.bundle,
+                    url: `${this.baseUrl}/presigned/source-maps/${map.bundle}`,
+                    // Not JSON, though a map is: this server would parse it.
+                    content_type: "application/x-base44-source-map",
+                    content_length: map.size,
+                    checksum_sha256: Buffer.from(
+                      map.digest.replace("sha256:", ""),
+                      "hex",
+                    ).toString("base64"),
+                  })),
+              }
+            : {}),
         });
       },
     });

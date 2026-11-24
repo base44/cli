@@ -54,28 +54,42 @@ async function publishAction(
   }
 
   const gitHash = await resolveProvenanceCommit(target.root, options.gitHash);
-  const result = await runTask(
-    "Publishing...",
-    async (updateMessage) => {
-      // Inside the tag, so a missing output directory reports as a
-      // create_version failure rather than an envelope with no step.
-      const artifacts = await tagStep("create_version", () =>
-        collectArtifacts(target, { routesFile: options.routesFile }),
-      );
-      return await publishVersion(artifacts, {
-        sourceCommit: gitHash,
-        target: options.target,
-        concurrency: options.concurrency,
-        progress: {
-          onDeclared: ({ fileCount }) =>
-            updateMessage(`Uploading ${fileCount} files`),
-          onUpload: ({ uploadedFiles, totalFiles }) =>
-            updateMessage(`Uploaded ${uploadedFiles} of ${totalFiles} files`),
-        },
-      });
-    },
-    { successMessage: "Published", errorMessage: "Publish failed" },
-  );
+  // Held until the spinner stops, so they are not drawn over it.
+  const warnings: string[] = [];
+  const onWarning = (message: string) => warnings.push(message);
+  let result: Awaited<ReturnType<typeof publishVersion>>;
+  try {
+    result = await runTask(
+      "Publishing...",
+      async (updateMessage) => {
+        // Inside the tag, so a missing output directory reports as a
+        // create_version failure rather than an envelope with no step.
+        const artifacts = await tagStep("create_version", () =>
+          collectArtifacts(target, {
+            routesFile: options.routesFile,
+            onWarning,
+          }),
+        );
+        return await publishVersion(artifacts, {
+          sourceCommit: gitHash,
+          target: options.target,
+          concurrency: options.concurrency,
+          onWarning,
+          progress: {
+            onDeclared: ({ fileCount }) =>
+              updateMessage(`Uploading ${fileCount} files`),
+            onUpload: ({ uploadedFiles, totalFiles }) =>
+              updateMessage(`Uploaded ${uploadedFiles} of ${totalFiles} files`),
+          },
+        });
+      },
+      { successMessage: "Published", errorMessage: "Publish failed" },
+    );
+  } finally {
+    for (const warning of warnings) {
+      log.warn(warning);
+    }
+  }
 
   if (!jsonMode) {
     log.message(theme.styles.dim(`version ${result.versionId}`));
