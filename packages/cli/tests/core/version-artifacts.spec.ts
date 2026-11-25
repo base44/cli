@@ -191,12 +191,27 @@ describe("collectResources", () => {
     expect(agentSkills).toEqual({ triage: written });
   });
 
+  it("sends each email template as written, keyed by its file name", async () => {
+    // The platform compiles MJML; only the folder's own `*.html` files are templates.
+    const mjml = "<mjml><mj-body><mj-text>Hi</mj-text></mj-body></mjml>";
+    await mkdir(join(configDir, "emails", "receipts"), { recursive: true });
+    await writeFile(join(configDir, "emails", "Welcome.html"), mjml);
+    await writeFile(join(configDir, "emails", "Paid.html"), "<p>Paid</p>");
+    await writeFile(join(configDir, "emails", "notes.txt"), "x");
+    await writeFile(join(configDir, "emails", "receipts", "Order.html"), "x");
+
+    const { emails } = await collectResources(configDir, dirs);
+
+    expect(emails).toEqual({ Paid: "<p>Paid</p>", Welcome: mjml });
+  });
+
   it("reads an app that declares none as declaring none", async () => {
     expect(await collectResources(configDir, dirs)).toEqual({
       entities: {},
       agents: {},
       mcpConfig: "",
       agentSkills: {},
+      emails: {},
     });
   });
 });
