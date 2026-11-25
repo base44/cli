@@ -145,6 +145,19 @@ describe("runScript", () => {
     );
   });
 
+  it("runs an unpublished app against the host itself when it isn't the default one", async () => {
+    vi.stubEnv("BASE44_API_URL", "https://acme.example.com");
+    getSiteUrl.mockRejectedValue(
+      new ApiError("Error fetching site URL: App not found", {
+        statusCode: 404,
+      }),
+    );
+
+    await runScript({ appId: "app-1", code: "console.log(1)" });
+
+    expect(spawnedEnv().BASE44_APP_BASE_URL).toBe("https://acme.example.com");
+  });
+
   it("fails when the site URL lookup fails for another reason", async () => {
     const refused = new ApiError("Error fetching site URL: Unauthorized", {
       statusCode: 401,
