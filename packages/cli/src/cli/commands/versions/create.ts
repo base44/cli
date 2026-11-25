@@ -23,33 +23,49 @@ async function createAction(
   ctx: CLIContext,
   options: CreateOptions,
 ): Promise<RunCommandResult> {
-  const { runTask, jsonMode } = ctx;
+  const { runTask, log, jsonMode } = ctx;
   const target = await resolveBuildTarget(requireApp(ctx).projectRoot, {
     outputDir: options.outputDir,
   });
   const gitHash = await resolveProvenanceCommit(target.root, options.gitHash);
+  // Held until the spinner stops, so they are not drawn over it.
+  const warnings: string[] = [];
+  const onWarning = (message: string) => warnings.push(message);
 
-  const version = await runTask(
-    "Creating version...",
-    async (updateMessage) =>
-      await createVersion(
-        await collectArtifacts(target, { routesFile: options.routesFile }),
-        {
-          sourceCommit: gitHash,
-          concurrency: options.concurrency,
-          progress: {
-            onDeclared: ({ fileCount }) =>
-              updateMessage(`Uploading ${fileCount} files`),
-            onUpload: ({ uploadedFiles, totalFiles }) =>
-              updateMessage(`Uploaded ${uploadedFiles} of ${totalFiles} files`),
+  let version: Awaited<ReturnType<typeof createVersion>>;
+  try {
+    version = await runTask(
+      "Creating version...",
+      async (updateMessage) =>
+        await createVersion(
+          await collectArtifacts(target, {
+            routesFile: options.routesFile,
+            onWarning,
+          }),
+          {
+            sourceCommit: gitHash,
+            concurrency: options.concurrency,
+            onWarning,
+            progress: {
+              onDeclared: ({ fileCount }) =>
+                updateMessage(`Uploading ${fileCount} files`),
+              onUpload: ({ uploadedFiles, totalFiles }) =>
+                updateMessage(
+                  `Uploaded ${uploadedFiles} of ${totalFiles} files`,
+                ),
+            },
           },
-        },
-      ),
-    {
-      successMessage: "Version created",
-      errorMessage: "Create version failed",
-    },
-  );
+        ),
+      {
+        successMessage: "Version created",
+        errorMessage: "Create version failed",
+      },
+    );
+  } finally {
+    for (const warning of warnings) {
+      log.warn(warning);
+    }
+  }
 
   return {
     outroMessage: `Version ${version.versionId} (${version.manifestHash})`,

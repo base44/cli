@@ -18,6 +18,7 @@ import type {
   CreateVersionResponse,
   EnvironmentResponse,
   RoutesArtifact,
+  SourceMapArtifact,
   WorkerModuleArtifact,
 } from "@/core/version/schema.js";
 import {
@@ -110,6 +111,11 @@ function declaredRoutes({
     ...(entityPages ? { entity_pages: entityPages } : {}),
     ...(entityFreePaths ? { entity_free_paths: entityFreePaths } : {}),
   };
+}
+
+/** A map is addressed by the asset it maps, and carries nothing else. */
+function declaredSourceMap({ bundle, size, digest }: SourceMapArtifact) {
+  return { bundle, size, digest };
 }
 
 /** The path the server stages an actor's module at, which the client knows in
@@ -205,6 +211,8 @@ export async function createVersion(
     sourceCommit?: string;
     concurrency?: number;
     progress?: CreateVersionProgress;
+    /** Hears a source map that did not upload, which fails nothing. */
+    onWarning?: (message: string) => void;
   } = {},
 ): Promise<CreateVersionResponse> {
   const declared = parse(
@@ -236,6 +244,12 @@ export async function createVersion(
           ...(artifacts.routes
             ? { routes: declaredRoutes(artifacts.routes) }
             : {}),
+          // Only when the build left a manifest, even an empty one: the server
+          // forbids unknown fields, so a platform that predates maps must never
+          // see this one, and `[]` is how it tells "no maps" from "mode off".
+          ...(artifacts.sourceMaps
+            ? { source_maps: artifacts.sourceMaps.map(declaredSourceMap) }
+            : {}),
           source_commit: options.sourceCommit,
         },
         "declaring a version",
@@ -255,7 +269,38 @@ export async function createVersion(
   const actorsAt = declaredFiles.length + artifacts.backendBundles.length;
   const slotCount = actorsAt + artifacts.actors.length;
 
-  options.progress?.onDeclared?.({ fileCount: slotCount });
+  // Paired by BUNDLE, which is a map's whole address. A map the server gave no
+  // upload was left out (unmatched, too large, or past the build's allowance)
+  // and gets nothing; one it names that was never declared is its mistake, and
+  // a map is never a reason to refuse a version.
+  const mapsByBundle = new Map(
+    (artifacts.sourceMaps ?? []).map((map) => [map.bundle, map]),
+  );
+  const mapUploads = declared.sourceMapUploads.flatMap((upload) => {
+    const map = mapsByBundle.get(upload.bundle);
+    if (!map) {
+      options.onWarning?.(
+        `The server signed a source map upload for ${upload.bundle}, but no map was declared for it; skipping it.`,
+      );
+      return [];
+    }
+    // Once each: a repeated bundle would PUT the same bytes twice.
+    mapsByBundle.delete(upload.bundle);
+    return [{ upload, map }];
+  });
+
+  // Said once, as a count: the platform already recorded why each was left
+  // out, and without this a later unmapped stack trace has no visible cause.
+  const leftOut = (artifacts.sourceMaps?.length ?? 0) - mapUploads.length;
+  if (leftOut > 0) {
+    options.onWarning?.(
+      `${leftOut} of ${artifacts.sourceMaps?.length} source maps were not accepted (too large, past the build's allowance, or a Worker version's), so their bundles have no map.`,
+    );
+  }
+
+  options.progress?.onDeclared?.({
+    fileCount: slotCount + mapUploads.length,
+  });
 
   if (declared.uploads.length !== slotCount) {
     throw new InternalError(
@@ -282,10 +327,16 @@ export async function createVersion(
     );
   }
 
+  const totalFiles = declared.uploads.length + mapUploads.length;
   let uploadedFiles = 0;
-  await pMap(
-    declared.uploads,
-    async (upload, index) => {
+  const uploaded = () => {
+    uploadedFiles++;
+    options.progress?.onUpload?.({ uploadedFiles, totalFiles });
+  };
+
+  // One queue, so the maps share the assets' concurrency rather than adding to it.
+  const tasks: Array<() => Promise<void>> = [
+    ...declared.uploads.map((upload, index) => async () => {
       if (index < declaredFiles.length) {
         await putPresigned(upload, declaredFiles[index].absolutePath);
       } else if (index < actorsAt) {
@@ -299,14 +350,26 @@ export async function createVersion(
           artifacts.actors[index - actorsAt].module,
         );
       }
-      uploadedFiles++;
-      options.progress?.onUpload?.({
-        uploadedFiles,
-        totalFiles: declared.uploads.length,
-      });
-    },
-    { concurrency: options.concurrency ?? DEFAULT_VERSION_UPLOAD_CONCURRENCY },
-  );
+      uploaded();
+    }),
+    ...mapUploads.map(({ upload, map }) => async () => {
+      try {
+        await putPresigned({ ...upload, path: map.bundle }, map.absolutePath);
+        // Counted only when it landed, so the count does not claim a map
+        // the warning below says is missing.
+        uploaded();
+      } catch (error) {
+        // Not fatal: the platform records a map that never landed as omitted,
+        // and the app it maps is complete without it.
+        options.onWarning?.(
+          `Source map ${map.file} did not upload, so this version has none for ${map.bundle}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }),
+  ];
+  await pMap(tasks, (task) => task(), {
+    concurrency: options.concurrency ?? DEFAULT_VERSION_UPLOAD_CONCURRENCY,
+  });
 
   return parse(
     CreateVersionResponseSchema,
