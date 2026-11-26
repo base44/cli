@@ -18,13 +18,18 @@ import type {
 import { FunctionConfigSchema } from "@/core/resources/function/schema.js";
 import { pathExists, readJsonFile } from "@/core/utils/fs.js";
 
+/** The shared-code directory, `base44/shared/`: the sibling of the functions dir. */
+export function getSharedDir(functionsDir: string): string {
+  return resolve(functionsDir, "..", "shared");
+}
+
 /**
  * Collect every file under `base44/shared/`. These are uploaded alongside each
  * function so shared modules imported via `../../shared/...` bundle server-side.
  * The bundler tree-shakes anything a given function doesn't import.
  */
 async function readSharedFiles(functionsDir: string): Promise<string[]> {
-  const sharedDir = resolve(functionsDir, "..", "shared");
+  const sharedDir = getSharedDir(functionsDir);
   if (!(await pathExists(sharedDir))) {
     return [];
   }

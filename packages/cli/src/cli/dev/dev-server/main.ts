@@ -11,6 +11,7 @@ import { createFunctionRuntime } from "@/cli/dev/dev-server/function-runtime.js"
 import { createFunctionRouter } from "@/cli/dev/dev-server/routes/functions.js";
 import { theme } from "@/cli/utils/index.js";
 import type { ProjectData } from "@/core/project/types.js";
+import { getSharedDir } from "@/core/resources/function/config.js";
 import { Database } from "./db/database.js";
 import {
   type BroadcastEntityEvent,
@@ -205,9 +206,11 @@ export async function createDevServer(
     broadcastEntityEvent(io, appId, entityName, event);
   };
 
+  const functionsDir = join(dirname(project.configPath), project.functionsDir);
   const base44ConfigWatcher = new WatchBase44(
     {
-      functions: join(dirname(project.configPath), project.functionsDir),
+      functions: functionsDir,
+      shared: getSharedDir(functionsDir),
       entities: join(dirname(project.configPath), project.entitiesDir),
     },
     devLogger,
@@ -216,7 +219,8 @@ export async function createDevServer(
     try {
       const { functions, entities } = await options.loadResources();
 
-      if (name === "functions") {
+      // Functions import base44/shared/, so a change there restarts them too.
+      if (name === "functions" || name === "shared") {
         const previousFunctionCount = functionManager.getFunctionNames().length;
         await functionManager.reload(functions);
 

@@ -1,3 +1,5 @@
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import jwt from "jsonwebtoken";
 import { describe, expect, it } from "vitest";
 import {
@@ -366,6 +368,34 @@ describe("dev command", () => {
       const result = await handle.stop();
       t.expectResult(result).toSucceed();
     });
+  });
+
+  it("serves a function importing base44/shared/ and reloads when it changes", async () => {
+    await t.givenLoggedInWithProject(fixture("with-shared-code"));
+
+    const handle = await t.runLive("dev");
+    const devServerUrl = await waitForDevServer(handle);
+    const callGreet = async () => {
+      const response = await fetch(
+        `${devServerUrl}/api/apps/${t.api.appId}/functions/greet`,
+        { headers: { "X-App-Id": t.api.appId } },
+      );
+      expect(response.status).toBe(200);
+      return (await response.json()) as Record<string, unknown>;
+    };
+
+    expect(await callGreet()).toEqual({ greeting: "hello" });
+
+    await writeFile(
+      join(t.getTempDir(), "project", "base44", "shared", "greeting.ts"),
+      'export const GREETING = "changed";\n',
+    );
+    await handle.waitForOutput(/Reloaded functions: greet/, 10000);
+
+    expect(await callGreet()).toEqual({ greeting: "changed" });
+
+    const result = await handle.stop();
+    t.expectResult(result).toSucceed();
   });
 
   it("allows service-role JWTs to bypass denied entity create RLS", async () => {
