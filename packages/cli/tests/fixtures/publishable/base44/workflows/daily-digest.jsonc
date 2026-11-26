@@ -1,0 +1,7 @@
+{
+  // Sent as written: the platform validates workflows, not the CLI.
+  "name": "Daily digest",
+  "description": "",
+  "trigger": { "config": { "trigger_type": "scheduled", "cron_expression": "0 9 * * *" } },
+  "definition": { "do": [] },
+}
